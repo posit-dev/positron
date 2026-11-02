@@ -527,6 +527,10 @@
 						"total_num_rows": {
 							"type": "integer",
 							"description": "Set when the backend serves only the leading rows of a larger result: table_shape.num_rows is then the number of rows served, and this is the number of rows in the full filtered result. Absent when table_shape covers every row."
+						},
+						"global_search_rows_scanned": {
+							"type": "integer",
+							"description": "Set when the active global_search filter was limited by max_cells: the number of leading candidate rows that were scanned. Rows beyond it are treated as not matching. Absent when every row was searched or no search is active."
 						}
 					}
 				}
@@ -643,6 +647,17 @@
 								"$ref": "#/components/schemas/column_value"
 							}
 						}
+					},
+					"search_matches": {
+						"type": "array",
+						"description": "For each requested cell, whether it matched the active global_search filter. Parallel to columns. Omitted when no global search is active or the backend does not compute per-cell matches.",
+						"items": {
+							"type": "array",
+							"description": "Per-cell match flags for one column",
+							"items": {
+								"type": "boolean"
+							}
+						}
 					}
 				}
 			},
@@ -734,11 +749,10 @@
 			},
 			"row_filter": {
 				"type": "object",
-				"description": "Specifies a table row filter based on a single column's values",
+				"description": "Specifies a table row filter based on a single column's values, or on all columns for the global_search filter type",
 				"required": [
 					"filter_id",
 					"filter_type",
-					"column_schema",
 					"condition"
 				],
 				"properties": {
@@ -751,7 +765,7 @@
 						"$ref": "#/components/schemas/row_filter_type"
 					},
 					"column_schema": {
-						"description": "Column to apply filter to",
+						"description": "Column to apply filter to. Absent for filter types that span all columns (global_search)",
 						"$ref": "#/components/schemas/column_schema"
 					},
 					"condition": {
@@ -794,6 +808,10 @@
 					{
 						"name": "set_membership",
 						"$ref": "#/components/schemas/filter_set_membership"
+					},
+					{
+						"name": "global_search",
+						"$ref": "#/components/schemas/filter_global_search"
 					}
 				]
 			},
@@ -811,7 +829,8 @@
 					"not_empty",
 					"not_null",
 					"search",
-					"set_membership"
+					"set_membership",
+					"global_search"
 				]
 			},
 			"row_filter_type_support_status": {
@@ -894,6 +913,23 @@
 					"inclusive": {
 						"type": "boolean",
 						"description": "Filter by including only values passed (true) or excluding (false)"
+					}
+				}
+			},
+			"filter_global_search": {
+				"type": "object",
+				"description": "Parameters for the 'global_search' filter type, which matches a row when any searched column matches the term",
+				"required": [
+					"term"
+				],
+				"properties": {
+					"term": {
+						"type": "string",
+						"description": "Text to search for; see the data explorer search semantics for how numeric terms are matched"
+					},
+					"max_cells": {
+						"type": "integer",
+						"description": "Upper bound on the number of cells to scan. When the table exceeds it, only the leading floor(max_cells / searched_columns) candidate rows are scanned and the backend reports global_search_rows_scanned in its state. Absent or 0 means unlimited."
 					}
 				}
 			},

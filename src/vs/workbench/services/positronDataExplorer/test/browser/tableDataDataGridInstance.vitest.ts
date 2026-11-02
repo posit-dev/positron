@@ -12,11 +12,15 @@ import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { NullHoverService } from '../../../../../platform/hover/test/browser/nullHoverService.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DataExplorerClientInstance } from '../../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import {
 	BackendState,
 	ColumnDisplayType,
 	ColumnSelection,
+	FilterComparisonOp,
+	RowFilter,
+	RowFilterCondition,
+	RowFilterType,
 	SchemaUpdateEvent,
 	SupportStatus,
 	TableData,
@@ -25,6 +29,8 @@ import {
 import { TableDataDataGridInstance } from '../../browser/tableDataDataGridInstance.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnWidthCalculators, TableDataCache } from '../../common/tableDataCache.js';
+import { makeGlobalSearchFilter } from '../../common/dataExplorerSearch.js';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 
 /**
  * The default column width the data grid falls back to when no calculated widths are available.
@@ -96,6 +102,7 @@ describe('TableDataDataGridInstance', () => {
 	let getBackendState: ReturnType<typeof vi.fn>;
 	let setRowFilters: ReturnType<typeof vi.fn>;
 	let updateBackendState: ReturnType<typeof vi.fn>;
+	let client: Partial<DataExplorerClientInstance>;
 
 	beforeEach(() => {
 		// TableDataDataGridInstance reads PositronReactServices.services (static singleton) in its
@@ -108,7 +115,7 @@ describe('TableDataDataGridInstance', () => {
 		setRowFilters = vi.fn().mockResolvedValue({ selected_num_rows: 100 });
 		updateBackendState = vi.fn().mockResolvedValue(backendState());
 
-		const client: Partial<DataExplorerClientInstance> = {
+		client = {
 			cachedBackendState: backendState(),
 			onDidClose: new Emitter<void>().event,
 			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
@@ -315,6 +322,81 @@ describe('TableDataDataGridInstance', () => {
 			synchronized: 1,
 			notified: ['Unable to apply the filters: connection refused'],
 			setRowFiltersEvents: 0,
+		});
+	});
+
+	it('reports a comm error by its message', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		setRowFilters.mockRejectedValue({ code: -32603, message: 'bad filter' });
+
+		await instance.setRowFilters([]);
+
+		expect(errorSpy.mock.calls.map(([message]) => String(message))).toEqual(['Unable to apply the filters: bad filter']);
+	});
+
+	it('reports nothing when the filters are rejected because the data explorer closed', async () => {
+		const errorSpy = vi.spyOn(ctx.reactServices.notificationService, 'error');
+		setRowFilters.mockImplementation(() => {
+			client.status = DataExplorerClientStatus.Disconnected;
+			return Promise.reject({ code: -32603, message: 'comm closed' });
+		});
+
+		await instance.setRowFilters([]);
+
+		expect({ notified: errorSpy.mock.calls.length, synchronized: updateBackendState.mock.calls.length }).toEqual({ notified: 0, synchronized: 0 });
+	});
+
+	describe('search', () => {
+		const columnFilter: RowFilter = {
+			filter_id: 'f',
+			filter_type: RowFilterType.Compare,
+			column_schema: getColumnSchema('col0', 0, 'number', ColumnDisplayType.Floating),
+			condition: RowFilterCondition.And,
+			params: { op: FilterComparisonOp.Gt, value: '0' },
+		};
+		const appliedFilters = () => setRowFilters.mock.calls.map(([filters]) => filters);
+
+		it('applies the search after the column filters and keeps each when the other changes', async () => {
+			await instance.setSearchTerm('abc', 5);
+			await instance.setRowFilters([columnFilter]);
+			await instance.setSearchTerm('');
+
+			expect(appliedFilters()).toEqual([
+				[makeGlobalSearchFilter('abc', 5)],
+				[columnFilter, makeGlobalSearchFilter('abc', 5)],
+				[],
+			]);
+			expect(instance.searchTerm).toBe('');
+		});
+
+		it('applies only the latest of the terms requested while a search is in flight', async () => {
+			const inFlight = new DeferredPromise<{ selected_num_rows: number }>();
+			setRowFilters.mockReturnValueOnce(inFlight.p);
+
+			const first = instance.setSearchTerm('a', 0);
+			await instance.setSearchTerm('ab', 0);
+			await instance.setSearchTerm('abc', 0);
+			inFlight.complete({ selected_num_rows: 1 });
+			await first;
+
+			expect(appliedFilters()).toEqual([
+				[makeGlobalSearchFilter('a', 0)],
+				[makeGlobalSearchFilter('abc', 0)],
+			]);
+		});
+
+		it('reports the search term change and requests for focus', async () => {
+			const terms: string[] = [];
+			let focusRequests = 0;
+			const listeners = [
+				instance.onDidChangeSearchTerm(term => terms.push(term)),
+				instance.onDidRequestSearchFocus(() => focusRequests++),
+			];
+			await instance.setSearchTerm('x', 0);
+			instance.focusSearch();
+			listeners.forEach(listener => listener.dispose());
+
+			expect({ terms, focusRequests, searchTerm: instance.searchTerm }).toEqual({ terms: ['x'], focusRequests: 1, searchTerm: 'x' });
 		});
 	});
 });

@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-panel .row-filter-bar .search-all-columns {
+	gap: 4px;
+	display: flex;
+	align-items: center;
+	align-self: start;
+	grid-column: search / end;
+}
+
+.data-explorer-panel .row-filter-bar .search-all-columns .search-error {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.data-explorer-panel .row-filter-bar .search-all-columns .search-announcement {
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}

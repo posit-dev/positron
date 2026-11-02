@@ -10,7 +10,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
-import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode, SearchSchemaSortOrder, SearchSchemaResult, ColumnFilterType, TextSearchType } from './positronDataExplorerComm.js';
+import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, RowFilterType, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode, SearchSchemaSortOrder, SearchSchemaResult, ColumnFilterType, TextSearchType } from './positronDataExplorerComm.js';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the table schema
@@ -707,7 +707,8 @@ export class DataExplorerClientInstance extends Disposable {
 		await this.isSyntaxSupported(desiredSyntax, state);
 
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
-		const rowFilters: Array<RowFilter> = state.row_filters;
+		// The global search has no code form.
+		const rowFilters: Array<RowFilter> = state.row_filters.filter(filter => filter.filter_type !== RowFilterType.GlobalSearch);
 		const sortKeys: Array<ColumnSortKey> = state.sort_keys;
 
 		return this.runBackendTask(
@@ -830,11 +831,15 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 
 		// Re-apply the row filters, pointing each at its column in the rebuilt schema. A filter
-		// whose column is gone is marked invalid, so it shows in the filter bar without being applied.
+		// whose column is gone is marked invalid, so it shows in the filter bar without being applied. The
+		// global search has no column and carries over unchanged.
 		if (rowFilters.length === 0) {
 			return;
 		}
 		const rebuiltRowFilters = rowFilters.map(rowFilter => {
+			if (!rowFilter.column_schema) {
+				return rowFilter;
+			}
 			const column = columnsByName.get(rowFilter.column_schema.column_name);
 			if (!column) {
 				return {

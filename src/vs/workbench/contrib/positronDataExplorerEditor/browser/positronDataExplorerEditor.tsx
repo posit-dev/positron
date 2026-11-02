@@ -24,8 +24,9 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
-import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { RowFilter, SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { splitRowFilters } from '../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
 /**
@@ -123,6 +124,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is row filtering context key.
 	 */
 	private readonly _isRowFilteringContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is searching context key.
+	 */
+	private readonly _isSearchingContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the file has header row context key.
@@ -293,6 +299,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isRowFilteringContextKey = POSITRON_DATA_EXPLORER_IS_ROW_FILTERING.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._isSearchingContextKey = POSITRON_DATA_EXPLORER_IS_SEARCHING.bindTo(
+			this._group.scopedContextKeyService
+		);
 		this._fileHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW.bindTo(
 			this._group.scopedContextKeyService
 		);
@@ -406,8 +415,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				this._isColumnSortingContextKey.set(
 					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
 				);
-				this._isRowFilteringContextKey.set(
-					(positronDataExplorerInstance.dataExplorerClientInstance?.cachedBackendState?.row_filters?.length ?? 0) > 0
+				this.setRowFilterContextKeys(
+					positronDataExplorerInstance.dataExplorerClientInstance?.cachedBackendState?.row_filters ?? []
 				);
 
 				const uri = PositronDataExplorerUri.backingUri(input.resource);
@@ -454,10 +463,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 				// Add the onDidUpdateBackendState event handler to track row filters.
 				this._positronReactRenderer.register(
-					positronDataExplorerInstance.dataExplorerClientInstance.onDidUpdateBackendState(state => {
-						// Set the row filtering context key based on whether there are any filters
-						this._isRowFilteringContextKey.set(state.row_filters.length > 0);
-					})
+					positronDataExplorerInstance.dataExplorerClientInstance.onDidUpdateBackendState(state =>
+						this.setRowFilterContextKeys(state.row_filters)
+					)
 				);
 
 				// Add the onDidChangeRefreshing event handler.
@@ -589,6 +597,17 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	//#endregion Composite Overrides
 
 	//#region Private Methods
+
+	/**
+	 * Sets the context keys that describe the row filters. Convert to Code applies only to column
+	 * filters, so the global search is tracked separately.
+	 * @param rowFilters The row filters.
+	 */
+	private setRowFilterContextKeys(rowFilters: RowFilter[]) {
+		const { columnFilters, globalSearch } = splitRowFilters(rowFilters);
+		this._isRowFilteringContextKey.set(columnFilters.length > 0);
+		this._isSearchingContextKey.set(globalSearch !== undefined);
+	}
 
 	/**
 	 * Disposes of the PositronReactRenderer for the PositronDataExplorer.

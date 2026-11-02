@@ -66,6 +66,8 @@ export enum DataCellKind {
 export interface DataCell {
 	formatted: string;
 	kind: DataCellKind;
+	/** Whether the backend reported that the cell matched the active global search. */
+	searchMatch?: boolean;
 }
 
 const SpecialValues: Record<number, [DataCellKind, string]> = {
@@ -655,6 +657,10 @@ export class TableDataCache extends Disposable {
 							formatted: value,
 							kind: DataCellKind.NON_NULL
 						};
+					}
+					const searchMatch = tableData.search_matches?.[column]?.[row];
+					if (searchMatch !== undefined) {
+						dataCell.searchMatch = searchMatch;
 					}
 
 					// Set the row index.

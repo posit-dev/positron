@@ -107,6 +107,8 @@ class RowFilterType(str, enum.Enum):
 
     SetMembership = "set_membership"
 
+    GlobalSearch = "global_search"
+
 
 @enum.unique
 class FilterComparisonOp(str, enum.Enum):
@@ -372,6 +374,11 @@ class BackendState(BaseModel):
         description="Set when the backend serves only the leading rows of a larger result: table_shape.num_rows is then the number of rows served, and this is the number of rows in the full filtered result. Absent when table_shape covers every row.",
     )
 
+    global_search_rows_scanned: Optional[StrictInt] = Field(
+        default=None,
+        description="Set when the active global_search filter was limited by max_cells: the number of leading candidate rows that were scanned. Rows beyond it are treated as not matching. Absent when every row was searched or no search is active.",
+    )
+
 
 class ColumnSchema(BaseModel):
     """
@@ -439,6 +446,11 @@ class TableData(BaseModel):
         description="The columns of data",
     )
 
+    search_matches: Optional[List[List[StrictBool]]] = Field(
+        default=None,
+        description="For each requested cell, whether it matched the active global_search filter. Parallel to columns. Omitted when no global search is active or the backend does not compute per-cell matches.",
+    )
+
 
 class TableRowLabels(BaseModel):
     """
@@ -503,7 +515,8 @@ class TableShape(BaseModel):
 
 class RowFilter(BaseModel):
     """
-    Specifies a table row filter based on a single column's values
+    Specifies a table row filter based on a single column's values, or on
+    all columns for the global_search filter type
     """
 
     filter_id: StrictStr = Field(
@@ -514,8 +527,9 @@ class RowFilter(BaseModel):
         description="Type of row filter to apply",
     )
 
-    column_schema: ColumnSchema = Field(
-        description="Column to apply filter to",
+    column_schema: Optional[ColumnSchema] = Field(
+        default=None,
+        description="Column to apply filter to. Absent for filter types that span all columns (global_search)",
     )
 
     condition: RowFilterCondition = Field(
@@ -591,6 +605,22 @@ class FilterSetMembership(BaseModel):
 
     inclusive: StrictBool = Field(
         description="Filter by including only values passed (true) or excluding (false)",
+    )
+
+
+class FilterGlobalSearch(BaseModel):
+    """
+    Parameters for the 'global_search' filter type, which matches a row
+    when any searched column matches the term
+    """
+
+    term: StrictStr = Field(
+        description="Text to search for; see the data explorer search semantics for how numeric terms are matched",
+    )
+
+    max_cells: Optional[StrictInt] = Field(
+        default=None,
+        description="Upper bound on the number of cells to scan. When the table exceeds it, only the leading floor(max_cells / searched_columns) candidate rows are scanned and the backend reports global_search_rows_scanned in its state. Absent or 0 means unlimited.",
     )
 
 
@@ -1271,6 +1301,7 @@ RowFilterParams = Union[
     FilterComparison,
     FilterTextSearch,
     FilterSetMembership,
+    FilterGlobalSearch,
 ]
 # Union of column filter type-specific parameters
 ColumnFilterParams = Union[
@@ -1889,6 +1920,8 @@ FilterBetween.update_forward_refs()
 FilterComparison.update_forward_refs()
 
 FilterSetMembership.update_forward_refs()
+
+FilterGlobalSearch.update_forward_refs()
 
 FilterTextSearch.update_forward_refs()
 

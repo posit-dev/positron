@@ -13,6 +13,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../../../nls.js';
 import * as DOM from '../../../../../../../base/browser/dom.js';
 import { RowFilterWidget } from './components/rowFilterWidget.js';
+import { SearchAllColumns } from './components/searchAllColumns.js';
+import { splitRowFilters } from '../../../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
 import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -49,9 +51,9 @@ export const RowFilterBar = () => {
 	const addFilterButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>(
+	const [rowFilterDescriptors, setRowFilterDescriptors] = useState<RowFilterDescriptor[]>(() =>
 		backendClient.cachedBackendState === undefined ? [] :
-			backendClient.cachedBackendState.row_filters.map(getRowFilterDescriptor)
+			splitRowFilters(backendClient.cachedBackendState.row_filters).columnFilters.map(getRowFilterDescriptor)
 	);
 	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
 	const [disableFiltering, setDisableFiltering] = useState(false);
@@ -251,7 +253,7 @@ export const RowFilterBar = () => {
 		// Add the onDidUpdateBackendState event handler.
 		disposableStore.add(context.instance.dataExplorerClientInstance.onDidUpdateBackendState(
 			state => {
-				const newDescriptors = state.row_filters.map(getRowFilterDescriptor);
+				const newDescriptors = splitRowFilters(state.row_filters).columnFilters.map(getRowFilterDescriptor);
 				setRowFilterDescriptors(newDescriptors);
 			})
 		);
@@ -312,6 +314,7 @@ export const RowFilterBar = () => {
 					<div className='codicon codicon-positron-add-filter' />
 				</Button>
 			</div>
+			{canFilter && context.instance.tableDataDataGridInstance.isSearchSupported && <SearchAllColumns />}
 		</div >
 	);
 };

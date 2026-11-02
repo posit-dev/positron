@@ -192,9 +192,11 @@ class FilterHandler:
     """Base class for filter handlers."""
 
     def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
+        assert filter_key.column_schema is not None
         self.filter_key = filter_key
+        self.column_schema = filter_key.column_schema
         self.table_name = table_name
-        self.column_name = "" if was_series else f"[{filter_key.column_schema.column_name!r}]"
+        self.column_name = "" if was_series else f"[{self.column_schema.column_name!r}]"
         self.filter_handlers = {
             RowFilterType.Between: self._convert_between_filter,
             RowFilterType.NotBetween: self._convert_between_filter,
@@ -264,15 +266,15 @@ class FilterHandler:
 
 class PandasFilterHandler(FilterHandler):
     def _format_value(self, value):
-        if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
+        if self.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
 
         # if it looks date-like, make it a Timestamp, which allows us to handle timezones
-        elif self.filter_key.column_schema.type_display in [
+        elif self.column_schema.type_display in [
             ColumnDisplayType.Datetime,
             ColumnDisplayType.Date,
         ]:
-            tz = self.filter_key.column_schema.timezone
+            tz = self.column_schema.timezone
             value = "pd.Timestamp(" + repr(value)
             if tz:
                 value += f", tz={tz!r}"
@@ -352,19 +354,19 @@ class PolarsFilterHandler(FilterHandler):
     def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
         super().__init__(filter_key, table_name, was_series=was_series)
         # In Polars, we use column expressions without the DataFrame reference
-        self.col_expr = f"pl.col({filter_key.column_schema.column_name!r})"
+        self.col_expr = f"pl.col({self.column_schema.column_name!r})"
 
     def _format_value(self, value):
-        if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
+        if self.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
 
         # Handle date-like values for Polars
-        elif self.filter_key.column_schema.type_display in [
+        elif self.column_schema.type_display in [
             ColumnDisplayType.Datetime,
             ColumnDisplayType.Date,
         ]:
             value = f"pl.lit({value!r}).str.to_datetime("
-            tz = self.filter_key.column_schema.timezone
+            tz = self.column_schema.timezone
             if tz:
                 value += f"time_zone={tz!r}"
             value += ")"
@@ -490,7 +492,10 @@ class CodeConverter:
         """
         method_chain_setup = []
         method_chain_parts = []
-        filters = self.params.row_filters
+        # global_search spans all columns and has no code equivalent
+        filters = [
+            f for f in self.params.row_filters if f.filter_type != RowFilterType.GlobalSearch
+        ]
 
         if not self.filter_handler_class or not filters:
             return method_chain_setup, method_chain_parts
