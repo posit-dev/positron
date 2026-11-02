@@ -13,8 +13,9 @@ import re
 import sys
 import types
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -65,7 +66,7 @@ class _InvalidParamsError(Exception):
     pass
 
 
-def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bool:
+def _is_module_loaded(kernel: "PositronIPyKernel", params: list[JsonData]) -> bool:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
         raise _InvalidParamsError(f"Expected a module name, got: {params}")
     # Consider: this is not a perfect check for a couple of reasons:
@@ -74,7 +75,7 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     return params[0] in kernel.shell.user_ns
 
 
-def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) -> Optional[JsonData]:
+def _get_loaded_modules(kernel: "PositronIPyKernel", _params: list[JsonData]) -> JsonData | None:
     # Get all keys in the user namespace that start with a module prefix
     # (e.g., 'numpy', 'pandas', etc.)
     return [
@@ -84,9 +85,7 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
     ]
 
 
-def _get_missing_imports(
-    _kernel: "PositronIPyKernel", params: List[JsonData]
-) -> Optional[JsonData]:
+def _get_missing_imports(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData | None:
     """Return the subset of the given top-level module names that cannot be imported.
 
     A module is considered present if it is already loaded or if an import spec
@@ -138,7 +137,7 @@ def _get_missing_imports(
                 pass
         return False
 
-    missing: List[JsonData] = []
+    missing: list[JsonData] = []
     for name in modules:
         if name in sys.modules:
             continue
@@ -147,7 +146,7 @@ def _get_missing_imports(
     return missing
 
 
-def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
+def _set_console_width(_kernel: "PositronIPyKernel", params: list[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
@@ -184,7 +183,7 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
         torch.set_printoptions(linewidth=width)
 
 
-def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str) -> List[str]:
+def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str) -> list[str]:
     """Best-effort list of names a user would `import` to bring this distribution in.
 
     Wheels typically ship a `top_level.txt`; when missing, fall back to the
@@ -206,7 +205,7 @@ def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str
 # (you see "Homepage", "Home", "Repository", "Source", "GitHub", ... with varied
 # casing), so we normalize each label and match it against this synonym table to
 # rank candidates when choosing the single best URL to surface.
-_URL_CATEGORY_BY_LABEL: Dict[str, str] = {
+_URL_CATEGORY_BY_LABEL: dict[str, str] = {
     "home": "homepage",
     "homepage": "homepage",
     "repository": "repository",
@@ -223,7 +222,7 @@ _URL_CATEGORY_BY_LABEL: Dict[str, str] = {
 
 # Lower number = higher priority. Any URL that doesn't match a known category
 # still beats no URL at all, hence the fallback rank below.
-_URL_CATEGORY_PRIORITY: Dict[str, int] = {"homepage": 0, "repository": 1, "documentation": 2}
+_URL_CATEGORY_PRIORITY: dict[str, int] = {"homepage": 0, "repository": 1, "documentation": 2}
 _URL_FALLBACK_PRIORITY = 3
 
 
@@ -232,7 +231,7 @@ def _normalize_url_label(label: str) -> str:
     return "".join(char for char in label.lower() if char.isalnum())
 
 
-def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
+def _best_package_url(dist: importlib.metadata.Distribution) -> str | None:
     """Pick the single best external URL from a distribution's metadata.
 
     Prefers the homepage, then the repository/source, then documentation, then
@@ -244,7 +243,7 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     # object (email.message.Message) always has it -- mirror the cast used by
     # _get_packages_installed so both accessors type-check across Python versions.
     metadata: Any = dist.metadata
-    best_url: Optional[str] = None
+    best_url: str | None = None
     best_priority = _URL_FALLBACK_PRIORITY + 1
     for entry in metadata.get_all("Project-URL") or []:
         label, _, url = entry.partition(",")
@@ -268,7 +267,7 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     return best_url
 
 
-def _best_author(metadata: Any) -> Optional[str]:
+def _best_author(metadata: Any) -> str | None:
     """Normalize author/maintainer into a display string (names, no emails)."""
     # Prefer the plain-name fields (no email to strip) over the RFC-style
     # *-email fields, skipping empty / "UNKNOWN" placeholders in any field.
@@ -293,7 +292,7 @@ def _best_author(metadata: Any) -> Optional[str]:
     return joined or None
 
 
-def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
+def _source_repository(dist: importlib.metadata.Distribution) -> str | None:
     """Return the Source/Repository Project-URL if present."""
     metadata: Any = dist.metadata
     for entry in metadata.get_all("Project-URL") or []:
@@ -315,7 +314,7 @@ def _primary_spdx(expr: str) -> str:
     return first.strip().strip("()").strip()
 
 
-def _best_license(metadata: Any) -> Optional[str]:
+def _best_license(metadata: Any) -> str | None:
     """Best-effort short license string.
 
     Prefers the primary id of the SPDX `License-Expression`, then a one-line
@@ -337,7 +336,7 @@ def _best_license(metadata: Any) -> Optional[str]:
     return None
 
 
-def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+def _get_package_detail(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData | None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
         raise _InvalidParamsError(f"Expected a package name, got: {params}")
     name = params[0]
@@ -347,7 +346,7 @@ def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) ->
         return None
 
     metadata: Any = dist.metadata
-    detail: Dict[str, JsonData] = {"name": name}
+    detail: dict[str, JsonData] = {"name": name}
     summary = metadata.get("Summary")
     if summary and summary != "UNKNOWN":
         detail["title"] = summary
@@ -363,37 +362,37 @@ def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) ->
     return detail
 
 
-def _string_params(params: List[JsonData], counts: tuple[int, ...], expected: str) -> List[str]:
+def _string_params(params: list[JsonData], counts: tuple[int, ...], expected: str) -> list[str]:
     if not (
         isinstance(params, list)
         and len(params) in counts
         and all(isinstance(param, str) for param in params)
     ):
         raise _InvalidParamsError(f"Expected {expected}, got: {params}")
-    return cast("List[str]", params)
+    return cast("list[str]", params)
 
 
-def _get_help_page(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+def _get_help_page(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData:
     return get_help_page(*_string_params(params, (1, 2), "a help topic and optional package name"))
 
 
-def _list_package_docs(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+def _list_package_docs(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData:
     return list_package_docs(*_string_params(params, (1,), "a package name"))
 
 
-def _get_package_vignette(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+def _get_package_vignette(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData:
     return get_package_vignette(*_string_params(params, (2,), "a package and vignette name"))
 
 
 # Get all installed packages
-def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
+def _get_packages_installed(kernel: "PositronIPyKernel", _params: list[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
     # user explicitly bound the package in the REPL. We walk user_ns once
     # to find every module the user has bound, by *any* name -- this
     # catches `import x`, `import x as y`, `import x.sub` (binds x), and
     # `from pkg import sub` when sub is a module. Transitive sys.modules
     # entries pulled in by other packages are deliberately ignored.
-    user_top_levels: Set[str] = set()
+    user_top_levels: set[str] = set()
     for value in kernel.shell.user_ns.values():
         if isinstance(value, types.ModuleType):
             module_name = getattr(value, "__name__", None)
@@ -414,7 +413,7 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
             # runtime object (email.message.Message) always has it.
             metadata: Any = dist.metadata
             summary = metadata.get("Summary")
-            entry: Dict[str, JsonData] = {
+            entry: dict[str, JsonData] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
@@ -430,7 +429,7 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
 
 
 # Evaluate Requires-Python specifiers against this kernel's interpreter.
-def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+def _check_requires_python(_kernel: "PositronIPyKernel", params: list[JsonData]) -> JsonData:
     # params[0] is the list of distinct Requires-Python specifier strings the
     # extension collected from a package's PyPI files. We answer, for each, whether
     # this interpreter satisfies it, using the bundled `packaging` (the same PEP 440
@@ -438,7 +437,7 @@ def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData])
     # semantics in the tool that owns them rather than re-implementing them in TS.
     specs = params[0] if params else []
     py_version = platform.python_version()
-    result: Dict[str, JsonData] = {}
+    result: dict[str, JsonData] = {}
     if isinstance(specs, list):
         for spec in specs:
             if not isinstance(spec, str):
@@ -451,7 +450,7 @@ def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData])
     return result
 
 
-_RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
+_RPC_METHODS: dict[str, Callable[["PositronIPyKernel", list[JsonData]], JsonData | None]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
@@ -513,9 +512,9 @@ class UiService:
     def __init__(self, kernel: "PositronIPyKernel") -> None:
         self.kernel = kernel
 
-        self._comm: Optional[PositronComm] = None
+        self._comm: PositronComm | None = None
 
-        self.working_directory: Optional[Path] = None
+        self.working_directory: Path | None = None
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
@@ -632,7 +631,7 @@ class UiService:
             with contextlib.suppress(Exception):
                 self._comm.close()
 
-    def _send_event(self, name: str, payload: Union[BaseModel, JsonRecord]) -> None:
+    def _send_event(self, name: str, payload: BaseModel | JsonRecord) -> None:
         if self._comm is not None:
             if isinstance(payload, BaseModel):
                 payload = payload.dict()
@@ -645,7 +644,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
     def __init__(
         self,
         name: str = "positron_viewer",
-        comm: Optional[PositronComm] = None,
+        comm: PositronComm | None = None,
     ):
         self.name = name
         self._comm = comm
@@ -680,7 +679,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
     @staticmethod
-    def _is_module_function(module_name: str, function_name: Union[str, None] = None) -> bool:
+    def _is_module_function(module_name: str, function_name: str | None = None) -> bool:
         module = sys.modules.get(module_name)
         if module:
             for frame_info in inspect.stack():
