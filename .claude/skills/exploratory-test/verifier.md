@@ -95,8 +95,8 @@ saw; do not use the issue's own labels or priority.
 An issue matches when the run saw what it describes, after its steps or by
 another path the issue names. Its title and the summary in the linked issues
 file leave steps out, so read the issue itself on GitHub before rating one, or
-before saying the run may have met one the ledger does not mark. Leave an issue
-the run did not meet out of `linked`, and say what the run did not do or see.
+before saying the run may have met one the ledger does not mark. Mark an issue
+the run did not meet with `met: false` in `linked`.
 
 Start your reply with one fenced `json` block, exactly this shape. It is read
 to mark each finding, so nothing else goes in it:
@@ -108,7 +108,7 @@ to mark each finding, so nothing else goes in it:
 		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
 		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "dupes": [{ "issue": 15102, "why": "the same duplicate R 4.4 entry after opening a second window on the folder" }], "feature": "new folder flow" }
 	],
-	"linked": [{ "issue": 5678, "severity": "moderate" }]
+	"linked": [{ "issue": 5678, "met": true, "severity": "moderate" }, { "issue": 5301, "met": false, "why": "the run opened the panel but never filtered it, which the issue's steps need" }]
 }
 ```
 
@@ -147,8 +147,12 @@ to mark each finding, so nothing else goes in it:
   another path, and leave out PRs. Leave it out when there are none. The
   report lists a duplicate as a known issue, not a new finding, when the
   finding also fails on the latest build.
-- `linked`: one entry per linked issue the ledger marks as observed, rated
-  `major`, `moderate` or `minor`. Leave it out when there are none.
+- `linked`: one entry per linked issue the ledger marks as observed. `met` is
+  true when the run saw the behavior the issue reports; rate it `major`,
+  `moderate` or `minor` in `severity`. It is false when the run did not, even
+  if it saw the issue's cause or a detail the issue mentions; `why` then says
+  what the run did not do or see. The report lists an issue not met as not
+  observed. Leave `linked` out when the ledger marks none.
 - `feature`: when the evidence puts a finding in a different area than its
   `feature` names, the one it points to. It replaces the Feature in the report
   and in the filed issue's title.
@@ -216,7 +220,7 @@ section is for what the verdict cannot say.
 - A finding with `intended` issues gets one line per issue: why it is the same
   behavior, and the reason the issue gives for not fixing it.
 - An issue in `linked` gets one line: what the run saw that set its
-  severity.
+  severity, or for one not met, what it saw instead.
 - A finding with a new `feature`, `title`, `cause`, `observed` or `tests`
   gets one line per field: what moved it.
 - A finding with a `fix` gets one line: the lines that fix would change.

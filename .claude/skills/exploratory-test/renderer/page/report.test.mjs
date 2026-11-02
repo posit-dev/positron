@@ -1229,6 +1229,7 @@ const SCENES = {
 		return [findingRow(html, 1), context, coverage, html.includes('Not fixed') ? 'says Not fixed' : 'never says Not fixed'].join('\n--\n');
 	},
 	'no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage': () => between(findingsOf(kiHtml(KI_REPORT, { knownIssues: { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) } })), '<div class="ki-grp">', '</div></div>') || '(none)',
+	'an issue the verifier says the run did not meet is listed as not observed, with why': () => between(kiHtml({ ...KI_REPORT, verification: { ...KI_VERIFICATION, unmet: [{ issue: 22, why: 'saw the <b>panel</b>, not the jump' }] } }), 'id="ki-list-no"', '</div></div>'),
 	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
 	'with no issue list, a finding row shows its matches as Dupe? without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),

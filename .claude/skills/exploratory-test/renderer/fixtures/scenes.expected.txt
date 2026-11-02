@@ -1162,6 +1162,9 @@ never says Not fixed
 ==== no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage
 (none)
 
+==== an issue the verifier says the run did not meet is listed as not observed, with why
+id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; not met: saw the &lt;b&gt;panel&lt;/b&gt;, not the jump</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span>
+
 ==== an issue no scenario reached is listed as not observed
 id="ki-list-no" hidden><div class="ki-lc-h">Linked to this PR, not observed</div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/22" target="_blank" rel="noopener">#22</a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it</span></span></div><div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/24" target="_blank" rel="noopener">#24</a><span>not seen<span class="ki-lc-m">Open &middot; skipped on purpose, see Coverage</span></span>
 
