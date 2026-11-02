@@ -172,8 +172,8 @@ Then update the rule's row here in the same PR.
 
 There are 93 rules: 72 for the explorer and 21 for the verifier.
 
-For the explorer, lint, the pipeline or publishing catches 40 rules when
-they're broken. For 7 more, only the verifier notices, which adds
+For the explorer, lint, the pipeline (including the `stop-instances.sh` it
+runs) or publishing catches 40 rules when they're broken. For 7 more, only the verifier notices, which adds
 a note to the finding but sends nothing back. The other 25 have nothing behind
 them but the prompt. For 13, no PR or commit says why they exist.
 
