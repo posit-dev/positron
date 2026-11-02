@@ -56,6 +56,32 @@ test.describe('Data Explorer - Search All Columns', {
 		await expect(dataExplorer.search.input).toBeFocused();
 	});
 
+	test('R - Search text and numbers, stack with a filter, and clear', {
+		tag: [tags.ARK]
+	}, async function ({ app, executeCode, r }) {
+		const { dataExplorer, variables, editors } = app.workbench;
+
+		await executeCode('R', rSearchScript);
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true });
+		await dataExplorer.maximize(false);
+
+		await dataExplorer.search.type('pine');
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows\s+\(50\.00%\s+of\s+4\s+total\)\s+3\s+columns\s+"pine"/);
+		await dataExplorer.search.expectMatchedCellsToBe(['Pinewood', 'apple pine']);
+
+		await dataExplorer.search.type('3.1');
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+1\s+rows/);
+		await dataExplorer.search.expectMatchedCellsToBe(['3.14']);
+
+		await dataExplorer.search.type('a');
+		await dataExplorer.filters.add({ columnName: 'score', condition: 'is greater than', value: '3' });
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+1\s+rows/);
+
+		await dataExplorer.search.clear();
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows/);
+	});
+
 	test('DuckDB - Search a data file and clear', {
 		tag: [tags.DUCK_DB]
 	}, async function ({ app, openDataFile }) {
@@ -74,3 +100,5 @@ test.describe('Data Explorer - Search All Columns', {
 
 const searchScript = `import pandas as pd
 df = pd.DataFrame({'name': ['Pinewood', 'Oak', 'Maple', 'Birch'], 'score': [3.14, 2.5, 7.0, 1.0], 'note': ['x', 'apple pine', 'tall', 'y']})`;
+
+const rSearchScript = `df <- data.frame(name = c('Pinewood', 'Oak', 'Maple', 'Birch'), score = c(3.14, 2.5, 7.0, 1.0), note = c('x', 'apple pine', 'tall', 'y'))`;
