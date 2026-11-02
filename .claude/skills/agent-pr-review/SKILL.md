@@ -43,18 +43,31 @@ or lean on what others already said.
 
 ## Output
 
-Report only problems. Each finding has:
+A developer reads this between other work. Every line you post costs their
+attention, and a review that cries wolf gets ignored. Report less, not more.
 
-- The checklist question number.
+- Report a problem only if you would block the merge over it or a reviewer
+  would want to know before approving. No style nits, naming, or anything
+  CI already checks (lint, types, failing tests).
+- Report at most 3 problems and 3 judgment calls. Keep the most important.
+- Report each problem once, under the question that fits it best.
+- Nothing to report is a good result. Return empty lists.
+
+Each problem has:
+
+- A title of at most 6 plain words that names the problem, for example
+  "Same bug in a sibling path" or "Test passes without the fix".
 - The file path and the line number on the PR head.
-- A concrete input or case that shows the problem.
-- A confidence: high, medium, or low.
+- A body of at most 60 words with a concrete input or case that shows it.
+  Say if you ran it.
+- A confidence: high, medium, or low. Low-confidence findings are not
+  posted, so report one only if you are not sure it is real.
 
-Put judgment calls (question 7) in a separate "Needs a human call" list. Do
-not decide them.
+Put judgment calls (question 7) in a separate list, each with a short title
+and one or two sentences. Do not decide them.
 
 Never approve and never request changes. Never write `@` before a name.
 
 If the caller gives a JSON schema, return the result only in that schema.
-Otherwise, post the findings as inline comments in one pending review, with
-the judgment calls in the review summary, and submit it as a comment.
+Otherwise, post one review as a comment: a count line, the problems, then
+the judgment calls. Post nothing if both lists are empty.

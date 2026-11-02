@@ -5,21 +5,29 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { commentableLines, isSameRepoHead, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
+import { isSameRepoHead, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
 
-const finding = (over = {}) => ({ item: 1, path: 'src/a.ts', line: 11, confidence: 'high', body: 'Misses empty input.', ...over });
+const finding = (over = {}) => ({ title: 'Same bug in a sibling path', path: 'src/dir/a.ts', line: 11, confidence: 'high', body: 'Misses empty input.', ...over });
+const decision = (over = {}) => ({ title: 'Nulls in the unique count', body: 'Polars counts null, pandas does not.', ...over });
 const openPr = (over = {}) => ({ state: 'open', draft: false, requested_reviewers: [{ login: 'r' }], requested_teams: [], ...over });
+const ctx = { repo: 'posit-dev/positron', sha: 'abc123' };
 
 test('parseReviewOutput accepts a valid review and rejects broken ones', () => {
-	const valid = { findings: [finding()], human_calls: ['Pick a null rule.'] };
+	const valid = { findings: [finding()], human_calls: [decision()] };
 	assert.deepEqual(parseReviewOutput(JSON.stringify(valid)), valid);
 	assert.deepEqual(parseReviewOutput(valid), valid);
 	assert.equal(parseReviewOutput('not json'), null);
 	assert.equal(parseReviewOutput('{}'), null);
 	assert.equal(parseReviewOutput(''), null);
-	assert.equal(parseReviewOutput(JSON.stringify({ findings: [finding({ line: '12' })], human_calls: [] })), null);
-	assert.equal(parseReviewOutput(JSON.stringify({ findings: [finding({ confidence: 'sure' })], human_calls: [] })), null);
-	assert.equal(parseReviewOutput(JSON.stringify({ findings: [], human_calls: [3] })), null);
+	assert.equal(parseReviewOutput({ findings: [finding({ line: '12' })], human_calls: [] }), null);
+	assert.equal(parseReviewOutput({ findings: [finding({ title: '' })], human_calls: [] }), null);
+	assert.equal(parseReviewOutput({ findings: [], human_calls: ['a string'] }), null);
+});
+
+test('parseReviewOutput drops low-confidence findings', () => {
+	const out = parseReviewOutput({ findings: [finding(), finding({ confidence: 'low' }), finding({ confidence: 'medium' })], human_calls: [] });
+	assert.deepEqual(out.findings.map(f => f.confidence), ['high', 'medium']);
+	assert.equal(parseReviewOutput({ findings: [finding({ confidence: 'sure' })], human_calls: [] }), null);
 });
 
 test('reviewSkipReason skips closed, draft, already reviewed, and ready with no reviewer', () => {
@@ -37,54 +45,32 @@ test('isSameRepoHead refuses a fork or a deleted head repo', () => {
 	assert.equal(isSameRepoHead({ head: { repo: null } }, 'posit-dev/positron'), false);
 });
 
-test('commentableLines reads added and context lines from a patch', () => {
-	const lines = commentableLines([
-		{ filename: 'src/a.ts', patch: '@@ -10,3 +10,4 @@\n a\n-b\n+c\n+d\n e' },
-		{ filename: 'img.png' },
-	]);
-	assert.deepEqual([...lines.get('src/a.ts')].sort((x, y) => x - y), [10, 11, 12, 13]);
-	assert.equal(lines.has('img.png'), false);
+test('renderReview returns null when there is nothing to report', () => {
+	assert.equal(renderReview({ findings: [], human_calls: [] }, ctx), null);
 });
 
-test('commentableLines handles several hunks', () => {
-	const lines = commentableLines([{ filename: 'f', patch: '@@ -1,2 +1,2 @@\n-x\n+y\n z\n@@ -40 +40,2 @@ fn()\n+q\n r' }]);
-	assert.deepEqual([...lines.get('f')].sort((x, y) => x - y), [1, 2, 40, 41]);
-});
-
-test('renderReview puts in-diff findings inline and the rest in the body', () => {
-	const lines = new Map([['src/a.ts', new Set([10, 11])]]);
-	const { body, comments } = renderReview({ findings: [finding(), finding({ line: 99, body: 'Sibling path too.' })], human_calls: [] }, lines);
-	assert.equal(comments.length, 1);
-	assert.deepEqual({ ...comments[0], body: undefined }, { path: 'src/a.ts', line: 11, side: 'RIGHT', body: undefined });
-	assert.match(comments[0].body, /Misses empty input/);
-	assert.match(body, /src\/a\.ts:99/);
-	assert.match(body, /Sibling path too/);
-	assert.doesNotMatch(body, /Misses empty input/);
-});
-
-test('renderReview starts with the marker and lists human calls', () => {
-	const { body } = renderReview({ findings: [], human_calls: ['Count nulls as unique?', 'Keep old label?'] }, new Map());
+test('renderReview leads with counts, then problems, then decisions, then a footer', () => {
+	const body = renderReview({ findings: [finding()], human_calls: [decision(), decision({ title: 'Enum columns' })] }, ctx);
 	assert.ok(body.startsWith(REVIEW_MARKER));
-	assert.match(body, /Needs a human call[\s\S]*Count nulls as unique\?[\s\S]*Keep old label\?/);
+	assert.match(body, /\*\*Agent review: 1 problem, 2 decisions for you\*\*/);
+	assert.match(body, /\*\*Problems\*\*[\s\S]*\*\*Decisions for you\*\*/);
+	assert.match(body, /1\. \*\*Same bug in a sibling path\*\* - \[a\.ts:11\]\(https:\/\/github\.com\/posit-dev\/positron\/blob\/abc123\/src\/dir\/a\.ts#L11\) - high confidence/);
+	assert.match(body, /1\. \*\*Nulls in the unique count\.\*\* Polars counts null/);
+	assert.match(body, /2\. \*\*Enum columns\.\*\*/);
+	assert.match(body, /<sub>.*does not approve or block.*<\/sub>\s*$/);
+	assert.doesNotMatch(body, /Q\d|reports problems only/);
 });
 
-test('renderReview says so when there are no findings', () => {
-	const { body, comments } = renderReview({ findings: [], human_calls: [] }, new Map());
-	assert.ok(body.startsWith(REVIEW_MARKER));
-	assert.match(body, /No problems found against the checklist\./);
-	assert.equal(comments.length, 0);
+test('renderReview omits an empty section and words the count to match', () => {
+	const onlyDecisions = renderReview({ findings: [], human_calls: [decision()] }, ctx);
+	assert.match(onlyDecisions, /Agent review: 1 decision for you\*\*/);
+	assert.doesNotMatch(onlyDecisions, /Problems/);
+	const onlyProblems = renderReview({ findings: [finding(), finding({ line: 40 })], human_calls: [] }, ctx);
+	assert.match(onlyProblems, /Agent review: 2 problems\*\*/);
+	assert.doesNotMatch(onlyProblems, /Decisions for you/);
 });
 
 test('renderReview breaks every @ mention', () => {
-	const lines = new Map([['src/a.ts', new Set([11])]]);
-	const out = renderReview({ findings: [finding({ body: 'ask @claude to fix' }), finding({ line: 5, body: 'cc @juliasilge' })], human_calls: ['ping @someone'] }, lines);
-	const all = out.body + out.comments.map(c => c.body).join('');
-	assert.doesNotMatch(all, /@claude|@juliasilge|@someone/);
-});
-
-test('renderReview with everything in the body has no comments', () => {
-	const lines = new Map([['src/a.ts', new Set([11])]]);
-	const { body, comments } = renderReview({ findings: [finding()], human_calls: [] }, lines, { inline: false });
-	assert.equal(comments.length, 0);
-	assert.match(body, /src\/a\.ts:11[\s\S]*Misses empty input/);
+	const body = renderReview({ findings: [finding({ title: 'ask @claude', body: 'cc @juliasilge' })], human_calls: [decision({ body: 'ping @someone' })] }, ctx);
+	assert.doesNotMatch(body, /@claude|@juliasilge|@someone/);
 });

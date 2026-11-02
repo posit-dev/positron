@@ -5,12 +5,13 @@
 
 // The no-model steps of agent-pr-review.yml:
 //   precheck  skips closed, draft and already-reviewed PRs
-//   post      renders the model's JSON and posts one COMMENT review
+//   post      renders the model's JSON and posts one COMMENT review, or
+//             nothing when there is nothing to report
 // DRY_RUN=true reviews a PR precheck would skip, and writes the review to the
 // step summary instead of posting it.
 
 import { appendFileSync } from 'node:fs';
-import { commentableLines, isSameRepoHead, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
+import { isSameRepoHead, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -76,14 +77,6 @@ async function precheck() {
 	output({ proceed, python, head_sha: pr.head.sha });
 }
 
-async function postReview(token, review) {
-	return fetch(`${API}/repos/${REPO}/pulls/${PR_NUMBER}/reviews`, {
-		method: 'POST',
-		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-		body: JSON.stringify(review),
-	});
-}
-
 async function post() {
 	const token = mustEnv('GH_TOKEN');
 	const parsed = parseReviewOutput(process.env.REVIEW_JSON ?? '');
@@ -91,32 +84,21 @@ async function post() {
 		summary(`**#${PR_NUMBER}** no valid review output, posting nothing.\n\n\`\`\`\n${String(process.env.REVIEW_JSON ?? '').slice(0, 4000)}\n\`\`\``);
 		throw new Error('review output is missing or malformed');
 	}
-	const [pr, files] = await Promise.all([
-		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}`),
-		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/files`),
-	]);
-	const lines = commentableLines(files);
-	// The model's line numbers are for the head it reviewed. After a push they
-	// may point at other code, so everything goes in the body.
-	const moved = !!process.env.HEAD_SHA && process.env.HEAD_SHA !== pr.head.sha;
-	const review = renderReview(parsed, lines, { inline: !moved });
-	if (DRY_RUN) {
-		summary(`**#${PR_NUMBER}** dry run, not posted.\n\n${review.body}\n`);
-		if (review.comments.length) {
-			summary(`\n**Inline comments (${review.comments.length})**\n`);
-		}
-		for (const c of review.comments) {
-			summary(`- \`${c.path}:${c.line}\` ${c.body}`);
-		}
+	// Links pin the reviewed commit, so line numbers stay right after a push.
+	const body = renderReview(parsed, { repo: REPO, sha: mustEnv('HEAD_SHA') });
+	if (!body) {
+		summary(`**#${PR_NUMBER}** nothing to report, posting nothing.`);
 		return;
 	}
-	const base = { commit_id: pr.head.sha, event: 'COMMENT' };
-	let res = await postReview(token, { ...base, body: review.body, comments: review.comments });
-	// A line GitHub will not anchor to rejects the whole review; retry body-only.
-	if (res.status === 422 && review.comments.length) {
-		console.log(`[agent-review] inline post rejected, retrying in the body: ${await res.text()}`);
-		res = await postReview(token, { ...base, body: renderReview(parsed, lines, { inline: false }).body });
+	if (DRY_RUN) {
+		summary(`**#${PR_NUMBER}** dry run, not posted.\n\n${body}\n`);
+		return;
 	}
+	const res = await fetch(`${API}/repos/${REPO}/pulls/${PR_NUMBER}/reviews`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+		body: JSON.stringify({ event: 'COMMENT', body }),
+	});
 	if (!res.ok) {
 		throw new Error(`POST review failed: ${res.status} ${await res.text()}`);
 	}

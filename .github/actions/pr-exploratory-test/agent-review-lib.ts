@@ -9,16 +9,23 @@
 /** Labels the review, so a second reviewer request does not post another. */
 export const REVIEW_MARKER = '<!-- agent-pr-review -->';
 
-const CONFIDENCE = ['high', 'medium', 'low'];
+// Low-confidence findings are dropped: a review people learn to skim is worse than none.
+const POSTED_CONFIDENCE = ['high', 'medium'];
+
+const nonEmpty = v => typeof v === 'string' && v.trim() !== '';
 
 function isFinding(f) {
-	return !!f && Number.isInteger(f.item) && typeof f.path === 'string' && f.path !== ''
-		&& Number.isInteger(f.line) && CONFIDENCE.includes(f.confidence) && typeof f.body === 'string';
+	return !!f && nonEmpty(f.title) && nonEmpty(f.path) && Number.isInteger(f.line)
+		&& [...POSTED_CONFIDENCE, 'low'].includes(f.confidence) && typeof f.body === 'string';
+}
+
+function isDecision(h) {
+	return !!h && nonEmpty(h.title) && typeof h.body === 'string';
 }
 
 /**
- * The model's structured output as `{ findings, human_calls }`, or null when it
- * is missing or any field has the wrong type. Null means post nothing.
+ * The model's structured output as `{ findings, human_calls }` without its
+ * low-confidence findings, or null when any field has the wrong type.
  */
 export function parseReviewOutput(input) {
 	let data = input;
@@ -32,10 +39,10 @@ export function parseReviewOutput(input) {
 	if (!data || !Array.isArray(data.findings) || !Array.isArray(data.human_calls)) {
 		return null;
 	}
-	if (!data.findings.every(isFinding) || !data.human_calls.every(h => typeof h === 'string')) {
+	if (!data.findings.every(isFinding) || !data.human_calls.every(isDecision)) {
 		return null;
 	}
-	return { findings: data.findings, human_calls: data.human_calls };
+	return { findings: data.findings.filter(f => POSTED_CONFIDENCE.includes(f.confidence)), human_calls: data.human_calls };
 }
 
 /**
@@ -67,68 +74,35 @@ export function reviewSkipReason({ pr, action, reviews }) {
 	return null;
 }
 
-/**
- * The right-side line numbers each file's patch shows (added or context), the
- * only lines GitHub accepts an inline comment on. A file with no patch is absent.
- */
-export function commentableLines(files) {
-	const map = new Map();
-	for (const f of files) {
-		if (!f.patch) {
-			continue;
-		}
-		const lines = new Set();
-		let line = 0;
-		for (const text of f.patch.split('\n')) {
-			const hunk = text.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-			if (hunk) {
-				line = Number(hunk[1]);
-			} else if (text.startsWith('+') || text.startsWith(' ')) {
-				lines.add(line++);
-			}
-		}
-		map.set(f.filename, lines);
-	}
-	return map;
-}
-
 /** Zero-width space after @ so a handle the model wrote pings nobody. */
 function defuse(text) {
 	return String(text).replace(/@(?=[\w-])/g, '@\u200b');
 }
 
-function findingText(f) {
-	return `**Q${f.item}** (${f.confidence}): ${defuse(f.body)}`;
-}
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
- * The review to post. Findings on a commentable line go inline; the rest, or
- * all of them with `inline: false`, go in the body as `path:line`.
+ * The review body, or null when there is nothing to report (post nothing).
+ * Each finding links to its line in the reviewed commit `sha`.
  */
-export function renderReview(output, lines, { inline = true } = {}) {
-	const comments = [];
-	const rest = [];
-	for (const f of output.findings) {
-		if (inline && lines.get(f.path)?.has(f.line)) {
-			comments.push({ path: f.path, line: f.line, side: 'RIGHT', body: findingText(f) });
-		} else {
-			rest.push(`- \`${f.path}:${f.line}\` ${findingText(f)}`);
-		}
+export function renderReview(output, { repo, sha }) {
+	const { findings, human_calls: decisions } = output;
+	if (!findings.length && !decisions.length) {
+		return null;
 	}
-	const parts = [
-		REVIEW_MARKER,
-		'**Checklist review**',
-		'',
-		'_From the `agent-pr-review` skill. It reports problems only and never approves. Q numbers refer to the checklist in that skill._',
-	];
-	if (!output.findings.length && !output.human_calls.length) {
-		parts.push('', 'No problems found against the checklist.');
+	const counts = [findings.length ? plural(findings.length, 'problem') : '', decisions.length ? `${plural(decisions.length, 'decision')} for you` : ''];
+	const parts = [REVIEW_MARKER, `**Agent review: ${counts.filter(Boolean).join(', ')}**`];
+	if (findings.length) {
+		parts.push('', '**Problems**', '');
+		findings.forEach((f, i) => {
+			const where = `[${f.path.split('/').pop()}:${f.line}](https://github.com/${repo}/blob/${sha}/${f.path}#L${f.line})`;
+			parts.push(`${i + 1}. **${defuse(f.title)}** - ${where} - ${f.confidence} confidence`, `   ${defuse(f.body)}`);
+		});
 	}
-	if (rest.length) {
-		parts.push('', comments.length ? 'Findings outside the diff:' : 'Findings:', '', ...rest);
+	if (decisions.length) {
+		parts.push('', '**Decisions for you**', '');
+		decisions.forEach((h, i) => parts.push(`${i + 1}. **${defuse(h.title).replace(/[.?!]$/, '')}.** ${defuse(h.body)}`));
 	}
-	if (output.human_calls.length) {
-		parts.push('', '**Needs a human call**', '', ...output.human_calls.map(h => `- ${defuse(h)}`));
-	}
-	return { body: parts.join('\n'), comments };
+	parts.push('', '<sub>Automated checklist review of the diff. It does not approve or block.</sub>');
+	return parts.join('\n');
 }
