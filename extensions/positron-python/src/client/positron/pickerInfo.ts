@@ -116,6 +116,11 @@ const INSTALLER_NAMES: ReadonlyMap<NativePythonEnvironmentKind, string> = new Ma
     [NativePythonEnvironmentKind.MacPythonOrg, 'python.org'],
 ]);
 
+/** Every known tool name, alphabetical; a row's rank here orders it within its group. */
+const TOOL_ORDER: readonly string[] = [...new Set([...TOOL_NAMES.values(), ...INSTALLER_NAMES.values()])].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+);
+
 /** The tool that made or manages the interpreter, e.g. `uv` or `Homebrew`, if known. */
 function pythonToolName(
     interpreter: PythonEnvironment,
@@ -144,7 +149,8 @@ export function createPythonPickerInfo(args: {
     const { interpreter, runtimeSource, pythonVersion, supported, context, externallyManaged } = args;
     const group = pickerGroupOf(interpreter, context, externallyManaged);
     const envName = args.envName === pythonVersion ? '' : args.envName;
-    const toolAndName = [pythonToolName(interpreter, runtimeSource, context), envName].filter(Boolean).join(': ');
+    const tool = pythonToolName(interpreter, runtimeSource, context);
+    const toolAndName = [tool, envName].filter(Boolean).join(': ');
     const version = `Python ${pythonVersion}`;
     // The tool and name lead the row; the version sits in the gray text, next to
     // "not supported". With no tool or name, the version is the label.
@@ -154,7 +160,9 @@ export function createPythonPickerInfo(args: {
     return {
         group: groupHeader(group),
         groupOrder: GROUP_ORDER.indexOf(group),
-        rowOrder: supported ? 0 : 1,
+        // Rows sort by tool, with no tool last, then by version (newest first).
+        // Unsupported rows follow all supported ones, in the same order.
+        rowOrder: (tool ? TOOL_ORDER.indexOf(tool) : TOOL_ORDER.length) + (supported ? 0 : TOOL_ORDER.length + 1),
         label: toolAndName || version,
         description: description || undefined,
     };
