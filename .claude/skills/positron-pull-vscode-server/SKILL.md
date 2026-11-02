@@ -16,10 +16,14 @@ Use this skill when:
 
 ## Prerequisites
 
-The upstream remote must be configured:
+The upstream remote must be configured. If `git remote -v` doesn't show it, set it up:
 ```bash
-git remote -v   # should show: upstream → git@github.com:rstudio/vscode-server.git (push disabled)
+git remote add upstream git@github.com:rstudio/vscode-server.git
+git remote set-url --push upstream DISABLE
+gh repo set-default posit-dev/positron   # gh otherwise treats the "upstream" remote as the base repo
 ```
+
+Without the `gh repo set-default`, `gh pr create` targets rstudio/vscode-server and fails with "No commits between main and ...".
 
 ## Workflow
 
@@ -61,6 +65,8 @@ The script already filters two classes of merge so they are never candidates:
 - **Microsoft baseline merges** (`Merge 1.NNN.0 from upstream`, `Merge rel-*`, `merge/1.NNN.0` branches). These are reconciliation merges that bring vscode-server up to a Microsoft VSCode baseline Positron tracks independently. They are not portable PRs, are never considered, and must not appear in the PR body's "Considered but not included" list.
 - **`update-extension-*` (rstudio.rstudio-workbench) bumps when Positron is not behind.** The script compares the `rstudio.rstudio-workbench` version in `product.json` on `main` vs `upstream/main`. If Positron's version is equal or newer, the bump is already covered and is dropped. Only when Positron is *behind* does the script keep `update-extension-*` as a candidate worth considering.
 
+It also lists open Positron PRs that are already porting a candidate (another person's vscode-server port, or the bot's `update-extension-*` bump PR) under "Already being ported by an open Positron PR" and drops them from the candidates. Leave those out of your PR, even when they'd otherwise be portable: they'll land on their own and duplicating them causes conflicts and a noisy diff. If the script couldn't reach `gh`, run `gh pr list --repo posit-dev/positron --state open --search "vscode-server"` and look for open `update-extension-*` PRs by hand.
+
 It then lists the remaining candidate merges and prints triage guidance. For those:
 
 1. **Confirm the baseline is shared** using the version/distro parity check from Step 1. A mismatch means stop and sync the baseline first (the script's baseline-merge filter assumes a shared baseline).
@@ -68,13 +74,14 @@ It then lists the remaining candidate merges and prints triage guidance. For tho
 3. **Check direction before assuming a PR is missing.** Some vscode-server PRs originated in posit-dev/positron and were *back*ported upstream, so they already exist in Positron. Before listing a PR as portable, confirm Positron doesn't already have the change (grep for the touched symbol/file, or check the upstream PR description for a "ported from positron" note).
 4. **Surface the full portable list to the user** and ask whether to port just the requested PR or sweep the others in too. Don't decide for them.
 
-Keep a short record of every *candidate* PR you triaged but did **not** port and the one-line reason (tooling-only, back-ported and already in Positron, user scoped it out, etc.). This record feeds the PR body in Step 5. Do **not** record the filtered-out baseline merges — they were never candidates.
+Keep a short record of every *candidate* PR you triaged but did **not** port and the one-line reason (tooling-only, back-ported and already in Positron, user scoped it out, etc.). This record feeds the PR body in Step 5. Also record each PR from the "Already being ported by an open Positron PR" section, with the open Positron PR that covers it. Do **not** record the filtered-out baseline merges — they were never candidates.
 
 ### Step 2: Triage
 
 For each candidate, `git show <SHA>` to read the full diff, then port it unless:
 - CI-only (`Jenkinsfile`, `jenkins/`, `.github/` only)
 - vscode-server-specific build/deploy tooling with no Positron equivalent
+- an open Positron PR is already porting it (run `check-backlog.sh` from Step 1b to find these, even when pulling everything)
 
 ### Step 3: Apply diffs manually
 
@@ -131,6 +138,7 @@ Other commits on `upstream/main` since the last pull (#<positron-merge-pr>) were
 | Reason | Commits |
 | --- | --- |
 | Already implemented in Positron (#<positron-pr>) | <ul><li>rstudio/vscode-server#NNN (short description)</li></ul> |
+| Being ported separately in #<open-positron-pr> | <ul><li>rstudio/vscode-server#NNN</li></ul> |
 | rstudio.rstudio-workbench bumps; Positron's `product.json` already pins a newer version | <ul><li>rstudio/vscode-server#NNN</li><li>rstudio/vscode-server#NNN</li></ul> |
 | CI automation (`.github/` / `Jenkinsfile` only) | <ul><li>rstudio/vscode-server#NNN</li></ul> |
 ```
@@ -156,4 +164,5 @@ After the PR is open (or after the user declines to create one), ask the user ho
 | Cherry-picking instead of applying diffs manually | No shared git ancestry — cherry-pick conflicts are worse than manual application |
 | Fixing pre-existing lint warnings in unrelated lines | Only fix issues in code you actually changed |
 | Porting only the one PR the user named, missing the backlog | Run `check-backlog.sh` (Step 1b) and surface the full portable list before deciding scope |
+| Sweeping in upstream PRs that another open Positron PR is already porting (e.g. a reconnect port or an `update-extension-*` bump) | Leave anything under "Already being ported by an open Positron PR" out, and list it as "Being ported separately in #NNN" |
 | Treating `Merge 1.NNN.0` as out-of-scope divergence when baselines match | Compare `version`/`distro` in package.json — matching means it's a reconciliation merge, not a divergence; the PRs around it are still portable |
