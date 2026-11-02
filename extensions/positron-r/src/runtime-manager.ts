@@ -93,7 +93,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	/**
 	 * Each pinned module's R, looked up once per session, since each lookup
-	 * runs shells that load the module. Cleared when the module settings change.
+	 * runs shells that load the module. Failed lookups are dropped so they are
+	 * retried. Cleared when the module settings change.
 	 */
 	private readonly _moduleRBinaries = new Map<string, Promise<RBinary>>();
 
@@ -400,6 +401,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		try {
 			rbin = await lookup;
 		} catch (err) {
+			this._moduleRBinaries.delete(name);
 			LOGGER.error(`[pinnedRInstallation] No R starts, since the module '${name}' from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' could not be loaded: ${err}`);
 			this.reportModuleFailure(name);
 			return undefined;
