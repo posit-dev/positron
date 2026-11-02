@@ -1661,6 +1661,15 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
+	// The asks after discovery wait out a 500ms debounce; `vi.waitFor` advances fake time.
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	function register(runtime: ILanguageRuntimeMetadata) {
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(runtime));
+		return runtime;
+	}
+
 	it('skips a preferred runtime that is no longer registered', async () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
@@ -1703,11 +1712,6 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 				ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 		}
 
-		function register(runtime: ILanguageRuntimeMetadata) {
-			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(runtime));
-			return runtime;
-		}
-
 		it('is RunningConsole when a console session backs the language', async () => {
 			const svc = createService();
 			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
@@ -1732,6 +1736,44 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
 				runtimeId: sessionRuntime.runtimeId,
 				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
+		it('is RunningConsole for a console in front that is still starting', async () => {
+			const svc = createService();
+			const sessionRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: sessionRuntime });
+			await vi.waitFor(() => expect(session.getRuntimeState()).toBe(RuntimeState.Ready));
+			session.setRuntimeState(RuntimeState.Initializing);
+			// Covered by the affiliation rule, which is not under test.
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
+
+			const preferred = svc.getPreferredRuntimeWithReason(sessionRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: sessionRuntime.runtimeId,
+				reason: PreferredRuntimeReason.RunningConsole,
+			});
+		});
+
+		it('is not RunningConsole for a console ended by exit() that is still in front', async () => {
+			const svc = createService();
+			const exitedRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const exited = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: exitedRuntime });
+			const laterRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const later = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: laterRuntime });
+			await vi.waitFor(() => expect(exited.getRuntimeState()).toBe(RuntimeState.Ready));
+			await vi.waitFor(() => expect(later.getRuntimeState()).toBe(RuntimeState.Ready));
+			exited.setRuntimeState(RuntimeState.Exited);
+			later.setRuntimeState(RuntimeState.Exited);
+			// The later console was deleted, so the exited one is back in front.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getConsoleSessionForLanguage').mockReturnValue(exited);
+			// Covered by the affiliation rule, which is not under test.
+			vi.spyOn(svc, 'getAffiliatedRuntimeMetadata').mockReturnValue(undefined);
+
+			const preferred = svc.getPreferredRuntimeWithReason(exitedRuntime.languageId);
+			expect({ runtimeId: preferred?.runtime.runtimeId, reason: preferred?.reason }).toEqual({
+				runtimeId: laterRuntime.runtimeId,
+				reason: PreferredRuntimeReason.RecentlyStarted,
 			});
 		});
 
@@ -1837,6 +1879,303 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 			preferred: 'rt-conda',
 			reason: PreferredRuntimeReason.Recommended,
 		});
+	});
+
+	/** Steps past the 500ms debounce before an ask after discovery, then waits for `assertion`. */
+	async function afterDebounce(assertion: () => void) {
+		await vi.advanceTimersByTimeAsync(500);
+		await vi.waitFor(assertion);
+	}
+
+	/** A service whose one manager answers each ask after discovery with `recommend()`, with startup complete. */
+	function createRecommending(recommend: (disabledLanguageIds: string[]) => Promise<ILanguageRuntimeMetadata[]>) {
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const manager = makeManager({ id: 1, owns: [] });
+		manager.recommendWorkspaceRuntimes = async (disabledLanguageIds, afterDiscovery) =>
+			afterDiscovery ? (await recommend(disabledLanguageIds)).map(runtime => ({ metadata: runtime, isProjectDefault: false })) : [];
+		ctx.disposables.add(svc.registerRuntimeManager(manager));
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		return svc;
+	}
+
+	it('waits for discovery to complete before asking again', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		register(global);
+		let answer = global;
+		let asks = 0;
+		const svc = createRecommending(async () => { asks++; return [answer]; });
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		answer = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		register(answer);
+		// Discovery starts again before the ask runs, so a registration then could start the affiliated runtime.
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Discovering);
+		await vi.advanceTimersByTimeAsync(500);
+		expect(asks).toBe(1);
+
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
+	it('waits for discovery to complete when it starts again while asking', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		register(global);
+		const laterAnswer = new DeferredPromise<void>();
+		let asks = 0;
+		const svc = createRecommending(async () => {
+			if (++asks === 1) {
+				return [global];
+			}
+			await laterAnswer.p;
+			return [venv];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		register(venv);
+		await afterDebounce(() => expect(asks).toBe(2));
+		// Discovery starts again before the answer comes back, so it is not registered yet.
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Discovering);
+		laterAnswer.complete();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({ runtime: { runtimeId: 'rt-global' } });
+
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
+	it('asks again when a runtime registers after the recommendation, without starting the new answer', async () => {
+		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
+
+		// With no project env, the extension recommends a global Python.
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		register(global);
+		let answer = global;
+		const svc = createRecommending(async () => [answer]);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-global' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+
+		// A .venv made in the folder registers Explicit, like every discovered
+		// Python, and is now the extension's answer, which would start Immediate.
+		const venv = {
+			...metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' }),
+			startupBehavior: LanguageRuntimeStartupBehavior.Explicit,
+		};
+		answer = {
+			...venv,
+			startupBehavior: LanguageRuntimeStartupBehavior.Immediate,
+			picker: { group: 'Project environments', groupOrder: 0, label: 'Python 3.12.0', recommendationReason: 'project environment' },
+		};
+		register(venv);
+
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+			recommendationReason: 'project environment',
+		}));
+		expect(autoStartRuntime).not.toHaveBeenCalled();
+	});
+
+	it('asks again when a runtime registers while the first ask after discovery is answering', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		register(global);
+
+		// The first ask answers the global Python, but only after the .venv registers.
+		const firstAnswer = new DeferredPromise<void>();
+		let asks = 0;
+		const svc = createRecommending(async () => {
+			if (++asks === 1) {
+				await firstAnswer.p;
+				return [global];
+			}
+			return [venv];
+		});
+		register(venv);
+		firstAnswer.complete();
+
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
+	it('asks again when a runtime registers after the recommended runtime is unregistered and nothing replaced it', async () => {
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let asks = 0;
+		let answers = [venv];
+		const svc = createRecommending(async () => {
+			asks++;
+			return answers;
+		});
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+
+		// The .venv is deleted, and there is no other Python to recommend.
+		answers = [];
+		venvRegistration.dispose();
+		await afterDebounce(() => expect(asks).toBe(2));
+
+		// The .venv is made again.
+		register(venv);
+		answers = [venv];
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+	});
+
+	it('asks once for a burst of runtimes registering after the recommendation', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		register(global);
+		let asks = 0;
+		createRecommending(async () => {
+			asks++;
+			return [global];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		// e.g. cached runtimes registering again on folder open, 100ms apart.
+		for (const id of ['rt-a', 'rt-b', 'rt-c']) {
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(
+				metadata({ runtimeId: id, runtimePath: `/envs/${id}/bin/python` })));
+			await vi.advanceTimersByTimeAsync(100);
+		}
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(asks).toBe(2);
+	});
+
+	it('keeps asking one at a time when one language fails to answer', async () => {
+		const python = metadata({ runtimeId: 'rt-python', runtimePath: '/usr/bin/python3' });
+		const r = metadata({ languageId: 'r', runtimeId: 'rt-r', runtimePath: '/usr/bin/R' });
+		const newPython = metadata({ runtimeId: 'rt-python-3', runtimePath: '/envs/b/bin/python' });
+		register(python);
+		register(r);
+		const pythonAnswer = new DeferredPromise<void>();
+		let pythonAsks = 0;
+		let rAsks = 0;
+		// Each language is asked with the other languages disabled.
+		const svc = createRecommending(async disabledLanguageIds => {
+			if (disabledLanguageIds.includes('r')) {
+				if (++pythonAsks > 1) {
+					await pythonAnswer.p;
+				}
+				return [pythonAsks > 2 ? newPython : python];
+			}
+			if (++rAsks === 2) {
+				throw new Error('R failed');
+			}
+			return [r];
+		});
+		await afterDebounce(() => expect([pythonAsks, rAsks]).toEqual([1, 1]));
+
+		// Both languages are asked again; R fails while Python is still answering.
+		register(metadata({ runtimeId: 'rt-python-2', runtimePath: '/envs/a/bin/python' }));
+		register(metadata({ languageId: 'r', runtimeId: 'rt-r-2', runtimePath: '/envs/a/bin/R' }));
+		await afterDebounce(() => expect([pythonAsks, rAsks]).toEqual([2, 2]));
+
+		// Python is marked again; its ask waits for the one in flight.
+		register(newPython);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(pythonAsks).toBe(2);
+
+		pythonAnswer.complete();
+		await afterDebounce(() => expect(pythonAsks).toBe(3));
+		expect(svc.getPreferredRuntimeWithReason('python')?.runtime.runtimeId).toBe('rt-python-3');
+
+		// R is asked again on its next change.
+		register(metadata({ languageId: 'r', runtimeId: 'rt-r-3', runtimePath: '/envs/b/bin/R' }));
+		await afterDebounce(() => expect(rAsks).toBe(3));
+	});
+
+	it('does not ask when a runtime registers for a language that never had a recommendation', async () => {
+		register(metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' }));
+		let asks = 0;
+		createRecommending(async () => {
+			asks++;
+			return [];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		// Left to the next discovery pass, which also starts its answer.
+		register(metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' }));
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(asks).toBe(1);
+	});
+
+	it('does not ask when the recommended runtime is unregistered after its language is disabled', async () => {
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let asks = 0;
+		createRecommending(async () => {
+			asks++;
+			return [venv];
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		await (ctx.get(IConfigurationService) as TestConfigurationService)
+			.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+		venvRegistration.dispose();
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(asks).toBe(1);
+	});
+
+	it('keeps a registered recommendation when an ask again answers nothing', async () => {
+		const venv = register(metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' }));
+		let answers = [venv];
+		let asks = 0;
+		const svc = createRecommending(async () => {
+			asks++;
+			return answers;
+		});
+		await afterDebounce(() => expect(asks).toBe(1));
+
+		// Another runtime registers, and the extension has no answer this time.
+		answers = [];
+		register(metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' }));
+		await afterDebounce(() => expect(asks).toBe(2));
+
+		expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		});
+	});
+
+	it('asks again when the recommended runtime is unregistered', async () => {
+		const global = metadata({ runtimeId: 'rt-global', runtimePath: '/usr/bin/python3' });
+		const venv = metadata({ runtimeId: 'rt-venv', runtimePath: '/project/.venv/bin/python' });
+		register(global);
+		const venvRegistration = ctx.get(ILanguageRuntimeService).registerRuntime(venv);
+		let answer = venv;
+		const svc = createRecommending(async () => [answer]);
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-venv' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
+
+		// The .venv is deleted; the extension now recommends the global Python.
+		answer = global;
+		venvRegistration.dispose();
+
+		await afterDebounce(() => expect(svc.getPreferredRuntimeWithReason('python')).toMatchObject({
+			runtime: { runtimeId: 'rt-global' },
+			reason: PreferredRuntimeReason.Recommended,
+		}));
 	});
 
 	it('saves a recommendation that does not start as the project default only if its manager allows it', async () => {
