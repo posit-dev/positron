@@ -412,7 +412,7 @@ def test_legacy_ipython_lists_short_names_without_a_switch(
     # backends, because `-l` has to list them without one.
     shell.init_magics()
 
-    assert set(pt.backends) == {
+    assert set(vars(pt)["backends"]) == {
         "inline",
         Backend.CONSOLE.short_name,
         Backend.NOTEBOOK.short_name,

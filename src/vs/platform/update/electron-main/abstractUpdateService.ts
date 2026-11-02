@@ -1103,19 +1103,19 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
 		// Persist the day's usage so it can be reported on a later launch, even if
 		// this session ends before an update check fires. Every window pushes into
 		// this single main-process service, each reporting only its own languages,
-		// so union with the stored same-day record rather than overwriting it (so
-		// R in one window and Python in another are both reported).
+		// so merge into the stored record rather than overwriting it (so R in one
+		// window and Python in another are both reported).
 		const stored = this.stateService.getItem<string>(AbstractUpdateService.ACTIVE_LANGUAGES_KEY);
-		const record = mergeActiveLanguageRecord(stored, languages, Date.now());
+		const record = mergeActiveLanguageRecord(stored, languages, Date.now(), AbstractUpdateService.ACTIVE_LANGUAGES_MAX_AGE_DAYS);
 		if (record !== undefined) {
 			this.stateService.setItem(AbstractUpdateService.ACTIVE_LANGUAGES_KEY, record);
 		}
 	}
 
 	private getReportableLanguages(): string[] {
-		// The stored record is the source of truth: it holds today's union across
-		// all windows, and at cold start (before any code has run this session) it
-		// holds the most recent day's usage within the retention window.
+		// The stored record is the source of truth: it holds the last day each
+		// language was used, across all windows and launches, so the report is
+		// every language used within the retention window.
 		const stored = this.stateService.getItem<string>(AbstractUpdateService.ACTIVE_LANGUAGES_KEY);
 		return reportableLanguages(
 			parseActiveLanguageRecord(stored),

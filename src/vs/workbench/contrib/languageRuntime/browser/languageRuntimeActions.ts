@@ -16,7 +16,7 @@ import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { compareLanguages, getLanguageOrder } from '../../../services/languageRuntime/common/languageOrder.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { comparePickerRuntimes, getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeSessionOwner, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -111,6 +111,7 @@ export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.lan
 export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
 export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
 export const LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID = 'positron.languageRuntime.startNewAgentSession';
+const LANGUAGE_RUNTIME_START_NEW_AGENT_CONSOLE_SESSION_ID = 'positron.languageRuntime.startNewAgentConsoleSession';
 
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
@@ -1274,73 +1275,81 @@ export class StartNewConsoleSessionAction extends Action2 {
 			},
 			metadata: {
 				description: localize('positron.languageRuntime.startNewConsoleSession.description', "Start a new console session for a language runtime."),
-				agentCompatible: true,
-				args: [
-					{
-						name: 'runtimeId',
-						description: 'Runtime id to start a console session for. Always supply this when running the command programmatically: with no id the command opens a runtime picker and waits for the user to choose one.',
-						schema: { type: 'string' },
-					},
-				],
-				returns: 'An object with started, sessionId, and message. started is true when a console session was started, with sessionId identifying it; when started is false, message explains why (the user dismissed the runtime picker).',
 			},
 		});
 	}
 
-	async run(accessor: ServicesAccessor, runtimeId?: string): Promise<IStartNewConsoleSessionResult> {
-		// Access services.
-		const commandService = accessor.get(ICommandService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-
-		// Only treat a non-empty string as a supplied id: menu callers can
-		// forward a context object as the first argument.
-		const suppliedRuntimeId = typeof runtimeId === 'string' && runtimeId.length > 0 ? runtimeId : undefined;
-		let selectedRuntime: ILanguageRuntimeMetadata | undefined;
-		if (suppliedRuntimeId) {
-			// A runtime id was supplied (e.g. by an agent): resolve it
-			// directly and skip the picker. An id that resolves to nothing is a
-			// caller error, so throw rather than falling back to the picker,
-			// which would leave a programmatic caller waiting on the user.
-			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-			selectedRuntime = languageRuntimeService.getRegisteredRuntime(suppliedRuntimeId);
-			if (!selectedRuntime) {
-				throw new Error(localize('positron.languageRuntime.startConsoleSession.unknownRuntime',
-					"No registered runtime with id '{0}'.", suppliedRuntimeId));
-			}
-		} else {
-			// Prompt the user to select a runtime to start
-			selectedRuntime = await selectNewLanguageRuntime(
-				accessor,
-				{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
-			);
-		}
-
-		// The user dismissed the picker without choosing a runtime.
-		if (!selectedRuntime?.runtimeId) {
-			return {
-				started: false,
-				message: localize('positron.languageRuntime.startConsoleSession.noRuntimeSelected',
-					"No runtime was selected, so no console session was started."),
-			};
-		}
-
-		// Drive focus into the Positron console.
-		commandService.executeCommand('workbench.panel.positronConsole.focus');
-
-		const sessionId = await runtimeSessionService.startNewRuntimeSession(
-			selectedRuntime.runtimeId,
-			selectedRuntime.runtimeName,
-			LanguageRuntimeSessionMode.Console,
-			undefined,
-			suppliedRuntimeId ?
-				{ id: SessionStartReasonId.NewConsoleCommand } :
-				{ id: SessionStartReasonId.UserSelectedRuntime },
-			RuntimeStartMode.Starting,
-			true,
-			{ userSelected: !suppliedRuntimeId }
-		);
-		return { started: true, sessionId };
+	run(accessor: ServicesAccessor, runtimeId?: string): Promise<IStartNewConsoleSessionResult> {
+		return startNewConsoleSession(accessor, runtimeId, 'user', true);
 	}
+}
+
+/**
+ * Start a new console session for a runtime, prompting for one when no runtime
+ * id is supplied. The session takes the foreground.
+ * @param runtimeId The runtime to start.
+ * @param owner Who the session belongs to.
+ * @param focus Whether to move keyboard focus to the console.
+ */
+export async function startNewConsoleSession(
+	accessor: ServicesAccessor,
+	runtimeId: string | undefined,
+	owner: RuntimeSessionOwner,
+	focus: boolean,
+): Promise<IStartNewConsoleSessionResult> {
+	// Access services.
+	const commandService = accessor.get(ICommandService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+	// Only treat a non-empty string as a supplied id: menu callers can
+	// forward a context object as the first argument.
+	const suppliedRuntimeId = typeof runtimeId === 'string' && runtimeId.length > 0 ? runtimeId : undefined;
+	let selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	if (suppliedRuntimeId) {
+		// A runtime id was supplied (e.g. by an agent): resolve it
+		// directly and skip the picker. An id that resolves to nothing is a
+		// caller error, so throw rather than falling back to the picker,
+		// which would leave a programmatic caller waiting on the user.
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+		selectedRuntime = languageRuntimeService.getRegisteredRuntime(suppliedRuntimeId);
+		if (!selectedRuntime) {
+			throw new Error(localize('positron.languageRuntime.startConsoleSession.unknownRuntime',
+				"No registered runtime with id '{0}'.", suppliedRuntimeId));
+		}
+	} else {
+		// Prompt the user to select a runtime to start
+		selectedRuntime = await selectNewLanguageRuntime(
+			accessor,
+			{ title: localize('positron.languageRuntime.startConsoleSession', 'Start New Console Session') }
+		);
+	}
+
+	// The user dismissed the picker without choosing a runtime.
+	if (!selectedRuntime?.runtimeId) {
+		return {
+			started: false,
+			message: localize('positron.languageRuntime.startConsoleSession.noRuntimeSelected',
+				"No runtime was selected, so no console session was started."),
+		};
+	}
+
+	if (focus) {
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
+	}
+
+	const startReasonId = owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession :
+		suppliedRuntimeId ? SessionStartReasonId.NewConsoleCommand : SessionStartReasonId.UserSelectedRuntime;
+	const sessionId = await runtimeSessionService.startNewRuntimeSession(
+		selectedRuntime.runtimeId,
+		selectedRuntime.runtimeName,
+		LanguageRuntimeSessionMode.Console,
+		undefined,
+		{ id: startReasonId },
+		RuntimeStartMode.Starting,
+		true,
+		{ userSelected: !suppliedRuntimeId && owner === 'user', owner }
+	);
+	return { started: true, sessionId };
 }
 
 /**
@@ -1611,6 +1620,30 @@ export function registerLanguageRuntimeActions() {
 	registerAction2(StartNewConsoleSessionAction);
 
 	registerAction2(StartNewAgentSessionAction);
+
+	// The agent's counterpart to the start new console session command. The session is
+	// agent-owned while agent sessions are enabled.
+	CommandsRegistry.registerCommand({
+		id: LANGUAGE_RUNTIME_START_NEW_AGENT_CONSOLE_SESSION_ID,
+		handler: (accessor, runtimeId?: string) => {
+			const configurationService = accessor.get(IConfigurationService);
+			const agentOwned = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
+				configurationService.getValue<boolean>(AGENT_SESSIONS_ENABLED_KEY) === true;
+			return startNewConsoleSession(accessor, runtimeId, agentOwned ? 'agent' : 'user', false);
+		},
+		metadata: {
+			description: localize('positron.languageRuntime.startNewAgentConsoleSession.description', "Start a new console session for a language runtime."),
+			agentCompatible: true,
+			args: [
+				{
+					name: 'runtimeId',
+					description: 'Runtime id to start a console session for. Always supply this: with no id the command opens a runtime picker and waits for the user to choose one.',
+					schema: { type: 'string' },
+				},
+			],
+			returns: 'An object with started, sessionId, and message. started is true when a console session was started, with sessionId identifying it; when started is false, message explains why (the user dismissed the runtime picker).',
+		},
+	});
 
 	/**
 	 * Action that allows the user to rename an active session.

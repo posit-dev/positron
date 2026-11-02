@@ -85,9 +85,11 @@ export function passStats(passes = []) {
 
 /**
  * One run's stats record. `parsed` is reportFromJson's model of the finished
- * report, so findings and verdicts are counted the way the page shows them.
+ * report less the findings the page lists as known issues, so findings and
+ * verdicts are counted the way the page shows them. `demoted` is those
+ * findings, withoutKnownDuplicates' list.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, demoted, checks, timeLimit, mainReplayMs }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -108,9 +110,13 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		durationMs: durationMs ?? null,
 		// `{ durationMs, turns }` when an isolation pass ran, else null.
 		isolate: isolate ?? null,
+		// Minutes the explorer spent replaying findings on main, when the run had a main build.
+		mainReplayMinutes: typeof mainReplayMs === 'number' ? Math.round(mainReplayMs / 6000) / 10 : null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,
+		// By their number in report.json, which the PR comment and outcomes count from.
+		demoted: (demoted ?? []).map(d => ({ finding: d.f.n, issue: d.issue.number })),
 		// What the run meant to test and did not, and why: often a setup problem.
 		notRun: parsed?.coverage?.notExercised?.length ?? 0,
 		notRunReasons: (parsed?.coverage?.notExercised ?? []).map(r => clip(r.reason ?? '', 100)),

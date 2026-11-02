@@ -5,9 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, rateLimitWait, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers, toIssue } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -158,6 +158,14 @@ test('knownIssueOutcomes sorts open observed issues by severity, unrated last', 
 	assert.deepEqual(ki.unaccounted.map(i => i.number), [13], 'a fix with a Not run row is accounted for');
 });
 
+test('knownIssueOutcomes lists an issue the verifier says the run did not meet as not observed, with why', () => {
+	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map([[20, 'minor'], [23, 'major']]), new Map(), new Map([[22, 'only the title fits']]));
+	assert.deepEqual(ki.observed.map(o => o.issue.number), [23, 20, 25]);
+	assert.deepEqual(ki.unrated, [25], 'it needs no severity');
+	assert.deepEqual(ki.notObserved.map(i => i.number), [22, 24, 26]);
+	assert.equal(ki.unmet.get(22), 'only the title fits');
+});
+
 test('knownIssueOutcomes moves an open issue a finding matched out of the lists, unless the finding has its own issue, and drops that issue', () => {
 	const matches = new Map([[1, [11, 25, 99]], [2, [21, 10]], [3, [24, 26]]]);
 	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map(), matches);
@@ -198,4 +206,21 @@ test('rateLimitWait waits for a rate limit\'s reset or a minute for a secondary 
 	assert.equal(rateLimitWait(res(403, { 'x-ratelimit-remaining': '12' }), '{"message":"You have exceeded a secondary rate limit."}', now), 60_000);
 	assert.equal(rateLimitWait(res(403, {}), '{"message":"Resource not accessible by integration"}', now), null);
 	assert.equal(rateLimitWait(res(404, { 'retry-after': '20' }), '', now), null);
+});
+
+test('pageIssueRefs fetches the report\'s matches, which are bare numbers, and saves them for the page', () => withTmpDir('refs-', async dir => {
+	const json = { findings: [{ n: 1, known: [16634], intended: [900], cause: 'See #77.' }] };
+	const asked = [];
+	const refs = await pageIssueRefs(dir, json, null, { fetch: async numbers => {
+		asked.push(...numbers);
+		return numbers.map(number => ({ number, kind: 'issue', state: 'open', title: `t${number}` }));
+	} });
+	assert.deepEqual(asked.sort((a, b) => a - b), [77, 900, 16634]);
+	assert.deepEqual(refs.map(r => r.number).sort((a, b) => a - b), [77, 900, 16634]);
+	assert.ok(existsSync(join(dir, 'issue-refs.json')));
+}));
+
+test('toIssue keeps why a closed issue was closed, so a won\'t fix is told from a fix', () => {
+	assert.equal(toIssue({ number: 1, state: 'closed', state_reason: 'not_planned' }, 'mentioned').stateReason, 'not_planned');
+	assert.equal(toIssue({ number: 2, state: 'open', state_reason: 'reopened' }, 'mentioned').stateReason, undefined);
 });

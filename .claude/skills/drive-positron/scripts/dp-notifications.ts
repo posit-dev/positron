@@ -52,7 +52,13 @@ export function notifications(session: string, o: { click: string; match: string
 			}
 			const hits = toasts.filter(t => t.buttons.includes(a.click) && (!a.match || t.message.includes(a.match)));
 			if (hits.length > 1) { return { ok: false, error: `${hits.length} notifications have a "${a.click}" button; pass --match`, notifications: list() }; }
-			if (!hits.length) { return { ok: false, error: `no notification has a "${a.click}" button`, notifications: list() }; }
+			if (!hits.length) {
+				// A toast hides itself after a while (an info toast with buttons after 10 s) and
+				// lives on only in the notification center, whose rows exist only while it is open.
+				const closed = !await page.locator(n.center).filter({ visible: true }).count();
+				const where = closed ? `; a toast that hid itself is kept in the notification center, which is closed: open it with palette-run.sh '${lib.names.palette.showNotifications}', then click again` : '';
+				return { ok: false, error: `no notification on screen has a "${a.click}" button${a.match ? ` and a message holding "${a.match}"` : ''}${where}`, notifications: list() };
+			}
 			await page.locator(`[data-dp-row="${hits[0].row}"] ${n.buttons}`).filter({ hasText: a.click }).first().click({ timeout: 3000 });
 			await lib.sleep(200);
 			toasts = await read();

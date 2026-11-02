@@ -40,6 +40,11 @@ function stepFromJson(s) {
 	};
 }
 
+/** A main replay's screenshots as evidence on the step each checks, captioned with what main showed. */
+function mainShots(main) {
+	return (main?.steps ?? []).flatMap(s => (s.shots ?? []).map(path => ({ kind: 'shot', path, step: s.step, main: true, caption: `Latest build, step ${s.step}: ${s.saw}` })));
+}
+
 /** A schema evidence item as the page lays it out. */
 function evidenceFromJson(e) {
 	if (e.kind === 'shot') {
@@ -52,6 +57,8 @@ function evidenceFromJson(e) {
 			...(e.scenario ? { scenario: e.scenario } : {}),
 			caption: e.caption || basename(src),
 			...(e.featured ? { featured: true } : {}),
+			// From the replay on main: the page pairs it with the change's own shot of the step.
+			...(e.main ? { main: true } : {}),
 		} : null;
 	}
 	if (e.kind === 'log') {
@@ -101,6 +108,10 @@ function findingFromJson(f) {
 		corrected: f.corrected ?? [],
 		known: f.known ?? [],
 		intended: f.intended ?? [],
+		// The matches the verifier confirmed are the same bug, each with why.
+		dupes: f.dupes ?? [],
+		// The finding replayed on a build of main, which decides its Origin.
+		main: f.main ?? null,
 		// The explorer's opening sentence for the issue.
 		summaryHtml: f.summary ? inline(f.summary) : '',
 		observedHtml: f.observed ? inline(f.observed) : '',
@@ -108,7 +119,8 @@ function findingFromJson(f) {
 		preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
 		preconditionNames: named.map(p => (p.name ? inline(p.name) : '')),
 		steps,
-		evidence: arrangeEvidence(steps, (f.evidence ?? []).map(evidenceFromJson).filter(Boolean), f.n),
+		// The replay's screenshots from the main build follow the change's own.
+		evidence: arrangeEvidence(steps, [...(f.evidence ?? []), ...mainShots(f.main)].map(evidenceFromJson).filter(Boolean), f.n),
 		causeHtml: f.cause ? inline(f.cause) : '',
 		errors: (f.errors ?? []).map(errorFromJson),
 		tests: { cases, related },
@@ -202,7 +214,8 @@ function stepText(step) {
 /**
  * Verification details: the preamble, a chip per verdict, the verifier's
  * notes, each finding's origin it judged from the change, and its severity for
- * each linked issue the run ran into.
+ * each linked issue the run ran into, and why it did not meet the others the
+ * ledger marks.
  */
 function verificationFromJson(json) {
 	const v = json.verification;
@@ -212,7 +225,10 @@ function verificationFromJson(json) {
 		preambleHtml: at === -1 ? '' : inline(lines[at].trim()),
 		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
 		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
+		unmet: new Map((v.unmet ?? []).map(l => [l.issue, l.why])),
 		origin: new Map(Object.entries(v.origin ?? {}).map(([n, o]) => [Number(n), o])),
+		// Why a confirmed finding has no Origin, when it came from a replay on main.
+		originReason: new Map(Object.entries(v.originReason ?? {}).map(([n, r]) => [Number(n), r])),
 		bodyHtml: block(lines.slice(at + 1).join('\n')),
 	};
 }

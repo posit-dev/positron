@@ -54,6 +54,17 @@ export function buildShotsBaseUrl(reportBaseUrl) {
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
 }
 
+/**
+ * The job summary's path, removed from `env` so the agents' commands cannot
+ * write to it: a test an agent runs in CI (Vitest's GitHub reporter) would
+ * otherwise add its own report above the run's.
+ */
+export function takeStepSummary(env = process.env) {
+	const path = env.GITHUB_STEP_SUMMARY;
+	delete env.GITHUB_STEP_SUMMARY;
+	return path;
+}
+
 /** The value of env var `name`; a missing one stops the script, naming it. */
 export function mustEnv(name) {
 	const v = process.env[name];
@@ -316,11 +327,12 @@ export function renderGateSummary(testable, reason, note, cost) {
 
 /**
  * The per-severity breakdown ("2 moderate · 3 minor") of report.json's
- * findings. The total only shows when there is nothing to break down: no
+ * findings, less `demoted`, the numbers of the ones the page lists as known
+ * issues. The total only shows when there is nothing to break down: no
  * findings, or none with a severity.
  */
-function tallyFindings(report) {
-	const findings = report?.findings ?? [];
+function tallyFindings(report, demoted = []) {
+	const findings = (report?.findings ?? []).filter(f => !demoted.includes(f.n));
 	const findingCount = findings.length;
 	const severityCounts = { major: 0, moderate: 0, minor: 0 };
 	for (const f of findings) {
@@ -340,8 +352,8 @@ function tallyFindings(report) {
  * The job's step summary: a signpost with the verdict and a link to the run's page.
  * Without `baseUrl` (a local run or failed upload) it says where the report is instead of linking dead.
  */
-export function renderStepSummary(report, baseUrl) {
-	const tally = tallyFindings(report);
+export function renderStepSummary(report, baseUrl, demoted = []) {
+	const tally = tallyFindings(report, demoted);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -441,7 +453,7 @@ function autoRunNote(hasReport) {
  * never ran (the build failed first). `failure` is failedStep's answer for that
  * last case, so the comment names the step that broke and links its log.
  */
-export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null }) {
+export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
@@ -459,7 +471,7 @@ export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reaso
 		return comment(['Cancelled before the agent produced a report.', run]);
 	}
 	if (report && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
-		const lines = [tallyFindings(report)];
+		const lines = [tallyFindings(report, demoted)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);

@@ -31,6 +31,7 @@ import {
 import { IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
 // --- Start Positron ---
 import {
+    IActivatedEnvironmentLaunch,
     IComponentAdapter,
     IInterpreterDisplay,
     IInterpreterHelper,
@@ -45,6 +46,7 @@ import { MockAutoSelectionService } from '../mocks/autoSelector';
 import * as proposedApi from '../../client/environmentApi';
 import { createTypeMoq } from '../mocks/helper';
 import * as extapi from '../../client/envExt/api.internal';
+import * as legacyApi from '../../client/envExt/api.legacy';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -71,10 +73,15 @@ suite('Interpreters service', () => {
     let appShell: TypeMoq.IMock<IApplicationShell>;
     let reportActiveInterpreterChangedStub: sinon.SinonStub;
     let useEnvExtensionStub: sinon.SinonStub;
+    let workspacePersistedValues: Map<string, unknown>;
 
     setup(() => {
         useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
         useEnvExtensionStub.returns(false);
+        workspacePersistedValues = new Map<string, unknown>();
+        // Capture the store in a per-setup local so background resolutions leaked from earlier
+        // tests write into their own (now-unreferenced) map rather than the current test's map.
+        const persistedStore = workspacePersistedValues;
 
         const cont = new Container();
         serviceManager = new ServiceManager(cont);
@@ -114,6 +121,20 @@ suite('Interpreters service', () => {
             .returns(() => {
                 const state = {
                     updateValue: () => Promise.resolve(),
+                };
+                return state as any;
+            });
+        persistentStateFactory
+            .setup((p) => p.createWorkspacePersistentState(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .returns((stateKey: string, defaultValue: unknown) => {
+                const state = {
+                    get value() {
+                        return persistedStore.has(stateKey) ? persistedStore.get(stateKey) : defaultValue;
+                    },
+                    updateValue: (newValue: unknown) => {
+                        persistedStore.set(stateKey, newValue);
+                        return Promise.resolve();
+                    },
                 };
                 return state as any;
             });
@@ -394,4 +415,123 @@ suite('Interpreters service', () => {
         ]);
     });
     // --- End Positron ---
+
+    suite('getActiveInterpreter (non-blocking)', () => {
+        const pythonPath = path.join('usr', 'bin', 'python3');
+        let activatedEnvLaunch: TypeMoq.IMock<IActivatedEnvironmentLaunch>;
+
+        function delayed<T>(value: T, ms: number): Promise<T> {
+            return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+        }
+
+        setup(() => {
+            activatedEnvLaunch = createTypeMoq<IActivatedEnvironmentLaunch>();
+            activatedEnvLaunch
+                .setup((a) => a.selectIfLaunchedViaActivatedEnv(TypeMoq.It.isAny()))
+                .returns(() => Promise.resolve(pythonPath));
+            serviceManager.addSingletonInstance<IActivatedEnvironmentLaunch>(
+                IActivatedEnvironmentLaunch,
+                activatedEnvLaunch.object,
+            );
+            workspace.setup((w) => w.getWorkspaceFolderIdentifier(TypeMoq.It.isAny())).returns(() => 'key');
+        });
+
+        test('Returns the resolved interpreter when resolution is fast', async () => {
+            const env1 = { path: pythonPath } as any;
+            pyenvs.setup((p) => p.getInterpreterDetails(TypeMoq.It.isAny())).returns(() => Promise.resolve(env1));
+
+            const service = new InterpreterService(serviceContainer, pyenvs.object);
+            const result = await service.getActiveInterpreter(undefined);
+
+            expect(result).to.equal(env1);
+        });
+
+        // --- Start Positron ---
+        // Positron keeps getActiveInterpreter blocking: it starts console sessions from the
+        // result, so it must wait for the current interpreter. Upstream's tests for the
+        // timeout, last-known cache, in-flight de-duplication, and persisted fallback are
+        // replaced by the two tests below.
+        test('Waits for a slow resolution instead of serving the last-known interpreter', async () => {
+            const env1 = { path: pythonPath } as any;
+            const env2 = { path: path.join('usr', 'bin', 'other') } as any;
+            let count = 0;
+            pyenvs
+                .setup((p) => p.getInterpreterDetails(TypeMoq.It.isAny()))
+                .returns(() => {
+                    count += 1;
+                    return count === 1 ? Promise.resolve(env1) : delayed(env2, 300);
+                });
+
+            const service = new InterpreterService(serviceContainer, pyenvs.object);
+            expect(await service.getActiveInterpreter(undefined)).to.equal(env1);
+            expect(await service.getActiveInterpreter(undefined)).to.equal(env2);
+        });
+
+        test('Waits for a slow resolution on a cold start instead of returning undefined', async () => {
+            const env1 = { path: pythonPath } as any;
+            pyenvs.setup((p) => p.getInterpreterDetails(TypeMoq.It.isAny())).returns(() => delayed(env1, 300));
+
+            const service = new InterpreterService(serviceContainer, pyenvs.object);
+
+            expect(await service.getActiveInterpreter(undefined)).to.equal(env1);
+            expect(workspacePersistedValues.size).to.equal(0);
+        });
+        // --- End Positron ---
+
+        test('Exact-resource lookup bypasses workspace timeout and cached state', async () => {
+            const resource = Uri.file(path.resolve('script.py'));
+            const exact = { path: path.join('usr', 'bin', 'exact') } as any;
+            useEnvExtensionStub.returns(true);
+            const legacyLookup = sinon
+                .stub(legacyApi, 'getActiveInterpreterLegacy')
+                .callsFake(async () => delayed(exact, 200));
+
+            const service = new InterpreterService(serviceContainer, pyenvs.object);
+            const lookup = service.getActiveInterpreter(resource, { exactResource: true });
+            const timedOut = Symbol('timedOut');
+
+            expect(await Promise.race([lookup, delayed(timedOut, 150)])).to.equal(timedOut);
+            expect(await lookup).to.equal(exact);
+            sinon.assert.calledOnceWithExactly(legacyLookup, resource, {
+                reportActiveInterpreterChanged: false,
+            });
+            workspace.verify((w) => w.getWorkspaceFolderIdentifier(TypeMoq.It.isAny()), TypeMoq.Times.never());
+            expect(workspacePersistedValues.size).to.equal(0);
+        });
+    });
+
+    // --- Start Positron ---
+    // Upstream re-runs _onConfigChanged on every python settings change. Positron doesn't:
+    // with no scope it defaults to startSession: true and could start a console session.
+    // test('A configuration change re-runs the config change handler to report a background selection', async () => {
+    test('A configuration change does not re-run the config change handler', async () => {
+        // --- End Positron ---
+        const service = new InterpreterService(serviceContainer, pyenvs.object);
+        const documentManager = createTypeMoq<IDocumentManager>();
+        documentManager
+            .setup((d) => d.onDidChangeActiveTextEditor(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+            .returns(() => ({ dispose: noop }));
+        serviceManager.addSingletonInstance(IDocumentManager, documentManager.object);
+
+        const configChangeHandlers: Array<(e: unknown) => unknown> = [];
+        configService
+            .setup((c) => c.onDidChange(TypeMoq.It.isAny()))
+            .returns((cb) => {
+                configChangeHandlers.push(cb);
+                return { dispose: noop };
+            });
+
+        const onConfigChangedStub = sinon.stub(service, '_onConfigChanged').resolves();
+
+        service.initialize();
+
+        for (const handler of configChangeHandlers) {
+            // eslint-disable-next-line no-await-in-loop
+            await handler(undefined);
+        }
+        // --- Start Positron ---
+        // sinon.assert.calledOnce(onConfigChangedStub);
+        sinon.assert.notCalled(onConfigChangedStub);
+        // --- End Positron ---
+    });
 });

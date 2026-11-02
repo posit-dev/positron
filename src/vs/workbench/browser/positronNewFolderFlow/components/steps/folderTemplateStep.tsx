@@ -12,7 +12,7 @@ import { PropsWithChildren, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { FolderTemplateGroup } from '../folderTemplateGroup.js';
-import { checkFolderName } from '../../utilities/folderNameUtils.js';
+import { checkFolderName, getUniqueFolderName } from '../../utilities/folderNameUtils.js';
 import { useNewFolderFlowContext } from '../../newFolderFlowContext.js';
 import { NewFolderFlowStep } from '../../interfaces/newFolderFlowEnums.js';
 import { NewFolderFlowStepProps } from '../../interfaces/newFolderFlowStepProps.js';
@@ -58,7 +58,12 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 			context.folderTemplate !== selectedTemplateType ||
 			context.folderName === ''
 		) {
-			const defaultFolderName = getDefaultFolderName(selectedTemplateType);
+			// If the default folder name already exists, use a unique variant of it instead.
+			const defaultFolderName = await getUniqueFolderName(
+				getDefaultFolderName(selectedTemplateType),
+				context.parentFolder,
+				context.services.fileService
+			);
 			context.folderTemplate = selectedTemplateType;
 			context.folderName = defaultFolderName;
 			context.folderNameFeedback = await checkFolderName(

@@ -36,9 +36,9 @@ export interface DatabricksOktaSignInOptions {
 	/** Prefix for log lines, so interleaved shards stay readable (e.g. 'Workbench'). */
 	label: string;
 	/**
-	 * Which Okta account signs in. Defaults to the shared IDE service account (TOTP), which
-	 * Workbench's managed-credentials pages still use; the Positron suites pass the Positron
-	 * service account, whose passkey second factor cannot collide across parallel jobs.
+	 * Which Okta account signs in. Defaults to the shared IDE service account (TOTP). Every
+	 * current caller passes the Positron service account, whose passkey second factor cannot
+	 * collide across parallel jobs.
 	 */
 	credentials?: OktaCredentials;
 }

@@ -103,6 +103,54 @@ else
 	CANDIDATES=$(echo "$CANDIDATES" | grep -viE 'update-extension-' || true)
 fi
 
+# Drop candidates that an open Positron PR is already porting, so a new pull
+# doesn't sweep them in too. A PR counts as porting a candidate if its branch
+# name matches the upstream branch (update-extension-* bot PRs reuse it), or its
+# title/body mentions the upstream PR number or merge SHA. The "Considered but
+# not included" section of other upstream-merge PRs is ignored, since it names
+# PRs that were left out. The current branch's own PR is skipped.
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+OPEN_PRS=$(gh pr list --repo posit-dev/positron --state open --limit 300 \
+	--json number,title,headRefName,body 2>/dev/null || true)
+
+IN_FLIGHT=""
+if [ -z "$OPEN_PRS" ]; then
+	echo ""
+	echo "WARNING: couldn't list open Positron PRs (is gh logged in?). Check by hand"
+	echo "for open PRs already porting any of the candidates below."
+elif [ -n "$CANDIDATES" ]; then
+	REMAINING=""
+	while IFS= read -r line; do
+		sha=${line%% *}
+		num=$(echo "$line" | grep -oE --color=never 'pull request #[0-9]+' | grep -oE --color=never '[0-9]+' || true)
+		branch=$(echo "$line" | sed -nE 's#.* from rstudio/(.*)$#\1#p')
+		match=$(echo "$OPEN_PRS" | jq -r --arg n "$num" --arg b "$branch" \
+			--arg sha "${sha:0:7}" --arg cur "$CURRENT_BRANCH" '
+			.[] | select(.headRefName != $cur)
+			| ((.title + "\n" + (.body // "")) | split("Considered but not included")[0]) as $text
+			| select(
+				($b != "" and .headRefName == $b)
+				or ($n != "" and ($text | test("vscode-server(#|/pull/)" + $n + "\\b")))
+				or ($text | contains($sha)))
+			| "posit-dev/positron#\(.number) (\(.title))"' | head -1)
+		if [ -n "$match" ]; then
+			IN_FLIGHT="${IN_FLIGHT}${line}"$'\n'"    -> already in flight: ${match}"$'\n'
+		else
+			REMAINING="${REMAINING}${line}"$'\n'
+		fi
+	done <<< "$CANDIDATES"
+	CANDIDATES=$(printf '%s' "$REMAINING")
+fi
+
+echo ""
+echo "Already being ported by an open Positron PR (leave these out):"
+echo "=============================================================="
+if [ -n "$IN_FLIGHT" ]; then
+	printf '%s' "$IN_FLIGHT"
+else
+	echo "(none)"
+fi
+
 echo ""
 echo "Candidate merges to triage since ${BASELINE}:"
 echo "============================================="

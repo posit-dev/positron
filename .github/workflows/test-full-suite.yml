@@ -380,7 +380,7 @@ jobs:
   # carries it.
   e2e-workbench-rocky:
     name: e2e
-    needs: [build-workbench, e2e-workbench]
+    needs: [build-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
@@ -400,7 +400,7 @@ jobs:
   # which is why there is no separate condition for it here.
   e2e-workbench-suse:
     name: e2e
-    needs: [build-workbench, e2e-workbench-rocky]
+    needs: [build-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
@@ -413,9 +413,11 @@ jobs:
       upload_logs: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
+  # Behind the workbench lane: both run the azure shard, whose TOTP sign-in
+  # collides with itself when two lanes run it at once.
   e2e-workbench-stable:
     name: e2e
-    needs: [build-workbench, e2e-workbench-suse]
+    needs: [build-workbench, e2e-workbench]
     if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit

@@ -32,7 +32,7 @@ you expected one to be there, force a rescan with
 before concluding it's missing.
 
 Each entry's `runtimeId` is the internal id you pass to
-`workbench.action.language.runtime.startNewConsoleSession` (see
+`positron.languageRuntime.startNewAgentConsoleSession` (see
 [sessions.md]({{skill_dir}}/references/sessions.md)) to start a session for that
 interpreter. It appears nowhere in the Positron UI, so use it to make the call
 but never show it to the user -- refer to the interpreter by name.

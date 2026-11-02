@@ -12,7 +12,7 @@ import { IRuntimeStartupService, PreferredRuntimeReason } from '../../../../serv
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
-import { DiscoverAllRuntimesAction, DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DiscoverAllRuntimesAction, DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguage, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, startNewConsoleSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -1566,7 +1566,27 @@ describe('StartNewConsoleSessionAction', () => {
 			{ id: SessionStartReasonId.NewConsoleCommand },
 			RuntimeStartMode.Starting,
 			true,
-			{ userSelected: false }
+			{ userSelected: false, owner: 'user' }
+		);
+	});
+
+	it('starts a session the agent owns without taking focus when an agent runs it', async () => {
+		registerRuntime('py-1', 'Python 3.12 (System)');
+
+		await ctx.instantiationService.invokeFunction(accessor =>
+			startNewConsoleSession(accessor, 'py-1', 'agent', false));
+
+		expect(executeCommand).not.toHaveBeenCalled();
+
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'py-1',
+			'Python 3.12 (System)',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			{ id: SessionStartReasonId.ExtensionStartedAgentSession },
+			RuntimeStartMode.Starting,
+			true,
+			{ userSelected: false, owner: 'agent' }
 		);
 	});
 
@@ -1598,7 +1618,7 @@ describe('StartNewConsoleSessionAction', () => {
 			{ id: SessionStartReasonId.UserSelectedRuntime },
 			RuntimeStartMode.Starting,
 			true,
-			{ userSelected: true }
+			{ userSelected: true, owner: 'user' }
 		);
 	});
 

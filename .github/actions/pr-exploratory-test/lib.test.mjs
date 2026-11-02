@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -178,6 +178,13 @@ test('renderStepSummary says so when there is nothing to report', () => {
 	assert.match(renderStepSummary({ findings: [] }, 'https://cdn.example/run'), /\*\*No findings\*\*/);
 });
 
+test('renderStepSummary leaves out the findings the page lists as known issues', () => {
+	// Findings 1 and 4 matched an open issue and fail on main too, so the page shows three.
+	const summary = renderStepSummary(SUMMARY, 'https://cdn.example/run', [1, 4]);
+	assert.match(summary, /^\*\*2 moderate \u00b7 1 minor\*\*$/m);
+	assert.match(renderStepSummary({ findings: [finding(1, 'major')] }, 'https://cdn.example/run', [1]), /\*\*No findings\*\*/);
+});
+
 test('renderStepSummary points at the artifact when nothing was published', () => {
 	const summary = renderStepSummary(SUMMARY, '');
 	// A dead link is worse than no link.
@@ -254,6 +261,11 @@ test('turnCapWarning warns from 80% of the cap up to, but not at, the cap', () =
 
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
+
+test('renderPrComment counts the findings the page shows, not the ones it lists as known issues', () => {
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, demoted: [2, 3], baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /^1 major \u00b7 2 minor$/m);
+});
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
 	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
@@ -583,4 +595,11 @@ test('buildTaskLine targets Positron on top of an upstream merge, unless a focus
 	const upstream = { from: '1.134.0', to: '1.138.0' };
 	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
 	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
+});
+
+test('takeStepSummary keeps the job summary for the run and hides it from the agents', () => {
+	const env = { GITHUB_STEP_SUMMARY: '/runner/summary.md', PATH: '/bin' };
+	assert.equal(takeStepSummary(env), '/runner/summary.md');
+	assert.deepEqual(env, { PATH: '/bin' }, 'a test an agent runs (Vitest\'s GitHub reporter) cannot write to the job summary');
+	assert.equal(takeStepSummary({}), undefined);
 });
