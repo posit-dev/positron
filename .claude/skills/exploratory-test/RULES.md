@@ -170,15 +170,15 @@ Then update the rule's row here in the same PR.
 
 ## What this shows
 
-There are 88 rules: 68 for the explorer and 20 for the verifier.
+There are 93 rules: 72 for the explorer and 21 for the verifier.
 
-For the explorer, lint, the pipeline or publishing catches 36 rules when
+For the explorer, lint, the pipeline or publishing catches 40 rules when
 they're broken. For 7 more, only the verifier notices, which adds
 a note to the finding but sends nothing back. The other 25 have nothing behind
-them but the prompt. For 14, no PR or commit says why they exist.
+them but the prompt. For 13, no PR or commit says why they exist.
 
-The later agents are checked less than the explorer. Code checks few of the
-verifier's rules from its reply, but they are the most measured: the
+Code checks 12 of the verifier's 21 rules from its reply, about the same
+share as the explorer's, and they are the most measured: the
 2026-10-14 plant test put one false claim in each copy of 8 saved runs and
 counted what the verifier flagged. On v1.67 it flagged 89 of 116, strongest
 on the code (every wrong cause and false origin) and weakest on setup (4 of
