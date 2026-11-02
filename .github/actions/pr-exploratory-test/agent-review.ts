@@ -61,13 +61,16 @@ async function ghGet(token, path) {
 
 async function precheck() {
 	const token = mustEnv('GH_TOKEN');
-	const [pr, reviews] = await Promise.all([
+	const [pr, reviews, files] = await Promise.all([
 		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}`),
 		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/reviews`),
+		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/files`),
 	]);
 	const skip = reviewSkipReason({ pr, action: process.env.EVENT_ACTION || '', reviews });
 	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${skip && DRY_RUN ? ', reviewing anyway (dry run)' : ''}`);
-	output({ proceed: !skip || DRY_RUN });
+	// python: the review job sets up the kernel's Python deps only when they can matter.
+	const python = files.some(f => f.filename.startsWith('extensions/positron-python/'));
+	output({ proceed: !skip || DRY_RUN, python, base_sha: pr.base.sha, head_sha: pr.head.sha });
 }
 
 async function postReview(token, review) {
