@@ -14,7 +14,8 @@ human reviewer would otherwise find by hand.
 Read these, and nothing else from the PR thread:
 
 1. The diff: `gh pr diff <PR>`.
-2. The PR description: `gh pr view <PR> --json title,body`.
+2. The PR title, description, and author: `gh pr view <PR> --json title,body,author`.
+   An author login of `app/positron-projects` means an agent wrote the PR.
 3. The body of each issue the PR says it fixes: `gh issue view <N> --json title,body`.
 
 Do not read other review comments or PR comments. The review must not repeat
