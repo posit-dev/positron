@@ -64,26 +64,17 @@ jobs:
           npm install --prefix build --fetch-timeout 120000
           npm ci --fetch-timeout 120000
 
-      - name: Replace default license key with test key
-        env:
-          LICENSE_KEY: ${{ secrets.POSITRON_WORKBENCH_LICENSE_KEY }}
-        run: |
-          # Create a temporary file with the license key from the secret
-          echo "$LICENSE_KEY" > /tmp/positron-workbench-license.pub
-
-          # Use the replace-license script to update the license key
-          ./scripts/replace-license.sh src/vs/server/node/remoteLicenseKey.ts /tmp/positron-workbench-license.pub
-
-          # Clean up
-          rm -f /tmp/positron-workbench-license.pub
+      - name: Download compiled core
+        uses: actions/download-artifact@v8
+        with:
+          name: positron-compilation
 
       - name: Build Positron Workbench
         env:
           npm_config_arch: x64
-          MANGLER_WORKER_POOL_SIZE: 1
         run: |
-          # In-process TypeScript compile needs more than the 8 GB `npm run gulp` heap (#16869).
-          node --experimental-strip-types --max-old-space-size=10240 ./node_modules/gulp/bin/gulp.js vscode-reh-web-pwb-linux-x64
+          tar xzf positron-compilation.tar.gz
+          npm run gulp -- --series compile-extensions-build copy-extension-binaries compile-copilot-extension-build compile-extension-media-build vscode-reh-web-pwb-linux-x64-min-ci
 
       - name: Package workbench tar.gz
         run: |

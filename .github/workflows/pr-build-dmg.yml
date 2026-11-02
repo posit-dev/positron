@@ -13,10 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-dmg:
-    name: Build macOS DMG for PR
-    runs-on: macos-latest-xlarge
-    timeout-minutes: 180
+  pr:
+    name: Get PR details
+    runs-on: ubuntu-latest
     # Only run for PR comments (not issue comments) that contain /dmg
     # And only allow trusted users (org members, collaborators, repo owners)
     if: |
@@ -28,10 +27,11 @@ jobs:
 
     permissions:
       contents: read
-      packages: read
+      pull-requests: read
 
     outputs:
-      pr-sha: ${{ steps.pr.outputs.sha }}
+      sha: ${{ steps.pr.outputs.sha }}
+      repo: ${{ steps.pr.outputs.repo }}
 
     steps:
       - name: Get PR details
@@ -39,17 +39,40 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get PR information
           PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
           echo "sha=$(echo "$PR_DATA" | jq -r .head.sha)" >> $GITHUB_OUTPUT
-          echo "ref=$(echo "$PR_DATA" | jq -r .head.ref)" >> $GITHUB_OUTPUT
           echo "repo=$(echo "$PR_DATA" | jq -r .head.repo.full_name)" >> $GITHUB_OUTPUT
 
-      - name: Checkout PR branch
+  # The core compile runs on Linux, as positron-builds does for the macOS
+  # release, and the macOS job only packages the bundles (#17013).
+  compile:
+    name: build
+    needs: pr
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/build-compile-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ needs.pr.outputs.sha }}
+      repository: ${{ needs.pr.outputs.repo }}
+
+  build-dmg:
+    name: Build macOS DMG for PR
+    needs: [pr, compile]
+    runs-on: macos-latest-xlarge
+    timeout-minutes: 180
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout PR commit
         uses: actions/checkout@v7
         with:
-          repository: ${{ steps.pr.outputs.repo }}
-          ref: ${{ steps.pr.outputs.ref }}
+          repository: ${{ needs.pr.outputs.repo }}
+          ref: ${{ needs.pr.outputs.sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -68,11 +91,17 @@ jobs:
           npm install --prefix build --fetch-timeout 120000
           npm ci --fetch-timeout 120000
 
+      - name: Download compiled core
+        uses: actions/download-artifact@v8
+        with:
+          name: positron-compilation
+
       - name: Build Positron
         env:
           npm_config_arch: arm64
         run: |
-          npm run gulp vscode-darwin-arm64
+          tar xzf positron-compilation.tar.gz
+          npm run gulp -- --series compile-extensions-build copy-extension-binaries compile-copilot-extension-build compile-extension-media-build vscode-darwin-arm64-min-ci
 
       - name: Create DMG
         run: |
@@ -146,7 +175,7 @@ jobs:
   post-result-comment:
     name: Post build result comment
     runs-on: ubuntu-latest
-    needs: build-dmg
+    needs: [pr, compile, build-dmg]
     if: always()
 
     permissions:
@@ -162,7 +191,7 @@ jobs:
           gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
             -F body="✅ macOS DMG build completed successfully!
 
-          **Commit:** ${{ needs.build-dmg.outputs.pr-sha }}
+          **Commit:** ${{ needs.pr.outputs.sha }}
           **Artifact:** \`positron-pr-${{ github.event.issue.number }}-macos-arm64-dmg\`
 
           📦 [Download DMG](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -175,7 +204,7 @@ jobs:
           \`\`\`"
 
       - name: Post failure comment
-        if: needs.build-dmg.result == 'failure'
+        if: needs.compile.result == 'failure' || needs.build-dmg.result == 'failure'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

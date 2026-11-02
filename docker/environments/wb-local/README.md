@@ -127,9 +127,10 @@ npm run pwb -- --positron-build=path/to/positron-workbench-linux-x64-branch.tar.
 
 Workbench runs a separate flavor of Positron, the `vscode-reh-web-pwb-linux-<arch>`
 build, which has to be built on Linux. It also needs Workbench's license key
-swapped in, or Workbench rejects it and every session exits at startup. The CI
-workflow `build-workbench-linux.yml` does both, so the easy way to get a build of
-a branch is to let CI make it. Either:
+swapped in, or Workbench rejects it and every session exits at startup. CI does
+both: the `build-compile-linux.yml` workflow swaps the key in and compiles the
+core, and `build-workbench-linux.yml` packages the build. So the easy way to get
+a build of a branch is to let CI make it. Either:
 
 - put `@:workbench` in a PR's description, and every push builds it, along with
   running that lane's e2e tests, or
