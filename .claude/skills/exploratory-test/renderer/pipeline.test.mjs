@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, MAIN_REPLAY_MINUTES, sessionName, replayMinutes, withMainReplay } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, recordBranchCheck, REFORMAT_MESSAGE, MAIN_REPLAY_MINUTES, sessionName, replayMinutes, withMainReplay } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -83,48 +83,11 @@ test('a clean verify is the only agent, and it is recorded', async () => {
 	]);
 });
 
-test('an UNRESOLVED verdict is isolated, then the verifier revises in the same session', async () => {
-	const run = await runWith(REPORT, {
-		verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.'),
-		isolate: (step, dir) => {
-			assert.equal(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).verification, undefined, 'nothing is applied before the revision');
-			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
-			return 'done';
-		},
-		revise: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]),
-	});
-	assert.deepEqual(run.purposes, ['verify', 'isolate', 'revise']);
-	const [, isolate, revise] = run.steps;
-	assert.equal(isolate.timeLimitMinutes, ISOLATE_MINUTES);
-	assert.equal(isolate.timeUpMessage, isolateTimeUpMessage(run.dir));
-	assert.match(isolate.prompt, /^You are narrowing down the cause/);
-	assert.match(isolate.prompt, /Checkout: `\/repo`\nBase: `aaaa1111`\nHead: `bbbb2222`\nReport: `[^`]*\/report\.json`\nPlaywright session: `et-[^`]+-iso`\nFindings: Finding 2\n/);
-	assert.match(isolate.prompt, /needs the same steps with the setting off/);
-	assert.deepEqual({ resume: revise.resume, prompt: revise.prompt }, { resume: 'verify-session', prompt: reviseMessage(run.dir) });
-	assert.equal(run.stops, 2, 'the isolator\'s instances are stopped too');
-	assert.equal(run.report.findings[1].verified, 'confirmed');
-	assert.deepEqual(costPasses({ model: 'opus', durationMs: 60000, turns: 40, costUsd: null }, run.passes), [
-		{ label: 'explore', model: 'opus', costUsd: null, turns: 40, durationMs: 60000 },
-		{ label: 'verify', model: 'opus', costUsd: 1, turns: 4, durationMs: 2000 },
-		// The isolator keeps its own model.
-		{ label: 'isolate', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
-	]);
-});
-
-test('an isolator that writes nothing, or a revision that fails, keeps the first verdicts', async () => {
-	const unresolved = () => verdicts([[1, 'confirmed'], [2, 'unresolved']]);
-	const silent = await runWith(REPORT, { verify: unresolved, isolate: () => '' });
-	assert.deepEqual(silent.purposes, ['verify', 'isolate']);
-	assert.equal(silent.report.findings[1].verified, 'unresolved');
-	assert.ok(silent.logs.includes('the isolator wrote no isolation.md; applying the verifier\'s first reply'));
-	const crashed = await runWith(REPORT, {
-		verify: unresolved,
-		isolate: (step, dir) => { writeFileSync(join(dir, 'isolation.md'), 'x'); return ''; },
-		revise: fail('the session crashed'),
-	});
-	assert.deepEqual(crashed.purposes, ['verify', 'isolate', 'revise']);
-	assert.equal(crashed.report.findings[1].verified, 'unresolved');
-	assert.ok(crashed.logs.includes('the verify agent failed: the session crashed'));
+test('an UNRESOLVED verdict is applied as given, with no other agent', async () => {
+	const run = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.') });
+	assert.deepEqual(run.purposes, ['verify']);
+	assert.equal(run.stops, 1);
+	assert.equal(run.report.findings[1].verified, 'unresolved');
 });
 
 test('verdicts keyed to the wrong numbers get one retry, then mark the findings unreviewed', async () => {
@@ -164,17 +127,11 @@ test('with verify off no agent runs; with it on it needs the diff range', async 
 	await assert.rejects(runWith(REPORT, {}, { repo: undefined }), /verifying needs --repo, --base and --head/);
 });
 
-test('the verdicts and the isolation\'s revision land in report.json, and the page shows them with the explorer\'s summary', async () => {
+test('the verdicts land in report.json, and the page shows them with the explorer\'s summary', async () => {
 	const report = { ...REPORT, findings: [{ ...REPORT.findings[0], summary: 'It broke.' }, REPORT.findings[1]] };
 	const run = await runWith(report, {
-		verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.'),
-		isolate: (step, dir) => {
-			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
-			return 'done';
-		},
-		revise: () => verdicts([[1, 'confirmed', { known: [15102], origin: 'exposed' }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
+		verify: () => verdicts([[1, 'confirmed', { known: [15102], origin: 'exposed' }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
 	});
-	assert.match(run.steps[1].prompt, /Report: `[^`]*\/report\.json`/);
 	const page = reportFromJson(run.report);
 	assert.deepEqual({
 		leadHtml: page.leadHtml,
@@ -196,12 +153,10 @@ test('the verdicts and the isolation\'s revision land in report.json, and the pa
 test('costPasses sums each later role over its sessions, after the explorer', () => {
 	assert.deepEqual(costPasses({ model: 'opus', durationMs: 60000, turns: 40, costUsd: 3 }, [
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
-		{ role: 'isolate', model: 'sonnet', durationMs: 500, turns: null, costUsd: null },
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },
 	]), [
 		{ label: 'explore', model: 'opus', costUsd: 3, turns: 40, durationMs: 60000 },
 		{ label: 'verify', model: 'sonnet', costUsd: 1, turns: 4, durationMs: 2000 },
-		{ label: 'isolate', model: 'sonnet', costUsd: null, turns: null, durationMs: 500 },
 	]);
 });
 
