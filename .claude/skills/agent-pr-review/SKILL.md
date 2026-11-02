@@ -69,6 +69,10 @@ Each problem has:
 Put judgment calls (question 7) in a separate list, each with a short title
 and one or two sentences. Do not decide them.
 
+Write titles and bodies in plain English: short sentences, active voice,
+simple words, and no em-dashes. Name code with its exact identifier in
+backticks.
+
 Never approve and never request changes. Never write `@` before a name.
 
 If the caller gives a JSON schema, return the result only in that schema.
