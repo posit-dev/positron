@@ -33,7 +33,7 @@ or lean on what others already said.
 ## The checklist
 
 1. Coverage: Does the fix cover every case in the issue, including unusual input (empty, null, array-like, dates, special characters, custom formatting) and every backend or code path that has the same bug?
-2. Tests: Would each new test fail if the fix were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? The fixing agent must run each new test and see it fail, commit it before the fix, and list the run in the PR body. Check the commits with `gh pr view <PR> --json commits`. Report it if the PR body shows no failing run, or if the test is in the same commit as the fix.
+2. Tests: Would each new test fail if the fix were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? Report it only if the PR body neither shows the new test failing before the fix nor says the test could not run.
 3. Duplication: Is the same logic now in more than one place, or does a helper already exist? Are there sibling code paths (filters, other handlers) with the same bug that a shared helper would fix?
 4. State: After an error, retry, refresh, empty result, or leaving the view, can a flag, message, or resource stay stale or leak?
 5. Cost: Does the code make a full copy of a column, array, or file only to compute something small? Does it do work on every row or keystroke that scales badly?
