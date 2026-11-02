@@ -351,7 +351,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	private async lookUpPinnedR(pin: DefaultInterpreter | undefined): Promise<RInstallation | undefined> {
 		const definitionsOnly = isDefinitionsOnlyDiscovery();
 		if (pin?.kind === 'module') {
-			return definitionsOnly ? undefined : this.lookUpModulePinnedR(pin.module);
+			if (definitionsOnly) {
+				LOGGER.info(`[pinnedRInstallation] Ignoring module '${pin.module}' from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' because discovery is limited to interpreters.definitions`);
+				return undefined;
+			}
+			return this.lookUpModulePinnedR(pin.module);
 		}
 		return choosePinnedR<RInstallation, PackagerMetadata>({
 			definitionsOnly,
