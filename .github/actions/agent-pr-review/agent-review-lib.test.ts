@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isSameRepoHead, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
+import { findPrCommit, isSameRepoHead, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
 
 const finding = (over = {}) => ({ title: 'Same bug in a sibling path', path: 'src/dir/a.ts', line: 11, confidence: 'high', body: 'Misses empty input.', ...over });
 const decision = (over = {}) => ({ title: 'Nulls in the unique count', body: 'Polars counts null, pandas does not.', ...over });
@@ -77,4 +77,13 @@ test('renderReview omits an empty section and words the count to match', () => {
 test('renderReview breaks every @ mention', () => {
 	const body = renderReview({ findings: [finding({ title: 'ask @claude', body: 'cc @juliasilge' })], human_calls: [decision({ body: 'ping @someone' })] }, ctx);
 	assert.doesNotMatch(body, /@claude|@juliasilge|@someone/);
+});
+
+test('findPrCommit resolves a short SHA only to a commit on the PR', () => {
+	const commits = [{ sha: '0a0020fa0d1111111111111111111111111111aa' }, { sha: '0b0020fa0d2222222222222222222222222222bb' }];
+	assert.equal(findPrCommit(commits, '0a0020fa0d'), commits[0].sha);
+	assert.equal(findPrCommit(commits, commits[1].sha), commits[1].sha);
+	assert.equal(findPrCommit(commits, 'ffffffff'), null);
+	assert.equal(findPrCommit(commits, '0a00'), null);
+	assert.equal(findPrCommit(commits, '0a0020fa0d; rm'), null);
 });

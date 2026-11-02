@@ -7,15 +7,17 @@
 //   precheck  skips closed, draft and already-reviewed PRs
 //   post      renders the model's JSON and posts one COMMENT review
 // DRY_RUN=true reviews a PR precheck would skip, and writes the review to the
-// step summary instead of posting it.
+// step summary instead of posting it. REVIEW_SHA (dry run only) reviews an
+// earlier commit of the PR instead of its head.
 
 import { appendFileSync } from 'node:fs';
-import { isSameRepoHead, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
+import { findPrCommit, isSameRepoHead, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
 const PR_NUMBER = mustEnv('PR_NUMBER');
 const DRY_RUN = process.env.DRY_RUN === 'true';
+const REVIEW_SHA = process.env.REVIEW_SHA ?? '';
 
 function mustEnv(name) {
 	const v = process.env[name];
@@ -73,7 +75,18 @@ async function precheck() {
 	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${skip && proceed ? ', reviewing anyway (dry run)' : ''}`);
 	// python: the review job sets up the kernel's Python deps only when they can matter.
 	const python = files.some(f => f.filename.startsWith('extensions/positron-python/'));
-	output({ proceed, python, head_sha: pr.head.sha });
+	let headSha = pr.head.sha;
+	if (REVIEW_SHA) {
+		if (!DRY_RUN) {
+			throw new Error('a commit other than the head can only be reviewed on a dry run');
+		}
+		headSha = findPrCommit(await ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/commits`), REVIEW_SHA);
+		if (!headSha) {
+			throw new Error(`${REVIEW_SHA} is not a commit on PR #${PR_NUMBER}`);
+		}
+		summary(`Reviewing ${headSha} instead of the head.`);
+	}
+	output({ proceed, python, head_sha: headSha, base_sha: pr.base.sha });
 }
 
 async function post() {

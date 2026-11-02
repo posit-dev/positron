@@ -74,6 +74,17 @@ export function reviewSkipReason({ pr, action, reviews }) {
 	return null;
 }
 
+/**
+ * The full SHA of the PR commit that `sha` (7 to 40 hex characters) names, or
+ * null. Only the PR's own commits can be reviewed in place of its head.
+ */
+export function findPrCommit(commits, sha) {
+	if (!/^[0-9a-f]{7,40}$/.test(sha)) {
+		return null;
+	}
+	return commits.find(c => c.sha.startsWith(sha))?.sha ?? null;
+}
+
 /** Zero-width space after @ so a handle the model wrote pings nobody. */
 function defuse(text) {
 	return String(text).replace(/@(?=[\w-])/g, '@\u200b');
