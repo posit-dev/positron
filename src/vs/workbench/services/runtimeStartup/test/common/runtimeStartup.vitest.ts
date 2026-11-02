@@ -2165,14 +2165,23 @@ describe('RuntimeStartupService - console in front', () => {
 		};
 	}
 
-	/** Creates the service, with `bringToFront` standing in for the session service's event. */
+	/** Creates the service, with `bringToFront` standing in for the session service's front console. */
 	function createService() {
 		const foreground = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
 		// The container is rebuilt for each test, so this doesn't leak.
-		Object.defineProperty(ctx.get(IRuntimeSessionService), 'onDidChangeForegroundSession', { value: foreground.event });
+		Object.defineProperty(runtimeSessionService, 'onDidChangeForegroundSession', { value: foreground.event });
+		let inFront: ILanguageRuntimeSession | undefined;
+		vi.spyOn(runtimeSessionService, 'foregroundSession', 'get').mockImplementation(() => inFront);
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
-		return { svc, bringToFront: (c: IConsole) => foreground.fire(c.session) };
+		return {
+			svc,
+			bringToFront: (c: IConsole) => {
+				inFront = c.session;
+				foreground.fire(c.session);
+			},
+		};
 	}
 
 	it('does not save a console ended by exit() as the last used runtime when it comes back to the front', () => {
@@ -2206,7 +2215,7 @@ describe('RuntimeStartupService - console in front', () => {
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
 	});
 
-	it('saves a console ended by exit() again once it is restarted', () => {
+	it('saves a console ended by exit() once it is restarted in front', () => {
 		const { svc, bringToFront } = createService();
 		const uvConsole = createConsole(uv, 'session-uv');
 		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
@@ -2214,9 +2223,11 @@ describe('RuntimeStartupService - console in front', () => {
 		bringToFront(uvConsole);
 		uvConsole.setState(RuntimeState.Exited);
 		bringToFront(pyenvConsole);
+		// Click the exited uv tab, then restart it. It is already in front, so
+		// nothing comes to the front.
+		bringToFront(uvConsole);
 		uvConsole.setState(RuntimeState.Starting);
 		uvConsole.setState(RuntimeState.Ready);
-		bringToFront(uvConsole);
 
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
 	});

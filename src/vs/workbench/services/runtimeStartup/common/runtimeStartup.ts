@@ -1152,12 +1152,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		this.listenToForegroundSessionState(session);
+
 		// A console ended by `exit()` comes back to the front when another
 		// console is deleted, or its tab is clicked. That isn't using it.
-		if (session.getRuntimeState() === RuntimeState.Exited) {
-			return;
+		if (session.getRuntimeState() !== RuntimeState.Exited) {
+			this.saveForegroundAffiliation(session);
 		}
+	}
 
+	/**
+	 * Saves the console in front as the affiliated runtime for the workspace.
+	 */
+	private saveForegroundAffiliation(session: ILanguageRuntimeSession): void {
 		// Get the previous affiliation, if any, to preserve the start time.
 		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
 		const lastStarted =
@@ -1165,22 +1172,37 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				oldAffiliation.lastStarted :
 				Date.now();
 
-		// Save this runtime as the affiliated runtime for the current workspace.
-		const affiliated: IAffiliatedRuntimeMetadata = {
+		this.saveAffiliatedRuntime({
 			metadata: session.runtimeMetadata,
 			lastUsed: Date.now(),
 			lastStarted
-		};
-		this.saveAffiliatedRuntime(affiliated);
+		});
+	}
 
-		// If the runtime is exiting, remove the affiliation if it enters the
-		// `Exiting` state. This state only occurs when the runtime is manually
-		// shut down, so may represent a user's intent to stop using the runtime
-		// for this workspace.
+	/**
+	 * Listens to the state of a session that came to the front, once per session.
+	 */
+	private listenToForegroundSessionState(session: ILanguageRuntimeSession): void {
 		if (this._foregroundSessionStateListeners.has(session.sessionId)) {
 			return;
 		}
+		let exited = session.getRuntimeState() === RuntimeState.Exited;
 		this._foregroundSessionStateListeners.set(session.sessionId, session.onDidChangeRuntimeState((newState) => {
+			// A console restarted after it exited doesn't come to the front
+			// again if it is already in front, so save it here.
+			if (newState === RuntimeState.Exited) {
+				exited = true;
+			} else if (newState === RuntimeState.Ready && exited) {
+				exited = false;
+				if (this._runtimeSessionService.foregroundSession?.sessionId === session.sessionId) {
+					this.saveForegroundAffiliation(session);
+				}
+			}
+
+			// If the runtime is exiting, remove the affiliation if it enters the
+			// `Exiting` state. This state only occurs when the runtime is manually
+			// shut down, so may represent a user's intent to stop using the runtime
+			// for this workspace.
 			if (newState === RuntimeState.Exiting) {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
