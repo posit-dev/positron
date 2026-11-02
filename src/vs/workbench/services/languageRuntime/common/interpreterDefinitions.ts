@@ -79,6 +79,13 @@ export function isSameInterpreterPath(a: string, b: string): boolean {
 }
 
 /**
+ * Get the valid definitions for a language, in the order of the setting.
+ */
+export function getLanguageDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string): IInterpreterDefinition[] {
+	return validDefinitions(definitions).filter(d => d.language === languageId);
+}
+
+/**
  * Get the definitions that apply to a runtime (same language, same path).
  */
 export function getMatchingDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, runtime: ILanguageRuntimeMetadata): IInterpreterDefinition[] {

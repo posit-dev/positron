@@ -285,6 +285,23 @@ function pinnedMetadata(runtimeId: string, overrides: Partial<ILanguageRuntimeMe
 	return metadata as unknown as positron.LanguageRuntimeMetadata;
 }
 
+class DeferringManager extends mock<positron.LanguageRuntimeManager>() {
+	constructor(override readonly defersToFirstDefinition?: boolean) { super(); }
+}
+
+describe('ExtHostLanguageRuntime - $getLanguagesDeferringToFirstDefinition', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	it('lists the languages whose manager sets defersToFirstDefinition', async () => {
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(createMockShape()), new NullLogService());
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', new DeferringManager(true)));
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'python', new DeferringManager()));
+
+		expect(await runtime.$getLanguagesDeferringToFirstDefinition()).toEqual(['r']);
+	});
+});
+
 describe('ExtHostLanguageRuntime - $pinnedWorkspaceRuntime', function () {
 
 	const disposables = ensureNoLeakedDisposables();

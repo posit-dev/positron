@@ -155,25 +155,18 @@ suite('R pinned runtime', () => {
 		);
 	});
 
-	test('when discovery is limited to definitions, the recommendation after discovery returns the first defined R', async function () {
+	test('when discovery is limited to definitions and no defined R is pinned, the recommendation after discovery is nothing, so core picks the first defined R', async function () {
 		const current = await currentRInstallation();
 		if (!current?.usable) {
 			this.skip();
 		}
 		await waitForRegisteredRuntime('the current R', runtime => runtime.runtimePath === current.binpath);
 		await interpretersConfig().update('definitions', [
-			{ language: 'python', path: '/usr/bin/python3', label: 'Team Python' },
 			{ language: 'r', path: current.binpath, label: 'Team R' },
-			{ language: 'r', path: current.binpath, label: 'Team R with packages' },
 		], vscode.ConfigurationTarget.Global);
 		await interpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global);
-		// Positron registers an R for each definition once the setting changes.
-		await waitForRegisteredRuntime('the defined Rs', runtime => runtime.interpreterDefinition === 'Team R with packages');
-		const recommended = await runtimeManager.recommendedWorkspaceRuntime(true);
+		await waitForRegisteredRuntime('the defined R', runtime => runtime.interpreterDefinition === 'Team R');
 
-		assert.deepStrictEqual(
-			{ definition: recommended?.interpreterDefinition, startupBehavior: recommended?.startupBehavior },
-			{ definition: 'Team R', startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit },
-		);
+		assert.strictEqual(await runtimeManager.recommendedWorkspaceRuntime(true), undefined);
 	});
 });

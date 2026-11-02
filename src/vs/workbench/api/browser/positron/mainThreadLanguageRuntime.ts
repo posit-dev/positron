@@ -1886,6 +1886,14 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * The languages whose runtime manager lets core recommend the first
+	 * defined interpreter (part of implementation of IRuntimeManager).
+	 */
+	getLanguagesDeferringToFirstDefinition(): Promise<string[]> {
+		return this._proxy.$getLanguagesDeferringToFirstDefinition();
+	}
+
+	/**
 	 * Snapshot the directories the extension scans for interpreters of the
 	 * given language. Forwarded to the extension host where each registered
 	 * `LanguageRuntimeManager` is asked for its own signature.

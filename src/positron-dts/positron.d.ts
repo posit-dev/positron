@@ -1268,6 +1268,19 @@ declare module 'positron' {
 		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
+		 * Whether Positron picks the interpreter when this manager recommends
+		 * nothing after discovery and `interpreters.discovery` is
+		 * `definitionsOnly` for the language. Positron then recommends the
+		 * variant of the first valid entry in `interpreters.definitions`, with
+		 * the same rules it uses to register the variants. That interpreter
+		 * starts when the language is needed, and is never saved as the
+		 * workspace's default, whatever `recommendationIsProjectDefault` is.
+		 * Defaults to `false`: leave it unset if no recommendation means that
+		 * nothing must start.
+		 */
+		readonly defersToFirstDefinition?: boolean;
+
+		/**
 		 * The runtime metadata for the interpreter pinned for this workspace:
 		 * the one that the extension's default interpreter setting names.
 		 * Returns `undefined` if the setting isn't set, the path doesn't lead to
