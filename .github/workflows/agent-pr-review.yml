@@ -146,7 +146,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ needs.precheck.outputs.base_sha }}
           HEAD_SHA: ${{ needs.precheck.outputs.head_sha }}
-        run: gh api "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA" -H 'Accept: application/vnd.github.diff' > .agent-pr-review.diff
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA" \
+            -H 'Accept: application/vnd.github.diff' > .agent-pr-review.diff
 
       - name: Review the PR
         id: claude
