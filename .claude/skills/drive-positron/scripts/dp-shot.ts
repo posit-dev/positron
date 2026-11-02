@@ -124,6 +124,9 @@ export const shotCommands: Record<string, (argv: string[]) => Json | string> = {
 		if (p.flags.help) { usage('shot.sh'); }
 		if (p.flags.list) { return inPage(p.session, listWindows, {}); }
 		if (!p.rest[0]) { failText('shot.sh', 'give the file name', 2); }
+		// The file comes first: a SELECTOR before it (--crop e153 S03-07.png) would
+		// be taken as the file name, and the file name as the region to find.
+		if (p.rest[1] && /\.png$/i.test(p.rest[1]) && !/\.png$/i.test(p.rest[0])) { failText('shot.sh', `the file name comes first, then the SELECTOR: shot.sh ${p.flags.crop ? '--crop ' : ''}${p.rest[1]} ${p.rest[0]}`, 2); }
 		if (badShotName(p.rest[0])) { failText('shot.sh', badShotName(p.rest[0]), 2); }
 		if (p.flags.view !== undefined && (p.rest[1] || p.flags.window)) { failText('shot.sh', '--view takes no SELECTOR and no --window', 2); }
 		if (p.flags.crop && !p.rest[1] && p.flags.view === undefined) { failText('shot.sh', '--crop needs the region to crop: a SELECTOR or --view', 2); }

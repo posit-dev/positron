@@ -23,6 +23,12 @@ const ASSISTANT_ID = 'posit.assistant';
 
 type ProviderModule = typeof import('ai-provider-bridge/headless');
 
+/**
+ * Typed as the compiled-in copy's literal, so an ai-lib bump fails to compile until this is updated.
+ * The number only changes on breaking changes; feature-detect members added since.
+ */
+const SUPPORTED_CONTRACT_VERSION: ProviderModule['HEADLESS_CONTRACT_VERSION'] = 1;
+
 interface IProviderSelection {
 	readonly providers: HeadlessProviders;
 	readonly source: IProviderModuleSource;
@@ -65,6 +71,10 @@ async function loadFromAssistant(
 	}
 	const entry = join(found.folder, 'index.js');
 	const module: Partial<ProviderModule> = await import(/* @vite-ignore */ pathToFileURL(entry).href);
+	if (module.HEADLESS_CONTRACT_VERSION !== SUPPORTED_CONTRACT_VERSION) {
+		const version = module.HEADLESS_CONTRACT_VERSION === undefined ? 'no headless contract version' : `headless contract ${module.HEADLESS_CONTRACT_VERSION}`;
+		return { reason: `Posit Assistant ${found.version} has ${version}, expected ${SUPPORTED_CONTRACT_VERSION}` };
+	}
 	if (typeof module.createHeadlessProviders !== 'function') {
 		throw new Error(`${entry}: missing createHeadlessProviders export`);
 	}

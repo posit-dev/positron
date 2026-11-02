@@ -92,6 +92,11 @@ sighting, on the report's scale: major
 meaningfully wrong or disruptive), or minor (small usability, visual, or polish
 problem). Read the scenario's steps and its screenshots. Rate only what the run
 saw; do not use the issue's own labels or priority.
+An issue matches when the run saw what it describes, after its steps or by
+another path the issue names. Its title and the summary in the linked issues
+file leave steps out, so read the issue itself on GitHub before rating one, or
+before saying the run may have met one the ledger does not mark. Mark an issue
+the run did not meet with `met: false` in `linked`.
 
 Start your reply with one fenced `json` block, exactly this shape. It is read
 to mark each finding, so nothing else goes in it:
@@ -99,11 +104,11 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "origin": "introduced" },
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "setup": [{ "what": "dataExplorer.summaryCollapsed set to false", "log": 18, "alone": false, "why": "only sets whether the summary panel starts open (summaryPanel.tsx:88)" }], "fix": ["src/vs/workbench/contrib/positronDataExplorer/browser/summaryPanel.tsx"] },
 		{ "n": 2, "verdict": "confirmed", "log": [150, 171], "shots": [{ "file": "S05-02.png", "shows": "the filter chip is red" }], "setup": [], "cause": "the chip turns red for any filter on a string column (filterChip.tsx:54), not only an invalid one", "observed": "the filter chip is red after a valid filter on a string column" },
-		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "feature": "new folder flow" }
+		{ "n": 3, "verdict": "unresolved", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "setup": [{ "what": "a second window opened on the same folder", "log": null, "alone": true, "why": "a second window holds the lock (duckdb.ts:212); the log never opens one, and no case ran without it" }], "known": [15102], "dupes": [{ "issue": 15102, "why": "the same duplicate R 4.4 entry after opening a second window on the folder" }], "feature": "new folder flow" }
 	],
-	"linked": [{ "issue": 5678, "severity": "moderate" }]
+	"linked": [{ "issue": 5678, "met": true, "severity": "moderate" }, { "issue": 5301, "met": false, "why": "the run opened the panel but never filtered it, which the issue's steps need" }]
 }
 ```
 
@@ -135,8 +140,19 @@ to mark each finding, so nothing else goes in it:
   match does not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when
   there are any. It does not change the verdict either.
-- `linked`: one entry per linked issue the ledger marks as observed, rated
-  `major`, `moderate` or `minor`. Leave it out when there are none.
+- `dupes`: the issues in `known` or `intended` that are the same bug, not
+  just a related one: the issue shows the same symptom after the same steps.
+  One entry per issue: `issue` is its number and `why` says in one line what
+  is the same. Leave out an issue that matches only the feature, the code or
+  another path, and leave out PRs. Leave it out when there are none. The
+  report lists a duplicate as a known issue, not a new finding, when the
+  finding also fails on the latest build.
+- `linked`: one entry per linked issue the ledger marks as observed. `met` is
+  true when the run saw the behavior the issue reports; rate it `major`,
+  `moderate` or `minor` in `severity`. It is false when the run did not, even
+  if it saw the issue's cause or a detail the issue mentions; `why` then says
+  what the run did not do or see. The report lists an issue not met as not
+  observed. Leave `linked` out when the ledger marks none.
 - `feature`: when the evidence puts a finding in a different area than its
   `feature` names, the one it points to. It replaces the Feature in the report
   and in the filed issue's title.
@@ -158,35 +174,15 @@ to mark each finding, so nothing else goes in it:
   or two sentences of what happened; `tests` has the report's `cases` and
   `related` lists. A correction does not change the verdict: the bug can be
   real with its cause wrong.
-- `origin`: where the most direct fix for the finding likely goes, judged
-  from the change under test: `introduced`, `exposed` or `inherited`.
-  {{CHANGE_SCOPE}}
+- `fix`: the files the most direct fix would change, as paths in the
+  repository. Not any fix that would work: almost every bug has one that
+  touches the diff, such as a guard at a new call site.
 
-Leave out any field that does not apply. Give `origin` only for a finding you
-CONFIRM and whose cause you traced to the lines a fix would change, and never
-for one the ledger marks `fix did not hold`: that is an old bug the change
-tried to fix. For each one:
-
-1. Name the most direct fix: the file and lines it would change. Not any fix
-   that would work: almost every bug has one that touches the diff, such as a
-   guard at a new call site.
-2. Run `git -C {{REPO}} blame -w -M -C {{HEAD}} -L <start>,<end> -- <file>` on
-   those lines, and check each blamed commit against
-   `git -C {{REPO}} rev-list {{CHANGE_RANGE}}`. The flags keep a reformatted or
-   moved line with the commit that first wrote it, which a plain diff does not.
-3. If the fix restores or changes a line the diff deleted, count it as in the
-   change. Blame cannot see a deleted line.
-4. `introduced`: any line from step 2 or 3 is in the change.
-5. `exposed`: no fix line is in the change, but you can name the changed line
-   that now leads to it: a new call, a removed check, a timing or order
-   change, a changed setting or default. If you cannot name one, it is not
-   `exposed`.
-6. `inherited`: no fix line is in the change, and you read the path to it and
-   found nothing in the diff on it.
-
-When you are unsure between two values, leave `origin` out. Do not pick the
-gentler one. This says where the fix likely goes, not who caused the bug, and
-nothing was run against the base.
+Leave out any field that does not apply. Give `fix` only for a finding you
+CONFIRM and whose cause you traced to the lines a fix would change. Whether a
+finding is new in the change is not yours to judge: its replay on a build of
+main decides that, and `fix` is used to check that main and the base do not
+differ in those files.
 
 After the block, keep it short. The verdict on each finding is what a reviewer reads; this
 section is for what the verdict cannot say.
@@ -224,13 +220,10 @@ section is for what the verdict cannot say.
 - A finding with `intended` issues gets one line per issue: why it is the same
   behavior, and the reason the issue gives for not fixing it.
 - An issue in `linked` gets one line: what the run saw that set its
-  severity.
+  severity, or for one not met, what it saw instead.
 - A finding with a new `feature`, `title`, `cause`, `observed` or `tests`
   gets one line per field: what moved it.
-- A finding with an `origin` gets one line: the fix you named, and for
-  `introduced` the commit in the change or the deleted line it touches, for
-  `exposed` the changed line that leads to it, or for `inherited` the path you
-  checked.
+- A finding with a `fix` gets one line: the lines that fix would change.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

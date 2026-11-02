@@ -255,11 +255,8 @@ export function recommendationReason(interpreter: PythonEnvironment, tier: Tier,
         case Tier.PositronDefaultEnv:
             return vscode.l10n.t('Positron default environment');
         default:
-            // Only a Python folder is missing a project env; for any other folder
-            // (e.g. an R project) that would read as something to fix.
-            return context.workspacePath && context.hasPythonSignals
-                ? vscode.l10n.t('no project environment found')
-                : vscode.l10n.t('best available Python');
+            // Say why nothing ranked higher; a claim like "best" reads as wrong next to a newer version.
+            return context.workspacePath ? vscode.l10n.t('no project environment') : vscode.l10n.t('no folder open');
     }
 }
 

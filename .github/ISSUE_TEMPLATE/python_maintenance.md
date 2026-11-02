@@ -9,7 +9,7 @@ about: Checklist for performing monthly maintenance for positron-python
 
 ## Checklist
 
-- [ ] Merge upstream changes
+- [ ] Merge upstream changes (Claude Code: the `positron-python-upstream-merge` skill covers this whole checklist)
 - [ ] If needed, match CI changes from upstream merge into Positron's `.github/workflows/positron-python-ci.yml`
 - [ ] Run [**Build Python Environment Tools Release** workflow in the `positron-builds` repo](https://github.com/posit-dev/positron-builds/actions/workflows/build-python-env-tools.yml) to check for and build latest PET releases
 - [ ] If new PET release, update version number in `package.json`, under `positron -> pet`

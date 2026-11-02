@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, guarded, issueOf, markDuplicates, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -170,7 +170,21 @@ async function laterChecks(finding, paths, pr, postedAt, timeline) {
 			return [];
 		}
 		const commits = git('log', '--format=%h', `${base}..origin/main`, '--', ...paths).split('\n').filter(Boolean);
-		return [await check(finding, diffEvidence(diff, paths, MAX_DIFF_CHARS), `main ${commits.join(',')}`)];
+		if (diff.length <= MAX_DIFF_CHARS) {
+			return [await check(finding, diffEvidence(diff, paths, MAX_DIFF_CHARS), `main ${commits.join(',')}`)];
+		}
+		// Too long to read whole without cutting, which hides a fix past the cut: read it a few commits at a time instead.
+		// A group leaves out the other commits, so it doesn't say which named files did not change.
+		const parts = commits.reverse().map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
+		const checks = [];
+		for (const group of packDiffs(parts, MAX_DIFF_CHARS)) {
+			const c = await check(finding, diffEvidence(group.diff, [], MAX_DIFF_CHARS), `main ${group.shas.join(',')}`);
+			checks.push(c);
+			if (c.answer === 'yes') {
+				break;
+			}
+		}
+		return checks;
 	}) : [];
 	const issues = await guarded('issue search', async () => {
 		const terms = searchTerms(finding.title);
@@ -229,7 +243,7 @@ async function prRows(number) {
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
 		// A report from before the Origin column lists only the findings whose fix was in the change.
 		const origin = new Map([...(report.verification?.related ?? []).map(n => [n, 'introduced']), ...Object.entries(report.verification?.origin ?? {}).map(([n, o]) => [Number(n), o])]);
-		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
+		for (const finding of outcomeFindings(report, stats)) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
 			if (kept && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {

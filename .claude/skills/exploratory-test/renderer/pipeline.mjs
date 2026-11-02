@@ -23,11 +23,27 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
-import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
+import { applyVerifyReply, MAIN_REPLAY_OFF, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
+import { ensureCommit, localMainBuild, mainBuildBrief } from './main-build.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
+// Added to the time limit when the run has a main build, so replaying findings
+// on main does not cut into exploring. 6 covers the most any run used (5.3,
+// across seven runs on 2026-10-30); tune it from stats' mainReplayMinutes.
+export const MAIN_REPLAY_MINUTES = replayMinutes(process.env.MAIN_REPLAY_MINUTES);
+
+/** Minutes from MAIN_REPLAY_MINUTES: a whole number, 0 included, else 6. */
+export function replayMinutes(raw) {
+	const minutes = /^\d+$/.test(String(raw ?? '').trim()) ? Number(raw) : NaN;
+	return Number.isInteger(minutes) ? minutes : 6;
+}
+
+/** A time limit in minutes, or null for none, with the main replays' minutes added when there is a main build. */
+export function withMainReplay(timeLimit, mainBuild) {
+	return timeLimit && mainBuild ? timeLimit + MAIN_REPLAY_MINUTES : timeLimit;
+}
 const READ_TOOLS = ['Bash', 'Read', 'Glob', 'Grep'];
 const EXPLORER_PATH = fileURLToPath(new URL('../explorer.md', import.meta.url));
 const ISOLATOR_PATH = fileURLToPath(new URL('../isolator.md', import.meta.url));
@@ -128,8 +144,8 @@ export function sessionName(dir) {
 	return `et-${basename(dir).replace(/^.*-/, '')}`;
 }
 
-/** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
-export function explorePrompt(dir, brief, environment = []) {
+/** The explorer's prompt: explorer.md, the brief, the main build, the Environment lines, and what a local run sets up for it. */
+export function explorePrompt(dir, brief, environment = [], mainBrief = '') {
 	return [
 		readFileSync(EXPLORER_PATH, 'utf8').trim(),
 		'',
@@ -139,6 +155,7 @@ export function explorePrompt(dir, brief, environment = []) {
 		'',
 		brief.trim(),
 		'',
+		...(mainBrief ? [mainBrief.trim(), ''] : []),
 		...(environment.length ? [environmentBrief(environment), ''] : []),
 		`Run directory: \`${dir}\``,
 		'',
@@ -156,8 +173,8 @@ export function explorePrompt(dir, brief, environment = []) {
  * `{ role, model, durationMs, turns, costUsd }`, or null when it failed. Its
  * time limit is the minutes in `timeLimitPath`, if any.
  */
-export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), log = () => { } }) {
-	const prompt = explorePrompt(dir, brief, environment);
+export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), mainBrief = '', log = () => { } }) {
+	const prompt = explorePrompt(dir, brief, environment, mainBrief);
 	writeFileSync(join(dir, 'explore-prompt.md'), prompt);
 	log('new explore agent');
 	try {
@@ -286,7 +303,7 @@ async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 	if (best && session && parseVerifyReply(best).problem) {
 		best = (await ask({ ...verifier, purpose: 'reformat', resume: session, prompt: REFORMAT_MESSAGE })).text || best;
 	}
-	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error, opened: opened() });
+	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error, opened: opened(), repo: range.repo, base: range.base, head: range.head });
 	// One more ask when its numbers do not match the report's, or it does not
 	// show a check it was asked to make (the action log, the screenshots). After
 	// that, wrong numbers mark the findings unreviewed and a missing check is
@@ -294,7 +311,7 @@ async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
 	if (result.retry) {
 		const again = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: result.retry }) : { text: '' };
 		const usable = again.text && !parseVerifyReply(again.text).problem;
-		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened() });
+		result = applyVerifyReply(dir, usable ? again.text : best, { final: true, opened: opened(), repo: range.repo, base: range.base, head: range.head });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
 }
@@ -446,7 +463,7 @@ async function main(argv) {
 		allowPositionals: true,
 		options: {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
-			brief: { type: 'string' }, 'time-limit': { type: 'string' },
+			brief: { type: 'string' }, 'time-limit': { type: 'string' }, 'main-build': { type: 'string' }, 'no-main-build': { type: 'boolean' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
 			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' },
 		},
@@ -456,7 +473,7 @@ async function main(argv) {
 	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--skip-checkout-check]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--main-build <dir> | --no-main-build] [--no-agent-prompts] [--skip-checkout-check]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -488,17 +505,36 @@ async function main(argv) {
 			process.exit(code);
 		});
 	}
+	// A build of main the explorer replays each finding on; without one, no finding gets an Origin.
+	// By default the latest daily, downloaded once a day into the state directory.
+	const found = fresh ? await localMainBuild({ given: values['main-build'], skip: values['no-main-build'], cacheDir: join(STATE_DIR, 'main'), log }) : null;
+	// Without main's commit in the checkout, every `needs` lookup would fail and read as missing.
+	const mainBuild = found && ensureCommit(values.repo, found.commit) ? found : null;
+	if (found && !mainBuild) {
+		log(`main's commit ${found.commit.slice(0, 10)} is not in ${values.repo} and could not be fetched; exploring without a main build`);
+	} else if (fresh && values['main-build'] && !found) {
+		log(`no usable main build in ${values['main-build']}; exploring without one`);
+	}
 	if (fresh) {
 		// The agents and the helpers they run inherit it, so a call that leaves
 		// out the session still drives this run's window.
 		process.env.PW_SESSION = process.env.PLAYWRIGHT_CLI_SESSION = sessionName(dir);
 		const timeLimitPath = timeLimitFile(dir);
-		if (limit !== 'none') {
-			writeFileSync(timeLimitPath, `${limit}\n`);
+		const minutes = limit === 'none' ? 'none' : String(withMainReplay(Number(limit), mainBuild));
+		if (minutes !== 'none') {
+			writeFileSync(timeLimitPath, `${minutes}\n`);
+		}
+		if (mainBuild) {
+			writeFileSync(join(dir, 'main-build.json'), `${JSON.stringify(mainBuild, null, 2)}\n`);
+		}
+		// Switched off on purpose, so the report shows no groups rather than "no main build".
+		if (values['no-main-build']) {
+			writeFileSync(join(dir, MAIN_REPLAY_OFF), '');
 		}
 		console.log(`run directory: ${dir}`);
-		log(limit === 'none' ? 'exploring with no time limit' : `exploring for ${limit} minutes; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
-		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
+		log(minutes === 'none' ? 'exploring with no time limit' : `exploring for ${minutes} minutes${mainBuild ? `, ${MAIN_REPLAY_MINUTES} of them for replays on main ${mainBuild.version}` : ''}; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
+		const mainBrief = mainBuild ? mainBuildBrief(mainBuild, { repo: values.repo, base: values.base }) : '';
+		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, mainBrief, log });
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
 	// A replay keeps the check its run recorded.

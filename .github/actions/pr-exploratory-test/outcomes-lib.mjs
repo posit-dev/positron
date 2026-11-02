@@ -20,16 +20,23 @@ export function parseResultComment(body) {
 	return sha && base && run ? { shortSha: sha, reportBase: base, run, trigger } : null;
 }
 
-/** Repo paths the finding's cause names in backticks, plus its test case paths. A bare file name counts when exactly one of `files` has it. */
+/**
+ * Repo paths the finding's cause names, in backticks or not, plus its test case paths. A line number or range after a path
+ * is dropped. Given `files`, a name counts when it is one of them or exactly one of them ends with it; without, only paths with a folder count.
+ */
 export function extractPaths(finding, files = []) {
-	const unique = name => {
+	const resolve = name => {
+		if (!files.length) {
+			return name.includes('/') ? name : null;
+		}
+		if (files.includes(name)) {
+			return name;
+		}
 		const found = files.filter(f => f.endsWith(`/${name}`));
 		return found.length === 1 ? found[0] : null;
 	};
-	const fromCause = [...String(finding?.cause ?? '').matchAll(/`([^`\s]+)`/g)]
-		.map(m => m[1].replace(/:\d+(:\d+)?$/, ''))
-		.filter(p => /\.[a-z]{1,5}$/i.test(p) && !p.startsWith('/') && !p.includes('://'))
-		.map(p => p.includes('/') ? p : unique(p))
+	const fromCause = [...String(finding?.cause ?? '').matchAll(/(?<![\w./@+:-])([\w@+-][\w./@+-]*\.[a-z]{1,5})(?![\w/@+-])/gi)]
+		.map(m => resolve(m[1]))
 		.filter(Boolean);
 	const fromTests = (finding?.tests?.cases ?? []).map(c => c.path).filter(Boolean);
 	return [...new Set([...fromCause, ...fromTests])].sort();
@@ -89,6 +96,12 @@ export function parseCheck(text) {
 
 const evidenceOf = c => `${c.source}: ${c.reason}`;
 const decidedByOf = c => c.source.startsWith('issue') ? 'issue+model' : 'diff+model';
+
+/** The run's confirmed findings, less those its page listed as known issues (stats.json's `demoted`). */
+export function outcomeFindings(report, stats) {
+	const demoted = new Set((stats?.demoted ?? []).map(d => d.finding));
+	return (report.findings ?? []).filter(f => f.verified === 'confirmed' && !demoted.has(f.n));
+}
 
 /** An issue's number, link and state as the page shows it. */
 export function issueOf(i) {
@@ -295,6 +308,24 @@ export function prOwnMessages(commits, testedSha) {
 /** The PR check to decide on: a yes on the whole PR wins, otherwise the check on the finding's files. */
 export function pickPrCheck(named, whole) {
 	return whole?.answer === 'yes' ? whole : named ?? whole;
+}
+
+/**
+ * Commits' diffs (`{ sha, diff }`, oldest first) packed in order into groups of at most `max` characters, so a long
+ * diff is read in parts rather than cut. A commit longer than `max` is a group of its own.
+ */
+export function packDiffs(parts, max) {
+	const groups = [];
+	for (const part of parts) {
+		const last = groups.at(-1);
+		if (last && last.diff.length + part.diff.length + 1 <= max) {
+			last.shas.push(part.sha);
+			last.diff += `\n${part.diff}`;
+		} else {
+			groups.push({ shas: [part.sha], diff: part.diff });
+		}
+	}
+	return groups;
 }
 
 /** `diff` cut to `max` characters, with a note when it was cut. */

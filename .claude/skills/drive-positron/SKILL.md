@@ -89,6 +89,11 @@ editors, installed extensions and all):
 macOS has no Quit in the palette, and Cmd+Q cannot be sent through CDP:
 Close Window, then `stop.sh`. Stop both runs with `--run-dir` at the end.
 
+To drive a packaged build (a daily or a release) instead of the checkout,
+pass its executable with `--app`, such as
+`launch.sh --app <dir>/Positron.app/Contents/MacOS/Positron -- ...`. It gets
+the same profile copy, ports and logs, and pre-launch does not run.
+
 Attach Playwright under a literal session name, and use that name in every
 command and helper (`--session positron`):
 
