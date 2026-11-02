@@ -2206,6 +2206,21 @@ describe('RuntimeStartupService - console in front', () => {
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
 	});
 
+	it('saves a console ended by exit() again once it is restarted', () => {
+		const { svc, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		bringToFront(pyenvConsole);
+		uvConsole.setState(RuntimeState.Starting);
+		uvConsole.setState(RuntimeState.Ready);
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
 	it('listens to a console\'s state once however often it comes to the front', () => {
 		const { svc, bringToFront } = createService();
 		const uvConsole = createConsole(uv, 'session-uv');
