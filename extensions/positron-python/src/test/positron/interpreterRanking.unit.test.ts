@@ -63,6 +63,8 @@ const emptyContext: RankingContext = {
     workspacePath: p('/proj'),
     homeInsideWorkspace: false,
     userEnvParents: [p('/home/u'), p('/home/u/.virtualenvs')],
+    homeDirs: [p('/home/u')],
+    searchPathDirs: [],
     activatedEnvPrefix: undefined,
     definitionPaths: [],
     definitionsOnly: false,
@@ -287,6 +289,10 @@ suite('interpreterRanking', () => {
         const condaNamedVenv = env(p('/home/u/miniconda3/envs/venv/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: 'venv',
         });
+        // Envs outside home are often shared, e.g. in a Docker image or on a server.
+        const optVenv = native(env(p('/opt/venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const srvVenv = native(env(p('/srv/app/.venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
+        const onPath = { ...emptyContext, searchPathDirs: [path.dirname(otherVenv.path)] };
         assert.deepEqual(
             [
                 isOtherProjectEnv(otherVenv, emptyContext),
@@ -304,8 +310,30 @@ suite('interpreterRanking', () => {
                 isOtherProjectEnv(wrapperNamedVenv, emptyContext),
                 isOtherProjectEnv(condaNamedVenv, emptyContext),
                 isOtherProjectEnv(positronDefault, emptyContext),
+                isOtherProjectEnv(optVenv, emptyContext),
+                isOtherProjectEnv(srvVenv, emptyContext),
+                isOtherProjectEnv(otherVenv, onPath),
             ],
-            [true, true, true, true, false, false, false, false, false, true, false, false, false, false, false],
+            [
+                true,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+            ],
         );
     });
 
@@ -483,6 +511,7 @@ suite('interpreterRanking', () => {
         assert.isTrue(realHomeOpened.homeInsideWorkspace);
         // Its env folders are the user's own by either path.
         assert.includeMembers(realHomeOpened.userEnvParents, [p('/home/u'), p('/export/home/u')]);
+        assert.sameMembers(realHomeOpened.homeDirs, [p('/home/u'), p('/export/home/u')]);
     });
 
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {

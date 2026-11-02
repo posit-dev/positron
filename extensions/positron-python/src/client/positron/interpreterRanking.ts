@@ -12,6 +12,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { getSearchPathEntries } from '../common/utils/exec';
 import { getUserHomeDir } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../interpreter/contracts';
@@ -96,6 +97,10 @@ export interface RankingContext {
      * `~/.pixi/envs/*`), `$WORKON_HOME` and `~/.virtualenvs`. Each also by its real path.
      */
     userEnvParents: string[];
+    /** The home folder, as given and by real path. */
+    homeDirs: string[];
+    /** The folders on `PATH`. */
+    searchPathDirs: string[];
     activatedEnvPrefix: string | undefined;
     definitionPaths: string[];
     definitionsOnly: boolean;
@@ -198,14 +203,19 @@ export function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
 }
 
 /**
- * Whether this is the env of another project, not one inside this folder (`isWorkspaceEnv`):
+ * Whether this is the env of another project under home, not one inside this folder
+ * (`isWorkspaceEnv`) or on `PATH`. Envs outside home, often shared (`/opt/venv`), stay listed.
  * - a conda env created with `--prefix`. It has no name and is outside conda's env dirs;
  *   a named env can also have no name, when PET didn't report one.
  * - an env folder a project keeps at its root (`ENV_DIR_NAMES`, `.pixi/envs/*`), unless
  *   it is in one of `userEnvParents`. A pyenv virtualenv can have these names too.
  */
 function isOtherFolderProjectEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
-    if (isWorkspaceEnv(interpreter, context)) {
+    if (
+        isWorkspaceEnv(interpreter, context) ||
+        !context.homeDirs.some((dir) => isUnder(interpreter.path, dir)) ||
+        context.searchPathDirs.some((dir) => samePath(path.dirname(interpreter.path), dir))
+    ) {
         return false;
     }
     if (interpreter.envType === EnvironmentType.Conda) {
@@ -496,6 +506,12 @@ async function containsHome(folder: string): Promise<boolean> {
     return isParentPath(realHome, realFolder);
 }
 
+/** `homeDirs`: home, as given and by real path. */
+async function findHomeDirs(): Promise<string[]> {
+    const home = getUserHomeDir();
+    return home ? [...new Set([home, await canonicalizePath(home)])] : [];
+}
+
 /** `userEnvParents`: home, `$WORKON_HOME` and `~/.virtualenvs`, as given and by real path. */
 async function findUserEnvParents(): Promise<string[]> {
     const home = getUserHomeDir();
@@ -516,16 +532,19 @@ export async function buildRankingContext(
     serviceContainer: IServiceContainer,
     workspaceUri: vscode.Uri | undefined,
 ): Promise<RankingContext> {
-    const [scan, activatedEnvPrefix, homeInsideWorkspace, userEnvParents] = await Promise.all([
+    const [scan, activatedEnvPrefix, homeInsideWorkspace, userEnvParents, homeDirs] = await Promise.all([
         workspaceUri ? scanWorkspace(workspaceUri.fsPath) : undefined,
         serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch).getActivatedEnvPrefix(),
         workspaceUri ? containsHome(workspaceUri.fsPath) : false,
         findUserEnvParents(),
+        findHomeDirs(),
     ]);
     return {
         workspacePath: workspaceUri?.fsPath,
         homeInsideWorkspace,
         userEnvParents,
+        homeDirs,
+        searchPathDirs: getSearchPathEntries(),
         activatedEnvPrefix,
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),
