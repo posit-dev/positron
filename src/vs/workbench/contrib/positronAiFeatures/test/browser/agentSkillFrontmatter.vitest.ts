@@ -74,7 +74,8 @@ interface SkillFrontmatter {
  * a `>-` marker is treated as inline here too, and asserted against below.
  */
 function readFrontmatter(skillMdPath: string): SkillFrontmatter {
-	const content = fs.readFileSync(skillMdPath, 'utf8');
+	// A Windows checkout may carry CRLF; the shipped file and the Assistant's parser see LF.
+	const content = fs.readFileSync(skillMdPath, 'utf8').replace(/\r\n/g, '\n');
 	const frontmatter = /^---\n(?<frontmatter>[\s\S]*?)\n---/.exec(content)?.groups?.frontmatter ?? '';
 	const lines = frontmatter.split('\n');
 

@@ -8,6 +8,7 @@
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { isWindows } from '../../../../../base/common/platform.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { showRemoveDataConnectionConfirmation } from '../../browser/dialogs/removeDataConnectionConfirmation.js';
@@ -48,7 +49,8 @@ describe('showRemoveDataConnectionConfirmation', () => {
 		expect(await confirmation).toBe(true);
 	});
 
-	it('tabs to Cancel before Remove, so Enter backs out instead of removing', async () => {
+	// The action bar follows the platform's button order, and on Windows that puts Remove first.
+	it.skipIf(isWindows)('tabs to Cancel before Remove, so Enter backs out instead of removing', async () => {
 		const confirmation = showRemoveDataConnectionConfirmation('My Connection', 0);
 		expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
 
