@@ -49,7 +49,10 @@ attention, and a review that cries wolf gets ignored. Report less, not more.
 - Report a problem only if you would block the merge over it or a reviewer
   would want to know before approving. No style nits, naming, or anything
   CI already checks (lint, types, failing tests).
+- A PR description or code comment that says something the code does not
+  do is a problem. Report it.
 - Report at most 3 problems and 3 judgment calls. Keep the most important.
+- List a real judgment call even when there are no problems.
 - Report each problem once, under the question that fits it best.
 - Nothing to report is a good result. Return empty lists.
 
