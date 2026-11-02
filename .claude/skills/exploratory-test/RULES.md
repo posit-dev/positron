@@ -81,7 +81,7 @@ Then update the rule's row here in the same PR.
 
 | Rule | Why | Caught by | Measured | Since |
 |---|---|---|---|---|
-| Try a moderate or major finding at least twice, and keep its severity at 1/1. | A one-off reads as flaky. Severity is impact, not the rate. | Lint warning (`tried-once`) | - | #16421 |
+| Try a moderate or major finding at least twice, and keep its severity at 1/1. | A one-off reads as flaky. Severity is impact, not the rate. | Nothing. Lint counts `tried-once` for stats but does not show it: by then the instance is gone. | - | #16421 |
 | Each scenario's first FAIL has a `Log:` line, even "none found". | The log is narrowest at the failure's timestamp. | Lint (`fail-missing-fields`): FAIL missing `Log:`. | - | #16200 |
 | A scenario's `Status:` fails exactly one finding. A check that fails another gets its own scenario. | A finding's steps come from one scenario. | Lint (`scenario-fails-other-finding`) | - | #16421 |
 | A failed `Result:` is `Fails N/M`. A pass is one sentence under 160 characters. | The finding says what broke. | Lint (`failed-result-rate`, `result-too-long`) | - | #16421 |
@@ -110,7 +110,7 @@ Then update the rule's row here in the same PR.
 | Merge a wait into its action, naming what it waits for, never a time. | Not recorded. | Lint (`fixed-wait`, `wait-only-step`): a fixed-time wait, a wait-only step. | - | #16355 |
 | Write a VERIFY before you look, with one expected outcome. | A check that passes on either outcome checks nothing. | Verifier | - | #16221 |
 | A number in a VERIFY or Observed comes from `actions.log` or the screenshot. | Not recorded. | Nothing | - | #16233 |
-| Take each check's shot with `--crop` and the region it is about, unless it is about the whole window. | A whole window shrunk to fit a hover preview has text about 2px high, so readers clicked every shot. | Lint warning (`shot-no-crop`): a run whose shots never had a crop. Nothing checks the region chosen. | - | - |
+| Take each check's shot with `--crop` and the region it is about, unless it is about the whole window. | A whole window shrunk to fit a hover preview has text about 2px high, so readers clicked every shot. | Nothing. Lint counts `shot-no-crop`, a run whose shots never had a crop, for stats but does not show it: by then the screens are gone. Nothing checks the region chosen. | - | - |
 | A check about something off screen still gets a shot, plus the saved output in `logs/`. | Every check has a picture of the app. | Lint (`verify-no-shot`): VERIFY cites no screenshot. | - | #16421 |
 | Save every test file to `files/` before using it, with a unique name, and list it. | A reader can't reproduce from a description of a file. | Lint (`file-not-saved`, `files-saved-unlisted`, `files-named-unlisted`): a file named but not saved, or saved but not listed. | - | #16233 |
 | Collect logs before `stop.sh`, diff listeners, then clean up. | `stop.sh` deletes the instance's logs. | Nothing | - | #16221 |
@@ -173,8 +173,8 @@ Then update the rule's row here in the same PR.
 There are 93 rules: 72 for the explorer and 21 for the verifier.
 
 For the explorer, lint, the pipeline (including the `stop-instances.sh` it
-runs) or publishing catches 40 rules when they're broken. For 7 more, only the verifier notices, which adds
-a note to the finding but sends nothing back. The other 25 have nothing behind
+runs) or publishing catches 38 rules when they're broken. For 7 more, only the verifier notices, which adds
+a note to the finding but sends nothing back. The other 27 have nothing behind
 them but the prompt. For 13, no PR or commit says why they exist.
 
 Code checks 12 of the verifier's 21 rules from its reply, about the same

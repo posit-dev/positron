@@ -6,7 +6,10 @@
 // Every rule lint checks, by ID, with its severity. Errors make a repro or its
 // evidence wrong, or leave the page unable to show it: they fail the check.
 // Warnings are wording and length: worth fixing when quick, never worth
-// another check. Stats count problems by ID, and RULES.md names the IDs.
+// another check. A stat is only counted: by the time lint runs, the
+// instance is gone and the fix (a retry, a cropped shot) cannot be made, so
+// the explorer is not shown it. Stats count problems by ID, and RULES.md
+// names the IDs.
 
 export const LINT_RULES = {
 	// report.json's findings against its schema and the ledger
@@ -46,7 +49,7 @@ export const LINT_RULES = {
 	'precondition-the-runs': 'error',
 	'precondition-scratch-path': 'error',
 	'precondition-step-reference': 'warning',
-	'precondition-ui-action': 'warning',
+	'precondition-ui-action': 'error',
 	'precondition-setting-form': 'warning',
 	'precondition-setting-file': 'warning',
 	'precondition-needs-name': 'warning',
@@ -67,7 +70,7 @@ export const LINT_RULES = {
 	'result-length': 'warning',
 	'severity-value': 'error',
 	'rate-format': 'error',
-	'tried-once': 'warning',
+	'tried-once': 'stat',
 	'main-missing': 'error',
 	'main-shape': 'error',
 	'main-steps': 'error',
@@ -141,7 +144,7 @@ export const LINT_RULES = {
 	'shot-retaken-in-place': 'warning',
 	'shot-retaken': 'error',
 	'shot-out-of-order': 'error',
-	'shot-no-crop': 'warning',
+	'shot-no-crop': 'stat',
 };
 
 /** One lint problem: its rule, that rule's severity, the line shown, and anything else the caller keys it by. */
@@ -153,7 +156,7 @@ export function problem(rule, text, extra = {}) {
 	return { rule, severity, text, ...extra };
 }
 
-/** Problems split into the errors to fix before the report is done and the warnings to fix if quick. */
+/** Problems split into the errors to fix before the report is done and the warnings to fix if quick. Stats are in neither. */
 export function splitProblems(problems) {
-	return { errors: problems.filter(p => p.severity !== 'warning'), warnings: problems.filter(p => p.severity === 'warning') };
+	return { errors: problems.filter(p => p.severity === 'error'), warnings: problems.filter(p => p.severity === 'warning') };
 }
