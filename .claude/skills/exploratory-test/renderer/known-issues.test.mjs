@@ -179,7 +179,7 @@ test('knownIssueOutcomes lists an issue the verifier says the run did not meet a
 test('knownIssueOutcomes moves an open issue a finding matched out of the lists, unless the finding has its own issue, and drops that issue', () => {
 	const matches = new Map([[1, [11, 25, 99]], [2, [21, 10]], [3, [24, 26]]]);
 	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map(), matches);
-	assert.deepEqual([...ki.known], [[1, [25, 99]], [2, [10]], [3, [24, 26]]]);
+	assert.deepEqual([...ki.known], [[1, [25, 99]], [3, [24, 26]]], 'finding 2 matched only #10, a fix that held');
 	assert.deepEqual([...ki.similar].map(([n, list]) => [n, list.map(i => i.number)]), [[3, [24]]], 'finding 1 shows its own fix instead');
 	assert.ok(ki.observed.some(o => o.issue.number === 25), 'no Status line carries it, so Linked issues does');
 	assert.deepEqual(ki.notObserved.map(i => i.number), [26]);

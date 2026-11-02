@@ -1018,7 +1018,7 @@ const LONG_LEDGER = ledgerOf([
 	['S21', 'first hit', 'fail - Finding 1', 'broke'], ...[9, 10].map(passed),
 	...Array.from({ length: 12 }, (_, i) => [`N${String(i + 1).padStart(2, '0')}`, `skip ${i}`, 'later']),
 ]);
-const KNOWN = fullWith(1, { known: [15102, 14991] });
+const KNOWN = fullWith(1, { known: [15102, 14991], dupes: [{ issue: 15102, why: 'the same duplicate entry' }] });
 const ORIGINS = {
 	...FULL,
 	findings: [...FULL.findings, fnd(3, { title: 'a flaky claim', verified: 'confirmed', reproduced: { n: 2, m: 3 } }), fnd(4, { title: 'a disputed claim', verified: 'disputed' })],
@@ -1080,7 +1080,7 @@ const SCENES = {
 		const html = richHtml(richWith(1, { verified: 'unresolved' }));
 		return [between(card(html, 1), '<details class="lc regtest">', '</summary>'), promptText(html, 1)].join('\n--\n');
 	},
-	'a finding the verifier matched to an issue says Dupe? on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
+	'a finding the verifier matched to issues says Dupe? for the same bug and Related for the rest, on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
 	'a finding matched to a not-planned issue says Won\'t fix? on its card and row': () => {
 		const html = fullHtml(fullWith(2, { intended: [14210] }));
 		return [card(html, 2), findingRow(html, 2), promptText(html, 2)].join('\n--\n');
@@ -1232,9 +1232,10 @@ const SCENES = {
 	'an issue the verifier says the run did not meet is listed as not observed, with why': () => between(kiHtml({ ...KI_REPORT, verification: { ...KI_VERIFICATION, unmet: [{ issue: 22, why: 'saw the <b>panel</b>, not the jump' }] } }), 'id="ki-list-no"', '</div></div>'),
 	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
-	'with no issue list, a finding row shows its matches as Dupe? without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
+	'with no issue list, a finding row shows its matches as Related without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
 	'one dupe shows no count': () => findingRow(kiHtml(kiWith(3, { known: [25] })), 3),
-	'matches split by kind: issues say Dupe?, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
+	'a match on a fix the run showed holding is left off the finding, so it does not read as not fixed': () => { const html = kiHtml(kiWith(3, { known: [10, 25] })); return [findingRow(html, 3), between(card(html, 3), '<div class="meta">', '</div>'), promptText(html, 3)].join('\n--\n'); },
+	'matches split by kind: issues the verifier did not call the same bug say Related, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
 		const refs = [...ISSUE_REFS,
 			{ number: 8200, kind: 'pr', state: 'open', title: 'Keep zoom', createdAt: '2026-08-20T00:00:00Z', summary: 'Keeps the zoom level.' },
 			{ number: 8300, kind: 'pr', state: 'closed', title: 'Abandoned zoom', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
@@ -1561,10 +1562,10 @@ test('the viewer has two columns for a comparison, stacking under 900px, and eve
 const MORE_REFS = [3, 4, 5].map(i => ({ number: 5700 + i, kind: 'issue', state: 'open', title: `Bug ${i}`, createdAt: '2026-08-20T00:00:00Z', summary: '' }));
 
 test('two matches show both numbers; three or more show +N more with a tooltip, and the card lists them all', () => {
-	const two = fullHtml(fullWith(1, { known: [5703, 5704] }), { issueRefs: MORE_REFS });
+	const two = fullHtml(fullWith(1, { known: [5703, 5704], dupes: [{ issue: 5703, why: 'x' }, { issue: 5704, why: 'x' }] }), { issueRefs: MORE_REFS });
 	assert.match(findingRow(two, 1), /Dupe\? <span class="ki-num-t"[^>]*>#5703<\/span> <span class="ki-num-t"[^>]*>#5704<\/span>/);
 	assert.doesNotMatch(findingRow(two, 1), /\+1|ki-more/);
-	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705] }), { issueRefs: MORE_REFS });
+	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705], dupes: [5703, 5704, 5705].map(issue => ({ issue, why: 'x' })) }), { issueRefs: MORE_REFS });
 	assert.match(findingRow(three, 1), /#5703<\/span><span class="ki-more">\+2 more<span class="og-tip" aria-hidden="true" role="tooltip"><b>2 more possible duplicates<\/b><span>#5704 Bug 4<\/span><span>#5705 Bug 5<\/span><\/span><\/span>/);
 	assert.match(card(three, 1), /#5703[\s\S]*#5704[\s\S]*#5705/);
 	assert.match(REPORT_CSS, /\.ki-more:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
@@ -1663,7 +1664,7 @@ test('a duplicate leaves every count: the tiles and the link card count only wha
 	assert.equal(report.findingCount, 4);
 });
 
-test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue reads Regressed', () => {
+test('Only in PR says Similar, Unknown keeps Dupe, an unconfirmed match says Related, and a closed fixed issue reads Regressed', () => {
 	const html = dupes();
 	const tip = '<span class="og-tip" aria-hidden="true" role="tooltip"><b>Similar?</b><span>Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
 	assert.ok(findingRow(html, 2).includes(`<span class="og ki-sim">Similar?${tip}</span> <span class="ki-num-t"`), findingRow(html, 2));
@@ -1673,8 +1674,9 @@ test('Only in PR says Similar, Unknown keeps Dupe, and a closed fixed issue read
 	assert.match(findingRow(html, 4), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
 	assert.doesNotMatch(findingRow(html, 4), /Dupe\?/);
 	assert.match(card(html, 4), /Regressed <a class="ki-num"[^>]*>#502/);
-	// A PR match never demotes, and a match the verifier did not confirm stays a Dupe.
-	assert.match(findingRow(html, 6), /Dupe\?[\s\S]*Fix in PR\?/);
+	// A PR match never demotes, and an issue match the verifier did not call the same bug is only Related.
+	assert.match(findingRow(html, 6), /Related[\s\S]*Fix in PR\?/);
+	assert.doesNotMatch(findingRow(html, 6), /Dupe\?/);
 });
 
 test('a demoted finding is listed under known issues, worst first, in two lines, its reason a tooltip on its source', () => {

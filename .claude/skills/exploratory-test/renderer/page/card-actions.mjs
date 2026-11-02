@@ -91,10 +91,14 @@ function buildAgentPrompt(f, report, options = {}) {
 		}
 	};
 	// So the agent checks these before fixing or filing it again.
-	section('Possible duplicates', possiblyKnown(f, options.ki).map(n => {
+	const dupes = new Set((f.dupes ?? []).map(d => d.issue));
+	const issueLine = n => {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
-	}).join('\n'));
+	};
+	const matches = possiblyKnown(f, options.ki);
+	section('Possible duplicates', matches.filter(n => dupes.has(n)).map(issueLine).join('\n'));
+	section('Related issues', matches.filter(n => !dupes.has(n)).map(issueLine).join('\n'));
 	// A match on a not-planned issue: check it was not judged intended before fixing.
 	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
 	section('Observed', capitalize(t.observed));

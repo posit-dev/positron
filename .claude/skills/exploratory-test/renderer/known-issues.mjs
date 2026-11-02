@@ -221,7 +221,7 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
  *   the `held` and `failed` rows; `partly` holds their numbers.
  * - `fixFailed`, `cameBack`: finding number to the fixes it shows did not
  *   hold, or the closed issues it shows came back.
- * - `known`: finding number to its KNOWN matches, less its own issues.
+ * - `known`: finding number to its KNOWN matches, less its own issues and fixes that held.
  * - `similar`: finding number to the open linked issues among those matches,
  *   for findings with no issue of their own.
  * - `knownFixes`: `{ n, issue }` matches on a fix or a closed linked issue,
@@ -281,14 +281,18 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 		}
 	}
 	// A finding never matches its own issue, and one that looks like an open
-	// linked issue stands for it, so that issue is not listed again.
+	// linked issue stands for it, so that issue is not listed again. A fix the
+	// run showed holding is not shown as a finding's match: the finding is
+	// another bug, and listing it would read as if the fix did not hold.
 	const known = new Map();
 	const similar = new Map();
 	const knownFixes = [];
+	const fixHeld = n => held.has(n) && !failedRows.has(n);
 	for (const [f, numbers] of knownMatches) {
 		const own = new Set([...(fixFailed.get(f) ?? []), ...(cameBack.get(f) ?? [])].map(i => i.number));
 		const rest = numbers.filter(n => !own.has(n));
-		if (rest.length) { known.set(f, rest); }
+		const shown = rest.filter(n => !fixHeld(n));
+		if (shown.length) { known.set(f, shown); }
 		const open = [];
 		for (const n of rest) {
 			const issue = byNumber.get(n);
