@@ -20,10 +20,8 @@ is handed:
    `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
    reports the files the session read, so a screenshot it lists but never
    opened is asked about once, then shown as not checked. So is a finding
-   whose reply has no `setup` list of the run's own setup.
-3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
-   launches its own instance, runs a few controls in 12 minutes, and writes
-   `isolation.md`. The verifier is then sent that file and revises.
+   whose reply has no `setup` list of the run's own setup. An UNRESOLVED
+   verdict names the evidence that is missing, for a person to follow up.
 
 Each of them writes what it decided into `report.json`: verdicts, known
 issues, and what each pass cost. `renderer/render.mjs` (or `run.mjs` in CI,
@@ -187,9 +185,9 @@ holds the text helpers and the ledger parser.
 
 | To change | Edit |
 |---|---|
-| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md` |
+| What an agent is told | `explorer.md`, `verifier.md` |
 | Why each agent's rules exist, and what checks them | `RULES.md` |
-| Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
+| Step order, retries, fallbacks | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
@@ -254,8 +252,7 @@ replay a saved run: copy a run directory whose `report.json` is as the
 explorer left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkout>
 --base <sha> --head <sha>` on it. A replay sends no usage row: a CI run has
 `cost.json`, and a local one keeps the `usage-reported` marker from its first
-render. That covers everything after the explorer,
-the isolator included when a finding comes back UNRESOLVED. For the explorer,
+render. That covers everything after the explorer. For the explorer,
 run the skill locally on a small branch, or start `test-exploratory.yml` with
 workflow_dispatch on your branch. A `/explore` comment always runs main's copy
 of the harness, so it won't test your change.

@@ -490,8 +490,8 @@ test('timeUpHook adds nothing before the deadline, then tells every tool result 
 });
 
 test('timeUpHook tells an agent that is not the explorer its own message', async () => {
-	const hook = timeUpHook({ deadline: 0, message: 'Write isolation.md now.' });
-	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
+	const hook = timeUpHook({ deadline: 0, message: 'Write report.json now.' });
+	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write report.json now.');
 });
 
 test('renderPrComment says when a run was stopped at its time limit', () => {
