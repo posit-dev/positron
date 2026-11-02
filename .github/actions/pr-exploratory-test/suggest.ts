@@ -97,7 +97,7 @@ async function precheck() {
 		isMember(mustEnv('ORG_TOKEN'), pr.user.login),
 	]);
 	const auto = isAutoRunAuthor(pr.user?.login, process.env.AUTO_RUN_AUTHORS);
-	let skip = skipReason({ pr, repo: REPO, action: process.env.EVENT_ACTION || '', authorIsMember, files, comments });
+	let skip = skipReason({ pr, repo: REPO, action: process.env.EVENT_ACTION || '', authorIsMember, authorListed: auto, files, comments });
 	if (!skip && auto) {
 		const prior = await findAutoRun(token, pr);
 		skip = prior ? `auto-run already started (${prior.html_url})` : null;
