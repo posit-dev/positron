@@ -75,6 +75,10 @@ jobs:
           python3 --version
           pip --version
 
+          # Parallel node-gyp postinstalls race on this cache and can read a truncated common.gypi
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" install \
+            --target="$(npm config get target)" --dist-url="$(npm config get disturl)"
+
           # Install build dependencies
           npm install --prefix build --fetch-timeout 120000
 
@@ -177,6 +181,10 @@ jobs:
           g++ --version
           python3 --version
           pip --version
+
+          # Parallel node-gyp postinstalls race on this cache and can read a truncated common.gypi
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" install \
+            --target="$(npm config get target)" --dist-url="$(npm config get disturl)"
 
           # Install build dependencies
           npm install --prefix build --fetch-timeout 120000

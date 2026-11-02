@@ -71,6 +71,10 @@ jobs:
           npm_config_arch: x64
         shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
         run: |
+          # Parallel node-gyp postinstalls race on this cache and can read a truncated common.gypi
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" install \
+            --target="$(npm config get target)" --dist-url="$(npm config get disturl)"
+
           npm install --prefix build --fetch-timeout 120000
           npm ci --fetch-timeout 120000
 
