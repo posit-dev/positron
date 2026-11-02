@@ -212,11 +212,16 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 			return false;
 		},
-		/** Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1". */
+		/** A row as errors show it ("shown"): its label, then its description in parentheses. */
+		shownAs: (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : ''),
+		/**
+		 * Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1".
+		 * Words are matched in the row as shownAs writes it, so words copied from "shown" match.
+		 */
 		hasWords: (text: string) => {
 			const words = text.split(/\s+/).filter(Boolean)
 				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
-			return (r: { label: string; description: string }) => words.every(x => x.test(r.label + ' ' + r.description));
+			return (r: { label: string; description: string }) => words.every(x => x.test(lib.shownAs(r)));
 		},
 		/**
 		 * The one row matching exact (label, or "label (description)") or words; nth picks among several.
@@ -226,7 +231,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 */
 		pick: async (m: { exact?: string; words?: string; folder?: string; nth?: number; walk?: boolean; settle?: ('root' | 'copies')[] }) => {
 			const words = lib.hasWords(m.words ?? '');
-			const shownAs = (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : '');
+			const shownAs = lib.shownAs;
 			// Each keeps the rows it prefers; it settles the match when one is left.
 			// Add a case here rather than an option beside them.
 			const tieBreakers: Record<'root' | 'copies', <R extends { label: string; description: string }>(rs: R[]) => R[]> = {
