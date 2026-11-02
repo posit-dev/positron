@@ -163,7 +163,7 @@ jobs:
           claude_args: |
             --model opus --fallback-model sonnet
             --json-schema '{"type":"object","properties":{"findings":{"type":"array","items":{"type":"object","properties":{"item":{"type":"integer","minimum":1,"maximum":8},"path":{"type":"string"},"line":{"type":"integer","minimum":1},"confidence":{"type":"string","enum":["high","medium","low"]},"body":{"type":"string"}},"required":["item","path","line","confidence","body"]}},"human_calls":{"type":"array","items":{"type":"string"}}},"required":["findings","human_calls"]}'
-            --allowedTools "Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git grep:*),Bash(git blame:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(python3:*),Bash(node:*),Bash(uv --directory extensions/positron-python run --active python:*)"
+            --allowedTools "Read,Grep,Glob,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git grep:*),Bash(git blame:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(python3:*),Bash(node:*),Bash(uv --directory extensions/positron-python run --active python:*)"
             --disallowedTools "Edit,Write"
 
   # The only job that can write, and it runs no model.

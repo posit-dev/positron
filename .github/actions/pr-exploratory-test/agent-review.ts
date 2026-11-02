@@ -101,7 +101,10 @@ async function post() {
 	const moved = !!process.env.HEAD_SHA && process.env.HEAD_SHA !== pr.head.sha;
 	const review = renderReview(parsed, lines, { inline: !moved });
 	if (DRY_RUN) {
-		summary(`**#${PR_NUMBER}** dry run, not posted. ${review.comments.length} inline:\n\n${review.body}\n`);
+		summary(`**#${PR_NUMBER}** dry run, not posted.\n\n${review.body}\n`);
+		if (review.comments.length) {
+			summary(`\n**Inline comments (${review.comments.length})**\n`);
+		}
 		for (const c of review.comments) {
 			summary(`- \`${c.path}:${c.line}\` ${c.body}`);
 		}
