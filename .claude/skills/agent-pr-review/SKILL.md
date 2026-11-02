@@ -34,7 +34,7 @@ or lean on what others already said.
 ## The checklist
 
 1. Coverage: Does the change cover every case in the issue, including unusual input (empty, null, array-like, dates, special characters, custom formatting) and every backend or code path that has the same bug?
-2. Tests: Would each new test fail if the change were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? If an agent wrote the PR, also report a missing failing run: the PR body neither shows the new test failing before the fix nor says the test could not run.
+2. Tests: Would each new test fail if the change were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? Does a test pass only by timing, for example by asserting right after a handler that has not finished its `await`s, or without waiting for the async work it checks? If an agent wrote the PR, also report a missing failing run: the PR body neither shows the new test failing before the fix nor says the test could not run.
 3. Duplication: Is the same logic now in more than one place, or does a helper already exist? Are there sibling code paths (filters, other handlers) with the same bug that a shared helper would fix?
 4. State: After an error, retry, refresh, empty result, or leaving the view, can a flag, message, or resource stay stale or leak?
 5. Cost: Does the code make a full copy of a column, array, or file only to compute something small? Does it do work on every row or keystroke that scales badly?
