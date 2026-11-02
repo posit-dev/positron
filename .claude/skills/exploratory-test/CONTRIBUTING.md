@@ -60,7 +60,8 @@ about cost:
    draft.
 2. **Free checks** (`skipReason` in `suggest-lib.ts`). Skipped if the PR is
    closed or a draft, its branch is on a fork, it targets `release/*`, its
-   author is a bot or not an active `positron-dev` member, the thread already
+   author is a bot or not an active `positron-dev` member (except
+   `positron-projects[bot]` while it is on the auto-run list), the thread already
    has a tip, an `/explore` or a run's result, or no file it changes is
    product code (tests, docs, `.md`, `.github/` and `.claude/` are not).
 3. **The judge** (`buildSuggestPrompt`). One model call with no tools reads
@@ -84,6 +85,10 @@ skipped with a reply linking to that run; one with a focus runs alongside it.
 `EXPLORE_AUTO_RUN_AUTHORS` is a repo variable (Settings > Secrets and
 variables > Actions > Variables): GitHub logins separated by commas. Edit it
 to add or remove someone; empty it to end the experiment. No PR needed.
+
+Add `positron-projects[bot]` to auto-run the agent PRs that `claude.yml`
+opens. It is the only bot the list lets through, so other bots, such as the
+drive-positron nightly's `positron-bot[bot]`, stay skipped.
 
 An automatic run's name starts with `Exploratory auto-run #<PR>`, followed by
 the branch, and the suggest workflow skips a PR that already has a run with

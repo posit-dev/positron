@@ -7,7 +7,8 @@ name: "Test: Exploratory Suggest"
 # Auto-run experiment (#16610): when the author is on the
 # EXPLORE_AUTO_RUN_AUTHORS repo variable, post starts test-exploratory.yml
 # instead of posting the tip. That run posts to the PR only if its own gate
-# passes it. Empty the variable to end the experiment. The full list of when
+# passes it. Listing positron-projects[bot] auto-runs claude.yml's agent PRs;
+# no other bot gets through. Empty the variable to end the experiment. The full list of when
 # a PR gets a run is in the exploratory-test skill's CONTRIBUTING.md.
 #
 # Plain `pull_request`, not `pull_request_target`. A fork PR gets no secrets
@@ -49,7 +50,7 @@ env:
 
 jobs:
   # The free checks: draft, fork, bot, release base, the author's positron-dev
-  # membership, any sign of a prior run or suggestion, and a diff with no
+  # membership (the listed agent bot passes these two), any sign of a prior run or suggestion, and a diff with no
   # product file in it. Most PRs stop here.
   precheck:
     name: precheck
