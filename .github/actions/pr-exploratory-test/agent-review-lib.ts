@@ -82,13 +82,18 @@ function defuse(text) {
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
- * The review body, or null when there is nothing to report (post nothing).
- * Each finding links to its line in the reviewed commit `sha`.
+ * The review body. Each finding links to its line in the reviewed commit `sha`.
  */
 export function renderReview(output, { repo, sha }) {
 	const { findings, human_calls: decisions } = output;
+	const footer = ['', '<sub>Automated checklist review of the diff. It does not approve or block.</sub>'];
 	if (!findings.length && !decisions.length) {
-		return null;
+		return [
+			REVIEW_MARKER,
+			'**Agent review: no problems found**',
+			'Checked the diff for missed cases and sibling code paths, tests that pass without the fix, duplicated logic, stale state, cost, and platform assumptions.',
+			...footer,
+		].join('\n');
 	}
 	const counts = [findings.length ? plural(findings.length, 'problem') : '', decisions.length ? `${plural(decisions.length, 'decision')} for you` : ''];
 	const parts = [REVIEW_MARKER, `**Agent review: ${counts.filter(Boolean).join(', ')}**`];
@@ -103,6 +108,5 @@ export function renderReview(output, { repo, sha }) {
 		parts.push('', '**Decisions for you**', '');
 		decisions.forEach((h, i) => parts.push(`${i + 1}. **${defuse(h.title).replace(/[.?!]$/, '')}.** ${defuse(h.body)}`));
 	}
-	parts.push('', '<sub>Automated checklist review of the diff. It does not approve or block.</sub>');
-	return parts.join('\n');
+	return [...parts, ...footer].join('\n');
 }

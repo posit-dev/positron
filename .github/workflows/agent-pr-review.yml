@@ -2,7 +2,8 @@ name: "Agent PR Review"
 
 # Reviews an agent PR (from positron-projects[bot]) against the checklist in
 # the agent-pr-review skill when a reviewer is requested, and posts one
-# COMMENT review, or nothing when there is nothing to report. Never approves.
+# COMMENT review (a short "no problems found" when the lists are empty).
+# Never approves.
 # Set the AGENT_PR_REVIEW repo variable to 'true' to turn it on; anything else
 # turns it off.
 #

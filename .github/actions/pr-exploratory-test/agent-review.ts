@@ -5,8 +5,7 @@
 
 // The no-model steps of agent-pr-review.yml:
 //   precheck  skips closed, draft and already-reviewed PRs
-//   post      renders the model's JSON and posts one COMMENT review, or
-//             nothing when there is nothing to report
+//   post      renders the model's JSON and posts one COMMENT review
 // DRY_RUN=true reviews a PR precheck would skip, and writes the review to the
 // step summary instead of posting it.
 
@@ -86,10 +85,6 @@ async function post() {
 	}
 	// Links pin the reviewed commit, so line numbers stay right after a push.
 	const body = renderReview(parsed, { repo: REPO, sha: mustEnv('HEAD_SHA') });
-	if (!body) {
-		summary(`**#${PR_NUMBER}** nothing to report, posting nothing.`);
-		return;
-	}
 	if (DRY_RUN) {
 		summary(`**#${PR_NUMBER}** dry run, not posted.\n\n${body}\n`);
 		return;

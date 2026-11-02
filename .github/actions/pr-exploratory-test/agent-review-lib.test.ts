@@ -45,8 +45,12 @@ test('isSameRepoHead refuses a fork or a deleted head repo', () => {
 	assert.equal(isSameRepoHead({ head: { repo: null } }, 'posit-dev/positron'), false);
 });
 
-test('renderReview returns null when there is nothing to report', () => {
-	assert.equal(renderReview({ findings: [], human_calls: [] }, ctx), null);
+test('renderReview says what it checked when there is nothing to report', () => {
+	const body = renderReview({ findings: [], human_calls: [] }, ctx);
+	assert.ok(body.startsWith(REVIEW_MARKER));
+	assert.match(body, /\*\*Agent review: no problems found\*\*\nChecked the diff for /);
+	assert.doesNotMatch(body, /Problems\*\*|Decisions for you/);
+	assert.match(body, /<sub>.*<\/sub>\s*$/);
 });
 
 test('renderReview leads with counts, then problems, then decisions, then a footer', () => {

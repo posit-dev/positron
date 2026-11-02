@@ -70,4 +70,5 @@ Never approve and never request changes. Never write `@` before a name.
 
 If the caller gives a JSON schema, return the result only in that schema.
 Otherwise, post one review as a comment: a count line, the problems, then
-the judgment calls. Post nothing if both lists are empty.
+the judgment calls. If both lists are empty, say only "No problems found"
+and name what you checked.
