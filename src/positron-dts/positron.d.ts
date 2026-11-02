@@ -3803,6 +3803,30 @@ declare module 'positron' {
 		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
 
 		/**
+		 * The interpreter paths in the `interpreters.definitions` setting for a
+		 * language, as Positron reads them: only valid entries with an absolute
+		 * path, each interpreter once in its first spelling, in the order of
+		 * the setting. Paths are compared as Positron compares them to runtime
+		 * paths: lexically, and on Windows ignoring case and the kind of
+		 * separator.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 */
+		export function getInterpreterDefinitionPaths(languageId: string): string[];
+
+		/**
+		 * The path from `getInterpreterDefinitionPaths()` that names the
+		 * interpreter at `path`, in the definition's own spelling, or
+		 * undefined if no definition names it. A runtime's ID usually depends
+		 * on its path, so use this spelling to create the same runtime that
+		 * the definition creates.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param path The interpreter path, as written anywhere.
+		 */
+		export function findInterpreterDefinitionPath(languageId: string, path: string): string | undefined;
+
+		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime

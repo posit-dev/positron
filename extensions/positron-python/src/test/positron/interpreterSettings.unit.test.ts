@@ -12,14 +12,32 @@ import { Uri, WorkspaceConfiguration } from 'vscode';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as logging from '../../client/logging';
 import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
+import { capture } from 'ts-mockito';
 import {
+    findInterpreterDefinitionPath,
     getCustomEnvDirs,
+    getInterpreterDefinitionPaths,
     getResolvedFilterSettingPaths,
     getUserDefaultInterpreter,
     isPythonStartupDisabled,
     shouldIncludeInterpreter,
 } from '../../client/positron/interpreterSettings';
 import { InspectInterpreterSettingType } from '../../client/common/types';
+import { mockedPositronNamespaces } from '../vscode-mock';
+
+suite('interpreters.definitions', () => {
+    // Positron validates and compares the paths; Python only names its language.
+    test('asks Positron for the Python definitions', () => {
+        const runtime = mockedPositronNamespaces.runtime!;
+        getInterpreterDefinitionPaths();
+        findInterpreterDefinitionPath('/opt/python/bin/python');
+
+        assert.deepStrictEqual(
+            [capture(runtime.getInterpreterDefinitionPaths).last(), capture(runtime.findInterpreterDefinitionPath).last()],
+            [['python'], ['python', '/opt/python/bin/python']],
+        );
+    });
+});
 
 suite('isPythonStartupDisabled', () => {
     let getConfigurationStub: sinon.SinonStub;

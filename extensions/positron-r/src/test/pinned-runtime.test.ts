@@ -95,7 +95,7 @@ suite('R pinned runtime', () => {
 		}
 		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
 		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
-		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath }], vscode.ConfigurationTarget.Global);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath, label: 'Team R' }], vscode.ConfigurationTarget.Global);
 		const recommended = await runtimeManager.recommendedWorkspaceRuntime();
 
 		// Whether it starts right away depends on the folder, so only the R is checked.
@@ -110,13 +110,25 @@ suite('R pinned runtime', () => {
 		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
 		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
 		const notDefined = await runtimeManager.recommendedWorkspaceRuntime(true);
-		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath }], vscode.ConfigurationTarget.Global);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath, label: 'Team R' }], vscode.ConfigurationTarget.Global);
 		const defined = await runtimeManager.recommendedWorkspaceRuntime(true);
 
 		assert.deepStrictEqual(
 			{ notDefined, path: defined?.runtimePath, startupBehavior: defined?.startupBehavior },
 			{ notDefined: undefined, path: current.binpath, startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit },
 		);
+	});
+
+	test('under definitionsOnly, a pin is not one of the definitions when its definition has no label, as Positron ignores that entry', async function () {
+		const current = await currentRInstallation();
+		if (!current?.usable) {
+			this.skip();
+		}
+		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
+		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: current.binpath }], vscode.ConfigurationTarget.Global);
+
+		assert.strictEqual(await runtimeManager.recommendedWorkspaceRuntime(true), undefined);
 	});
 
 	test('under definitionsOnly, a pin is one of the definitions when the definition writes its path another way', async function () {

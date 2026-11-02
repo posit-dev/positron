@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
+import { createInterpreterVariant, findInterpreterDefinitionPath, getInterpreterDefinitionPaths, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const base: ILanguageRuntimeMetadata = {
@@ -131,5 +131,40 @@ describe('isSameInterpreterPath', () => {
 		['D:\\R\\bin\\R.exe', 'C:\\R\\bin\\R.exe'],
 	])('treats %s and %s as different interpreters', (a, b) => {
 		expect([isSameInterpreterPath(a, b), isSameInterpreterPath(b, a)]).toEqual([false, false]);
+	});
+});
+
+describe('getInterpreterDefinitionPaths', () => {
+	it('lists the valid, absolute paths for a language, each interpreter once, in setting order', () => {
+		const definitions: unknown[] = [
+			{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'A' },
+			{ language: 'python', path: 'C:/Python312/python.exe', label: 'B' },
+			{ language: 'r', path: 'C:\\R\\R-4.5.0\\bin\\R.exe', label: 'C' },
+			{ language: 'r', path: 'c:\\R\\R-4.4.1\\bin\\R.exe', label: 'D' },
+			{ language: 'r', path: '/opt/R/4.4/bin/R' },
+			{ language: 'r', path: 'bin/R', label: 'Relative' },
+			{ language: 'r', path: '/opt/R/4.3/bin/R', label: 'Bad env', env: { N: 1 } },
+			{ language: 'r', path: '/opt/R/4.2/bin/R', label: 'Posix' },
+		];
+		expect(getInterpreterDefinitionPaths(definitions as IInterpreterDefinition[], 'r')).toEqual([
+			'C:/R/R-4.4.1/bin/R.exe',
+			'C:\\R\\R-4.5.0\\bin\\R.exe',
+			'/opt/R/4.2/bin/R',
+		]);
+	});
+});
+
+describe('findInterpreterDefinitionPath', () => {
+	const definitions: IInterpreterDefinition[] = [
+		{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'A' },
+		{ language: 'python', path: 'C:/R/R-4.5.0/bin/R.exe', label: 'B' },
+	];
+
+	it('returns the definition\'s spelling of an interpreter written another way, or undefined', () => {
+		expect([
+			findInterpreterDefinitionPath(definitions, 'r', 'c:\\r\\r-4.4.1\\bin\\r.exe'),
+			findInterpreterDefinitionPath(definitions, 'r', 'C:\\R\\R-4.5.0\\bin\\R.exe'),
+			findInterpreterDefinitionPath(undefined, 'r', 'C:/R/R-4.4.1/bin/R.exe'),
+		]).toEqual(['C:/R/R-4.4.1/bin/R.exe', undefined, undefined]);
 	});
 });

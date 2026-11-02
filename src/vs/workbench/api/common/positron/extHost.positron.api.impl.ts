@@ -34,6 +34,7 @@ import { ExtHostDocumentsAndEditors } from '../extHostDocumentsAndEditors.js';
 import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { findInterpreterDefinitionPath, getInterpreterDefinitionPaths, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY } from '../../../services/languageRuntime/common/interpreterDefinitions.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
 import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
@@ -132,6 +133,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
+			},
+			getInterpreterDefinitionPaths(languageId: string): string[] {
+				return getInterpreterDefinitionPaths(configProvider.getConfiguration().get<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY), languageId);
+			},
+			findInterpreterDefinitionPath(languageId: string, path: string): string | undefined {
+				return findInterpreterDefinitionPath(configProvider.getConfiguration().get<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY), languageId, path);
 			},
 			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata | undefined> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);

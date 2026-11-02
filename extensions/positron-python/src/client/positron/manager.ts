@@ -32,13 +32,13 @@ import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import {
     shouldIncludeInterpreter,
+    findInterpreterDefinitionPath,
     getInterpreterDefinitionPaths,
     getPinnedInterpreterPath,
     isDefinitionsOnlyDiscovery,
 } from './interpreterSettings';
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
 import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
-import { findInterpreterPath, includesInterpreterPath } from './interpreterPath';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
@@ -435,9 +435,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return undefined;
         }
         const definitionsOnly = isDefinitionsOnlyDiscovery();
-        const definedPath = definitionsOnly
-            ? findInterpreterPath(getInterpreterDefinitionPaths(), pinnedPath)
-            : undefined;
+        const definedPath = definitionsOnly ? findInterpreterDefinitionPath(pinnedPath) : undefined;
         if (definitionsOnly && !definedPath) {
             traceInfo(
                 `[pinnedWorkspaceRuntime] Pinned interpreter ${pinnedPath} is not in interpreters.definitions, and discovery is limited to it`,
@@ -764,7 +762,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Keep a defined interpreter's saved path, not its symlink target: the
         // runtime ID depends on the path, and the saved spelling is the one it
         // was registered with.
-        const definitionPath = includesInterpreterPath(getInterpreterDefinitionPaths(), resolvePath);
+        const definitionPath = findInterpreterDefinitionPath(resolvePath) !== undefined;
         return createPythonRuntimeMetadata(
             definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
             this.serviceContainer,
@@ -854,6 +852,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Interpreters named in interpreters.definitions that discovery missed.
         // Positron hides these and shows only the variants created from the
         // definitions, so they are not saved with the discovered runtimes.
+        // Discovery stores paths as the interpreter reports them, and a
+        // definition may be written another way, so compare in the
+        // definitions' own spelling.
+        const registeredDefinitions = new Set(
+            [...this.registeredPythonRuntimes.keys()].map((registered) => findInterpreterDefinitionPath(registered)),
+        );
         for (const pythonPath of getInterpreterDefinitionPaths()) {
             if (!shouldIncludeInterpreter(pythonPath)) {
                 traceInfo(
@@ -861,9 +865,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 );
                 continue;
             }
-            // Discovery stores paths as the interpreter reports them, and the
-            // definition may be written another way.
-            if (includesInterpreterPath(this.registeredPythonRuntimes.keys(), pythonPath)) {
+            if (registeredDefinitions.has(pythonPath)) {
                 continue;
             }
             try {

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
-import { findInterpreterPath, uniqueInterpreterPaths } from './interpreter-path.js';
 import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
 import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variables';
 import { isModuleName } from './startup-choice';
@@ -92,19 +92,12 @@ export function userRBinaries(): string[] {
 }
 
 /**
- * R binaries named by entries in the `interpreters.definitions` setting, each
- * interpreter once. Paths must be absolute; other entries are ignored.
+ * R binaries named by entries in the `interpreters.definitions` setting, as
+ * Positron reads them: valid entries with an absolute path, each R once.
  * @returns List of R binary paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
-	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
-	if (!Array.isArray(definitions)) {
-		return [];
-	}
-	const paths = definitions
-		.filter(d => d?.language === 'r' && typeof d.path === 'string' && path.isAbsolute(d.path))
-		.map(d => d.path as string);
-	return uniqueInterpreterPaths(paths);
+	return positron.runtime.getInterpreterDefinitionPaths('r');
 }
 
 /**
@@ -112,7 +105,7 @@ export function getInterpreterDefinitionPaths(): string[] {
  * the definition's own spelling, or undefined.
  */
 export function interpreterDefinitionPathFor(binpath: string): string | undefined {
-	return findInterpreterPath(getInterpreterDefinitionPaths(), binpath);
+	return positron.runtime.findInterpreterDefinitionPath('r', binpath);
 }
 
 /**

@@ -197,6 +197,10 @@ suite('Python runtime manager', () => {
         pythonRuntimeManager.registeredPythonRuntimes.set(registeredPath, runtimeMetadata.object);
         sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(true);
         sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns(['/opt/python/3.12/bin//python']);
+        // Positron's comparison, which names the registered interpreter in the definition's spelling.
+        sinon
+            .stub(interpreterSettings, 'findInterpreterDefinitionPath')
+            .callsFake((p: string) => (p === registeredPath ? '/opt/python/3.12/bin//python' : undefined));
         sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
         const createMetadata = sinon.stub(runtime, 'createPythonRuntimeMetadata');
 
@@ -214,7 +218,7 @@ suite('Python runtime manager', () => {
         // A saved runtime has discovery's spelling or the definition's; either must keep its ID.
         const definitionPath = 'C:/Py/python.exe';
         const savedPaths = ['C:\\Py\\python.exe', definitionPath];
-        sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns([definitionPath]);
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').returns(definitionPath);
         sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
         sinon.stub(fs, 'pathExists').callsFake(async (p: string) => savedPaths.includes(p));
         const createStub = sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
@@ -712,11 +716,11 @@ suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
             .setup((i) => i.getInterpreterDetails(TypeMoq.It.isValue(linkPath), TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(resolved.object));
         interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
-        let definitions = [{ language: 'python', path: '/opt/python/3.12/bin/python', label: 'Python 3.12' }];
-        interpretersConfig.setup((c) => c.get<unknown>('definitions')).returns(() => definitions);
+        let definedPath: string | undefined;
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').callsFake(() => definedPath);
 
         const notListed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
-        definitions = [{ language: 'python', path: linkPath, label: 'Python 3.13' }];
+        definedPath = linkPath;
         const listed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
 
         assert.deepStrictEqual([notListed, listed?.runtimePath], [undefined, linkPath]);
@@ -725,9 +729,7 @@ suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
     test('under definitionsOnly, returns the definition\'s spelling when the definition writes the pinned path another way', async () => {
         pin(pinnedPath);
         interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
-        interpretersConfig
-            .setup((c) => c.get<unknown>('definitions'))
-            .returns(() => [{ language: 'python', path: '/opt/python/3.13/bin//python', label: 'Python 3.13' }]);
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').returns('/opt/python/3.13/bin//python');
 
         const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
 

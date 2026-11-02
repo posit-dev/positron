@@ -68,8 +68,8 @@ const WINDOWS_PATH = /^(?:[a-zA-Z]:[\\/]|\\\\)/;
  * the kind of separator. The path's shape picks the rule, not the local OS,
  * because the interpreter can be on another host.
  *
- * The R and Python extensions keep copies, checked by
- * `extensions/interpreterPath-copies.vitest.ts`.
+ * Extensions use it through `getInterpreterDefinitionPaths()` and
+ * `findInterpreterDefinitionPath()` in the Positron API.
  */
 export function isSameInterpreterPath(a: string, b: string): boolean {
 	if (WINDOWS_PATH.test(a) || WINDOWS_PATH.test(b)) {
@@ -83,6 +83,31 @@ export function isSameInterpreterPath(a: string, b: string): boolean {
  */
 export function getLanguageDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string): IInterpreterDefinition[] {
 	return validDefinitions(definitions).filter(d => d.language === languageId);
+}
+
+/**
+ * The paths of the valid definitions for a language, each interpreter once in
+ * its first spelling, in the order of the setting. Paths that are not absolute
+ * are left out, since they can never match a runtime.
+ */
+export function getInterpreterDefinitionPaths(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string): string[] {
+	const paths: string[] = [];
+	for (const { path } of getLanguageDefinitions(definitions, languageId)) {
+		if ((posix.isAbsolute(path) || win32.isAbsolute(path)) && !paths.some(p => isSameInterpreterPath(p, path))) {
+			paths.push(path);
+		}
+	}
+	return paths;
+}
+
+/**
+ * The definition path for a language that names the interpreter at `path`, in
+ * the definition's own spelling, or undefined. Runtime IDs depend on the path,
+ * so an extension uses this spelling to create the same runtime that the
+ * definition creates.
+ */
+export function findInterpreterDefinitionPath(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string, path: string): string | undefined {
+	return getInterpreterDefinitionPaths(definitions, languageId).find(p => isSameInterpreterPath(p, path));
 }
 
 /**
