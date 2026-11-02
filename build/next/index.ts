@@ -16,9 +16,6 @@ import { getVersion } from '../lib/getVersion.ts';
 import { getGitCommitDate } from '../lib/date.ts';
 import product from '../../product.json' with { type: 'json' };
 import packageJson from '../../package.json' with { type: 'json' };
-// --- Start Positron ---
-import { positronBuildNumber, releaseChannel } from '../utils.ts';
-// --- End Positron ---
 import { useEsbuildTranspile } from '../buildConfig.ts';
 import { isWebExtension, type IScannedBuiltinExtension } from '../lib/extensions.ts';
 import { runBuildFast } from './build-fast.ts';
@@ -709,6 +706,10 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject product configuration
 				if (contents.includes('/*BUILD->INSERT_PRODUCT_CONFIGURATION*/')) {
 					if (productConfigReplacement === undefined) {
+						// --- Start Positron ---
+						// Lazy: utils.ts shells out to git, which fails in shallow checkouts that only transpile.
+						const { positronBuildNumber, releaseChannel } = await import('../utils.ts');
+						// --- End Positron ---
 						// For server-web, remove webEndpointUrlTemplate
 						const productForTarget = target === 'server-web'
 							? { ...product, webEndpointUrlTemplate: undefined }
