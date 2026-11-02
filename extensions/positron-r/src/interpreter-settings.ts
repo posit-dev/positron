@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
+import { findInterpreterPath, uniqueInterpreterPaths } from './interpreter-path.js';
 import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
 import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variables';
 import { isModuleName } from './startup-choice';
@@ -91,8 +92,8 @@ export function userRBinaries(): string[] {
 }
 
 /**
- * R binaries named by entries in the `interpreters.definitions` setting.
- * Paths must be absolute; other entries are ignored.
+ * R binaries named by entries in the `interpreters.definitions` setting, each
+ * interpreter once. Paths must be absolute; other entries are ignored.
  * @returns List of R binary paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
@@ -103,7 +104,15 @@ export function getInterpreterDefinitionPaths(): string[] {
 	const paths = definitions
 		.filter(d => d?.language === 'r' && typeof d.path === 'string' && path.isAbsolute(d.path))
 		.map(d => d.path as string);
-	return Array.from(new Set(paths));
+	return uniqueInterpreterPaths(paths);
+}
+
+/**
+ * The `interpreters.definitions` path that names the R binary at `binpath`, in
+ * the definition's own spelling, or undefined.
+ */
+export function interpreterDefinitionPathFor(binpath: string): string | undefined {
+	return findInterpreterPath(getInterpreterDefinitionPaths(), binpath);
 }
 
 /**

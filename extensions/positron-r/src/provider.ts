@@ -16,6 +16,7 @@ import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendly
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { includesInterpreterPath } from './interpreter-path.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -368,14 +369,15 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 /**
  * Yields metadata for R binaries named in `interpreters.definitions` that
  * discovery did not find. Positron hides these and shows only the variants
- * created from the definitions. The binary path is used as given (not
- * resolved through symlinks) so it matches the definition's path exactly.
+ * created from the definitions. The binary path is not resolved through
+ * symlinks, so it still matches the definition's path.
  *
  * @param discoveredPaths Runtime paths already yielded by discovery.
  */
 export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	for (const binpath of getInterpreterDefinitionPaths()) {
-		if (discoveredPaths.has(binpath)) {
+		// Discovery lists paths normalized, and the definition may not be.
+		if (includesInterpreterPath(discoveredPaths, binpath)) {
 			continue;
 		}
 		if (!fs.existsSync(binpath)) {

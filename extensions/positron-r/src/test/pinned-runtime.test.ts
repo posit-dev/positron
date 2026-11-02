@@ -6,6 +6,7 @@
 import './mocha-setup';
 
 import * as assert from 'assert';
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { runtimeManager } from '../extension';
@@ -115,6 +116,27 @@ suite('R pinned runtime', () => {
 		assert.deepStrictEqual(
 			{ notDefined, path: defined?.runtimePath, startupBehavior: defined?.startupBehavior },
 			{ notDefined: undefined, path: current.binpath, startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit },
+		);
+	});
+
+	test('under definitionsOnly, a pin is one of the definitions when the definition writes its path another way', async function () {
+		const current = await currentRInstallation();
+		if (!current?.usable) {
+			this.skip();
+		}
+		// Both spellings normalize to the same R path, so this checks only that
+		// the pin is accepted; startup-choice.vitest.ts checks the spelling.
+		const writtenAnotherWay = `${path.dirname(current.binpath)}${path.sep}${path.sep}${path.basename(current.binpath)}`;
+		await rConfig().update('interpreters.default', current.binpath, vscode.ConfigurationTarget.Global);
+		await rInterpretersConfig().update('discovery', 'definitionsOnly', vscode.ConfigurationTarget.Global, true);
+		await interpretersConfig().update('definitions', [{ language: 'r', path: writtenAnotherWay, label: 'Team R' }], vscode.ConfigurationTarget.Global);
+		const recommended = await runtimeManager.recommendedWorkspaceRuntime(true);
+
+		// Without a defined pin, R falls back to the first definition's
+		// variant, which has an interpreterDefinition.
+		assert.deepStrictEqual(
+			{ path: recommended?.runtimePath, definition: recommended?.interpreterDefinition },
+			{ path: current.binpath, definition: undefined },
 		);
 	});
 

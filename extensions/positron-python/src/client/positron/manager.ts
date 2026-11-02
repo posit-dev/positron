@@ -38,6 +38,7 @@ import {
 } from './interpreterSettings';
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
 import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
+import { findInterpreterPath, includesInterpreterPath } from './interpreterPath';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
@@ -433,7 +434,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!shouldIncludeInterpreter(pinnedPath)) {
             return undefined;
         }
-        if (isDefinitionsOnlyDiscovery() && !getInterpreterDefinitionPaths().includes(pinnedPath)) {
+        const definitionsOnly = isDefinitionsOnlyDiscovery();
+        const definedPath = definitionsOnly
+            ? findInterpreterPath(getInterpreterDefinitionPaths(), pinnedPath)
+            : undefined;
+        if (definitionsOnly && !definedPath) {
             traceInfo(
                 `[pinnedWorkspaceRuntime] Pinned interpreter ${pinnedPath} is not in interpreters.definitions, and discovery is limited to it`,
             );
@@ -446,11 +451,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return undefined;
         }
         traceInfo(`[pinnedWorkspaceRuntime] Pinned interpreter: ${interpreter.path}`);
-        // Positron matches interpreters.definitions on the exact path, so keep the path as written there,
-        // as the recommendation does. Implicit, like a recommendation that doesn't start right away, so
-        // opening a Python file starts the pin.
+        // Use the definition's spelling, not the symlink target, so the pin is the same runtime (same ID)
+        // that the definition creates. Implicit, so opening a Python file starts the pin.
         return createPythonRuntimeMetadata(
-            isDefinitionsOnlyDiscovery() ? { ...interpreter, path: pinnedPath } : interpreter,
+            definedPath ? { ...interpreter, path: definedPath } : interpreter,
             this.serviceContainer,
             positron.LanguageRuntimeStartupBehavior.Implicit,
             { skipModuleWait: !canBeModuleEnv(interpreter.envType) },
@@ -757,9 +761,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!interpreter) {
             throw new Error(`Failed to resolve interpreter ${resolvePath}; the environment may no longer be usable`);
         }
-        // Keep a definition's path as written, as discovery does, so its
-        // variants still match it.
-        const definitionPath = getInterpreterDefinitionPaths().includes(resolvePath);
+        // Keep a defined interpreter's saved path, not its symlink target: the
+        // runtime ID depends on the path, and the saved spelling is the one it
+        // was registered with.
+        const definitionPath = includesInterpreterPath(getInterpreterDefinitionPaths(), resolvePath);
         return createPythonRuntimeMetadata(
             definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
             this.serviceContainer,
@@ -856,7 +861,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 );
                 continue;
             }
-            if (this.registeredPythonRuntimes.has(pythonPath)) {
+            // Discovery stores paths as the interpreter reports them, and the
+            // definition may be written another way.
+            if (includesInterpreterPath(this.registeredPythonRuntimes.keys(), pythonPath)) {
                 continue;
             }
             try {
@@ -869,9 +876,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     );
                     continue;
                 }
-                // Definitions match on the exact runtime path, so keep the path
-                // as written even if it resolves to another one (e.g. a python3
-                // symlink to python).
+                // Keep the path as written, not its symlink target (e.g. a
+                // python3 link to python), so it matches the definition.
                 const runtime = await createPythonRuntimeMetadata(
                     { ...interpreter, path: pythonPath },
                     this.serviceContainer,

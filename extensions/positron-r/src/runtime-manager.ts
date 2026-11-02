@@ -14,7 +14,7 @@ import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { DefaultInterpreter, getDefaultInterpreter, getInterpreterDefinitionLabels, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
+import { DefaultInterpreter, getDefaultInterpreter, getInterpreterDefinitionLabels, interpreterDefinitionPathFor, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi, resolveModuleBinary } from './provider-module.js';
 import { packagerMetadataForPath } from './packager-detection.js';
 import { rVersionsMetadataForPath } from './provider-rversions.js';
@@ -360,8 +360,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		return choosePinnedR<RInstallation, PackagerMetadata>({
 			definitionsOnly,
 			pinnedPath: pin?.path,
-			isDefined: binpath => {
-				const defined = getInterpreterDefinitionPaths().includes(binpath);
+			definedPath: binpath => {
+				const defined = interpreterDefinitionPathFor(binpath);
 				if (!defined) {
 					LOGGER.info(`[pinnedRInstallation] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' is not in interpreters.definitions, and discovery is limited to it: ${binpath}`);
 				}

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
+import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const base: ILanguageRuntimeMetadata = {
@@ -43,6 +43,13 @@ describe('getMatchingDefinitions', () => {
 			{ ...xx, env: { R_LIBS_SITE: '/dup' } },
 		];
 		expect(getMatchingDefinitions(definitions as IInterpreterDefinition[], base)).toEqual([xx]);
+	});
+
+	it('matches a Windows definition written with forward slashes and a lowercase drive letter', () => {
+		// R normalizes the runtime path, so it has backslashes; users often write forward slashes in JSON.
+		const windows = { ...base, runtimePath: 'C:\\Program Files\\R\\R-4.4.1\\bin\\x64\\R.exe' };
+		const definition = { ...xx, path: 'c:/Program Files/R/R-4.4.1/bin/x64/R.exe' };
+		expect(getMatchingDefinitions([definition], windows)).toEqual([definition]);
 	});
 
 	it('returns nothing when the setting is unset', () => {
@@ -95,5 +102,34 @@ describe('recreateInterpreterVariant', () => {
 	it('returns undefined when the definition was removed or no longer matches the base', () => {
 		expect(recreateInterpreterVariant([], base, xx.label)).toBeUndefined();
 		expect(recreateInterpreterVariant([{ ...xx, path: '/elsewhere/R' }], base, xx.label)).toBeUndefined();
+	});
+});
+
+describe('isSameInterpreterPath', () => {
+	it.each([
+		['C:/Program Files/R/R-4.4.1/bin/x64/R.exe', 'C:\\Program Files\\R\\R-4.4.1\\bin\\x64\\R.exe'],
+		['c:\\R\\bin\\R.exe', 'C:\\R\\bin\\R.exe'],
+		['C:\\R\\BIN\\R.EXE', 'C:\\R\\bin\\R.exe'],
+		['C:\\R\\.\\bin\\\\R.exe', 'C:\\R\\bin\\R.exe'],
+		['\\\\SERVER\\share\\R\\bin\\R.exe', '\\\\server\\share\\R\\bin\\R.exe'],
+		// A UNC definition with forward slashes matches the runtime, whose path has backslashes.
+		// A leading `//` alone is not taken as Windows, because it is also a valid posix path.
+		['//SERVER/share/R/bin/R.exe', '\\\\server\\share\\R\\bin\\R.exe'],
+		['//opt/R/bin/R', '/opt/R/bin/R'],
+		['/opt/R//bin/R', '/opt/R/bin/R'],
+		['/opt/R/./bin/R', '/opt/R/bin/R'],
+		['/opt/R/4.4/../4.4/bin/R', '/opt/R/4.4/bin/R'],
+	])('treats %s and %s as the same interpreter', (a, b) => {
+		expect([isSameInterpreterPath(a, b), isSameInterpreterPath(b, a)]).toEqual([true, true]);
+	});
+
+	it.each([
+		// Case matters on Linux, and a backslash is a valid file name character there.
+		['/opt/R/bin/R', '/opt/r/bin/R'],
+		['/opt/R\\bin/R', '/opt/R/bin/R'],
+		['C:\\R\\4.4\\bin\\R.exe', 'C:\\R\\4.5\\bin\\R.exe'],
+		['D:\\R\\bin\\R.exe', 'C:\\R\\bin\\R.exe'],
+	])('treats %s and %s as different interpreters', (a, b) => {
+		expect([isSameInterpreterPath(a, b), isSameInterpreterPath(b, a)]).toEqual([false, false]);
 	});
 });

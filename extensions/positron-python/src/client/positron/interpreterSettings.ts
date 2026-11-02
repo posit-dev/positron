@@ -25,6 +25,7 @@ import {
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { SubstitutionResult, substituteWorkspaceFolder } from './settingVariables';
+import { uniqueInterpreterPaths } from './interpreterPath';
 
 /**
  * Replaces `${workspaceFolder}` in a path from a Python interpreter setting with the first
@@ -114,8 +115,8 @@ function getOverrideInterpreters(): string[] {
 }
 
 /**
- * Gets the Python interpreter paths named by entries in the `interpreters.definitions` setting.
- * Paths must be absolute; other entries are ignored.
+ * Gets the Python interpreter paths named by entries in the `interpreters.definitions` setting,
+ * each interpreter once. Paths must be absolute; other entries are ignored.
  * @returns List of Python interpreter paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
@@ -126,7 +127,7 @@ export function getInterpreterDefinitionPaths(): string[] {
     const paths = definitions
         .filter((d) => d?.language === 'python' && typeof d.path === 'string' && path.isAbsolute(d.path))
         .map((d) => d.path as string);
-    return Array.from(new Set(paths));
+    return uniqueInterpreterPaths(paths);
 }
 
 /**
