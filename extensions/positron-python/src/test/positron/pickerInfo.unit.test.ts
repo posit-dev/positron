@@ -207,14 +207,14 @@ suite('pickerInfo', () => {
                 },
                 {
                     group: 'Global environments',
-                    groupOrder: 2,
+                    groupOrder: 1,
                     rowOrder: 28,
                     label: 'pyenv',
                     description: 'Python 3.13.1 \u00B7 not supported',
                 },
                 {
                     group: 'Global environments',
-                    groupOrder: 2,
+                    groupOrder: 1,
                     rowOrder: 35,
                     label: 'Python 3.8.10',
                     description: 'not supported',

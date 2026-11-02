@@ -32,7 +32,7 @@ function groupHeader(group: PythonPickerGroup): string {
         case PythonPickerGroup.Project:
             return vscode.l10n.t('Project environments');
         // Base interpreters share the Global header: both are places to pip
-        // install. Base's higher groupOrder keeps its rows last in the group.
+        // install. They also share a groupOrder, so their rows sort as one list.
         case PythonPickerGroup.Global:
         case PythonPickerGroup.Base:
             return vscode.l10n.t('Global environments');
@@ -159,7 +159,7 @@ export function createPythonPickerInfo(args: {
         .join(' \u00B7 ');
     return {
         group: groupHeader(group),
-        groupOrder: GROUP_ORDER.indexOf(group),
+        groupOrder: GROUP_ORDER.indexOf(group === PythonPickerGroup.Base ? PythonPickerGroup.Global : group),
         // Rows sort by tool, with no tool last, then by version (newest first).
         // Unsupported rows follow all supported ones, in the same order.
         rowOrder: (tool ? TOOL_ORDER.indexOf(tool) : TOOL_ORDER.length) + (supported ? 0 : TOOL_ORDER.length + 1),
