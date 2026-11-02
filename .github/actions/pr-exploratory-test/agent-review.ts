@@ -10,7 +10,7 @@
 // step summary instead of posting it.
 
 import { appendFileSync } from 'node:fs';
-import { commentableLines, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
+import { commentableLines, isSameRepoHead, parseReviewOutput, renderReview, reviewSkipReason } from './agent-review-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -66,11 +66,14 @@ async function precheck() {
 		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/reviews`),
 		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/files`),
 	]);
-	const skip = reviewSkipReason({ pr, action: process.env.EVENT_ACTION || '', reviews });
-	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${skip && DRY_RUN ? ', reviewing anyway (dry run)' : ''}`);
+	// A fork is refused even on a dry run: see isSameRepoHead.
+	const sameRepo = isSameRepoHead(pr, REPO);
+	const skip = sameRepo ? reviewSkipReason({ pr, action: process.env.EVENT_ACTION || '', reviews }) : 'head is not in this repo';
+	const proceed = sameRepo && (!skip || DRY_RUN);
+	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${skip && proceed ? ', reviewing anyway (dry run)' : ''}`);
 	// python: the review job sets up the kernel's Python deps only when they can matter.
 	const python = files.some(f => f.filename.startsWith('extensions/positron-python/'));
-	output({ proceed: !skip || DRY_RUN, python, base_sha: pr.base.sha, head_sha: pr.head.sha });
+	output({ proceed, python, head_sha: pr.head.sha });
 }
 
 async function postReview(token, review) {
@@ -93,7 +96,10 @@ async function post() {
 		ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}/files`),
 	]);
 	const lines = commentableLines(files);
-	const review = renderReview(parsed, lines);
+	// The model's line numbers are for the head it reviewed. After a push they
+	// may point at other code, so everything goes in the body.
+	const moved = !!process.env.HEAD_SHA && process.env.HEAD_SHA !== pr.head.sha;
+	const review = renderReview(parsed, lines, { inline: !moved });
 	if (DRY_RUN) {
 		summary(`**#${PR_NUMBER}** dry run, not posted. ${review.comments.length} inline:\n\n${review.body}\n`);
 		for (const c of review.comments) {

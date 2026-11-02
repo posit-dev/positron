@@ -39,6 +39,14 @@ export function parseReviewOutput(input) {
 }
 
 /**
+ * Whether the PR's head lives in this repo. A fork's head would run its own
+ * setup scripts in a job with secrets, so it is refused even on a dispatch.
+ */
+export function isSameRepoHead(pr, repo) {
+	return pr.head?.repo?.full_name === repo;
+}
+
+/**
  * Why this PR gets no review, or null. `pr` is the REST pulls object, `action`
  * the pull_request event's action (empty on a dispatch), `reviews` its reviews.
  */
@@ -86,7 +94,7 @@ export function commentableLines(files) {
 
 /** Zero-width space after @ so a handle the model wrote pings nobody. */
 function defuse(text) {
-	return String(text).replace(/@(?=[\w-])/g, '@​');
+	return String(text).replace(/@(?=[\w-])/g, '@\u200b');
 }
 
 function findingText(f) {

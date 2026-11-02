@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { commentableLines, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
+import { commentableLines, isSameRepoHead, parseReviewOutput, renderReview, REVIEW_MARKER, reviewSkipReason } from './agent-review-lib.ts';
 
 const finding = (over = {}) => ({ item: 1, path: 'src/a.ts', line: 11, confidence: 'high', body: 'Misses empty input.', ...over });
 const openPr = (over = {}) => ({ state: 'open', draft: false, requested_reviewers: [{ login: 'r' }], requested_teams: [], ...over });
@@ -29,6 +29,12 @@ test('reviewSkipReason skips closed, draft, already reviewed, and ready with no 
 	assert.match(reviewSkipReason({ pr: openPr({ requested_reviewers: [] }), action: 'ready_for_review', reviews: [] }), /no reviewer/);
 	assert.equal(reviewSkipReason({ pr: openPr(), action: 'review_requested', reviews: [{ id: 1, body: 'LGTM' }] }), null);
 	assert.equal(reviewSkipReason({ pr: openPr({ requested_reviewers: [], requested_teams: [{ slug: 't' }] }), action: 'ready_for_review', reviews: [] }), null);
+});
+
+test('isSameRepoHead refuses a fork or a deleted head repo', () => {
+	assert.equal(isSameRepoHead({ head: { repo: { full_name: 'posit-dev/positron' } } }, 'posit-dev/positron'), true);
+	assert.equal(isSameRepoHead({ head: { repo: { full_name: 'someone/positron' } } }, 'posit-dev/positron'), false);
+	assert.equal(isSameRepoHead({ head: { repo: null } }, 'posit-dev/positron'), false);
 });
 
 test('commentableLines reads added and context lines from a patch', () => {
