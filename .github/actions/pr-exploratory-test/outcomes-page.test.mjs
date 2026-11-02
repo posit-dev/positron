@@ -226,12 +226,23 @@ test('won\'t fix is its own group, counted in the % fixed but never as a fix', (
 	assert.match(text(section(html, 'ev-h')), /Won't fix 1 Its issue was closed as not planned\. .*Decided by Its issue was closed as not planned/);
 });
 
+test('a finding that also happened on main is its own group, left out of the % fixed whatever its outcome', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('not-fixed', { origin: 'inherited', title: 'Also on main' }), row('fixed-in-pr', { origin: 'inherited' }), row('not-fixed', { origin: 'introduced' }), row('pending')]);
+	assert.match(text(html), /Developers fixed 1 of 3 findings \(33%\)/);
+	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 3 Not counted 3/);
+	assert.match(text(section(html, 'ev-h')), /All 6 Fixed 1 Not fixed 2 Already on main 2 No outcome yet 1 Expand all/);
+	assert.match(html, /<div class="group" data-group="on-main">/);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'on-main', 'pending']);
+	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, so the PR didn't bring it\. Also on main .*Outcome Not fixed .*Outcome Fixed in the PR/);
+});
+
 test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
 	const html = render(today);
 	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
 	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/)[0];
 	const steps = [...panel.matchAll(/<li><span class="step">(\d)<\/span><span class="outs">(.*?)<\/span><\/span><span>/g)].map(m => `${m[1]} ${m[2].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ')}`);
-	assert.deepEqual(steps, ['1 PR still open', '2 Fixed in the PR', '3 Fixed later', '4 Filed as issue', '5 Won\'t fix', '6 Not merged', '7 Unclear No files named', '8 Not fixed']);
+	assert.deepEqual(steps, ['1 Already on main', '2 PR still open', '3 Fixed in the PR', '4 Fixed later', '5 Filed as issue', '6 Won\'t fix', '7 Not merged', '8 Unclear No files named', '9 Not fixed']);
 	assert.match(panel, /Outcomes can move later/);
 	assert.match(html, /let howOpen = false;/);
 	assert.match(html, /setHow\(howOpen\);/);
