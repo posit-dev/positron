@@ -262,7 +262,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// about the R interpreter settings
 		vscode.commands.registerCommand('r.interpreters.settingsInfo', async () => {
 			LOGGER.show();
-			printInterpreterSettingsInfo();
+			await printInterpreterSettingsInfo();
 		}),
 
 		// Returns a JSON report on whether the current R setup can start a

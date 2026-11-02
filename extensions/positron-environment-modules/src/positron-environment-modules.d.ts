@@ -87,6 +87,11 @@ export interface ResolveInterpreterOptions {
 	 * Function to parse version from the interpreter's output.
 	 */
 	parseVersion: (output: string) => string | undefined;
+	/**
+	 * Throw an error with the output of the failed module commands, instead
+	 * of returning undefined, when the interpreter can't be resolved.
+	 */
+	throwOnError?: boolean;
 }
 
 /**
