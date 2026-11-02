@@ -21,8 +21,11 @@
 # A dialog shown again while the first is open (a runtime's "is not
 # responding" prompt, a Positron modal: Wait or Force Quit) stacks a copy over
 # it: both are listed, --click answers the one on top, and "dialogs" lists
-# what is still open after. Hidden toasts stay in the center, so open it with
-# palette-run.sh 'Notifications: Show Notifications' to read older ones.
+# what is still open after. A toast hides itself after a while (an info toast
+# with buttons after 10 s) and stays in the notification center, which is read
+# only while it is open: open it with palette-run.sh 'Notifications: Show
+# Notifications' to read older ones or --click their buttons. When --click finds
+# no such button and the center is closed, the error says so.
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"notifications":[{"severity":"info","message":"...","source":"...","buttons":["Yes","No"]}]}

@@ -144,6 +144,16 @@ const cases: Case[] = [
 	{ name: 'shot --crop with no region is a usage error', run: ['shot.sh', '--crop', 'smoke-no-region.png'], fail: true },
 	{ name: 'shot --view missing view', run: ['shot.sh', '--view', 'No Such View', 'smoke-none-view.png'], fail: true },
 	{ name: 'shot --view with no value is a usage error', run: ['shot.sh', 'smoke-no-view.png', '--view'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--view needs a value') },
+	// Last in the section, since it starts a third Python session: a row of "shown", parentheses and all, is a --name that starts that row.
+	// The workspace has several Python interpreters, so --new with no --name lists them in "shown" rather than starting one.
+	{
+		name: 'start-session --new with no --name lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true,
+		check: o => {
+			const row = (o.json!.shown ?? []).find((x: string) => /^Python \S+ \((?!.*running).+\)$/.test(x));
+			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
+		},
+	},
+	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: o => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`) },
 
 	// ---- Editor and breakpoints
 	{ name: 'open-file analysis.R', quick: true, run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
@@ -455,11 +465,13 @@ const cases: Case[] = [
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },
-	{ name: 'notifications click missing', run: ['notifications.sh', '--click', 'No Such Button'], fail: true },
+	// No earlier case opens the notification center, so the error names how to open it.
+	{ name: 'notifications click missing points to the closed center', run: ['notifications.sh', '--click', 'No Such Button'], fail: true, check: o => includes(o.json!.error, 'no notification on screen has a "No Such Button" button') || includes(o.json!.error, "open it with palette-run.sh 'Notifications: Show Notifications'") },
 	{ name: 'notifications clear', run: ['notifications.sh', '--clear'], check: o => keys(o.json, 'remaining') },
 	{ name: 'shot window', quick: true, run: ['shot.sh', 'smoke-window.png'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot one element', run: ['shot.sh', 'smoke-statusbar.png', '.part.statusbar'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot missing element', run: ['shot.sh', 'smoke-none.png', '.no-such-element'], fail: true },
+	{ name: 'shot --crop with the SELECTOR before the file is a usage error', run: ['shot.sh', '--crop', '.part.statusbar', 'smoke-swapped.png'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'the file name comes first, then the SELECTOR: shot.sh --crop smoke-swapped.png .part.statusbar') },
 	{ name: 'shot name lint cannot read', run: ['shot.sh', 'smoke-50%.png'], fail: true, check: o => includes(o.stderr, 'take it as smoke-50.png') },
 	{ name: 'open-file analysis.py', run: ['open-file.sh', 'analysis.py'] },
 	{ name: 'run-app --list', quick: true, run: ['run-app.sh', '--list'], check: o => keys(o.json, 'buttons') },

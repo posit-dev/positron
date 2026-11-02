@@ -62,7 +62,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			const several = / rows match /.test(p.error);
 			const all = (a.name && none) || several ? await lib.allRows() : null;
 			const fits = lib.hasWords(several ? a.words : a.word);
-			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
+			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(lib.shownAs);
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
 			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
 			await lib.closeQuickInput();
