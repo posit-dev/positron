@@ -83,6 +83,7 @@ suite('interpreterRecommendation', () => {
         context = {
             workspacePath: p('/proj'),
             homeInsideWorkspace: false,
+            userEnvParents: [],
             activatedEnvPrefix: undefined,
             definitionPaths: [],
             definitionsOnly: false,

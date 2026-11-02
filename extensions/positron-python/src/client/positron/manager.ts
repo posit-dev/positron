@@ -19,7 +19,7 @@ import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpre
 import { traceError, traceInfo, traceWarn } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
 import { getActivePythonSessions, PythonRuntimeSession } from './session';
-import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
+import { createPythonRuntimeMetadata, pickerFolderUri, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
 import {
     EXTENSION_ROOT_DIR,
@@ -45,6 +45,9 @@ import {
     getEnvironmentModulesApi,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { CondaPythonPickerContribution } from './condaPickerContribution';
+import { buildRankingContext, isOtherProjectEnv } from './interpreterRanking';
+import { IWorkspaceService } from '../common/application/types';
+import { PythonEnvironment } from '../pythonEnvironments/info';
 import {
     CreateVirtualEnvironmentPromptOutcome,
     promptToCreateVirtualEnvironment,
@@ -241,11 +244,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
         if (!event.old && event.new) {
-            await this.registerLanguageRuntimeFromPath(
-                event.new.path,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            await this.registerDiscoveredInterpreter(event.new);
         } else if (event.old && !event.new) {
             const deletedPath = event.old.path;
             // The interpreter can be back by the time this runs: a delete reported late, after
@@ -253,11 +252,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // recreated it and maybe started a session on it. Handle that like a change in
             // place, keeping sessions on the runtime now at the path, so the new session survives.
             const current = (await fs.pathExists(deletedPath))
-                ? await this.registerLanguageRuntimeFromPath(
-                      deletedPath,
-                      /* recreateRuntime */ false,
-                      /* forceRefresh */ true,
-                  )
+                ? await this.registerDiscoveredInterpreter(event.old)
                 : undefined;
             if (current) {
                 traceInfo(`Interpreter ${deletedPath} was deleted and is back; keeping its current runtime's sessions`);
@@ -268,11 +263,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             await this.shutdownSessionsForPath(deletedPath, 'deleted interpreter');
         } else if (event.old && event.new && event.old.path !== event.new.path) {
             this.unregisterRuntimeForPath(event.old.path);
-            await this.registerLanguageRuntimeFromPath(
-                event.new.path,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            await this.registerDiscoveredInterpreter(event.new);
         } else if (event.old && event.new) {
             const changedPath = event.new.path;
             const oldVersion = event.old.version;
@@ -285,15 +276,37 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 return;
             }
             traceInfo(`Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw})`);
-            const current = await this.registerLanguageRuntimeFromPath(
-                changedPath,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            const current = await this.registerDiscoveredInterpreter(event.new);
             if (current) {
                 await this.shutdownSessionsForPath(changedPath, 'replaced interpreter', current.runtimeId);
             }
         }
+    }
+
+    /**
+     * Register an interpreter reported by an environment change, re-checking its metadata.
+     * Skips another folder's project env, as discovery does, unless it is already
+     * registered (e.g. the user picked it).
+     */
+    private async registerDiscoveredInterpreter(
+        interpreter: PythonEnvironment,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        if (!this.registeredPythonRuntimes.has(interpreter.path)) {
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const context = await buildRankingContext(
+                this.serviceContainer,
+                pickerFolderUri(workspaceService, interpreter),
+            );
+            if (isOtherProjectEnv(interpreter, context)) {
+                traceInfo(`Not registering another folder's project env: ${interpreter.path}`);
+                return undefined;
+            }
+        }
+        return this.registerLanguageRuntimeFromPath(
+            interpreter.path,
+            /* recreateRuntime */ false,
+            /* forceRefresh */ true,
+        );
     }
 
     /**
