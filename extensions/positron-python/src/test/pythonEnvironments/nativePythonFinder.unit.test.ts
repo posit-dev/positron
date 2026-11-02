@@ -32,10 +32,11 @@ suite('Native Python Finder', () => {
     let getConfigurationStub: sinon.SinonStub;
     let configMock: typemoq.IMock<WorkspaceConfiguration>;
     let getWorkspaceFolderPathsStub: sinon.SinonStub;
+    const locatorOutput = new MockOutputChannel('locator');
 
     setup(() => {
         createLogOutputChannelStub = sinon.stub(windowsApis, 'createLogOutputChannel');
-        createLogOutputChannelStub.returns(new MockOutputChannel('locator'));
+        createLogOutputChannelStub.returns(locatorOutput);
 
         getWorkspaceFolderPathsStub = sinon.stub(workspaceApis, 'getWorkspaceFolderPaths');
         getWorkspaceFolderPathsStub.returns([]);
@@ -66,7 +67,7 @@ suite('Native Python Finder', () => {
         }
 
         // typically all test envs should have at least one environment
-        assert.isNotEmpty(envs);
+        assert.isNotEmpty(envs, `Python Locator output:\n${locatorOutput.output || '(none)'}`);
     });
 
     test('Resolve should return python environments with version', async () => {
