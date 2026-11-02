@@ -134,6 +134,7 @@ suite('Python watcher', () => {
 
         /** Watches `folder`, fires a create for `created`, and collects events for `waitMs`. */
         async function eventsAfterCreate(created: string, waitMs: number): Promise<PythonWorkspaceEnvEvent[]> {
+            watchers = [];
             const watcher = createPythonWatcher();
             const events: PythonWorkspaceEnvEvent[] = [];
             watcher.onDidWorkspaceEnvChanged((e) => events.push(e));
@@ -172,6 +173,25 @@ suite('Python watcher', () => {
             assert.deepStrictEqual(
                 events.map((e) => ({ type: e.type, executable: e.executable })),
                 [{ type: FileChangeType.Created, executable: Uri.file(path.join(venvDir, executable)).fsPath }],
+            );
+        });
+
+        test('looks into a folder one level down but not deeper', async () => {
+            // The ranking reads envs at the root and one level down.
+            const envDirs = [path.join(root, 'proj', '.venv'), path.join(root, 'proj', 'lib', '.venv')];
+            for (const envDir of envDirs) {
+                fs.mkdirSync(path.join(envDir, path.dirname(executable)), { recursive: true });
+                fs.writeFileSync(path.join(envDir, executable), '');
+            }
+
+            const events = [
+                ...(await eventsAfterCreate(envDirs[0], 100)),
+                ...(await eventsAfterCreate(envDirs[1], 100)),
+            ];
+
+            assert.deepStrictEqual(
+                events.map((e) => e.executable),
+                [Uri.file(path.join(envDirs[0], executable)).fsPath],
             );
         });
 

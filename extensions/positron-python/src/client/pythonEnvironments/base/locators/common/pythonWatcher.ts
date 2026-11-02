@@ -129,6 +129,11 @@ class PythonWatcherImpl implements PythonWatcher {
                 this.fireWorkspaceEvent(FileChangeType.Deleted, wf, uri);
             }),
             folderWatcher.onDidCreate(async (uri) => {
+                // The ranking reads envs at the root and one level down, so skip deeper
+                // paths, such as the folders a pip install creates in .venv.
+                if (path.relative(wf.uri.fsPath, uri.fsPath).split(path.sep).length > 2) {
+                    return;
+                }
                 const executable = await findCreatedEnvExecutable(uri.fsPath);
                 if (executable) {
                     this.fireWorkspaceEvent(FileChangeType.Created, wf, Uri.file(executable));
