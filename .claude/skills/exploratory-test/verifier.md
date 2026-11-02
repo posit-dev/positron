@@ -92,6 +92,11 @@ sighting, on the report's scale: major
 meaningfully wrong or disruptive), or minor (small usability, visual, or polish
 problem). Read the scenario's steps and its screenshots. Rate only what the run
 saw; do not use the issue's own labels or priority.
+An issue matches when the run saw what it describes, after its steps or by
+another path the issue names. Its title and the summary in the linked issues
+file leave steps out, so read the issue itself on GitHub before rating one, or
+before saying the run may have met one the ledger does not mark. Leave an issue
+the run did not meet out of `linked`, and say what the run did not do or see.
 
 Start your reply with one fenced `json` block, exactly this shape. It is read
 to mark each finding, so nothing else goes in it:
