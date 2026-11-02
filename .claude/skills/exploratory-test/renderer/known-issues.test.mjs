@@ -158,6 +158,14 @@ test('knownIssueOutcomes sorts open observed issues by severity, unrated last', 
 	assert.deepEqual(ki.unaccounted.map(i => i.number), [13], 'a fix with a Not run row is accounted for');
 });
 
+test('knownIssueOutcomes lists an issue the verifier says the run did not meet as not observed, with why', () => {
+	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map([[20, 'minor'], [23, 'major']]), new Map(), new Map([[22, 'only the title fits']]));
+	assert.deepEqual(ki.observed.map(o => o.issue.number), [23, 20, 25]);
+	assert.deepEqual(ki.unrated, [25], 'it needs no severity');
+	assert.deepEqual(ki.notObserved.map(i => i.number), [22, 24, 26]);
+	assert.equal(ki.unmet.get(22), 'only the title fits');
+});
+
 test('knownIssueOutcomes moves an open issue a finding matched out of the lists, unless the finding has its own issue, and drops that issue', () => {
 	const matches = new Map([[1, [11, 25, 99]], [2, [21, 10]], [3, [24, 26]]]);
 	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map(), matches);

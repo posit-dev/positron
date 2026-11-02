@@ -61,6 +61,28 @@ test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () 
 	assert.deepEqual([...issueMatches(r, 'intended')], [[4, [14210]]]);
 });
 
+test('parseVerifyReply reads a linked issue the run did not meet only with why, and rates the ones it met', () => {
+	const r = parseVerifyReply(reply({
+		findings: [],
+		linked: [
+			{ issue: 20, met: true, severity: 'minor' },
+			{ issue: 21, met: false, why: ' only the title fits ' },
+			{ issue: 22, met: false },
+			{ issue: 23, severity: 'major' },
+			{ issue: 24, met: false, severity: 'minor', why: 'never reached the panel' },
+		],
+	}));
+	assert.deepEqual([...r.linked], [[20, 'minor'], [23, 'major']]);
+	assert.deepEqual([...r.unmet], [[21, 'only the title fits'], [24, 'never reached the panel']]);
+});
+
+test('applyVerification records the linked issues the run did not meet', () => {
+	const out = apply(REPORT, { ...verdicts([1, 'confirmed']), linked: [{ issue: 20, met: true, severity: 'minor' }, { issue: 21, met: false, why: 'only the title fits' }] });
+	assert.deepEqual(out.verification.linked, [{ issue: 20, severity: 'minor' }]);
+	assert.deepEqual(out.verification.unmet, [{ issue: 21, why: 'only the title fits' }]);
+	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).verification.unmet, undefined);
+});
+
 test('parseVerifyReply keeps a confirmed duplicate only when it is a match with a reason', () => {
 	const r = parseVerifyReply(reply(verdicts([1, 'confirmed', {
 		known: [15102, 15200],
@@ -147,6 +169,7 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 	assert.equal(example.problem, '');
 	assert.deepEqual([...example.findings].map(([n, f]) => [n, f.verified, f.known]), [[1, 'confirmed', []], [2, 'confirmed', []], [3, 'unresolved', [15102]]]);
 	assert.deepEqual([...example.linked], [[5678, 'moderate']]);
+	assert.equal(example.unmet.size, 1, 'the example shows an issue the run did not meet');
 });
 
 test('buildVerifyPrompt gives the verifier lint\'s check of actions.log', () => {
@@ -225,6 +248,7 @@ test('verifyLogLines names each observed issue the reply gave no severity', () =
 	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, parseVerifyReply(reply({ findings: [], linked: [{ issue: 20, severity: 'minor' }, { issue: 21, severity: 'awful' }] }))), ['Couldn\'t rate #21: verifier line missing or malformed']);
 	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, parseVerifyReply('')), ['Couldn\'t rate #20: verifier line missing or malformed', 'Couldn\'t rate #21: verifier line missing or malformed']);
 	assert.deepEqual(verifyLogLines(null, SEEN_LEDGER, parseVerifyReply('')), []);
+	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, parseVerifyReply(reply({ findings: [], linked: [{ issue: 20, met: true, severity: 'minor' }, { issue: 21, met: false, why: 'only the title fits' }] }))), [], 'one the run did not meet needs no severity');
 });
 
 test('verifyLogLines logs a known match on a fix, which the report does not show', () => {

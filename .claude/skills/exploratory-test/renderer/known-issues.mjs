@@ -206,8 +206,9 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
 
 /**
  * What the run found about each linked issue, from the ledger's `Issue:` lines
- * (on Coverage rows as `issues`), the verifier's severities, and its KNOWN
- * matches (finding number to issue numbers):
+ * (on Coverage rows as `issues`), the verifier's severities, its KNOWN
+ * matches (finding number to issue numbers), and the issues it says the run
+ * did not meet (number to why):
  * - `observed`: open linked issues the run ran into, by severity, unrated
  *   last. Each has its `rows` and `severity` (or null).
  * - `fixesHeld`: fixes a scenario showed working, with their `rows`, and none
@@ -223,13 +224,15 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
  *   which may mean the explorer missed a failed fix or a regression.
  * - `notObserved`: linked issues the run did not see, skipped ones included.
  * - `skipped`: numbers of linked issues a Not run row skipped on purpose.
+ * - `unmet`: the verifier's issues the run did not meet, as given; they are
+ *   not observed, whatever the ledger marks.
  * - `unaccounted`: fixes with no outcome in the ledger at all, so the report
  *   can still list them as not exercised.
  * - `unrated`: observed issue numbers with no severity from the verifier.
  * - `byNumber`: every issue in the list, by number.
  * An `Issue:` line naming an issue not in the list is ignored; lint flags it.
  */
-export function knownIssueOutcomes(data, coverage, severities = new Map(), knownMatches = new Map()) {
+export function knownIssueOutcomes(data, coverage, severities = new Map(), knownMatches = new Map(), unmet = new Map()) {
 	const issues = data?.issues ?? [];
 	const byNumber = new Map(issues.map(i => [i.number, i]));
 	const seen = new Map();
@@ -260,7 +263,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 			} else if (kind === 'back') {
 				back.add(n);
 				findingOf(cameBack);
-			} else if (kind === 'observed') {
+			} else if (kind === 'observed' && !unmet.has(n)) {
 				push(seen, n, row);
 			}
 		}
@@ -314,6 +317,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 		knownFixes,
 		notObserved: issues.filter(i => i.relation !== 'fixes' && !seen.has(i.number) && !back.has(i.number) && !represented.has(i.number)),
 		skipped,
+		unmet,
 		unaccounted: issues.filter(i => i.relation === 'fixes' && !accounted.has(i.number)),
 		unrated: observed.filter(o => !o.severity).map(o => o.issue.number),
 		byNumber,

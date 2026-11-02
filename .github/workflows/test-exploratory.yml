@@ -901,6 +901,16 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
+      # The build's caches are relative paths, so pip or npm run inside the app
+      # under test would make .pip-cache/ or .npm-cache/ in the folder being
+      # tested. Give the app, and the main build the explorer launches, the
+      # locations a user's machine has. This job only restores the caches.
+      - name: Use default package caches
+        shell: bash
+        run: |
+          echo "PIP_CACHE_DIR=$HOME/.cache/pip" >> "$GITHUB_ENV"
+          echo "NPM_CONFIG_CACHE=$HOME/.npm" >> "$GITHUB_ENV"
+
       - name: Launch Positron
         shell: bash
         env:

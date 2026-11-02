@@ -631,7 +631,7 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
 		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
-		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
+		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : ki.unmet?.has(i.number) ? `not met: ${escapeHtml(ki.unmet.get(i.number))}` : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
@@ -1356,7 +1356,7 @@ function renderSignature(startedAt = new Date(), version = null) {
 /** The issues linked to the PR, fetched before the run, and what it found about each; null with none. */
 function kiOf(report, options) {
 	return options.knownIssues?.issues?.length
-		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
+		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []])), report.verification?.unmet), now: options.startedAt ?? new Date() }
 		: null;
 }
 

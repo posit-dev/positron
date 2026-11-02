@@ -547,6 +547,25 @@
 					},
 					"description": "The verifier's severity for each linked issue the run ran into."
 				},
+				"unmet": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"issue",
+							"why"
+						],
+						"properties": {
+							"issue": {
+								"type": "integer"
+							},
+							"why": {
+								"type": "string"
+							}
+						}
+					},
+					"description": "Linked issues the ledger marks as observed that the verifier says the run did not meet, with what the run did not do or see. The report lists them as not observed."
+				},
 				"originReason": {
 					"type": "object",
 					"propertyNames": {
