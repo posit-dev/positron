@@ -1,13 +1,13 @@
 ---
 name: agent-pr-review
-description: Use when reviewing a bug-fix PR written by an agent (usually opened by positron-projects[bot]) against the checklist of problems human reviewers most often catch. Read-only review that reports problems and never approves.
+description: Use when reviewing a small PR, usually a bug fix written by an agent (positron-projects[bot]), against the checklist of problems human reviewers most often catch. Read-only review that reports problems and never approves.
 ---
 
 # Agent PR review
 
-Review one bug-fix PR that an agent wrote. The agent that wrote the fix did
-not review it. You are the second reader. Report problems a human reviewer
-would otherwise find by hand.
+Review one small PR, usually a bug fix that an agent wrote. You are the
+second reader: whoever wrote the change did not review it. Report problems a
+human reviewer would otherwise find by hand.
 
 ## Inputs
 
@@ -32,8 +32,8 @@ or lean on what others already said.
 
 ## The checklist
 
-1. Coverage: Does the fix cover every case in the issue, including unusual input (empty, null, array-like, dates, special characters, custom formatting) and every backend or code path that has the same bug?
-2. Tests: Would each new test fail if the fix were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? Report it only if the PR body neither shows the new test failing before the fix nor says the test could not run.
+1. Coverage: Does the change cover every case in the issue, including unusual input (empty, null, array-like, dates, special characters, custom formatting) and every backend or code path that has the same bug?
+2. Tests: Would each new test fail if the change were reverted? Does any test compute its expected value with the code under test, or assert the buggy or undesired behavior? If an agent wrote the PR, also report a missing failing run: the PR body neither shows the new test failing before the fix nor says the test could not run.
 3. Duplication: Is the same logic now in more than one place, or does a helper already exist? Are there sibling code paths (filters, other handlers) with the same bug that a shared helper would fix?
 4. State: After an error, retry, refresh, empty result, or leaving the view, can a flag, message, or resource stay stale or leak?
 5. Cost: Does the code make a full copy of a column, array, or file only to compute something small? Does it do work on every row or keystroke that scales badly?
