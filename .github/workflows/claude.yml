@@ -448,6 +448,11 @@ jobs:
             are existing tests and update them or put new tests alongside the old ones. Choose the
             test level from the table in CLAUDE.md, and use the author-vitest-tests skill when you
             write new Vitest tests.
+            After a bug fix, search with `git grep` for sibling code paths that have the same bug,
+            for example other backends, handlers, or data types that share the pattern. Fix each one
+            in this PR, or name it in the PR body and say why you left it out.
+            Before you create the PR, read the PR body and release note against the final diff.
+            Remove each claim that the diff does not support.
             Before each commit, run `npm run precommit -- <changed files>`.
             In the PR body, list each command that you ran and its result. Say which tests could
             not run here and that CI runs them on the PR. Never write that a test passed or failed
