@@ -265,21 +265,25 @@ suite('interpreterRanking', () => {
     });
 
     test("another folder's project env is hidden unless something names it", () => {
-        const otherVenv = env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Uv, '3.12.0');
-        const otherPlainVenv = env(p('/home/u/code/other/venv/bin/python'), EnvironmentType.Venv, '3.12.0');
-        const otherPixi = env(p('/home/u/code/other/.pixi/envs/default/bin/python'), EnvironmentType.Pixi, '3.12.0');
+        // PET reports `envPath` as the executable for envs other than conda.
+        const native = (e: PythonEnvironment): PythonEnvironment => ({ ...e, envPath: e.path });
+        const otherVenv = native(env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
+        const otherPlainVenv = native(env(p('/home/u/code/other/venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const otherPixi = native(
+            env(p('/home/u/code/other/.pixi/envs/default/bin/python'), EnvironmentType.Pixi, '3.12.0'),
+        );
         const otherConda = env(p('/home/u/code/other/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: '',
         });
-        const thisFolder = env(p('/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0');
-        const homeVenv = env(p('/home/u/.venv/bin/python'), EnvironmentType.Venv, '3.12.0');
+        const thisFolder = native(env(p('/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const homeVenv = native(env(p('/home/u/.venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
         // `pixi global` keeps its envs in ~/.pixi/envs.
-        const pixiGlobal = env(p('/home/u/.pixi/envs/python/bin/python'), EnvironmentType.Global, '3.12.0');
+        const pixiGlobal = native(env(p('/home/u/.pixi/envs/python/bin/python'), EnvironmentType.Global, '3.12.0'));
         // PET can't classify it; it is still another project's env.
-        const otherUnknown = env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0');
-        const nestedUnknown = env(p('/proj/sub/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0');
+        const otherUnknown = native(env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0'));
+        const nestedUnknown = native(env(p('/proj/sub/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0'));
         // Global envs that happen to have a project env folder's name.
-        const wrapperNamedVenv = env(p('/home/u/.virtualenvs/venv/bin/python'), EnvironmentType.Uv, '3.12.0');
+        const wrapperNamedVenv = native(env(p('/home/u/.virtualenvs/venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
         const condaNamedVenv = env(p('/home/u/miniconda3/envs/venv/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: 'venv',
         });

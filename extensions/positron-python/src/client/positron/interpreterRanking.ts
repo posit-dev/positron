@@ -205,20 +205,23 @@ export function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
  *   it is in one of `userEnvParents`. A pyenv virtualenv can have these names too.
  */
 function isOtherFolderProjectEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
-    const { envPath } = interpreter;
-    if (!envPath || isWorkspaceEnv(interpreter, context)) {
+    if (isWorkspaceEnv(interpreter, context)) {
         return false;
     }
-    const parent = path.dirname(envPath);
     if (interpreter.envType === EnvironmentType.Conda) {
+        const { envPath } = interpreter;
         return (
+            !!envPath &&
             !interpreter.envName &&
-            path.basename(parent) !== 'envs' &&
+            path.basename(path.dirname(envPath)) !== 'envs' &&
             !context.condaEnvDirs.some((dir) => isUnder(envPath, dir))
         );
     }
+    // PET reports `envPath` as the executable for envs other than conda, so use the prefix.
+    const envDir = interpreter.sysPrefix || path.dirname(path.dirname(interpreter.path));
+    const parent = path.dirname(envDir);
     const isPixi = path.basename(parent) === 'envs' && path.basename(path.dirname(parent)) === '.pixi';
-    if (!isPixi && !ENV_DIR_NAMES.includes(path.basename(envPath))) {
+    if (!isPixi && !ENV_DIR_NAMES.includes(path.basename(envDir))) {
         return false;
     }
     // The folder that keeps the env: `<folder>/.venv` or `<folder>/.pixi/envs/<name>`.
