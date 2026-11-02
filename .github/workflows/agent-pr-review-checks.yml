@@ -1,0 +1,40 @@
+name: "Agent PR Review: Checks"
+
+# Runs the agent-pr-review scripts' tests on a PR that changes them. Nothing
+# else in CI runs these tests.
+#
+# Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/agent-pr-review/**"
+      - ".github/workflows/agent-pr-review-checks.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            .nvmrc
+            .github/actions/agent-pr-review
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test the scripts
+        working-directory: .github/actions/agent-pr-review
+        run: node --test

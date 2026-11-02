@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Pure helpers for agent-review.ts, which posts the agent-pr-review skill's
-// checklist review on an agent PR. Not in versioned-files.txt: no skill bump.
+// checklist review on an agent PR.
 
 /** Labels the review, so a second reviewer request does not post another. */
 export const REVIEW_MARKER = '<!-- agent-pr-review -->';

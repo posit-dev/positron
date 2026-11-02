@@ -63,7 +63,7 @@ jobs:
         with:
           sparse-checkout: |
             .nvmrc
-            .github/actions/pr-exploratory-test
+            .github/actions/agent-pr-review
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -73,7 +73,7 @@ jobs:
 
       - name: Check the PR
         id: check
-        working-directory: .github/actions/pr-exploratory-test
+        working-directory: .github/actions/agent-pr-review
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_ACTION: ${{ github.event.action }}
@@ -178,7 +178,7 @@ jobs:
         with:
           sparse-checkout: |
             .nvmrc
-            .github/actions/pr-exploratory-test
+            .github/actions/agent-pr-review
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -187,7 +187,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Post the review
-        working-directory: .github/actions/pr-exploratory-test
+        working-directory: .github/actions/agent-pr-review
         env:
           GH_TOKEN: ${{ github.token }}
           REVIEW_JSON: ${{ needs.review.outputs.review_json }}
