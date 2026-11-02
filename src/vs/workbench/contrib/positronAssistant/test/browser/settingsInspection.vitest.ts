@@ -130,8 +130,8 @@ describe('redactSensitiveProperties', () => {
 			redacted: true,
 			value: {
 				PATH: '/usr/local/bin',
-				GITHUB_TOKEN: '<redacted>',
-				nested: { options: [{ apiKey: '<redacted>' }] },
+				GITHUB_TOKEN: '<masked>',
+				nested: { options: [{ apiKey: '<masked>' }] },
 			},
 		});
 	});
