@@ -139,6 +139,8 @@ jobs:
         with:
           anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ github.token }}
+          # TEMP: shows denied tool calls on dry runs. Remove before ready for review.
+          show_full_output: ${{ env.DRY_RUN == 'true' }}
           # The reviewer request on an agent PR is made by this App.
           allowed_bots: "positron-projects[bot]"
           plugin_marketplaces: |
