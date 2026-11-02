@@ -12,10 +12,6 @@ on:
   pull_request:
     # ready_for_review catches a reviewer requested while the PR was a draft.
     types: [review_requested, ready_for_review]
-  # TEMP: registers this new workflow so it can be dispatched from the branch.
-  # Every job skips on push. Remove before ready for review.
-  push:
-    branches: [midleman/agent-pr-review]
   workflow_dispatch:
     inputs:
       pr:
@@ -139,8 +135,6 @@ jobs:
         with:
           anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ github.token }}
-          # TEMP: shows denied tool calls on dry runs. Remove before ready for review.
-          show_full_output: ${{ env.DRY_RUN == 'true' }}
           # The reviewer request on an agent PR is made by this App.
           allowed_bots: "positron-projects[bot]"
           plugin_marketplaces: |
