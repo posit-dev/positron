@@ -16,11 +16,15 @@ import sys
 import types
 from abc import ABC, abstractmethod
 from collections.abc import (
+    Callable,
+    Collection,
+    Iterable,
     Mapping,
     MutableMapping,
     MutableSequence,
     MutableSet,
     Sequence,
+    Sized,
 )
 from collections.abc import (
     Set as AbstractSet,
@@ -29,15 +33,8 @@ from inspect import getattr_static
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Collection,
-    FrozenSet,
     Generic,
-    Iterable,
-    Sized,
-    Tuple,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -540,7 +537,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 # Collections
 #
 
-CollectionT = Union[bytearray, range, FrozenSet, Sequence, AbstractSet, Tuple]
+CollectionT = bytearray | range | frozenset | Sequence | AbstractSet | tuple
 CT = TypeVar("CT", CollectionT, "np.ndarray", "torch.Tensor")
 
 
@@ -553,7 +550,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # implied as a contiguous set of integers in a range.
         # For sets, we don't visualize the children as they're
         # not subscriptable objects.
-        if isinstance(self.value, (range, AbstractSet, FrozenSet)):
+        if isinstance(self.value, (range, AbstractSet, frozenset)):
             return False
 
         return super().has_children()
@@ -563,7 +560,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
     def get_child(self, key: int) -> Any:
         # Don't allow indexing into ranges or sets.
-        if isinstance(self.value, (range, AbstractSet, FrozenSet)):
+        if isinstance(self.value, (range, AbstractSet, frozenset)):
             raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
@@ -598,7 +595,7 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 prefix, suffix = "set(", ")"
             else:
                 prefix, suffix = "{", "}"
-        elif isinstance(self.value, FrozenSet):
+        elif isinstance(self.value, frozenset):
             if len(self.value) == 0:
                 prefix, suffix = "frozenset(", ")"
             else:

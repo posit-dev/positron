@@ -5,7 +5,6 @@
 
 import re
 from textwrap import dedent
-from typing import List
 
 # from markdown_to_docstring.google.ESCAPE_RULES
 ESCAPE_RULES = {
@@ -13,7 +12,7 @@ ESCAPE_RULES = {
     r"__(?P<text>\S+)__": r"\_\_\g<text>\_\_",
 }
 
-EPYTEXT_FIELDS: List[str] = [
+EPYTEXT_FIELDS: list[str] = [
     "@param",
     "@type",
     "@keyword",
@@ -151,7 +150,7 @@ class Section:
 class EpytextDocstring:
     # --- End Positron ---
     def __init__(self, docstring: str) -> None:
-        self.sections: List[Section] = []
+        self.sections: list[Section] = []
         self.description: str = ""
 
         self._parse(docstring)

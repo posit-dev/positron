@@ -12,8 +12,9 @@ import os
 import socket
 import sys
 import threading
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -73,11 +74,11 @@ TEST_ENVIRONMENT_VARIABLE = "POSITRON_LSP_TEST_VAR"
 
 
 def create_test_server(
-    namespace: Optional[Dict[str, Any]] = None,
-    root_path: Optional[Path] = None,
-    working_directory: Optional[str] = None,
+    namespace: dict[str, Any] | None = None,
+    root_path: Path | None = None,
+    working_directory: str | None = None,
     *,
-    snippet_support: Optional[bool] = None,
+    snippet_support: bool | None = None,
 ) -> PositronLanguageServer:
     """Create a test server with optional namespace."""
     server = create_server()
@@ -129,8 +130,8 @@ def create_text_document(server: PositronLanguageServer, uri: str, source: str) 
 
 
 def create_notebook_document(
-    server: PositronLanguageServer, uri: str, cells: List[str]
-) -> List[str]:
+    server: PositronLanguageServer, uri: str, cells: list[str]
+) -> list[str]:
     """Create a notebook document in the server's workspace."""
     cell_uris = [f"uri-{i}" for i in range(len(cells))]
     server.workspace.put_notebook_document(
@@ -142,7 +143,7 @@ def create_notebook_document(
                     text=cell,
                     version=0,
                 )
-                for cell_uri, cell in zip(cell_uris, cells)
+                for cell_uri, cell in zip(cell_uris, cells, strict=True)
             ],
             notebook_document=NotebookDocument(
                 uri=uri,
@@ -361,8 +362,8 @@ class TestCompletions:
         self,
         server: PositronLanguageServer,
         text_document: TextDocument,
-        character: Optional[int] = None,
-    ) -> List[CompletionItem]:
+        character: int | None = None,
+    ) -> list[CompletionItem]:
         from positron.positron_lsp import _handle_completion
 
         line = len(text_document.lines) - 1
@@ -414,8 +415,8 @@ class TestCompletions:
     def test_dict_key_completion_with_closing_quote(
         self,
         source: str,
-        namespace: Dict[str, Any],
-        character: Optional[int],
+        namespace: dict[str, Any],
+        character: int | None,
         expected_labels: set[str],
     ) -> None:
         """Test that dict key completions don't duplicate closing quote when it already exists."""
@@ -947,9 +948,9 @@ class TestCompletions:
     def test_completions(
         self,
         source: str,
-        namespace: Dict[str, Any],
-        character: Optional[int],
-        expected_labels: List[str],
+        namespace: dict[str, Any],
+        character: int | None,
+        expected_labels: list[str],
         monkeypatch,
         tmp_path,
     ) -> None:
@@ -983,7 +984,7 @@ class TestCompletions:
     def test_completion_contains(
         self,
         source: str,
-        namespace: Dict[str, Any],
+        namespace: dict[str, Any],
         expected_label: str,
     ) -> None:
         """Test that specific completions are present in the results."""
@@ -1000,8 +1001,8 @@ class TestCompletions:
         source: str,
         expected_completion: str,
         chars_from_end: int = 1,
-        root_path: Optional[Path] = None,
-        working_directory: Optional[str] = None,
+        root_path: Path | None = None,
+        working_directory: str | None = None,
     ):
         server = create_test_server(root_path=root_path, working_directory=working_directory)
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
@@ -1313,7 +1314,7 @@ class TestCompletions:
     def test_no_column_completions(
         self,
         source: str,
-        namespace: Dict[str, Any],
+        namespace: dict[str, Any],
         character: int,
         tmp_path: Path,
     ) -> None:
@@ -1340,7 +1341,7 @@ class TestCompletions:
         ],
     )
     def test_function_call_parens(
-        self, source: str, label: str, expected_insert_text: Optional[str]
+        self, source: str, label: str, expected_insert_text: str | None
     ) -> None:
         """Routines get the same call parens snippet as Pyrefly when completeFunctionParens is on."""
         server = create_test_server(namespace=_parens_namespace, snippet_support=True)
@@ -1450,7 +1451,7 @@ class TestCompletions:
         ],
     )
     def test_function_call_parens_expression_context(
-        self, source: str, label: str, expected_insert_text: Optional[str]
+        self, source: str, label: str, expected_insert_text: str | None
     ) -> None:
         """Parens depend on whether the name is loaded or stored, matching Pyrefly."""
         server = create_test_server(namespace=_parens_namespace, snippet_support=True)
@@ -1477,12 +1478,12 @@ class TestRefreshConfiguration:
             ([], False),
         ],
     )
-    def test_complete_function_parens(self, response: List[Any], expected: bool) -> None:  # noqa: FBT001
+    def test_complete_function_parens(self, response: list[Any], expected: bool) -> None:  # noqa: FBT001
         """The setting is read from the python.analysis section."""
         server = create_test_server()
         server._complete_function_parens = not expected  # noqa: SLF001
 
-        async def workspace_configuration_async(_params: Any) -> List[Any]:
+        async def workspace_configuration_async(_params: Any) -> list[Any]:
             return response
 
         with patch.object(server, "workspace_configuration_async", workspace_configuration_async):
@@ -1495,7 +1496,7 @@ class TestRefreshConfiguration:
         server = create_test_server()
         server._complete_function_parens = True  # noqa: SLF001
 
-        async def workspace_configuration_async(_params: Any) -> List[Any]:
+        async def workspace_configuration_async(_params: Any) -> list[Any]:
             raise RuntimeError("client went away")
 
         with patch.object(server, "workspace_configuration_async", workspace_configuration_async):
@@ -1512,18 +1513,21 @@ class TestRefreshConfiguration:
                 dynamic_registration=dynamic_registration
             )
         )
-        registered_methods: List[str] = []
+        registered_methods: list[str] = []
 
         async def client_register_capability_async(params: Any) -> None:
             registered_methods.extend(r.method for r in params.registrations)
 
-        async def workspace_configuration_async(_params: Any) -> List[Any]:
+        async def workspace_configuration_async(_params: Any) -> list[Any]:
             return [{"completeFunctionParens": True}]
 
         handler = server.protocol.fm.features[INITIALIZED]
-        with patch.object(
-            server, "client_register_capability_async", client_register_capability_async
-        ), patch.object(server, "workspace_configuration_async", workspace_configuration_async):
+        with (
+            patch.object(
+                server, "client_register_capability_async", client_register_capability_async
+            ),
+            patch.object(server, "workspace_configuration_async", workspace_configuration_async),
+        ):
             asyncio.run(handler(InitializedParams()))
 
         expected_methods = [WORKSPACE_DID_CHANGE_CONFIGURATION] if dynamic_registration else []
@@ -1534,7 +1538,7 @@ class TestRefreshConfiguration:
         server = create_test_server()
         server._complete_function_parens = True  # noqa: SLF001
 
-        async def workspace_configuration_async(_params: Any) -> List[Any]:
+        async def workspace_configuration_async(_params: Any) -> list[Any]:
             return [{"completeFunctionParens": False}]
 
         handler = server.protocol.fm.features[WORKSPACE_DID_CHANGE_CONFIGURATION]
@@ -1544,7 +1548,7 @@ class TestRefreshConfiguration:
         assert server._complete_function_parens is False  # noqa: SLF001
 
     @pytest.mark.parametrize("snippet_support", [True, False, None])
-    def test_snippet_support_from_capabilities(self, snippet_support: Optional[bool]) -> None:  # noqa: FBT001
+    def test_snippet_support_from_capabilities(self, snippet_support: bool | None) -> None:  # noqa: FBT001
         """Snippet support is read from the client capabilities on initialize."""
         server = create_test_server(snippet_support=snippet_support)
         assert server._snippet_support is bool(snippet_support)  # noqa: SLF001
@@ -1671,9 +1675,9 @@ class TestCompletionItemResolve:
     def test_completion_item_resolve(
         self,
         source: str,
-        namespace: Dict[str, Any],
+        namespace: dict[str, Any],
         expected_detail_contains: str,
-        expected_doc_contains: Optional[str],
+        expected_doc_contains: str | None,
     ) -> None:
         """Test that completion items can be resolved with additional details."""
         from positron.positron_lsp import _handle_completion, _handle_completion_resolve
@@ -1727,7 +1731,7 @@ class TestSignatureHelp:
         server: PositronLanguageServer,
         text_document: TextDocument,
         position: Position,
-    ) -> Optional[SignatureHelp]:
+    ) -> SignatureHelp | None:
         from positron.positron_lsp import _handle_signature_help
 
         params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
@@ -1743,7 +1747,7 @@ class TestSignatureHelp:
             ),
         ],
     )
-    def test_positron_signature_help(self, source: str, namespace: Dict[str, Any]) -> None:
+    def test_positron_signature_help(self, source: str, namespace: dict[str, Any]) -> None:
         """Test signature help on functions."""
         server = create_test_server(namespace)
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
@@ -1809,7 +1813,7 @@ class TestHover:
         server: PositronLanguageServer,
         text_document: TextDocument,
         position: Position,
-    ) -> Optional[PositronHover]:
+    ) -> PositronHover | None:
         from positron.positron_lsp import _handle_hover
 
         params = HoverParams(TextDocumentIdentifier(text_document.uri), position)
@@ -1893,8 +1897,8 @@ class TestHelpTopic:
     def test_help_topic_request(
         self,
         source: str,
-        namespace: Dict[str, Any],
-        expected_topic: Optional[str],
+        namespace: dict[str, Any],
+        expected_topic: str | None,
     ) -> None:
         from positron.positron_lsp import _handle_help_topic
 
@@ -1929,7 +1933,7 @@ class TestParseStringContext:
             ('df.groupby("', ('"', "", "df.groupby(")),
         ],
     )
-    def test_parse_string_context(self, text: str, expected: Optional[tuple]) -> None:
+    def test_parse_string_context(self, text: str, expected: tuple | None) -> None:
         result = _parse_string_context(text)
         if expected is None:
             assert result is None
@@ -1975,14 +1979,14 @@ class TestGetDocumentLine:
 
 
 @contextlib.contextmanager
-def _capture_unraisable() -> Iterator[List[str]]:
+def _capture_unraisable() -> Iterator[list[str]]:
     """Capture exceptions reported via sys.unraisablehook (e.g. during GC).
 
     The "coroutine ignored GeneratorExit" RuntimeError that this module guards
     against is raised when Python finalizes a suspended coroutine, and is
     surfaced through the unraisable hook rather than as a normal exception.
     """
-    messages: List[str] = []
+    messages: list[str] = []
     original = sys.unraisablehook
 
     def hook(unraisable: Any) -> None:
@@ -1999,15 +2003,15 @@ class TestServerLifecycle:
     """Tests for starting, stopping, and restarting the language server thread."""
 
     @staticmethod
-    def _start_ready_server() -> Tuple[PositronLanguageServer, int]:
+    def _start_ready_server() -> tuple[PositronLanguageServer, int]:
         """Start a server and block until it reports ``server_started``."""
         server = create_server()
         ready = threading.Event()
-        port_box: Dict[str, int] = {}
+        port_box: dict[str, int] = {}
 
         comm = Mock()
 
-        def _send(msg: Dict[str, Any]) -> None:
+        def _send(msg: dict[str, Any]) -> None:
             if msg.get("msg_type") == "server_started":
                 port_box["port"] = msg["content"]["port"]
                 ready.set()
@@ -2064,7 +2068,7 @@ class TestServerLifecycle:
             ready = threading.Event()
             comm = Mock()
 
-            def _send(msg: Dict[str, Any]) -> None:
+            def _send(msg: dict[str, Any]) -> None:
                 if msg.get("msg_type") == "server_started":
                     ready.set()
 

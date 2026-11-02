@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from IPython.core.formatters import (
     BaseFormatter,
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ..positron_ipkernel import PositronIPyKernel, PositronShell
     from .display_formatter import PositronDisplayFormatter
 
-    Table = Union[pd.DataFrame, pd.Series, pl.DataFrame, pl.Series]
+    Table = pd.DataFrame | pd.Series | pl.DataFrame | pl.Series
 
 
 logger = logging.getLogger(__name__)

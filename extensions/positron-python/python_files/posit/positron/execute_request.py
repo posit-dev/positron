@@ -4,7 +4,7 @@
 #
 
 import logging
-from typing import Optional, Union, cast
+from typing import cast
 
 from ._vendor.pydantic import (
     BaseModel,
@@ -17,7 +17,7 @@ from ._vendor.pydantic import (
 
 logger = logging.getLogger(__name__)
 
-Number = Union[StrictInt, StrictFloat]
+Number = StrictInt | StrictFloat
 
 
 class Position(BaseModel):
@@ -44,22 +44,20 @@ class Location(BaseModel):
 class PositronExecuteRequest(BaseModel):
     """Typed view of an execute_request's `content.positron` object."""
 
-    code_location: Optional[Location] = None
-    fig_width: Optional[Number] = Field(
-        None, alias="fig-width", description="Figure width in inches"
-    )
-    fig_height: Optional[Number] = Field(
+    code_location: Location | None = None
+    fig_width: Number | None = Field(None, alias="fig-width", description="Figure width in inches")
+    fig_height: Number | None = Field(
         None, alias="fig-height", description="Figure height in inches"
     )
-    output_width_px: Optional[Number] = Field(
+    output_width_px: Number | None = Field(
         None, description="Output area width in logical (CSS) pixels"
     )
-    output_pixel_ratio: Optional[Number] = Field(
+    output_pixel_ratio: Number | None = Field(
         None, description="Output area device pixel ratio, e.g. 1.0 or 2.0"
     )
 
     @property
-    def figure_size(self) -> Optional[tuple[Optional[float], Optional[float]]]:
+    def figure_size(self) -> tuple[float | None, float | None] | None:
         """The figure size in inches, if specified.
 
         Either dimension may be set alone; a missing or non-positive dimension is
