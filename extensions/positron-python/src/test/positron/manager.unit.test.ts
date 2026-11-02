@@ -726,7 +726,7 @@ suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
         assert.deepStrictEqual([notListed, listed?.runtimePath], [undefined, linkPath]);
     });
 
-    test('under definitionsOnly, returns the definition\'s spelling when the definition writes the pinned path another way', async () => {
+    test("under definitionsOnly, returns the definition's spelling when the definition writes the pinned path another way", async () => {
         pin(pinnedPath);
         interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
         sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').returns('/opt/python/3.13/bin//python');

@@ -33,7 +33,10 @@ suite('interpreters.definitions', () => {
         findInterpreterDefinitionPath('/opt/python/bin/python');
 
         assert.deepStrictEqual(
-            [capture(runtime.getInterpreterDefinitionPaths).last(), capture(runtime.findInterpreterDefinitionPath).last()],
+            [
+                capture(runtime.getInterpreterDefinitionPaths).last(),
+                capture(runtime.findInterpreterDefinitionPath).last(),
+            ],
             [['python'], ['python', '/opt/python/bin/python']],
         );
     });
