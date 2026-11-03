@@ -171,6 +171,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$updateProxySessionState(sessionId: string, state: RuntimeState): void;
 	$notifyProxySessionDisconnected(sessionId: string): void;
 	$notifyProxySessionReconnected(sessionId: string): void;
+	$notifyProxySessionMessage(sessionId: string, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
 	$getPackages(handle: number, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$installPackages(handle: number, packages: PackageSpec[], token: CancellationToken): Promise<void>;

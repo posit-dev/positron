@@ -220,6 +220,7 @@ export class ExtHostRuntimeSessionProxy
 	private readonly _onDidChangeRuntimeState = this._store.add(new Emitter<RuntimeState>());
 	private readonly _onDidDisconnect = this._store.add(new Emitter<void>());
 	private readonly _onDidReconnect = this._store.add(new Emitter<void>());
+	private readonly _onDidReceiveRuntimeMessage = this._store.add(new Emitter<positron.LanguageRuntimeMessage>());
 
 	/** Fires when the session's runtime state changes. */
 	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
@@ -229,6 +230,9 @@ export class ExtHostRuntimeSessionProxy
 
 	/** Fires when the session's connection to the runtime is re-established. */
 	readonly onDidReconnect = this._onDidReconnect.event;
+
+	/** Fires for each message the session's runtime emits. */
+	readonly onDidReceiveRuntimeMessage = this._onDidReceiveRuntimeMessage.event;
 
 	/**
 	 * Constructor
@@ -299,6 +303,21 @@ export class ExtHostRuntimeSessionProxy
 	 */
 	fireDidReconnect(): void {
 		this._onDidReconnect.fire();
+	}
+
+	/**
+	 * Fires the `onDidReceiveRuntimeMessage` event. Called when the main thread
+	 * forwards a runtime message for this session.
+	 */
+	fireDidReceiveRuntimeMessage(message: ILanguageRuntimeMessage): void {
+		// Drop the main thread's ordering clock and unwrap buffers, so that
+		// the message has the same shape as one from a session on this host.
+		const { event_clock: _, ...rest } = message;
+		const runtimeMessage = {
+			...rest,
+			buffers: message.buffers?.map(buffer => buffer.buffer),
+		};
+		this._onDidReceiveRuntimeMessage.fire(runtimeMessage as positron.LanguageRuntimeMessage);
 	}
 
 	/**
@@ -1598,8 +1617,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._proxy);
 		this._runtimeProxies.set(sessionId, proxySession);
 
-		// Ask the main thread to forward state changes and connection events for
-		// this session so that the proxy stays in sync.
+		// Ask the main thread to forward state changes, connection events, and
+		// runtime messages for this session so that the proxy stays in sync.
 		this._proxy.$subscribeToSession(sessionId);
 		return proxySession;
 	}
@@ -1626,6 +1645,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	public $notifyProxySessionReconnected(sessionId: string): void {
 		this._runtimeProxies.get(sessionId)?.fireDidReconnect();
+	}
+
+	/**
+	 * Handles a runtime message forwarded from the main thread for a proxied
+	 * session.
+	 */
+	public $notifyProxySessionMessage(sessionId: string, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this._runtimeProxies.get(sessionId)?.fireDidReceiveRuntimeMessage(message.value);
 	}
 
 	/**

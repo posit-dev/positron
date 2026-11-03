@@ -22,7 +22,7 @@ import { IQuartoExecutionManager } from '../../../../contrib/positronQuarto/comm
 import { IRuntimeNotebookKernelService } from '../../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -160,38 +160,49 @@ describe('openRuntimeResourceWithSystem', () => {
 	});
 });
 
+/**
+ * Creates an ExtHostLanguageRuntimeSessionAdapter with stub services.
+ */
+function createSessionAdapter(
+	disposables: Pick<DisposableStore, 'add'>,
+	capabilities: RuntimeSessionCapabilities,
+	proxyOverrides: Partial<ExtHostLanguageRuntimeShape> = {},
+) {
+	const proxy = stubInterface<ExtHostLanguageRuntimeShape>({
+		// Read by the adapter's dispose() via ensureNoLeakedDisposables.
+		$disposeLanguageRuntime: vi.fn(),
+		...proxyOverrides,
+	});
+	return disposables.add(new ExtHostLanguageRuntimeSessionAdapter(
+		{
+			handle: 0,
+			dynState: { inputPrompt: '>', continuationPrompt: '+', sessionName: 'test' },
+			capabilities,
+		},
+		stubInterface<ILanguageRuntimeMetadata>({}),
+		stubInterface<IRuntimeSessionMetadata>({ notebookUri: undefined }),
+		stubInterface<IRuntimeSessionService>({
+			onDidChangeForegroundSession: Event.None,
+			onDidReceiveRuntimeEvent: Event.None,
+		}),
+		stubInterface<INotificationService>({}),
+		new NullLogService(),
+		stubInterface<ICommandService>({}),
+		stubInterface<INotebookService>({}),
+		stubInterface<IEditorService>({}),
+		stubInterface<IPathService>({}),
+		stubInterface<IWorkbenchEnvironmentService>({}),
+		proxy,
+		stubInterface<IOpenerService>({}),
+	));
+}
+
 describe('ExtHostLanguageRuntimeSessionAdapter - missing-package capabilities', () => {
 	const disposables = ensureNoLeakedDisposables();
 
 	function createAdapter(capabilities: RuntimeSessionCapabilities) {
 		const $getMissingPackageProbe = vi.fn().mockResolvedValue('import requests');
-		const proxy = stubInterface<ExtHostLanguageRuntimeShape>({
-			$getMissingPackageProbe,
-			// Read by the adapter's dispose() via ensureNoLeakedDisposables.
-			$disposeLanguageRuntime: vi.fn(),
-		});
-		const adapter = disposables.add(new ExtHostLanguageRuntimeSessionAdapter(
-			{
-				handle: 0,
-				dynState: { inputPrompt: '>', continuationPrompt: '+', sessionName: 'test' },
-				capabilities,
-			},
-			stubInterface<ILanguageRuntimeMetadata>({}),
-			stubInterface<IRuntimeSessionMetadata>({ notebookUri: undefined }),
-			stubInterface<IRuntimeSessionService>({
-				onDidChangeForegroundSession: Event.None,
-				onDidReceiveRuntimeEvent: Event.None,
-			}),
-			stubInterface<INotificationService>({}),
-			new NullLogService(),
-			stubInterface<ICommandService>({}),
-			stubInterface<INotebookService>({}),
-			stubInterface<IEditorService>({}),
-			stubInterface<IPathService>({}),
-			stubInterface<IWorkbenchEnvironmentService>({}),
-			proxy,
-			stubInterface<IOpenerService>({}),
-		));
+		const adapter = createSessionAdapter(disposables, capabilities, { $getMissingPackageProbe });
 		return { adapter, $getMissingPackageProbe };
 	}
 
@@ -240,13 +251,14 @@ function createMainThreadLanguageRuntime(
 	disposables: Pick<DisposableStore, 'add'>,
 	runtimeSessionService: IRuntimeSessionService = stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
 	consoleExecuteCode?: IPositronConsoleService['executeCode'],
+	proxyOverrides: Partial<ExtHostLanguageRuntimeShape> = {},
 ) {
 	const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	const quartoEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 
 	const $notifyCodeExecuted = vi.fn();
-	const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted });
+	const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted, ...proxyOverrides });
 	const extHostContext = stubInterface<IExtHostContext>({
 		getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
 	});
@@ -322,6 +334,63 @@ describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 			notebookEvent,
 			quartoEvent,
 		]);
+	});
+});
+
+describe('MainThreadLanguageRuntime - proxy session message forwarding', () => {
+	const disposables = ensureNoLeakedDisposables();
+
+	function message(overrides: Partial<ILanguageRuntimeMessage>): ILanguageRuntimeMessage {
+		return {
+			id: 'm1',
+			parent_id: 'exec-1',
+			when: '2026-01-01T00:00:00Z',
+			type: LanguageRuntimeMessageType.Stream,
+			event_clock: 1,
+			...overrides,
+		};
+	}
+
+	function setup() {
+		const session = createSessionAdapter(disposables, { listMissingPackages: false, getMissingPackageProbe: false });
+		const $notifyProxySessionMessage = vi.fn();
+		const { mainThread } = createMainThreadLanguageRuntime(
+			disposables,
+			stubInterface<IRuntimeSessionService>({
+				registerSessionManager: () => Disposable.None,
+				getSession: (sessionId: string) => sessionId === 's1' ? session : undefined,
+			}),
+			undefined,
+			{ $notifyProxySessionMessage, $updateProxySessionState: vi.fn() },
+		);
+		const forwarded = () => $notifyProxySessionMessage.mock.calls.map(
+			([sessionId, payload]) => ({ sessionId, message: payload.value }));
+		return { session, mainThread, forwarded };
+	}
+
+	it('forwards every message, including ones the owning extension host handled, while subscribed', () => {
+		const { session, mainThread, forwarded } = setup();
+		mainThread.$subscribeToSession('s1');
+
+		const stream = message({ id: 'stream', event_clock: 1 });
+		const commData = message({ id: 'comm', type: LanguageRuntimeMessageType.CommData, event_clock: 2 });
+		session.handleRuntimeMessage(stream, false);
+		session.handleRuntimeMessage(commData, true);
+
+		expect(forwarded()).toEqual([
+			{ sessionId: 's1', message: stream },
+			{ sessionId: 's1', message: commData },
+		]);
+	});
+
+	it('stops forwarding messages after unsubscribing', () => {
+		const { session, mainThread, forwarded } = setup();
+		mainThread.$subscribeToSession('s1');
+		mainThread.$unsubscribeFromSession('s1');
+
+		session.handleRuntimeMessage(message({}), false);
+
+		expect(forwarded()).toEqual([]);
 	});
 });
 

@@ -265,6 +265,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 	private readonly _onDidUpdateResourceUsageEmitter = new Emitter<ILanguageRuntimeResourceUsage>();
 	private readonly _onDidDisconnectEmitter = new Emitter<void>();
 	private readonly _onDidReconnectEmitter = new Emitter<void>();
+	private readonly _onDidReceiveRuntimeMessageEmitter = new Emitter<ILanguageRuntimeMessage>();
 
 	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
@@ -335,6 +336,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 		// Register the connection-state emitters for disposal.
 		this._register(this._onDidDisconnectEmitter);
 		this._register(this._onDidReconnectEmitter);
+		this._register(this._onDidReceiveRuntimeMessageEmitter);
 
 		// Save handle
 		this.handle = initialState.handle;
@@ -677,6 +679,14 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 
 	/** Fires when this session's connection to the underlying runtime is re-established. */
 	readonly onDidReconnect = this._onDidReconnectEmitter.event;
+
+	/**
+	 * Fires for every message received from the owning extension host, in
+	 * event clock order, whether or not the extension host already handled it.
+	 * Used to forward messages to proxies of this session on other extension
+	 * hosts.
+	 */
+	readonly onDidReceiveRuntimeMessage = this._onDidReceiveRuntimeMessageEmitter.event;
 
 	/** Emits a disconnect event; called when the owning extension host reports a disconnect. */
 	emitDisconnect(): void {
@@ -1050,6 +1060,7 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 				// Emit messages out of order, with a warning.
 				this._logService.warn(`Received '${event.summary()}' at tick ${clock} ` +
 					`while waiting for tick ${this._eventClock + 1}; emitting anyway`);
+				this._onDidReceiveRuntimeMessageEmitter.fire(event.message);
 				this.processMessage(event.message);
 			}
 
@@ -1132,6 +1143,8 @@ export class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements 
 
 	private handleQueuedEvent(event: QueuedRuntimeEvent): void {
 		if (event instanceof QueuedRuntimeMessageEvent) {
+			this._onDidReceiveRuntimeMessageEmitter.fire(event.message);
+
 			// If the message wasn't already handled by the extension host,
 			// process it here.
 			if (!event.handled) {
@@ -1996,8 +2009,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
-	 * Subscribes this extension host to state changes and connection events for
-	 * a session it does not own, so that its proxy handle stays in sync. Called
+	 * Subscribes this extension host to state changes, connection events, and
+	 * runtime messages for a session it does not own, so that its proxy handle stays in sync. Called
 	 * by the extension host when it creates a proxy for a session.
 	 */
 	$subscribeToSession(sessionId: string): void {
@@ -2017,13 +2030,17 @@ export class MainThreadLanguageRuntime
 			this._proxy.$updateProxySessionState(sessionId, state);
 		}));
 
-		// Connection events are only available on API-backed sessions.
+		// Connection events and messages are only available on API-backed
+		// sessions.
 		if (session instanceof ExtHostLanguageRuntimeSessionAdapter) {
 			store.add(session.onDidDisconnect(() => {
 				this._proxy.$notifyProxySessionDisconnected(sessionId);
 			}));
 			store.add(session.onDidReconnect(() => {
 				this._proxy.$notifyProxySessionReconnected(sessionId);
+			}));
+			store.add(session.onDidReceiveRuntimeMessage(message => {
+				this._proxy.$notifyProxySessionMessage(sessionId, new SerializableObjectWithBuffers(message));
 			}));
 		}
 

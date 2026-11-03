@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import type * as positron from 'positron';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -13,10 +14,11 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IActiveRuntimeSessionMetadataDto, IMainPositronContext, MainThreadLanguageRuntimeShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { ExtHostLanguageRuntime, ExtHostRuntimeSessionProxy } from '../../../common/positron/extHostLanguageRuntime.js';
+import { SerializableObjectWithBuffers } from '../../../../services/extensions/common/proxyIdentifier.js';
 import { SingleProxyRPCProtocol } from '../testRPCProtocol.js';
 
 function fakeMetadata(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
@@ -644,6 +646,20 @@ function fakeSessionDto(overrides: Partial<IActiveRuntimeSessionMetadataDto> = {
 	};
 }
 
+/** A stream message as the main thread forwards it to a proxy. */
+function buildStreamMessage(): ILanguageRuntimeMessageStream {
+	return {
+		id: 'm1',
+		parent_id: 'exec-1',
+		when: '2026-01-01T00:00:00Z',
+		type: LanguageRuntimeMessageType.Stream,
+		event_clock: 7,
+		name: 'stdout',
+		text: 'hello',
+		buffers: [VSBuffer.fromString('abc')],
+	};
+}
+
 describe('ExtHostLanguageRuntime - proxy session', function () {
 
 	const disposables = ensureNoLeakedDisposables();
@@ -681,6 +697,31 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 
 		expect({ state: session.getRuntimeState(), stateChanges, disconnects, reconnects })
 			.toEqual({ state: RuntimeState.Busy, stateChanges: [RuntimeState.Busy], disconnects: 1, reconnects: 1 });
+	});
+
+	it('forwards runtime messages to the proxy in the same shape as a local session', async () => {
+		const shape = createProxyShape(fakeSessionDto());
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+
+		const messages: positron.LanguageRuntimeMessage[] = [];
+		disposables.add(session.onDidReceiveRuntimeMessage(message => messages.push(message)));
+
+		runtime.$notifyProxySessionMessage('s1', new SerializableObjectWithBuffers(buildStreamMessage()));
+
+		// The main thread's ordering clock is dropped and buffers are unwrapped
+		// to Uint8Array, matching what a session on this host emits.
+		expect(messages).toEqual([{
+			id: 'm1',
+			parent_id: 'exec-1',
+			when: '2026-01-01T00:00:00Z',
+			type: LanguageRuntimeMessageType.Stream,
+			name: 'stdout',
+			text: 'hello',
+			buffers: [VSBuffer.fromString('abc').buffer],
+		}]);
 	});
 
 	it('does not fire onDidChangeRuntimeState when the forwarded state is unchanged', async () => {
@@ -732,6 +773,7 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 			runtime.$updateProxySessionState('s-unknown', RuntimeState.Busy);
 			runtime.$notifyProxySessionDisconnected('s-unknown');
 			runtime.$notifyProxySessionReconnected('s-unknown');
+			runtime.$notifyProxySessionMessage('s-unknown', new SerializableObjectWithBuffers(buildStreamMessage()));
 		}).not.toThrow();
 	});
 });

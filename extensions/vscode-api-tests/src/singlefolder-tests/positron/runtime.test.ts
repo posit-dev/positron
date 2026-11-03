@@ -1233,4 +1233,61 @@ suite('positron API - session state', () => {
 		assert.ok(disconnected, 'onDidDisconnect should fire');
 		assert.ok(reconnected, 'onDidReconnect should fire');
 	});
+
+	test('onDidReceiveRuntimeMessage delivers the messages of an execution', async () => {
+		const languageId = 'test-messages';
+		await registerUniqueTestManager(disposables, languageId, '00000000-0000-0000-0000-900000000000');
+
+		// Execute code to create a session.
+		await positron.runtime.executeCode(
+			languageId,
+			'print("hi")',
+			false,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
+		);
+
+		const session = (await positron.runtime.getActiveSessions())
+			.find(s => s.runtimeMetadata.languageId === languageId);
+		assert.ok(session, 'a test session should exist');
+
+		/**
+		 * Executes code on the session handle and collects the messages whose
+		 * parent is the execution, until the runtime goes idle.
+		 */
+		const executeAndCollect = async (code: string, id: string) => {
+			const messages: positron.LanguageRuntimeMessage[] = [];
+			const idle = new Promise<void>(resolve => {
+				disposables.push(session.onDidReceiveRuntimeMessage(message => {
+					if (message.parent_id !== id) {
+						return;
+					}
+					messages.push(message);
+					if (message.type === positron.LanguageRuntimeMessageType.State &&
+						(message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+					}
+				}));
+			});
+			await session.execute(code, id,
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop);
+			await idle;
+			return messages;
+		};
+
+		const output = await executeAndCollect('print("hi")', 'messages-output');
+		const streams = output.filter(m => m.type === positron.LanguageRuntimeMessageType.Stream)
+			.map(m => (m as positron.LanguageRuntimeStream).text);
+		assert.deepStrictEqual(streams, ['Output: print("hi")', 'Warning message']);
+		const results = output.filter(m => m.type === positron.LanguageRuntimeMessageType.Result)
+			.map(m => (m as positron.LanguageRuntimeResult).data);
+		assert.deepStrictEqual(results, [{ 'text/plain': 'Test result' }]);
+
+		const error = await executeAndCollect('error', 'messages-error');
+		const errors = error.filter(m => m.type === positron.LanguageRuntimeMessageType.Error)
+			.map(m => (m as positron.LanguageRuntimeError).message);
+		assert.deepStrictEqual(errors, ['Test error occurred']);
+	});
 });

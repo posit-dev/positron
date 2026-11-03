@@ -1740,6 +1740,9 @@ declare module 'positron' {
 		 */
 		onDidReconnect?: vscode.Event<void>;
 
+		/** Fires for each message the runtime emits. */
+		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
+
 		/**
 		 * Calls a method in the runtime and returns the result.
 		 *
@@ -1754,7 +1757,8 @@ declare module 'positron' {
 		 * Execute code in the runtime
 		 *
 		 * @param code The code to execute
-		 * @param id The ID of the code
+		 * @param id The ID of the execution. Messages the execution produces
+		 * carry it as their `parent_id`.
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
 		 * @param codeLocation Optionally, the location of `code` in the source editor.
