@@ -1,0 +1,114 @@
+name: "Build: Compile Core (Linux x64)"
+
+# Compiles Positron's core once with `gulp core-ci`, as positron-builds does
+# for releases, and uploads the minified bundles as the `positron-compilation`
+# artifact. The bundles are plain JavaScript, so the build workflows that
+# package a Positron image only run their `*-min-ci` task on top of them. This
+# keeps the TypeScript compile out of the packaging jobs, whose `npm run gulp`
+# heap it outgrew (#17013).
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to build"
+        required: false
+        default: ""
+        type: string
+      repository:
+        description: "Repository to check out, for PR heads on forks"
+        required: false
+        default: ""
+        type: string
+    outputs:
+      artifact-name:
+        description: "Name of the compilation artifact uploaded"
+        value: ${{ jobs.compile.outputs.artifact-name }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  compile:
+    name: Compile Positron Core
+    # core-ci bundles the desktop, server and server-web targets in parallel,
+    # each in its own Node process, which needs more memory than 16 GB.
+    runs-on: ubuntu-latest-amd64-8-core
+    timeout-minutes: 120
+    outputs:
+      artifact-name: positron-compilation
+    container:
+      image: ghcr.io/posit-dev/positron-builds-rocky8:6
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repository || github.repository }}
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory '*'
+          git rev-parse --show-toplevel
+
+      - name: Install build dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: x64
+        shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
+        run: |
+          # Parallel node-gyp postinstalls race on this cache and can read a truncated common.gypi
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" install \
+            --target="$(npm config get target)" --dist-url="$(npm config get disturl)"
+
+          npm install --prefix build --fetch-timeout 120000
+          npm ci --fetch-timeout 120000
+
+      # Type-checks with tsgo, then bundles the desktop, server and server-web
+      # targets into out-vscode-min, out-vscode-reh-min and
+      # out-vscode-reh-web-min.
+      - name: Compile Positron
+        run: |
+          echo "Compiling Positron with commit SHA: $(git rev-parse HEAD)"
+          npm run gulp core-ci
+
+      # Workbench embeds its own license key, which is compiled in from source,
+      # so it gets a separate server-web bundle built after core-ci has produced
+      # the public one for Positron Server.
+      - name: Replace default license key with the Workbench test key
+        env:
+          LICENSE_KEY: ${{ secrets.POSITRON_WORKBENCH_LICENSE_KEY }}
+        run: |
+          echo "$LICENSE_KEY" > /tmp/positron-workbench-license.pub
+          ./scripts/replace-license.sh src/vs/server/node/remoteLicenseKey.ts /tmp/positron-workbench-license.pub
+          rm -f /tmp/positron-workbench-license.pub
+
+      - name: Bundle Positron Workbench
+        run: |
+          node build/next/index.ts bundle --target server-web --minify --mangle-privates --nls --out out-vscode-reh-web-pwb-min
+          cp src/vs/code/browser/workbench/rsLoginCheck.js out-vscode-reh-web-pwb-min/vs/code/browser/workbench/
+
+      - name: Archive compilation
+        run: tar czf positron-compilation.tar.gz out-vscode-min out-vscode-reh-min out-vscode-reh-web-min out-vscode-reh-web-pwb-min
+
+      - name: Upload compilation
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-compilation
+          path: positron-compilation.tar.gz
+          compression-level: 0
+          retention-days: 1
