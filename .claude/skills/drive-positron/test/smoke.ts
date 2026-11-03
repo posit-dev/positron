@@ -440,6 +440,8 @@ const cases: Case[] = [
 	{ name: 'panel resize sidebar 0', run: ['panel.sh', 'resize', 'sidebar', '0'], check: o => o.json!.now !== 'hidden' && `now ${o.json!.now}` },
 	{ name: 'panel delete-session python', run: () => ['panel.sh', 'delete-session', found.py], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	{ name: 'console-read deleted session', run: () => ['console-read.sh', '--name', found.py], fail: true },
+	// With one session the console draws no tabs: start-session still names the session it started.
+	{ name: 'start-session r with no other session open names it', run: () => (found.left = String(closeAllSessions()), ['start-session.sh', '--language', 'r', '--name', found.rName]), check: o => (found.left !== '0' && `${found.left} sessions still open before it`) || (o.json!.started !== true && 'not started') || (!String(o.json!.session ?? '').startsWith(`R ${found.rName.split(' ')[0]}`) && `session ${JSON.stringify(o.json!.session)}`) || void (found.r = o.json!.sessionId) },
 
 	// ---- Settings
 	{ name: 'settings set workspace', quick: true, run: ['settings.sh', 'set', 'smoke.number', '42'], check: o => (o.json!.value !== 42 && `value ${JSON.stringify(o.json!.value)}`) || includes(readFileSync(join(ws, '.vscode/settings.json'), 'utf8'), '"smoke.number": 42') },
@@ -514,6 +516,13 @@ const groups: Group<Case>[] = [
 /** Starts a helper in the background, for a case that watches what it does. */
 function background(args: string[]): void {
 	spawn('bash', [join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], { cwd: repo, stdio: 'ignore', detached: true, env: { ...process.env, DRIVE_POSITRON_LOG: join(root, 'actions.log') } }).unref();
+}
+
+/** Deletes every open console session with panel.sh, for a case that starts from none; returns how many are left. */
+function closeAllSessions(): number {
+	const list = () => (sh([join(scripts, 'panel.sh'), '--session', SESSION, 'sessions']).json?.sessions ?? []) as { id: string }[];
+	for (const s of list()) { sh([join(scripts, 'panel.sh'), '--session', SESSION, 'delete-session', s.id]); }
+	return list().length;
 }
 
 // ---- Running ---------------------------------------------------------------------
