@@ -1517,22 +1517,63 @@ test('a failing step with a screenshot from the latest build compares the two', 
 	// A split-frame icon the size of the normal one, with no text, so the step never wraps.
 	assert.match(li, /<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16"[^>]*><rect x="1\.5" y="3" width="13" height="10" rx="1\.5"><\/rect><path d="M8 3v10"><\/path>/);
 	assert.doesNotMatch(li, /PR vs latest build|st-cmp/);
-	assert.match(li, /<span class="ev-hd"><b>This branch<\/b><span>Click to compare with latest build<\/span><\/span>/);
-	assert.doesNotMatch(li, /ev-cap/);
+	assert.doesNotMatch(li, /ev-cap|ev-hd/);
 	const links = shotLinks(html, 1).filter(t => attr(t, 'data-step') === 'Step 2');
 	assert.equal(links.length, 1, 'one pair, not a stack of both builds');
 	assert.equal(attr(links[0], 'data-pr'), 'shots/P1.png');
 	assert.equal(attr(links[0], 'data-main'), 'shots/M1.png');
 	assert.equal(attr(links[0], 'data-pr-h'), 'This branch');
-	assert.equal(attr(links[0], 'data-pr-r'), 'Fails');
-	assert.equal(attr(links[0], 'data-main-r'), 'daily 2026.11.0-236 &middot; Passes');
+	// The viewer's headers match the hover's: the build, its PASS/FAIL pill, then the build in muted text.
+	assert.deepEqual(['data-pr-r', 'data-main-r', 'data-main-bd'].map(a => attr(links[0], a)), ['fail', 'pass', 'daily 2026.11.0-236']);
+});
+
+const cmpPop = li => /<span class="ev-pop ev-cmp"[\s\S]*?<span class="ev-ft">[^<]*<\/span><\/span>/.exec(li)?.[0] ?? '';
+const popCols = li => [...cmpPop(li).matchAll(/<span class="ev-col">([\s\S]*?)<\/span>(?=<span class="ev-col">|<\/span><span class="ev-ft">)/g)].map(m => m[1]);
+
+test('a compared step\'s hover shows both builds side by side, each with its result', () => {
+	const html = grouped(COMPARED);
+	const pop = cmpPop(stepLi(html, 1, 2));
+	assert.ok(pop, 'the hover is a comparison');
+	const [pr, main] = popCols(stepLi(html, 1, 2));
+	assert.match(pr, /^<span class="ev-h"><b>This branch<\/b><span class="st-rs st-fail">FAIL<\/span><\/span><img class="shot-full" src="shots\/P1\.png"/);
+	assert.match(main, /^<span class="ev-h"><b>Latest build<\/b><span class="st-rs st-pass">PASS<\/span><span class="ev-bd">daily 2026\.11\.0-236<\/span><\/span><img class="shot-full" src="shots\/M1\.png"/);
+	assert.match(pop, /<span class="ev-ft">Click to open both full size<\/span><\/span>$/);
+	// Each side's header and image are inside its own column, and the step's icon follows the preview.
+	assert.match(stepLi(html, 1, 2), /<\/span><\/span><svg aria-hidden="true"/);
+});
+
+test('the latest build\'s hover pill follows its counts, and an unknown origin names the tries', () => {
+	const html = grouped(COMPARED);
+	const mainHead = n => /<span class="ev-h">[\s\S]*?<\/span><\/span>/.exec(popCols(stepLi(html, n, 2))[1])?.[0];
+	assert.equal(mainHead(2), '<span class="ev-h"><b>Latest build</b><span class="st-rs st-fail">FAIL</span><span class="ev-bd">daily 2026.11.0-236</span></span>');
+	assert.equal(mainHead(3), '<span class="ev-h"><b>Latest build</b><span class="st-rs st-pass">PASS</span><span class="ev-bd">daily 2026.11.0-236 &middot; 1 try</span></span>');
+});
+
+test('a side with no screenshot in the hover says so, with a placeholder the other image\'s shape', () => {
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: [act('Open.'), fail('it works', 1)], main: { steps: [{ step: 2, n: 0, m: 2, saw: 'x', shots: ['shots/M1.png'] }] } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const png = Buffer.alloc(24);
+	png.write('IHDR', 12, 'latin1');
+	png.writeUInt32BE(800, 16);
+	png.writeUInt32BE(250, 20);
+	const html = grouped(json, { readFile: p => (p === 'shots/M1.png' ? png : null) });
+	const [pr, main] = popCols(stepLi(html, 1, 2));
+	assert.equal(pr, '<span class="ev-h"><b>This branch</b><span class="ev-bd">no screenshot</span></span><span class="ev-none" style="aspect-ratio:800 / 250">This branch&rsquo;s run didn&rsquo;t capture this view.</span>');
+	assert.match(main, /<img class="shot-full" src="shots\/M1\.png" alt="" width="800" height="250"/);
+});
+
+test('the hover stacks the builds on a narrow window', () => {
+	assert.match(REPORT_CSS, /\.ev-cols\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);/);
+	assert.match(REPORT_CSS, /@media \(max-width:640px\)\{\.ev-cols\{grid-template-columns:minmax\(0,1fr\)\}\.ev-pop\.ev-cmp img,\.ev-none\{width:calc\(100vw - 50px\)\}\}/);
 });
 
 test('the latest build\'s result follows the finding\'s counts', () => {
 	const html = grouped(COMPARED);
-	const mainResult = n => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), 'data-main-r');
-	assert.equal(mainResult(2), 'daily 2026.11.0-236 &middot; Also fails');
-	assert.equal(mainResult(3), 'daily 2026.11.0-236 &middot; Didn&rsquo;t fail in 1 try');
+	const mainHead = n => ['data-main-r', 'data-main-bd'].map(a => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), a));
+	assert.deepEqual(mainHead(2), ['fail', 'daily 2026.11.0-236']);
+	assert.deepEqual(mainHead(3), ['pass', 'daily 2026.11.0-236 &middot; 1 try']);
 });
 
 test('screenshots pair by order, and a side with fewer says so', () => {
@@ -1552,8 +1593,12 @@ test('passing steps and findings not confirmed show screenshots as before', () =
 
 test('the viewer has two columns for a comparison, stacking under 900px, and every preview is clickable', () => {
 	const html = grouped(COMPARED);
-	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
+	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span class="st-rs" hidden><\/span><span class="lb-bd"><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span class="st-rs" hidden><\/span><span class="lb-bd"><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
 	assert.match(REPORT_CSS, /\.lb-cmp\{display:grid;grid-template-columns:1fr 1fr;/);
+	// Only the muted note is muted; a rule on every span would turn the pill grey.
+	assert.match(REPORT_CSS, /\.lb-cmp-h \.lb-bd\{color:var\(--muted\);/);
+	assert.doesNotMatch(REPORT_CSS, /\.lb-cmp-h span\{/);
+	assert.match(REPORT_CSS, /\.lb-cmp-h \.st-rs\[hidden\]\{display:none\}/);
 	assert.match(REPORT_CSS, /@media \(max-width:900px\)\{\.lb-cmp\{grid-template-columns:1fr\}\}/);
 	assert.match(REPORT_CSS, /a\.st-ev:hover \.ev-pop,a\.st-ev:focus-visible \.ev-pop\{pointer-events:auto;cursor:pointer\}/);
 });
