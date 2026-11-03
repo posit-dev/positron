@@ -16,7 +16,10 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 3. **Valid input.** Could a command that worked before with valid input now behave differently?
    Name the input.
 4. **The new smoke case.** Would it fail without the fix? Does a failure case check the error text,
-   not just the exit code?
+   not just the exit code? Can a person read it in one pass: `run` returns only the command (set-up
+   goes in `before`), nothing is saved in `found` that no later case reads, and no new smoke
+   helper copies one that exists? A case that fails one of these is a `revise`; it is upkeep, not
+   style.
 5. **The rules.** No sleeps, retries or longer timeouts to get a pass; no loosened check; no change
    that hides a Positron bug.
 6. **Scope.** Any change that has nothing to do with the finding.
@@ -38,4 +41,4 @@ End with exactly one JSON object as your last message, and nothing after it:
     {"verdict": "approve | revise", "notes": ["one concrete problem per note, with file:line"]}
 
 Say `revise` only for a problem you can name and point to. Style, naming and wording are not
-reasons to revise. With nothing to fix, say `approve` with an empty `notes`.
+reasons to revise; the checks in item 4 are not style. With nothing to fix, say `approve` with an empty `notes`.

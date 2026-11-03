@@ -63,7 +63,13 @@ says how a helper is built and checked.
     fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
     bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
     changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
-    around it. If no smoke case can show the bug (it only
+    around it, and keep it as plain as they are:
+    - `run` returns the command and does nothing else. State the case needs first (no sessions
+      open, a file open) goes in `before`, using a smoke helper that exists (`closeAllSessions`)
+      or one new, documented function when none does.
+    - Save a value in `found` only when a later case reads it.
+    - Check what the bug was about, not every field; one condition is often enough.
+    If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
 11. **Only a real run adds a feature.** A finder finding with no `lead` came from exploring, not
     from a real run: fix what is wrong on a path the helper already offers, but add no flag,
