@@ -142,6 +142,10 @@ to mark each finding, so nothing else goes in it:
   there are any. It does not change the verdict either.
 - `dupes`: the issues in `known` or `intended` that are the same bug, not
   just a related one: the issue shows the same symptom after the same steps.
+  Decide from the issue itself on GitHub, its comments included, not its
+  title: it is the same bug when the issue's steps or observed show the
+  finding's behavior, and not when the issue says that behavior is tracked in
+  another issue.
   One entry per issue: `issue` is its number and `why` says in one line what
   is the same. Leave out an issue that matches only the feature, the code or
   another path, and leave out PRs. Leave it out when there are none. The

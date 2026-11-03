@@ -146,7 +146,11 @@ passes every run (some known failures are timing races that pass now and then).
    ```
 
    `run` is the `.sh` and its arguments without `--session`; a function
-   (`() => [...]`) can use values earlier cases saved in `found`. `check` gets
+   (`() => [...]`) can use values earlier cases saved in `found`; save one
+   only when a later case reads it. `run` returns the command and does
+   nothing else: state a case needs first goes in `before`, a function that
+   sets it up and returns a message when it could not (`closeAllSessions`
+   is one). `check` gets
    `{ code, json, text, stderr }` and returns a message when something is
    wrong. `wait` (ms) waits before the case; `retry: N, retryOn: /re/`
    tries again, 3 s apart, while the problem matches (only for something

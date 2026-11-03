@@ -93,7 +93,7 @@ test('a message to an earlier session resumes it', async () => {
 
 test('an agent with a time limit is told by a hook, and stopped only after the wrap-up', async () => {
 	const { calls, exec } = fakeExec([{ stdout: result({}) }]);
-	const out = await runClaude({ prompt: 'isolate', model: 'sonnet', timeLimitMinutes: 12, timeUpMessage: 'Time is up.', minuteMs: 1, exec });
+	const out = await runClaude({ prompt: 'outcomes', model: 'sonnet', timeLimitMinutes: 12, timeUpMessage: 'Time is up.', minuteMs: 1, exec });
 	const hooks = JSON.parse(flag(calls[0].args, '--settings')).hooks;
 	assert.match(hooks.PostToolUse[0].hooks[0].command, /time-up-hook\.mjs/);
 	assert.deepEqual(hooks.PostToolUseFailure, hooks.PostToolUse);

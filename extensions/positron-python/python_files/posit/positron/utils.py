@@ -15,25 +15,19 @@ import sys
 import threading
 import urllib.parse
 import uuid
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Optional,
-    Set,
     TypeVar,
-    Union,
     cast,
 )
 from urllib.parse import unquote, urlparse
 
 logger = logging.getLogger(__name__)
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
-JsonRecord = Dict[str, JsonData]
+JsonData = dict[str, "JsonData"] | list["JsonData"] | str | int | float | bool | None
+JsonRecord = dict[str, JsonData]
 
 
 T = TypeVar("T")
@@ -89,7 +83,7 @@ def get_qualname(value: Any) -> str:
     return qualname
 
 
-def get_module_name(value: Any) -> Optional[str]:
+def get_module_name(value: Any) -> str | None:
     """Get the name of the module defining `value`."""
     # It's already a module, return its name
     if inspect.ismodule(value):
@@ -123,7 +117,7 @@ def is_numpy_ufunc(object_: Any) -> bool:
 ISO8601 = "%Y-%m-%dT%H:%M:%S.%f"
 
 
-def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> asyncio.Task:
+def create_task(coro: Coroutine, pending_tasks: set[asyncio.Task], **kwargs) -> asyncio.Task:
     """
     Create a strongly referenced task to avoid it being garbage collected.
 
@@ -137,7 +131,7 @@ def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> 
     return task
 
 
-async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
+async def cancel_tasks(tasks: set[asyncio.Task]) -> None:
     """Cancel and await a set of tasks."""
     for task in tasks:
         task.cancel()
@@ -202,7 +196,7 @@ def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool
     return False
 
 
-def not_none(value: Optional[T]) -> T:
+def not_none(value: T | None) -> T:
     """Assert that a value is not None."""
     assert value is not None
     return value

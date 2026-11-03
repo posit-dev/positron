@@ -146,7 +146,7 @@ have?"):**
    registry does not know the key. It says NOTHING about whether anything
    reads it. Never conclude from `registered: false` that a setting is inert,
    has no effect, is doing nothing, or is safe to delete.**
-6. Never report a `<redacted>` value as if it were the real one, and never ask
+6. Never report a `<masked>` value as if it were the real one, and never ask
    the user to paste the value back to you.
 
 **Reading the compact payload shape:** an entry omits a field rather than
@@ -223,5 +223,5 @@ standing in for any key the registry does not know.
   (user vs workspace vs policy) and the per-folder picture, look the key up
   in `getConfiguredSettings`.
 - The two commands' vocabularies match where they overlap (`key`,
-  `description`, `deprecated`, `registered`, `<redacted>`), so entries can be
+  `description`, `deprecated`, `registered`, `<masked>`), so entries can be
   merged key-by-key without translation.

@@ -37,6 +37,9 @@ const REPO_ROOT = path.dirname(path.dirname(import.meta.dirname));
 const commit = getVersion(REPO_ROOT);
 const quality = (product as { quality?: string }).quality;
 const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+// --- Start Positron ---
+const positronVersion = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
+// --- End Positron ---
 
 // CLI: build-fast [--force] [--client-only] | transpile [--watch] | bundle [--minify] [--nls] [--out <dir>]
 const command = process.argv[2];
@@ -332,16 +335,6 @@ async function copyESMPackageDependencies(outDir: string): Promise<void> {
 	});
 	console.log(`[resources] Copied ${files.length} ESM package dependency files to ${outDir}/esm-package-dependencies/`);
 }
-
-/**
- * Positron product fields that the bundled product configuration needs for
- * server and web targets.
- */
-async function getPositronProductFields(): Promise<{ positronVersion: string; positronBuildNumber: string; quality: string }> {
-	const { positronBuildNumber, releaseChannel } = await import('../utils.ts');
-	const positronVersion = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
-	return { positronVersion, positronBuildNumber, quality: releaseChannel };
-}
 // --- End Positron ---
 
 // ============================================================================
@@ -415,25 +408,25 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject product configuration
 				if (contents.includes('/*BUILD->INSERT_PRODUCT_CONFIGURATION*/')) {
 					if (productConfigReplacement === undefined) {
+						// --- Start Positron ---
+						// Lazy: utils.ts shells out to git, which fails in shallow checkouts that only transpile.
+						const { positronBuildNumber, releaseChannel } = await import('../utils.ts');
+						// --- End Positron ---
 						// For server-web, remove webEndpointUrlTemplate
 						const productForTarget = target === 'server-web'
 							? { ...product, webEndpointUrlTemplate: undefined }
 							: product;
-						// --- Start Positron ---
-						// Inject the Positron version fields for server/web targets. These used to be
-						// added by createVSCodeWebFileContentMapper in the gulp REH/web bundle path,
-						// which upstream removed in favor of this esbuild path. Desktop gets them from
-						// the packaged product.json instead. Imported lazily because utils.ts runs
-						// a child process to compute the build number.
-						const positronFields = target === 'desktop' ? {} : await getPositronProductFields();
 						const productConfiguration = JSON.stringify({
 							...productForTarget,
-							...positronFields,
+							// --- Start Positron ---
+							positronVersion,
+							positronBuildNumber,
+							quality: releaseChannel,
+							// --- End Positron ---
 							version,
 							commit,
 							date: readISODate(outDir)
 						});
-						// --- End Positron ---
 						// Remove the outer braces since the placeholder is inside an object literal
 						productConfigReplacement = productConfiguration.substring(1, productConfiguration.length - 1);
 					}

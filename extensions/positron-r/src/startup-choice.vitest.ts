@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import * as path from 'path';
 import * as semver from 'semver';
 import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, firstListedR, listedRPath, ListedRPathInputs, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, InFlightLookup, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
 
@@ -191,8 +192,10 @@ describe('chooseStartupR', () => {
 	});
 });
 
+// Both functions build the binary path from an entry with the host's path.join, so the binary
+// paths here are built the same way: on Windows they carry backslashes.
 describe('rVersionsMayListR', () => {
-	const current = '/opt/R/4.4/bin/R';
+	const current = path.join('/opt/R/4.4', 'bin', 'R');
 
 	it.each([
 		{ name: 'an entry for another R', entries: [{ path: '/opt/R/4.3' }], expected: false },
@@ -206,8 +209,8 @@ describe('rVersionsMayListR', () => {
 });
 
 describe('rVersionsEntryForR', () => {
-	const pinned = '/opt/R/4.4/bin/R';
-	const links: Record<string, string> = { '/opt/R/current/bin/R': pinned };
+	const pinned = path.join('/opt/R/4.4', 'bin', 'R');
+	const links: Record<string, string> = { [path.join('/opt/R/current', 'bin', 'R')]: pinned };
 	const isSameFile = (path1: string, path2: string) => (links[path1] ?? path1) === (links[path2] ?? path2);
 
 	interface Entry {

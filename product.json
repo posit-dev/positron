@@ -100,10 +100,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.11.5",
+			"version": "2026.11.6",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "0292ae56723befcf184bf049190e0efedc67cc69b3c668d4bc615374fee82de7",
+			"sha256": "2fb457c63d579c357c37840f5ddd8f83aa5dde2315f016f0296283dbdd5a1b65",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -273,7 +273,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.30.0",
+			"version": "0.32.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -310,8 +310,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.9.1",
-			"sha256": "98a78112e42c864a424e6e688cc903b0f2581a72bfdf948a184291587b721349",
+			"version": "1.10.0",
+			"sha256": "4113f293c59924639f6bdd60660dd3ad6e7e49afe590f962340ce2d7c0442a36",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

@@ -6,7 +6,6 @@
 .claude/skills/exploratory-test/SKILL.md
 .claude/skills/exploratory-test/explorer.md
 .claude/skills/exploratory-test/verifier.md
-.claude/skills/exploratory-test/isolator.md
 .claude/skills/exploratory-test/renderer/report.schema.json
 .claude/skills/exploratory-test/renderer/lint-json.mjs
 .claude/skills/exploratory-test/renderer/lint/lint-wording.mjs

@@ -5,7 +5,7 @@
 
 import { FolderTemplate, } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, createNewFolder, handleRenvInstallModal, verifyConsoleReady, verifyFolderCreation, verifyRenvFilesArePresent, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, createNewFolder, handleRenvInstallModal, verifyConsoleReady, verifyFolderCreation, verifyRenvFilesArePresent, verifyPyprojectTomlNotCreated, verifyDotHereIsPresent, verifyDotHereIsAbsent } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -35,6 +35,7 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyPyprojectTomlNotCreated(app);
+		await verifyDotHereIsPresent(app);
 	});
 
 	test('R - Renv already installed', { tag: [tags.WIN] }, async function ({ app, packages }) {
@@ -54,6 +55,7 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyRenvFilesArePresent(app);
+		await verifyDotHereIsAbsent(app);
 		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
 

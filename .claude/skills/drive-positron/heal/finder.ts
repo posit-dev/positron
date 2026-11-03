@@ -18,8 +18,8 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { launchFixture, readFixtureState, stopFixture, type App } from '../test/fixture-app.ts';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
-import { readFindings, validateFinding } from './finding.ts';
-import { isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
+import { readFindings } from './finding.ts';
+import { finderProblems, isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
 import { formatLeads, type Lead } from './leads-lib.ts';
 
 /** How many leads the brief lists; the rest wait for a night with fewer. */
@@ -103,16 +103,14 @@ function main(): number {
 	const rejected: { file: string; problems: string[] }[] = [];
 	mkdirSync(join(dir, 'findings'), { recursive: true });
 	for (const file of readdirSync(scratch).filter(f => f.endsWith('.json'))) {
-		let parsed: { id: string; source: string } | null = null;
+		let raw: { id: string };
 		let problems: string[];
 		try {
-			const raw = JSON.parse(readFileSync(join(scratch, file), 'utf8'));
-			problems = validateFinding(raw);
-			if (!problems.length) { parsed = raw; }
-		} catch (e) { problems = [`not JSON: ${String(e)}`]; }
-		if (parsed && (parsed.source !== 'finder' || !parsed.id.startsWith('finder-'))) { problems.push('a finder finding has source "finder" and an id starting finder-'); }
-		if (!parsed || problems.length) { rejected.push({ file, problems }); continue; }
-		renameSync(join(scratch, file), join(dir, 'findings', `${parsed.id}.json`));
+			raw = JSON.parse(readFileSync(join(scratch, file), 'utf8'));
+			problems = finderProblems(raw, !leadsOnly);
+		} catch (e) { rejected.push({ file, problems: [`not JSON: ${String(e)}`] }); continue; }
+		if (problems.length) { rejected.push({ file, problems }); continue; }
+		renameSync(join(scratch, file), join(dir, 'findings', `${raw.id}.json`));
 	}
 	writeFileSync(join(dir, 'finder-rejected.json'), `${JSON.stringify(rejected, null, '\t')}\n`);
 	console.log(`finder: ${readdirSync(join(dir, 'findings')).filter(f => f.startsWith('finder-')).length} findings, ${rejected.length} rejected`);

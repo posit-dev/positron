@@ -3,8 +3,9 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Callable, List, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -187,7 +188,7 @@ _html = _PositronHTMLDoc()
         (_html.html_topics, ()),
     ],
 )
-def test_pydoc_py311_breaking_changes(func: Callable, args: Tuple[Any, ...]) -> None:
+def test_pydoc_py311_breaking_changes(func: Callable, args: tuple[Any, ...]) -> None:
     """
     Test breaking changes.
 
@@ -320,7 +321,7 @@ def test_untyped_signature(func: Callable, expected: str) -> None:
         ),
     ],
 )
-def test_tabulate_attrs(attrs: List[_Attr], expected: List[str]) -> None:
+def test_tabulate_attrs(attrs: list[_Attr], expected: list[str]) -> None:
     result = _tabulate_attrs(attrs)
     assert result == expected
 

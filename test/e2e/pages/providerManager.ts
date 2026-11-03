@@ -206,7 +206,11 @@ export class ProviderManager {
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
 				await expect(card).toContainText('Connected', { timeout });
-				await expect(card).toContainText(`Managed by ${managedBy}`);
+				// The host name lives in the tooltip of the wrapper span: the disabled button gets no pointer events.
+				const managed = card.getByRole('button', { name: 'Managed', exact: true });
+				await expect(managed).toBeDisabled();
+				await managed.locator('..').hover();
+				await expect(frame.getByText(`Managed by ${managedBy}`)).toBeVisible();
 				await expect(card.locator('[data-testid^="provider-action-"]')).toHaveCount(0);
 			} finally {
 				await this.close();

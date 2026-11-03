@@ -306,7 +306,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// If no R binaries are found, log to output and end discovery.
 	if (rAll.length === 0) {
 		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
-		printInterpreterSettingsInfo();
+		await printInterpreterSettingsInfo();
 		return;
 	}
 
@@ -398,8 +398,8 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
  *
  * Pixi runtimes are never cached, so on a warm start, when Positron serves R
  * from its discovery cache and skips `rRuntimeDiscoverer()`, this is the only
- * way they are found. Runtime IDs depend only on the binary path and version,
- * so a runtime found by both this and full discovery is registered once.
+ * way they are found. Pixi runtime IDs depend only on the binary path and
+ * version, so a runtime found by both this and full discovery is registered once.
  */
 export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	const binaries = deduplicateRBinaries(await discoverPixiBinaries());
@@ -823,10 +823,15 @@ export async function makeMetadata(
 
 	const rVersion = rInst.version;
 
-	// Create a stable ID for the runtime based on the interpreter path and version.
+	// Create a stable ID for the runtime based on the interpreter path and
+	// version, and the module environment, since one R can be used with or
+	// without modules.
 	const digest = crypto.createHash('sha256');
 	digest.update(rInst.binpath);
 	digest.update(rVersion);
+	if (rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		digest.update(rInst.packagerMetadata.environmentName);
+	}
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
 	// Save the R home path, binary path and Rscript path as extra data.

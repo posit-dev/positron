@@ -193,11 +193,12 @@ function kiData(issue, refs) {
 
 /**
  * A finding's matches split by what GitHub says each one is, issues first,
- * each kind with its own label. A PR closed without merging is neither a
- * duplicate nor a fix, so it is left out; a number the run did not fetch
- * counts as an issue.
+ * each kind with its own label. Only an issue the verifier listed in `dupes`
+ * is a possible duplicate; any other issue match is only related. A PR closed
+ * without merging is neither a duplicate nor a fix, so it is left out; a
+ * number the run did not fetch counts as an issue.
  */
-function matchesByKind(numbers, refs, group = null, onCard = false) {
+function matchesByKind(numbers, refs, group = null, onCard = false, dupes = []) {
 	const kind = n => {
 		const ref = refs?.byNumber.get(n);
 		return ref?.kind !== 'pr' ? 'issue' : ref.state === 'merged' ? 'merged' : ref.state === 'open' ? 'open' : null;
@@ -206,11 +207,15 @@ function matchesByKind(numbers, refs, group = null, onCard = false) {
 		// It did not fail on the latest build, where the issue does: likely another bug.
 		group === 'pr'
 			? { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `${similar(onCard)} ${nums}`, noun: 'similar issues' }
-			: { numbers: numbers.filter(n => kind(n) === 'issue'), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
+			: { numbers: numbers.filter(n => kind(n) === 'issue' && dupes.includes(n)), label: nums => `Dupe? ${nums}`, noun: 'possible duplicates' },
+		...(group === 'pr' ? [] : [{ numbers: numbers.filter(n => kind(n) === 'issue' && !dupes.includes(n)), label: nums => `Related ${nums}`, noun: 'related issues' }]),
 		{ numbers: numbers.filter(n => kind(n) === 'open'), label: nums => `Fix in PR? ${nums}`, noun: 'possible fixes' },
 		{ numbers: numbers.filter(n => kind(n) === 'merged'), label: nums => `Fixed in ${nums}?`, noun: 'possible fixes' },
 	].filter(m => m.numbers.length);
 }
+
+/** The issue numbers the verifier found are the same bug as the finding. */
+const dupesOf = f => (f.dupes ?? []).map(d => d.issue);
 
 /**
  * "Similar?" with why on hover. In a table row it is read as part of the row
@@ -500,7 +505,7 @@ function renderFindingsList(report, ki = null, refs = null, changeBase = null, m
 			lines.push(line(`<span class="ki-reg">${ICON.x}Regressed</span><span class="ki-state">${first(regressed, 'issues that came back')}</span>`));
 		}
 		// Every match the card shows, linked to the PR or found by search, one line per kind.
-		lines.push(...matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group).map(m => muted(m.label(first(m.numbers, m.noun)))));
+		lines.push(...matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group, false, dupesOf(f)).map(m => muted(m.label(first(m.numbers, m.noun)))));
 		// A match closed as not planned: the team chose to leave this behavior.
 		if (f.intended?.length) {
 			lines.push(muted(`Won&rsquo;t fix? ${first(f.intended, 'issues closed as not planned')}`));
@@ -1024,7 +1029,7 @@ function cardIssueItems(f, word, ki, refs, group) {
 	if (regressed.length) {
 		items.push(item('Regressed', regressed));
 	}
-	for (const m of matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group, true)) {
+	for (const m of matchesByKind(possiblyKnown(f, ki).filter(n => !regressed.includes(n)), refs, group, true, dupesOf(f))) {
 		items.push(item(m.label, m.numbers));
 	}
 	if (f.intended?.length) {
