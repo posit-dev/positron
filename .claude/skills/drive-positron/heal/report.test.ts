@@ -256,16 +256,15 @@ test('the review line says when the last review still asks for changes', () => {
 	assert.doesNotMatch(body({ review: ['n1'], revised: true, reviewVerdict: 'approve' }), /still asks/);
 });
 
-test('Checks changed uses the fixer\'s account of the check, or the reason cut at a word', () => {
+test('Checks changed uses the fixer\'s account of the check, never the reason', () => {
 	const changed = (extra: Partial<Finding>) => prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true, ...extra })], checksDiff: '+x' }), 'u');
 	assert.match(changed({ reason: 'long reason', checks: 'check.ts gains args' }), /^- a: check\.ts gains args$/m);
-	const cutAt = changed({ reason: `${'word '.repeat(70)}needs a value` }).match(/^- a: (.*)$/m)![1];
-	assert.ok(cutAt.endsWith('word...') && cutAt.length <= 303, cutAt);
+	assert.match(changed({ reason: 'long reason' }), /^- a: the fixer did not say which check it changed; read the diff$/m);
 });
 
-test('the title counts every helper the fixes reach', () => {
+test('the title counts only the helpers the findings showed broken', () => {
 	const fixed = (id: string, helper: string, reaches?: string[] | 'all') => f(id, { helper, outcome: 'fixed', ...(reaches ? { reaches } : {}) });
-	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', ['a.sh', 'b.sh', 'c.sh', 'd.sh', 'e.sh']), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and 3 more helpers from the nightly run');
+	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', ['a.sh', 'b.sh', 'c.sh', 'd.sh', 'e.sh']), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh from the nightly run');
 	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', 'all'), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and code every helper shares from the nightly run');
 });
 

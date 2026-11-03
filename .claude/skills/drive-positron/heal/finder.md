@@ -48,6 +48,11 @@ command, then decide which it is:
   error did not say what to do instead.
 - Not reproducible here: say so in your final message, with what you tried.
 
+A helper bug you notice along the way, outside the lead you are working, is a finding only when
+the brief names an area that covers it. Otherwise no run paid for it: name it in your final message,
+one line, and do not write it (the workflow throws away a finding without a lead when there is no
+area).
+
 Then explore the area, if the brief names one, with the time left.
 
 ## How to look

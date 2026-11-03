@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { Finding } from './finding.ts';
+import { validateFinding, type Finding } from './finding.ts';
 
 export interface Area { name: string; helpers: string[]; focus: string }
 
@@ -30,4 +30,17 @@ export function knownBugs(recent: Finding[]): string[] {
 	const seen = new Set<string>();
 	return recent.filter(f => f.source === 'finder' && f.outcome === 'product' && f.issue && !seen.has(f.id) && seen.add(f.id))
 		.map(f => `- ${f.id} (${f.helper}, issue #${f.issue}): ${String(f.observed).replace(/\s+/g, ' ').slice(0, 200)}`);
+}
+
+/**
+ * What is wrong with a finder's finding file. Without an area, the finder only works leads, so a
+ * finding needs the lead it came from: a bug noticed on the side cost no real run anything.
+ */
+export function finderProblems(raw: unknown, explored: boolean): string[] {
+	const problems = validateFinding(raw);
+	if (problems.length) { return problems; }
+	const f = raw as Finding;
+	if (f.source !== 'finder' || !f.id.startsWith('finder-')) { problems.push('a finder finding has source "finder" and an id starting finder-'); }
+	if (!explored && !f.lead) { problems.push('no area was explored, so a finding needs its lead; a bug noticed on the side goes in the final message'); }
+	return problems;
 }
