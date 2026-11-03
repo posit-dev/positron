@@ -8,7 +8,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
 import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ArraySelection, ColumnSchema, ColumnSelection, ColumnValue, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -93,6 +93,14 @@ function decodeSpecialValue(value: number) {
 			formatted: 'UNKNOWN'
 		};
 	}
+}
+
+/**
+ * Converts a column value into a data cell.
+ * @param value The column value.
+ */
+export function toDataCell(value: ColumnValue): DataCell {
+	return typeof value === 'number' ? decodeSpecialValue(value) : { formatted: value, kind: DataCellKind.NON_NULL };
 }
 
 /**
@@ -348,15 +356,7 @@ export class TableDataCache extends Disposable {
 					const value = tableData.columns[column][row];
 
 					// Convert the cell value into a data cell.
-					let dataCell: DataCell;
-					if (typeof value === 'number') {
-						dataCell = decodeSpecialValue(value);
-					} else {
-						dataCell = {
-							formatted: value,
-							kind: DataCellKind.NON_NULL
-						};
-					}
+					const dataCell = toDataCell(value);
 
 					// Calculate the column value width.
 					const columnValueWidth = pinToRange(
@@ -649,15 +649,7 @@ export class TableDataCache extends Disposable {
 					const value = tableData.columns[column][row];
 
 					// Convert the cell value into a data cell.
-					let dataCell: DataCell;
-					if (typeof value === 'number') {
-						dataCell = decodeSpecialValue(value);
-					} else {
-						dataCell = {
-							formatted: value,
-							kind: DataCellKind.NON_NULL
-						};
-					}
+					const dataCell = toDataCell(value);
 					const searchMatch = tableData.search_matches?.[column]?.[row];
 					if (searchMatch !== undefined) {
 						dataCell.searchMatch = searchMatch;

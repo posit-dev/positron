@@ -385,6 +385,37 @@ describe('TableDataDataGridInstance', () => {
 			]);
 		});
 
+		/**
+		 * Searches a 10-column table, 469px wide (two 200px columns past the row headers and scrollbar), where
+		 * only the given column matches.
+		 */
+		async function searchWithMatchIn(matchColumn: number) {
+			const shape = { num_rows: 100, num_columns: 10 };
+			const state = { ...backendState(), table_shape: shape, table_unfiltered_shape: shape, row_filters: [makeGlobalSearchFilter('x', 0)] };
+			client.cachedBackendState = state;
+			getBackendState.mockResolvedValue(state);
+			updateBackendState.mockResolvedValue(state);
+			client.getDataValues = vi.fn(async (columns: ColumnSelection[]): Promise<TableData> => ({
+				columns: columns.map(() => ['1']),
+				search_matches: columns.map(column => [column.column_index === matchColumn])
+			}));
+			await instance.setVisible(true);
+			await instance.setSize(469, 400);
+			await instance.setSearchTerm('x', 0);
+		}
+
+		it('scrolls horizontally to a match when none is visible', async () => {
+			await searchWithMatchIn(7);
+
+			expect(instance.horizontalScrollOffset).toBe(8 * DEFAULT_COLUMN_WIDTH - 400);
+		});
+
+		it('keeps the scroll position when a match is visible', async () => {
+			await searchWithMatchIn(1);
+
+			expect(instance.horizontalScrollOffset).toBe(0);
+		});
+
 		it('reports the search term change and requests for focus', async () => {
 			const terms: string[] = [];
 			let focusRequests = 0;

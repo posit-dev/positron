@@ -24,24 +24,35 @@ import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../lang
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
-import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators } from '../common/tableDataCache.js';
+import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators, DataCell, toDataCell } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { buildTableSelectionFromClipboardData } from './utils.js';
 import { DATA_EXPLORER_SEARCH_MAX_CELLS_KEY } from './positronDataExplorerSummary.js';
-import { cellMatchesSearch, getGlobalSearchTerm, isGlobalSearchSupported, makeGlobalSearchFilter, parseSearchTerm, SearchTerm, splitRowFilters } from '../common/dataExplorerSearch.js';
+import { cellMatchesSearch, findMatchSpan, getGlobalSearchTerm, isGlobalSearchSupported, makeGlobalSearchFilter, parseSearchTerm, SearchTerm, splitRowFilters } from '../common/dataExplorerSearch.js';
 
 /**
  * Constants.
  */
 const OVERSCAN_FACTOR = 3;
+const SEARCH_REVEAL_CHUNK_SIZE = 1000;
 
 /**
  * Localized strings.
  */
 const addFilterTitle = localize('positron.addFilter', "Add Filter");
+
+/**
+ * Determines whether a data cell matches a search term, preferring the backend's per-cell result.
+ * @param dataCell The data cell.
+ * @param typeDisplay The display type of the cell's column.
+ * @param search The search term.
+ */
+function isSearchMatch(dataCell: DataCell, typeDisplay: ColumnDisplayType, search: SearchTerm): boolean {
+	return search.kind !== 'none' && (dataCell.searchMatch ?? cellMatchesSearch(dataCell, typeDisplay, search));
+}
 
 /**
  * TableDataDataGridInstance class.
@@ -486,8 +497,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				dataCell={dataCell}
 				hoverManager={this._hoverManager}
 				search={search}
-				searchMatched={search.kind !== 'none' &&
-					(dataCell.searchMatch ?? cellMatchesSearch(dataCell, column.columnSchema.type_display, search))}
+				searchMatched={isSearchMatch(dataCell, column.columnSchema.type_display, search)}
 			/>
 		);
 	}
@@ -905,9 +915,88 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._searchPending = false;
 				const { columnFilters } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
 				await this.applyRowFilters(columnFilters);
+				if (!this._searchPending) {
+					await this.revealSearchMatch();
+				}
 			} while (this._searchPending);
 		} finally {
 			this._searchInFlight = false;
+		}
+	}
+
+	/**
+	 * Scrolls horizontally to a matching cell in the first visible row when no visible cell or row
+	 * label matches the applied search. Every row the search keeps has a match in some column.
+	 */
+	private async revealSearchMatch(): Promise<void> {
+		const search = this.appliedSearch;
+		if (search.kind === 'none' || this.layoutWidth <= 0 || this.layoutHeight <= 0) {
+			return;
+		}
+
+		// Get the visible rows and the columns that are fully visible or span the viewport.
+		const left = this.horizontalScrollOffset;
+		const right = this.layoutRight;
+		const rowIndexes = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 0);
+		const columnIndexes = this._columnLayoutManager.getLayoutIndexes(left, this.layoutWidth, 0).filter(columnIndex => {
+			const entry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+			return this._columnLayoutManager.isPinnedIndex(columnIndex) ||
+				(entry !== undefined && (entry.start >= left ? entry.end <= right : entry.end >= right));
+		});
+		if (!rowIndexes.length || !columnIndexes.length) {
+			return;
+		}
+
+		// If a visible row label or cell matches, leave the scroll position alone.
+		const hasRowLabels = this._dataExplorerClientInstance.cachedBackendState?.has_row_labels;
+		for (const rowIndex of rowIndexes) {
+			const rowLabel = this._tableDataCache.getRowLabel(rowIndex);
+			if (hasRowLabels && rowLabel !== undefined && findMatchSpan(rowLabel, search)) {
+				return;
+			}
+			for (const columnIndex of columnIndexes) {
+				const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
+				if (dataCell && columnSchema && isSearchMatch(dataCell, columnSchema.type_display, search)) {
+					return;
+				}
+			}
+		}
+
+		// Order the other unpinned columns by their distance from the viewport.
+		const rowIndex = rowIndexes[0];
+		const visible = new Set(columnIndexes);
+		const firstPosition = this._columnLayoutManager.mapIndexToPosition(this.firstColumn?.columnIndex ?? 0) ?? 0;
+		const candidates: number[] = [];
+		for (let before = firstPosition, after = firstPosition; before >= 0 || after < this._columnLayoutManager.entryCount; before--, after++) {
+			for (const position of after === before ? [after] : [after, before]) {
+				const columnIndex = this._columnLayoutManager.mapPositionToIndex(position);
+				if (columnIndex !== undefined && !visible.has(columnIndex) && !this._columnLayoutManager.isPinnedIndex(columnIndex)) {
+					candidates.push(columnIndex);
+				}
+			}
+		}
+
+		// Scan the row's values in chunks, nearest first, and scroll to the first match.
+		for (let i = 0; i < candidates.length && !this._searchPending; i += SEARCH_REVEAL_CHUNK_SIZE) {
+			const chunk = candidates.slice(i, i + SEARCH_REVEAL_CHUNK_SIZE);
+			const [tableSchema, tableData] = await Promise.all([
+				this._dataExplorerClientInstance.getSchema(chunk),
+				this._dataExplorerClientInstance.getDataValues(chunk.map(column_index => ({
+					column_index,
+					spec: { first_index: rowIndex, last_index: rowIndex }
+				})))
+			]);
+			const match = chunk.findIndex((_, j) => {
+				const value = tableData.columns[j]?.[0];
+				const typeDisplay = tableSchema.columns[j]?.type_display;
+				return tableData.search_matches?.[j]?.[0] ??
+					(value !== undefined && typeDisplay !== undefined && isSearchMatch(toDataCell(value), typeDisplay, search));
+			});
+			if (match !== -1) {
+				await this.scrollToColumn(chunk[match]);
+				return;
+			}
 		}
 	}
 
