@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { createInterpreterVariant, findInterpreterDefinitionPath, getInterpreterDefinitionPaths, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
+import { createInterpreterVariant, findInterpreterDefinition, findInterpreterDefinitionPath, getInterpreterDefinitionPaths, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const base: ILanguageRuntimeMetadata = {
@@ -151,6 +151,37 @@ describe('getInterpreterDefinitionPaths', () => {
 			'C:\\R\\R-4.5.0\\bin\\R.exe',
 			'/opt/R/4.2/bin/R',
 		]);
+	});
+});
+
+describe('findInterpreterDefinition', () => {
+	const setting = [
+		{ language: 'r', path: '/opt/R/4.5/bin/R', label: 'Pizza', env: { N: 1 } },
+		{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'Windows R' },
+		{ language: 'r', path: '/opt/R/4.6.1//bin/R', label: 'R CPU' },
+		{ language: 'r', path: '/opt/R/4.6.1/bin/R', label: 'R GPU' },
+		{ language: 'python', path: '/opt/R/4.6.1/bin/R', label: 'R CPU' },
+		{ language: 'r', path: '/opt/R/4.5/bin/R', label: 'Pizza', env: { N: '2' } },
+		{ language: 'r', path: '/opt/R/4.4/bin/R', label: 'Pizza' },
+	];
+	const definitions = setting as IInterpreterDefinition[];
+
+	it('finds the valid entry with the label that names the runtime path, however either is written', () => {
+		expect([
+			findInterpreterDefinition(definitions, 'r', 'Windows R', 'c:\\r\\r-4.4.1\\bin\\r.exe'),
+			findInterpreterDefinition(definitions, 'r', 'R CPU', '/opt/R/4.6.1/bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'R GPU', '/opt/R/4.6.1/./bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'Pizza', '/opt/R/4.5/bin/R'),
+		]).toEqual([definitions[1], definitions[2], definitions[3], definitions[5]]);
+	});
+
+	it('finds nothing for another path, a label later entries reuse, another language, or no setting', () => {
+		expect([
+			findInterpreterDefinition(definitions, 'r', 'R CPU', '/opt/R/4.5/bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'Pizza', '/opt/R/4.4/bin/R'),
+			findInterpreterDefinition(definitions, 'python', 'R GPU', '/opt/R/4.6.1/bin/R'),
+			findInterpreterDefinition(undefined, 'r', 'R CPU', '/opt/R/4.6.1/bin/R'),
+		]).toEqual([undefined, undefined, undefined, undefined]);
 	});
 });
 

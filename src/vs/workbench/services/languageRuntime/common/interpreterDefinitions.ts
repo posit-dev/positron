@@ -111,6 +111,16 @@ export function findInterpreterDefinitionPath(definitions: readonly IInterpreter
 }
 
 /**
+ * The valid definition a runtime variant was created from: the entry for the
+ * language with this label, if its path names the interpreter at
+ * `runtimePath`. A variant carries its base's path, which can be spelled
+ * differently from the definition's.
+ */
+export function findInterpreterDefinition(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string, label: string, runtimePath: string): IInterpreterDefinition | undefined {
+	return getLanguageDefinitions(definitions, languageId).find(d => d.label === label && isSameInterpreterPath(d.path, runtimePath));
+}
+
+/**
  * Get the definitions that apply to a runtime (same language, same path).
  */
 export function getMatchingDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, runtime: ILanguageRuntimeMetadata): IInterpreterDefinition[] {

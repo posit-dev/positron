@@ -3827,6 +3827,34 @@ declare module 'positron' {
 		export function findInterpreterDefinitionPath(languageId: string, path: string): string | undefined;
 
 		/**
+		 * An entry in the `interpreters.definitions` setting, after Positron
+		 * has validated it.
+		 */
+		export interface InterpreterDefinition {
+			readonly language: string;
+			readonly path: string;
+			readonly label: string;
+			readonly env?: Readonly<Record<string, string>>;
+			readonly modules?: readonly string[];
+			readonly startupScript?: string;
+		}
+
+		/**
+		 * The entry in the `interpreters.definitions` setting that a runtime
+		 * variant was created from (see
+		 * `LanguageRuntimeMetadata.interpreterDefinition`), or undefined if
+		 * the setting no longer has a valid entry with this label for the
+		 * interpreter. The paths are compared as in
+		 * `getInterpreterDefinitionPaths()`, so the variant's `runtimePath`
+		 * can be written differently from the entry's `path`.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param label The variant's `interpreterDefinition` label.
+		 * @param runtimePath The variant's `runtimePath`.
+		 */
+		export function findInterpreterDefinition(languageId: string, label: string, runtimePath: string): InterpreterDefinition | undefined;
+
+		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
