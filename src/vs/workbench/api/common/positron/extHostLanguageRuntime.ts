@@ -9,8 +9,8 @@ import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeM
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
-import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
-import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
+import { Disposable } from '../extHostTypes.js';
+import { LanguageRuntimeMessageType, RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { isUriComponents, URI, UriComponents } from '../../../../base/common/uri.js';
