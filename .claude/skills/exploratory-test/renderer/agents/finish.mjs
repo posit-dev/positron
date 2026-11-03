@@ -108,13 +108,14 @@ const SEVERITIES = ['major', 'moderate', 'minor'];
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, fix }`, `linked` an issue number to its severity, and
+ * feature, title, fix }`, `linked` an issue number to its severity, `unmet`
+ * one the run did not meet to why, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
 export function parseVerifyReply(text) {
 	const raw = String(text ?? '');
-	const out = { findings: new Map(), linked: new Map(), notes: raw.trim(), problem: '' };
+	const out = { findings: new Map(), linked: new Map(), unmet: new Map(), notes: raw.trim(), problem: '' };
 	const block = /```json[ \t]*\n([\s\S]*?)\n```[ \t]*$/m.exec(raw);
 	if (!block) {
 		out.problem = 'the reply has no ```json block';
@@ -155,7 +156,14 @@ export function parseVerifyReply(text) {
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
 		const severity = String(l?.severity ?? '').toLowerCase();
-		if (Number.isInteger(l?.issue) && SEVERITIES.includes(severity)) {
+		if (!Number.isInteger(l?.issue)) {
+			continue;
+		}
+		// One the run did not meet needs why; one with no `met` is read as met.
+		if (l.met === false) {
+			const why = prose(l.why);
+			if (why) { out.unmet.set(l.issue, why); }
+		} else if (SEVERITIES.includes(severity)) {
 			out.linked.set(l.issue, severity);
 		}
 	}
@@ -325,7 +333,7 @@ export function verifyLogLines(knownIssues, ledger, reply) {
 	if (!coverage) {
 		return [];
 	}
-	const ki = knownIssueOutcomes(knownIssues, coverage, reply.linked, issueMatches(reply, 'known'));
+	const ki = knownIssueOutcomes(knownIssues, coverage, reply.linked, issueMatches(reply, 'known'), reply.unmet);
 	return [...ki.unrated.map(n => `Couldn't rate #${n}: verifier line missing or malformed`), ...knownFixLines(ki)];
 }
 
@@ -410,6 +418,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		unchecked.setup ? `${named(unchecked.setup)} against the run's setup` : '',
 	].filter(Boolean).join(', or ');
 	const linked = [...reply.linked].map(([issue, severity]) => ({ issue, severity }));
+	const unmet = [...reply.unmet].map(([issue, why]) => ({ issue, why }));
 	return {
 		...json,
 		findings,
@@ -421,6 +430,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			...(Object.keys(origin).length ? { origin } : {}),
 			...(Object.keys(originReason).length ? { originReason } : {}),
 			...(linked.length ? { linked } : {}),
+			...(unmet.length ? { unmet } : {}),
 			...(skipped ? { unchecked } : {}),
 		},
 	};

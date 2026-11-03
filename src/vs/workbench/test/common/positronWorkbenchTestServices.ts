@@ -207,7 +207,8 @@ export class TestDirectoryFileService implements IFileService {
 	readonly onError = Event.None;
 
 	async stat(resource: URI): Promise<IFileStatWithMetadata> {
-		if (resource.fsPath === '/non/existent/directory') {
+		// Compare the URI path, not fsPath, so the rule holds on Windows too.
+		if (resource.path === '/non/existent/directory') {
 			// Simulate a non-existent directory by throwing an error
 			throw new Error('File not found');
 		}

@@ -8,10 +8,12 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from positron._vendor.pydantic import BaseModel
     from positron.utils import JsonData, JsonRecord
 

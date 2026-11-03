@@ -1,4 +1,4 @@
-"""Entry point for launching Positron's extensions to Jedi and IPyKernel in the same environment."""  # noqa: INP001
+"""Entry point for launching Positron's extensions to Jedi and IPyKernel in the same environment."""
 
 import argparse
 import asyncio

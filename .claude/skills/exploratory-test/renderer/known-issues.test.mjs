@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers, toIssue } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, formatView, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, pageIssueRefs, rateLimitWait, readIssueRefs, referencedNumbers, toIssue } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
 
@@ -42,6 +42,16 @@ test('formatSearch lists issues and PRs with their state, quotes titles, and say
 	].join('\n'));
 	assert.equal(formatSearch([{ number: 15, state: 'closed', state_reason: 'not_planned', title: 'By design' }]), '#15 (closed as not planned): "By design"');
 	assert.equal(formatSearch([]), 'no matches');
+});
+
+test('formatView shows the state, then the body and each comment fenced with its author', () => {
+	const issue = { number: 12, title: 'Packages pane "six"', state: 'closed', state_reason: 'not_planned', user: { login: 'a' }, body: 'It stays listed.\n' };
+	assert.equal(formatView(issue, [{ user: { login: 'b' }, created_at: '2026-10-30T01:02:03Z', body: 'By design.' }]), [
+		'#12 (issue, closed as not planned): "Packages pane \\"six\\""',
+		'--- body by a ---\nIt stays listed.',
+		'--- comment by b, 2026-10-30 ---\nBy design.',
+	].join('\n\n'));
+	assert.equal(formatView({ number: 13, title: 'Fix', state: 'closed', pull_request: { merged_at: '2026-10-01' }, body: null }, []), '#13 (PR, merged): "Fix"\n\n--- body by unknown ---\n(empty)');
 });
 
 test('referencedNumbers names every same-repo ref outside code fences', () => {
@@ -158,10 +168,18 @@ test('knownIssueOutcomes sorts open observed issues by severity, unrated last', 
 	assert.deepEqual(ki.unaccounted.map(i => i.number), [13], 'a fix with a Not run row is accounted for');
 });
 
+test('knownIssueOutcomes lists an issue the verifier says the run did not meet as not observed, with why', () => {
+	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map([[20, 'minor'], [23, 'major']]), new Map(), new Map([[22, 'only the title fits']]));
+	assert.deepEqual(ki.observed.map(o => o.issue.number), [23, 20, 25]);
+	assert.deepEqual(ki.unrated, [25], 'it needs no severity');
+	assert.deepEqual(ki.notObserved.map(i => i.number), [22, 24, 26]);
+	assert.equal(ki.unmet.get(22), 'only the title fits');
+});
+
 test('knownIssueOutcomes moves an open issue a finding matched out of the lists, unless the finding has its own issue, and drops that issue', () => {
 	const matches = new Map([[1, [11, 25, 99]], [2, [21, 10]], [3, [24, 26]]]);
 	const ki = knownIssueOutcomes(ISSUES, parseLedger(LEDGER), new Map(), matches);
-	assert.deepEqual([...ki.known], [[1, [25, 99]], [2, [10]], [3, [24, 26]]]);
+	assert.deepEqual([...ki.known], [[1, [25, 99]], [3, [24, 26]]], 'finding 2 matched only #10, a fix that held');
 	assert.deepEqual([...ki.similar].map(([n, list]) => [n, list.map(i => i.number)]), [[3, [24]]], 'finding 1 shows its own fix instead');
 	assert.ok(ki.observed.some(o => o.issue.number === 25), 'no Status line carries it, so Linked issues does');
 	assert.deepEqual(ki.notObserved.map(i => i.number), [26]);

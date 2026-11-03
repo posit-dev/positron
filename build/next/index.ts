@@ -32,6 +32,9 @@ const REPO_ROOT = path.dirname(path.dirname(import.meta.dirname));
 const commit = getVersion(REPO_ROOT);
 const quality = (product as { quality?: string }).quality;
 const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+// --- Start Positron ---
+const positronVersion = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
+// --- End Positron ---
 
 // CLI: build-fast [--force] | transpile [--watch] | bundle [--minify] [--nls] [--out <dir>]
 const command = process.argv[2];
@@ -703,12 +706,21 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject product configuration
 				if (contents.includes('/*BUILD->INSERT_PRODUCT_CONFIGURATION*/')) {
 					if (productConfigReplacement === undefined) {
+						// --- Start Positron ---
+						// Lazy: utils.ts shells out to git, which fails in shallow checkouts that only transpile.
+						const { positronBuildNumber, releaseChannel } = await import('../utils.ts');
+						// --- End Positron ---
 						// For server-web, remove webEndpointUrlTemplate
 						const productForTarget = target === 'server-web'
 							? { ...product, webEndpointUrlTemplate: undefined }
 							: product;
 						const productConfiguration = JSON.stringify({
 							...productForTarget,
+							// --- Start Positron ---
+							positronVersion,
+							positronBuildNumber,
+							quality: releaseChannel,
+							// --- End Positron ---
 							version,
 							commit,
 							date: readISODate(outDir)

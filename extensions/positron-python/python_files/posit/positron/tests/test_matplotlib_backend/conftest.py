@@ -13,7 +13,7 @@ import matplotlib
 from positron.matplotlib_backend.registry import registry
 
 if TYPE_CHECKING:
-    from typing import Generator
+    from collections.abc import Generator
 
     from positron.matplotlib_backend.backend import Backend
 

@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { raceTimeout } from '../../../../../base/common/async.js';
+import { isWindows } from '../../../../../base/common/platform.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -120,7 +121,8 @@ describe('Positron - LanguageRuntimeService', () => {
 			runtimeDisposable.dispose();
 		});
 
-		it('enriches runtimeDisplayPath via tildify on registration', async () => {
+		// tildify leaves paths alone on Windows, so there is nothing to observe there.
+		it.skipIf(isWindows)('enriches runtimeDisplayPath via tildify on registration', async () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 			// The constructor starts a userHome() promise; let the microtask run

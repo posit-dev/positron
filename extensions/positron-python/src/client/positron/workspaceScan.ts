@@ -206,6 +206,8 @@ async function readPythonVersionFile(root: string): Promise<string | undefined> 
 
 /** The latest scan of each folder. Discovery and the ranking share it, so startup reads a folder once. */
 const latestScans = new Map<string, Promise<WorkspaceScan>>();
+/** The read queued after the latest one, shared by every rescan asked for before it starts. */
+const queuedRescans = new Map<string, Promise<WorkspaceScan>>();
 
 /**
  * Everything the ranking needs from the folder, and the env folders one level down that
@@ -214,9 +216,27 @@ const latestScans = new Map<string, Promise<WorkspaceScan>>();
  */
 export function scanWorkspace(root: string, rescan = false): Promise<WorkspaceScan> {
     const latest = latestScans.get(root);
-    if (latest && !rescan) {
+    if (!latest) {
+        return readAndKeep(root);
+    }
+    if (!rescan) {
         return latest;
     }
+    // A burst of rescans (e.g. one per env discovery adds) reads the folder at most twice:
+    // the read in progress, which may miss the change, then one read after it.
+    let queued = queuedRescans.get(root);
+    if (!queued) {
+        queued = latest.then(() => {
+            queuedRescans.delete(root);
+            return readAndKeep(root);
+        });
+        queuedRescans.set(root, queued);
+        latestScans.set(root, queued);
+    }
+    return queued;
+}
+
+function readAndKeep(root: string): Promise<WorkspaceScan> {
     // A failed scan finds nothing and isn't kept, so the next caller reads the folder again.
     // It doesn't claim the folder is empty either, so the picker doesn't suggest a new env.
     const scan: Promise<WorkspaceScan> = readWorkspace(root).catch((error) => {

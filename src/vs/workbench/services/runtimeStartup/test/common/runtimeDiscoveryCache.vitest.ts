@@ -77,6 +77,11 @@ class FakeFileService implements Partial<IFileService> {
 	}
 }
 
+// The cache keys files by `URI.fsPath`, so the fixture paths are built the same way: on Windows
+// they carry backslashes.
+const PY_PATH = URI.file('/usr/bin/python3').fsPath;
+const R_PATH = URI.file('/usr/local/bin/R').fsPath;
+
 function metadata(overrides: {
 	extensionId?: string;
 	languageId?: string;
@@ -85,7 +90,7 @@ function metadata(overrides: {
 	cacheable?: boolean;
 } = {}): ILanguageRuntimeMetadata {
 	return {
-		runtimePath: overrides.runtimePath ?? '/usr/bin/python3',
+		runtimePath: overrides.runtimePath ?? PY_PATH,
 		runtimeId: overrides.runtimeId ?? 'rt-1',
 		languageName: 'Python',
 		languageId: overrides.languageId ?? 'python',
@@ -102,9 +107,6 @@ function metadata(overrides: {
 		cacheable: overrides.cacheable ?? true,
 	};
 }
-
-const PY_PATH = '/usr/bin/python3';
-const R_PATH = '/usr/local/bin/R';
 
 describe('RuntimeDiscoveryCache', () => {
 
@@ -214,12 +216,13 @@ describe('RuntimeDiscoveryCache', () => {
 		});
 
 		it('rejects entries whose runtimePath resolves to a directory', async () => {
-			files.files.set('/some/dir', {
-				resolved: '/some/dir', size: 0, mtime: 0, ctime: 0,
+			const someDir = URI.file('/some/dir').fsPath;
+			files.files.set(someDir, {
+				resolved: someDir, size: 0, mtime: 0, ctime: 0,
 				isFile: false, isDirectory: true,
 			});
 			const cache = makeCache();
-			const entry = await cache.upsert(metadata({ runtimePath: '/some/dir' }));
+			const entry = await cache.upsert(metadata({ runtimePath: someDir }));
 			expect(entry).toBeUndefined();
 		});
 
@@ -230,7 +233,7 @@ describe('RuntimeDiscoveryCache', () => {
 		});
 
 		it('expands a leading ~ via IWorkbenchEnvironmentService.userHome', async () => {
-			const realPath = '/home/test/.pyenv/versions/3.12.0/bin/python';
+			const realPath = URI.file('/home/test/.pyenv/versions/3.12.0/bin/python').fsPath;
 			files.files.set(realPath, { resolved: realPath, size: 50, mtime: 5, ctime: 5 });
 			const cache = makeCache();
 			const entry = await cache.upsert(metadata({ runtimePath: '~/.pyenv/versions/3.12.0/bin/python' }));
@@ -625,7 +628,7 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
 
 			// Sibling persisted a different runtime at a different path.
-			const altPath = '/opt/python/bin/python3';
+			const altPath = URI.file('/opt/python/bin/python3').fsPath;
 			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
 			siblingWrite([{
 				runtimePath: altPath,
@@ -666,7 +669,7 @@ describe('RuntimeDiscoveryCache', () => {
 			// a couple hundred milliseconds later, with `external: true`. By then
 			// the window may have saved again, so the copy holds older data.
 			const cache = makeCache();
-			const altPath = '/opt/python/bin/python3';
+			const altPath = URI.file('/opt/python/bin/python3').fsPath;
 			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
 
 			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'py' }));

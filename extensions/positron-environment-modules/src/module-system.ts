@@ -473,7 +473,7 @@ export async function executeWithModules(
 					));
 				} else {
 					const errorMsg = error.message ? error.message : JSON.stringify(error);
-					reject(new Error(`Module command '${fullCommand}' failed: ${errorMsg}\n${stderr}`));
+					reject(new Error(`Module command '${fullCommand}' failed: ${errorMsg}`));
 				}
 			} else {
 				resolve(stdout.trim());

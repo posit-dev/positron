@@ -25,6 +25,7 @@ import { PythonRuntimeManager } from '../../client/positron/manager';
 import * as createVirtualEnvironmentPrompt from '../../client/positron/createVirtualEnvironmentPrompt';
 import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
 import * as sessionModule from '../../client/positron/session';
+import * as workspaceScan from '../../client/positron/workspaceScan';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IInterpreterAutoSelectionService } from '../../client/interpreter/autoSelection/types';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
@@ -1013,6 +1014,58 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
 
         sinon.assert.notCalled(registerStub);
         sinon.assert.notCalled(shutdown);
+    });
+
+    /** Puts '/project' in the workspace and stubs its scan. */
+    function stubProjectFolderScan(): sinon.SinonStub {
+        sinon
+            .stub(workspaceApis, 'getWorkspaceFolder')
+            .callsFake((uri) =>
+                uri?.path.startsWith('/project/')
+                    ? ({ uri: vscode.Uri.file('/project') } as vscode.WorkspaceFolder)
+                    : undefined,
+            );
+        return sinon.stub(workspaceScan, 'scanWorkspace').resolves(undefined as any);
+    }
+
+    test('an env made in a workspace folder rescans the folder before registering', async () => {
+        const scanStub = stubProjectFolderScan();
+        const registerStub = sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire({ old: undefined, new: { path: '/project/.venv/bin/python' } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.calledOnceWithExactly(scanStub, vscode.Uri.file('/project').fsPath, true);
+        sinon.assert.callOrder(scanStub, registerStub);
+    });
+
+    test('an env deleted from a workspace folder rescans the folder', async () => {
+        const scanStub = stubProjectFolderScan();
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: '/project/.venv/bin/python' } as any, new: undefined });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.calledOnceWithExactly(scanStub, vscode.Uri.file('/project').fsPath, true);
+    });
+
+    test('an env changed in place does not rescan', async () => {
+        const scanStub = stubProjectFolderScan();
+        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire(changedInPlace('/project/.venv/bin/python', '3.14.4', '3.14.6'));
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.notCalled(scanStub);
+    });
+
+    test('an env outside the workspace does not rescan', async () => {
+        const scanStub = stubProjectFolderScan();
+        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire({ old: undefined, new: { path: '/usr/local/bin/python3' } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.notCalled(scanStub);
     });
 
     test('a rejected change handler does not poison the queue for later events', async () => {

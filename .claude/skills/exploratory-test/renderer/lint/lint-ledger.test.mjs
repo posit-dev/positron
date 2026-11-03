@@ -129,7 +129,10 @@ const each = (fn, inputs) => {
 
 test('each rule has a severity in lint-rules.mjs, and an unknown rule is refused', () => {
 	assert.deepEqual(['fail-missing-fields', 'verify-no-shot', 'shot-cited-twice', 'shot-no-step', 'shot-retaken', 'shot-out-of-order', 'shot-missing', 'session-id', 'log-backdated', 'log-unstamped'].filter(r => LINT_RULES[r] !== 'error'), []);
-	assert.deepEqual(['repeated-action', 'two-actions', 'verify-acts', 'step-starts-with', 'result-too-long', 'title-hedge', 'judgment-word', 'reference-in-observed', 'too-many-shots', 'tried-once', 'result-length'].filter(r => LINT_RULES[r] !== 'warning'), []);
+	assert.deepEqual(['repeated-action', 'two-actions', 'verify-acts', 'step-starts-with', 'result-too-long', 'title-hedge', 'judgment-word', 'reference-in-observed', 'too-many-shots', 'result-length'].filter(r => LINT_RULES[r] !== 'warning'), []);
+	assert.deepEqual(Object.entries(LINT_RULES).filter(([, s]) => !['error', 'warning', 'stat'].includes(s)), []);
+	// A stat is counted, never shown: the explorer can no longer fix it.
+	assert.deepEqual(splitProblems([problem('shot-no-crop', 'text')]), { errors: [], warnings: [] });
 	assert.throws(() => problem('no-such-rule', 'text'), /unknown lint rule: no-such-rule/);
 });
 

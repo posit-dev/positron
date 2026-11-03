@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* eslint-disable no-var */
-var sCheckInProgress = false;
 var sDialogVisible = false;
 var sLastSessionStatus = null;
 var sLoggedOut = false;
@@ -15,6 +14,17 @@ const PWB_OPEN_CONNECTION_KEY = 'pwb-connections';
 const PWB_CHANGED_CONNECTION_KEY = 'pwb-changed-connections';
 const oldConnections = new Set();
 const inProgressDBs = new Set();
+const PROBE_INTERVAL_VISIBLE_MS = 5000;
+const PROBE_INTERVAL_HIDDEN_MS = 60000;
+var sProbeTimer = null;
+// rstudio-pro#13201 phase 2: login state shared between Workbench tabs.
+// Message schema: { type: 'pwb-login-state', version: 1, loggedIn: <boolean> }.
+const PROBE_INTERVAL_LOGGED_OUT_MS = 600000;
+const PWB_LOGIN_STATE_CHANNEL = 'pwb-login-state';
+var sLoginChannel = null;
+var sKnownLoginState = null; // last login state seen from our own probe or the channel
+var sPolling = false;
+var sProbeEpoch = 0; // bumped when a probe supersedes the ones in flight (their responses may predate what it learns)
 
 // --- Start Positron ---
 const productName = 'positron';
@@ -78,13 +88,90 @@ function rs_getWorkbenchPrefix() {
 	return '';
 }
 
+// Statuses after which the session never accepts connections again ('Quit' = job not found).
+function rs_isSessionExited(status) {
+	return ['Failed', 'Finished', 'Killed', 'Canceled', 'Quit'].indexOf(status) !== -1;
+}
+
+// Tell the workbench whether the session has exited. pwbSessionExitListener.ts stops the
+// remote reconnection loop once it has, so this tab stops opening WebSockets that Workbench
+// answers with 502 (rstudio-pro#13201). Only a boolean is published so the workbench stays
+// independent of Workbench's job statuses. The global covers a listener that registers
+// after the event has already fired.
+function rs_publishSessionExited(exited) {
+	window.pwbSessionExited = exited;
+	window.dispatchEvent(new CustomEvent('pwb-session-exited', { detail: { exited: exited } }));
+}
+
+// Tell the workbench (pwbReconnectionGate.ts) whether the user is logged in. While logged out
+// the reconnect loop waits 10 min between attempts instead of opening WebSockets the Workbench
+// proxy will refuse (rstudio-pro#13201).
+function rs_publishLoginState(loggedIn) {
+	window.pwbLoggedIn = loggedIn;
+	window.dispatchEvent(new CustomEvent('pwb-login-state', { detail: { loggedIn: loggedIn } }));
+}
+
+// Our own probe saw `loggedIn`: tell the workbench, and tell the other tabs if it is news.
+function rs_reportProbeLoginState(loggedIn) {
+	rs_publishLoginState(loggedIn);
+	if (loggedIn === sKnownLoginState) {
+		return;
+	}
+	sKnownLoginState = loggedIn;
+	if (sLoginChannel) {
+		sLoginChannel.postMessage({ type: 'pwb-login-state', version: 1, loggedIn: loggedIn });
+	}
+}
+
+function rs_handleLoggedOut() {
+	var wasLoggedOut = sLoggedOut;
+	rs_showLoggedOutDialog();
+	clearStateDbs();
+	rs_publishLoginState(false);
+	if (!wasLoggedOut) {
+		rs_scheduleProbe(); // switch to the logged-out cadence
+	}
+}
+
+// Join the Workbench-wide login-state channel (the homepage posts on it too). Without
+// BroadcastChannel this tab keeps polling on its own as before.
+function rs_openLoginStateChannel() {
+	if (typeof BroadcastChannel !== 'function') {
+		return;
+	}
+	sLoginChannel = new BroadcastChannel(PWB_LOGIN_STATE_CHANNEL);
+	sLoginChannel.onmessage = function (e) {
+		var data = e.data;
+		if (!data || data.type !== 'pwb-login-state' || typeof data.loggedIn !== 'boolean') {
+			return;
+		}
+		if (data.loggedIn === sKnownLoginState) {
+			return; // nothing new
+		}
+		sKnownLoginState = data.loggedIn;
+		if (!data.loggedIn && !sLoggedOut) {
+			// Another tab got a 401; it applies to this tab too.
+			rs_handleLoggedOut();
+		} else if (data.loggedIn && sLoggedOut) {
+			// Logged back in elsewhere. Probe first, so an exited session is reported
+			// (and stops reconnecting) before the login cuts the reconnect wait short.
+			// Probes already in flight predate the login and may report 401: drop them.
+			rs_probeNow(true);
+		}
+	};
+}
+
 function rs_checkConnectionRequest() {
 	var xhr = new XMLHttpRequest();
+	var epoch = sProbeEpoch;
 
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState === 4) {
-			sCheckInProgress = false;
+			if (epoch !== sProbeEpoch) {
+				return; // a newer probe superseded this one; its response may predate the latest state
+			}
 			if (xhr.status === 200) {
+				var wasLoggedOut = sLoggedOut;
 				var res = JSON.parse(xhr.responseText);
 				if (res.result) {
 					if (sLastSessionStatus !== res.status || sLoggedOut) {
@@ -95,6 +182,7 @@ function rs_checkConnectionRequest() {
 							checkIndexedDB();
 						}
 						sLastSessionStatus = res.status;
+						rs_publishSessionExited(rs_isSessionExited(res.status));
 					}
 				}
 				else {
@@ -103,14 +191,21 @@ function rs_checkConnectionRequest() {
 						// No job was found for the session so displaying quit
 						rs_showSessionExitDialog('Quit');
 						checkIndexedDB();
+						rs_publishSessionExited(true);
 					}
 					sLoggedOut = false;
 					sLastSessionStatus = 'Quit';
 				}
+				// After rs_publishSessionExited above: an exited session must stop
+				// reconnecting before the login cuts the reconnect wait short.
+				rs_reportProbeLoginState(true);
+				if (wasLoggedOut) {
+					rs_scheduleProbe(); // back to the normal cadence
+				}
 			}
 			else if (xhr.status === 401) {
-				rs_showLoggedOutDialog();
-				clearStateDbs();
+				rs_handleLoggedOut();
+				rs_reportProbeLoginState(false);
 			}
 			else {
 				console.log(`Connection check status not ok: ${xhr.status}: ${xhr.statusText}:\n${xhr.responseText}`);
@@ -131,7 +226,6 @@ function rs_checkConnectionRequest() {
 		console.error(`Unrecognized workbench ${productName} session path: ${path}`);
 	}
 
-	sCheckInProgress = true;
 	xhr.open('POST', url, true);
 	xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
 	xhr.setRequestHeader('X-RS-CSRF-Token', sCSRFToken);
@@ -194,15 +288,53 @@ async function clearStateDbs() {
 	dbDeleteInProgress = false;
 }
 
+function rs_nextProbeDelay() {
+	if (sLoggedOut && sLoginChannel) {
+		// Another tab or the homepage announces the next login; this keep-alive only
+		// covers a login made on a page that never posts (e.g. an RStudio session).
+		return PROBE_INTERVAL_LOGGED_OUT_MS;
+	}
+	// Nobody is watching a hidden tab, so probe it less often.
+	return document.hidden ? PROBE_INTERVAL_HIDDEN_MS : PROBE_INTERVAL_VISIBLE_MS;
+}
+
+// (Re)start the wait before the next probe. setTimeout rather than setInterval, so slow
+// probes can't stack up.
+function rs_scheduleProbe() {
+	if (!sPolling) {
+		return;
+	}
+	clearTimeout(sProbeTimer);
+	// Arrow wrapper: the timer must never pass an argument that rs_probeNow reads as `supersedeInFlight`.
+	sProbeTimer = setTimeout(() => rs_probeNow(), rs_nextProbeDelay());
+}
+
+// `supersedeInFlight`: drop the responses of probes already in flight. They were sent earlier,
+// so their answers (e.g. a 401 from before a login) must not overwrite what this probe learns.
+// Only for event-driven probes: the timer must not supersede, or a slow probe would never
+// get its response applied.
+function rs_probeNow(supersedeInFlight) {
+	if (supersedeInFlight) {
+		sProbeEpoch++;
+	}
+	rs_checkConnectionRequest();
+	rs_scheduleProbe();
+}
+
 function rs_initTimer() {
-	// call setTimeout recursively because setInterval has the potential
-	// to stack up calls if the function takes longer than the interval
-	(function loop() {
-		rs_checkConnectionRequest();
-		setTimeout(() => {
-			loop();
-		}, 5000);
-	})();
+	sPolling = true;
+	rs_probeNow();
+	// Don't make a returning user wait out a pending hidden-tab or logged-out delay.
+	document.addEventListener('visibilitychange', () => {
+		if (!document.hidden) {
+			rs_probeNow(true);
+		}
+	});
+	window.addEventListener('focus', () => {
+		if (sLoggedOut) {
+			rs_probeNow(true);
+		}
+	});
 }
 
 async function rs_initAsyncTimer() {
@@ -236,6 +368,7 @@ function rs_loginCheckInit() {
 						console.log('End of pattern not found for csrf token in: ' + pattern + ' at: ' + startIx);
 					} else {
 						sCSRFToken = txt.substring(startIx, endIx);
+						rs_openLoginStateChannel();
 						rs_initTimer();
 						rs_initAsyncTimer();
 					}

@@ -67,6 +67,25 @@ test('skipReason names each reason to stay silent', () => {
 	}
 });
 
+test('skipReason lets the agent bot through only while it is on the auto-run list', () => {
+	const agent = { ...basePr(), user: { login: 'positron-projects[bot]', type: 'Bot' } };
+	assert.equal(skipReason({ ...ok, pr: agent, authorIsMember: false, authorListed: true }), null);
+	assert.match(skipReason({ ...ok, pr: agent, authorIsMember: false, authorListed: false }) ?? '', /bot/);
+	assert.match(skipReason({ ...ok, pr: agent, authorIsMember: false }) ?? '', /bot/);
+});
+
+test('skipReason still skips any other bot on the list, such as the drive-positron nightly', () => {
+	const nightly = { ...basePr(), user: { login: 'positron-bot[bot]', type: 'Bot' } };
+	assert.match(skipReason({ ...ok, pr: nightly, authorIsMember: false, authorListed: true }) ?? '', /bot/);
+});
+
+test('skipReason keeps the other checks for the listed agent bot', () => {
+	const agent = { ...basePr(), user: { login: 'positron-projects[bot]', type: 'Bot' } };
+	const listed = { ...ok, authorIsMember: false, authorListed: true };
+	assert.match(skipReason({ ...listed, pr: { ...agent, draft: true } }) ?? '', /draft/);
+	assert.match(skipReason({ ...listed, pr: agent, files: [{ filename: '.claude/skills/drive-positron/scripts/ui.sh' }] }) ?? '', /only tests, docs or CI/);
+});
+
 test('skipReason on ready_for_review needs a reviewer or team already requested', () => {
 	const none = { ...basePr(), requested_reviewers: [], requested_teams: [] };
 	assert.match(skipReason({ ...ok, action: 'ready_for_review', pr: none }), /no reviewer/);

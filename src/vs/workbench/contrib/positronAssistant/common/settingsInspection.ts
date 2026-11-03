@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /** Placeholder shown in place of a redacted setting value. */
-export const REDACTED_VALUE = '<redacted>';
+export const REDACTED_VALUE = '<masked>';
 
 /**
  * How a caller decides that a setting key may hold a credential. Two lists,

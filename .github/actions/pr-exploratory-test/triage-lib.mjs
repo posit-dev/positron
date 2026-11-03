@@ -8,9 +8,9 @@
 
 const SEVERITIES = ['major', 'moderate', 'minor'];
 
-/** The report and finding an issue's provenance line links to, or null when it has none. */
+/** The report and finding an issue's provenance line links to, or null when it has none. Older issues say "Reported by". */
 export function reportLink(body) {
-	const m = String(body ?? '').match(/Reported by \[exploratory test\]\((https:\/\/[^)\s]+?)\/index\.html#f(\d+)\)/);
+	const m = String(body ?? '').match(/(?:Reported by|\*\*Found by:\*\*) \[exploratory test\]\((https:\/\/[^)\s]+?)\/index\.html#f(\d+)\)/);
 	return m ? { base: m[1], finding: Number(m[2]) } : null;
 }
 

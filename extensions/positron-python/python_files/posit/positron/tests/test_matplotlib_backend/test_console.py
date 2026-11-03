@@ -5,8 +5,9 @@
 
 import base64
 import io
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, cast
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import pytest
@@ -69,7 +70,7 @@ def images_path() -> Path:
     return images_path
 
 
-def _verify_comm_open_message(message: Dict[str, Any]) -> None:
+def _verify_comm_open_message(message: dict[str, Any]) -> None:
     """Verify a comm_open message has expected structure, ignoring pre_render image data."""
     assert message["msg_type"] == "comm_open"
     assert message["target_name"] == _CommTarget.Plot
@@ -89,8 +90,8 @@ def _verify_comm_open_message(message: Dict[str, Any]) -> None:
 def _create_mpl_plot(
     shell: PositronShell,
     plots_service: PlotsService,
-    size: Optional[Tuple[float, float]] = None,
-    dpi: Optional[int] = None,
+    size: tuple[float, float] | None = None,
+    dpi: int | None = None,
 ) -> DummyComm:
     args = []
     if size:
@@ -108,7 +109,7 @@ def _create_mpl_plot(
     return plot_comm
 
 
-def _verify_event_notification(message: Dict[str, Any], method: str) -> None:
+def _verify_event_notification(message: dict[str, Any], method: str) -> None:
     """Verify an event notification has expected structure, ignoring pre_render image data."""
     assert message["msg_type"] == "comm_msg"
     data = message.get("data", {})
@@ -123,19 +124,19 @@ def _verify_event_notification(message: Dict[str, Any], method: str) -> None:
         assert "settings" in pre_render
 
 
-def _verify_update_notification(message: Dict[str, Any]) -> None:
+def _verify_update_notification(message: dict[str, Any]) -> None:
     """Verify an update notification has expected structure."""
     _verify_event_notification(message, "update")
 
 
-def _verify_show_notification(message: Dict[str, Any]) -> None:
+def _verify_show_notification(message: dict[str, Any]) -> None:
     """Verify a show notification has expected structure."""
     _verify_event_notification(message, "show")
 
 
 def _do_render(
-    plot_comm: DummyComm, size: Optional[PlotSize] = None, pixel_ratio=2.0, format_="png"
-) -> Dict[str, Any]:
+    plot_comm: DummyComm, size: PlotSize | None = None, pixel_ratio=2.0, format_="png"
+) -> dict[str, Any]:
     msg = json_rpc_request(
         "render",
         {
@@ -280,7 +281,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     def verify_response(
         response,
         filename: str,
-        expected_size: Tuple[float, float],
+        expected_size: tuple[float, float],
         threshold=0.0,
         *,
         expect_settings: bool = False,
@@ -658,7 +659,7 @@ def test_mpl_detect_library_walks_call_stack() -> None:
 
     # A call site inside a seaborn-rooted module is attributed to seaborn. Define a
     # function whose frame reports `__name__ == "seaborn.matrix"` (mimicking sns.heatmap).
-    namespace: Dict[str, Any] = {"__name__": "seaborn.matrix"}
+    namespace: dict[str, Any] = {"__name__": "seaborn.matrix"}
     exec("def call(detect):\n    return detect()", namespace)
     assert namespace["call"](_detect_plotting_library) == "seaborn"
 

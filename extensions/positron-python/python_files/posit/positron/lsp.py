@@ -5,7 +5,7 @@
 
 import contextlib
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from comm.base_comm import BaseComm
 
@@ -23,9 +23,9 @@ class LSPService:
 
     def __init__(self, kernel: "PositronIPyKernel"):
         self._kernel = kernel
-        self._comm: Optional[BaseComm] = None
+        self._comm: BaseComm | None = None
 
-    def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
+    def on_comm_open(self, comm: BaseComm, msg: dict[str, Any]) -> None:
         """Setup positron.lsp comm to receive messages."""
         self._comm = comm
 
@@ -42,7 +42,7 @@ class LSPService:
         # Start the language server thread
         POSITRON.start(lsp_host=ip_address, shell=self._kernel.shell, comm=comm)
 
-    def _receive_message(self, msg: Dict[str, Any]) -> None:
+    def _receive_message(self, msg: dict[str, Any]) -> None:
         """Handle messages received from the client via the positron.lsp comm."""
 
     def shutdown(self) -> None:

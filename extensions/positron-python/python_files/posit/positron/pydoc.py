@@ -697,8 +697,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     def get_html_page(self, url):
         """Generate an HTML page for url."""
         complete_url = url
-        if url.endswith(".html"):
-            url = url[:-5]
+        url = url.removesuffix(".html")
 
         # --- Start Positron ---
         # for typechecking
@@ -1027,8 +1026,7 @@ def _url_handler(url: str, content_type="text/html"):
 
     # --- End Positron ---
 
-    if url.startswith("/"):
-        url = url[1:]
+    url = url.removeprefix("/")
     if content_type == "text/css":
         path_here = pathlib.Path(__file__).parent
         css_path = path_here / url

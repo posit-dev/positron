@@ -3,7 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from typing import Iterable
+from collections.abc import Iterable
 from unittest.mock import MagicMock, Mock
 
 import comm

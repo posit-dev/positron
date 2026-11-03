@@ -403,7 +403,7 @@ export function parseTimeLimit(raw) {
  * rushed from the first step and wrapped up at about 70% of it, in every CI
  * run that had a limit. `onTimeUp` is called the first time. `now` is the
  * clock, for tests. `message` is what the agent is told: the pipeline's, for
- * the explorer and the isolator alike.
+ * the explorer.
  */
 export function timeUpHook({ deadline, message, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;

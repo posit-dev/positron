@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+// --- Start PWB: Let callers cancel a pending connect (rstudio-pro#13201) ---
+import { CancellationToken } from '../../../base/common/cancellation.js';
+// --- End PWB ---
 import { ISocket } from '../../../base/parts/ipc/common/ipc.net.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import { RemoteConnectionOfType, RemoteConnectionType, RemoteConnection } from './remoteAuthorityResolver.js';
@@ -21,12 +24,16 @@ export interface IRemoteSocketFactoryService {
 	 */
 	register<T extends RemoteConnectionType>(type: T, factory: ISocketFactory<T>): IDisposable;
 
-	connect(connectTo: RemoteConnection, path: string, query: string, debugLabel: string): Promise<ISocket>;
+	// --- Start PWB: Let callers cancel a pending connect ---
+	connect(connectTo: RemoteConnection, path: string, query: string, debugLabel: string, cancellationToken?: CancellationToken): Promise<ISocket>;
+	// --- End PWB ---
 }
 
 export interface ISocketFactory<T extends RemoteConnectionType> {
 	supports(connectTo: RemoteConnectionOfType<T>): boolean;
-	connect(connectTo: RemoteConnectionOfType<T>, path: string, query: string, debugLabel: string): Promise<ISocket>;
+	// --- Start PWB: Let callers cancel a pending connect ---
+	connect(connectTo: RemoteConnectionOfType<T>, path: string, query: string, debugLabel: string, cancellationToken?: CancellationToken): Promise<ISocket>;
+	// --- End PWB ---
 }
 
 export class RemoteSocketFactoryService implements IRemoteSocketFactoryService {
@@ -50,11 +57,15 @@ export class RemoteSocketFactoryService implements IRemoteSocketFactoryService {
 		return factories.find(factory => factory.supports(messagePassing));
 	}
 
-	public connect(connectTo: RemoteConnection, path: string, query: string, debugLabel: string): Promise<ISocket> {
+	// --- Start PWB: Let callers cancel a pending connect ---
+	public connect(connectTo: RemoteConnection, path: string, query: string, debugLabel: string, cancellationToken?: CancellationToken): Promise<ISocket> {
+		// --- End PWB ---
 		const socketFactory = this.getSocketFactory(connectTo);
 		if (!socketFactory) {
 			throw new Error(`No socket factory found for ${connectTo}`);
 		}
-		return socketFactory.connect(connectTo, path, query, debugLabel);
+		// --- Start PWB: Let callers cancel a pending connect ---
+		return socketFactory.connect(connectTo, path, query, debugLabel, cancellationToken);
+		// --- End PWB ---
 	}
 }

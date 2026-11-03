@@ -118,7 +118,6 @@ function status(f: Finding): string {
 /** What was seen, with a helper's JSON reply cut down to its error. */
 const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"\s*[,}]/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
 /** Cut at the last whole word within `max`. */
-const cutWord = (t: string, max: number) => t.length > max ? `${t.slice(0, max + 1).replace(/\s+\S*$/, '')}...` : t;
 const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.length > max ? `${x.slice(0, max)}...` : x; };
 
 /** Model text with each @mention and issue reference in a code span, so the PR body pings and links nothing. Existing code spans are left alone. */
@@ -203,7 +202,7 @@ function checksSection(n: Night): string {
 	if (!changed.length) { return ''; }
 	// The diff itself is in the PR's files; the body names them.
 	const files = [...n.checksDiff.matchAll(/^diff --git a\/(\S+)/gm)].map(m => `\`${m[1].replace(SKILL_PREFIX, '')}\``);
-	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${inert(f.checks ?? cutWord(f.reason ?? '', 300))}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', ...(files.length ? [`Changed: ${files.join(', ')}`, ''] : []), ''].join('\n');
+	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${inert(f.checks ?? 'the fixer did not say which check it changed; read the diff')}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', ...(files.length ? [`Changed: ${files.join(', ')}`, ''] : []), ''].join('\n');
 }
 
 export function prTitle(n: Night): string {
@@ -211,7 +210,8 @@ export function prTitle(n: Night): string {
 	const helpers = [...new Set(fixes.map(f => f.helper))];
 	const shown = helpers.slice(0, 3);
 	const all = fixes.some(f => f.reaches === 'all');
-	const more = new Set([...helpers, ...fixes.flatMap(f => Array.isArray(f.reaches) ? f.reaches : [])].filter(h => !shown.includes(h))).size;
+	// Only the helpers a finding showed broken; the others a change can reach are in the body.
+	const more = helpers.length - shown.length;
 	const named = all ? `${shown.join(', ')} and code every helper shares` : more ? `${shown.join(', ')} and ${s(more, 'more helper')}` : shown.join(', ');
 	return named ? `drive-positron: fix ${named} from the nightly run` : 'drive-positron: helper fixes from the nightly run';
 }

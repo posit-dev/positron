@@ -24,11 +24,12 @@ const OUTCOMES = [
 	{ key: 'wont-fix', label: 'Won\'t fix', group: 'wont-fix', def: 'A matching issue was closed as not planned, so the team chose to leave it.', brief: 'Its issue was closed as not planned.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
 	{ key: 'didnt-ship', label: 'Not merged', group: 'didnt-ship', def: 'The code this finding was about never reached main: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
+	{ key: 'on-main', label: 'Already on main', group: 'on-main', def: 'It also happened on a build of main, so the PR didn\'t bring it. Left out whatever happened to it.', brief: 'It also happened on main, so the PR didn\'t bring it.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['wont-fix', 'Won\'t fix'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['wont-fix', 'Won\'t fix'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['on-main', 'Already on main'], ['open', 'No outcome yet']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -44,6 +45,7 @@ const DECIDED_BY = {
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
 // The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
 const STEPS = [
+	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t bring it, so it isn\'t counted, whatever happens to it later.'],
 	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
@@ -65,12 +67,14 @@ const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const isFixed = r => r.outcome === 'fixed-in-pr' || r.outcome === 'fixed-later';
 // Outcomes in the % fixed; the rest are counted apart.
-const isCounted = o => o.group !== 'open' && o.group !== 'didnt-ship';
+const isCounted = o => o.group !== 'open' && o.group !== 'didnt-ship' && o.group !== 'on-main';
+// A finding that also happened on main is shown apart, whatever its outcome.
+const bucketOf = r => r.origin === 'inherited' ? 'on-main' : r.outcome;
 
 /** Counts for `rows`; rows marked `dupOf` are dropped first. */
 export function summarize(rows) {
 	const own = rows.filter(r => !r.dupOf);
-	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => r.outcome === o.key).length]));
+	const counts = Object.fromEntries(OUTCOMES.map(o => [o.key, own.filter(r => bucketOf(r) === o.key).length]));
 	const fixed = counts['fixed-in-pr'] + counts['fixed-later'];
 	const counted = fixed + counts['filed-issue'] + counts['wont-fix'] + counts['not-fixed'];
 	return { total: own.length, counts, fixed, counted, notCounted: own.length - counted };
@@ -196,6 +200,7 @@ function findingRow(r, n) {
 	const issue = r.issue && issueUrl ? `<a class="chip" href="${escapeHtml(issueUrl)}">#${Number(r.issue.number)}${SEP}${escapeHtml(r.issue.state)}</a>`
 		: ev.issue ? `<a class="chip" href="${REPO_URL}/issues/${ev.issue}">#${ev.issue}</a>` : '';
 	const dl = [
+		bucketOf(r) === 'on-main' ? ['Outcome', escapeHtml(OUTCOMES.find(o => o.key === r.outcome)?.label ?? r.outcome ?? '')] : null,
 		['Decided by', DECIDED_BY[r.decidedBy] ? escapeHtml(DECIDED_BY[r.decidedBy]) : '&mdash;'],
 		ev.commits.length ? [ev.where === 'main' ? 'Commits on main' : 'Commits on the PR', ev.commits.map(c => `<a class="chip" href="${REPO_URL}/commit/${c}">${c}</a>`).join(' ')] : null,
 		issue ? ['Issue', issue] : null,
@@ -215,13 +220,13 @@ function findingRow(r, n) {
 function evidence(own, s) {
 	let n = 0;
 	const groups = OUTCOMES.map(o => {
-		const items = own.filter(r => r.outcome === o.key);
+		const items = own.filter(r => bucketOf(r) === o.key);
 		return items.length
 			? `<div class="group" data-group="${o.group}"><div class="group-head"><h3><i class="o-${o.key}"></i>${o.label} <span class="n">${items.length}</span></h3><span class="brief">${escapeHtml(o.brief)}</span></div>`
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
 			: '';
 	}).join('\n');
-	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], 'wont-fix': s.counts['wont-fix'], not: s.counts['not-fixed'], 'didnt-ship': s.counts['didnt-ship'], open: s.notCounted - s.counts['didnt-ship'] };
+	const counts = { fixed: s.fixed, filed: s.counts['filed-issue'], 'wont-fix': s.counts['wont-fix'], not: s.counts['not-fixed'], 'didnt-ship': s.counts['didnt-ship'], 'on-main': s.counts['on-main'], open: s.notCounted - s.counts['didnt-ship'] - s.counts['on-main'] };
 	const filters = [`<button type="button" class="filter" data-filter="all" aria-pressed="true">All ${s.total}</button>`,
 	...FILTERS.filter(([k]) => counts[k]).map(([k, label]) => `<button type="button" class="filter" data-filter="${k}" aria-pressed="false">${label} ${counts[k]}</button>`)].join('');
 	const controls = `<div class="controls"><div role="group" aria-label="Filter by outcome">${filters}</div><button type="button" class="toggle-all">Expand all</button></div>`;
@@ -254,7 +259,7 @@ export function renderView(rows, { range }) {
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, summarize, splitEvidence, segments, splitBar, header, allBar, howPanel, severityRows, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, bucketOf, summarize, splitEvidence, segments, splitBar, header, allBar, howPanel, severityRows, prRows, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, SHIP_REASON, STEPS, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),
@@ -275,6 +280,7 @@ const CSS = `
 .o-unclear{background:#EEEBE4;color:#3A3833}
 .o-no-paths{background:#E6E2D9;color:#5A5751}
 .o-didnt-ship{background:#F5F4F0;color:#5A5751;border:1.5px solid #B5B1A7}
+.o-on-main{background:#F5F4F0;color:#5A5751;border:1.5px dotted #8F8A80}
 .o-wont-fix{background:#A89F91;color:#2B2A27}
 .how-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;border-top:1px solid #2B2A27}
 .how-steps li{display:grid;grid-template-columns:22px minmax(150px,190px) minmax(0,1fr);gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid #E4E1D9;line-height:1.5}
