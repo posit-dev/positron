@@ -1192,7 +1192,7 @@ const SCENES = {
 		['Typing while busy aborts'], ['R aborts while busy'], ['PyPI lookups are skipped'], ['A preview goes blank'],
 		['Quarto previews go blank'], ['Quarto previews go blank', 'Opening the Quarto preview shows nothing.'],
 	].map(args => issueTitle(...args)).join('\n'),
-	'issue: System details list each kernel the ledger records': () => issueCopied(logsHtml(LOGS_REPORT, { ledger: LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n') }), 1),
+	'issue: Details list each kernel the ledger records': () => issueCopied(logsHtml(LOGS_REPORT, { ledger: LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n') }), 1),
 	'issue: an error longer than six lines is clipped, and a finding with none says so': () => {
 		const [f] = LOGS_REPORT.findings;
 		const step = f.steps[2];
@@ -1440,18 +1440,19 @@ test('a confirmed bug that also happens on main with nothing related reads Not r
 	assert.match(REPORT_CSS, /\.gh-btn\.is-file\+\.cp-btn,\.gh-btn\.is-file\+\.ln-btn\{margin-left:-12px\}/);
 });
 
-test('the File issue body says the bug also reproduces on the latest daily build, after the Reported by line', () => {
+test('the File issue body opens with the checkbox, and Details lead with where the finding came from', () => {
 	const branch = issueBody(grouped(), 2);
-	assert.match(branch, /^<sub>Reported by exploratory test[^\n]*<\/sub>\n\nAlso reproduces on main's latest daily build \(2026\.11\.0-236, 57b03d3\), so it isn't specific to this branch\.\n\n- \[ \] Reproduced by a human/);
+	assert.match(branch, /^- \[ \] Reproduced by a human[^\n]*\n\n## Details\n\n- \*\*Found by:\*\* exploratory test on `[^`\n]+`\n- \*\*Reproduces on main:\*\* 2026\.11\.0-236 \(`57b03d3`\)\n- \*\*Positron:\*\*/);
 	const pr = issueBody(grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }), 2);
-	assert.match(pr, /<\/sub>\n\nAlso reproduces on main's latest daily build \(2026\.11\.0-236, 57b03d3\), so it isn't specific to #1234\.\n/);
-	assert.doesNotMatch(issueBody(grouped(), 1), /Also reproduces on main/);
+	assert.match(pr, /- \*\*Found by:\*\* exploratory test on `[^`\n]+`\n/);
+	assert.doesNotMatch(issueBody(grouped(), 1), /Reproduces on main/);
 });
 
 test('the File issue body names a daily build with no commit by its version alone', () => {
 	const body = issueBody(grouped(REPLAYED, { mainBuild: { version: '2026.11.0-12' } }), 2);
-	assert.match(body, /Also reproduces on main's latest daily build \(2026\.11\.0-12\), so it isn't specific/);
+	assert.match(body, /- \*\*Reproduces on main:\*\* 2026\.11\.0-12\n/);
 });
+
 
 test('arriving at a Not reported yet card through its row flashes the File issue button once', () => {
 	assert.match(REPORT_CSS, /@keyframes fileFlash\{from\{outline-color:var\(--focus\)\}to\{outline-color:transparent\}\}/);
