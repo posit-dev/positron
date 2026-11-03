@@ -902,6 +902,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         recreateRuntime?: boolean,
         forceRefresh?: boolean,
     ): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // Under definitionsOnly, the interpreter service can report a defined interpreter
+        // in its own spelling (PET normalizes the path when it resolves it). The runtime ID
+        // depends on the path, so keep the definition's spelling: another spelling is a
+        // second base, and Positron shows a second variant with the definition's label.
+        const definedPath = isDefinitionsOnlyDiscovery() ? findInterpreterDefinitionPath(pythonPath) : undefined;
+        if (definedPath) {
+            pythonPath = definedPath;
+        }
         const alreadyRegisteredRuntime = this.registeredPythonRuntimes.get(pythonPath);
         if (alreadyRegisteredRuntime && !recreateRuntime && !forceRefresh) {
             // Fast path: a runtime is already registered for this path and the
@@ -925,7 +933,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
-            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer);
+            const newRuntime = await createPythonRuntimeMetadata(
+                definedPath ? { ...interpreter, path: definedPath } : interpreter,
+                this.serviceContainer,
+            );
             // On a forceRefresh, if the resolved runtime matches what's already
             // registered for this path, there's nothing to do. If it differs (e.g.
             // the real version supersedes a stale one from discovery),

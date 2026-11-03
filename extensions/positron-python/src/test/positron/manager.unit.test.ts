@@ -342,6 +342,29 @@ suite('Python runtime manager', () => {
         sinon.assert.calledOnceWithExactly(createPythonRuntimeMetadata, interpreter.object, serviceContainer.object);
     });
 
+    test("registerLanguageRuntimeFromPath: under definitionsOnly, uses the definition's spelling of a path reported another way", async () => {
+        // The interpreter service reports the interpreter in its own spelling, which
+        // would give a runtime with another ID than the definition's.
+        const reportedPath = '/opt/python/3.12/bin/python';
+        const definitionPath = '/opt/python/3.12/bin//python';
+        interpreter.setup((i) => i.path).returns(() => reportedPath);
+        const definitionsOnly = sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery');
+        sinon
+            .stub(interpreterSettings, 'findInterpreterDefinitionPath')
+            .callsFake((p: string) => (p === reportedPath ? definitionPath : undefined));
+        const createStub = sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
+
+        for (const limited of [true, false]) {
+            definitionsOnly.returns(limited);
+            await pythonRuntimeManager.registerLanguageRuntimeFromPath(reportedPath);
+        }
+
+        assert.deepStrictEqual(
+            createStub.getCalls().map((call) => call.args[0].path),
+            [definitionPath, reportedPath],
+        );
+    });
+
     test('selectLanguageRuntimeFromPath: calls positron.runtime.selectLanguageRuntime with the corresponding runtime ID', async () => {
         // An already-registered path is re-resolved (createPythonRuntimeMetadata)
         // to catch stale versions; the cached runtime is kept when the resolved
