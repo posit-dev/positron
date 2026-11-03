@@ -433,6 +433,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override rowHeader(rowIndex: number) {
 		return (
 			<TableDataRowHeader
+				search={this.appliedSearch}
 				unavailable={this._tableDataCache.rowLabelsLoadFailed}
 				value={this._tableDataCache.getRowLabel(rowIndex)}
 			/>
