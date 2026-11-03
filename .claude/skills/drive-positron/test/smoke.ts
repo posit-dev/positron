@@ -62,6 +62,8 @@ interface Case {
 	name: string;
 	/** The .sh and its arguments, without --session; a function to use what earlier cases found. */
 	run: string[] | (() => string[]);
+	/** Sets up the state the case needs, before `run`; returns what went wrong, which fails the case without running it. */
+	before?: () => string | undefined;
 	stdin?: string;
 	/** A failure case: it must exit non-zero with ok:false and an error (or a message on stderr). */
 	fail?: boolean;
@@ -441,7 +443,7 @@ const cases: Case[] = [
 	{ name: 'panel delete-session python', run: () => ['panel.sh', 'delete-session', found.py], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	{ name: 'console-read deleted session', run: () => ['console-read.sh', '--name', found.py], fail: true },
 	// With one session the console draws no tabs: start-session still names the session it started.
-	{ name: 'start-session r with no other session open names it', run: () => (found.left = String(closeAllSessions()), ['start-session.sh', '--language', 'r', '--name', found.rName]), check: o => (found.left !== '0' && `${found.left} sessions still open before it`) || (o.json!.started !== true && 'not started') || (!String(o.json!.session ?? '').startsWith(`R ${found.rName.split(' ')[0]}`) && `session ${JSON.stringify(o.json!.session)}`) || void (found.r = o.json!.sessionId) },
+	{ name: 'start-session r with no other session open names it', before: closeAllSessions, run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => (o.json!.started !== true && 'not started') || (!String(o.json!.session ?? '').startsWith(`R ${found.rName.split(' ')[0]}`) && `session ${JSON.stringify(o.json!.session)}`) },
 
 	// ---- Settings
 	{ name: 'settings set workspace', quick: true, run: ['settings.sh', 'set', 'smoke.number', '42'], check: o => (o.json!.value !== 42 && `value ${JSON.stringify(o.json!.value)}`) || includes(readFileSync(join(ws, '.vscode/settings.json'), 'utf8'), '"smoke.number": 42') },
@@ -518,11 +520,12 @@ function background(args: string[]): void {
 	spawn('bash', [join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], { cwd: repo, stdio: 'ignore', detached: true, env: { ...process.env, DRIVE_POSITRON_LOG: join(root, 'actions.log') } }).unref();
 }
 
-/** Deletes every open console session with panel.sh, for a case that starts from none; returns how many are left. */
-function closeAllSessions(): number {
+/** A case's `before`: deletes every open console session with panel.sh, for a case that starts from none. */
+function closeAllSessions(): string | undefined {
 	const list = () => (sh([join(scripts, 'panel.sh'), '--session', SESSION, 'sessions']).json?.sessions ?? []) as { id: string }[];
 	for (const s of list()) { sh([join(scripts, 'panel.sh'), '--session', SESSION, 'delete-session', s.id]); }
-	return list().length;
+	const left = list().length;
+	return left ? `${left} sessions still open after closing them all` : undefined;
 }
 
 // ---- Running ---------------------------------------------------------------------
@@ -630,11 +633,12 @@ try {
 		const args = typeof c.run === 'function' ? c.run() : c.run;
 		current.args = args;
 		const t0 = current.t0;
-		let o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
-		let problem = judge(c, o);
+		const unready = c.before?.();
+		let o: Out = unready ? { code: -1, json: null, text: '', stderr: '' } : sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
+		let problem = unready ? `before: ${unready}` : judge(c, o);
 		let tries = 1;
 		// Something still on its way.
-		for (; problem && c.retry && c.retryOn?.test(problem) && tries <= c.retry; tries++) {
+		for (; problem && !unready && c.retry && c.retryOn?.test(problem) && tries <= c.retry; tries++) {
 			spawnSync('sleep', ['3']);
 			o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
 			problem = judge(c, o);
