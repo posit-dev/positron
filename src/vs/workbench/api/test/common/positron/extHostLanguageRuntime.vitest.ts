@@ -616,12 +616,13 @@ describe('ExtHostLanguageRuntime', () => {
 /**
  * A main-thread shape stub for proxy-session tests. It serves a single session
  * (owned by "another" extension host) via `$getSession` and records the
- * subscribe/unsubscribe calls the proxy makes for event forwarding.
+ * subscribe/unsubscribe and message forwarding calls the proxy makes.
  */
 function createProxyShape(dto: IActiveRuntimeSessionMetadataDto) {
 	return new class extends mock<MainThreadLanguageRuntimeShape>() {
 		subscribed: string[] = [];
 		unsubscribed: string[] = [];
+		messageForwarding: string[] = [];
 		override async $getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
 			return sessionId === dto.metadata.sessionId ? dto : undefined;
 		}
@@ -630,6 +631,12 @@ function createProxyShape(dto: IActiveRuntimeSessionMetadataDto) {
 		}
 		override $unsubscribeFromSession(sessionId: string): void {
 			this.unsubscribed.push(sessionId);
+		}
+		override $startSendingSessionMessages(sessionId: string): void {
+			this.messageForwarding.push(`start ${sessionId}`);
+		}
+		override $stopSendingSessionMessages(sessionId: string): void {
+			this.messageForwarding.push(`stop ${sessionId}`);
 		}
 	};
 }
@@ -722,6 +729,28 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 			text: 'hello',
 			buffers: [VSBuffer.fromString('abc').buffer],
 		}]);
+	});
+
+	it('asks the main thread to send messages only while the proxy has message listeners', async () => {
+		const shape = createProxyShape(fakeSessionDto());
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+		const afterGetSession = [...shape.messageForwarding];
+
+		// Two listeners share one forwarding request, which ends with the last.
+		const first = session.onDidReceiveRuntimeMessage(() => { });
+		const second = session.onDidReceiveRuntimeMessage(() => { });
+		first.dispose();
+		const afterFirstRemoved = [...shape.messageForwarding];
+		second.dispose();
+
+		expect({ afterGetSession, afterFirstRemoved, final: shape.messageForwarding }).toEqual({
+			afterGetSession: [],
+			afterFirstRemoved: ['start s1'],
+			final: ['start s1', 'stop s1'],
+		});
 	});
 
 	it('does not fire onDidChangeRuntimeState when the forwarded state is unchanged', async () => {

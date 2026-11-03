@@ -1757,6 +1757,14 @@ export class MainThreadLanguageRuntime
 	private readonly _proxySessionSubscriptions: Map<string, DisposableStore> = new Map();
 
 	/**
+	 * Per-session runtime message forwarding for proxy handles held by this
+	 * extension host. Separate from `_proxySessionSubscriptions` because
+	 * messages are only forwarded while the proxy has listeners. Keyed by
+	 * session ID.
+	 */
+	private readonly _proxySessionMessageSubscriptions: Map<string, IDisposable> = new Map();
+
+	/**
 	 * Instance counter
 	 */
 	private static MAX_ID = 0;
@@ -2008,8 +2016,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
-	 * Subscribes this extension host to state changes, connection events, and
-	 * runtime messages for a session it does not own, so that its proxy handle stays in sync. Called
+	 * Subscribes this extension host to state changes and connection events for
+	 * a session it does not own, so that its proxy handle stays in sync. Called
 	 * by the extension host when it creates a proxy for a session.
 	 */
 	$subscribeToSession(sessionId: string): void {
@@ -2029,17 +2037,13 @@ export class MainThreadLanguageRuntime
 			this._proxy.$updateProxySessionState(sessionId, state);
 		}));
 
-		// Connection events and messages are only available on API-backed
-		// sessions.
+		// Connection events are only available on API-backed sessions.
 		if (session instanceof ExtHostLanguageRuntimeSessionAdapter) {
 			store.add(session.onDidDisconnect(() => {
 				this._proxy.$notifyProxySessionDisconnected(sessionId);
 			}));
 			store.add(session.onDidReconnect(() => {
 				this._proxy.$notifyProxySessionReconnected(sessionId);
-			}));
-			store.add(session.onDidReceiveRuntimeMessage(message => {
-				this._proxy.$notifyProxySessionMessage(sessionId, new SerializableObjectWithBuffers(message));
 			}));
 		}
 
@@ -2060,6 +2064,41 @@ export class MainThreadLanguageRuntime
 	$unsubscribeFromSession(sessionId: string): void {
 		this._proxySessionSubscriptions.get(sessionId)?.dispose();
 		this._proxySessionSubscriptions.delete(sessionId);
+		this.$stopSendingSessionMessages(sessionId);
+	}
+
+	/**
+	 * Starts forwarding runtime messages for a session this extension host
+	 * does not own. Called by the extension host when its proxy for the
+	 * session gains its first message listener, so that sessions nobody
+	 * listens to don't pay for sending every message across.
+	 */
+	$startSendingSessionMessages(sessionId: string): void {
+		// If we're already forwarding messages for this session, there's
+		// nothing to do.
+		if (this._proxySessionMessageSubscriptions.has(sessionId)) {
+			return;
+		}
+
+		// Messages are only available on API-backed sessions.
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!(session instanceof ExtHostLanguageRuntimeSessionAdapter)) {
+			return;
+		}
+
+		this._proxySessionMessageSubscriptions.set(sessionId, session.onDidReceiveRuntimeMessage(message => {
+			this._proxy.$notifyProxySessionMessage(sessionId, new SerializableObjectWithBuffers(message));
+		}));
+	}
+
+	/**
+	 * Stops forwarding runtime messages for a proxied session. Called by the
+	 * extension host when its proxy for the session loses its last message
+	 * listener.
+	 */
+	$stopSendingSessionMessages(sessionId: string): void {
+		this._proxySessionMessageSubscriptions.get(sessionId)?.dispose();
+		this._proxySessionMessageSubscriptions.delete(sessionId);
 	}
 
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState> {
@@ -2562,6 +2601,8 @@ export class MainThreadLanguageRuntime
 		// Dispose any proxy session event forwarding subscriptions
 		this._proxySessionSubscriptions.forEach((store) => store.dispose());
 		this._proxySessionSubscriptions.clear();
+		this._proxySessionMessageSubscriptions.forEach((disposable) => disposable.dispose());
+		this._proxySessionMessageSubscriptions.clear();
 
 		this._disposables.dispose();
 	}

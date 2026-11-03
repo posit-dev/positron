@@ -368,9 +368,19 @@ describe('MainThreadLanguageRuntime - proxy session message forwarding', () => {
 		return { session, mainThread, forwarded };
 	}
 
-	it('forwards every message, including ones the owning extension host handled, while subscribed', () => {
+	it('does not forward messages to a subscribed proxy until it asks for them', () => {
 		const { session, mainThread, forwarded } = setup();
 		mainThread.$subscribeToSession('s1');
+
+		session.handleRuntimeMessage(message({}), false);
+
+		expect(forwarded()).toEqual([]);
+	});
+
+	it('forwards every message, including ones the owning extension host handled, while sending', () => {
+		const { session, mainThread, forwarded } = setup();
+		mainThread.$subscribeToSession('s1');
+		mainThread.$startSendingSessionMessages('s1');
 
 		const stream = message({ id: 'stream', event_clock: 1 });
 		const commData = message({ id: 'comm', type: LanguageRuntimeMessageType.CommData, event_clock: 2 });
@@ -383,9 +393,21 @@ describe('MainThreadLanguageRuntime - proxy session message forwarding', () => {
 		]);
 	});
 
+	it('stops forwarding messages when the proxy stops listening', () => {
+		const { session, mainThread, forwarded } = setup();
+		mainThread.$subscribeToSession('s1');
+		mainThread.$startSendingSessionMessages('s1');
+		mainThread.$stopSendingSessionMessages('s1');
+
+		session.handleRuntimeMessage(message({}), false);
+
+		expect(forwarded()).toEqual([]);
+	});
+
 	it('stops forwarding messages after unsubscribing', () => {
 		const { session, mainThread, forwarded } = setup();
 		mainThread.$subscribeToSession('s1');
+		mainThread.$startSendingSessionMessages('s1');
 		mainThread.$unsubscribeFromSession('s1');
 
 		session.handleRuntimeMessage(message({}), false);
