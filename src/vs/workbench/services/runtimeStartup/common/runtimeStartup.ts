@@ -5,7 +5,7 @@
 
 import * as nls from '../../../../nls.js';
 import * as perf from '../../../../base/common/performance.js';
-import { Disposable, DisposableMap, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -16,7 +16,7 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { comparePickerRuntimes, IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { cachedRuntimeMetadata, IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionStateEvent, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -310,10 +310,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// reason.
 	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
-	// The state listener for each session that has come to the front, keyed
-	// by session ID, so each session is listened to once.
-	private readonly _foregroundSessionStateListeners = this._register(new DisposableMap<string>());
-
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -389,8 +385,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._runtimeSessionService.onDidChangeForegroundSession(
 				this.onDidChangeActiveRuntime, this));
 		this._register(
-			this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId =>
-				this._foregroundSessionStateListeners.deleteAndDispose(sessionId)));
+			this._runtimeSessionService.onDidChangeRuntimeState(
+				this.onDidChangeSessionState, this));
 
 		this._register(
 			this._languageRuntimeService.onDidRegisterRuntime(
@@ -1152,11 +1148,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		this.listenToForegroundSessionState(session);
-
-		// A console ended by `exit()` comes back to the front when another
-		// console is deleted, or its tab is clicked. That isn't using it.
-		if (session.getRuntimeState() !== RuntimeState.Exited) {
+		// A console ended by `exit()`, or shutting down, comes back to the front
+		// when another console is deleted, or its tab is clicked. That isn't using it.
+		const state = session.getRuntimeState();
+		if (state !== RuntimeState.Exited && state !== RuntimeState.Exiting) {
 			this.saveForegroundAffiliation(session);
 		}
 	}
@@ -1180,48 +1175,46 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Listens to the state of a session that came to the front, once per session.
+	 * Runs as an event handler when any session's state changes.
 	 */
-	private listenToForegroundSessionState(session: ILanguageRuntimeSession): void {
-		if (this._foregroundSessionStateListeners.has(session.sessionId)) {
+	private onDidChangeSessionState({ session_id, new_state }: ILanguageRuntimeSessionStateEvent): void {
+		// Look the session up by ID: an extension host restart replaces the
+		// session object but keeps its ID.
+		const session = this._runtimeSessionService.getSession(session_id);
+		if (!session ||
+			session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console ||
+			session.runtimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 			return;
 		}
-		let exited = session.getRuntimeState() === RuntimeState.Exited;
-		this._foregroundSessionStateListeners.set(session.sessionId, session.onDidChangeRuntimeState((newState) => {
-			// A console restarted after it exited doesn't come to the front
-			// again if it is already in front, so save it here.
-			if (newState === RuntimeState.Exited) {
-				exited = true;
-			} else if (newState === RuntimeState.Ready && exited) {
-				exited = false;
-				if (this._runtimeSessionService.foregroundSession?.sessionId === session.sessionId) {
-					this.saveForegroundAffiliation(session);
-				}
-			}
 
-			// If the runtime is exiting, remove the affiliation if it enters the
-			// `Exiting` state. This state only occurs when the runtime is manually
-			// shut down, so may represent a user's intent to stop using the runtime
-			// for this workspace.
-			if (newState === RuntimeState.Exiting) {
-				// Just to be safe, check that the runtime is still affiliated
-				// before removing the affiliation
-				const serializedMetadata = this._storageService.get(
-					this.storageKeyForRuntime(session.runtimeMetadata),
-					this.affiliationStorageScope());
-				if (!serializedMetadata) {
-					return;
-				}
-				const affiliated = JSON.parse(serializedMetadata) as IAffiliatedRuntimeMetadata;
-				const affiliatedRuntimeId = affiliated.metadata.runtimeId;
-				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
-					// Remove the affiliation
-					this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
-					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
-						this.affiliationStorageScope());
-				}
+		// A console restarted in front doesn't come to the front again, so save it here.
+		if (new_state === RuntimeState.Ready &&
+			this._runtimeSessionService.foregroundSession?.sessionId === session_id) {
+			this.saveForegroundAffiliation(session);
+		}
+
+		// If the runtime is exiting, remove the affiliation if it enters the
+		// `Exiting` state. This state only occurs when the runtime is manually
+		// shut down, so may represent a user's intent to stop using the runtime
+		// for this workspace.
+		if (new_state === RuntimeState.Exiting) {
+			// Just to be safe, check that the runtime is still affiliated
+			// before removing the affiliation
+			const serializedMetadata = this._storageService.get(
+				this.storageKeyForRuntime(session.runtimeMetadata),
+				this.affiliationStorageScope());
+			if (!serializedMetadata) {
+				return;
 			}
-		}));
+			const affiliated = JSON.parse(serializedMetadata) as IAffiliatedRuntimeMetadata;
+			const affiliatedRuntimeId = affiliated.metadata.runtimeId;
+			if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
+				// Remove the affiliation
+				this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
+				this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
+					this.affiliationStorageScope());
+			}
+		}
 	}
 
 	/**
