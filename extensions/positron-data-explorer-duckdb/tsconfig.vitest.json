@@ -1,0 +1,20 @@
+{
+	// Type-checks this extension's Vitest files with its own compiler options.
+	// Run by `npm run test:positron:check-ts`.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"src/**/*.vitest.ts",
+		"../../node_modules/vitest/globals.d.ts",
+		"../../src/positron-dts/positron.d.ts",
+		"../../src/vscode-dts/vscode.d.ts"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}

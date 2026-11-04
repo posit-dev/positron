@@ -4,6 +4,7 @@ paths:
   - extensions/**/*.vitest.{ts,tsx}
   - vitest.config.ts
   - vitest.tsconfig.json
+  - "**/tsconfig.vitest.json"
   - src/vs/test/vitest/**
 ---
 
@@ -93,11 +94,11 @@ Prefer not to need one. Keep the logic worth testing in a plain module that impo
 
 Adding the alias is a shared-config change affecting every extension test, so agree on the stub's shape first rather than growing it ad hoc per test.
 
-**3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the CommonJS type check in `vitest.tsconfig.json` (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
+**3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the type check in extensions that build as CommonJS (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
 
-**4. Type checking covers these files, but with core's compiler options.** `npm run test:positron:check-ts` picks them up through the `extensions/**/*.vitest.{ts,tsx}` entries in `vitest.tsconfig.json` -- both the test and any source it imports. Confirm with `npx tsc -p vitest.tsconfig.json --listFilesOnly | grep /extensions/`.
+**4. Add a `tsconfig.vitest.json` next to the extension's `tsconfig.json`.** `npm run test:positron:check-ts` type-checks the tests (and the source they import) with that config, so they use the extension's own compiler options rather than core's. Copy `extensions/positron-r/tsconfig.vitest.json` and match its `types` (minus `mocha`) and `.d.ts` includes to the extension's `tsconfig.json`. `check-ts` fails if an extension has Vitest files but no `tsconfig.vitest.json`. If the extension has a `.vscodeignore` that lists `tsconfig.json` by name, add `tsconfig.vitest.json` too.
 
-Those options come from `src/tsconfig.json`, not from the extension's own. The program checks at `strict: true, target: es2024`, while, for example, `positron-dev-containers` builds at `strict: false, target: es2018`. A green `check-ts` therefore does not prove the file would compile under the extension's tsconfig -- which is fine, because step 1 excludes it from that build on purpose. Just don't read it as coverage of the extension's real build settings.
+Tests under `test/e2e` work the same way through `test/e2e/tsconfig.vitest.json`. The cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`) belong to no extension, so `vitest.tsconfig.json` checks them.
 
 Sharing code across extensions is possible through a local `file:` package, as `extensions/positron-data-explorer-protocol` does for about ten driver extensions; it costs a small `package.json` and `tsconfig.json` plus registration in `build/npm/dirs.ts`, `build/gulpfile.extensions.ts`, and `build/lib/extensions.ts`. When a helper is copied per extension instead, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
 
