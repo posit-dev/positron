@@ -37,7 +37,7 @@ import {
 	RuntimeStartupPhase,
 	RuntimeState,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -239,6 +239,32 @@ function metadata(overrides: {
 	};
 }
 
+/**
+ * A container with the services RuntimeStartupService needs, stubbed to do
+ * nothing. Chain `.stub()` to replace one: a later stub of the same service
+ * wins.
+ */
+function startupTestContainer() {
+	return createLightTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {});
+}
+
 function makeBucket(opts: {
 	extensionId: string;
 	languageId: string;
@@ -302,24 +328,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	let cache: ITestDiscoveryCache = undefined!;
 	let config: TestConfigurationService = undefined!;
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	beforeEach(() => {
@@ -1092,23 +1101,8 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Local sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createLightTestContainer()
-			.withRuntimeServices()
+		const ctx = startupTestContainer()
 			.stub(INotificationService, notificationService)
-			.stub(IEphemeralStateService, {
-				getItem: () => Promise.resolve(undefined),
-				setItem: () => Promise.resolve(),
-			})
-			.stub(ILifecycleService, {
-				onBeforeShutdown: Event.None,
-				onWillShutdown: Event.None,
-			})
-			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: Event.None,
-				startupPhase: NewFolderStartupPhase.Complete,
-			})
-			.stub(IProgressService, {})
-			.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
 			.build();
 
 		let runtimeStartupService: RuntimeStartupService;
@@ -1169,22 +1163,8 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Remote SSH sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createLightTestContainer()
-			.withRuntimeServices()
+		const ctx = startupTestContainer()
 			.stub(INotificationService, notificationService)
-			.stub(IEphemeralStateService, {
-				getItem: () => Promise.resolve(undefined),
-				setItem: () => Promise.resolve(),
-			})
-			.stub(ILifecycleService, {
-				onBeforeShutdown: Event.None,
-				onWillShutdown: Event.None,
-			})
-			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: Event.None,
-				startupPhase: NewFolderStartupPhase.Complete,
-			})
-			.stub(IProgressService, {})
 			.stub(IWorkbenchEnvironmentService, { remoteAuthority: 'ssh-remote+myserver' })
 			.build();
 
@@ -1223,24 +1203,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 describe('RuntimeStartupService - affiliation healing', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	it('heals a stale ~-prefixed runtimePath in stored affiliation when the runtime registers', async () => {
@@ -1350,24 +1313,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 describe('RuntimeStartupService - restored sessions', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	/** A session as persisted to workspace storage, optionally with an owner. */
@@ -1417,24 +1363,16 @@ describe('RuntimeStartupService - restored sessions', () => {
 describe('RuntimeStartupService - reconnect after a reload', () => {
 	const ephemeralState = new Map<string, unknown>();
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
+	const ctx = startupTestContainer()
 		.stub(IEphemeralStateService, {
 			getItem: async <T>(key: string) => ephemeralState.get(key) as T | undefined,
 			setItem: async (key: string, value: unknown) => { ephemeralState.set(key, value); },
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
 		})
 		.stub(IPositronNewFolderService, {
 			onDidChangeNewFolderStartupPhase: Event.None,
 			startupPhase: NewFolderStartupPhase.Complete,
 			initTasksComplete: stubInterface<Barrier>({ isOpen: () => true }),
 		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
 		.stub(IRuntimeDiscoveryCache, createTestCache())
 		.build();
 
@@ -1641,24 +1579,7 @@ describe('firstInPickerOrder', () => {
 
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	// The asks after discovery wait out a 500ms debounce; `vi.waitFor` advances fake time.
@@ -2208,24 +2129,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	it('counts a runtime registered without a `languageRuntimes` contribution', () => {
@@ -2246,29 +2150,13 @@ describe('RuntimeStartupService - discovery completion', () => {
 
 	const notificationService = new TestNotificationService();
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+	const ctx = startupTestContainer()
 		.stub(INotificationService, notificationService)
 		.stub(IConfigurationService, new TestConfigurationService({
 			// Anything other than 'disabled' - a language the user has not opted
 			// out of is what made the old code treat an empty discovery as an error.
 			'interpreters.startupBehavior': LanguageStartupBehavior.Auto,
 		}))
-		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
 	it('stays quiet when discovery completes with no runtimes registered', () => {
@@ -2296,23 +2184,11 @@ describe('RuntimeStartupService - discovery completion', () => {
 describe('RuntimeStartupService - start reasons', () => {
 	const setItem = vi.fn<IEphemeralStateService['setItem']>(async () => { });
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
+	const ctx = startupTestContainer()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
 			setItem,
 		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: Event.None,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
 	/**
@@ -2848,19 +2724,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
+	const ctx = startupTestContainer()
 		.build();
 
 	/** A language that an extension provides interpreters for. */
