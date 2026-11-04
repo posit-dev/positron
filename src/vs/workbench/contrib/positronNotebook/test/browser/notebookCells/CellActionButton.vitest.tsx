@@ -135,7 +135,7 @@ describe('CellActionButton', () => {
 		button.click();
 
 		expect(selectCellStub, 'Expected selectCell to be called').toHaveBeenCalledOnce();
-		expect(selectCellStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
+		expect(selectCellStub).toHaveBeenCalledWith(cell, CellSelectionType.Normal);
 	});
 
 	it('runs the action when clicked', async () => {

@@ -49,10 +49,8 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Success);
 		if (result?.kind !== StatementRangeKind.Success) {
-			throw new Error('expected a successful statement range');
+			throw new Error(`expected a successful statement range, got ${JSON.stringify(result)}`);
 		}
 		expect(result.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
 	});
@@ -71,10 +69,8 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('1 + 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Success);
 		if (result?.kind !== StatementRangeKind.Success) {
-			throw new Error('expected a successful statement range');
+			throw new Error(`expected a successful statement range, got ${JSON.stringify(result)}`);
 		}
 		expect(result.code).toBe('1 + 1');
 	});
@@ -93,10 +89,8 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = ', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Rejection);
 		if (result?.kind !== StatementRangeKind.Rejection) {
-			throw new Error('expected a statement range rejection');
+			throw new Error(`expected a statement range rejection, got ${JSON.stringify(result)}`);
 		}
 		expect(result.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
 		expect(result.line).toBe(0);
