@@ -18,7 +18,12 @@ import { laneFromEnv } from '../utils/memory/lanes.js';
 
 const root = join(__dirname, '..', '..', '..');
 
-let port = 9000;
+// --- Start Positron ---
+// Give each parallel worker its own port range so workers don't all start at 9000 and pay an
+// EADDRINUSE retry. The stride of 10 matches launchServer's maxRetries.
+// let port = 9000;
+let port = 9000 + Number(process.env.TEST_PARALLEL_INDEX ?? 0) * 10;
+// --- End Positron ---
 
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
 
