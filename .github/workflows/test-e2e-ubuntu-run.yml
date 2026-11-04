@@ -83,6 +83,7 @@ permissions:
   id-token: write
   contents: read
   packages: read
+  actions: read # download the build artifact over the REST API
 
 jobs:
   e2e-ubuntu-run:
@@ -206,10 +207,22 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
+      # One slow connection once stretched this download to 108 minutes, so fetch it in
+      # parallel byte ranges, and fall back to the stock action if that fails or stalls.
       - name: Download build artifact
+        id: download-build
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          mkdir -p /tmp/artifacts
+          node .github/scripts/download-artifact-parallel.mts positron-build.tar.zst /tmp/artifacts/positron-build.tar.zst
+
+      - name: Download build artifact (fallback)
+        if: steps.download-build.outcome != 'success'
+        timeout-minutes: 30
         uses: actions/download-artifact@v8
         with:
-          name: "positron-build"
+          name: positron-build.tar.zst
           path: /tmp/artifacts
 
       - name: Extract build artifact
