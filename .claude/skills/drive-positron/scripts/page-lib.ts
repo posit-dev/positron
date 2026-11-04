@@ -217,9 +217,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1".
 		 * Words are matched in the row as shownAs writes it, so words copied from "shown" match.
-		 * The interpreter picker adds why it suggests a row after a middle dot ("uv: ws", the dot,
-		 * "running"), which the session's name leaves out ("Python 3.14.7 (uv: ws)"): the row
-		 * matches in either form.
+		 * Also matches without the picker's " \u00B7 reason" suffix, as a session's name reads.
 		 */
 		hasWords: (text: string) => {
 			const words = text.split(/\s+/).filter(Boolean)
