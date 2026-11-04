@@ -115,19 +115,6 @@ jobs:
             -cf /tmp/artifacts/positron-build.tar.zst positron || true
           echo "Compressed in $(( $(date +%s) - start ))s to $(du -h /tmp/artifacts/positron-build.tar.zst | cut -f1)"
 
-      - name: Measure build artifact contents
-        continue-on-error: true
-        run: |
-          # Uncompressed sizes, to find what the e2e shards download but never use.
-          cd /__w/positron
-          echo "::group::Largest directories (two levels)"
-          du -xh --max-depth=2 --exclude=./.git . 2>/dev/null | sort -rh | head -40
-          echo "::endgroup::"
-          echo "::group::Largest node_modules trees"
-          find . -path ./.git -prune -o -type d -name node_modules -prune -exec du -sh {} + 2>/dev/null \
-            | sort -rh | head -25
-          echo "::endgroup::"
-
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
         with:
