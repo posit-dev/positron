@@ -55,10 +55,10 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 2
-      matrix: '{"shard":[1,2]}'
+      shards: 3
+      matrix: '{"shard":[1,2,3]}'
       workers: 2
-      max_failures: 10  # 20 max failures / 2 shards = 10
+      max_failures: 7  # 20 max failures / 3 shards = 6.66, rounded up to 7
     secrets: inherit
 
   e2e-windows:
