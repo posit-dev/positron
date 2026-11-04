@@ -121,8 +121,11 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
+  # Audits the version gallery-check picked for each extension, so a hit is
+  # about exactly the version auto-update would bump to.
   dependency-check:
     name: 'check-bootstrap-extension-deps'
+    needs: gallery-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -140,10 +143,16 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Download gallery check results
+        uses: actions/download-artifact@v8
+        with:
+          name: bootstrap-extension-versions
+          path: gallery
+
       - name: Check bootstrap extension dependencies
         id: depcheck
         run: |
-          node scripts/check-bootstrap-extension-deps.ts --json > depcheck.json
+          node scripts/check-bootstrap-extension-deps.ts --versions gallery/versions.json --json > depcheck.json
           echo "hits=$(jq '.hits | length' depcheck.json)" >> "$GITHUB_OUTPUT"
           echo "flagged=$(jq -r '[.hits[].id] | join(" ")' depcheck.json)" >> "$GITHUB_OUTPUT"
           {

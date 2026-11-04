@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Asks the PPM gallery, the endpoint Positron itself installs from, which
-// version each bootstrap extension in product.json can be bumped to. A bump
-// needs the newest stable version whose engine range Positron satisfies to
-// have a build for every platform Positron ships; a version that is missing a
-// platform is held back instead (meta.pyrefly 1.3.2 shipped without a
-// win32-x64 build). See posit-dev/positron#16338.
+// version each bootstrap extension in product.json can be bumped to: the
+// newest stable version whose VS Code and Positron engine ranges this Positron
+// satisfies and that has a build for every platform Positron ships. A newer
+// version missing a platform is skipped (meta.pyrefly 1.3.2 shipped without a
+// win32-x64 build), and held back when nothing complete is newer than the
+// pin. See posit-dev/positron#16338.
 //
 // Usage:
 //   node scripts/check-bootstrap-extension-versions.ts [--json]
@@ -98,9 +99,12 @@ function formatResult(result: IBootstrapVersionResult): string {
 async function main(): Promise<void> {
 	const args = new Set(process.argv.slice(2));
 	const product = JSON.parse(await readFile(join(root, 'product.json'), 'utf8'));
-	// The VS Code version Positron reports to extensions, which their
-	// engines.vscode range is matched against.
-	const engineVersion: string = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version;
+	const engines = {
+		// The VS Code version Positron reports to extensions, matched against
+		// their engines.vscode range.
+		vscode: JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version as string,
+		positron: product.positronVersion as string
+	};
 	const serviceUrl: string = product.extensionsGallery.serviceUrl;
 	const extensions: IBootstrapExtension[] = product.bootstrapExtensions ?? [];
 
@@ -118,7 +122,7 @@ async function main(): Promise<void> {
 			warnings.push(`${ext.name}: not found on the gallery`);
 			continue;
 		}
-		const check = checkBootstrapExtensionVersion(ext.name, ext.version, versions, engineVersion);
+		const check = checkBootstrapExtensionVersion(ext.name, ext.version, versions, engines);
 		results.push(check.result);
 		warnings.push(...check.warnings);
 	}

@@ -31,6 +31,7 @@ export const POSITRON_TARGET_PLATFORMS: readonly string[] = [
 // extensionGalleryService.ts, which that module does not export.
 const ENGINE_PROPERTY = 'Microsoft.VisualStudio.Code.Engine';
 const PRE_RELEASE_PROPERTY = 'Microsoft.VisualStudio.Code.PreRelease';
+const POSITRON_ENGINE_PROPERTY = 'Positron.Engine';
 
 // SemVer 2.0 precedence. This is the shared contract with semver_key in
 // scripts/update-extensions.sh; keep the two in step.
@@ -112,15 +113,51 @@ export function isStableVersion(version: string): boolean {
 
 /**
  * The highest candidate by semver precedence. Candidates are expected to be
- * filtered already; `tieBreak` orders exact semver ties.
+ * filtered already.
  */
-export function selectLatestVersion<T extends { readonly version: string }>(
-	candidates: readonly T[],
-	tieBreak: (a: T, b: T) => number = () => 0
-): T | undefined {
-	return candidates
-		.slice()
-		.sort((a, b) => compareSemver(b.version, a.version) || tieBreak(a, b))[0];
+export function selectLatestVersion<T extends { readonly version: string }>(candidates: readonly T[]): T | undefined {
+	return candidates.slice().sort((a, b) => compareSemver(b.version, a.version))[0];
+}
+
+// The shape positronExtensionValidator.ts accepts for engines.positron: an
+// optional "^" or ">=" before major.minor.patch, where a segment may be "x".
+// Leading zeros (2026.04.1) are allowed, so this is not plain semver.
+const POSITRON_RANGE = /^(?:\^|>=)?(?<major>\d+|x)\.(?<minor>\d+|x)\.(?<patch>\d+|x)(?:-.*)?$/;
+
+function parsePositronVersion(version: string): (number | 'x')[] | undefined {
+	const match = version.trim().match(POSITRON_RANGE);
+	if (!match?.groups) {
+		return undefined;
+	}
+	return [match.groups.major, match.groups.minor, match.groups.patch].map(part => part === 'x' ? 'x' : Number(part));
+}
+
+/**
+ * Whether `positronVersion` meets a Positron.Engine range, with the semantics
+ * of isValidPositronExtensionVersion in positronExtensionValidator.ts: "^" and
+ * ">=" both mean at least that version, a bare version must match exactly, and
+ * "x" matches any value. Returns undefined when either string does not parse,
+ * which Positron treats as incompatible.
+ */
+export function satisfiesPositronEngine(positronVersion: string, range: string): boolean | undefined {
+	if (range === '*') {
+		return true;
+	}
+	const required = parsePositronVersion(range);
+	const current = parsePositronVersion(positronVersion);
+	if (!required || !current) {
+		return undefined;
+	}
+	const atLeast = /^(\^|>=)/.test(range.trim());
+	for (let i = 0; i < 3; i++) {
+		const want = required[i];
+		const have = current[i];
+		if (want === 'x' || have === want) {
+			continue;
+		}
+		return atLeast && typeof have === 'number' && have > want;
+	}
+	return true;
 }
 
 /**
@@ -131,6 +168,16 @@ export interface IGalleryVersion {
 	readonly version: string;
 	readonly targetPlatform?: string;
 	readonly properties?: readonly { readonly key: string; readonly value: string }[];
+}
+
+/**
+ * The versions a bootstrap extension's engine ranges are matched against:
+ * `vscode` is the VS Code version Positron reports to extensions (the root
+ * package.json version), `positron` is product.json's positronVersion.
+ */
+export interface IEngineVersions {
+	readonly vscode: string;
+	readonly positron: string;
 }
 
 export type BootstrapVersionDecision = 'current' | 'bump' | 'hold';
@@ -152,6 +199,7 @@ interface IPublishedVersion {
 	readonly version: string;
 	readonly platforms: Set<string>;
 	engine: string;
+	positronEngine: string;
 	preRelease: boolean;
 }
 
@@ -167,11 +215,12 @@ function groupByVersion(versions: readonly IGalleryVersion[]): IPublishedVersion
 		}
 		let group = byVersion.get(entry.version);
 		if (!group) {
-			group = { version: entry.version, platforms: new Set(), engine: '', preRelease: false };
+			group = { version: entry.version, platforms: new Set(), engine: '', positronEngine: '', preRelease: false };
 			byVersion.set(entry.version, group);
 		}
 		group.platforms.add(entry.targetPlatform || 'universal');
 		group.engine ||= getProperty(entry, ENGINE_PROPERTY) ?? '';
+		group.positronEngine ||= getProperty(entry, POSITRON_ENGINE_PROPERTY) ?? '';
 		group.preRelease ||= getProperty(entry, PRE_RELEASE_PROPERTY) === 'true';
 	}
 	return Array.from(byVersion.values());
@@ -179,16 +228,18 @@ function groupByVersion(versions: readonly IGalleryVersion[]): IPublishedVersion
 
 /**
  * Decides whether the nightly may bump a bootstrap extension, from the raw
- * gallery version list: the newest stable version whose engine range
- * `engineVersion` satisfies is a `bump` when it has a build for every required
- * platform, a `hold` when some are missing, and `current` when it is not
- * newer than the pin.
+ * gallery version list. Of the stable versions whose VS Code and Positron
+ * engine ranges `engines` satisfies, the newest one with a build for every
+ * required platform that is newer than the pin is a `bump`; newer versions
+ * skipped over for a missing platform are reported as warnings. When no newer
+ * version is complete the newest one is a `hold`, and when nothing is newer
+ * than the pin the result is `current`.
  */
 export function checkBootstrapExtensionVersion(
 	id: string,
 	pinned: string,
 	versions: readonly IGalleryVersion[],
-	engineVersion: string,
+	engines: IEngineVersions,
 	requiredPlatforms: readonly string[] = POSITRON_TARGET_PLATFORMS
 ): IBootstrapVersionCheck {
 	const warnings: string[] = [];
@@ -196,29 +247,45 @@ export function checkBootstrapExtensionVersion(
 		if (v.preRelease || !isStableVersion(v.version)) {
 			return false;
 		}
-		if (!v.engine || v.engine === '*') {
-			return true;
+		if (v.engine && v.engine !== '*') {
+			if (!validRange(v.engine)) {
+				warnings.push(`${id} ${v.version}: VS Code engine range "${v.engine}" is not valid, skipped`);
+				return false;
+			}
+			if (!satisfies(engines.vscode, v.engine)) {
+				return false;
+			}
 		}
-		if (!validRange(v.engine)) {
-			warnings.push(`${id} ${v.version}: engine range "${v.engine}" is not valid, skipped`);
-			return false;
+		if (v.positronEngine) {
+			const ok = satisfiesPositronEngine(engines.positron, v.positronEngine);
+			if (ok === undefined) {
+				warnings.push(`${id} ${v.version}: Positron engine range "${v.positronEngine}" is not valid, skipped`);
+			}
+			return ok === true;
 		}
-		return satisfies(engineVersion, v.engine);
-	});
-	const latest = selectLatestVersion(candidates);
-	if (!latest) {
-		warnings.push(`${id}: no stable version on the gallery is compatible with engine ${engineVersion}`);
+		return true;
+	}).sort((a, b) => compareSemver(b.version, a.version));
+	const newest = candidates[0];
+	if (!newest) {
+		warnings.push(`${id}: no stable version on the gallery is compatible with VS Code engine ${engines.vscode} and Positron ${engines.positron}`);
 		return { result: { id, pinned, latest: pinned, decision: 'current' }, warnings };
 	}
-	if (compareSemver(latest.version, pinned) <= 0) {
-		return { result: { id, pinned, latest: latest.version, decision: 'current' }, warnings };
+	const newer = candidates.filter(v => compareSemver(v.version, pinned) > 0);
+	if (newer.length === 0) {
+		return { result: { id, pinned, latest: newest.version, decision: 'current' }, warnings };
 	}
-	const missing = latest.platforms.has('universal')
+	const missingPlatforms = (v: IPublishedVersion) => v.platforms.has('universal')
 		? []
-		: requiredPlatforms.filter(platform => !latest.platforms.has(platform));
-	if (missing.length > 0) {
-		const reason = missing.map(platform => `no ${platform} build`).join(', ');
-		return { result: { id, pinned, latest: latest.version, decision: 'hold', reason }, warnings };
+		: requiredPlatforms.filter(platform => !v.platforms.has(platform));
+	const describeMissing = (missing: string[]) => missing.map(platform => `no ${platform} build`).join(', ');
+	const skipped: string[] = [];
+	for (const candidate of newer) {
+		const missing = missingPlatforms(candidate);
+		if (missing.length === 0) {
+			warnings.push(...skipped);
+			return { result: { id, pinned, latest: candidate.version, decision: 'bump' }, warnings };
+		}
+		skipped.push(`${id} ${candidate.version}: ${describeMissing(missing)}, skipped`);
 	}
-	return { result: { id, pinned, latest: latest.version, decision: 'bump' }, warnings };
+	return { result: { id, pinned, latest: newest.version, decision: 'hold', reason: describeMissing(missingPlatforms(newest)) }, warnings };
 }
