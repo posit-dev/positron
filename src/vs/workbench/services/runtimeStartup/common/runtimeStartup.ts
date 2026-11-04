@@ -310,6 +310,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// reason.
 	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
+	// Sessions ever saved as the affiliated runtime. Only their shutdown clears it.
+	private readonly _affiliatedSessionIds = new Set<string>();
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -1157,9 +1160,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Saves the console in front as the affiliated runtime for the workspace.
+	 * Saves the session in front as the affiliated runtime for the workspace.
 	 */
 	private saveForegroundAffiliation(session: ILanguageRuntimeSession): void {
+		this._affiliatedSessionIds.add(session.sessionId);
+
 		// Get the previous affiliation, if any, to preserve the start time.
 		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
 		const lastStarted =
@@ -1178,17 +1183,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Runs as an event handler when any session's state changes.
 	 */
 	private onDidChangeSessionState({ session_id, new_state }: ILanguageRuntimeSessionStateEvent): void {
+		if (new_state !== RuntimeState.Ready && new_state !== RuntimeState.Exiting) {
+			return;
+		}
+
 		// Look the session up by ID: an extension host restart replaces the
 		// session object but keeps its ID.
 		const session = this._runtimeSessionService.getSession(session_id);
-		if (!session ||
-			session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console ||
-			session.runtimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
+		if (!session) {
 			return;
 		}
 
 		// A console restarted in front doesn't come to the front again, so save it here.
 		if (new_state === RuntimeState.Ready &&
+			session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+			session.runtimeMetadata.startupBehavior !== LanguageRuntimeStartupBehavior.Manual &&
 			this._runtimeSessionService.foregroundSession?.sessionId === session_id) {
 			this.saveForegroundAffiliation(session);
 		}
@@ -1197,7 +1206,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `Exiting` state. This state only occurs when the runtime is manually
 		// shut down, so may represent a user's intent to stop using the runtime
 		// for this workspace.
-		if (new_state === RuntimeState.Exiting) {
+		if (new_state === RuntimeState.Exiting && this._affiliatedSessionIds.has(session_id)) {
 			// Just to be safe, check that the runtime is still affiliated
 			// before removing the affiliation
 			const serializedMetadata = this._storageService.get(
