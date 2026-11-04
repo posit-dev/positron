@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { escapeRegExpCharacters } from '../../../../base/common/strings.js';
-import { ColumnDisplayType, ColumnSchema, FilterGlobalSearch, RowFilter, RowFilterCondition, RowFilterType, SetRowFiltersFeatures, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, ColumnSchema, FilterGlobalSearch, FormatOptions, RowFilter, RowFilterCondition, RowFilterType, SetRowFiltersFeatures, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataCell, DataCellKind } from './tableDataCache.js';
 
 /**
@@ -144,13 +144,14 @@ export function getGlobalSearchTerm(filter: RowFilter | undefined): string {
  * Makes a global search row filter.
  * @param term The search term.
  * @param maxCells The maximum number of cells to scan; 0 for no limit.
+ * @param formatOptions The options data values are formatted with.
  */
-export function makeGlobalSearchFilter(term: string, maxCells: number): RowFilter {
+export function makeGlobalSearchFilter(term: string, maxCells: number, formatOptions: FormatOptions): RowFilter {
 	return {
 		filter_id: GLOBAL_SEARCH_FILTER_ID,
 		filter_type: RowFilterType.GlobalSearch,
 		condition: RowFilterCondition.And,
-		params: { term, max_cells: maxCells }
+		params: { term, max_cells: maxCells, format_options: formatOptions }
 	};
 }
 

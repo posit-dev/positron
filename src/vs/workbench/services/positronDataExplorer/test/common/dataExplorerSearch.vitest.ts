@@ -7,6 +7,7 @@
 
 import { ColumnDisplayType, FilterComparisonOp, RowFilter, RowFilterCondition, RowFilterType, SupportStatus } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataCell, DataCellKind } from '../../common/tableDataCache.js';
+import { getFormatOptions } from '../../common/positronDataExplorerMocks.js';
 import { cellMatchesSearch, findMatchSpan, isGlobalSearchSupported, makeGlobalSearchFilter, numberMatchesSearch, parseSearchTerm, splitRowFilters } from '../../common/dataExplorerSearch.js';
 
 function numeric(term: string) {
@@ -133,7 +134,7 @@ describe('row filter helpers', () => {
 	};
 
 	it('splits column filters from the global search', () => {
-		const search = makeGlobalSearchFilter('abc', 10);
+		const search = makeGlobalSearchFilter('abc', 10, getFormatOptions());
 		expect(splitRowFilters([columnFilter, search])).toEqual({ columnFilters: [columnFilter], globalSearch: search });
 		expect(search).toMatchObject({ filter_type: RowFilterType.GlobalSearch, params: { term: 'abc', max_cells: 10 } });
 		expect(search.column_schema).toBeUndefined();

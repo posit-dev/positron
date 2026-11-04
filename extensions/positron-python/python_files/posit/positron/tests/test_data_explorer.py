@@ -1900,10 +1900,12 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
-def _global_search_filter(term, max_cells=None):
+def _global_search_filter(term, max_cells=None, format_options=None):
     params = {"term": term}
     if max_cells is not None:
         params["max_cells"] = max_cells
+    if format_options is not None:
+        params["format_options"] = format_options
     return _filter("global_search", None, params=params)
 
 
@@ -1947,7 +1949,7 @@ def test_parse_search_term_special():
     markers = ["null", "NA", " none ", "NaN", "NaT", "<NA>"]
     terms = [*markers, "nu", "n", "Inf", "nullable"]
     assert [parse_search_term(t) for t in terms] == [
-        SearchTerm(t.lower(), t in markers, None) for t in terms
+        SearchTerm(t.lower(), t in markers, None, None, None) for t in terms
     ]
 
 
@@ -1969,10 +1971,55 @@ def test_parse_search_term_special():
 def test_search_numeric_mask(term, matches, non_matches):
     parsed = parse_search_term(term)
     assert parsed is not None
-    bounds = parsed.bounds
-    assert bounds is not None
-    assert numeric_mask(np.array(matches, dtype=float), bounds).all()
-    assert not numeric_mask(np.array(non_matches, dtype=float), bounds).any()
+    floating = ColumnDisplayType.Floating
+    assert numeric_mask(np.array(matches, dtype=float), floating, parsed).all()
+    assert not numeric_mask(np.array(non_matches, dtype=float), floating, parsed).any()
+
+
+# Displayed with these options: 2.996 as 3.00, 0.99996 as 1.0000, 0.12346 as
+# 0.1235, and 1234567890.5 and 0.00001 in scientific notation
+@pytest.mark.parametrize(
+    ("term", "matches", "non_matches"),
+    [
+        ("3.00", [2.996, 3.004], [2.994]),
+        ("3", [2.996], [2.994]),
+        ("2.99", [2.994], [2.996]),
+        ("-3", [-2.996], [-2.994]),
+        ("1.0000", [0.99996], [0.99994]),
+        ("0.1235", [0.12346], [0.12344]),
+        ("0.12346", [], [0.12346]),
+        ("1234567890", [], [1234567890.5]),
+        ("0", [0, 0.0049], [0.00001, np.nan]),
+    ],
+)
+def test_search_numeric_mask_display_rounding(term, matches, non_matches):
+    options = FormatOptions(
+        large_num_digits=2, small_num_digits=4, max_integral_digits=7, max_value_length=100
+    )
+    parsed = parse_search_term(term, options)
+    assert parsed is not None
+    floating = ColumnDisplayType.Floating
+    assert numeric_mask(np.array(matches, dtype=float), floating, parsed).all()
+    assert not numeric_mask(np.array(non_matches, dtype=float), floating, parsed).any()
+    # Values of other display types are not rounded
+    assert not numeric_mask(
+        np.array([2.996]), ColumnDisplayType.Decimal, parse_search_term("3.00", options)
+    ).any()
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_filter_global_search_display_rounding(dxf: DataExplorerFixture, backend):
+    data = {"float": [2.996, 2.994, 0.5], "int": [9007199254740993, 9007199254740992, 1]}
+    df = pd.DataFrame(data) if backend == "pandas" else pl.DataFrame(data)
+    options = {
+        "large_num_digits": 2,
+        "small_num_digits": 4,
+        "max_integral_digits": 7,
+        "max_value_length": 100,
+    }
+    for term, rows in [("3.00", [0]), ("2.99", [1]), ("9007199254740993", [0])]:
+        filters = [_global_search_filter(term, format_options=options)]
+        dxf.check_filter_case(df, filters, _take_rows(df, rows))
 
 
 def _search_mixed_frames():

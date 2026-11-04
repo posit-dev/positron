@@ -466,6 +466,13 @@ export interface FilterGlobalSearch {
 	 */
 	max_cells?: number;
 
+	/**
+	 * The options the frontend formats data values with, so numeric terms
+	 * match floating point values as they are displayed. Absent means
+	 * numeric terms match the values unrounded.
+	 */
+	format_options?: FormatOptions;
+
 }
 
 /**

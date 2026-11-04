@@ -41,18 +41,35 @@ export const NoSearchResults = () => {
 		return null;
 	}
 
+	// The Python backend sends an unset optional field as null rather than leaving it out.
+	const rowsScanned = backendState.global_search_rows_scanned;
+	const limited = typeof rowsScanned === 'number';
+	const gridInstance = context.instance.tableDataDataGridInstance;
+
 	// Render.
 	return (
 		<div className='no-search-results'>
 			<div className='message'>
-				{localize('positron.dataExplorer.noSearchResults', "No rows match '{0}'", term)}
+				{limited ?
+					localize('positron.dataExplorer.noSearchResults.limited', "No rows match '{0}' in the first {1} rows", term, rowsScanned.toLocaleString()) :
+					localize('positron.dataExplorer.noSearchResults', "No rows match '{0}'", term)}
 			</div>
-			<Button
-				className='clear-search-button'
-				onPressed={() => context.instance.tableDataDataGridInstance.setSearchTerm('')}
-			>
-				{localize('positron.dataExplorer.noSearchResults.clearSearch', "Clear Search")}
-			</Button>
+			<div className='buttons'>
+				{limited &&
+					<Button
+						className='no-search-results-button'
+						onPressed={() => gridInstance.setSearchTerm(term, 0)}
+					>
+						{localize('positron.dataExplorer.noSearchResults.searchAll', "Search All")}
+					</Button>
+				}
+				<Button
+					className='no-search-results-button'
+					onPressed={() => gridInstance.setSearchTerm('')}
+				>
+					{localize('positron.dataExplorer.noSearchResults.clearSearch', "Clear Search")}
+				</Button>
+			</div>
 		</div>
 	);
 };

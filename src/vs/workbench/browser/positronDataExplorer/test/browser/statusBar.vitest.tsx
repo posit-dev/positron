@@ -14,6 +14,7 @@ import { BackendState, ColumnDisplayType, FilterComparisonOp, RowFilter, RowFilt
 import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { TableDataDataGridInstance } from '../../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
+import { getFormatOptions } from '../../../../services/positronDataExplorer/common/positronDataExplorerMocks.js';
 import { makeGlobalSearchFilter } from '../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 import { StatusBar } from '../../components/dataExplorerPanel/components/statusBar.js';
 import { PositronDataExplorerContextProvider } from '../../positronDataExplorerContext.js';
@@ -95,7 +96,7 @@ describe('StatusBar', () => {
 	it('offers to search every row when the search scanned only the leading rows', async () => {
 		const gridInstance = stubInterface<TableDataDataGridInstance>({ setSearchTerm: vi.fn(async () => { }) });
 		const statusBar = renderStatusBar(backendState(10, 2000000, {
-			row_filters: [FILTER, makeGlobalSearchFilter('abc', 10_000_000)],
+			row_filters: [FILTER, makeGlobalSearchFilter('abc', 10_000_000, getFormatOptions())],
 			global_search_rows_scanned: 1000000,
 		}), gridInstance);
 		expect(statusBar).toHaveTextContent(/Showing matches from 10M cells\s*Search All$/);
@@ -105,7 +106,7 @@ describe('StatusBar', () => {
 
 	it('does not offer to search every row when the search scanned every row', () => {
 		const statusBar = renderStatusBar(backendState(10, 2000000, {
-			row_filters: [makeGlobalSearchFilter('abc', 10_000_000)],
+			row_filters: [makeGlobalSearchFilter('abc', 10_000_000, getFormatOptions())],
 			global_search_rows_scanned: null as unknown as undefined,
 		}));
 		expect(statusBar).not.toHaveTextContent(/Search All/);

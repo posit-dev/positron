@@ -26,7 +26,7 @@ import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGr
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators, DataCell, toDataCell } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { BackendState, ColumnDisplayType, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, ColumnSchema, ExportFormat, FilterGlobalSearch, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { buildTableSelectionFromClipboardData } from './utils.js';
@@ -905,7 +905,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	async setSearchTerm(term: string, maxCells?: number): Promise<void> {
 		this._searchFilter = term === '' ? undefined : makeGlobalSearchFilter(
 			term,
-			maxCells ?? this._services.configurationService.getValue<number>(DATA_EXPLORER_SEARCH_MAX_CELLS_KEY) ?? 0
+			maxCells ?? this._services.configurationService.getValue<number>(DATA_EXPLORER_SEARCH_MAX_CELLS_KEY) ?? 0,
+			this._dataExplorerClientInstance.dataFormatOptions
 		);
 		this._onDidChangeSearchTerm.fire(term);
 
@@ -914,19 +915,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return;
 		}
 		this._searchInFlight = true;
-		try {
-			do {
-				this._searchPending = false;
+		do {
+			this._searchPending = false;
+			try {
 				const { columnFilters } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
 				await this.applyRowFilters(columnFilters);
 				if (!this._searchPending) {
 					await this.revealSearchMatch();
 				}
-			} while (this._searchPending);
-		} finally {
-			this._searchInFlight = false;
-			this.syncSearchFilter();
-		}
+			} catch (error) {
+				onUnexpectedError(error);
+			}
+		} while (this._searchPending);
+		this._searchInFlight = false;
+		this.syncSearchFilter();
 	}
 
 	/**
@@ -940,7 +942,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const { globalSearch } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
 		const term = getGlobalSearchTerm(globalSearch);
 		const changed = term !== this.searchTerm;
-		this._searchFilter = globalSearch;
+		// Rebuild the filter rather than keeping the backend's, whose validity it would send back.
+		this._searchFilter = globalSearch && makeGlobalSearchFilter(term, (globalSearch.params as FilterGlobalSearch).max_cells ?? 0, this._dataExplorerClientInstance.dataFormatOptions);
 		if (changed) {
 			this._onDidChangeSearchTerm.fire(term);
 		}
@@ -1000,7 +1003,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// Scan the row's values in chunks, nearest first, and scroll to the first match.
-		for (let i = 0; i < candidates.length && !this._searchPending; i += SEARCH_REVEAL_CHUNK_SIZE) {
+		for (let i = 0; i < candidates.length; i += SEARCH_REVEAL_CHUNK_SIZE) {
 			const chunk = candidates.slice(i, i + SEARCH_REVEAL_CHUNK_SIZE);
 			const [tableSchema, tableData] = await Promise.all([
 				this._dataExplorerClientInstance.getSchema(chunk),
@@ -1009,6 +1012,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 					spec: { first_index: rowIndex, last_index: rowIndex }
 				})))
 			]);
+			// A newer search supersedes this one.
+			if (this._searchPending) {
+				return;
+			}
 			const match = chunk.findIndex((_, j) => {
 				const value = tableData.columns[j]?.[0];
 				const typeDisplay = tableSchema.columns[j]?.type_display;

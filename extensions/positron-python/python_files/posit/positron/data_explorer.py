@@ -616,7 +616,7 @@ class DataExplorerTableView:
         if search is not None:
             params = search.params
             assert isinstance(params, FilterGlobalSearch)
-            self._search_term = parse_search_term(params.term)
+            self._search_term = parse_search_term(params.term, params.format_options)
             if self._search_term is not None:
                 try:
                     self.filtered_indices = self._eval_global_search(params, self.filtered_indices)
@@ -1872,8 +1872,11 @@ class PandasView(DataExplorerTableView):
         if strings is not None:
             contains = strings.str.contains(term.text, regex=False)
             mask = contains.to_numpy(dtype=bool, na_value=False)
+        elif display_type == ColumnDisplayType.Integer and term.integer is not None:
+            # Compare exactly; integers can exceed the precision of a float
+            mask = (values == term.integer).to_numpy(dtype=bool, na_value=False)
         elif term.bounds is not None:
-            mask = numeric_mask(values.to_numpy(dtype=float, na_value=np.nan), term.bounds)
+            mask = numeric_mask(values.to_numpy(dtype=float, na_value=np.nan), display_type, term)
         else:
             mask = np.zeros(len(values), dtype=bool)
 
@@ -2723,8 +2726,11 @@ class PolarsView(DataExplorerTableView):
 
         if strings is not None:
             mask = strings.str.contains(term.text, literal=True).fill_null(value=False).to_numpy()
+        elif display_type == ColumnDisplayType.Integer and term.integer is not None:
+            # Compare exactly; integers can exceed the precision of a float
+            mask = (values == term.integer).fill_null(value=False).to_numpy()
         elif term.bounds is not None:
-            mask = numeric_mask(values.cast(pl.Float64).to_numpy(), term.bounds)
+            mask = numeric_mask(values.cast(pl.Float64).to_numpy(), display_type, term)
         else:
             mask = np.zeros(len(values), dtype=bool)
 

@@ -628,6 +628,11 @@ class FilterGlobalSearch(BaseModel):
         description="Upper bound on the number of cells to scan. When the table exceeds it, only the leading floor(max_cells / searched_columns) candidate rows are scanned and the backend reports global_search_rows_scanned in its state. Absent or 0 means unlimited.",
     )
 
+    format_options: Optional[FormatOptions] = Field(
+        default=None,
+        description="The options the frontend formats data values with, so numeric terms match floating point values as they are displayed. Absent means numeric terms match the values unrounded.",
+    )
+
 
 class FilterTextSearch(BaseModel):
     """

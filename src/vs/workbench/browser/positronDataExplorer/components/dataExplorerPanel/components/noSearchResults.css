@@ -20,18 +20,23 @@
 	text-align: center;
 }
 
-.data-explorer-panel .data-explorer .no-search-results .clear-search-button {
+.data-explorer-panel .data-explorer .no-search-results .buttons {
+	gap: 8px;
+	display: flex;
+}
+
+.data-explorer-panel .data-explorer .no-search-results .no-search-results-button {
 	padding: 4px 12px;
 	border-radius: 2px;
 	color: var(--vscode-button-foreground);
 	background-color: var(--vscode-button-background);
 }
 
-.data-explorer-panel .data-explorer .no-search-results .clear-search-button:hover {
+.data-explorer-panel .data-explorer .no-search-results .no-search-results-button:hover {
 	background-color: var(--vscode-button-hoverBackground);
 }
 
-.data-explorer-panel .data-explorer .no-search-results .clear-search-button:focus-visible {
+.data-explorer-panel .data-explorer .no-search-results .no-search-results-button:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
 }

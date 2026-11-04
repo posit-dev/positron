@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, NamedTuple, Tuple
 
-from .data_explorer_comm import ColumnDisplayType
+from .data_explorer_comm import ColumnDisplayType, FormatOptions
 
 if TYPE_CHECKING:
     import numpy as np
@@ -50,16 +50,27 @@ class SearchTerm(NamedTuple):
     matches_null: bool
     # Range numeric cells must fall in, or None if the term is not numeric
     bounds: Bounds | None
+    # The value integer cells must equal, or None if the term has decimals or
+    # is not numeric
+    integer: int | None
+    # Options floats are displayed with, or None to match them unrounded
+    format_options: FormatOptions | None
 
 
-def parse_search_term(term: str) -> SearchTerm | None:
+def parse_search_term(term: str, format_options: FormatOptions | None = None) -> SearchTerm | None:
     """Classify a search term; returns None when the search is inactive."""
     if not term:
         return None
     stripped = term.strip()
     number = stripped.replace(",", "") if _GROUPED_NUMBER.fullmatch(stripped) else stripped
-    bounds = _numeric_bounds(number) if _NUMBER.fullmatch(number) else None
-    return SearchTerm(term.lower(), stripped.lower() in NULL_MARKERS, bounds)
+    is_number = _NUMBER.fullmatch(number) is not None
+    return SearchTerm(
+        term.lower(),
+        stripped.lower() in NULL_MARKERS,
+        _numeric_bounds(number) if is_number else None,
+        int(number) if is_number and "." not in number else None,
+        format_options,
+    )
 
 
 def _numeric_bounds(number: str) -> Bounds:
@@ -74,9 +85,28 @@ def _numeric_bounds(number: str) -> Bounds:
     return (-step + eps, step - eps, False, False)
 
 
-def numeric_mask(values: np.ndarray, bounds: Bounds) -> np.ndarray:
-    """Return which float values fall within bounds; NaN and infinities never do."""
-    lower, upper, lower_inclusive, upper_inclusive = bounds
+def display_round(values: np.ndarray, options: FormatOptions) -> np.ndarray:
+    """Round float values as they are displayed; NaN where shown in scientific notation."""
+    import numpy as np
+
+    magnitude = np.abs(values)
+    medium = ((magnitude >= 1) & (magnitude < 10.0**options.max_integral_digits)) | (magnitude == 0)
+    small = (magnitude < 1) & (magnitude >= 10.0**-options.small_num_digits)
+    return np.select(
+        [medium, small],
+        [np.round(values, options.large_num_digits), np.round(values, options.small_num_digits)],
+        np.nan,
+    )
+
+
+def numeric_mask(
+    values: np.ndarray, display_type: ColumnDisplayType, term: SearchTerm
+) -> np.ndarray:
+    """Return which float values match a numeric term as displayed; NaN and infinities never do."""
+    assert term.bounds is not None
+    if display_type == ColumnDisplayType.Floating and term.format_options is not None:
+        values = display_round(values, term.format_options)
+    lower, upper, lower_inclusive, upper_inclusive = term.bounds
     above = values >= lower if lower_inclusive else values > lower
     below = values <= upper if upper_inclusive else values < upper
     return above & below

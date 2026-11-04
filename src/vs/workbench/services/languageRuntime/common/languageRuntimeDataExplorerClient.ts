@@ -370,6 +370,13 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the data format options.
+	 */
+	get dataFormatOptions(): FormatOptions {
+		return this._dataFormatOptions;
+	}
+
+	/**
 	 * Gets the profile format options.
 	 */
 	get profileFormatOptions(): FormatOptions {

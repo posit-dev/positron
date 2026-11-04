@@ -41,6 +41,7 @@ import {
 	FilterComparison,
 	FilterComparisonOp,
 	FilterGlobalSearch,
+	FormatOptions,
 	FilterMatchDataTypes,
 	FilterResult,
 	FilterSetMembership,
@@ -426,10 +427,10 @@ const NULL_MARKERS = new Set(['null', 'na', 'nan', 'none', 'nat', '<na>']);
 
 /**
  * Parses a global search term as a number, allowing grouped thousands
- * separators. Returns the value and the number of digits after the decimal
- * point, or undefined when the term is text.
+ * separators. Returns the number without separators, its value, and the number
+ * of digits after the decimal point, or undefined when the term is text.
  */
-function parseNumericTerm(term: string): { value: number; decimals: number } | undefined {
+function parseNumericTerm(term: string): { text: string; value: number; decimals: number } | undefined {
 	let text = term.trim();
 	if (/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?$/.test(text)) {
 		text = text.replace(/,/g, '');
@@ -438,27 +439,52 @@ function parseNumericTerm(term: string): { value: number; decimals: number } | u
 		return undefined;
 	}
 	const dot = text.indexOf('.');
-	return { value: Number(text), decimals: dot < 0 ? 0 : text.length - dot - 1 };
+	return { text, value: Number(text), decimals: dot < 0 ? 0 : text.length - dot - 1 };
 }
 
 /**
- * Returns a SQL predicate on `quotedName` matching numeric values that display
- * as the numeric term at its implied precision, or undefined for text terms.
+ * Returns SQL conditions on a float column selecting how getDataValues displays
+ * its values: in scientific notation, or with small_num_digits decimals. Other
+ * values are displayed with large_num_digits decimals.
  */
-function makeNumericSearchExpr(quotedName: string, term: string): string | undefined {
+function floatDisplayConditions(quotedName: string, options: FormatOptions) {
+	return {
+		scientific: `abs(${quotedName}) >= 1${'0'.repeat(options.max_integral_digits)}`,
+		small: `abs(${quotedName}) < 1 AND abs(${quotedName}) > 0`
+	};
+}
+
+/**
+ * Returns a SQL predicate on a numeric column matching values that, as
+ * displayed, truncate toward zero to the numeric term at its implied
+ * precision, or undefined for text terms. Floats are rounded as displayed when
+ * the format options are known; those in scientific notation do not match.
+ */
+function makeNumericSearchExpr(quotedName: string, type: string, term: string, options: FormatOptions | undefined): string | undefined {
 	const numeric = parseNumericTerm(term);
 	if (!numeric) {
 		return undefined;
+	}
+	if (isInteger(type) && numeric.decimals === 0) {
+		// Compare exactly; integers can exceed the precision of a double.
+		return `${quotedName} = ${BigInt(numeric.text)}`;
+	}
+	let x = quotedName;
+	if (isFloating(type) && options) {
+		const { scientific, small } = floatDisplayConditions(quotedName, options);
+		x = `(CASE WHEN ${scientific} THEN NULL
+WHEN ${small} THEN ROUND(${quotedName}, ${options.small_num_digits})
+ELSE ROUND(${quotedName}, ${options.large_num_digits}) END)`;
 	}
 	const t = numeric.value;
 	const step = Math.pow(10, -numeric.decimals);
 	const eps = step * 1e-9;
 	if (t > 0) {
-		return `(${quotedName} >= ${t - eps} AND ${quotedName} < ${t + step - eps})`;
+		return `(${x} >= ${t - eps} AND ${x} < ${t + step - eps})`;
 	} else if (t < 0) {
-		return `(${quotedName} > ${t - step + eps} AND ${quotedName} <= ${t + eps})`;
+		return `(${x} > ${t - step + eps} AND ${x} <= ${t + eps})`;
 	} else {
-		return `(${quotedName} > ${-step + eps} AND ${quotedName} < ${step - eps})`;
+		return `(${x} > ${-step + eps} AND ${x} < ${step - eps})`;
 	}
 }
 
@@ -467,7 +493,8 @@ function makeNumericSearchExpr(quotedName: string, term: string): string | undef
  * undefined when the column cannot match the term (nested types, or numeric
  * columns with a text term).
  */
-function makeColumnSearchExpr(entry: SchemaEntry, term: string): string | undefined {
+function makeColumnSearchExpr(entry: SchemaEntry, search: FilterGlobalSearch): string | undefined {
+	const term = search.term;
 	const type = entry.column_type;
 	if (/^(?:STRUCT|MAP|UNION)\(|\[\d*\]$/.test(type)) {
 		return undefined;
@@ -475,7 +502,7 @@ function makeColumnSearchExpr(entry: SchemaEntry, term: string): string | undefi
 	const quotedName = quoteIdentifier(entry.column_name);
 	const exprs: string[] = [];
 	if (isNumeric(type) || type.startsWith('DECIMAL')) {
-		const numericExpr = makeNumericSearchExpr(quotedName, term);
+		const numericExpr = makeNumericSearchExpr(quotedName, type, term, search.format_options);
 		if (numericExpr) {
 			exprs.push(numericExpr);
 		}
@@ -490,18 +517,18 @@ function makeColumnSearchExpr(entry: SchemaEntry, term: string): string | undefi
 }
 
 /** Returns a SQL predicate matching rows where any column matches the global search term. */
-function makeGlobalSearchExpr(term: string, schema: Array<SchemaEntry>): string {
-	if (term === '') {
+function makeGlobalSearchExpr(search: FilterGlobalSearch, schema: Array<SchemaEntry>): string {
+	if (search.term === '') {
 		return 'TRUE';
 	}
-	const exprs = schema.map(entry => makeColumnSearchExpr(entry, term)).filter(expr => expr !== undefined);
+	const exprs = schema.map(entry => makeColumnSearchExpr(entry, search)).filter(expr => expr !== undefined);
 	return exprs.length ? `(${exprs.join(' OR ')})` : 'FALSE';
 }
 
 function makeWhereExpr(rowFilter: RowFilter, fullSchema: Array<SchemaEntry>): string {
 	if (rowFilter.filter_type === RowFilterType.GlobalSearch) {
 		// max_cells is ignored: DuckDB scans the whole table off the extension host thread.
-		return makeGlobalSearchExpr((rowFilter.params as FilterGlobalSearch).term, fullSchema);
+		return makeGlobalSearchExpr(rowFilter.params as FilterGlobalSearch, fullSchema);
 	}
 	const schema = rowFilter.column_schema;
 	if (!schema) {
@@ -1683,7 +1710,6 @@ export class DuckDBTableView {
 		const largeNumDigits = params.format_options.large_num_digits;
 
 		const thousandsSep = params.format_options.thousands_sep;
-		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
 		const varcharLimit = params.format_options.max_value_length;
 
 		let smallFloatFormat, largeFloatFormat;
@@ -1696,7 +1722,7 @@ export class DuckDBTableView {
 		}
 
 		const globalSearch = this.rowFilters.find(filter => filter.filter_type === RowFilterType.GlobalSearch);
-		const searchTerm = (globalSearch?.params as FilterGlobalSearch | undefined)?.term;
+		const search = globalSearch?.params as FilterGlobalSearch | undefined;
 		const matchSelectors = [];
 
 		const columnSelectors = [];
@@ -1738,6 +1764,7 @@ export class DuckDBTableView {
 					break;
 				case 'FLOAT':
 				case 'DOUBLE': {
+					const display = floatDisplayConditions(quotedName, params.format_options);
 					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
 					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
 					if (thousandsSep && thousandsSep !== ',') {
@@ -1748,8 +1775,8 @@ export class DuckDBTableView {
 WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
 WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
 WHEN isnan(${quotedName}) THEN 'NaN'
-WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
-WHEN abs(${quotedName}) < 1 AND abs(${quotedName}) > 0 THEN ${smallFormatter}
+WHEN ${display.scientific} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
+WHEN ${display.small} THEN ${smallFormatter}
 ELSE ${largeFormatter}
 END`;
 					break;
@@ -1766,8 +1793,8 @@ END`;
 			}
 			selectedColumns.push(quotedName);
 			columnSelectors.push(`${columnSelector} AS formatted_${columnSelectors.length} `);
-			if (searchTerm) {
-				const matchExpr = makeColumnSearchExpr(columnSchema, searchTerm) ?? 'FALSE';
+			if (search?.term) {
+				const matchExpr = makeColumnSearchExpr(columnSchema, search) ?? 'FALSE';
 				matchSelectors.push(`COALESCE(${matchExpr}, FALSE) AS match_${matchSelectors.length}`);
 			}
 		}
@@ -1806,7 +1833,7 @@ END`;
 
 		const result: TableData = {
 			columns: [],
-			...(searchTerm ? { search_matches: [] } : {})
+			...(search?.term ? { search_matches: [] } : {})
 		};
 
 		const floatAdapter = (field: any[], i: number) => {

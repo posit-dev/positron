@@ -1986,6 +1986,40 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		}
 	});
 
+	test('global_search matches floats as displayed and integers exactly', async () => {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{ name: 'v', type: 'DOUBLE', values: ['2.996', '2.994', '-2.996', '0.99996', '0.12346', '1234567890.5', '0'] },
+			{ name: 'i', type: 'BIGINT', values: ['9007199254740993', '9007199254740992', '10', '20', '30', '40', '50'] }
+		]);
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const search = (term: string): RowFilter => ({
+			...globalSearchFilter(term),
+			params: { term, format_options: DEFAULT_FORMAT_OPTIONS }
+		});
+
+		// Displayed: 3.00, 2.99, -3.00, 1.0000, 0.1235, 1.23e+09, 0.00
+		const cases: Array<[string, number[]]> = [
+			['3.00', [2.996]],
+			['2.99', [2.994]],
+			['-3', [-2.996]],
+			['1.0000', [0.99996]],
+			['0.1235', [0.12346]],
+			['0.12346', []],
+			['1234567890', []],
+			['9007199254740993', [2.996]],
+		];
+		for (const [term, expected] of cases) {
+			await applyRowFilters(uri, [search(term)]);
+			const actual = (await getColumnValues(tableName, 0)).map(Number);
+			assert.deepStrictEqual(actual, expected, `term '${term}'`);
+		}
+
+		// Without format options, values match unrounded.
+		await applyRowFilters(uri, [globalSearchFilter('2.99')]);
+		assert.deepStrictEqual((await getColumnValues(tableName, 0)).map(Number), [2.996, 2.994]);
+	});
+
 	// A mixed-type table. The `label` column is a list, which the search skips,
 	// so it identifies rows without matching terms itself.
 	async function createMixedSearchTable(): Promise<string> {

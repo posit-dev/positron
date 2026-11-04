@@ -27,10 +27,11 @@ import {
 	TableSchema
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableDataDataGridInstance } from '../../browser/tableDataDataGridInstance.js';
-import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
+import { getColumnSchema, getFormatOptions } from '../../common/positronDataExplorerMocks.js';
 import { ColumnWidthCalculators, TableDataCache } from '../../common/tableDataCache.js';
 import { makeGlobalSearchFilter } from '../../common/dataExplorerSearch.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { errorHandler } from '../../../../../base/common/errors.js';
 
 /**
  * The default column width the data grid falls back to when no calculated widths are available.
@@ -117,6 +118,7 @@ describe('TableDataDataGridInstance', () => {
 
 		client = {
 			cachedBackendState: backendState(),
+			dataFormatOptions: getFormatOptions(),
 			onDidClose: new Emitter<void>().event,
 			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
 			onDidDataUpdate: new Emitter<void>().event,
@@ -371,8 +373,8 @@ describe('TableDataDataGridInstance', () => {
 			await instance.setSearchTerm('');
 
 			expect(appliedFilters()).toEqual([
-				[makeGlobalSearchFilter('abc', 5)],
-				[columnFilter, makeGlobalSearchFilter('abc', 5)],
+				[makeGlobalSearchFilter('abc', 5, getFormatOptions())],
+				[columnFilter, makeGlobalSearchFilter('abc', 5, getFormatOptions())],
 				[columnFilter],
 			]);
 			expect(instance.searchTerm).toBe('');
@@ -389,9 +391,35 @@ describe('TableDataDataGridInstance', () => {
 			await first;
 
 			expect(appliedFilters()).toEqual([
-				[makeGlobalSearchFilter('a', 0)],
-				[makeGlobalSearchFilter('abc', 0)],
+				[makeGlobalSearchFilter('a', 0, getFormatOptions())],
+				[makeGlobalSearchFilter('abc', 0, getFormatOptions())],
 			]);
+		});
+
+		it('applies the latest term when applying an earlier one fails', async () => {
+			const unexpectedError = vi.spyOn(errorHandler, 'onUnexpectedError').mockImplementation(() => { });
+			const failing = new DeferredPromise<BackendState>();
+			updateBackendState.mockReturnValueOnce(failing.p);
+
+			const first = instance.setSearchTerm('a', 0);
+			await vi.waitFor(() => expect(updateBackendState).toHaveBeenCalled());
+			await instance.setSearchTerm('ab', 0);
+			failing.error(new Error('backend error'));
+			await first;
+
+			expect({ applied: appliedFilters().at(-1), errors: unexpectedError.mock.calls.length }).toEqual({ applied: [makeGlobalSearchFilter('ab', 0, getFormatOptions())], errors: 1 });
+		});
+
+		it('sends the search for evaluation again after the backend found it invalid', async () => {
+			await instance.setSearchTerm('abc', 5);
+			client.cachedBackendState = {
+				...client.cachedBackendState!,
+				row_filters: [{ ...makeGlobalSearchFilter('abc', 5, getFormatOptions()), is_valid: false, error_message: 'failed' }]
+			};
+			backendStateEmitter.fire(client.cachedBackendState);
+			await instance.setRowFilters([columnFilter]);
+
+			expect(appliedFilters().at(-1)).toEqual([columnFilter, makeGlobalSearchFilter('abc', 5, getFormatOptions())]);
 		});
 
 		/**
@@ -400,7 +428,7 @@ describe('TableDataDataGridInstance', () => {
 		 */
 		async function searchWithMatchIn(matchColumn: number) {
 			const shape = { num_rows: 100, num_columns: 10 };
-			const state = { ...backendState(), table_shape: shape, table_unfiltered_shape: shape, row_filters: [makeGlobalSearchFilter('x', 0)] };
+			const state = { ...backendState(), table_shape: shape, table_unfiltered_shape: shape, row_filters: [makeGlobalSearchFilter('x', 0, getFormatOptions())] };
 			client.cachedBackendState = state;
 			getBackendState.mockResolvedValue(state);
 			updateBackendState.mockResolvedValue(state);
