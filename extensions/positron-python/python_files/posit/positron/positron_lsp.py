@@ -33,7 +33,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable, Generator, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
@@ -43,6 +43,8 @@ from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
 from .help_comm import ShowHelpTopicParams
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+
     from comm.base_comm import BaseComm
 
     from ._vendor.pygls.workspace.text_document import TextDocument

@@ -33,7 +33,8 @@ ALLOW_DOWNGRADE=false
 
 # SemVer 2.0 precedence as a jq sort key, shared by the latest-version selector
 # and the downgrade guard. This is the shared contract with compareSemver in
-# scripts/check-bootstrap-extension-deps.ts; keep the two in step.
+# src/vs/platform/extensionManagement/common/positronBootstrapExtensionVersions.ts;
+# keep the two in step.
 #
 # Build metadata is dropped before the core is parsed, or "3+linux" reads as 0
 # and silently lowers the version. A release sorts above any prerelease of the
@@ -84,7 +85,7 @@ show_help() {
 
 	DESCRIPTION:
 	This script automates the process of updating extension versions in product.json:
-		1. Fetches the latest version info from Open VSX Registry
+		1. Fetches the latest version info from Posit Public Package Manager
 		2. Downloads the VSIX file (only if needed)
 		3. Calculates the SHA256 hash
 EOF

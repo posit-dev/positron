@@ -11,7 +11,10 @@
 #                inside the semver ranges in package.json (no --force), so it
 #                fixes transitive advisories that need only a lockfile refresh.
 #                A fix that `npm ci --dry-run` rejects (a dependency outside
-#                its declared range, or missing) is reverted.
+#                its declared range, or missing) is reverted. So is a fix that
+#                removes no advisory: npm audit fix also bumps a flagged
+#                package to the newest version in its range when no version in
+#                range fixes it, which only adds unreviewed churn.
 #                dependency-audit-lockcheck.mts then lists the changed direct
 #                dependencies for review.
 #   --snyk:      also run `snyk test` on each lockfile (after any fix), so the
@@ -65,13 +68,27 @@ ci_check() {
 
 # Prints "<critical> <high> <total>|<comma-separated high/critical packages>"
 # for the runtime dependencies of project $1, or nothing if npm audit failed.
+# Also saves the npm audit JSON to file $2, for advisory_keys.
 npm_audit() {
-	(cd "$1" && npm audit --package-lock-only --omit=dev --json 2>/dev/null) |
-		jq -r '
-			select(.metadata.vulnerabilities) |
-			(.metadata.vulnerabilities | "\(.critical) \(.high) \(.total)") + "|" +
-			([.vulnerabilities[] | select(.severity == "critical" or .severity == "high") | .name] | join(", "))
-		' 2>/dev/null
+	(cd "$1" && npm audit --package-lock-only --omit=dev --json 2>/dev/null) > "$2"
+	jq -r '
+		select(.metadata.vulnerabilities) |
+		(.metadata.vulnerabilities | "\(.critical) \(.high) \(.total)") + "|" +
+		([.vulnerabilities[] | select(.severity == "critical" or .severity == "high") | .name] | join(", "))
+	' "$2" 2>/dev/null
+}
+
+# Prints one sorted "<package> <advisory> <node path>" line for each advisory
+# and each vulnerable copy of the package in npm audit JSON file $1. The key
+# includes the node path because npm audit counts packages, not copies: a fix
+# that patches one nested copy of a package does not change the counts. A
+# package flagged only because a dependency is vulnerable adds no line; the
+# dependency adds it.
+advisory_keys() {
+	jq -r '
+		.vulnerabilities // {} | .[] | .name as $name | .nodes as $nodes |
+		.via[] | objects | .source as $source | $nodes[] | "\($name) \($source) \(.)"
+	' "$1" 2>/dev/null | sort -u
 }
 
 # Prints "<critical> <high> <total>" from `snyk test` for project $1, or nothing
@@ -102,6 +119,7 @@ clean=0
 errors=()
 direct=()
 reverted=()
+unchanged=()
 
 LOCKCHECK="$(dirname "$0")/dependency-audit-lockcheck.mts"
 WORK="$(mktemp -d)"
@@ -118,7 +136,7 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 	fi
 	echo "Auditing $dir" >&2
 
-	before="$(npm_audit "$dir")"
+	before="$(npm_audit "$dir" "$WORK/before-audit.json")"
 	before_counts="${before%%|*}"
 
 	after="$before"
@@ -131,23 +149,34 @@ while IFS= read -r dir || [ -n "$dir" ]; do
 			# (semver-major) fix; that's expected, so this is only a note.
 			echo "  npm audit fix left advisories in $dir" >&2
 		fi
-		problems="$(ci_check "$dir")"
-		if [ -n "$problems" ]; then
+		after="$(npm_audit "$dir" "$WORK/after-audit.json")"
+		# comm -23 prints the advisories that the fix removed.
+		fixed="$(comm -23 <(advisory_keys "$WORK/before-audit.json") <(advisory_keys "$WORK/after-audit.json"))"
+		if [ -n "$after" ] && [ -z "$fixed" ]; then
+			# The fix removed no advisory, so its version bumps add risk for
+			# no gain. Keep the old lockfile.
+			if ! cmp -s "$WORK/before.json" "$dir/package-lock.json"; then
+				cp "$WORK/before.json" "$dir/package-lock.json"
+				unchanged+=("${dir#extensions/}")
+			fi
+			after="$before"
+		elif problems="$(ci_check "$dir")" && [ -n "$problems" ]; then
 			# npm ci would reject the new lockfile. Keep the old lockfile; a
 			# person has to make this fix.
 			cp "$WORK/before.json" "$dir/package-lock.json"
+			after="$before"
 			reverted+=("${dir#extensions/}: $problems")
 		elif ! check="$(node "$LOCKCHECK" "$WORK/before.json" "$dir/package-lock.json")" ||
 			! echo "$check" | jq -e '.directChanges | type == "array"' >/dev/null 2>&1; then
 			# Without the list, a direct bump would land with no flag for
 			# review. Keep the old lockfile.
 			cp "$WORK/before.json" "$dir/package-lock.json"
+			after="$before"
 			errors+=("\`$dir\`: could not list direct dependency changes, so the fix was not applied")
 		else
 			changes="$(echo "$check" | jq -r '.directChanges | join(", ")')"
 			[ -n "$changes" ] && direct+=("${dir#extensions/}: $changes")
 		fi
-		after="$(npm_audit "$dir")"
 	fi
 	after_counts="${after%%|*}"
 	remaining="${after#*|}"
@@ -219,6 +248,14 @@ if [ ${#reverted[@]} -gt 0 ]; then
 	echo "\`npm ci\` rejected the fixed lockfile (a dependency outside its declared range, or missing), so these projects keep their old lockfile. Their \"After\" counts are the same as \"Before\"."
 	echo ""
 	printf -- '- %s\n' "${reverted[@]}"
+fi
+if [ ${#unchanged[@]} -gt 0 ]; then
+	echo ""
+	echo "### Fixes that removed no advisory"
+	echo ""
+	echo "\`npm audit fix\` changed the lockfile of these projects but removed no advisory, so they keep their old lockfile. Their advisories need a semver-major bump or an \`overrides\` entry."
+	echo ""
+	printf -- '- %s\n' "${unchanged[@]}"
 fi
 if [ ${#errors[@]} -gt 0 ]; then
 	echo ""

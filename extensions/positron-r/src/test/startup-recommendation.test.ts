@@ -29,6 +29,10 @@ suite('R startup recommendation', () => {
 		assert.strictEqual(runtimeManager.recommendationIsProjectDefault, false);
 	});
 
+	test('lets Positron pick the first defined R when it recommends nothing', () => {
+		assert.strictEqual(runtimeManager.defersToFirstDefinition, true);
+	});
+
 	test('the search finds Rs that start only when picked', async () => {
 		const runtimes = await searchAll();
 		assert.ok(runtimes.length > 0, 'expected the search to find R');

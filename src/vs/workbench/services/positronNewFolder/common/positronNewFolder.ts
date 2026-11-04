@@ -86,6 +86,7 @@ export enum NewFolderTask {
 	REnvironment = 'rEnvironment',
 	CreateNewFile = 'createNewFile',
 	CreatePyprojectToml = 'createPyprojectToml',
+	CreateDotHere = 'createDotHere',
 }
 
 /**

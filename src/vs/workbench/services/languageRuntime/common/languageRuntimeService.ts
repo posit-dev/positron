@@ -1207,6 +1207,13 @@ export interface IRuntimeManager {
 	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
 
 	/**
+	 * The languages whose extension lets core recommend the first defined
+	 * interpreter when it recommends nothing after discovery (see
+	 * `defersToFirstDefinition` in the Positron API).
+	 */
+	getLanguagesDeferringToFirstDefinition?(): Promise<string[]>;
+
+	/**
 	 * Whether this manager is responsible for the given runtime. Used by the
 	 * discovery-cache layer to attribute cached entries to the right manager
 	 * before invoking `validateMetadata` on it.

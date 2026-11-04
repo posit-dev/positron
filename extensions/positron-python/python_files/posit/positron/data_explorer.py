@@ -10,14 +10,13 @@ from __future__ import annotations
 import logging
 import math
 import operator
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Tuple,
 )
 
 import comm
@@ -134,7 +133,7 @@ class DataExplorerWarning(UserWarning):
     """
 
 
-PathKey = Tuple[str, ...]
+PathKey = tuple[str, ...]
 SummarizerType = Callable[[Any, FormatOptions], ColumnSummaryStats]
 
 
@@ -179,7 +178,7 @@ class DataExplorerState:
 
 
 # Return type for get_updated_state below
-StateUpdate = Tuple[bool, DataExplorerState]
+StateUpdate = tuple[bool, DataExplorerState]
 
 
 class DataExplorerTableView:

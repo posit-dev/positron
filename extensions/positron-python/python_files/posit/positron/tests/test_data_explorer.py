@@ -12,7 +12,7 @@ import pprint
 from decimal import Decimal
 from importlib.metadata import version
 from io import StringIO
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -91,7 +91,7 @@ def get_new_comm(
     de_service: DataExplorerService,
     table: Any,
     title: str,
-    comm_id: Optional[str] = None,
+    comm_id: str | None = None,
 ) -> DummyComm:
     """A comm corresponding to a test dataset belonging to the Positron dataviewer service."""
     if comm_id is None:
@@ -406,7 +406,7 @@ def test_shutdown(de_service: DataExplorerService):
 # ----------------------------------------------------------------------
 # Test query support for pandas DataFrame
 
-JsonRecords = List[Dict[str, Any]]
+JsonRecords = list[dict[str, Any]]
 
 DEFAULT_FORMAT = FormatOptions(
     large_num_digits=2,
@@ -615,7 +615,7 @@ class DataExplorerFixture:
         ex_response = self.get_data_values(expected_id, columns=select_all)
 
         assert len(response["columns"]) == len(ex_response["columns"])
-        for left, right in zip(response["columns"], ex_response["columns"]):
+        for left, right in zip(response["columns"], ex_response["columns"], strict=True):
             left = np.array(left, dtype=object)
             right = np.array(right, dtype=object)
             mask = left == right
@@ -659,7 +659,7 @@ def dxf(
     return DataExplorerFixture(shell, de_service, variables_comm)
 
 
-def _wrap_json(model: Type[BaseModel], data: JsonRecords):
+def _wrap_json(model: type[BaseModel], data: JsonRecords):
     return [model(**d).dict() for d in data]
 
 
@@ -877,7 +877,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     dxf.register_table("full_schema", test_df)
     result = dxf.get_schema("full_schema", list(range(100)))
 
-    for result_item, expected_item in zip(result, full_schema):
+    for result_item, expected_item in zip(result, full_schema, strict=True):
         assert result_item == ColumnSchema(**expected_item).dict()
 
     # Test partial schema gets, boundschecking
@@ -989,7 +989,7 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
         schema_slice = dxf.get_schema("wide_df", list(range(start_index, start_index + chunk_size)))
         expected = dxf.get_schema(f"wide_df_{chunk_index}", list(range(chunk_size)))
 
-        for left, right in zip(schema_slice, expected):
+        for left, right in zip(schema_slice, expected, strict=True):
             right["column_index"] = right["column_index"] + start_index
             assert left == right
 
@@ -2339,7 +2339,7 @@ class SchemaChangeFixture:
             self.dxf.set_sort_columns(table_id, sort_keys=scenario["sort_keys"])
 
         if len(filter_spec) > 0:
-            self.dxf.set_row_filters(table_id, filters=next(zip(*filter_spec)))
+            self.dxf.set_row_filters(table_id, filters=next(zip(*filter_spec, strict=True)))
 
         self.dxf.execute_code(code)
 
@@ -2720,7 +2720,7 @@ def _select_cell_range(
     }
 
 
-def _select_cell_indices(row_indices: List[int], column_indices: List[int]):
+def _select_cell_indices(row_indices: list[int], column_indices: list[int]):
     return {
         "kind": "cell_indices",
         "selection": {
@@ -2745,18 +2745,18 @@ def _select_row_range(first_index: int, last_index: int):
     return _select_range(first_index, last_index, "row_range")
 
 
-def _select_indices(indices: List[int], kind: str):
+def _select_indices(indices: list[int], kind: str):
     return {
         "kind": kind,
         "selection": {"indices": indices},
     }
 
 
-def _select_column_indices(indices: List[int]):
+def _select_column_indices(indices: list[int]):
     return _select_indices(indices, "column_indices")
 
 
-def _select_row_indices(indices: List[int]):
+def _select_row_indices(indices: list[int]):
     return _select_indices(indices, "row_indices")
 
 

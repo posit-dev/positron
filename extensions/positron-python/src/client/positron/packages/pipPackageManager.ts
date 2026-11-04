@@ -16,6 +16,7 @@ import { PIP_INDEX_ENV_VARS, resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { pypiPackageExists, searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
+import { RequirementsChange, syncWorkspaceRequirements } from './requirementsSync';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -110,6 +111,11 @@ export class PipPackageManager implements IPackageManager {
             const flags = await this._getInstallFlags();
             const args = ['install', ...specs, '-r', requirementsPath, ...flags];
             await this._executePipInTerminal(args, token);
+            await this._syncRequirements(
+                requirementsPath,
+                { kind: 'install', packageNames: packages.map((pkg) => pkg.name) },
+                token,
+            );
             return;
         }
 
@@ -142,6 +148,11 @@ export class PipPackageManager implements IPackageManager {
         const args = ['uninstall', '-y', ...packages];
 
         await this._executePipInTerminal(args, token);
+
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            await this._syncRequirements(requirementsPath, { kind: 'uninstall', packageNames: packages }, token);
+        }
     }
 
     async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {
@@ -318,6 +329,20 @@ export class PipPackageManager implements IPackageManager {
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
         return findWorkspaceRequirementsFile(workspaceService, fileSystem);
+    }
+
+    /**
+     * Keep the workspace `requirements.txt` in sync with an install or uninstall
+     * that just ran. Updates never touch the file: `-r` already governs them.
+     */
+    private async _syncRequirements(
+        requirementsPath: string,
+        change: RequirementsChange,
+        token?: vscode.CancellationToken,
+    ): Promise<void> {
+        await syncWorkspaceRequirements(this._serviceContainer, requirementsPath, change, async () =>
+            (await this.getPackages(token)).map((pkg) => pkg.name),
+        );
     }
 
     /**

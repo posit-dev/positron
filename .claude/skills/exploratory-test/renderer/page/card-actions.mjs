@@ -91,10 +91,14 @@ function buildAgentPrompt(f, report, options = {}) {
 		}
 	};
 	// So the agent checks these before fixing or filing it again.
-	section('Possible duplicates', possiblyKnown(f, options.ki).map(n => {
+	const dupes = new Set((f.dupes ?? []).map(d => d.issue));
+	const issueLine = n => {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
-	}).join('\n'));
+	};
+	const matches = possiblyKnown(f, options.ki);
+	section('Possible duplicates', matches.filter(n => dupes.has(n)).map(issueLine).join('\n'));
+	section('Related issues', matches.filter(n => !dupes.has(n)).map(issueLine).join('\n'));
 	// A match on a not-planned issue: check it was not judged intended before fixing.
 	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
 	section('Observed', capitalize(t.observed));
@@ -231,16 +235,17 @@ export function renderFeedbackRow(f, options) {
 	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
-/** Positron, OS and each recorded kernel as a bullet; the session is in the steps. */
-function systemDetails(report) {
+/** `source` bullets, then Positron, OS and each recorded kernel as a bullet; the session is in the steps. */
+function systemDetails(report, source = []) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
 	const system = env.map(parseSystemLine).find(Boolean);
 	// "Kernels: Ark 0.1.252, Kallichore 0.1.71." gives one bullet per kernel.
 	const kernels = (env.map(l => /^Kernels:\s*(.+?)\.?$/i.exec(l)?.[1]).find(Boolean) ?? '')
 		.split(/,\s*/).map(k => /^(\S+)\s+(.+)$/.exec(k.trim())).filter(Boolean);
 	return [
-		'## System details',
+		'## Details',
 		'',
+		...source,
 		`- **Positron:** ${system?.positron ?? 'not recorded'}`,
 		`- **OS:** ${system?.os ?? 'not recorded'}`,
 		...kernels.map(([, name, version]) => `- **${name}:** ${version}`),
@@ -292,18 +297,19 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const [branch, sha] = report.chips;
 	const url = reportUrl(options.base);
 	const by = url ? `[exploratory test](${url}#f${f.n})` : 'exploratory test';
-	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
-	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
 	const opening = t.opening;
 	// Ticked by whoever reproduces it, with their note before the comment, which shows only while editing.
 	const reproduced = '- [ ] Reproduced by a human: Confirmed using the provided steps. <!-- If reproduced, check this box and add a brief note here, before this comment. -->';
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, ''];
+	// triage-lib.mjs finds the report by the "Found by" link.
+	// The Positron line has the commit, so the branch alone says where.
+	const where = branch || sha;
+	const source = [`- **Found by:** ${by}${where ? ` on \`${where}\`` : ''}`];
 	// The PR didn't cause it, so say so up front.
 	if (options.alsoOnMain) {
-		const build = options.mainBuild?.version ? ` (${[options.mainBuild.version, options.mainBuild.commit?.slice(0, 7)].filter(Boolean).join(', ')})` : '';
-		out.push(`Also reproduces on main's latest daily build${build}, so it isn't specific to ${report.pr ? `#${report.pr.number}` : 'this branch'}.`, '');
+		const { version, commit } = options.mainBuild ?? {};
+		source.push(`- **Reproduces on main:** ${version ? `${version}${commit ? ` (\`${commit.slice(0, 7)}\`)` : ''}` : 'latest daily build'}`);
 	}
-	out.push(reproduced, '', systemDetails(report), '');
+	const out = [reproduced, '', systemDetails(report, source), ''];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);

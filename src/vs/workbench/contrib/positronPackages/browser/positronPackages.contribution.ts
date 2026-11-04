@@ -125,6 +125,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
 			tags: ['preview'],
 		},
+		'packages.python.autoUpdateRequirements': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.python.autoUpdateRequirements', "Add packages that Positron installs to the `requirements.txt` file at the root of the first workspace folder, and remove packages that Positron uninstalls. Positron changes only an existing file, and package updates do not change it. Changed lines are marked with a `# added by Positron` or `# removed by Positron` comment. A file that uses hashes is not added to. Only applies when `#python.packageManager.useRequirementsFile#` is enabled."),
+			tags: ['preview'],
+		},
 		[PACKAGES_VULNERABILITIES_ENABLED_SETTING]: {
 			type: 'boolean',
 			default: true,

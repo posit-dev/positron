@@ -22,7 +22,7 @@ import contextlib
 import logging
 from binascii import b2a_base64
 from functools import partial
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, cast
 
 import matplotlib
 
@@ -36,6 +36,8 @@ from matplotlib.figure import Figure
 from .backend import Backend
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from IPython.core.interactiveshell import InteractiveShell
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ import contextlib
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Tuple, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -30,6 +30,8 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from .conftest import PositronShell
 
 try:
@@ -37,7 +39,7 @@ try:
 except ImportError:
     lightning = None
 
-_IPYTHON_AT_LEAST_9 = cast("Tuple[int, int]", release.version_info[:2]) >= (9, 0)
+_IPYTHON_AT_LEAST_9 = cast("tuple[int, int]", release.version_info[:2]) >= (9, 0)
 
 # The idea for these tests is to mock out communications with Positron
 # via our various comms, and only test IPython interactions. For

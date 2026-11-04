@@ -1,6 +1,10 @@
 name: 'Nightly: Bootstrap Extensions Check'
 
-# Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
+# Runs at 2am UTC (10p EST) on weekdays, or manually. gallery-check asks the
+# PPM gallery which version each bootstrap extension can be bumped to and
+# whether that version has a build for every platform Positron ships;
+# auto-update bumps from that answer. extensions-linux still launches Positron
+# and records what it auto-updated to, as an informational cross-check only.
 on:
   schedule:
     - cron: "0 2 * * 1-5"
@@ -17,6 +21,40 @@ permissions:
   packages: read
 
 jobs:
+  gallery-check:
+    name: 'check-bootstrap-extension-versions'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check bootstrap extension versions
+        run: |
+          node scripts/check-bootstrap-extension-versions.ts --json > versions.json
+          {
+            jq -r '.summary' versions.json
+            echo ""
+            echo "| Extension | Pinned | Latest | Decision | Reason |"
+            echo "|---|---|---|---|---|"
+            jq -r '.results[] | "| \(.id) | \(.pinned) | \(.latest) | \(.decision) | \(.reason // "") |"' versions.json
+            jq -r '.warnings[]? | "- warn: " + .' versions.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload versions
+        uses: actions/upload-artifact@v7
+        with:
+          name: bootstrap-extension-versions
+          path: versions.json
+          retention-days: 3
+
+  # Informational cross-check: launches Positron and records which version it
+  # auto-updated each bootstrap extension to. auto-update compares that with
+  # the gallery's answer in its summary but never bumps from it, so drift here
+  # is a warning, not a failure.
   extensions-linux:
     name: 'extensions-linux'
     timeout-minutes: 60
@@ -61,13 +99,12 @@ jobs:
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          EXTENSIONS_FAIL_ON_MISMATCH: true
+          EXTENSIONS_FAIL_ON_MISMATCH: false
           # pyrefly is blocked from installing in every other e2e run because
           # its language server is expensive. This check never opens a Python
           # file or a notebook, so nothing activates it -- it only needs the
           # extension on disk to compare versions. Allowing it here is what
-          # lets pyrefly be detected like any other bootstrap extension
-          # instead of being bumped unconditionally every night.
+          # lets pyrefly be recorded like any other bootstrap extension.
           ALLOW_PYREFLY: 'true'
         run: |
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
@@ -84,75 +121,11 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-  # A version can be published for Linux but not Windows (meta.pyrefly 1.3.2
-  # shipped without a win32-x64 build). Windows only reports a mismatch once the
-  # new version actually installs there, and auto-update bumps an extension only
-  # when both platforms report it at the same version.
-  extensions-windows:
-    name: 'extensions-windows'
-    timeout-minutes: 90
-    runs-on: windows-latest-8x
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Setup Node
-        uses: actions/setup-node@v7.1.0
-        with:
-          node-version-file: .nvmrc
-
-      - name: Install System Level Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10.10"
-
-      - name: Setup build environment
-        uses: ./.github/actions/setup-build-env-windows
-
-      - name: Compile Positron and Download Electron
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
-
-      - name: Install Playwright browsers
-        run: npm run playwright-install
-
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --no-audit --no-fund
-
-      - name: Compile E2E Tests
-        run: npm --prefix test/e2e run compile
-
-      - name: Download builtin extensions
-        shell: bash
-        run: npm run prelaunch
-
-      - name: 🧪 Run Playwright Tests (Electron)
-        shell: bash
-        env:
-          POSITRON_PY_VER_SEL: 3.10.10
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-          EXTENSIONS_FAIL_ON_MISMATCH: true
-          # See extensions-linux.
-          ALLOW_PYREFLY: 'true'
-        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
-
-      - name: Upload mismatched extensions list
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mismatched-extensions-windows
-          path: |
-            test-logs/mismatched-extensions.txt
-            test-logs/mismatched-versions.json
-          retention-days: 3
-          if-no-files-found: ignore
-
+  # Audits the version gallery-check picked for each extension, so a hit is
+  # about exactly the version auto-update would bump to.
   dependency-check:
     name: 'check-bootstrap-extension-deps'
+    needs: gallery-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -170,10 +143,16 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Download gallery check results
+        uses: actions/download-artifact@v8
+        with:
+          name: bootstrap-extension-versions
+          path: gallery
+
       - name: Check bootstrap extension dependencies
         id: depcheck
         run: |
-          node scripts/check-bootstrap-extension-deps.ts --json > depcheck.json
+          node scripts/check-bootstrap-extension-deps.ts --versions gallery/versions.json --json > depcheck.json
           echo "hits=$(jq '.hits | length' depcheck.json)" >> "$GITHUB_OUTPUT"
           echo "flagged=$(jq -r '[.hits[].id] | join(" ")' depcheck.json)" >> "$GITHUB_OUTPUT"
           {
@@ -207,8 +186,8 @@ jobs:
 
   auto-update:
     name: 'auto-update-extensions'
-    if: always() && needs.extensions-linux.result != 'cancelled' && needs.extensions-windows.result != 'cancelled' && needs.dependency-check.result == 'success'
-    needs: [extensions-linux, extensions-windows, dependency-check]
+    if: ${{ !cancelled() && needs.gallery-check.result == 'success' && needs.dependency-check.result == 'success' }}
+    needs: [gallery-check, extensions-linux, dependency-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -251,59 +230,79 @@ jobs:
           echo "Resetting to origin/main; the bump script will reapply today's changes from scratch."
           git reset --hard origin/main
 
-      - name: Download Linux mismatched extensions list
-        if: needs.extensions-linux.result == 'failure'
+      - name: Download gallery check results
+        # A missing artifact is reported as unexplained_failure below rather
+        # than failing here, so slack-notify still sends the generic alert.
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: bootstrap-extension-versions
+          path: gallery
+
+      - name: Download Linux runtime check results
+        # Only uploaded when the runtime check saw drift.
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           name: mismatched-extensions-linux
           path: mismatched/linux
 
-      - name: Download Windows mismatched extensions list
-        if: needs.extensions-windows.result == 'failure'
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: mismatched-extensions-windows
-          path: mismatched/windows
+      - name: Cross-check the runtime install against the gallery
+        env:
+          LINUX_RESULT: ${{ needs.extensions-linux.result }}
+        run: |
+          {
+            echo "### Runtime cross-check (extensions-linux, informational)"
+            echo ""
+            if [ "$LINUX_RESULT" != "success" ]; then
+              echo "- extensions-linux did not finish ($LINUX_RESULT)"
+            elif [ ! -s mismatched/linux/mismatched-versions.json ]; then
+              echo "- extensions-linux recorded no drift"
+            elif [ ! -s gallery/versions.json ]; then
+              echo "- gallery-check produced no versions.json to compare against"
+            else
+              jq -r --slurpfile gallery gallery/versions.json '
+                ($gallery[0].results | map({(.id): .latest}) | add // {}) as $latest |
+                to_entries[] |
+                if $latest[.key] == null then
+                  "- \(.key): runtime installed \(.value), gallery did not check it"
+                elif $latest[.key] == .value then
+                  "- \(.key): runtime check agrees (\(.value))"
+                else
+                  "- \(.key): runtime installed \(.value), gallery picked \($latest[.key])"
+                end' mismatched/linux/mismatched-versions.json
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update extensions
         id: update
         env:
-          LINUX_RESULT: ${{ needs.extensions-linux.result }}
-          WINDOWS_RESULT: ${{ needs.extensions-windows.result }}
           FLAGGED: ${{ needs.dependency-check.outputs.flagged }}
         run: |
-          MISMATCHED=()
-          if [ "$LINUX_RESULT" = "failure" ] && [ -s mismatched/linux/mismatched-extensions.txt ]; then
-            read -ra MISMATCHED <<< "$(cat mismatched/linux/mismatched-extensions.txt)"
+          # gallery-check succeeded but its artifact is missing, so nothing can
+          # be decided tonight; slack-notify sends the generic alert.
+          if [ ! -s gallery/versions.json ]; then
+            echo "::warning::gallery-check did not produce versions.json"
+            echo "unexplained_failure=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          # Empty when Windows found no drift, or failed before recording any;
-          # either way nothing is confirmed there, so nothing is bumped.
-          WINDOWS_MISMATCHED=$(cat mismatched/windows/mismatched-extensions.txt 2>/dev/null || true)
-          # Version Positron actually installed on a platform, or empty.
-          installed_version() {
-            jq -r --arg e "$2" '.[$e] // empty' "mismatched/$1/mismatched-versions.json" 2>/dev/null || true
-          }
+          echo "unexplained_failure=false" >> "$GITHUB_OUTPUT"
           EXTENSIONS_TO_BUMP=()
           declare -A BUMP_VERSION=()
-          HELD_BACK=()
-          NOT_ON_WINDOWS=()
-          VERSION_SPLIT=()
-          for ext in "${MISMATCHED[@]}"; do
-            linux_version=$(installed_version linux "$ext")
-            windows_version=$(installed_version windows "$ext")
-            if [[ " $FLAGGED " == *" $ext "* ]]; then
-              HELD_BACK+=("$ext")
-            elif [[ " $WINDOWS_MISMATCHED " != *" $ext "* ]]; then
-              NOT_ON_WINDOWS+=("$ext")
-            elif [ -z "$linux_version" ] || [ "$linux_version" != "$windows_version" ]; then
-              VERSION_SPLIT+=("$ext ${linux_version:-unknown} ${windows_version:-unknown}")
-            else
-              EXTENSIONS_TO_BUMP+=("$ext")
-              BUMP_VERSION[$ext]=$linux_version
+          # One "<ext> <current> -> <new>: <reason>" line per held-back extension.
+          HELD_BACK_LINES=()
+          while IFS=$'\t' read -r ext pinned latest decision reason; do
+            if [ "$decision" = "hold" ]; then
+              HELD_BACK_LINES+=("$ext $pinned -> $latest: $reason")
+            elif [ "$decision" = "bump" ]; then
+              if [[ " $FLAGGED " == *" $ext "* ]]; then
+                HELD_BACK_LINES+=("$ext $pinned -> $latest: latest version depends on a blocked extension")
+              else
+                EXTENSIONS_TO_BUMP+=("$ext")
+                BUMP_VERSION[$ext]=$latest
+              fi
             fi
-          done
+          done < <(jq -r '.results[] | [.id, .pinned, .latest, .decision, (.reason // "")] | @tsv' gallery/versions.json)
           {
             echo "### Bootstrap extensions to bump"
             echo ""
@@ -312,62 +311,20 @@ jobs:
             else
               for ext in "${EXTENSIONS_TO_BUMP[@]}"; do echo "- $ext ${BUMP_VERSION[$ext]}"; done
             fi
-            if [ ${#HELD_BACK[@]} -gt 0 ]; then
+            if [ ${#HELD_BACK_LINES[@]} -gt 0 ]; then
               echo ""
-              echo "Held back, latest version depends on a blocked extension:"
+              echo "Held back:"
               echo ""
-              printf -- '- %s\n' "${HELD_BACK[@]}"
-            fi
-            if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
-              echo ""
-              echo "Held back, new version not confirmed on Windows:"
-              echo ""
-              printf -- '- %s\n' "${NOT_ON_WINDOWS[@]}"
-            fi
-            if [ ${#VERSION_SPLIT[@]} -gt 0 ]; then
-              echo ""
-              echo "Held back, Linux and Windows installed different versions (Linux, Windows):"
-              echo ""
-              printf -- '- %s\n' "${VERSION_SPLIT[@]}"
+              printf -- '- %s\n' "${HELD_BACK_LINES[@]}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ ${#HELD_BACK[@]} -gt 0 ]; then
-            echo "Holding back: ${HELD_BACK[*]}"
-          fi
-          if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
-            echo "Holding back (not on Windows): ${NOT_ON_WINDOWS[*]}"
-          fi
-          if [ ${#VERSION_SPLIT[@]} -gt 0 ]; then
-            echo "Holding back (platform versions differ): $(printf '%s; ' "${VERSION_SPLIT[@]}")"
-          fi
-          # A failed check that recorded no drift failed for some other reason
-          # (setup, install timeout), so slack-notify still sends the generic alert.
-          UNEXPLAINED=false
-          if { [ "$LINUX_RESULT" = "failure" ] && [ ${#MISMATCHED[@]} -eq 0 ]; } ||
-             { [ "$WINDOWS_RESULT" = "failure" ] && [ -z "$WINDOWS_MISMATCHED" ]; }; then
-            UNEXPLAINED=true
-          fi
-          echo "unexplained_failure=$UNEXPLAINED" >> "$GITHUB_OUTPUT"
-          # One "<ext> <current> -> <new>: <reason>" line per held-back extension.
-          held_back_line() {
-            local current new
-            current=$(jq -r --arg e "$1" '.bootstrapExtensions[] | select(.name == $e) | .version' product.json)
-            new=$(jq -r --arg e "$1" '.[$e] // "newer"' mismatched/linux/mismatched-versions.json 2>/dev/null || echo newer)
-            echo "$1 $current -> $new: $2"
-          }
-          HELD_BACK_LINES=$(
-            for ext in "${HELD_BACK[@]}"; do held_back_line "$ext" "latest version depends on a blocked extension"; done
-            for ext in "${NOT_ON_WINDOWS[@]}"; do held_back_line "$ext" "new version not confirmed on Windows"; done
-            for split in "${VERSION_SPLIT[@]}"; do
-              read -r ext linux_version windows_version <<< "$split"
-              held_back_line "$ext" "Linux installed $linux_version, Windows installed $windows_version"
-            done
-          )
-          if [ -n "$HELD_BACK_LINES" ]; then
+          if [ ${#HELD_BACK_LINES[@]} -gt 0 ]; then
+            echo "Holding back:"
+            printf '  %s\n' "${HELD_BACK_LINES[@]}"
             DELIM="HELD_BACK_EOF_$(openssl rand -hex 8)"
             {
               echo "held_back<<$DELIM"
-              printf '%s\n' "$HELD_BACK_LINES"
+              printf '%s\n' "${HELD_BACK_LINES[@]}"
               echo "$DELIM"
             } >> "$GITHUB_OUTPUT"
           fi
@@ -376,10 +333,6 @@ jobs:
             exit 0
           fi
           echo "Bumping extensions: ${EXTENSIONS_TO_BUMP[*]}"
-          # Pin the version Positron installed, not the newest one on the
-          # mirror. The newest can need a newer VS Code engine than Positron
-          # has (GitHub.vscode-pull-request-github 0.168.0 needs ^1.141.0),
-          # which then never installs; the observed version passed that check.
           # One call per extension because --version applies to the whole call,
           # and one failed download must not cost the run the other bumps.
           for ext in "${EXTENSIONS_TO_BUMP[@]}"; do
@@ -443,8 +396,10 @@ jobs:
               end
             ) | join("\n")
           ')
+          # Every bump PR also runs the Windows lane: the gallery proves a
+          # win32 build exists, the e2e run proves it installs.
           COMBINED_TAGS=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
-            split("\n") | map(select(length > 0)) | map($map[0][.].tags // []) | flatten | unique | join(" ")
+            split("\n") | map(select(length > 0)) | map($map[0][.].tags // []) | flatten + ["@:win"] | unique | join(" ")
           ')
           UNMAPPED=$(echo "$UPDATED" | tr ' ' '\n' | jq -R -s -r --slurpfile map "$TAG_MAP" '
             split("\n") | map(select(length > 0)) | map(select($map[0][.] == null)) | join(", ")
@@ -590,9 +545,11 @@ jobs:
 
   slack-notify:
     # Drift that was bumped or held back is reported by auto-update's own
-    # Slack messages; this alert covers everything else.
-    if: always() && inputs.dryrun != true && (((needs.extensions-linux.result == 'failure' || needs.extensions-windows.result == 'failure') && needs.auto-update.outputs.pr_url == '' && (needs.auto-update.result != 'success' || needs.auto-update.outputs.unexplained_failure == 'true')) || needs.dependency-check.result == 'failure')
-    needs: [extensions-linux, extensions-windows, auto-update, dependency-check]
+    # Slack messages; this alert covers everything else: a check that could
+    # not run, the cross-check job breaking (drift alone no longer fails it),
+    # or a bump run that produced no PR.
+    if: always() && inputs.dryrun != true && (needs.gallery-check.result == 'failure' || needs.dependency-check.result == 'failure' || needs.extensions-linux.result == 'failure' || (needs.auto-update.outputs.pr_url == '' && (needs.auto-update.result == 'failure' || needs.auto-update.outputs.unexplained_failure == 'true')))
+    needs: [gallery-check, extensions-linux, auto-update, dependency-check]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack

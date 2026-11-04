@@ -12,13 +12,15 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from IPython.core.getipython import get_ipython
 
 from .backend import Backend
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from IPython.core.interactiveshell import InteractiveShell
 
     ConfigureInlineSupport = Callable[[InteractiveShell, str], None]

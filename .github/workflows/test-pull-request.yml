@@ -271,8 +271,19 @@ jobs:
     uses: ./.github/workflows/test-e2e-pyrefly.yml
     secrets: inherit
 
-  build-workbench:
+  # The Workbench, Jupyter, Remote SSH and Connect lanes package their Positron
+  # builds from one shared core compile (`gulp core-ci`), as positron-builds
+  # does for releases, so the TypeScript compile runs once per run and never
+  # inside a packaging job (#17013).
+  compile:
     needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' || needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' || needs.pr-tags.outputs.workbench_suse_tag_found == 'true' || needs.pr-tags.outputs.jupyter_tag_found == 'true' || needs.pr-tags.outputs.remote_ssh_tag_found == 'true' || needs.pr-tags.outputs.connect_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-compile-linux.yml
+    secrets: inherit
+
+  build-workbench:
+    needs: [pr-tags, compile]
     if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' || needs.pr-tags.outputs.workbench_rocky_tag_found == 'true' || needs.pr-tags.outputs.workbench_suse_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-workbench-linux.yml
@@ -351,7 +362,7 @@ jobs:
     secrets: inherit
 
   build-jupyter:
-    needs: pr-tags
+    needs: [pr-tags, compile]
     if: ${{ needs.pr-tags.outputs.jupyter_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-jupyter-linux.yml
@@ -370,7 +381,7 @@ jobs:
     secrets: inherit
 
   build-remote-ssh:
-    needs: pr-tags
+    needs: [pr-tags, compile]
     if: ${{ needs.pr-tags.outputs.remote_ssh_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-remote-ssh-linux.yml
@@ -388,7 +399,7 @@ jobs:
     secrets: inherit
 
   build-connect:
-    needs: pr-tags
+    needs: [pr-tags, compile]
     if: ${{ needs.pr-tags.outputs.connect_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-connect-linux.yml

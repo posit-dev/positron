@@ -16,7 +16,8 @@ says how a helper is built and checked.
    after earlier sections ran, and your reason must name the state it needs. Record what you saw. If the brief lists earlier
    verdicts on this finding, start from the newest: a different outcome needs evidence it missed,
    and your reason must name that evidence.
-3. **Prove the cause.** Name the line that is wrong and why. If you cannot make it fail, the outcome
+3. **Prove the cause.** Name the line that is wrong and why. When the cause rests on how Positron
+   draws, names or orders something, cite the product file and line that does it. If you cannot make it fail, the outcome
    is `flake` and you change nothing.
 4. **Product bugs are not yours.** If the helper reports Positron's behavior faithfully and Positron
    is wrong, the outcome is `product` and you change nothing. Never change a helper so a product
@@ -63,7 +64,14 @@ says how a helper is built and checked.
     fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
     bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
     changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
-    around it. If no smoke case can show the bug (it only
+    around it, and keep it as plain as they are:
+    - `run` returns the command and does nothing else. State the case needs first (no sessions
+      open, a file open) goes in `before`, using a smoke helper that exists (`closeAllSessions`)
+      or one new, documented function when none does.
+    - Save a value in `found` only when a later case reads it.
+    - Check what the bug was about, not every field; one condition is often enough. A case that
+      runs the same command as one beside it reuses that case's check, moved into a function.
+    If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
 11. **Only a real run adds a feature.** A finder finding with no `lead` came from exploring, not
     from a real run: fix what is wrong on a path the helper already offers, but add no flag,

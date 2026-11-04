@@ -5,7 +5,6 @@
 
 # ruff: noqa: PIE790
 import abc
-from typing import List, Optional, Type
 
 from .data_explorer_comm import (
     ColumnDisplayType,
@@ -28,10 +27,10 @@ class MethodChainBuilder:
 
     def __init__(self, table_name: str):
         self.table_name = table_name
-        self.setup_parts: List[StrictStr] = []
-        self.chain_parts: List[StrictStr] = [table_name]
+        self.setup_parts: list[StrictStr] = []
+        self.chain_parts: list[StrictStr] = [table_name]
 
-    def add_operation(self, setup: List[StrictStr], chain: List[StrictStr]) -> None:
+    def add_operation(self, setup: list[StrictStr], chain: list[StrictStr]) -> None:
         """Add setup and chain parts for an operation.
 
         Parameters
@@ -44,7 +43,7 @@ class MethodChainBuilder:
         self.setup_parts.extend(setup)
         self.chain_parts.extend(chain)
 
-    def build(self) -> List[StrictStr]:
+    def build(self) -> list[StrictStr]:
         """Build the final code with setup and chained expression.
 
         Returns
@@ -71,12 +70,12 @@ class MethodChainBuilder:
 class SortHandler:
     """Base class for sort handlers."""
 
-    def __init__(self, sort_keys: List[ColumnSortKey], table, *, was_series: bool = False):
+    def __init__(self, sort_keys: list[ColumnSortKey], table, *, was_series: bool = False):
         self.sort_keys = sort_keys
         self.table = table
         self.was_series = was_series
 
-    def convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def convert_sorts(self) -> tuple[list[StrictStr], list[StrictStr]]:
         """Handle the sort string.
 
         Returns
@@ -90,7 +89,7 @@ class SortHandler:
             return self._convert_multi_sort()
 
     @abc.abstractmethod
-    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_single_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         """Convert a single sort key to code.
 
         Returns
@@ -101,7 +100,7 @@ class SortHandler:
         pass
 
     @abc.abstractmethod
-    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_multi_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         """Convert multiple sort keys to code.
 
         Returns
@@ -111,7 +110,7 @@ class SortHandler:
         """
         pass
 
-    def _get_column_names_from_indices(self) -> List[str]:
+    def _get_column_names_from_indices(self) -> list[str]:
         """Extract column names from indices.
 
         Returns
@@ -124,7 +123,7 @@ class SortHandler:
 
 
 class PandasSortHandler(SortHandler):
-    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_single_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         method_chain_setup = []
         method_chain_parts = []
 
@@ -141,7 +140,7 @@ class PandasSortHandler(SortHandler):
 
         return method_chain_setup, method_chain_parts
 
-    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_multi_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         column_names = self._get_column_names_from_indices()
         ascending_values = [sk.ascending for sk in self.sort_keys]
 
@@ -156,7 +155,7 @@ class PandasSortHandler(SortHandler):
 
 
 class PolarsSortHandler(SortHandler):
-    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_single_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         method_chain_setup = []
         method_chain_parts = []
 
@@ -173,7 +172,7 @@ class PolarsSortHandler(SortHandler):
 
         return method_chain_setup, method_chain_parts
 
-    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_multi_sort(self) -> tuple[list[StrictStr], list[StrictStr]]:
         column_names = self._get_column_names_from_indices()
         descending_values = [not sk.ascending for sk in self.sort_keys]
 
@@ -210,7 +209,7 @@ class FilterHandler:
             RowFilterType.Search: self._convert_text_search_filter,
         }
 
-    def convert_filters(self) -> Optional[str]:
+    def convert_filters(self) -> str | None:
         """Convert filter to code string.
 
         Returns
@@ -442,8 +441,8 @@ class PolarsFilterHandler(FilterHandler):
 class CodeConverter:
     """Base class for generating dataframe code strings."""
 
-    filter_handler_class: Optional[Type[FilterHandler]] = None
-    sort_handler_class: Optional[Type[SortHandler]] = None
+    filter_handler_class: type[FilterHandler] | None = None
+    sort_handler_class: type[SortHandler] | None = None
 
     def __init__(
         self,
@@ -452,7 +451,7 @@ class CodeConverter:
         params: ConvertToCodeParams,
         *,
         was_series: bool = False,
-        sql_string: Optional[str] = None,
+        sql_string: str | None = None,
     ):
         self.table = table
         self.table_name: str = table_name
@@ -461,7 +460,7 @@ class CodeConverter:
         self.syntax_name = params.code_syntax_name.code_syntax_name
         self.sql_string = sql_string
 
-    def build_code(self) -> List[StrictStr]:
+    def build_code(self) -> list[StrictStr]:
         """Convert operations to code strings.
 
         Returns
@@ -482,7 +481,7 @@ class CodeConverter:
 
         return builder.build()
 
-    def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_row_filters(self) -> tuple[list[StrictStr], list[StrictStr]]:
         """Take filters and convert them to code strings.
 
         Returns
@@ -518,7 +517,7 @@ class CodeConverter:
     @abc.abstractmethod
     def _convert_column_filters(
         self,
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
+    ) -> tuple[list[StrictStr], list[StrictStr]]:
         """Convert a list of ColumnFilter objects to a tuple of code strings.
 
         Returns
@@ -528,7 +527,7 @@ class CodeConverter:
         """
         pass
 
-    def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_sort_keys(self) -> tuple[list[StrictStr], list[StrictStr]]:
         """Generate code for sorting.
 
         Returns
@@ -547,7 +546,7 @@ class CodeConverter:
         return method_chain_setup, method_chain_parts
 
     @abc.abstractmethod
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: list[str]) -> tuple[list[StrictStr], list[StrictStr]]:
         """Format multiple filter comparisons into method chain parts.
 
         Parameters
@@ -567,7 +566,7 @@ class PandasConverter(CodeConverter):
     filter_handler_class = PandasFilterHandler
     sort_handler_class = PandasSortHandler
 
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: list[str]) -> tuple[list[StrictStr], list[StrictStr]]:
         # Multiple comparisons, create filter mask
         if len(comparisons) == 1:
             return [], [f"[{comparisons[0]}]"]
@@ -580,14 +579,14 @@ class PolarsConverter(CodeConverter):
     filter_handler_class = PolarsFilterHandler
     sort_handler_class = PolarsSortHandler
 
-    def build_code(self) -> List[StrictStr]:
+    def build_code(self) -> list[StrictStr]:
         code = super().build_code()
         if self.params.code_syntax_name.code_syntax_name == "pandas":
             # Append .to_pandas() to the end of the method chain for Polars conversion
             code[-1] = code[-1] + ".to_pandas()"
         return code
 
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: list[str]) -> tuple[list[StrictStr], list[StrictStr]]:
         if len(comparisons) == 1:
             # If there's only one comparison, use it directly
             return [], [f".filter({comparisons[0]})"]

@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DefinitionTerminalEnvironment, findInterpreterDefinition, getTerminalMutation, InterpreterDefinition, resolveDefinitionEnv, TerminalEnvironmentCollection } from '../interpreterDefinition';
+import { DefinitionTerminalEnvironment, getTerminalMutation, InterpreterDefinition, resolveDefinitionEnv, TerminalEnvironmentCollection } from '../interpreterDefinition';
 
 suite('resolveDefinitionEnv', () => {
 	const definition: InterpreterDefinition = {
@@ -142,32 +142,24 @@ suite('getTerminalMutation', () => {
 	});
 });
 
-suite('findInterpreterDefinition', () => {
-	const definition: InterpreterDefinition = { language: 'r', path: '/opt/R/4.4.3/bin/R', label: 'XX' };
+// The supervisor looks up a variant's definition through the Positron API, so
+// that it applies the same rules as core when it registers the variant.
+suite('positron.runtime.findInterpreterDefinition', () => {
+	const interpretersConfig = () => vscode.workspace.getConfiguration('interpreters');
 
-	test('finds the entry by language, label, and path, ignoring malformed setting values', () => {
-		assert.deepStrictEqual([
-			findInterpreterDefinition([
-				null,
-				'r',
-				{ ...definition, language: 'python' },
-				{ ...definition, path: '/opt/R/4.4.4/bin/R' },
-				{ ...definition, env: ['R_LIBS_SITE=/bad'] },
-				{ ...definition, modules: 'R' },
-				{ ...definition, startupScript: 42 },
-				definition,
-			], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.4/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-			findInterpreterDefinition(definition, 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-			findInterpreterDefinition(undefined, 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-		], [definition, undefined, undefined, undefined]);
+	teardown(async () => {
+		await interpretersConfig().update('definitions', undefined, vscode.ConfigurationTarget.Global);
 	});
 
-	test('does not match a retargeted definition with the same label', () => {
-		assert.deepStrictEqual([
-			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.4/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.3/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
-		], [undefined, definition]);
+	test('finds the definition when the variant\'s path is written differently, and nothing once it is retargeted', async () => {
+		const definition = { language: 'r', path: '/opt/R/4.6.1//bin/R', label: 'XX', env: { R_LIBS_SITE: '/team' } };
+		await interpretersConfig().update('definitions', [definition], vscode.ConfigurationTarget.Global);
+		const found = positron.runtime.findInterpreterDefinition('r', 'XX', '/opt/R/4.6.1/bin/R');
+
+		await interpretersConfig().update('definitions', [{ ...definition, path: '/opt/R/4.4.3/bin/R' }], vscode.ConfigurationTarget.Global);
+		const retargeted = positron.runtime.findInterpreterDefinition('r', 'XX', '/opt/R/4.6.1/bin/R');
+
+		assert.deepStrictEqual([found, retargeted], [definition, undefined]);
 	});
 });
 

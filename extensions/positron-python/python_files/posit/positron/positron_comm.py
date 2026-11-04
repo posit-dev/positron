@@ -8,7 +8,7 @@ from __future__ import annotations
 import enum
 import logging
 import threading
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import comm
 
@@ -25,6 +25,8 @@ from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .utils import JsonData, JsonRecord
 
 logger = logging.getLogger(__name__)

@@ -40,6 +40,11 @@ const CONTRACT = 'export const HEADLESS_CONTRACT_VERSION = 1;\n';
 const FACTORY = `export function createHeadlessProviders() { return { configPath: 'assistant', dispose() {} }; }\n`;
 const GOOD_MODULE = `${CONTRACT}${FACTORY}`;
 
+/** The module folder as it is reported: through `URI.fsPath`, which lowercases a Windows drive letter. */
+function moduleFolder(root: string): string {
+	return join(URI.file(root).fsPath, 'dist', 'provider-module');
+}
+
 function fakeProviders(tag: string): HeadlessProviders {
 	return stubInterface<HeadlessProviders>({ configPath: tag, dispose: vi.fn() });
 }
@@ -146,7 +151,7 @@ describe('headless provider module', () => {
 				extensionsByProfile({ default: [extension(root, '1.2.0', true, 'Posit.Assistant')] }),
 				profiles('default'),
 			);
-			expect(result).toEqual({ folder: join(root, 'dist', 'provider-module'), version: '1.2.0' });
+			expect(result).toEqual({ folder: moduleFolder(root), version: '1.2.0' });
 		});
 
 		it('ignores other extensions', async () => {
@@ -174,7 +179,7 @@ describe('headless provider module', () => {
 				extensionsByProfile({ default: [extension(older, '1.9.0')], work: [extension(newer, '1.10.0')] }),
 				profiles('default', 'work'),
 			);
-			expect(result).toEqual({ folder: join(newer, 'dist', 'provider-module'), version: '1.10.0' });
+			expect(result).toEqual({ folder: moduleFolder(newer), version: '1.10.0' });
 		});
 
 		it('prefers an older valid copy over a newer invalid one', async () => {
@@ -184,7 +189,7 @@ describe('headless provider module', () => {
 				extensionsByProfile({ default: [extension(invalid, '2.0.0', false)], work: [extension(valid, '1.0.0')] }),
 				profiles('default', 'work'),
 			);
-			expect(result).toEqual({ folder: join(valid, 'dist', 'provider-module'), version: '1.0.0' });
+			expect(result).toEqual({ folder: moduleFolder(valid), version: '1.0.0' });
 		});
 
 		it('explains when only invalid copies are installed', async () => {
@@ -210,7 +215,7 @@ describe('headless provider module', () => {
 			);
 			expect({ tag: tagOf(providers), source, loads: loadCompiledIn.mock.calls.length }).toEqual({
 				tag: 'assistant',
-				source: { kind: 'assistant', folder: join(root, 'dist', 'provider-module') },
+				source: { kind: 'assistant', folder: moduleFolder(root) },
 				loads: 0,
 			});
 		});

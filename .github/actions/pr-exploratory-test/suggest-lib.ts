@@ -39,6 +39,9 @@ export function isAutoRunAuthor(login, list) {
 	return !!login && names.includes(String(login).toLowerCase());
 }
 
+/** The App that opens claude.yml's agent PRs. resolve's author_ok allows it too. */
+export const AGENT_BOT_LOGIN = 'positron-projects[bot]';
+
 /** Caps what the model reads; the rest of the diff is listed by name only. */
 export const DIFF_MAX = 40000;
 
@@ -76,9 +79,11 @@ export function findPriorUse(comments) {
 /**
  * Why this PR gets no suggestion, checked before any model call, or null.
  * `pr` is the REST pulls object and `action` the pull_request event's action
- * (empty on a dispatch).
+ * (empty on a dispatch). `authorListed`: the author is on the auto-run list.
  */
-export function skipReason({ pr, repo, action, authorIsMember, files, comments }) {
+export function skipReason({ pr, repo, action, authorIsMember, authorListed = false, files, comments }) {
+	// The agent bot is not a member, but its PRs are the auto-run's target.
+	const agentBot = authorListed && pr.user?.login === AGENT_BOT_LOGIN;
 	if (pr.state !== 'open') {
 		return `PR is ${pr.merged_at ? 'merged' : pr.state}`;
 	}
@@ -92,7 +97,7 @@ export function skipReason({ pr, repo, action, authorIsMember, files, comments }
 	if (/^release\//.test(pr.base?.ref ?? '')) {
 		return `targets ${pr.base.ref}`;
 	}
-	if (pr.user?.type === 'Bot' || /\[bot\]$/.test(pr.user?.login ?? '')) {
+	if (!agentBot && (pr.user?.type === 'Bot' || /\[bot\]$/.test(pr.user?.login ?? ''))) {
 		return `author ${pr.user?.login} is a bot`;
 	}
 	// Leaving draft with nobody requested is not the "ready" signal.
@@ -100,7 +105,7 @@ export function skipReason({ pr, repo, action, authorIsMember, files, comments }
 		return 'ready for review with no reviewer requested';
 	}
 	// /explore runs only for positron-dev members.
-	if (!authorIsMember) {
+	if (!authorIsMember && !agentBot) {
 		return `author ${pr.user?.login} is not an active positron-dev member`;
 	}
 	const prior = findPriorUse(comments);

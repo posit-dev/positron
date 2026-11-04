@@ -17,6 +17,7 @@ import { traceVerbose } from '../../logging';
 import { resolvePythonIndexUrl, UV_INDEX_ENV_VARS } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
+import { RequirementsChange, syncWorkspaceRequirements } from './requirementsSync';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { pypiPackageExists, searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
@@ -102,6 +103,11 @@ export class UvPackageManager implements IPackageManager {
                 // the target with the file; a conflict fails atomically.
                 const args = ['pip', 'install', ...packageSpecs, '-r', requirementsPath, '--python', this._pythonPath];
                 await this._executeUvInTerminal(args, token);
+                await this._syncRequirements(
+                    requirementsPath,
+                    { kind: 'install', packageNames: packages.map((pkg) => pkg.name) },
+                    token,
+                );
             } else {
                 // Re-resolve against the full installed set: name every installed
                 // package (bare) plus the new package(s) so an inconsistent install
@@ -140,6 +146,11 @@ export class UvPackageManager implements IPackageManager {
             // Environment workflow: uv pip uninstall --python <path> <packages>
             const args = ['pip', 'uninstall', '--python', this._pythonPath, ...packages];
             await this._executeUvInTerminal(args, token);
+
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath) {
+                await this._syncRequirements(requirementsPath, { kind: 'uninstall', packageNames: packages }, token);
+            }
         }
     }
 
@@ -263,6 +274,21 @@ export class UvPackageManager implements IPackageManager {
                     'Please install uv to use package management features: https://docs.astral.sh/uv/',
             );
         }
+    }
+
+    /**
+     * Keep the workspace `requirements.txt` in sync with an environment-workflow
+     * install or uninstall that just ran. The project workflow (`uv add`) keeps
+     * `pyproject.toml` in sync itself, and updates never touch the file.
+     */
+    private async _syncRequirements(
+        requirementsPath: string,
+        change: RequirementsChange,
+        token?: vscode.CancellationToken,
+    ): Promise<void> {
+        await syncWorkspaceRequirements(this._serviceContainer, requirementsPath, change, async () =>
+            (await this.getPackages(token)).map((pkg) => pkg.name),
+        );
     }
 
     /**

@@ -11,7 +11,7 @@ import logging
 import re
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Tuple, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import comm
 
@@ -91,7 +91,7 @@ class UnsupportedConnectionError(Exception):
     pass
 
 
-PathKey = Tuple[str, ...]
+PathKey = tuple[str, ...]
 
 
 class Connection:
@@ -1586,7 +1586,7 @@ class DatabricksConnection(Connection):
             rows = cursor.fetchall()
             description = cursor.description or []
         columns = [col[0] for col in description]
-        return [dict(zip(columns, row)) for row in rows]
+        return [dict(zip(columns, row, strict=False)) for row in rows]
 
     def _qualify(self, identifier: str) -> str:
         escaped = identifier.replace("`", "``")
@@ -1762,7 +1762,7 @@ class RedshiftConnection(Connection):
             rows = cursor.fetchall()
             description = cursor.description or []
             columns = [col[0] for col in description]
-            return [dict(zip(columns, row)) for row in rows]
+            return [dict(zip(columns, row, strict=False)) for row in rows]
         except Exception:
             # Rollback on error to avoid transaction issues
             # for subsequent queries
