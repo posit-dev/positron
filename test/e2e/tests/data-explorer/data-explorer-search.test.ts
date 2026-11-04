@@ -31,7 +31,7 @@ test.describe('Data Explorer - Search All Columns', {
 
 		// A text term matches any column, case-insensitively.
 		await dataExplorer.search.type('pine');
-		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows\s+\(50\.00%\s+of\s+4\s+total\)\s+3\s+columns\s+"pine"/);
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows\s+\(50\.00%\s+of\s+4\s+total\)\s+3\s+columns/);
 		await dataExplorer.search.expectMatchedCellsToBe(['Pinewood', 'apple pine']);
 
 		// A numeric term matches numbers at its precision.
@@ -45,8 +45,8 @@ test.describe('Data Explorer - Search All Columns', {
 		await dataExplorer.filters.add({ columnName: 'score', condition: 'is greater than', value: '3' });
 		await dataExplorer.expectStatusBarToHaveText(/Showing\s+1\s+rows/);
 
-		// Clearing from the status bar keeps the column filter.
-		await dataExplorer.search.clearFromStatusBar();
+		// Clearing the search keeps the column filter.
+		await dataExplorer.search.clear();
 		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows/);
 		await expect(dataExplorer.search.input).toHaveValue('');
 
@@ -67,7 +67,7 @@ test.describe('Data Explorer - Search All Columns', {
 		await dataExplorer.maximize(false);
 
 		await dataExplorer.search.type('pine');
-		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows\s+\(50\.00%\s+of\s+4\s+total\)\s+3\s+columns\s+"pine"/);
+		await dataExplorer.expectStatusBarToHaveText(/Showing\s+2\s+rows\s+\(50\.00%\s+of\s+4\s+total\)\s+3\s+columns/);
 		await dataExplorer.search.expectMatchedCellsToBe(['Pinewood', 'apple pine']);
 
 		await dataExplorer.search.type('3.1');

@@ -129,12 +129,6 @@ export class Search {
 		});
 	}
 
-	async clearFromStatusBar(): Promise<void> {
-		await test.step('Clear search from status bar', async () => {
-			await this.code.driver.currentPage.locator(STATUS_BAR).getByRole('button', { name: 'Clear search' }).click();
-		});
-	}
-
 	async expectMatchedCellsToBe(texts: string[]): Promise<void> {
 		await test.step(`Expect matched cells: ${texts}`, async () => {
 			await expect(this.matchedCells).toHaveText(texts);
