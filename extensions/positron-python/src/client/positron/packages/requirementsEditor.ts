@@ -8,14 +8,18 @@
  * `requirements.txt`, leaving every other line byte-for-byte intact. Every edit
  * is annotated so users can see what Positron changed: an added entry becomes
  * `name  # added by Positron`, and a removed entry is replaced by a
- * `# name removed by Positron` comment. Existing pins are never re-versioned.
+ * `# removed by Positron: <original line>` comment. Adding never changes an
+ * existing entry, and the removed comment keeps the original pin, markers,
+ * and inline comment so the user can restore them by hand.
  */
 
 import { extractRequirementName, normalizePackageName } from './requirementsFile';
 
 const ADDED_COMMENT = '# added by Positron';
 const ADDED_PATTERN = /\s#\s*added by Positron\s*$/;
-const REMOVED_PATTERN = /^#\s*(?<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s+removed by Positron\s*$/;
+const REMOVED_PREFIX = '# removed by Positron: ';
+const REMOVED_PATTERN = /^#\s*removed by Positron:\s*(?<spec>.*)$/;
+const HASH_OPTION_PATTERN = /(^|\s)--(hash|require-hashes)(=|\s|$)/;
 
 /** A named top-level requirement and the line span it occupies (0-based, inclusive). */
 interface RequirementEntry {
@@ -58,9 +62,10 @@ function parseRequirements(lines: string[]): RequirementEntry[] {
     return entries;
 }
 
-/** The normalized package name of a `# name removed by Positron` line, if it is one. */
+/** The normalized package name of a `# removed by Positron: ...` line, if it is one. */
 function removedPackageName(line: string): string | undefined {
-    const name = stripCr(line).trim().match(REMOVED_PATTERN)?.groups?.name;
+    const spec = stripCr(line).trim().match(REMOVED_PATTERN)?.groups?.spec;
+    const name = spec ? extractRequirementName(spec) : undefined;
     return name ? normalizePackageName(name) : undefined;
 }
 
@@ -70,9 +75,18 @@ function findEntries(lines: string[], name: string): RequirementEntry[] {
 }
 
 /**
+ * Whether `content` turns on pip's hash-checking mode, via a `--hash` or
+ * `--require-hashes` option outside a comment. In that mode every entry must
+ * be pinned with `==` and hashed, so a bare added name would break installs.
+ */
+export function usesHashes(content: string): boolean {
+    return content.split('\n').some((line) => HASH_OPTION_PATTERN.test(line.replace(/(^|\s)#.*$/, '')));
+}
+
+/**
  * Declare `name` as a bare requirement annotated `# added by Positron`. If a
- * `# name removed by Positron` line exists, it is replaced in place so an
- * uninstall/reinstall round trip doesn't leave a stale comment behind. Returns
+ * `# removed by Positron: ...` line exists for `name`, the new entry goes right
+ * after it, so the original line stays visible for the user to restore. Returns
  * `content` unchanged if `name` is already declared.
  */
 export function addRequirement(content: string, name: string): string {
@@ -86,7 +100,8 @@ export function addRequirement(content: string, name: string): string {
     const normalized = normalizePackageName(name);
     const removedLine = lines.findIndex((line) => removedPackageName(line) === normalized);
     if (removedLine !== -1) {
-        lines[removedLine] = lines[removedLine].endsWith('\r') ? `${added}\r` : added;
+        const cr = lines[removedLine].endsWith('\r') ? '\r' : '';
+        lines.splice(removedLine + 1, 0, `${added}${cr}`);
         return lines.join('\n');
     }
 
@@ -96,9 +111,10 @@ export function addRequirement(content: string, name: string): string {
 
 /**
  * Remove every entry declaring `name` (full span). The first removed entry is
- * replaced by a `# name removed by Positron` line, unless Positron added it in
- * the first place, in which case it is deleted outright. Returns `content`
- * unchanged if `name` is not declared.
+ * replaced by a `# removed by Positron: <first line>` comment, unless Positron
+ * added it in the first place, in which case it is deleted outright. Hash and
+ * continuation lines are dropped. Returns `content` unchanged if `name` is not
+ * declared.
  */
 export function removeRequirement(content: string, name: string): string {
     const lines = content.split('\n');
@@ -113,10 +129,11 @@ export function removeRequirement(content: string, name: string): string {
     let commented = false;
     for (const entry of entries) {
         output.push(...lines.slice(next, entry.startLine));
-        const addedByPositron =
-            entry.startLine === entry.endLine && ADDED_PATTERN.test(stripCr(lines[entry.startLine]));
+        const firstLine = stripCr(lines[entry.startLine]);
+        const addedByPositron = entry.startLine === entry.endLine && ADDED_PATTERN.test(firstLine);
         if (!addedByPositron && !commented) {
-            output.push(`# ${entry.name} removed by Positron${cr}`);
+            const spec = firstLine.trim().replace(/\s*\\$/, '');
+            output.push(`${REMOVED_PREFIX}${spec}${cr}`);
             commented = true;
         }
         next = entry.endLine + 1;

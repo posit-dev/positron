@@ -9,7 +9,6 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { IFileSystem } from '../../client/common/platform/types';
-import { IPersistentStateFactory } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import {
     promptToEnable,
@@ -24,7 +23,6 @@ const PENDING_PANDAS = () => [{ requirementsPath: REQUIREMENTS_PATH, change: INS
 suite('requirementsSync Tests', () => {
     let fileContent: string;
     let fileSystem: { readFile: sinon.SinonStub; writeFile: sinon.SinonStub };
-    let dismissed: boolean;
     let settingValues: { globalValue?: boolean; workspaceValue?: boolean; workspaceFolderValue?: boolean };
     let updateSetting: sinon.SinonStub;
     let configScope: vscode.Uri | undefined;
@@ -50,27 +48,14 @@ suite('requirementsSync Tests', () => {
             }),
         };
 
-        dismissed = false;
-        const persistentStateFactory = {
-            createWorkspacePersistentState: () => ({
-                get value() {
-                    return dismissed;
-                },
-                updateValue: (value: boolean) => {
-                    dismissed = value;
-                    return Promise.resolve();
-                },
-            }),
-        };
         serviceContainer = { get: sinon.stub() } as any;
-        (serviceContainer.get as sinon.SinonStub)
-            .withArgs(IFileSystem)
-            .returns(fileSystem)
-            .withArgs(IPersistentStateFactory)
-            .returns(persistentStateFactory);
+        (serviceContainer.get as sinon.SinonStub).withArgs(IFileSystem).returns(fileSystem);
 
         settingValues = {};
-        updateSetting = sinon.stub().resolves();
+        updateSetting = sinon.stub().callsFake((_key: string, value: boolean) => {
+            settingValues = { globalValue: value };
+            return Promise.resolve();
+        });
         originalGetConfiguration = vscode.workspace.getConfiguration;
         configScope = undefined;
         vscode.workspace.getConfiguration = (_section?: string, scope?: vscode.ConfigurationScope | null) => {
@@ -121,7 +106,30 @@ suite('requirementsSync Tests', () => {
                 installed('flask'),
             );
 
-            expect(fileContent).to.equal('flask==2.2.0\n# requests removed by Positron\n');
+            expect(fileContent).to.equal('flask==2.2.0\n# removed by Positron: requests==2.28.2\n');
+        });
+
+        test('warns instead of adding to a file that uses hashes', async () => {
+            fileContent = 'six==1.17.0 \\\n    --hash=sha256:aaa\n';
+            const original = fileContent;
+
+            await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('pandas'));
+
+            expect(fileContent).to.equal(original);
+            expect(showWarningMessage.firstCall.args[0]).to.contain('uses hashes');
+        });
+
+        test('still removes from a file that uses hashes', async () => {
+            fileContent = 'six==1.17.0 \\\n    --hash=sha256:aaa\n';
+
+            await syncWorkspaceRequirements(
+                serviceContainer,
+                REQUIREMENTS_PATH,
+                { kind: 'uninstall', packageNames: ['six'] },
+                installed(),
+            );
+
+            expect(fileContent).to.equal('# removed by Positron: six==1.17.0\n');
         });
 
         test('skips an install the kernel does not confirm (the command failed)', async () => {
@@ -273,16 +281,14 @@ suite('requirementsSync Tests', () => {
             answer('Enable');
             await new Promise((resolve) => setImmediate(resolve));
 
-            expect(fileContent).to.equal('flask==2.2.0\n# requests removed by Positron\nnumpy  # added by Positron\n');
+            expect(fileContent).to.equal(
+                'flask==2.2.0\n# removed by Positron: requests==2.28.2\nnumpy  # added by Positron\n',
+            );
         });
 
         test('applies a change directly when "Enable" is chosen while the kernel is queried', async () => {
             let answer: (choice: string | undefined) => void = () => undefined;
             showInformationMessage.returns(new Promise((resolve) => (answer = resolve)));
-            updateSetting.callsFake(() => {
-                settingValues = { globalValue: true };
-                return Promise.resolve();
-            });
 
             await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('pandas'));
             await syncWorkspaceRequirements(
@@ -300,7 +306,27 @@ suite('requirementsSync Tests', () => {
             expect(fileContent).to.equal('flask==2.2.0\npandas  # added by Positron\nnumpy  # added by Positron\n');
         });
 
-        test('respects "Not Now" chosen while the kernel is queried', async () => {
+        test('writes queued and new changes when the setting is turned on while the prompt shows', async () => {
+            let answer: (choice: string | undefined) => void = () => undefined;
+            showInformationMessage.returns(new Promise((resolve) => (answer = resolve)));
+
+            await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('pandas'));
+            settingValues = { globalValue: true };
+            await syncWorkspaceRequirements(
+                serviceContainer,
+                REQUIREMENTS_PATH,
+                { kind: 'install', packageNames: ['numpy'] },
+                installed('pandas', 'numpy'),
+            );
+            expect(fileContent).to.equal('flask==2.2.0\npandas  # added by Positron\nnumpy  # added by Positron\n');
+
+            // Dismissing the stale prompt afterward loses nothing.
+            answer("Don't Ask Again");
+            await new Promise((resolve) => setImmediate(resolve));
+            expect(fileContent).to.equal('flask==2.2.0\npandas  # added by Positron\nnumpy  # added by Positron\n');
+        });
+
+        test('respects "Don\'t Ask Again" chosen while the kernel is queried', async () => {
             let answer: (choice: string | undefined) => void = () => undefined;
             showInformationMessage.returns(new Promise((resolve) => (answer = resolve)));
 
@@ -310,7 +336,7 @@ suite('requirementsSync Tests', () => {
                 REQUIREMENTS_PATH,
                 { kind: 'install', packageNames: ['numpy'] },
                 async () => {
-                    answer('Not Now');
+                    answer("Don't Ask Again");
                     await new Promise((resolve) => setImmediate(resolve));
                     return ['pandas', 'numpy'];
                 },
@@ -331,16 +357,17 @@ suite('requirementsSync Tests', () => {
             expect(showInformationMessage.called).to.equal(false);
         });
 
-        test('does not prompt for an install the kernel does not confirm', async () => {
-            await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('flask'));
-
-            expect(showInformationMessage.called).to.equal(false);
-        });
-
-        test('does not prompt after "Not Now" in this workspace', async () => {
-            dismissed = true;
+        test('does not prompt for an install into a file that uses hashes', async () => {
+            fileContent = '--require-hashes\nsix==1.17.0\n';
 
             await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('pandas'));
+
+            expect(showInformationMessage.called).to.equal(false);
+            expect(showWarningMessage.called).to.equal(false);
+        });
+
+        test('does not prompt for an install the kernel does not confirm', async () => {
+            await syncWorkspaceRequirements(serviceContainer, REQUIREMENTS_PATH, INSTALL_PANDAS, installed('flask'));
 
             expect(showInformationMessage.called).to.equal(false);
         });
@@ -368,13 +395,13 @@ suite('requirementsSync Tests', () => {
             expect(fileContent).to.equal('flask==2.2.0\nnumpy\npandas  # added by Positron\n');
         });
 
-        test('"Not Now" remembers the choice and leaves the file alone', async () => {
-            showInformationMessage.resolves('Not Now');
+        test('"Don\'t Ask Again" turns the setting off for the user and leaves the file alone', async () => {
+            showInformationMessage.resolves("Don't Ask Again");
 
             await promptToEnable(serviceContainer, PENDING_PANDAS());
 
-            expect(dismissed).to.equal(true);
-            expect(updateSetting.called).to.equal(false);
+            expect(updateSetting.calledOnceWith('autoUpdateRequirements', false, vscode.ConfigurationTarget.Global)).to
+                .be.true;
             expect(fileSystem.writeFile.called).to.equal(false);
         });
 
@@ -405,7 +432,6 @@ suite('requirementsSync Tests', () => {
         test('closing the prompt changes nothing, so it asks again next time', async () => {
             await promptToEnable(serviceContainer, PENDING_PANDAS());
 
-            expect(dismissed).to.equal(false);
             expect(updateSetting.called).to.equal(false);
             expect(fileSystem.writeFile.called).to.equal(false);
         });

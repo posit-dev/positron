@@ -127,7 +127,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: false,
 			scope: ConfigurationScope.RESOURCE,
-			markdownDescription: nls.localize('positron.packages.python.autoUpdateRequirements', "When the workspace has a `requirements.txt` file, add packages installed from the Packages pane to it and remove packages uninstalled from it. Changed lines are marked with a `# added by Positron` or `# removed by Positron` comment. Only applies when `#python.packageManager.useRequirementsFile#` is enabled."),
+			markdownDescription: nls.localize('positron.packages.python.autoUpdateRequirements', "Add packages that Positron installs to the `requirements.txt` file at the root of the first workspace folder, and remove packages that Positron uninstalls. Positron changes only an existing file, and package updates do not change it. Changed lines are marked with a `# added by Positron` or `# removed by Positron` comment. A file that uses hashes is not added to. Only applies when `#python.packageManager.useRequirementsFile#` is enabled."),
 			tags: ['preview'],
 		},
 		[PACKAGES_VULNERABILITIES_ENABLED_SETTING]: {

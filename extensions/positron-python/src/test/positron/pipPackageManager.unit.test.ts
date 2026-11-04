@@ -344,7 +344,7 @@ suite('PipPackageManager update Tests', () => {
 
             await manager.uninstallPackages(['requests']);
 
-            expect(reqContent).to.equal('flask==2.2.0\n# requests removed by Positron\n');
+            expect(reqContent).to.equal('flask==2.2.0\n# removed by Positron: requests==2.28.2\n');
         });
 
         test('updatePackages leaves requirements.txt alone', async () => {
