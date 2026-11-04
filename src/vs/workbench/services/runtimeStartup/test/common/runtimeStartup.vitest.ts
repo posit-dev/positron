@@ -37,14 +37,14 @@ import {
 	RuntimeStartupPhase,
 	RuntimeState,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { createInterpreterVariant } from '../../../languageRuntime/common/interpreterDefinitions.js';
+import { createInterpreterVariant, IInterpreterDefinition } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { choosePreferredRuntime, firstInPickerOrder, IPreferredRuntimeSources, RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import { PreferredRuntimeReason, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
@@ -239,6 +239,32 @@ function metadata(overrides: {
 	};
 }
 
+/**
+ * A container with the services RuntimeStartupService needs, stubbed to do
+ * nothing. Chain `.stub()` to replace one: a later stub of the same service
+ * wins.
+ */
+function startupTestContainer() {
+	return createLightTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {});
+}
+
 function makeBucket(opts: {
 	extensionId: string;
 	languageId: string;
@@ -302,24 +328,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	let cache: ITestDiscoveryCache = undefined!;
 	let config: TestConfigurationService = undefined!;
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	beforeEach(() => {
@@ -1092,23 +1101,8 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Local sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createLightTestContainer()
-			.withRuntimeServices()
+		const ctx = startupTestContainer()
 			.stub(INotificationService, notificationService)
-			.stub(IEphemeralStateService, {
-				getItem: () => Promise.resolve(undefined),
-				setItem: () => Promise.resolve(),
-			})
-			.stub(ILifecycleService, {
-				onBeforeShutdown: Event.None,
-				onWillShutdown: Event.None,
-			})
-			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: Event.None,
-				startupPhase: NewFolderStartupPhase.Complete,
-			})
-			.stub(IProgressService, {})
-			.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
 			.build();
 
 		let runtimeStartupService: RuntimeStartupService;
@@ -1169,22 +1163,8 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 	describe('Remote SSH sessions', () => {
 		const notificationService = new MockNotificationService();
-		const ctx = createLightTestContainer()
-			.withRuntimeServices()
+		const ctx = startupTestContainer()
 			.stub(INotificationService, notificationService)
-			.stub(IEphemeralStateService, {
-				getItem: () => Promise.resolve(undefined),
-				setItem: () => Promise.resolve(),
-			})
-			.stub(ILifecycleService, {
-				onBeforeShutdown: Event.None,
-				onWillShutdown: Event.None,
-			})
-			.stub(IPositronNewFolderService, {
-				onDidChangeNewFolderStartupPhase: Event.None,
-				startupPhase: NewFolderStartupPhase.Complete,
-			})
-			.stub(IProgressService, {})
 			.stub(IWorkbenchEnvironmentService, { remoteAuthority: 'ssh-remote+myserver' })
 			.build();
 
@@ -1223,24 +1203,7 @@ describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
 
 describe('RuntimeStartupService - affiliation healing', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	it('heals a stale ~-prefixed runtimePath in stored affiliation when the runtime registers', async () => {
@@ -1350,24 +1313,7 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 describe('RuntimeStartupService - restored sessions', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	/** A session as persisted to workspace storage, optionally with an owner. */
@@ -1417,24 +1363,16 @@ describe('RuntimeStartupService - restored sessions', () => {
 describe('RuntimeStartupService - reconnect after a reload', () => {
 	const ephemeralState = new Map<string, unknown>();
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
+	const ctx = startupTestContainer()
 		.stub(IEphemeralStateService, {
 			getItem: async <T>(key: string) => ephemeralState.get(key) as T | undefined,
 			setItem: async (key: string, value: unknown) => { ephemeralState.set(key, value); },
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
 		})
 		.stub(IPositronNewFolderService, {
 			onDidChangeNewFolderStartupPhase: Event.None,
 			startupPhase: NewFolderStartupPhase.Complete,
 			initTasksComplete: stubInterface<Barrier>({ isOpen: () => true }),
 		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
 		.stub(IRuntimeDiscoveryCache, createTestCache())
 		.build();
 
@@ -1641,24 +1579,7 @@ describe('firstInPickerOrder', () => {
 
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	// The asks after discovery wait out a 500ms debounce; `vi.waitFor` advances fake time.
@@ -2208,24 +2129,7 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
-		.stub(IRuntimeDiscoveryCache, {})
+	const ctx = startupTestContainer()
 		.build();
 
 	it('counts a runtime registered without a `languageRuntimes` contribution', () => {
@@ -2246,29 +2150,13 @@ describe('RuntimeStartupService - discovery completion', () => {
 
 	const notificationService = new TestNotificationService();
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
-			onWillShutdown: new Emitter<WillShutdownEvent>().event,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+	const ctx = startupTestContainer()
 		.stub(INotificationService, notificationService)
 		.stub(IConfigurationService, new TestConfigurationService({
 			// Anything other than 'disabled' - a language the user has not opted
 			// out of is what made the old code treat an empty discovery as an error.
 			'interpreters.startupBehavior': LanguageStartupBehavior.Auto,
 		}))
-		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
 	it('stays quiet when discovery completes with no runtimes registered', () => {
@@ -2296,23 +2184,11 @@ describe('RuntimeStartupService - discovery completion', () => {
 describe('RuntimeStartupService - start reasons', () => {
 	const setItem = vi.fn<IEphemeralStateService['setItem']>(async () => { });
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
+	const ctx = startupTestContainer()
 		.stub(IEphemeralStateService, {
 			getItem: () => Promise.resolve(undefined),
 			setItem,
 		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
-		})
-		.stub(IPositronNewFolderService, {
-			onDidChangeNewFolderStartupPhase: Event.None,
-			startupPhase: NewFolderStartupPhase.Complete,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(IRuntimeDiscoveryCache, {})
 		.build();
 
 	/**
@@ -2432,6 +2308,99 @@ describe('RuntimeStartupService - start reasons', () => {
 		});
 	});
 
+	describe('after discovery, with no recommendation from an extension', () => {
+		const cpu: IInterpreterDefinition = { language: 'r', path: '/opt/R/4.4/bin/R', label: 'R CPU' };
+		const gpu: IInterpreterDefinition = { language: 'r', path: '/opt/R/4.5/bin/R', label: 'R GPU' };
+		// The Python entry shares a label with an R one, and the first R entry
+		// is invalid (an env value is not a string), so the first valid R
+		// definition is 'R CPU', not 'R GPU'.
+		const python: IInterpreterDefinition = { language: 'python', path: '/usr/bin/python3', label: 'R GPU' };
+		const invalidGpu = { ...gpu, env: { N: 1 } as unknown as Record<string, string> };
+		const definitions: IInterpreterDefinition[] = [python, invalidGpu, cpu, gpu];
+		// R registers the bases created from definitions to start only when picked.
+		const explicit = LanguageRuntimeStartupBehavior.Explicit;
+		const r45 = { ...metadata({ languageId: 'r', runtimeId: 'rt-45', runtimePath: '/opt/R/4.5/bin/R', extensionId: 'ms.r' }), startupBehavior: explicit };
+		const r44 = { ...metadata({ languageId: 'r', runtimeId: 'rt-44', runtimePath: '/opt/R/4.4/bin/R', extensionId: 'ms.r' }), startupBehavior: explicit };
+
+		/**
+		 * Sets the definitions, registers the Rs (4.5 first), and finishes
+		 * discovery with the given answer.
+		 *
+		 * Settles once core has handled its ask after discovery.
+		 */
+		async function discover(discovery: string, answer: ILanguageRuntimeMetadata[], defers = true, otherManager?: IRuntimeManager): Promise<void> {
+			const settings = { 'interpreters.definitions': definitions, 'interpreters.discovery': discovery };
+			for (const [key, value] of Object.entries(settings)) {
+				await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(key, value);
+			}
+			createService(LanguageStartupBehavior.Auto, { settings });
+			for (const base of [r45, r44]) {
+				ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(base));
+			}
+			const asked = new DeferredPromise<void>();
+			const manager = makeManager({ id: 1, owns: [] });
+			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
+				if (!afterDiscovery) {
+					return [];
+				}
+				asked.complete();
+				return answer.map(runtime => ({ metadata: runtime, isProjectDefault: false }));
+			};
+			manager.getLanguagesDeferringToFirstDefinition = async () => defers ? ['r'] : [];
+			ctx.disposables.add(svc.registerRuntimeManager(manager));
+			if (otherManager) {
+				ctx.disposables.add(svc.registerRuntimeManager(otherManager));
+			}
+			completeDiscovery();
+			await asked.p;
+			// Let core finish handling the answer.
+			await timeout(0);
+		}
+
+		const preferred = () => {
+			const result = svc.getPreferredRuntimeWithReason('r');
+			return { runtimeId: result?.runtime.runtimeId, reason: result?.reason };
+		};
+
+		it('recommends the variant of the first valid definition when discovery is limited to definitions, to start when a file opens', async () => {
+			await discover('definitionsOnly', []);
+			ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+
+			const cpuVariantId = createInterpreterVariant(r44, cpu).runtimeId;
+			expect({ preferred: preferred(), started: startedRuntimeIds() }).toEqual({
+				preferred: { runtimeId: cpuVariantId, reason: PreferredRuntimeReason.Recommended },
+				started: [cpuVariantId],
+			});
+		});
+
+		it('still recommends it when another extension host fails to answer', async () => {
+			const failing = makeManager({ id: 2, owns: [] });
+			failing.getLanguagesDeferringToFirstDefinition = async () => { throw new Error('extension host exited'); };
+			await discover('definitionsOnly', [], true, failing);
+
+			expect(preferred()).toEqual({ runtimeId: createInterpreterVariant(r44, cpu).runtimeId, reason: PreferredRuntimeReason.Recommended });
+		});
+
+		it('keeps the extension\'s own recommendation when it has one', async () => {
+			await discover('definitionsOnly', [r45]);
+
+			expect(preferred()).toEqual({ runtimeId: createInterpreterVariant(r45, gpu).runtimeId, reason: PreferredRuntimeReason.Recommended });
+		});
+
+		it('recommends nothing when the language\'s manager does not defer to the first definition', async () => {
+			// Python, for one, answers nothing on purpose when no definition passes its checks.
+			await discover('definitionsOnly', [], false);
+
+			expect(preferred().reason).toBe(PreferredRuntimeReason.Fallback);
+		});
+
+		it('recommends nothing when discovery is not limited to definitions', async () => {
+			await discover('auto', []);
+
+			expect(preferred().reason).toBe(PreferredRuntimeReason.Fallback);
+		});
+	});
+
 	it('starts the plain recommendation when a definition matches it but discovery is not limited to definitions', async () => {
 		const definition = { language: 'python', path: '/venv/bin/python', label: 'Python (GPU)' };
 		createService(LanguageStartupBehavior.Auto, { settings: await defineInterpreters(definition, false) });
@@ -2498,6 +2467,26 @@ describe('RuntimeStartupService - start reasons', () => {
 		completeDiscovery();
 
 		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual(['rt-rec']));
+	});
+
+	it('starts the used affiliation, not the recommendation, when set to always start', async () => {
+		createService(LanguageStartupBehavior.Always);
+		const startNewRuntimeSession = vi.spyOn(ctx.get(IRuntimeSessionService), 'startNewRuntimeSession').mockResolvedValue('');
+		const affiliated = metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' });
+		affiliate(affiliated);
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Discovering;
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(affiliated));
+
+		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect({
+			startedAtRegistration: startNewRuntimeSession.mock.calls.map(([runtimeId]) => runtimeId),
+			startedAfterDiscovery: startedRuntimeIds(),
+		}).toEqual({
+			startedAtRegistration: ['rt-aff'],
+			startedAfterDiscovery: [],
+		});
 	});
 
 	it('starts the recommendation for always at most once per window', async () => {
@@ -2715,6 +2704,18 @@ describe('RuntimeStartupService - start reasons', () => {
 
 			expect(startedRuntimeIds()).toEqual([]);
 		});
+
+		it('does not start while another language\'s console is starting or running', async () => {
+			createService(LanguageStartupBehavior.Auto);
+			// An R console started first, e.g. from R's own Immediate recommendation.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'hasStartingOrRunningConsole')
+				.mockImplementation(languageId => languageId !== 'python');
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual([]);
+		});
 	});
 
 	it('starts a runtime marked to start immediately when it registers after discovery', () => {
@@ -2816,19 +2817,7 @@ class StartupBehaviorConfigurationService extends TestConfigurationService {
  */
 describe('RuntimeStartupService - startup sequence', () => {
 
-	const ctx = createLightTestContainer()
-		.withRuntimeServices()
-		.stub(IEphemeralStateService, {
-			getItem: () => Promise.resolve(undefined),
-			setItem: () => Promise.resolve(),
-		})
-		.stub(ILifecycleService, {
-			onBeforeShutdown: Event.None,
-			onWillShutdown: Event.None,
-		})
-		.stub(IProgressService, {})
-		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
-		.stub(INotificationService, new TestNotificationService())
+	const ctx = startupTestContainer()
 		.build();
 
 	/** A language that an extension provides interpreters for. */

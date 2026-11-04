@@ -14,7 +14,7 @@ import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { DefaultInterpreter, getDefaultInterpreter, getInterpreterDefinitionLabels, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
+import { DefaultInterpreter, getDefaultInterpreter, interpreterDefinitionPathFor, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi, resolveModuleBinary } from './provider-module.js';
 import { packagerMetadataForPath } from './packager-detection.js';
 import { rVersionsMetadataForPath } from './provider-rversions.js';
@@ -107,6 +107,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * decided again in the open folder every time it opens.
 	 */
 	readonly recommendationIsProjectDefault = false;
+
+	/**
+	 * When discovery is limited to definitions and no defined R is pinned,
+	 * R recommends nothing and Positron picks the first defined R.
+	 */
+	readonly defersToFirstDefinition = true;
 
 	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
@@ -223,8 +229,9 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	async recommendedWorkspaceRuntime(afterDiscovery?: boolean): Promise<positron.LanguageRuntimeMetadata | undefined> {
 		// When discovery is limited to definitions, nothing outside them is
 		// recommended. A pin is only found when it is one of them. After
-		// discovery, without a defined pin, R answers with the first defined R.
-		// A pinned module is never replaced by another R.
+		// discovery, without a defined pin, R answers nothing and Positron
+		// picks the first defined R. Otherwise, a pinned module is never
+		// replaced by another R.
 
 		// Decide here, in the folder that's open now, whether R starts right
 		// away: Positron never caches the recommendation. The search's records
@@ -267,10 +274,10 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * does when R has no recommendation yet: either a console had already
 	 * started, so Positron didn't ask before discovery, or R recommended
 	 * nothing then. The answer is the pinned R, or else the R the search lists
-	 * first among the Rs Positron has registered. When discovery is limited
-	 * to definitions and no defined R is pinned, the answer is the first
-	 * defined R.
-	 * Either starts when R is needed. Doesn't search: discovery, or the
+	 * first among the Rs Positron has registered. Either starts when R is
+	 * needed. When discovery is limited to definitions and no defined R is
+	 * pinned, there is no answer: Positron picks the first defined R, with the
+	 * same rules it uses to register them (see `defersToFirstDefinition`). Doesn't search: discovery, or the
 	 * discovery cache, has registered every R by now.
 	 *
 	 * @param pinned The pinned R, if it can start here.
@@ -281,24 +288,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the pinned R ${pinned.version} at ${pinned.binpath} to start when R is needed`);
 			return makeMetadata(pinned, implicit);
 		}
-		if (await isModulePinned()) {
+		// Under definitionsOnly a pinned module is ignored, so this comes first.
+		if (isDefinitionsOnlyDiscovery() || await isModulePinned()) {
 			return undefined;
 		}
-		const registeredRs = (await positron.runtime.getRegisteredRuntimes())
-			.filter(runtime => runtime.languageId === 'r');
-		if (isDefinitionsOnlyDiscovery()) {
-			// Positron registers only the Rs created from definitions in this
-			// mode. Take the one the first definition created.
-			const defined = getInterpreterDefinitionLabels()
-				.map(label => registeredRs.find(runtime => runtime.interpreterDefinition === label))
-				.find(runtime => runtime !== undefined);
-			if (!defined) {
-				return undefined;
-			}
-			LOGGER.info(`[recommendedWorkspaceRuntime] Recommending the defined R '${defined.interpreterDefinition}' at ${defined.runtimePath} to start when R is needed`);
-			return { ...defined, startupBehavior: implicit };
-		}
-		const registered = registeredRs
+		const registered = (await positron.runtime.getRegisteredRuntimes())
+			.filter(runtime => runtime.languageId === 'r')
 			.filter(runtime => !runtime.interpreterDefinition)
 			.map(metadata => {
 				// Another extension can register an R runtime without R's extra data.
@@ -360,8 +355,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		return choosePinnedR<RInstallation, PackagerMetadata>({
 			definitionsOnly,
 			pinnedPath: pin?.path,
-			isDefined: binpath => {
-				const defined = getInterpreterDefinitionPaths().includes(binpath);
+			definedPath: binpath => {
+				const defined = interpreterDefinitionPathFor(binpath);
 				if (!defined) {
 					LOGGER.info(`[pinnedRInstallation] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' is not in interpreters.definitions, and discovery is limited to it: ${binpath}`);
 				}

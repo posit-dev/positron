@@ -9,6 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
@@ -129,6 +130,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronConnectionsService private readonly _connectionsService: IPositronConnectionsService,
 	) {
 		// Get the ext host proxy so adapters can call back for connect/getChildren/etc.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataConnections);
@@ -138,6 +140,11 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		const notify = () => this._proxy.$onDidChangeDataConnections();
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeInstances(notify));
 		this._disposableStore.add(this._dataConnectionsService.onDidChangeProfiles(notify));
+
+		// The service records these only while Data Connections is on, so there is nothing to
+		// gate here.
+		this._disposableStore.add(this._connectionsService.onDidChangeSessionConnectionCode(e =>
+			this._proxy.$onDidChangeSessionConnectionCode(e.sessionId, e.code)));
 	}
 
 	/**
@@ -202,6 +209,15 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			this._logService.trace(`[DataConnections] getSchema: profile ${profileId} was truncated by the caller's bounds.`);
 		}
 		return walk;
+	}
+
+	/**
+	 * The code behind the connection comm a runtime session opened most recently, as the
+	 * connections service recorded it on its way to closing the comm.
+	 */
+	async $getSessionConnectionCode(sessionId: string): Promise<string | undefined> {
+		this._throwIfDisabled();
+		return this._connectionsService.getSessionConnectionCode(sessionId);
 	}
 
 	/**

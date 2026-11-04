@@ -87,6 +87,8 @@ const includes = (what: unknown, needle: string) => flat(what).includes(needle) 
 /** The run's action log, where every action and reading leaves a line. */
 const logged = (needle: string) => { const f = join(root, 'actions.log'); return includes(existsSync(f) ? readFileSync(f, 'utf8').split('\n').slice(-20) : '', needle); };
 const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => !(j && k in j)); return miss.length ? `missing keys: ${miss.join(', ')}` : undefined; };
+/** Started a session of the interpreter that found.copied names. */
+const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
 
 const cases: Case[] = [
 	// ---- Palette, sessions, consoles
@@ -155,7 +157,9 @@ const cases: Case[] = [
 			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
 		},
 	},
-	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: o => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`) },
+	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: startedCopied },
+	// Now running, so its picker row reads "(... \u00B7 running)": the same --name still starts it.
+	{ name: 'start-session --name of a running interpreter starts another', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: startedCopied },
 
 	// ---- Editor and breakpoints
 	{ name: 'open-file analysis.R', quick: true, run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },

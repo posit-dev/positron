@@ -72,6 +72,7 @@ Positron has three test categories:
 | Service or class that needs DI services | Vitest | `src/vs/**` | **Builder** <br> `createTestContainer()` | `.vitest.ts` |
 | React component, props only | Vitest | `src/vs/**` | **RTL prop-driven** <br> `setupRTLRenderer()` | `.vitest.tsx` |
 | React component using services | Vitest | `src/vs/**` | **RTL service-context** <br> `withReactServices()` | `.vitest.tsx` |
+| Static HTML/CSS resource (webview template, theme-class selectors) | Vitest | `src/vs/**` | **Plain test** <br> read the file, check its markup or CSS rules | `.vitest.ts` |
 | Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Match existing** <br> `Mocha suite()/test()` | `.test.ts` / `.integrationTest.ts` |
 | Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **vscode API** <br> `import * as vscode` | `.test.ts` |
 | User-visible workflows across multiple systems | Playwright | `test/e2e/` | **Page Object Model** <br> `app.workbench.*` | `.test.ts` |

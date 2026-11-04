@@ -13,6 +13,7 @@ import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtil
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IPositronConnectionsService, ISessionConnectionCodeChangeEvent } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -58,6 +59,9 @@ describe('MainThreadDataConnections', () => {
 	// The ext host end of $validateParameters, so a test can see whether the round trip was made.
 	const $validateParameters = vi.fn(async () => ({ normalizedValues: { databasePath: '/ws/db.duckdb' } }));
 
+	// The ext host end of the session connection code notification.
+	const $onDidChangeSessionConnectionCode = vi.fn<(sessionId: string, code: string | undefined) => void>();
+
 	// The service's own connect, which openConnection goes through. A test sets what it does; by
 	// default it opens the profile it was asked for.
 	const connect = vi.fn<(profileId: string) => Promise<IDataConnectionInstance>>();
@@ -88,6 +92,8 @@ describe('MainThreadDataConnections', () => {
 	let instances: IDataConnectionInstance[];
 	let onDidChangeInstances: Emitter<IDataConnectionInstance[]>;
 	let onDidChangeProfiles: Emitter<IDataConnectionProfile[]>;
+	let onDidChangeSessionConnectionCode: Emitter<ISessionConnectionCodeChangeEvent>;
+	let sessionConnectionCode: Map<string, string>;
 
 	beforeEach(() => {
 		registeredDrivers = [];
@@ -95,8 +101,11 @@ describe('MainThreadDataConnections', () => {
 		instances = [];
 		onDidChangeInstances = disposables.add(new Emitter<IDataConnectionInstance[]>());
 		onDidChangeProfiles = disposables.add(new Emitter<IDataConnectionProfile[]>());
+		onDidChangeSessionConnectionCode = disposables.add(new Emitter<ISessionConnectionCodeChangeEvent>());
+		sessionConnectionCode = new Map();
 		configurationService = new TestConfigurationService({ dataConnections: { enabled: true } });
 		$onDidChangeDataConnections.mockClear();
+		$onDidChangeSessionConnectionCode.mockClear();
 		connect.mockReset();
 		connect.mockImplementation(async (profileId: string) => instance(profileId, {}));
 		const driverManager = stubInterface<IDataConnectionsDriverManager>({
@@ -120,11 +129,16 @@ describe('MainThreadDataConnections', () => {
 				$discoverConnections,
 				$onDidChangeDataConnections,
 				$validateParameters,
+				$onDidChangeSessionConnectionCode,
 			}) as T) as IExtHostContext['getProxy'],
+		});
+		const connectionsService = stubInterface<IPositronConnectionsService>({
+			getSessionConnectionCode: (sessionId: string) => sessionConnectionCode.get(sessionId),
+			onDidChangeSessionConnectionCode: onDidChangeSessionConnectionCode.event,
 		});
 		mainThread = disposables.add(
 			new MainThreadDataConnections(
-				extHostContext, dataConnectionsService, configurationService, new NullLogService(),
+				extHostContext, dataConnectionsService, configurationService, new NullLogService(), connectionsService,
 			),
 		);
 	});
@@ -518,6 +532,30 @@ describe('MainThreadDataConnections', () => {
 				connected: await mainThread.$connectionIsConnectedViaService(1),
 				disconnects: vi.mocked(handle.disconnect).mock.calls.length,
 			}).toEqual({ connected: true, disconnects: 0 });
+		});
+	});
+
+	describe('a session\'s connection code', () => {
+		const code = '-- @connect: duckdb:///data/shop.duckdb';
+
+		it('reports what the connections service recorded for the session', async () => {
+			sessionConnectionCode.set('s1', code);
+
+			expect(await mainThread.$getSessionConnectionCode('s1')).toBe(code);
+		});
+
+		it('rejects while Data Connections is off', async () => {
+			sessionConnectionCode.set('s1', code);
+			configurationService.setUserConfiguration('dataConnections', { enabled: false });
+
+			await expect(mainThread.$getSessionConnectionCode('s1')).rejects.toThrow();
+		});
+
+		it('passes changes on to the extension host', () => {
+			onDidChangeSessionConnectionCode.fire({ sessionId: 's1', code });
+			onDidChangeSessionConnectionCode.fire({ sessionId: 's1', code: undefined });
+
+			expect($onDidChangeSessionConnectionCode.mock.calls).toEqual([['s1', code], ['s1', undefined]]);
 		});
 	});
 });

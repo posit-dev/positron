@@ -217,11 +217,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1".
 		 * Words are matched in the row as shownAs writes it, so words copied from "shown" match.
+		 * Also matches without the picker's " \u00B7 reason" suffix, as a session's name reads.
 		 */
 		hasWords: (text: string) => {
 			const words = text.split(/\s+/).filter(Boolean)
 				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
-			return (r: { label: string; description: string }) => words.every(x => x.test(lib.shownAs(r)));
+			return (r: { label: string; description: string }) => [r.description, r.description.split(/ \xB7 /)[0]]
+				.some(description => words.every(x => x.test(lib.shownAs({ label: r.label, description }))));
 		},
 		/**
 		 * The one row matching exact (label, or "label (description)") or words; nth picks among several.
