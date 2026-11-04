@@ -17,6 +17,9 @@ import { MainThreadDataExplorer } from '../../../browser/positron/mainThreadData
 import { ExtHostDataExplorerShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IPositronDataImporterRegistry } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { BackendState, DataExplorerBackendRequest, SupportedFeatures, SupportStatus } from '../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { IDataExplorerRpcDto } from '../../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
@@ -121,7 +124,15 @@ describe('Data Explorer RPC transport routing', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => proxy as T) as IExtHostContext['getProxy'],
 		});
-		const mainThread = ctx.disposables.add(new MainThreadDataExplorer(extHostContext, service));
+		// Routing never touches importers, editors, or data connections; empty stubs throw if it does.
+		const mainThread = ctx.disposables.add(new MainThreadDataExplorer(
+			extHostContext,
+			service,
+			stubInterface<IPositronDataImporterRegistry>({}),
+			stubInterface<IEditorService>({}),
+			ctx.get(IRuntimeSessionService),
+			stubInterface<IPositronDataConnectionsService>({}),
+		));
 		for (const providerId of providers) {
 			hostsByProvider.set(providerId, { mainThread, deferRegistration, supportsRefresh });
 		}

@@ -232,5 +232,9 @@ jobs:
 
       - *install-node-deps
 
+      - name: 🔎 Type-check Vitest Files
+        run: npm run test:positron:check-ts
+
       - name: 🧪 Run Vitest Tests
+        if: ${{ !cancelled() }}
         run: npm run test:positron

@@ -19,18 +19,18 @@ import { OpenInDataExplorerAction, type IInlineDataExplorerActionContext } from 
 describe('OpenInDataExplorerAction', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 
-	let getInstance: ReturnType<typeof vi.fn>;
-	let getInstanceForVariablePath: ReturnType<typeof vi.fn>;
-	let getNotebookSessionForNotebookUri: ReturnType<typeof vi.fn>;
-	let warn: ReturnType<typeof vi.fn>;
-	let trace: ReturnType<typeof vi.fn>;
+	let getInstance: ReturnType<typeof vi.fn<IPositronDataExplorerService['getInstance']>>;
+	let getInstanceForVariablePath: ReturnType<typeof vi.fn<IPositronDataExplorerService['getInstanceForVariablePath']>>;
+	let getNotebookSessionForNotebookUri: ReturnType<typeof vi.fn<IRuntimeSessionService['getNotebookSessionForNotebookUri']>>;
+	let warn: ReturnType<typeof vi.fn<INotificationService['warn']>>;
+	let trace: ReturnType<typeof vi.fn<ILogService['trace']>>;
 
 	beforeEach(() => {
-		getInstance = vi.fn();
-		getInstanceForVariablePath = vi.fn();
-		getNotebookSessionForNotebookUri = vi.fn();
-		warn = vi.fn();
-		trace = vi.fn();
+		getInstance = vi.fn<IPositronDataExplorerService['getInstance']>();
+		getInstanceForVariablePath = vi.fn<IPositronDataExplorerService['getInstanceForVariablePath']>();
+		getNotebookSessionForNotebookUri = vi.fn<IRuntimeSessionService['getNotebookSessionForNotebookUri']>();
+		warn = vi.fn<INotificationService['warn']>();
+		trace = vi.fn<ILogService['trace']>();
 		ctx.instantiationService.stub(IPositronDataExplorerService, { getInstance, getInstanceForVariablePath });
 		ctx.instantiationService.stub(IRuntimeSessionService, { getNotebookSessionForNotebookUri });
 		ctx.instantiationService.stub(INotificationService, { warn });

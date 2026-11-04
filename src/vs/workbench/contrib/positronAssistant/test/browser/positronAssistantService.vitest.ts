@@ -101,7 +101,9 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify plot information is included
-		expect(context.plots, 'Plot information should be present').toBeDefined();
+		if (!context.plots) {
+			throw new Error('Plot information should be present');
+		}
 		expect(typeof context.plots.hasPlots, 'hasPlots should be a boolean').toBe('boolean');
 	});
 

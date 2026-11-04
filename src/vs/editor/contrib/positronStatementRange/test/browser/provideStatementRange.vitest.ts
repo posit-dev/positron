@@ -51,7 +51,10 @@ describe('provideStatementRange', () => {
 
 		expect(result).toBeDefined();
 		expect(result?.kind).toBe(StatementRangeKind.Success);
-		expect(result?.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
+		if (result?.kind !== StatementRangeKind.Success) {
+			throw new Error('expected a successful statement range');
+		}
+		expect(result.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
 	});
 
 	it('returns a successful result with `code`', async () => {
@@ -70,7 +73,10 @@ describe('provideStatementRange', () => {
 
 		expect(result).toBeDefined();
 		expect(result?.kind).toBe(StatementRangeKind.Success);
-		expect(result?.code).toBe('1 + 1');
+		if (result?.kind !== StatementRangeKind.Success) {
+			throw new Error('expected a successful statement range');
+		}
+		expect(result.code).toBe('1 + 1');
 	});
 
 	it('returns a syntax rejection from a provider', async () => {
@@ -89,8 +95,11 @@ describe('provideStatementRange', () => {
 
 		expect(result).toBeDefined();
 		expect(result?.kind).toBe(StatementRangeKind.Rejection);
-		expect(result?.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
-		expect(result?.line).toBe(0);
+		if (result?.kind !== StatementRangeKind.Rejection) {
+			throw new Error('expected a statement range rejection');
+		}
+		expect(result.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
+		expect(result.line).toBe(0);
 	});
 
 	it('swallows provider error and returns undefined', async () => {

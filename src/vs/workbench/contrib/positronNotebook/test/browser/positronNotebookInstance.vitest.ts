@@ -69,7 +69,9 @@ describe('PositronNotebookInstance', () => {
 			notebook.selectionStateMachine.selectCell(markdownCell, CellSelectionType.Add);
 
 			const state = notebook.selectionStateMachine.state.get();
-			expect(state.type).toBe(SelectionState.MultiSelection);
+			if (state.type !== SelectionState.MultiSelection) {
+				throw new Error(`Expected MultiSelection, got ${state.type}`);
+			}
 			expect(getSelectedCells(state)).toEqual([codeCell, markdownCell]);
 			expect(state.active).toBe(markdownCell);
 			expect(codeCell.selectionStatus.get()).not.toBe(CellSelectionStatus.Editing);

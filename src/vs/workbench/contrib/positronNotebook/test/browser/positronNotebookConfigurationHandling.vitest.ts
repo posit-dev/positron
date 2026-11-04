@@ -7,7 +7,6 @@
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
@@ -78,11 +77,8 @@ class MockPositronNotebookContribution extends DisposableStore {
 describe('Positron Notebook Configuration Handling', () => {
 
 	describe('usingPositronNotebooks', () => {
-		// These tests only need configurationService -- no EditorPart needed.
+		// These tests call usingPositronNotebooks directly; no container needed.
 		const configurationService = new TestConfigurationService();
-		const ctx = notebookTestBuilder()
-			.stub(IConfigurationService, configurationService)
-			.build();
 
 		// Reset the configuration before each test so they don't bleed into each other.
 		beforeEach(() => {
@@ -114,7 +110,7 @@ describe('Positron Notebook Configuration Handling', () => {
 		beforeEach(async () => {
 			({ editorResolverService } = await attachEditorPart(
 				ctx.instantiationService,
-				ctx.disposables,
+				ctx.disposables.add(new DisposableStore()),
 			));
 			notebookContribution = new MockPositronNotebookContribution(
 				editorResolverService,

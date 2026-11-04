@@ -277,6 +277,9 @@ describe('Positron - IPyWidgetsInstance constructor', () => {
 
 		// The message should be comm_open and contain the correct buffers.
 		expect(sentMessage.type, 'Expected message type to be comm_open').toBe('comm_open');
+		if (sentMessage.type !== 'comm_open') {
+			throw new Error('Expected message type to be comm_open');
+		}
 		expect(sentMessage.buffers, 'Expected buffers to be passed correctly in the comm_open message').toEqual(messageBuffers);
 	});
 

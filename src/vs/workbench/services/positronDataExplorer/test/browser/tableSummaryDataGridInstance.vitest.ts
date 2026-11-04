@@ -36,10 +36,10 @@ describe('TableSummaryDataGridInstance', () => {
 	let mockTableSummaryCache: TableSummaryCache;
 
 	// Pre-configured stubs for easier testing
-	let isColumnExpandedStub: ReturnType<typeof vi.fn>;
-	let getColumnSchemaStub: ReturnType<typeof vi.fn>;
-	let getColumnProfileStub: ReturnType<typeof vi.fn>;
-	let toggleExpandColumnStub: ReturnType<typeof vi.fn>;
+	let isColumnExpandedStub: ReturnType<typeof vi.fn<TableSummaryCache['isColumnExpanded']>>;
+	let getColumnSchemaStub: ReturnType<typeof vi.fn<TableSummaryCache['getColumnSchema']>>;
+	let getColumnProfileStub: ReturnType<typeof vi.fn<TableSummaryCache['getColumnProfile']>>;
+	let toggleExpandColumnStub: ReturnType<typeof vi.fn<TableSummaryCache['toggleExpandColumn']>>;
 
 	// Mock backend state
 	const mockBackendState: BackendState = {
@@ -94,10 +94,10 @@ describe('TableSummaryDataGridInstance', () => {
 		PositronReactServices.services = ctx.reactServices;
 
 		// Create pre-configured stubs
-		isColumnExpandedStub = vi.fn().mockReturnValue(false);
-		getColumnSchemaStub = vi.fn();
-		getColumnProfileStub = vi.fn();
-		toggleExpandColumnStub = vi.fn().mockResolvedValue(undefined);
+		isColumnExpandedStub = vi.fn<TableSummaryCache['isColumnExpanded']>().mockReturnValue(false);
+		getColumnSchemaStub = vi.fn<TableSummaryCache['getColumnSchema']>();
+		getColumnProfileStub = vi.fn<TableSummaryCache['getColumnProfile']>();
+		toggleExpandColumnStub = vi.fn<TableSummaryCache['toggleExpandColumn']>().mockResolvedValue(undefined);
 
 		// Create mock data explorer client
 		const mockDataExplorerClient: Partial<DataExplorerClientInstance> = {
