@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, interpreterDefinitionPathFor, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -368,14 +368,18 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 /**
  * Yields metadata for R binaries named in `interpreters.definitions` that
  * discovery did not find. Positron hides these and shows only the variants
- * created from the definitions. The binary path is used as given (not
- * resolved through symlinks) so it matches the definition's path exactly.
+ * created from the definitions. The binary path is not resolved through
+ * symlinks, so it still matches the definition's path.
  *
  * @param discoveredPaths Runtime paths already yielded by discovery.
  */
 export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	// Discovery lists paths normalized, and a definition may be written
+	// another way, so compare in the definitions' own spelling.
+	const discoveredDefinitions = new Set([...discoveredPaths]
+		.map(discovered => interpreterDefinitionPathFor(discovered)));
 	for (const binpath of getInterpreterDefinitionPaths()) {
-		if (discoveredPaths.has(binpath)) {
+		if (discoveredDefinitions.has(binpath)) {
 			continue;
 		}
 		if (!fs.existsSync(binpath)) {

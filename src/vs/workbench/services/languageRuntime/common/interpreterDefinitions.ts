@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { StringSHA1 } from '../../../../base/common/hash.js';
+import { posix, win32 } from '../../../../base/common/path.js';
 import { ILanguageRuntimeMetadata } from './languageRuntimeService.js';
 
 /** The setting that defines interpreter variants. */
@@ -58,11 +59,72 @@ function validDefinitions(definitions: readonly IInterpreterDefinition[] | undef
 	});
 }
 
+/** A path that starts with a drive letter or with two backslashes (UNC). */
+const WINDOWS_PATH = /^(?:[a-zA-Z]:[\\/]|\\\\)/;
+
 /**
- * Get the definitions that apply to a runtime (same language, exact same path).
+ * Whether two interpreter paths name the same file as written. The comparison
+ * is lexical, so it does not follow symlinks. Windows paths ignore case and
+ * the kind of separator. The path's shape picks the rule, not the local OS,
+ * because the interpreter can be on another host.
+ *
+ * Extensions use it through `getInterpreterDefinitionPaths()` and
+ * `findInterpreterDefinitionPath()` in the Positron API.
+ */
+export function isSameInterpreterPath(a: string, b: string): boolean {
+	if (WINDOWS_PATH.test(a) || WINDOWS_PATH.test(b)) {
+		return win32.normalize(a).toLowerCase() === win32.normalize(b).toLowerCase();
+	}
+	return posix.normalize(a) === posix.normalize(b);
+}
+
+/**
+ * Get the valid definitions for a language, in the order of the setting.
+ */
+export function getLanguageDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string): IInterpreterDefinition[] {
+	return validDefinitions(definitions).filter(d => d.language === languageId);
+}
+
+/**
+ * The paths of the valid definitions for a language, each interpreter once in
+ * its first spelling, in the order of the setting. Paths that are not absolute
+ * are left out, since they can never match a runtime.
+ */
+export function getInterpreterDefinitionPaths(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string): string[] {
+	const paths: string[] = [];
+	for (const { path } of getLanguageDefinitions(definitions, languageId)) {
+		if ((posix.isAbsolute(path) || win32.isAbsolute(path)) && !paths.some(p => isSameInterpreterPath(p, path))) {
+			paths.push(path);
+		}
+	}
+	return paths;
+}
+
+/**
+ * The definition path for a language that names the interpreter at `path`, in
+ * the definition's own spelling, or undefined. Runtime IDs depend on the path,
+ * so an extension uses this spelling to create the same runtime that the
+ * definition creates.
+ */
+export function findInterpreterDefinitionPath(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string, path: string): string | undefined {
+	return getInterpreterDefinitionPaths(definitions, languageId).find(p => isSameInterpreterPath(p, path));
+}
+
+/**
+ * The valid definition a runtime variant was created from: the entry for the
+ * language with this label, if its path names the interpreter at
+ * `runtimePath`. A variant carries its base's path, which can be spelled
+ * differently from the definition's.
+ */
+export function findInterpreterDefinition(definitions: readonly IInterpreterDefinition[] | undefined, languageId: string, label: string, runtimePath: string): IInterpreterDefinition | undefined {
+	return getLanguageDefinitions(definitions, languageId).find(d => d.label === label && isSameInterpreterPath(d.path, runtimePath));
+}
+
+/**
+ * Get the definitions that apply to a runtime (same language, same path).
  */
 export function getMatchingDefinitions(definitions: readonly IInterpreterDefinition[] | undefined, runtime: ILanguageRuntimeMetadata): IInterpreterDefinition[] {
-	return validDefinitions(definitions).filter(d => d.language === runtime.languageId && d.path === runtime.runtimePath);
+	return validDefinitions(definitions).filter(d => d.language === runtime.languageId && isSameInterpreterPath(d.path, runtime.runtimePath));
 }
 
 /**
