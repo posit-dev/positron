@@ -156,6 +156,8 @@ const cases: Case[] = [
 		},
 	},
 	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: o => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`) },
+	// That console is now active, so the picker's row for it adds "running" to its description: the name the session shows still starts it.
+	{ name: 'start-session --name of a running interpreter starts another', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: o => o.json!.started !== true && `not started: ${o.json!.error}` },
 
 	// ---- Editor and breakpoints
 	{ name: 'open-file analysis.R', quick: true, run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
