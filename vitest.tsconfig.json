@@ -1,7 +1,7 @@
 {
-	// Vitest-only TypeScript config for intellisense in .vitest.{ts,tsx} files.
-	// Extends the main src tsconfig but adds Vitest global types.
-	// Does NOT affect the main build -- only used by Vitest and IDE language services.
+	// Type-checks the src/ Vitest files (`npm run test:positron:check-ts`) and
+	// gives them intellisense. Extends the main src tsconfig but adds Vitest
+	// global types. Does NOT affect the main build.
 	//
 	// Vitest files under test/e2e and inside each extension are checked by
 	// their own tsconfig.vitest.json, so they use that project's compiler options.
@@ -30,10 +30,12 @@
 		"src/vs/**/*.vitest.ts",
 		"src/vs/**/*.vitest.tsx",
 		"src/*.vitest.ts",
+		"src/*.vitest.tsx",
 		"src/vs/test/vitest/**/*",
 		// Cross-extension guards at the top of extensions/ (e.g. checks that
 		// copied helpers stay identical). They belong to no single extension.
 		"extensions/*.vitest.ts",
+		"extensions/*.vitest.tsx",
 		// Add files from the base tsconfig that we need for Vitest tests
 		"src/typings",
 		"src/positron-dts/positron.d.ts",

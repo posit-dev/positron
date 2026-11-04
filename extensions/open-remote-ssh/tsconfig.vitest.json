@@ -9,7 +9,10 @@
 		]
 	},
 	"include": [
-		"src/**/*.vitest.ts",
+		"**/*.vitest.ts",
+		"**/*.vitest.tsx",
+		// Ambient declarations the build gets through its src/**/* include.
+		"src/**/*.d.ts",
 		"../../node_modules/vitest/globals.d.ts",
 		"*.d.ts",
 		"../../src/positron-dts/positron.d.ts",
@@ -17,6 +20,7 @@
 		"../../src/vscode-dts/vscode.proposed.resolvers.d.ts"
 	],
 	"exclude": [
-		"node_modules"
+		"node_modules",
+		"out"
 	]
 }

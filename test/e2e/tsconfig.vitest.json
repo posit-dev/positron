@@ -10,7 +10,8 @@
 		]
 	},
 	"include": [
-		"**/*.vitest.ts"
+		"**/*.vitest.ts",
+		"**/*.vitest.tsx"
 	],
 	"exclude": [
 		"node_modules"

@@ -14,10 +14,12 @@
 
 import { spawn } from 'child_process';
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const tsc = path.join(root, 'node_modules', '@typescript', 'native', 'bin', 'tsc');
+// Same lookup as build/lib/tsgo.ts.
+const tsc = path.join(path.dirname(createRequire(import.meta.url).resolve('@typescript/native/package.json')), 'bin', 'tsc');
 
 function glob(pattern: string): string[] {
 	return fs.globSync(pattern, { cwd: root, exclude: p => p.includes('node_modules') })
