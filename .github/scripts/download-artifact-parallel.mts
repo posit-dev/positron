@@ -25,8 +25,10 @@ import { open, type FileHandle } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const CHUNK_SIZE = 64 * 1024 * 1024;
-const CONNECTIONS = Number(process.env.DOWNLOAD_CONNECTIONS || 16);
+const CONNECTIONS = Math.max(1, Number(process.env.DOWNLOAD_CONNECTIONS) || 16);
 const STALL_MS = 30_000;
+// A 64 MB range that takes longer than this (under ~0.5 MB/s) is retried on a fresh connection.
+const RANGE_MAX_MS = 120_000;
 const MAX_ATTEMPTS = 6;
 // The signed blob URL the API redirects to expires after about a minute.
 const URL_MAX_AGE_MS = 45_000;
@@ -49,6 +51,7 @@ const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(0);
 
 function api(path: string, init: RequestInit = {}) {
 	return fetch(`${apiUrl}/repos/${repo}${path}`, {
+		signal: AbortSignal.timeout(STALL_MS),
 		...init,
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -82,8 +85,10 @@ let blobUrl: string | undefined;
 let blobUrlAt = 0;
 let blobUrlPending: Promise<string> | undefined;
 
-// Returns the signed blob URL, refreshing it when stale or when forced after a failure.
-// Concurrent callers share one refresh.
+/**
+ * Returns the signed blob URL, refreshing it when stale or when forced after a failure.
+ * Concurrent callers share one refresh.
+ */
 function getBlobUrl(artifactId: number, force: boolean): Promise<string> {
 	if (!force && blobUrl && Date.now() - blobUrlAt < URL_MAX_AGE_MS) {
 		return Promise.resolve(blobUrl);
@@ -105,15 +110,16 @@ function getBlobUrl(artifactId: number, force: boolean): Promise<string> {
 	return blobUrlPending;
 }
 
-// Reads the total size from the blob itself rather than trusting the API's size field.
+/** Reads the total size from the blob itself rather than trusting the API's size field. */
 async function getTotalSize(artifactId: number) {
-	const res = await fetch(await getBlobUrl(artifactId, false), { headers: { Range: 'bytes=0-0' } });
+	const url = await getBlobUrl(artifactId, false);
+	const res = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: AbortSignal.timeout(STALL_MS) });
 	await res.body?.cancel();
-	const match = /\/(\d+)$/.exec(res.headers.get('content-range') ?? '');
+	const match = /\/(?<total>\d+)$/.exec(res.headers.get('content-range') ?? '');
 	if (res.status !== 206 || !match) {
 		throw new Error(`Blob does not support range requests (HTTP ${res.status})`);
 	}
-	return Number(match[1]);
+	return Number(match.groups!.total);
 }
 
 let downloadedBytes = 0;
@@ -122,14 +128,17 @@ async function downloadRange(fh: FileHandle, artifactId: number, start: number, 
 	for (let attempt = 1; ; attempt++) {
 		const controller = new AbortController();
 		let timer: NodeJS.Timeout | undefined;
+		let rangeTimer: NodeJS.Timeout | undefined;
 		const resetStallTimer = () => {
 			clearTimeout(timer);
 			timer = setTimeout(() => controller.abort(new Error(`no data for ${STALL_MS / 1000}s`)), STALL_MS);
 		};
 		let position = start;
 		try {
-			resetStallTimer();
 			const url = await getBlobUrl(artifactId, attempt > 1);
+			// Start both timers only once the URL is in hand, so a slow refresh doesn't use up the window.
+			resetStallTimer();
+			rangeTimer = setTimeout(() => controller.abort(new Error(`range took over ${RANGE_MAX_MS / 1000}s`)), RANGE_MAX_MS);
 			const res = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, signal: controller.signal });
 			if (res.status !== 206) {
 				await res.body?.cancel();
@@ -159,6 +168,7 @@ async function downloadRange(fh: FileHandle, artifactId: number, start: number, 
 			await sleep(Math.min(1000 * 2 ** attempt, 15_000));
 		} finally {
 			clearTimeout(timer);
+			clearTimeout(rangeTimer);
 		}
 	}
 }
@@ -204,13 +214,13 @@ try {
 const seconds = (Date.now() - started) / 1000;
 console.log(`Downloaded ${mb(total)} MB in ${seconds.toFixed(0)}s (${mb(total / seconds)} MB/s)`);
 
-if (artifact.digest) {
-	const expected = artifact.digest.replace(/^sha256:/, '');
-	const actual = await sha256(outFile);
-	if (actual !== expected) {
-		throw new Error(`Digest mismatch: expected ${expected}, got ${actual}`);
-	}
-	console.log(`SHA256 digest verified: ${actual}`);
-} else {
-	console.log('Artifact has no digest; skipping verification');
+// Never continue unverified: the fallback step checks the digest itself.
+if (!artifact.digest) {
+	throw new Error('Artifact has no digest to verify against');
 }
+const expected = artifact.digest.replace(/^sha256:/, '');
+const actual = await sha256(outFile);
+if (actual !== expected) {
+	throw new Error(`Digest mismatch: expected ${expected}, got ${actual}`);
+}
+console.log(`SHA256 digest verified: ${actual}`);

@@ -98,8 +98,10 @@ jobs:
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
           mkdir -p /tmp/artifacts
-          DEBIAN_FRONTEND=noninteractive apt-get update -y || true
-          DEBIAN_FRONTEND=noninteractive apt-get install -y zstd || true
+          if ! command -v zstd >/dev/null; then
+            DEBIAN_FRONTEND=noninteractive apt-get update -y || true
+            DEBIAN_FRONTEND=noninteractive apt-get install -y zstd || true
+          fi
           command -v zstd >/dev/null || { echo "zstd is required to build the artifact"; exit 1; }
 
           # Every e2e shard downloads this archive, so size matters more than compression time.
@@ -107,12 +109,13 @@ jobs:
           # Window 2^27 is the default decoder limit, so `zstd -d` needs no extra flag.
           start=$(date +%s)
           # Place options (exclude) before the filenames so tar respects them.
+          # tar exit 1 means a file changed while being read (tolerated); 2+ is a real failure.
           tar -C /__w \
             --exclude='positron/.git' \
             --exclude='positron/.npm-cache' \
             --exclude='positron/.pip-cache' \
             --use-compress-program='zstd -T0 -3 --long=27' \
-            -cf /tmp/artifacts/positron-build.tar.zst positron || true
+            -cf /tmp/artifacts/positron-build.tar.zst positron || { rc=$?; [ "$rc" -eq 1 ] || exit "$rc"; }
           echo "Compressed in $(( $(date +%s) - start ))s to $(du -h /tmp/artifacts/positron-build.tar.zst | cut -f1)"
 
       - name: Upload Build Artifact
