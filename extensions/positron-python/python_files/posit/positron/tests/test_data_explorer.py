@@ -3917,6 +3917,7 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
         {
             "a": ["foo", "bar", "", "", "", None, "baz", ""],
             "b": [b"foo", b"bar", b"", b"", None, b"", b"baz", b""],
+            "c": pl.Series(["foo", "", None, "", "bar", "", "foo", None], dtype=pl.Categorical),
         }
     )
 
@@ -3941,6 +3942,16 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
         test_df,
         [_filter("not_empty", schema[1])],
         test_df.filter(test_df["b"].bin.encode("hex").str.len_chars() != 0),
+    )
+    dxf.check_filter_case(
+        test_df,
+        [_filter("is_empty", schema[2])],
+        test_df[[1, 3, 5]],
+    )
+    dxf.check_filter_case(
+        test_df,
+        [_filter("not_empty", schema[2])],
+        test_df[[0, 4, 6]],
     )
 
 
@@ -4358,6 +4369,27 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+@pytest.mark.parametrize(
+    ("values", "dtype", "ex_result"),
+    [
+        (["foo", "", None, "foo"], pl.String, {"num_empty": 1, "num_unique": 3}),
+        ([b"ab", b"", None, b"ab"], pl.Binary, {"num_empty": 1, "num_unique": 3}),
+        (["a", "b", "a"], pl.Categorical, {"num_empty": 0, "num_unique": 2}),
+        (["a", "", None, "a"], pl.Categorical, {"num_empty": 1, "num_unique": 3}),
+    ],
+)
+def test_polars_profile_summary_stats_string_like(
+    dxf: DataExplorerFixture, values, dtype, ex_result
+):
+    df = pl.DataFrame({"x": pl.Series(values, dtype=dtype)})
+    dxf.register_table("df", df)
+
+    results = dxf.get_column_profiles("df", [_get_summary_stats(0)])
+    stats = results[0]["summary_stats"]
+    assert stats["type_display"] == ColumnDisplayType.String
+    assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
 @pytest.mark.parametrize(
