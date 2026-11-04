@@ -137,9 +137,13 @@ async function downloadRange(fh: FileHandle, artifactId: number, start: number, 
 			}
 			for await (const buf of res.body!) {
 				resetStallTimer();
-				await fh.write(buf, 0, buf.length, position);
-				position += buf.length;
-				downloadedBytes += buf.length;
+				// write() can write fewer bytes than asked; finish the buffer before moving on.
+				for (let off = 0; off < buf.length;) {
+					const { bytesWritten } = await fh.write(buf, off, buf.length - off, position);
+					off += bytesWritten;
+					position += bytesWritten;
+					downloadedBytes += bytesWritten;
+				}
 			}
 			if (position !== end + 1) {
 				throw new Error(`short read: got ${position - start} of ${end - start + 1} bytes`);
