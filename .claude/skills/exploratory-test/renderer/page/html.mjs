@@ -706,15 +706,15 @@ function stepComparison(report, f, group, mainBuild, k) {
 	const prs = findingShots(f).map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k)
 		.sort((a, b) => Number(own.has(b.item.file)) - Number(own.has(a.item.file)));
 	const counted = f.main?.steps?.find(s => s.step === k);
-	const result = !counted ? ''
-		: counted.n > 0 ? (counted.same === false ? 'Fails differently' : 'Also fails')
-			: group === 'pr' ? 'Passes' : `Didn&rsquo;t fail in ${counted.m} ${counted.m === 1 ? 'try' : 'tries'}`;
 	const daily = mainBuild?.version ? `daily ${escapeHtml(mainBuild.version)}` : '';
+	// The pill (hover and viewer) carries pass or fail, so its note keeps only the build, and the tries when they decided nothing.
+	const tries = counted && counted.n === 0 && group !== 'pr' ? `${counted.m} ${counted.m === 1 ? 'try' : 'tries'}` : '';
 	return {
 		pairs: Array.from({ length: Math.max(prs.length, mains.length) }, (_, j) => ({ pr: prs[j] ?? null, main: mains[j] ?? null })),
 		prH: `This ${changeWord(report)}`,
-		prR: 'Fails',
-		mainR: [daily, result].filter(Boolean).join(' &middot; '),
+		prPill: f.steps[k - 1]?.result === 'pass' ? 'pass' : 'fail',
+		mainPill: !counted ? '' : counted.n > 0 ? 'fail' : 'pass',
+		mainNote: [daily, tries].filter(Boolean).join(' &middot; '),
 	};
 }
 
@@ -756,7 +756,7 @@ function renderShotLinks(f, comparisonOf = () => null) {
 		// One link per pair, the viewer showing both builds side by side; the
 		// arrows move through every compared step of the finding.
 		return cmp.pairs.map(({ pr, main }, j) => link(pr ? `shot-f${n}-${pr.i + 1}` : `shot-f${n}-m${k}-${j + 1}`, pr?.item ?? main, j, `f${n}-cmp`,
-			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prR}" data-main-r="${cmp.mainR}"`
+			` data-pr="${escapeHtml(pr?.item.src ?? '')}" data-main="${escapeHtml(main?.src ?? '')}" data-pr-h="${cmp.prH}" data-pr-r="${cmp.prPill}" data-main-r="${cmp.mainPill}" data-main-bd="${cmp.mainNote}"`
 			+ ` data-pair="${j + 1}" data-pairs="${cmp.pairs.length}"`)).join('');
 	}).join('');
 	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
@@ -788,16 +788,33 @@ function shotPreview(src, readFile) {
  * it is fixed to the window so a wide one is never cut off. Lazy, so it loads
  * only once it shows; sized, so it keeps its space while it does.
  */
-function evPop(src, readFile, count = 1, compareAs = '') {
-	const p = shotPreview(src, readFile);
-	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
-	const img = `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`;
-	// A comparison names the build it shows, and what a click does, above the image.
-	if (compareAs) {
-		return `<span class="ev-pop" aria-hidden="true"><span class="ev-hd"><b>${compareAs}</b><span>Click to compare with latest build</span></span>${img}</span>`;
-	}
-	return `<span class="ev-pop" aria-hidden="true">${img}`
+function evPop(src, readFile, count = 1) {
+	return `<span class="ev-pop" aria-hidden="true">${previewImg(shotPreview(src, readFile))}`
 		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click for full window` : 'Click for full window'}</span></span>`;
+}
+
+/** A preview's image, sized so it keeps its space while it loads. */
+function previewImg(p) {
+	const size = p.width ? ` width="${p.width}" height="${p.height}"` : '';
+	return `<img class="${p.cls}" src="${escapeHtml(p.src)}" alt=""${size} loading="lazy">`;
+}
+
+/**
+ * A compared step's preview: both builds side by side, each headed by its
+ * name and result. A side with no screenshot keeps its column, with a
+ * placeholder the other image's shape.
+ */
+function cmpPop(cmp, readFile) {
+	const { pr, main } = cmp.pairs[0];
+	const prP = pr && shotPreview(pr.item.src, readFile);
+	const mainP = main && shotPreview(main.src, readFile);
+	const pill = r => (r ? `<span class="st-rs st-${r}">${r.toUpperCase()}</span>` : '');
+	const col = (name, p, head, other, none) => `<span class="ev-col"><span class="ev-h"><b>${name}</b>${p ? head : '<span class="ev-bd">no screenshot</span>'}</span>`
+		+ (p ? previewImg(p) : `<span class="ev-none"${other?.width ? ` style="aspect-ratio:${other.width} / ${other.height}"` : ''}>${none}</span>`) + '</span>';
+	return '<span class="ev-pop ev-cmp" aria-hidden="true"><span class="ev-cols">'
+		+ col(cmp.prH, prP, pill(cmp.prPill), mainP, `${cmp.prH}&rsquo;s run didn&rsquo;t capture this view.`)
+		+ col('Latest build', mainP, pill(cmp.mainPill) + (cmp.mainNote ? `<span class="ev-bd">${cmp.mainNote}</span>` : ''), prP, 'The latest build&rsquo;s replay didn&rsquo;t capture this view.')
+		+ '</span><span class="ev-ft">Click to open both full size</span></span>';
 }
 
 /**
@@ -808,9 +825,8 @@ function stepShotIcon(f, k, readFile, cmp = null) {
 	if (cmp) {
 		const first = cmp.pairs[0];
 		const id = first.pr ? `shot-f${f.n}-${first.pr.i + 1}` : `shot-f${f.n}-m${k}-1`;
-		const preview = first.pr ? evPop(first.pr.item.src, readFile, 1, cmp.prH) : evPop(first.main.src, readFile, 1, 'Latest build');
 		return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#${id}" data-open="${id}"`
-			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${preview}${ICON.compare}</a>`;
+			+ ` aria-label="Compare screenshots from this ${cmp.prH.replace(/^This /, '')} and the latest build">${cmpPop(cmp, readFile)}${ICON.compare}</a>`;
 	}
 	const shots = findingShots(f);
 	const mine = shots.map((item, i) => ({ item, i })).filter(({ item }) => item.step?.order === k);
@@ -1548,7 +1564,7 @@ ${renderSignature(options.startedAt, options.skillVersion)}
 <button type="button" class="lb-backdrop" tabindex="-1" aria-label="Close"></button>
 <div class="lb-panel">
 <div class="lb-img"><img alt="">
-<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b></b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div><div><div class="lb-cmp-h"><b>Latest build</b><span></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div></div>
+<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b></b><span class="st-rs" hidden></span><span class="lb-bd"></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div><div><div class="lb-cmp-h"><b>Latest build</b><span class="st-rs" hidden></span><span class="lb-bd"></span></div><img class="shot-full" alt=""><p class="lb-none" hidden></p></div></div>
 <button type="button" class="lb-nav lb-prev" hidden>${ICON.prev}</button>
 <button type="button" class="lb-nav lb-next" hidden>${ICON.next}</button>
 </div>
