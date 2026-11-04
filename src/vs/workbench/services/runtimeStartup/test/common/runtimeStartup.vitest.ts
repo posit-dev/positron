@@ -2253,17 +2253,30 @@ describe('RuntimeStartupService - console in front', () => {
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
 	});
 
-	it('forgets a console shut down after an extension host restart replaced it', () => {
+	it('does not save a manually started console restarted in front', () => {
 		const { svc, createConsole, bringToFront } = createService();
-		bringToFront(createConsole(uv, 'session-uv'));
+		const manual = { ...metadata({ runtimeId: 'python-manual' }), startupBehavior: LanguageRuntimeStartupBehavior.Manual };
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+		const manualConsole = createConsole(manual, 'session-manual');
 
-		// The restart reconnects the console as a new session object with the same ID.
-		const reconnected = createConsole(uv, 'session-uv');
-		reconnected.setState(RuntimeState.Ready);
-		bringToFront(reconnected);
-		reconnected.setState(RuntimeState.Exiting);
+		bringToFront(pyenvConsole);
+		bringToFront(manualConsole);
+		manualConsole.setState(RuntimeState.Starting);
+		manualConsole.setState(RuntimeState.Ready);
 
-		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('keeps the newer console saved when an older one is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		uvConsole.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
 	});
 
 	it('does not save a console restarted behind the one in front', () => {
