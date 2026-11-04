@@ -28,6 +28,7 @@ export let dirs = [
 	'extensions/open-remote-ssh',
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
+	'extensions/positron-copilot-completions',
 	'extensions/positron-dev-containers',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',

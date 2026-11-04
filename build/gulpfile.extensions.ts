@@ -71,6 +71,7 @@ const compilations = [
 	'extensions/positron-claude-code/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
+	'extensions/positron-copilot-completions/tsconfig.json',
 	'extensions/positron-dev-containers/tsconfig.json',
 	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-environment/tsconfig.json',

@@ -1,0 +1,85 @@
+{
+	"name": "positron-copilot-completions",
+	"displayName": "GitHub Copilot Completions",
+	"description": "Inline completions and next edit suggestions from the GitHub Copilot Language Server",
+	"publisher": "positron",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"extensionKind": [
+		"workspace"
+	],
+	"activationEvents": [
+		"onAiEnabled",
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"enabledApiProposals": [
+		"inlineCompletionsAdditions"
+	],
+	"contributes": {
+		"configuration": {
+			"title": "%configuration.title%",
+			"properties": {
+				"copilotCompletions.signInMethod": {
+					"type": "string",
+					"enum": [
+						"accounts",
+						"languageServer"
+					],
+					"enumDescriptions": [
+						"%configuration.signInMethod.accounts%",
+						"%configuration.signInMethod.languageServer%"
+					],
+					"default": "accounts",
+					"description": "%configuration.signInMethod.description%",
+					"order": 1
+				},
+				"copilotCompletions.configDirectory": {
+					"type": "string",
+					"default": "",
+					"scope": "machine",
+					"markdownDescription": "%configuration.configDirectory.description%",
+					"order": 2
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "copilotCompletions.signIn",
+				"title": "%command.signIn.title%"
+			},
+			{
+				"command": "copilotCompletions.signOut",
+				"title": "%command.signOut.title%"
+			},
+			{
+				"command": "copilotCompletions.restart",
+				"title": "%command.restart.title%"
+			},
+			{
+				"command": "copilotCompletions.showLog",
+				"title": "%command.showLog.title%"
+			}
+		]
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:positron-copilot-completions",
+		"watch": "gulp watch-extension:positron-copilot-completions"
+	},
+	"dependencies": {
+		"@github/copilot-language-server": "1.565.3",
+		"minimatch": "^3.1.5",
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^20.19.24",
+		"@types/vscode": "^1.108.0"
+	}
+}

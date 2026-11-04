@@ -1,0 +1,11 @@
+{
+	"command.signIn.title": "GitHub Copilot Completions: Sign In",
+	"command.restart.title": "GitHub Copilot Completions: Restart Language Server",
+	"command.showLog.title": "GitHub Copilot Completions: Show Log",
+	"command.signOut.title": "GitHub Copilot Completions: Sign Out",
+	"configuration.title": "GitHub Copilot Completions",
+	"configuration.signInMethod.description": "How the GitHub Copilot language server signs in to GitHub.",
+	"configuration.signInMethod.accounts": "Use the GitHub account from the Accounts menu. The token is passed to the language server in memory.",
+	"configuration.signInMethod.languageServer": "Sign in with the language server's own GitHub device flow. The language server stores the token in plaintext in its configuration directory, shared with other editors' Copilot plugins.",
+	"configuration.configDirectory.description": "Absolute path to use in place of `$XDG_CONFIG_HOME` (default `~/.config`) for the language server's `github-copilot` folder, which holds its stored GitHub token. Only used when `#copilotCompletions.signInMethod#` is `languageServer`. Leave empty for the default."
+}

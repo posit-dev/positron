@@ -713,7 +713,8 @@
 	],
 	"trustedExtensionAuthAccess": {
 		"github": [
-			"posit.assistant"
+			"posit.assistant",
+			"positron.positron-copilot-completions"
 		],
 		"github-enterprise": [
 			"GitHub.copilot-chat",
