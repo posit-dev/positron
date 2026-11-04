@@ -190,9 +190,9 @@ export class TableDataCache extends Disposable {
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * Gets the row label cache.
+	 * Gets the row label cache, holding each label and whether it matched the active global search.
 	 */
-	private readonly _rowLabelCache = new Map<number, string>();
+	private readonly _rowLabelCache = new Map<number, { label: string; searchMatch?: boolean }>();
 
 	/**
 	 * Gets the data column cache.
@@ -694,7 +694,10 @@ export class TableDataCache extends Disposable {
 						}
 
 						// Cache the row label.
-						this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
+						this._rowLabelCache.set(rowIndex, {
+							label: tableRowLabels.row_labels[0][row],
+							searchMatch: tableRowLabels.search_matches?.[0]?.[row]
+						});
 					}
 				} catch (error) {
 					// Log and continue; the cell data above is already loaded. The headers stop
@@ -775,12 +778,21 @@ export class TableDataCache extends Disposable {
 
 		// A labeled table's labels are fetched separately, so this one may not have arrived yet.
 		if (this._hasRowLabels) {
-			return this._rowLabelCache.get(rowIndex);
+			return this._rowLabelCache.get(rowIndex)?.label;
 		}
 
 		// An unlabeled table's rows are identified by their number, which is known for every row
 		// as soon as the shape is.
 		return `${rowIndex}`;
+	}
+
+	/**
+	 * Gets whether the row label for the specified row index matched the active global search.
+	 * @param rowIndex The row index.
+	 * @returns false for an unlabeled table, or undefined if the backend did not say.
+	 */
+	getRowLabelSearchMatch(rowIndex: number): boolean | undefined {
+		return this._hasRowLabels ? this._rowLabelCache.get(rowIndex)?.searchMatch : false;
 	}
 
 	/**

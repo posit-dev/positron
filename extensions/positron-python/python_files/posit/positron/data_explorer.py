@@ -235,12 +235,10 @@ class DataExplorerTableView:
         # LRU cache here or something if it helps performance.
         self._search_schema_last_result: tuple[list[ColumnFilter], list[int]] | None = None
 
-        # Active global_search term, the number of candidate rows it
-        # scanned when limited by max_cells, and lowercased display
-        # strings of searched columns by column index (None for row labels)
+        # Active global_search term and the number of candidate rows it
+        # scanned when limited by max_cells
         self._search_term: SearchTerm | None = None
         self._global_search_rows_scanned: int | None = None
-        self._search_strings: dict = {}
 
         self._update_schema_cache()
 
@@ -422,20 +420,29 @@ class DataExplorerTableView:
         return result
 
     def _selection_search_matches(self, selection: ColumnSelection, num_values: int) -> list:
+        display_type = self._get_single_column_schema(selection.column_index).type_display
+        if display_type not in SEARCHABLE_TYPES:
+            return [False] * num_values
+        return self._spec_search_matches(
+            selection.column_index, display_type, selection.spec, num_values
+        )
+
+    def _spec_search_matches(
+        self, key, display_type: ColumnDisplayType, spec, num_values: int
+    ) -> list:
         import numpy as np
 
-        display_type = self._get_single_column_schema(selection.column_index).type_display
-        mask = None
-        if display_type in SEARCHABLE_TYPES:
-            spec = selection.spec
-            if isinstance(spec, DataSelectionRange):
-                rows = slice(spec.first_index, spec.last_index + 1)
-            else:
-                rows = np.asarray(spec.indices)
-            if self.row_view_indices is not None:
-                rows = np.asarray(self.row_view_indices[rows])
-            mask = self._search_mask(selection.column_index, display_type, rows)
+        if isinstance(spec, DataSelectionRange):
+            rows = slice(spec.first_index, spec.last_index + 1)
+        else:
+            rows = np.asarray(spec.indices)
+        if self.row_view_indices is not None:
+            rows = np.asarray(self.row_view_indices[rows])
+        mask = self._search_mask(key, display_type, rows)
         return [False] * num_values if mask is None else mask.tolist()
+
+    def _searches_row_labels(self) -> bool:
+        return False
 
     def _search_keys(self) -> list:
         # (column index, display type) of every searched column
@@ -480,10 +487,20 @@ class DataExplorerTableView:
 
     def get_row_labels(self, params: GetRowLabelsParams):
         self._recompute_if_needed()
-        return self._get_row_labels(
+        result = self._get_row_labels(
             params.selection,
             params.format_options,
         )
+        if self._search_term is not None and result["row_labels"]:
+            num_labels = len(result["row_labels"][0])
+            result["search_matches"] = [
+                self._spec_search_matches(
+                    None, ColumnDisplayType.Object, params.selection, num_labels
+                )
+                if self._searches_row_labels()
+                else [False] * num_labels
+            ]
+        return result
 
     def _get_row_labels(self, _selection: ArraySelection, _format_options: FormatOptions):
         # By default, the table has no row labels, so this will only
@@ -1821,22 +1838,34 @@ class PandasView(DataExplorerTableView):
             return mask.nonzero()[0]
         return None
 
-    def _search_keys(self) -> list:
+    def _searches_row_labels(self) -> bool:
         import pandas as pd
 
+        # Row labels are searched by their displayed text, except default numbering
+        return not isinstance(self.table.index, pd.RangeIndex)
+
+    def _search_keys(self) -> list:
         keys = super()._search_keys()
-        if not isinstance(self.table.index, pd.RangeIndex):
-            # Row labels are searched by their displayed text
+        if self._searches_row_labels():
             keys.append((None, ColumnDisplayType.Object))
         return keys
 
     def _search_values(self, key, display_type: ColumnDisplayType, term: SearchTerm, rows):
         import numpy as np
+        import pandas as pd
 
-        values = None if key is None else self.table.iloc[rows, key]
+        if key is None:
+            index = self.table.index[rows]
+            if isinstance(index, pd.MultiIndex):
+                index = index.to_flat_index()
+            values = pd.Series([str(x) for x in index])
+        else:
+            values = self.table.iloc[rows, key]
         strings = None
-        if values is None or display_type in DISPLAY_STRING_TYPES or values.dtype.kind == "c":
-            values = strings = self._search_display_strings(key).iloc[rows]
+        if key is None or display_type in DISPLAY_STRING_TYPES or values.dtype.kind == "c":
+            strings = (
+                values.astype(object).map(str, na_action="ignore").astype("string").str.lower()
+            )
         elif display_type == ColumnDisplayType.String:
             strings = values.astype("string").str.lower()
 
@@ -1851,20 +1880,6 @@ class PandasView(DataExplorerTableView):
         if term.matches_null:
             mask = mask | values.isna().to_numpy()
         return mask
-
-    def _search_display_strings(self, key):
-        import pandas as pd
-
-        if key not in self._search_strings:
-            if key is None:
-                index = self.table.index
-                if isinstance(index, pd.MultiIndex):
-                    index = index.to_flat_index()
-                strings = pd.Series([str(x) for x in index])
-            else:
-                strings = self.table.iloc[:, key].astype(object).map(str, na_action="ignore")
-            self._search_strings[key] = strings.astype("string").str.lower()
-        return self._search_strings[key]
 
     def _eval_filter(self, filt: RowFilter):
         import pandas as pd
@@ -2700,7 +2715,9 @@ class PolarsView(DataExplorerTableView):
         values = self.table[:, key][rows]
         strings = None
         if display_type in DISPLAY_STRING_TYPES:
-            values = strings = self._search_display_strings(key)[rows]
+            strings = pl.Series(
+                [None if x is None else str(x) for x in values], dtype=pl.String
+            ).str.to_lowercase()
         elif display_type == ColumnDisplayType.String:
             strings = values.cast(pl.String).str.to_lowercase()
 
@@ -2717,15 +2734,6 @@ class PolarsView(DataExplorerTableView):
                 nulls |= values.is_nan().fill_null(value=False)
             mask = mask | nulls.to_numpy()
         return mask
-
-    def _search_display_strings(self, key):
-        import polars as pl
-
-        if key not in self._search_strings:
-            column = self.table[:, key]
-            strings = pl.Series([None if x is None else str(x) for x in column], dtype=pl.String)
-            self._search_strings[key] = strings.str.to_lowercase()
-        return self._search_strings[key]
 
     def _eval_filter(self, filt: RowFilter):
         import polars as pl

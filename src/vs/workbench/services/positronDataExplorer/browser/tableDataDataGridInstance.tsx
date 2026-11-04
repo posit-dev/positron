@@ -152,7 +152,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private _initialLoadFailed = false;
 
 	/**
-	 * The most recently requested global search filter, or undefined when there is no search.
+	 * The global search filter: the one being applied while a search is in flight, otherwise the
+	 * backend's. Undefined when there is no search.
 	 */
 	private _searchFilter?: RowFilter;
 
@@ -254,6 +255,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			this.syncSearchFilter();
+
 			// If not visible, skip layout and sort key updates. Backend-
 			// initiated events will also fire onDidSchemaUpdate or
 			// onDidDataUpdate, which set the pending flags and will
@@ -444,7 +447,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override rowHeader(rowIndex: number) {
 		return (
 			<TableDataRowHeader
-				search={this.appliedSearch}
+				search={this._tableDataCache.getRowLabelSearchMatch(rowIndex) !== false ? this.appliedSearch : undefined}
 				unavailable={this._tableDataCache.rowLabelsLoadFailed}
 				value={this._tableDataCache.getRowLabel(rowIndex)}
 			/>
@@ -848,7 +851,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onDidSetRowFilters = this._onDidSetRowFilters.event;
 
 	/**
-	 * The onDidChangeSearchTerm event. Fired with the term when a search is requested.
+	 * The onDidChangeSearchTerm event. Fired with the term when a search is requested or the
+	 * backend's search differs from it.
 	 */
 	readonly onDidChangeSearchTerm = this._onDidChangeSearchTerm.event;
 
@@ -858,7 +862,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onDidRequestSearchFocus = this._onDidRequestSearchFocus.event;
 
 	/**
-	 * Gets the most recently requested search term.
+	 * Gets the search term being applied, or the backend's when no search is in flight.
 	 */
 	get searchTerm(): string {
 		return getGlobalSearchTerm(this._searchFilter);
@@ -921,6 +925,24 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			} while (this._searchPending);
 		} finally {
 			this._searchInFlight = false;
+			this.syncSearchFilter();
+		}
+	}
+
+	/**
+	 * Takes the search filter from the backend state unless a search is in flight, since the
+	 * backend can drop the search (e.g. on reset) or fail to apply it.
+	 */
+	private syncSearchFilter() {
+		if (this._searchInFlight) {
+			return;
+		}
+		const { globalSearch } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
+		const term = getGlobalSearchTerm(globalSearch);
+		const changed = term !== this.searchTerm;
+		this._searchFilter = globalSearch;
+		if (changed) {
+			this._onDidChangeSearchTerm.fire(term);
 		}
 	}
 
@@ -948,10 +970,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// If a visible row label or cell matches, leave the scroll position alone.
-		const hasRowLabels = this._dataExplorerClientInstance.cachedBackendState?.has_row_labels;
 		for (const rowIndex of rowIndexes) {
 			const rowLabel = this._tableDataCache.getRowLabel(rowIndex);
-			if (hasRowLabels && rowLabel !== undefined && findMatchSpan(rowLabel, search)) {
+			const rowLabelMatch = this._tableDataCache.getRowLabelSearchMatch(rowIndex);
+			if (rowLabelMatch ?? (rowLabel !== undefined && findMatchSpan(rowLabel, search))) {
 				return;
 			}
 			for (const columnIndex of columnIndexes) {

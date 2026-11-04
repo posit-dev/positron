@@ -678,6 +678,17 @@
 								"type": "string"
 							}
 						}
+					},
+					"search_matches": {
+						"type": "array",
+						"description": "For each row label, whether it matched the active global_search filter. Parallel to row_labels. Omitted when no global search is active or the backend does not compute per-label matches.",
+						"items": {
+							"type": "array",
+							"description": "Per-label match flags for one array of row labels",
+							"items": {
+								"type": "boolean"
+							}
+						}
 					}
 				}
 			},

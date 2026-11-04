@@ -316,6 +316,13 @@ export interface TableRowLabels {
 	 */
 	row_labels: Array<Array<string>>;
 
+	/**
+	 * For each row label, whether it matched the active global_search
+	 * filter. Parallel to row_labels. Omitted when no global search is
+	 * active or the backend does not compute per-label matches.
+	 */
+	search_matches?: Array<Array<boolean>>;
+
 }
 
 /**

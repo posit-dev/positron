@@ -2125,6 +2125,21 @@ def test_pandas_global_search_row_labels(dxf: DataExplorerFixture):
     dxf.check_filter_case(unlabeled, [_global_search_filter("1")], unlabeled.iloc[[]])
 
 
+def test_pandas_global_search_row_label_matches(dxf: DataExplorerFixture):
+    labels = {"first_index": 0, "last_index": 2}
+    labeled = pd.DataFrame({"x": ["a", "beta", "c"]}, index=pd.Index(["alpha", "beta", "c"]))
+    dxf.register_table("labeled", labeled)
+    assert "search_matches" not in dxf.get_row_labels("labeled", labels)
+    dxf.set_row_filters("labeled", [_global_search_filter("a")])
+    assert dxf.get_row_labels("labeled", labels)["search_matches"] == [[True, True]]
+
+    # Default numbering is not searched
+    unlabeled = pd.DataFrame({"x": ["a", "b1", "c1"]})
+    dxf.register_table("unlabeled", unlabeled)
+    dxf.set_row_filters("unlabeled", [_global_search_filter("1")])
+    assert dxf.get_row_labels("unlabeled", labels)["search_matches"] == [[False, False]]
+
+
 @pytest.mark.parametrize("backend", ["pandas", "polars"])
 def test_global_search_live_update(dxf: DataExplorerFixture, backend):
     data = {"a": [1, 2, 3], "c": ["x3", "y", "z"]}

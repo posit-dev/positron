@@ -12,8 +12,17 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { safeIntl } from '../../../../../../base/common/date.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { StatusBarActivityIndicator } from './statusBarActivityIndicator.js';
+import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { BackendState, FilterGlobalSearch } from '../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { getGlobalSearchTerm, splitRowFilters } from '../../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
+
+/**
+ * Formats cell counts compactly, e.g. 10M.
+ */
+const compactNumberFormat = safeIntl.NumberFormat(undefined, { notation: 'compact' });
 
 /**
  * Renders a localized message whose {0}-style placeholders are numbers, styling the numbers as
@@ -30,6 +39,46 @@ const renderCountedMessage = (message: string, counts: string[]) =>
 			// Non-breaking spaces, because the status bar's flex layout drops a span's edge spaces.
 			<span key={i} className='label'>{part.replace(/ /g, '\u00a0')}</span>;
 	});
+
+/**
+ * SearchLimit component. Shown when the search across all columns scanned only the leading rows,
+ * with a button that searches every row.
+ * @param props The backend state.
+ * @returns The rendered component, or nothing when the search scanned every row.
+ */
+const SearchLimit = ({ backendState }: { backendState: BackendState }) => {
+	const context = usePositronDataExplorerContext();
+	const globalSearch = splitRowFilters(backendState.row_filters).globalSearch;
+	const maxCells = (globalSearch?.params as FilterGlobalSearch | undefined)?.max_cells;
+	const rowsScanned = backendState.global_search_rows_scanned;
+	if (!globalSearch || !maxCells || typeof rowsScanned !== 'number') {
+		return null;
+	}
+	const gridInstance = context.instance.tableDataDataGridInstance;
+	const tooltip = localize(
+		'positron.dataExplorer.statusBar.searchLimitTooltip',
+		"Only the first {0} rows were searched. Search all rows to find every match.",
+		rowsScanned.toLocaleString()
+	);
+
+	return (
+		<div className='search-limit' title={tooltip}>
+			<span className='label'>
+				{localize(
+					'positron.dataExplorer.statusBar.searchLimit',
+					"Showing matches from {0} cells",
+					compactNumberFormat.value.format(maxCells)
+				)}
+			</span>
+			<Button
+				className='search-all-button'
+				onPressed={() => gridInstance.setSearchTerm(getGlobalSearchTerm(globalSearch), 0)}
+			>
+				{localize('positron.dataExplorer.statusBar.searchAll', "Search All")}
+			</Button>
+		</div>
+	);
+};
 
 /**
  * StatusBar component.
@@ -103,6 +152,7 @@ export const StatusBar = () => {
 					'positron.dataExplorer.statusBar.columns',
 					"{0} columns"
 				), [numColumns.toLocaleString()])}
+				<SearchLimit backendState={backendState} />
 			</div>
 		);
 	}
@@ -124,6 +174,7 @@ export const StatusBar = () => {
 					'positron.dataExplorer.statusBar.columns',
 					"{0} columns"
 				), [numColumns.toLocaleString()])}
+				<SearchLimit backendState={backendState} />
 			</div>
 		);
 	} else {

@@ -356,6 +356,15 @@ describe('TableDataDataGridInstance', () => {
 		};
 		const appliedFilters = () => setRowFilters.mock.calls.map(([filters]) => filters);
 
+		beforeEach(() => {
+			// Echo the applied filters in the backend state, as a backend does.
+			setRowFilters.mockImplementation(async (row_filters: RowFilter[]) => {
+				client.cachedBackendState = { ...client.cachedBackendState!, row_filters };
+				return { selected_num_rows: 100 };
+			});
+			updateBackendState.mockImplementation(async () => client.cachedBackendState);
+		});
+
 		it('applies the search after the column filters and keeps each when the other changes', async () => {
 			await instance.setSearchTerm('abc', 5);
 			await instance.setRowFilters([columnFilter]);
@@ -364,7 +373,7 @@ describe('TableDataDataGridInstance', () => {
 			expect(appliedFilters()).toEqual([
 				[makeGlobalSearchFilter('abc', 5)],
 				[columnFilter, makeGlobalSearchFilter('abc', 5)],
-				[],
+				[columnFilter],
 			]);
 			expect(instance.searchTerm).toBe('');
 		});
@@ -414,6 +423,18 @@ describe('TableDataDataGridInstance', () => {
 			await searchWithMatchIn(1);
 
 			expect(instance.horizontalScrollOffset).toBe(0);
+		});
+
+		it('takes the search term from the backend when the backend drops the search', async () => {
+			await instance.setSearchTerm('abc', 0);
+			const terms: string[] = [];
+			const listener = instance.onDidChangeSearchTerm(term => terms.push(term));
+			client.cachedBackendState = backendState();
+			backendStateEmitter.fire(client.cachedBackendState);
+			await instance.setRowFilters([columnFilter]);
+			listener.dispose();
+
+			expect({ terms, searchTerm: instance.searchTerm, applied: appliedFilters().at(-1) }).toEqual({ terms: [''], searchTerm: '', applied: [columnFilter] });
 		});
 
 		it('reports the search term change and requests for focus', async () => {

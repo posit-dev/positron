@@ -461,6 +461,11 @@ class TableRowLabels(BaseModel):
         description="Zero or more arrays of row labels",
     )
 
+    search_matches: Optional[List[List[StrictBool]]] = Field(
+        default=None,
+        description="For each row label, whether it matched the active global_search filter. Parallel to row_labels. Omitted when no global search is active or the backend does not compute per-label matches.",
+    )
+
 
 class FormatOptions(BaseModel):
     """
