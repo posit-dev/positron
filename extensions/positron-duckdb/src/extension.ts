@@ -438,6 +438,7 @@ function parseNumericTerm(term: string): { text: string; value: number; decimals
 	if (!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)) {
 		return undefined;
 	}
+	text = text.replace(/\.$/, '');
 	const dot = text.indexOf('.');
 	return { text, value: Number(text), decimals: dot < 0 ? 0 : text.length - dot - 1 };
 }

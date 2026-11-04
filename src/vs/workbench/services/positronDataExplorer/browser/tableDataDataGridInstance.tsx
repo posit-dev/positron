@@ -174,6 +174,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private _appliedSearch: SearchTerm = parseSearchTerm('');
 
 	/**
+	 * The search term in the backend state when the search filter was last synchronized.
+	 */
+	private _backendSearchTerm = '';
+
+	/**
 	 * The onDidChangeSearchTerm event emitter.
 	 */
 	private readonly _onDidChangeSearchTerm = this._register(new Emitter<string>());
@@ -862,7 +867,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onDidRequestSearchFocus = this._onDidRequestSearchFocus.event;
 
 	/**
-	 * Gets the search term being applied, or the backend's when no search is in flight.
+	 * Gets the requested search term, or the backend's when it changed its search.
 	 */
 	get searchTerm(): string {
 		return getGlobalSearchTerm(this._searchFilter);
@@ -932,8 +937,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Takes the search filter from the backend state unless a search is in flight, since the
-	 * backend can drop the search (e.g. on reset) or fail to apply it.
+	 * Takes the search filter from the backend state when the backend changes its search (e.g. on
+	 * reset) and no search is in flight. A search the backend failed to apply leaves its search
+	 * unchanged, so the requested term is kept for the user to correct.
 	 */
 	private syncSearchFilter() {
 		if (this._searchInFlight) {
@@ -941,6 +947,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 		const { globalSearch } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
 		const term = getGlobalSearchTerm(globalSearch);
+		if (term === this._backendSearchTerm) {
+			return;
+		}
+		this._backendSearchTerm = term;
 		const changed = term !== this.searchTerm;
 		// Rebuild the filter rather than keeping the backend's, whose validity it would send back.
 		this._searchFilter = globalSearch && makeGlobalSearchFilter(term, (globalSearch.params as FilterGlobalSearch).max_cells ?? 0, this._dataExplorerClientInstance.dataFormatOptions);

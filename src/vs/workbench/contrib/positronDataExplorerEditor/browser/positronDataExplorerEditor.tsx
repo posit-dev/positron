@@ -24,9 +24,9 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
-import { RowFilter, SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
-import { splitRowFilters } from '../../../services/positronDataExplorer/common/dataExplorerSearch.js';
+import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { BackendState, SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { isGlobalSearchSupported, splitRowFilters } from '../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
 /**
@@ -129,6 +129,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is searching context key.
 	 */
 	private readonly _isSearchingContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the supports search context key.
+	 */
+	private readonly _supportsSearchContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the file has header row context key.
@@ -302,6 +307,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isSearchingContextKey = POSITRON_DATA_EXPLORER_IS_SEARCHING.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._supportsSearchContextKey = POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH.bindTo(
+			this._group.scopedContextKeyService
+		);
 		this._fileHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW.bindTo(
 			this._group.scopedContextKeyService
 		);
@@ -416,7 +424,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
 				);
 				this.setRowFilterContextKeys(
-					positronDataExplorerInstance.dataExplorerClientInstance?.cachedBackendState?.row_filters ?? []
+					positronDataExplorerInstance.dataExplorerClientInstance?.cachedBackendState
 				);
 
 				const uri = PositronDataExplorerUri.backingUri(input.resource);
@@ -464,7 +472,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				// Add the onDidUpdateBackendState event handler to track row filters.
 				this._positronReactRenderer.register(
 					positronDataExplorerInstance.dataExplorerClientInstance.onDidUpdateBackendState(state =>
-						this.setRowFilterContextKeys(state.row_filters)
+						this.setRowFilterContextKeys(state)
 					)
 				);
 
@@ -601,12 +609,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	/**
 	 * Sets the context keys that describe the row filters. Convert to Code applies only to column
 	 * filters, so the global search is tracked separately.
-	 * @param rowFilters The row filters.
+	 * @param state The backend state.
 	 */
-	private setRowFilterContextKeys(rowFilters: RowFilter[]) {
-		const { columnFilters, globalSearch } = splitRowFilters(rowFilters);
+	private setRowFilterContextKeys(state: BackendState | undefined) {
+		const { columnFilters, globalSearch } = splitRowFilters(state?.row_filters ?? []);
 		this._isRowFilteringContextKey.set(columnFilters.length > 0);
 		this._isSearchingContextKey.set(globalSearch !== undefined);
+		this._supportsSearchContextKey.set(isGlobalSearchSupported(state?.supported_features.set_row_filters));
 	}
 
 	/**

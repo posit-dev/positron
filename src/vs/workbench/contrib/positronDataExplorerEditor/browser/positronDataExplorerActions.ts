@@ -29,7 +29,7 @@ import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -1206,11 +1206,11 @@ class PositronDataExplorerFocusSearchAction extends Action2 {
 			title: localize2('positron.dataExplorer.focusSearch', "Search All Columns"),
 			category,
 			f1: true,
-			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			precondition: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH),
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib + 1,
 				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
-				when: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_FOCUSED)
+				when: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH)
 			}
 		});
 	}

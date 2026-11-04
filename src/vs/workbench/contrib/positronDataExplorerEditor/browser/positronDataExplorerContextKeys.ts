@@ -67,6 +67,14 @@ export const POSITRON_DATA_EXPLORER_IS_SEARCHING = new RawContextKey<boolean>(
 );
 
 /**
+ * Context key for whether the backend supports searching across all columns.
+ */
+export const POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH = new RawContextKey<boolean>(
+	'positronDataExplorerSupportsSearch',
+	false
+);
+
+/**
  * Context key for whether has header row option is enabled (default true).
  * Only meaningful for delimited text files (CSV/TSV) opened with DuckDB backend.
  */
