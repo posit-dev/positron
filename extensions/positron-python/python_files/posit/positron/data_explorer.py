@@ -2152,19 +2152,21 @@ def _polars_summarize_integer(col: pl.Series, options: FormatOptions):
     return _polars_summarize_number(col, options, display_type=ColumnDisplayType.Integer)
 
 
-def _polars_summarize_string(col: pl.Series, _):
+def _polars_is_empty(col: pl.Series) -> pl.Series:
     import polars as pl
 
     # Binary and Categorical also use the string display type, but the
     # .str namespace only accepts String
     if col.dtype.is_(pl.Binary):
         # col == b"" segfaults in polars
-        str_col = col.bin.encode("hex")
-    elif not col.dtype.is_(pl.String):
-        str_col = col.cast(pl.String)
-    else:
-        str_col = col
-    num_empty = (str_col.str.len_chars() == 0).sum()
+        return col.bin.size() == 0
+    if not col.dtype.is_(pl.String):
+        col = col.cast(pl.String)
+    return col.str.len_chars() == 0
+
+
+def _polars_summarize_string(col: pl.Series, _):
+    num_empty = _polars_is_empty(col).sum()
     num_unique = col.n_unique()
     return _box_string_stats(num_empty, num_unique)
 
@@ -2575,21 +2577,9 @@ class PolarsView(DataExplorerTableView):
             # pandas comparison filters return False for null values
             mask = op(col, self._coerce_value(params.value, dtype, display_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
-            if col.dtype.is_(pl.String):
-                mask = col.str.len_chars() == 0
-            elif col.dtype.is_(pl.Binary):
-                # col == b"" segfaults in polars
-                mask = col.bin.encode("hex").str.len_chars() == 0
-            else:
-                raise TypeError(col.dtype)
+            mask = _polars_is_empty(col)
         elif filt.filter_type == RowFilterType.NotEmpty:
-            if col.dtype.is_(pl.String):
-                mask = col.str.len_chars() != 0
-            elif col.dtype.is_(pl.Binary):
-                # col == b"" segfaults in polars
-                mask = col.bin.encode("hex").str.len_chars() != 0
-            else:
-                raise TypeError(col.dtype)
+            mask = ~_polars_is_empty(col)
         elif filt.filter_type == RowFilterType.IsNull:
             mask = col.is_null()
         elif filt.filter_type == RowFilterType.NotNull:

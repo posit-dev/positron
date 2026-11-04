@@ -3917,6 +3917,7 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
         {
             "a": ["foo", "bar", "", "", "", None, "baz", ""],
             "b": [b"foo", b"bar", b"", b"", None, b"", b"baz", b""],
+            "c": pl.Series(["foo", "", None, "", "bar", "", "foo", None], dtype=pl.Categorical),
         }
     )
 
@@ -3941,6 +3942,16 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
         test_df,
         [_filter("not_empty", schema[1])],
         test_df.filter(test_df["b"].bin.encode("hex").str.len_chars() != 0),
+    )
+    dxf.check_filter_case(
+        test_df,
+        [_filter("is_empty", schema[2])],
+        test_df[[1, 3, 5]],
+    )
+    dxf.check_filter_case(
+        test_df,
+        [_filter("not_empty", schema[2])],
+        test_df[[0, 4, 6]],
     )
 
 
