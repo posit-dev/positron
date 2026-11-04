@@ -2164,12 +2164,12 @@ describe('RuntimeStartupService - console in front', () => {
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 		return {
 			svc,
-			createConsole: (runtime: ILanguageRuntimeMetadata, sessionId: string): IConsole => {
+			createConsole: (runtime: ILanguageRuntimeMetadata, sessionId: string, sessionMode = LanguageRuntimeSessionMode.Console): IConsole => {
 				let state = RuntimeState.Idle;
 				const session = stubInterface<ILanguageRuntimeSession>({
 					sessionId,
 					runtimeMetadata: runtime,
-					metadata: stubInterface<IRuntimeSessionMetadata>({ sessionMode: LanguageRuntimeSessionMode.Console }),
+					metadata: stubInterface<IRuntimeSessionMetadata>({ sessionMode }),
 					getRuntimeState: () => state,
 				});
 				sessions.set(sessionId, session);
@@ -2264,6 +2264,44 @@ describe('RuntimeStartupService - console in front', () => {
 		reconnected.setState(RuntimeState.Exiting);
 
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('does not save a console restarted behind the one in front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		// An extension host restart reconnects every console, not just the one in front.
+		uvConsole.setState(RuntimeState.Starting);
+		uvConsole.setState(RuntimeState.Ready);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('forgets the runtime when a notebook that was in front shuts down', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const notebook = createConsole(uv, 'session-notebook', LanguageRuntimeSessionMode.Notebook);
+		bringToFront(notebook);
+
+		notebook.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('keeps the console saved when another console on the same interpreter is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const inUse = createConsole(uv, 'session-uv');
+		inUse.setState(RuntimeState.Ready);
+		bringToFront(inUse);
+
+		// A second uv console, started in the background, is deleted.
+		const background = createConsole(uv, 'session-uv-2');
+		background.setState(RuntimeState.Ready);
+		background.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
 	});
 });
 
@@ -3543,7 +3581,7 @@ describe('RuntimeStartupService - startup sequence', () => {
 				metadata: stubInterface<IRuntimeSessionMetadata>({ sessionMode: LanguageRuntimeSessionMode.Console }),
 				getRuntimeState: () => RuntimeState.Idle,
 			});
-			vi.spyOn(ctx.get(IRuntimeSessionService), 'getSession').mockReturnValue(rConsole);
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getSession').mockImplementation(id => id === 'session-0' ? rConsole : undefined);
 			foreground.fire(rConsole);
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
