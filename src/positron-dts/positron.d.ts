@@ -1268,6 +1268,19 @@ declare module 'positron' {
 		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
+		 * Whether Positron picks the interpreter when this manager recommends
+		 * nothing after discovery and `interpreters.discovery` is
+		 * `definitionsOnly` for the language. Positron then recommends the
+		 * variant of the first valid entry in `interpreters.definitions`, with
+		 * the same rules it uses to register the variants. That interpreter
+		 * starts when the language is needed, and is never saved as the
+		 * workspace's default, whatever `recommendationIsProjectDefault` is.
+		 * Defaults to `false`: leave it unset if no recommendation means that
+		 * nothing must start.
+		 */
+		readonly defersToFirstDefinition?: boolean;
+
+		/**
 		 * The runtime metadata for the interpreter pinned for this workspace:
 		 * the one that the extension's default interpreter setting names.
 		 * Returns `undefined` if the setting isn't set, the path doesn't lead to
@@ -3788,6 +3801,58 @@ declare module 'positron' {
 		 * List all registered runtimes.
 		 */
 		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
+
+		/**
+		 * The interpreter paths in the `interpreters.definitions` setting for a
+		 * language, as Positron reads them: only valid entries with an absolute
+		 * path, each interpreter once in its first spelling, in the order of
+		 * the setting. Paths are compared as Positron compares them to runtime
+		 * paths: lexically, and on Windows ignoring case and the kind of
+		 * separator.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 */
+		export function getInterpreterDefinitionPaths(languageId: string): string[];
+
+		/**
+		 * The path from `getInterpreterDefinitionPaths()` that names the
+		 * interpreter at `path`, in the definition's own spelling, or
+		 * undefined if no definition names it. A runtime's ID usually depends
+		 * on its path, so use this spelling to create the same runtime that
+		 * the definition creates.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param path The interpreter path, as written anywhere.
+		 */
+		export function findInterpreterDefinitionPath(languageId: string, path: string): string | undefined;
+
+		/**
+		 * An entry in the `interpreters.definitions` setting, after Positron
+		 * has validated it.
+		 */
+		export interface InterpreterDefinition {
+			readonly language: string;
+			readonly path: string;
+			readonly label: string;
+			readonly env?: Readonly<Record<string, string>>;
+			readonly modules?: readonly string[];
+			readonly startupScript?: string;
+		}
+
+		/**
+		 * The entry in the `interpreters.definitions` setting that a runtime
+		 * variant was created from (see
+		 * `LanguageRuntimeMetadata.interpreterDefinition`), or undefined if
+		 * the setting no longer has a valid entry with this label for the
+		 * interpreter. The paths are compared as in
+		 * `getInterpreterDefinitionPaths()`, so the variant's `runtimePath`
+		 * can be written differently from the entry's `path`.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param label The variant's `interpreterDefinition` label.
+		 * @param runtimePath The variant's `runtimePath`.
+		 */
+		export function findInterpreterDefinition(languageId: string, label: string, runtimePath: string): InterpreterDefinition | undefined;
 
 		/**
 		 * Get the preferred language runtime for a given language.

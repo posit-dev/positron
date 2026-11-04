@@ -12,46 +12,8 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * An entry in the `interpreters.definitions` setting. Mirrors
- * IInterpreterDefinition in core (languageRuntime/common/interpreterDefinitions.ts).
- */
-export interface InterpreterDefinition {
-	language: string;
-	path: string;
-	label: string;
-	env?: Record<string, string>;
-	modules?: string[];
-	startupScript?: string;
-}
-
-/**
- * Find the definition a runtime variant was created from. Setting values are
- * not type-checked when read, so malformed values are ignored rather than
- * throwing.
- */
-export function findInterpreterDefinition(definitions: unknown, languageId: string, label: string, runtimePath: string): InterpreterDefinition | undefined {
-	if (!Array.isArray(definitions)) {
-		return undefined;
-	}
-	return definitions.find((definition): definition is InterpreterDefinition => {
-		if (!definition || typeof definition !== 'object' || Array.isArray(definition)) {
-			return false;
-		}
-		const candidate = definition as Record<string, unknown>;
-		return candidate.language === languageId &&
-			typeof candidate.path === 'string' &&
-			candidate.path === runtimePath &&
-			candidate.label === label &&
-			(candidate.env === undefined || isStringRecord(candidate.env)) &&
-			(candidate.modules === undefined || (Array.isArray(candidate.modules) && candidate.modules.every(m => typeof m === 'string'))) &&
-			(candidate.startupScript === undefined || typeof candidate.startupScript === 'string');
-	});
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-	return !!value && typeof value === 'object' && !Array.isArray(value) && Object.values(value).every(v => typeof v === 'string');
-}
+/** A validated entry in the `interpreters.definitions` setting. */
+export type InterpreterDefinition = positron.runtime.InterpreterDefinition;
 
 /** The slice of the environment modules extension's API used here. */
 interface EnvironmentModulesApi {

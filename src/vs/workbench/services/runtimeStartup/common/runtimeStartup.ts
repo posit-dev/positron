@@ -17,7 +17,7 @@ import { comparePickerRuntimes, IHostedLanguageContribution, ILanguageRuntimeExi
 import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { cachedRuntimeMetadata, IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
+import { createInterpreterVariant, getLanguageDefinitions, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -2542,7 +2542,50 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
 			remembered.push(runtime);
 		}
+		if (remembered.length === 0) {
+			const defined = await this.firstDefinedRuntime(languageId);
+			if (defined) {
+				this._recommendedRuntimesByLanguageId.set(languageId, defined);
+				// Like a manager's answer that is not a project default: never
+				// saved, and never replaced by the first registered runtime.
+				this._optedOutLanguageIds.add(languageId);
+				this._logService.debug(`[Runtime startup] Recommended the first defined interpreter after discovery: ${formatLanguageRuntimeMetadata(defined)}`);
+				remembered.push(defined);
+			}
+		}
 		return remembered;
+	}
+
+	/**
+	 * When discovery is limited to definitions and the language's extension
+	 * defers to core, the registered variant of the first valid definition
+	 * for the language, to start when the language is needed. The extension
+	 * opts in because answering nothing can also mean that nothing must start.
+	 */
+	private async firstDefinedRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		if (this._configurationService.getValue<string>(INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: languageId }) !== 'definitionsOnly') {
+			return undefined;
+		}
+		// An extension host that fails to answer doesn't hold back the others.
+		const deferring = await Promise.all(this._runtimeManagers.map(async manager => {
+			try {
+				return await manager.getLanguagesDeferringToFirstDefinition?.() ?? [];
+			} catch (err) {
+				this._logService.warn(`[Runtime startup] Could not ask which languages defer to the first definition: ${err}`);
+				return [];
+			}
+		}));
+		if (!deferring.some(languageIds => languageIds.includes(languageId))) {
+			return undefined;
+		}
+		const registered = this._languageRuntimeService.registeredRuntimes.filter(runtime => runtime.languageId === languageId);
+		for (const definition of getLanguageDefinitions(this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY), languageId)) {
+			const variant = registered.find(runtime => runtime.interpreterDefinition === definition.label);
+			if (variant) {
+				return { ...variant, startupBehavior: LanguageRuntimeStartupBehavior.Implicit };
+			}
+		}
+		return undefined;
 	}
 
 	/**

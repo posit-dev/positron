@@ -44,7 +44,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionServic
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
-import { createInterpreterVariant } from '../../../languageRuntime/common/interpreterDefinitions.js';
+import { createInterpreterVariant, IInterpreterDefinition } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { choosePreferredRuntime, firstInPickerOrder, IPreferredRuntimeSources, RuntimeStartupService } from '../../common/runtimeStartup.js';
 import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import { PreferredRuntimeReason, SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
@@ -2305,6 +2305,99 @@ describe('RuntimeStartupService - start reasons', () => {
 			started: [variantId],
 			preferred: variantId,
 			affiliation: undefined,
+		});
+	});
+
+	describe('after discovery, with no recommendation from an extension', () => {
+		const cpu: IInterpreterDefinition = { language: 'r', path: '/opt/R/4.4/bin/R', label: 'R CPU' };
+		const gpu: IInterpreterDefinition = { language: 'r', path: '/opt/R/4.5/bin/R', label: 'R GPU' };
+		// The Python entry shares a label with an R one, and the first R entry
+		// is invalid (an env value is not a string), so the first valid R
+		// definition is 'R CPU', not 'R GPU'.
+		const python: IInterpreterDefinition = { language: 'python', path: '/usr/bin/python3', label: 'R GPU' };
+		const invalidGpu = { ...gpu, env: { N: 1 } as unknown as Record<string, string> };
+		const definitions: IInterpreterDefinition[] = [python, invalidGpu, cpu, gpu];
+		// R registers the bases created from definitions to start only when picked.
+		const explicit = LanguageRuntimeStartupBehavior.Explicit;
+		const r45 = { ...metadata({ languageId: 'r', runtimeId: 'rt-45', runtimePath: '/opt/R/4.5/bin/R', extensionId: 'ms.r' }), startupBehavior: explicit };
+		const r44 = { ...metadata({ languageId: 'r', runtimeId: 'rt-44', runtimePath: '/opt/R/4.4/bin/R', extensionId: 'ms.r' }), startupBehavior: explicit };
+
+		/**
+		 * Sets the definitions, registers the Rs (4.5 first), and finishes
+		 * discovery with the given answer.
+		 *
+		 * Settles once core has handled its ask after discovery.
+		 */
+		async function discover(discovery: string, answer: ILanguageRuntimeMetadata[], defers = true, otherManager?: IRuntimeManager): Promise<void> {
+			const settings = { 'interpreters.definitions': definitions, 'interpreters.discovery': discovery };
+			for (const [key, value] of Object.entries(settings)) {
+				await (ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(key, value);
+			}
+			createService(LanguageStartupBehavior.Auto, { settings });
+			for (const base of [r45, r44]) {
+				ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(base));
+			}
+			const asked = new DeferredPromise<void>();
+			const manager = makeManager({ id: 1, owns: [] });
+			manager.recommendWorkspaceRuntimes = async (_disabledLanguageIds, afterDiscovery) => {
+				if (!afterDiscovery) {
+					return [];
+				}
+				asked.complete();
+				return answer.map(runtime => ({ metadata: runtime, isProjectDefault: false }));
+			};
+			manager.getLanguagesDeferringToFirstDefinition = async () => defers ? ['r'] : [];
+			ctx.disposables.add(svc.registerRuntimeManager(manager));
+			if (otherManager) {
+				ctx.disposables.add(svc.registerRuntimeManager(otherManager));
+			}
+			completeDiscovery();
+			await asked.p;
+			// Let core finish handling the answer.
+			await timeout(0);
+		}
+
+		const preferred = () => {
+			const result = svc.getPreferredRuntimeWithReason('r');
+			return { runtimeId: result?.runtime.runtimeId, reason: result?.reason };
+		};
+
+		it('recommends the variant of the first valid definition when discovery is limited to definitions, to start when a file opens', async () => {
+			await discover('definitionsOnly', []);
+			ctx.get(ILanguageService).requestRichLanguageFeatures('r');
+
+			const cpuVariantId = createInterpreterVariant(r44, cpu).runtimeId;
+			expect({ preferred: preferred(), started: startedRuntimeIds() }).toEqual({
+				preferred: { runtimeId: cpuVariantId, reason: PreferredRuntimeReason.Recommended },
+				started: [cpuVariantId],
+			});
+		});
+
+		it('still recommends it when another extension host fails to answer', async () => {
+			const failing = makeManager({ id: 2, owns: [] });
+			failing.getLanguagesDeferringToFirstDefinition = async () => { throw new Error('extension host exited'); };
+			await discover('definitionsOnly', [], true, failing);
+
+			expect(preferred()).toEqual({ runtimeId: createInterpreterVariant(r44, cpu).runtimeId, reason: PreferredRuntimeReason.Recommended });
+		});
+
+		it('keeps the extension\'s own recommendation when it has one', async () => {
+			await discover('definitionsOnly', [r45]);
+
+			expect(preferred()).toEqual({ runtimeId: createInterpreterVariant(r45, gpu).runtimeId, reason: PreferredRuntimeReason.Recommended });
+		});
+
+		it('recommends nothing when the language\'s manager does not defer to the first definition', async () => {
+			// Python, for one, answers nothing on purpose when no definition passes its checks.
+			await discover('definitionsOnly', [], false);
+
+			expect(preferred().reason).toBe(PreferredRuntimeReason.Fallback);
+		});
+
+		it('recommends nothing when discovery is not limited to definitions', async () => {
+			await discover('auto', []);
+
+			expect(preferred().reason).toBe(PreferredRuntimeReason.Fallback);
 		});
 	});
 

@@ -18,7 +18,7 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
-import { DefinitionTerminalEnvironment, findInterpreterDefinition, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
+import { DefinitionTerminalEnvironment, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
@@ -1485,11 +1485,7 @@ export class KCApi implements PositronSupervisorApi {
 			return undefined;
 		}
 		return async kernelEnv => {
-			const definition = findInterpreterDefinition(
-				vscode.workspace.getConfiguration('interpreters').get('definitions'),
-				runtimeMetadata.languageId,
-				label,
-				runtimeMetadata.runtimePath);
+			const definition = positron.runtime.findInterpreterDefinition(runtimeMetadata.languageId, label, runtimeMetadata.runtimePath);
 			if (!definition) {
 				throw new Error(vscode.l10n.t(
 					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
@@ -1526,11 +1522,7 @@ export class KCApi implements PositronSupervisorApi {
 		if (!env) {
 			// The session was restored rather than started in this window,
 			// so capture its definition's variables now.
-			const definition = findInterpreterDefinition(
-				vscode.workspace.getConfiguration('interpreters').get('definitions'),
-				session.runtimeMetadata.languageId,
-				label,
-				session.runtimeMetadata.runtimePath);
+			const definition = positron.runtime.findInterpreterDefinition(session.runtimeMetadata.languageId, label, session.runtimeMetadata.runtimePath);
 			if (!definition) {
 				return {};
 			}
