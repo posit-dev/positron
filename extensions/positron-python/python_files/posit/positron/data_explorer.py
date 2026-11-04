@@ -415,7 +415,7 @@ class DataExplorerTableView:
         if self._search_term is not None:
             result["search_matches"] = [
                 self._selection_search_matches(selection, len(values))
-                for selection, values in zip(params.columns, result["columns"])
+                for selection, values in zip(params.columns, result["columns"], strict=True)
             ]
         return result
 

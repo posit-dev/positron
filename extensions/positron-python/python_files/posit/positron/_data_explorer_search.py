@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, NamedTuple, Tuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from .data_explorer_comm import ColumnDisplayType, FormatOptions
 
@@ -40,7 +40,7 @@ _GROUPED_NUMBER = re.compile(r"[+-]?\d{1,3}(,\d{3})+(\.\d*)?")
 _NUMBER = re.compile(r"[+-]?(\d+\.?\d*|\.\d+)")
 
 # (lower, upper, lower_inclusive, upper_inclusive)
-Bounds = Tuple[float, float, bool, bool]
+Bounds = tuple[float, float, bool, bool]
 
 
 class SearchTerm(NamedTuple):

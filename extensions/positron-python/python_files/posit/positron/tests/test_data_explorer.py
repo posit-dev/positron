@@ -2002,9 +2002,9 @@ def test_search_numeric_mask_display_rounding(term, matches, non_matches):
     assert numeric_mask(np.array(matches, dtype=float), floating, parsed).all()
     assert not numeric_mask(np.array(non_matches, dtype=float), floating, parsed).any()
     # Values of other display types are not rounded
-    assert not numeric_mask(
-        np.array([2.996]), ColumnDisplayType.Decimal, parse_search_term("3.00", options)
-    ).any()
+    rounded = parse_search_term("3.00", options)
+    assert rounded is not None
+    assert not numeric_mask(np.array([2.996]), ColumnDisplayType.Decimal, rounded).any()
 
 
 @pytest.mark.parametrize("backend", ["pandas", "polars"])
@@ -2146,7 +2146,7 @@ def test_global_search_matches(dxf: DataExplorerFixture, backend):
     dxf.set_row_filters("search_matches", [_global_search_filter("3")])
     result = dxf.get_data_values("search_matches", columns=columns)
     assert [len(c) for c in result["search_matches"]] == [len(c) for c in result["columns"]]
-    by_name = dict(zip(df.columns, result["search_matches"]))
+    by_name = dict(zip(df.columns, result["search_matches"], strict=True))
     assert by_name["int"] == [True, False, False]
     assert by_name["float"] == [True, False, True]
     assert by_name["str"] == [False, True, False]
@@ -2159,7 +2159,7 @@ def test_global_search_matches(dxf: DataExplorerFixture, backend):
 
     dxf.set_row_filters("search_matches", [_global_search_filter("null")])
     result = dxf.get_data_values("search_matches", columns=_select_all(4, df.shape[1]))
-    by_name = dict(zip(df.columns, result["search_matches"]))
+    by_name = dict(zip(df.columns, result["search_matches"], strict=True))
     assert by_name["str"] == [False, False, True, True]
     assert by_name["float"] == [False, True, False, False]
 
