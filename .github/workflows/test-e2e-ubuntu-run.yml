@@ -215,6 +215,7 @@ jobs:
         timeout-minutes: 15
         run: |
           mkdir -p /tmp/artifacts
+          echo "TEMP: forcing fallback test"; exit 1
           node .github/scripts/download-artifact-parallel.mts positron-build.tar.zst /tmp/artifacts/positron-build.tar.zst
 
       - name: Download build artifact (fallback)
