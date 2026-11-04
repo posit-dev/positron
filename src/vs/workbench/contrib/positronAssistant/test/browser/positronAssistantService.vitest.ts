@@ -18,6 +18,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { assertReturnsDefined } from '../../../../../base/common/types.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 
 
@@ -101,10 +102,7 @@ describe('PositronAssistantService', () => {
 		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
 
 		// Verify plot information is included
-		if (!context.plots) {
-			throw new Error('Plot information should be present');
-		}
-		expect(typeof context.plots.hasPlots, 'hasPlots should be a boolean').toBe('boolean');
+		expect(typeof assertReturnsDefined(context.plots).hasPlots, 'hasPlots should be a boolean').toBe('boolean');
 	});
 
 });

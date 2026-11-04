@@ -5,16 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
+import { assertReturnsDefined } from '../../../../../base/common/types.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { kernelToLanguageId, parseQuarto } from '../../common/quartoParser.js';
-import { QuartoCodeBlock, QuartoDocument, QuartoFrontmatter, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
-
-function requireFrontmatter(result: QuartoDocument): QuartoFrontmatter {
-	if (!result.frontmatter) {
-		throw new Error('expected the document to have frontmatter');
-	}
-	return result.frontmatter;
-}
+import { QuartoCodeBlock, QuartoNodeType, QuartoRawBlock } from '../../common/quartoTypes.js';
 
 describe('parseQuartoDocument', () => {
 
@@ -37,7 +31,7 @@ describe('parseQuartoDocument', () => {
 		it('frontmatter-only document returns no blocks', () => {
 			const result = parseQuarto('---\ntitle: Test\n---\n');
 			expect(result.blocks.length).toBe(0);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.rawContent).toBe('---\ntitle: Test\n---');
 		});
 	});
@@ -46,35 +40,35 @@ describe('parseQuartoDocument', () => {
 		it('extracts raw frontmatter content including delimiters', () => {
 			const content = '---\ntitle: Test\nauthor: Someone\n---\n\nBody text.';
 			const result = parseQuarto(content);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.rawContent).toBe('---\ntitle: Test\nauthor: Someone\n---');
 		});
 
 		it('extracts simple jupyter kernel', () => {
 			const content = '---\njupyter: python3\n---\n';
 			const result = parseQuarto(content);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.jupyterKernel).toBe('python3');
 		});
 
 		it('extracts complex jupyter kernel', () => {
 			const content = '---\njupyter:\n  kernelspec:\n    name: ir\n---\n';
 			const result = parseQuarto(content);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.jupyterKernel).toBe('ir');
 		});
 
 		it('location is correct', () => {
 			const content = '---\ntitle: Test\n---\n\n```{python}\nx = 1\n```\n';
 			const result = parseQuarto(content);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.location).toEqual({ begin: { line: 0 }, end: { line: 2 } });
 		});
 
 		it('frontmatter with no jupyter key has no kernel', () => {
 			const content = '---\ntitle: Test\nformat: html\n---\n';
 			const result = parseQuarto(content);
-			const frontmatter = requireFrontmatter(result);
+			const frontmatter = assertReturnsDefined(result.frontmatter);
 			expect(frontmatter.jupyterKernel).toBe(undefined);
 		});
 	});

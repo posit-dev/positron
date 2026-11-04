@@ -233,8 +233,10 @@ jobs:
       - *install-node-deps
 
       - name: 🔎 Type-check Vitest Files
+        id: vitest-check-ts
         run: npm run test:positron:check-ts
 
+      # Run even when the type-check fails, so one failure doesn't hide the other.
       - name: 🧪 Run Vitest Tests
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (steps.vitest-check-ts.outcome == 'success' || steps.vitest-check-ts.outcome == 'failure') }}
         run: npm run test:positron

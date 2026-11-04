@@ -19,6 +19,7 @@ import { IExtHostContext } from '../../../../services/extensions/common/extHostC
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronDataImporterRegistry } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { BackendState, DataExplorerBackendRequest, SupportedFeatures, SupportStatus } from '../../../../services/languageRuntime/common/positronDataExplorerComm.js';
@@ -69,6 +70,10 @@ describe('Data Explorer RPC transport routing', () => {
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService())
 		.stub(IExtensionService, extensionService)
+		// Routing never touches importers, editors, or data connections; empty stubs throw if it does.
+		.stub(IPositronDataImporterRegistry, stubInterface<IPositronDataImporterRegistry>({}))
+		.stub(IEditorService, stubInterface<IEditorService>({}))
+		.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({}))
 		.stub(IRuntimeSessionService, {
 			activeSessions: [],
 			onWillStartSession: Event.None,
@@ -85,6 +90,7 @@ describe('Data Explorer RPC transport routing', () => {
 		// PositronDataExplorerInstance reads the singleton in its constructor.
 		PositronReactServices.services = ctx.reactServices;
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronDataExplorerService));
+		ctx.instantiationService.stub(IPositronDataExplorerService, service);
 	});
 
 	/** A minimal backend state, enough for the grid instances the open path spins up. */
@@ -124,15 +130,7 @@ describe('Data Explorer RPC transport routing', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => proxy as T) as IExtHostContext['getProxy'],
 		});
-		// Routing never touches importers, editors, or data connections; empty stubs throw if it does.
-		const mainThread = ctx.disposables.add(new MainThreadDataExplorer(
-			extHostContext,
-			service,
-			stubInterface<IPositronDataImporterRegistry>({}),
-			stubInterface<IEditorService>({}),
-			ctx.get(IRuntimeSessionService),
-			stubInterface<IPositronDataConnectionsService>({}),
-		));
+		const mainThread = ctx.disposables.add(ctx.instantiationService.createInstance(MainThreadDataExplorer, extHostContext));
 		for (const providerId of providers) {
 			hostsByProvider.set(providerId, { mainThread, deferRegistration, supportsRefresh });
 		}
