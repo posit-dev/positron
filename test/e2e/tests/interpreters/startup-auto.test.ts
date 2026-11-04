@@ -4,18 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
-What starts when Positron opens a folder with the default startup behavior (`auto`).
+What starts when Positron opens a folder with the default startup behavior (`auto`), on the
+paths that need the real Python extension, a real relaunch, or a real pyenv. The startup
+decisions themselves are unit-tested in runtimeStartup.vitest.ts and the Python extension's
+interpreterRecommendation tests.
 
 Each test opens its own folder in a new launch, so the folder has no saved interpreter
-until the test makes one. The folder's files decide which language starts on the first
-open; the interpreter used last starts on later opens, until the console is closed or the
-saved interpreter is cleared.
+until the test makes one.
 */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { test, expect, tags } from '../_test.setup';
-import { expectNoSession, expectSingleSession, PYTHON_NAME, R_NAME, StartupFolders, versionOf } from './helpers/startup-folders.js';
+import { test, tags } from '../_test.setup';
+import { expectNoSession, expectSingleSession, PYTHON_NAME, StartupFolders, versionOf, writeFolderSettings } from './helpers/startup-folders.js';
 
 test.use({
 	suiteId: __filename
@@ -25,7 +26,7 @@ test.use({
 const AUTO = { 'interpreters.startupBehavior': 'auto' };
 
 test.describe('Interpreter Startup - Auto', {
-	tag: [tags.INTERPRETER, tags.PYTHON, tags.ARK]
+	tag: [tags.INTERPRETER, tags.PYTHON]
 }, () => {
 	let folders: StartupFolders;
 
@@ -44,31 +45,6 @@ test.describe('Interpreter Startup - Auto', {
 		// R is not recommended here, so it does not join once discovery finishes.
 		await app.workbench.sessions.expectDiscoveryToComplete();
 		await app.workbench.sessions.expectSessionCountToBe(1);
-	});
-
-	test('A folder with only R files starts R', async function ({ app }) {
-		await folders.launch(await folders.folder('r-only', { files: { 'analysis.R': 'x <- 1\n' }, settings: AUTO }));
-
-		await expectSingleSession(app, { name: R_NAME, startReasonId: 'extensionRecommendedRuntime' });
-		await app.workbench.sessions.expectDiscoveryToComplete();
-		await app.workbench.sessions.expectSessionCountToBe(1);
-	});
-
-	test('A folder with R and Python files starts both', async function ({ app }) {
-		// Python joins only when the folder names its Python; otherwise R starts first and blocks it.
-		const version = versionOf(process.env.POSITRON_PY_ALT_VER_SEL);
-		await folders.launch(await folders.folder('r-and-python', {
-			files: { 'main.py': 'x = 1\n', 'analysis.R': 'x <- 1\n', '.python-version': `${version}\n` },
-			settings: AUTO,
-		}));
-
-		const { sessions } = app.workbench;
-		await sessions.expectSessionCountToBe(2);
-		await expect(async () => {
-			const names = (await sessions.getActiveSessions()).map(session => session.name);
-			expect(names.some(name => PYTHON_NAME.test(name))).toBe(true);
-			expect(names.some(name => R_NAME.test(name))).toBe(true);
-		}).toPass({ timeout: 90000 });
 	});
 
 	test('A folder with no language files starts nothing until a Python file is opened', async function ({ app, openFile }) {
@@ -116,21 +92,6 @@ test.describe('Interpreter Startup - Auto', {
 		await expectNoSession(app);
 	});
 
-	test('The interpreter used last starts after the interpreter cache is cleared', async function ({ app }) {
-		test.slow();
-		await folders.launch(await folders.folder('cache-cleared', { files: { 'README.md': '# Notes\n' }, settings: AUTO }));
-		const used = await app.workbench.sessions.start('python');
-
-		await test.step('Clear the interpreter cache', async () => {
-			const { quickaccess, toasts } = app.workbench;
-			await quickaccess.runCommand('workbench.action.language.runtime.clearInterpreterCache');
-			await toasts.expectToastWithTitle(/Interpreter discovery cache cleared/);
-		});
-
-		await folders.launch(app.workspacePathOrFolder);
-		await expectSingleSession(app, { name: used.name, startReasonId: 'affiliatedRuntime' });
-	});
-
 	test('A .python-version file picks the Python that starts', async function ({ app }) {
 		const version = versionOf(process.env.POSITRON_PY_ALT_VER_SEL);
 		await folders.launch(await folders.folder('python-version-file', {
@@ -139,5 +100,21 @@ test.describe('Interpreter Startup - Auto', {
 		}));
 
 		await expectSingleSession(app, { name: `Python ${version}` });
+	});
+
+	test('The pinned Python starts in place of the one used last', async function ({ app }) {
+		test.slow();
+		const folder = await folders.folder('python-pin', { files: { 'README.md': '# Notes\n' }, settings: AUTO });
+		await folders.launch(folder);
+		const { sessions } = app.workbench;
+		const pinned = await sessions.start('python');
+		// The Python that starts last is the one the folder used last.
+		await sessions.start('pythonAlt');
+
+		await test.step('Pin the first Python and open the folder again', async () => {
+			await writeFolderSettings(folder, { ...AUTO, 'python.defaultInterpreterPath': pinned.path });
+			await folders.launch(folder);
+		});
+		await expectSingleSession(app, { name: pinned.name, startReasonId: 'pinnedRuntime' });
 	});
 });

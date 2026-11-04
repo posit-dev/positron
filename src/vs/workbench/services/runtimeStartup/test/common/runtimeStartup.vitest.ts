@@ -2161,6 +2161,26 @@ describe('RuntimeStartupService - start reasons', () => {
 		await vi.waitFor(() => expect(startedRuntimeIds()).toEqual(['rt-rec']));
 	});
 
+	it('starts the used affiliation, not the recommendation, when set to always start', async () => {
+		createService(LanguageStartupBehavior.Always);
+		const startNewRuntimeSession = vi.spyOn(ctx.get(IRuntimeSessionService), 'startNewRuntimeSession').mockResolvedValue('');
+		const affiliated = metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' });
+		affiliate(affiliated);
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Discovering;
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(affiliated));
+
+		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
+		await (svc as unknown as { recommendAfterDiscovery: () => Promise<void> }).recommendAfterDiscovery();
+
+		expect({
+			startedAtRegistration: startNewRuntimeSession.mock.calls.map(([runtimeId]) => runtimeId),
+			startedAfterDiscovery: startedRuntimeIds(),
+		}).toEqual({
+			startedAtRegistration: ['rt-aff'],
+			startedAfterDiscovery: [],
+		});
+	});
+
 	it('starts the recommendation for always at most once per window', async () => {
 		createService(LanguageStartupBehavior.Always);
 		recommendAfterDiscovery(metadata({ runtimeId: 'rt-rec', runtimePath: '/venv/bin/python' }));
@@ -2370,6 +2390,18 @@ describe('RuntimeStartupService - start reasons', () => {
 		it('does not start when the language has a used affiliation', async () => {
 			createService(LanguageStartupBehavior.Auto);
 			affiliate(metadata({ runtimeId: 'rt-aff', runtimePath: '/old/bin/python' }));
+			recommendAfterDiscovery(immediate);
+
+			await runRecommendAfterDiscovery();
+
+			expect(startedRuntimeIds()).toEqual([]);
+		});
+
+		it('does not start while another language\'s console is starting or running', async () => {
+			createService(LanguageStartupBehavior.Auto);
+			// An R console started first, e.g. from R's own Immediate recommendation.
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'hasStartingOrRunningConsole')
+				.mockImplementation(languageId => languageId !== 'python');
 			recommendAfterDiscovery(immediate);
 
 			await runRecommendAfterDiscovery();

@@ -91,4 +91,3 @@ export function versionOf(envValue: string | undefined): string {
 }
 
 export const PYTHON_NAME = /^Python \d/;
-export const R_NAME = /^R \d/;
