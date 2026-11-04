@@ -25,12 +25,14 @@
 			margin-bottom: 2em;
 		}
 
-		body.vscode-light .logo {
+		body.vscode-light .logo,
+		body.vscode-high-contrast-light .logo {
 			content: url("__logoSrcLight__");
 
 		}
 
-		body.vscode-dark .logo {
+		body.vscode-dark .logo,
+		body.vscode-high-contrast:not(.vscode-high-contrast-light) .logo {
 			content: url("__logoSrcDark__");
 		}
 

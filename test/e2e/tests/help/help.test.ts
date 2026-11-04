@@ -40,6 +40,53 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
+	test('Help logo loads in all color themes while the panel stays open', { tag: [tags.WIN] }, async function ({ app, settings }) {
+		await app.workbench.help.openHelpPanel();
+		const helpFrame = await app.workbench.help.getHelpWelcomePageFrame();
+		const logo = helpFrame.getByRole('img', { name: 'Positron Logo' });
+		const logos = new Map<string, string>();
+
+		for (const [theme, kind, background] of [
+			['Default Positron Light', 'vscode-light', 'light'],
+			['Default Positron Dark', 'vscode-dark', 'dark'],
+			['Default High Contrast', 'vscode-high-contrast', 'dark'],
+			['Default High Contrast Light', 'vscode-high-contrast-light', 'light'],
+			['Default Positron Light', 'vscode-light', 'light'],
+		]) {
+			await settings.set({
+				'window.autoDetectColorScheme': false,
+				'window.autoDetectHighContrast': false,
+				'workbench.colorTheme': theme,
+			});
+			await expect(helpFrame.locator('body')).toHaveAttribute('data-vscode-theme-kind', kind);
+			await expect(logo).toBeVisible();
+
+			// CSS content supplies this image, so the element's naturalWidth does
+			// not report whether the displayed logo loaded. Decode its image URL.
+			await expect.poll(() => logo.evaluate(async element => {
+				const match = /^url\("(?<url>.*)"\)$/.exec(getComputedStyle(element).content);
+				if (!match?.groups?.url) {
+					return false;
+				}
+				const image = new Image();
+				image.src = match.groups.url;
+				try {
+					await image.decode();
+					return image.naturalWidth > 0;
+				} catch {
+					return false;
+				}
+			}), `Help logo loads in ${theme}`).toBe(true);
+
+			const content = await logo.evaluate(element => getComputedStyle(element).content);
+			if (!logos.has(background)) {
+				logos.set(background, content);
+			}
+			expect(content).toBe(logos.get(background));
+		}
+		expect(logos.get('light')).not.toBe(logos.get('dark'));
+	});
+
 	test('Python - Verify basic help functionality', { tag: [tags.WIN, tags.PYTHON] }, async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', `?load`);
 
