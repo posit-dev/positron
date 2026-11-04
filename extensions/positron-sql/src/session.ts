@@ -770,7 +770,7 @@ export class SqlSession implements vscode.Disposable {
 
 			case 'unsupported':
 				void vscode.window.showWarningMessage(vscode.l10n.t(
-					"Statements run in ggsql, which cannot connect to {0} yet. Only DuckDB and SQLite connections are supported.",
+					"Statements run in ggsql, which cannot connect to {0} yet.",
 					connection.name,
 				));
 				break;
@@ -786,7 +786,9 @@ export class SqlSession implements vscode.Disposable {
 			case 'no-runtime': {
 				// Offered rather than done: installing an extension is the user's call. The
 				// extension's page shows what it is and has the Install button; `extension.open`
-				// finds it in the gallery when it is not installed.
+				// finds it in the gallery when it is not installed. When it is installed without a
+				// kernel (the universal VSIX ships none), the page shows it installed, so the message
+				// names the missing runtime rather than the extension.
 				//
 				// A user who has said they do not want ggsql is not asked again on every Cmd+Enter.
 				// Nothing can run without it, so the press does nothing beyond a line in the log.
@@ -798,7 +800,7 @@ export class SqlSession implements vscode.Disposable {
 				const install = vscode.l10n.t("Install ggsql");
 				const dontShowAgain = vscode.l10n.t("Don't Show Again");
 				void vscode.window.showWarningMessage(
-					vscode.l10n.t("Statements run in a ggsql console, and ggsql is not installed."),
+					vscode.l10n.t("Statements run in a ggsql console, and no ggsql runtime is available."),
 					install,
 					dontShowAgain,
 				).then(chosen => {

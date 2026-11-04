@@ -183,7 +183,10 @@ export type ExecutionOutcome =
 	| { readonly kind: 'no-connection' }
 	| { readonly kind: 'unsupported' }
 	| { readonly kind: 'unavailable'; readonly reason: string }
-	/** No ggsql runtime is registered: ggsql is not installed. */
+	/**
+	 * No ggsql runtime is registered: the ggsql extension is not installed, or is installed
+	 * without a kernel (the universal VSIX ships none).
+	 */
 	| { readonly kind: 'no-runtime' }
 	/** A ggsql session was asked for and did not start. */
 	| { readonly kind: 'not-started'; readonly reason: string }
