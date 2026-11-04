@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,35 +17,4 @@
 .status-bar
 .label {
 	opacity: 80%;
-}
-
-.data-explorer-panel
-.status-bar
-.status-bar-button {
-	height: 18px;
-	display: flex;
-	padding: 0 2px;
-	cursor: pointer;
-	margin-left: 4px;
-	border-radius: 3px;
-	align-items: center;
-}
-
-.data-explorer-panel
-.status-bar
-.status-bar-button:hover {
-	background-color: var(--vscode-positronActionBar-hoverBackground);
-}
-
-.data-explorer-panel
-.status-bar
-.status-bar-button:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.data-explorer-panel
-.status-bar
-.status-bar-button
-.codicon-warning {
-	color: var(--vscode-editorWarning-foreground);
 }

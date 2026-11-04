@@ -55,7 +55,7 @@ export const SearchAllColumns = () => {
 			filterRef.current?.select();
 		}));
 
-		// Show search terms set elsewhere, e.g. cleared from the status bar.
+		// Show search terms set elsewhere, e.g. cleared from the no results view.
 		disposableStore.add(gridInstance.onDidChangeSearchTerm(term => {
 			if (term !== textRef.current) {
 				filterRef.current?.setFilterText(term);

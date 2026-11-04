@@ -14,15 +14,6 @@ import { localize } from '../../../../../../nls.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { StatusBarActivityIndicator } from './statusBarActivityIndicator.js';
-import { BackendState } from '../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
-import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
-import { getGlobalSearchTerm, splitRowFilters } from '../../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
-import { DATA_EXPLORER_SEARCH_MAX_CELLS_KEY } from '../../../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
-
-/**
- * The number of characters of the search term the status bar shows.
- */
-const MAX_SEARCH_TERM_LENGTH = 24;
 
 /**
  * Renders a localized message whose {0}-style placeholders are numbers, styling the numbers as
@@ -39,62 +30,6 @@ const renderCountedMessage = (message: string, counts: string[]) =>
 			// Non-breaking spaces, because the status bar's flex layout drops a span's edge spaces.
 			<span key={i} className='label'>{part.replace(/ /g, '\u00a0')}</span>;
 	});
-
-/**
- * SearchStatus component. Describes the active search across all columns, with a button that
- * clears it and, when the backend searched only the leading rows, one that searches every row.
- * @param props The backend state.
- * @returns The rendered component, or nothing when no search is active.
- */
-const SearchStatus = ({ backendState }: { backendState: BackendState }) => {
-	const context = usePositronDataExplorerContext();
-	const term = getGlobalSearchTerm(splitRowFilters(backendState.row_filters).globalSearch);
-	if (term === '') {
-		return null;
-	}
-	const gridInstance = context.instance.tableDataDataGridInstance;
-	const rowsScanned = backendState.global_search_rows_scanned;
-	const displayTerm = term.length > MAX_SEARCH_TERM_LENGTH ? `${term.slice(0, MAX_SEARCH_TERM_LENGTH)}\u2026` : term;
-
-	return (
-		<>
-			<span>&nbsp;&nbsp;</span>
-			<span className='codicon codicon-search' />
-			<span className='label'>&nbsp;&quot;{displayTerm}&quot;</span>
-			<Button
-				ariaLabel={localize('positron.dataExplorer.statusBar.clearSearch', "Clear search")}
-				className='status-bar-button'
-				hoverManager={gridInstance.hoverManager}
-				tooltip={localize('positron.dataExplorer.statusBar.clearSearch', "Clear search")}
-				onPressed={() => gridInstance.setSearchTerm('')}
-			>
-				<span className='codicon codicon-close' />
-			</Button>
-			{typeof rowsScanned === 'number' && <>
-				<Button
-					ariaLabel={localize(
-						'positron.dataExplorer.statusBar.searchTruncated',
-						"Searched the first {0} rows only (limit set by {1})",
-						rowsScanned.toLocaleString(),
-						DATA_EXPLORER_SEARCH_MAX_CELLS_KEY
-					)}
-					className='status-bar-button'
-					hoverManager={gridInstance.hoverManager}
-					tooltip={localize(
-						'positron.dataExplorer.statusBar.searchTruncated',
-						"Searched the first {0} rows only (limit set by {1})",
-						rowsScanned.toLocaleString(),
-						DATA_EXPLORER_SEARCH_MAX_CELLS_KEY
-					)}
-					onPressed={() => gridInstance.setSearchTerm(term, 0)}
-				>
-					<span className='codicon codicon-warning' />
-					<span className='label'>&nbsp;{localize('positron.dataExplorer.statusBar.searchAllRows', "Search All Rows")}</span>
-				</Button>
-			</>}
-		</>
-	);
-};
 
 /**
  * StatusBar component.
@@ -168,7 +103,6 @@ export const StatusBar = () => {
 					'positron.dataExplorer.statusBar.columns',
 					"{0} columns"
 				), [numColumns.toLocaleString()])}
-				<SearchStatus backendState={backendState} />
 			</div>
 		);
 	}
@@ -190,7 +124,6 @@ export const StatusBar = () => {
 					'positron.dataExplorer.statusBar.columns',
 					"{0} columns"
 				), [numColumns.toLocaleString()])}
-				<SearchStatus backendState={backendState} />
 			</div>
 		);
 	} else {

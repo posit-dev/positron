@@ -14,9 +14,6 @@ import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../../.
 import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { StatusBar } from '../../components/dataExplorerPanel/components/statusBar.js';
 import { PositronDataExplorerContextProvider } from '../../positronDataExplorerContext.js';
-import { TableDataDataGridInstance } from '../../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
-import { makeGlobalSearchFilter } from '../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
-import { userEvent } from '@testing-library/user-event';
 
 const FILTER: RowFilter = {
 	filter_id: 'f',
@@ -53,15 +50,14 @@ describe('StatusBar', () => {
 	const rtl = setupRTLRenderer();
 
 	/** Renders the status bar over a client reporting the given state, and returns the bar. */
-	function renderStatusBar(state: BackendState, setSearchTerm = vi.fn()) {
+	function renderStatusBar(state: BackendState) {
 		const client = stubInterface<DataExplorerClientInstance>({
 			cachedBackendState: state,
 			onDidUpdateBackendState: Event.None,
 			status: DataExplorerClientStatus.Idle,
 			onDidStatusUpdate: Event.None,
 		});
-		const tableDataDataGridInstance = stubInterface<TableDataDataGridInstance>({ setSearchTerm, hoverManager: undefined! });
-		const instance = stubInterface<IPositronDataExplorerInstance>({ dataExplorerClientInstance: client, tableDataDataGridInstance });
+		const instance = stubInterface<IPositronDataExplorerInstance>({ dataExplorerClientInstance: client });
 		rtl.render(
 			<PositronDataExplorerContextProvider instance={instance}>
 				<StatusBar />
@@ -91,27 +87,5 @@ describe('StatusBar', () => {
 	it('measures a filtered window against the matching rows, not the rows shown', () => {
 		const statusBar = renderStatusBar(backendState(50000, 2000000, { total_num_rows: 500000, row_filters: [FILTER] }));
 		expect(statusBar).toHaveTextContent(/^First 50,000 of 500,000 matching rows \(25\.00% of 2,000,000 total\) 3 columns$/);
-	});
-
-	it('describes an active search and clears it', async () => {
-		const setSearchTerm = vi.fn();
-		const statusBar = renderStatusBar(backendState(5, 100, { row_filters: [FILTER, makeGlobalSearchFilter('abc', 0)] }), setSearchTerm);
-		expect(statusBar).toHaveTextContent(/^Showing 5 rows \(5\.00% of 100 total\) 3 columns "abc"$/);
-
-		await userEvent.setup().click(screen.getByRole('button', { name: 'Clear search' }));
-		expect(setSearchTerm).toHaveBeenCalledWith('');
-	});
-
-	it('truncates a long search term', () => {
-		const statusBar = renderStatusBar(backendState(5, 100, { row_filters: [makeGlobalSearchFilter('x'.repeat(30), 0)] }));
-		expect(statusBar).toHaveTextContent(`"${'x'.repeat(24)}\u2026"`);
-	});
-
-	it('offers to search every row when the backend searched only the leading rows', async () => {
-		const setSearchTerm = vi.fn();
-		renderStatusBar(backendState(5, 100, { row_filters: [makeGlobalSearchFilter('abc', 10)], global_search_rows_scanned: 50 }), setSearchTerm);
-
-		await userEvent.setup().click(screen.getByRole('button', { name: /^Searched the first 50 rows only/ }));
-		expect(setSearchTerm).toHaveBeenCalledWith('abc', 0);
 	});
 });

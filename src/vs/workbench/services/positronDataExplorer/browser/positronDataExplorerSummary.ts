@@ -109,7 +109,7 @@ configurationRegistry.registerConfiguration({ // for search
 			minimum: 0,
 			markdownDescription: localize(
 				'positron.dataExplorerSearchMaxCells',
-				'Maximum number of cells the search across all columns scans. Larger tables are searched over their leading rows only, and the status bar offers to search the rest. Set to 0 for no limit.'
+				'Maximum number of cells the search across all columns scans. Larger tables are searched over their leading rows only. Set to 0 for no limit.'
 			),
 		},
 	},
