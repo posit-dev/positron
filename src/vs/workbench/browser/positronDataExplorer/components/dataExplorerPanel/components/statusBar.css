@@ -22,17 +22,34 @@
 .data-explorer-panel
 .status-bar
 .search-limit {
+	/* Lay out the button, then the label, right to left on one visible line, so the label wraps out of view when it does not fit. */
+	flex: 1;
+	height: 18px;
+	contain: inline-size;
 	display: flex;
-	margin-left: auto;
+	overflow: hidden;
+	flex-wrap: wrap;
+	padding-left: 8px;
 	padding-right: 4px;
 	align-items: center;
+	flex-direction: row-reverse;
+}
+
+.data-explorer-panel
+.status-bar
+.search-limit
+.label {
+	white-space: nowrap;
 }
 
 .data-explorer-panel
 .status-bar
 .search-all-button {
 	height: 18px;
+	order: -1;
 	display: flex;
+	flex-shrink: 0;
+	white-space: nowrap;
 	padding: 0 4px;
 	cursor: pointer;
 	margin-left: 4px;
