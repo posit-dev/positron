@@ -2267,7 +2267,7 @@ describe('RuntimeStartupService - console in front', () => {
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
 	});
 
-	it('keeps the newer console saved when an older one is deleted', () => {
+	it('keeps the newer console saved when an older one on another interpreter is deleted', () => {
 		const { svc, createConsole, bringToFront } = createService();
 		const uvConsole = createConsole(uv, 'session-uv');
 		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
