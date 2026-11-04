@@ -18,8 +18,9 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 4. **The new smoke case.** Would it fail without the fix? Does a failure case check the error text,
    not just the exit code? Can a person read it in one pass: `run` returns only the command (set-up
    goes in `before`), nothing is saved in `found` that no later case reads, and no new smoke
-   helper copies one that exists? A case that fails one of these is a `revise`; it is upkeep, not
-   style.
+   helper copies one that exists? When it runs the same command as a case beside it, does it check
+   at least what that case checks, through the same function? A case that fails one of these is a
+   `revise`; it is upkeep, not style.
 5. **The rules.** No sleeps, retries or longer timeouts to get a pass; no loosened check; no change
    that hides a Positron bug.
 6. **Scope.** Any change that has nothing to do with the finding.
@@ -33,6 +34,10 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
    a `revise`: ask to fold the cases into one shape (a table of cases tried in one loop, say) when
    that is no bigger than the fix. When it would be, approve, and add a note naming the lines for a
    person to refactor.
+
+10. **The cause in the product.** When the account says Positron draws, names or orders something
+    a certain way, open the product file and line it cites and check the code does that. A claim
+    the code does not back, or one with no file and line, is a `revise`.
 
 ## Verdict
 
