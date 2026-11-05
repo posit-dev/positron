@@ -119,3 +119,18 @@ test('the browser renders the same view as the server', () => {
 		assert.deepEqual(JSON.parse(JSON.stringify(ctx.renderView(rows, { now: TODAY, range, filter }))), view(filter, range));
 	}
 });
+
+test('each outcome in All issues lists newest first by the date on the right: closed, moved to Future, or filed', () => {
+	const list = [
+		row(1, 'completed', { filed: '2026-10-08', closed: '2026-10-09' }),
+		row(2, 'completed', { filed: '2026-10-01', closed: '2026-10-14' }),
+		row(3, 'future', { filed: '2026-10-09', futureSince: '2026-10-10' }),
+		row(4, 'future', { filed: '2026-10-02', futureSince: '2026-10-12' }),
+		row(5, 'awaiting', { filed: '2026-10-03' }),
+		row(6, 'awaiting', { filed: '2026-10-11' }),
+	];
+	const v = renderView(list, { now: TODAY, range: resolveRange('all', list.map(r => r.filed).sort(), TODAY), filter: {} });
+	const order = [...v.body.matchAll(/<div class="issue" id="i(\d+)"/g)].map(m => Number(m[1]));
+	const pos = n => order.indexOf(n);
+	assert.ok(pos(2) < pos(1) && pos(4) < pos(3) && pos(6) < pos(5), `order was ${order}`);
+});

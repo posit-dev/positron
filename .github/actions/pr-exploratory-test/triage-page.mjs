@@ -176,9 +176,14 @@ function renderIssueRow(r, now) {
 		+ `<span class="age">${age(r, now)}</span></div>`;
 }
 
+/** The date a row's right-hand column is about, so each outcome lists newest first by it: closed, moved to Future, or filed. */
+function sortDate(r) {
+	return (r.out === 'future' ? r.futureSince : r.closed && r.out !== 'active' ? r.closed : null) ?? r.filed;
+}
+
 function issueList(rows, filter, now) {
 	const order = OUT.map(o => o.key);
-	const shown = rows.filter(r => matches(r, filter)).sort((a, b) => order.indexOf(a.out) - order.indexOf(b.out) || b.filed.localeCompare(a.filed) || b.num - a.num);
+	const shown = rows.filter(r => matches(r, filter)).sort((a, b) => order.indexOf(a.out) - order.indexOf(b.out) || sortDate(b).localeCompare(sortDate(a)) || b.num - a.num);
 	const label = [filter.sev && sevLabel(filter.sev), filter.area && escapeHtml(filter.area), filter.out && outLabel(filter.out), filter.issue && `#${Number(filter.issue)}`].filter(Boolean);
 	const chip = label.length ? `<div class="showing">Showing <span class="chip-filter">${[...label, shown.length].join(SEP)}<button type="button" class="clear" aria-label="Clear filter, show all issues">&times;</button></span></div>` : '';
 	const list = shown.length ? `<div class="issues">${shown.map(r => renderIssueRow(r, now)).join('\n')}</div>` : label.length ? '<p class="foot">No issues match this filter in this date range.</p>' : NONE;
@@ -197,7 +202,7 @@ export function renderView(rows, { now, range, filter = {} }) {
 }
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, byVersion, matches, header, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, renderIssueRow, issueList, renderView };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, count, plural, pct, daysBetween, outLabel, sevLabel, sevPill, areasOf, byVersion, matches, header, bar, rowBar, barTable, bySeverity, byFeature, tally, breakdown, age, renderIssueRow, sortDate, issueList, renderView };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUT, NO_SEV, NO_AREA, SEP, NONE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),

@@ -225,7 +225,7 @@ function findingRow(r, n) {
 	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
 	const links = [report ? `<a href="${escapeHtml(report)}${card}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
-		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${onMainFixedInPr(r) ? '<span class="maybe">Already on main</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}${onMainNote(r, issueNum)}</span>`
+		+ `<span class="title"><span class="t" title="${escapeHtml(r.title)}">${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${onMainFixedInPr(r) ? '<span class="maybe">Already on main</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}${onMainNote(r, issueNum)}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
@@ -329,9 +329,11 @@ i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-s
 h3{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600}
 .finding{border-bottom:1px solid #E4E1D9}
 .row{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:12px 0;background:transparent;border:0;color:inherit;text-align:left;cursor:pointer;font:inherit;min-height:52px}
-.title{flex:1 1 380px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:16px;line-height:1.4;font-weight:500}
-.why{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px}
-.maybe{font-size:12px;font-weight:400;color:#7A3E00;background:#FDF0E1;padding:2px 8px;border-radius:999px}
+.title{flex:1 1 380px;min-width:0;display:flex;align-items:center;gap:6px 10px;font-size:16px;line-height:1.4;font-weight:500}
+.title .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row[aria-expanded="true"] .title .t{white-space:normal}
+.why{flex:none;white-space:nowrap;font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px}
+.maybe{flex:none;white-space:nowrap;font-size:12px;font-weight:400;color:#7A3E00;background:#FDF0E1;padding:2px 8px;border-radius:999px}
 .link{flex:0 0 72px;font-size:12px;color:#6B6862;text-decoration:underline dotted #C9C5BB;text-underline-offset:3px}
 .sev{flex:0 0 72px;font-size:12px;color:#7A766F}
 .sign{flex:0 0 20px;text-align:center;font-size:16px;color:#5A5751}

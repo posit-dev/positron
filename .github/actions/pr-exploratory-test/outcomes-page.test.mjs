@@ -207,7 +207,7 @@ test('By PR and Evidence start collapsed behind a heading button, the PR run mos
 test('evidence lists each group like By PR: the newest run first, then the newest PR, then the report\'s finding order', () => {
 	const f = (pr, finding, postedAt) => row('not-fixed', { pr, finding, postedAt, title: `PR ${pr} finding ${finding}` });
 	const html = render([f(5, 1, '2026-10-01T00:00:00Z'), f(7, 2, '2026-10-12T00:00:00Z'), f(9, 1, '2026-10-02T00:00:00Z'), f(7, 1, '2026-10-12T00:00:00Z'), f(8, 1, '2026-10-02T00:00:00Z')]);
-	const order = [...section(html, 'ev-h').matchAll(/PR (\d+) finding (\d+)/g)].map(m => `${m[1]}#${m[2]}`);
+	const order = [...text(section(html, 'ev-h')).matchAll(/PR (\d+) finding (\d+)/g)].map(m => `${m[1]}#${m[2]}`);
 	assert.deepEqual(order, ['7#1', '7#2', '9#1', '8#1', '5#1']);
 });
 
@@ -252,8 +252,15 @@ test('a finding already on main shows what became of it on its row: its issue, f
 		row('not-fixed', { origin: 'inherited', title: 'Untracked' }),
 		row('filed-issue', { title: 'Counted' }),
 	]);
-	const notes = [...markup(html).matchAll(/<span class="title"><span>([^<]+)<\/span>(?:<span class="why">([^<]+)<\/span>)?/g)].map(m => [m[1], m[2] ?? null]);
+	const notes = [...markup(html).matchAll(/<span class="title"><span class="t" title="[^"]*">([^<]+)<\/span>(?:<span class="why">([^<]+)<\/span>)?/g)].map(m => [m[1], m[2] ?? null]);
 	assert.deepEqual(notes.sort(), [['Counted', null], ['Fixed elsewhere', 'Fixed later'], ['Left alone', 'Won\'t fix'], ['Tracked', 'Issue #17200'], ['Untracked', null]]);
+});
+
+test('a finding\'s title stays on one line with its pills, cut short with ..., and wraps once the row is open', () => {
+	const html = render([row('not-fixed', { title: 'A "quoted" title' })]);
+	assert.match(html, /<span class="t" title="A &quot;quoted&quot; title">/);
+	assert.match(html, /\.title \.t\{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
+	assert.match(html, /\.row\[aria-expanded="true"\] \.title \.t\{white-space:normal\}/);
 });
 
 test('a finding already on main that the PR fixed counts as fixed in the PR, tagged on its row', () => {
@@ -286,7 +293,7 @@ test('a didn\'t-ship row says why', () => {
 	const html = render([row('didnt-ship', { pr: 3, decidedBy: 'closed-unmerged' }), row('didnt-ship', { pr: 4, finding: 2, decidedBy: 'dropped' })]);
 	assert.match(text(section(html, 'ev-h')), /Not merged 2 The code it was about never reached main\. A finding Change dropped #4 .*Decided by PR merged without the change .*A finding PR closed #3 .*Decided by PR closed without merging/);
 	assert.match(html, /<span class="why">PR closed<\/span>/);
-	assert.match(html, /\.why\{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
+	assert.match(html, /\.why\{flex:none;white-space:nowrap;font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
 });
 
 test('the evidence filters leave out empty groups, and findings are grouped in palette order', () => {
