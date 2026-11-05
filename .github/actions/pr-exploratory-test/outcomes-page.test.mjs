@@ -16,7 +16,7 @@ const NOW = new Date('2026-10-14T12:00:00Z');
 const preview = extra => ({ title: 'Plots: <one> name', author: 'someone', state: 'merged', date: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, files: 3, desc: 'Fixes the thing.', ...extra });
 const render = rows => renderOutcomesPage(rows, { now: NOW });
 // Visible text only, with tags dropped and the entities used here undone.
-const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="how-panel"[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
+const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="how-panel"[\s\S]*?<\/ol><\/div>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
 	.replace(/&middot;/g, '~').replace(/&ndash;/g, '-').replace(/&divide;/g, '/').replace(/&mdash;/g, '--').replace(/&#39;/g, '\'').replace(/\s+/g, ' ');
 // The markup, without the embedded rows and the script's copy of the view.
 const markup = html => html.replace(/<script[\s\S]*?<\/script>/g, '');
@@ -207,7 +207,7 @@ test('By PR and Evidence start collapsed behind a heading button, the PR run mos
 test('evidence lists each group like By PR: the newest run first, then the newest PR, then the report\'s finding order', () => {
 	const f = (pr, finding, postedAt) => row('not-fixed', { pr, finding, postedAt, title: `PR ${pr} finding ${finding}` });
 	const html = render([f(5, 1, '2026-10-01T00:00:00Z'), f(7, 2, '2026-10-12T00:00:00Z'), f(9, 1, '2026-10-02T00:00:00Z'), f(7, 1, '2026-10-12T00:00:00Z'), f(8, 1, '2026-10-02T00:00:00Z')]);
-	const order = [...section(html, 'ev-h').matchAll(/PR (\d+) finding (\d+)/g)].map(m => `${m[1]}#${m[2]}`);
+	const order = [...text(section(html, 'ev-h')).matchAll(/PR (\d+) finding (\d+)/g)].map(m => `${m[1]}#${m[2]}`);
 	assert.deepEqual(order, ['7#1', '7#2', '9#1', '8#1', '5#1']);
 });
 
@@ -244,6 +244,25 @@ test('a finding that also happened on main is its own group, left out of the % f
 	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, and the PR didn't fix it\. .*Outcome Not fixed .*Outcome Fixed later/);
 });
 
+test('a finding already on main shows what became of it on its row: its issue, fixed later, or won\'t fix', () => {
+	const html = render([
+		row('filed-issue', { origin: 'inherited', title: 'Tracked', issue: { number: 17200, url: 'https://github.com/posit-dev/positron/issues/17200', state: 'open' } }),
+		row('fixed-later', { origin: 'inherited', title: 'Fixed elsewhere' }),
+		row('wont-fix', { origin: 'inherited', title: 'Left alone' }),
+		row('not-fixed', { origin: 'inherited', title: 'Untracked' }),
+		row('filed-issue', { title: 'Counted' }),
+	]);
+	const notes = [...markup(html).matchAll(/<span class="title"><span class="t" title="[^"]*">([^<]+)<\/span>(?:<span class="why">([^<]+)<\/span>)?/g)].map(m => [m[1], m[2] ?? null]);
+	assert.deepEqual(notes.sort(), [['Counted', null], ['Fixed elsewhere', 'Fixed later'], ['Left alone', 'Won\'t fix'], ['Tracked', 'Issue #17200'], ['Untracked', null]]);
+});
+
+test('a finding\'s title stays on one line with its pills, cut short with ..., and wraps once the row is open', () => {
+	const html = render([row('not-fixed', { title: 'A "quoted" title' })]);
+	assert.match(html, /<span class="t" title="A &quot;quoted&quot; title">/);
+	assert.match(html, /\.title \.t\{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
+	assert.match(html, /\.row\[aria-expanded="true"\] \.title \.t\{white-space:normal\}/);
+});
+
 test('a finding already on main that the PR fixed counts as fixed in the PR, tagged on its row', () => {
 	const html = render([row('fixed-in-pr'), row('not-fixed'), row('fixed-in-pr', { origin: 'inherited', title: 'Old bug' })]);
 	assert.match(text(html), /Developers fixed 2 of 3 findings \(67%\)/);
@@ -262,10 +281,10 @@ test('a fix that didn\'t hold counts like any finding and is tagged on its row',
 test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
 	const html = render(today);
 	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
-	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/)[0];
+	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<\/ol><\/div>/)[0];
 	const steps = [...panel.matchAll(/<li><span class="step">(\d)<\/span><span class="outs">(.*?)<\/span><\/span><span>/g)].map(m => `${m[1]} ${m[2].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ')}`);
 	assert.deepEqual(steps, ['1 Already on main', '2 PR still open', '3 Fixed in the PR', '4 Fixed later', '5 Filed as issue', '6 Won\'t fix', '7 Not merged', '8 Unclear No files named', '9 Not fixed']);
-	assert.match(panel, /Outcomes can move later/);
+	assert.doesNotMatch(panel, /Outcomes can move later/);
 	assert.match(html, /let howOpen = false;/);
 	assert.match(html, /setHow\(howOpen\);/);
 });
@@ -274,7 +293,7 @@ test('a didn\'t-ship row says why', () => {
 	const html = render([row('didnt-ship', { pr: 3, decidedBy: 'closed-unmerged' }), row('didnt-ship', { pr: 4, finding: 2, decidedBy: 'dropped' })]);
 	assert.match(text(section(html, 'ev-h')), /Not merged 2 The code it was about never reached main\. A finding Change dropped #4 .*Decided by PR merged without the change .*A finding PR closed #3 .*Decided by PR closed without merging/);
 	assert.match(html, /<span class="why">PR closed<\/span>/);
-	assert.match(html, /\.why\{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
+	assert.match(html, /\.why\{flex:none;white-space:nowrap;font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
 });
 
 test('the evidence filters leave out empty groups, and findings are grouped in palette order', () => {
