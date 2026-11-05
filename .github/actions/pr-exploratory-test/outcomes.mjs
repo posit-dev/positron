@@ -285,9 +285,10 @@ async function prRows(number) {
 		// A report from before the Origin column lists only the findings whose fix was in the change.
 		const origin = new Map([...(report.verification?.related ?? []).map(n => [n, 'introduced']), ...Object.entries(report.verification?.origin ?? {}).map(([n, o]) => [Number(n), o])]);
 		for (const finding of outcomeFindings(report, stats)) {
-			const findingOrig = report.fromPage ? null : findingOrigin(origin.get(finding.n) ?? null, finding, closes);
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
+			// A page-only report has no Origin column, so a kept row keeps the origin it was saved with.
+			const findingOrig = report.fromPage ? (kept?.origin ?? null) : findingOrigin(origin.get(finding.n) ?? null, finding, closes);
 			if (kept && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
 				rows.push({ ...kept, origin: findingOrig, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
