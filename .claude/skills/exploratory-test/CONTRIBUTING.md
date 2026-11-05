@@ -120,11 +120,18 @@ finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
 A finding that also happened on a build of main (Origin inherited) is left out
-of the counts, since the PR didn't bring it, unless the verifier listed an
-issue the PR says it closes as a possible duplicate. Then the PR's own fix didn't hold, so it counts like any
-other finding and is tagged "Fix didn't hold". An inherited finding doesn't
+of the counts, since the PR didn't bring it, with two exceptions that count
+like any other finding. If a commit on the PR fixed it anyway, it counts as
+fixed in the PR and is tagged "Already on main". If the verifier listed an
+issue the PR says it closes as a possible duplicate, the PR's own fix didn't
+hold, and it is tagged "Fix didn't hold". An inherited finding doesn't
 wait for its PR to merge: a matching issue marks it filed as an issue even
 while the PR is open.
+
+Runs from before main was replayed have no trusted origin. Their origins
+were checked by hand and are set in `origin-overrides.json`, keyed by
+`<run>#<finding>`, with a reason for each. An entry there wins over the
+report's own origin.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many

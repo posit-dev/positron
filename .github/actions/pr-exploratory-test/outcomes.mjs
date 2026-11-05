@@ -34,6 +34,8 @@ const PR_CONCURRENCY = 6;
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
 const PREVIOUS = args.previous && !args.recheck ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 const SETTLED = settledRows(PREVIOUS);
+// Origins set by hand, keyed by run#finding, for findings from before main was replayed.
+const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const SAVED_REPLIES = savedReplies(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
@@ -288,7 +290,8 @@ async function prRows(number) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
 			// A page-only report has no Origin column, so a kept row keeps the origin it was saved with.
-			const findingOrig = report.fromPage ? (kept?.origin ?? null) : findingOrigin(origin.get(finding.n) ?? null, finding, closes);
+			const forced = ORIGIN_OVERRIDES[`${parsed.run}#${finding.n}`]?.origin;
+			const findingOrig = report.fromPage ? (forced ?? kept?.origin ?? null) : findingOrigin(forced ?? origin.get(finding.n) ?? null, finding, closes);
 			if (kept && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
 				rows.push({ ...kept, origin: findingOrig, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
