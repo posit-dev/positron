@@ -24,6 +24,7 @@ import { IPositronPackagesService } from '../interfaces/positronPackagesService.
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
+import { usePackagesHoverManager } from './usePackagesHoverManager.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
 
 export interface PackageDetailProps {
@@ -161,6 +162,7 @@ const VulnerabilityRow = (props: { vulnerability: IPackageVulnerability }) => {
  */
 export const PackageDetail = (props: PackageDetailProps) => {
 	const services = usePositronReactServicesContext();
+	const hoverManager = usePackagesHoverManager();
 	const { packagesService, sessionId, packageName } = props;
 
 	// Bump on any relevant service/instance event to recompute from the service.
@@ -311,6 +313,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						ariaLabel={actionLabel('help')}
 						className='package-detail-action package-detail-action-icon'
 						disabled={disabled}
+						hoverManager={hoverManager}
 						tooltip={actionLabel('help')}
 						onPressed={() => runAction(action)}
 					>
@@ -323,6 +326,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						key={action}
 						ariaLabel={actionLabel('website')}
 						className='package-detail-action package-detail-action-icon'
+						hoverManager={hoverManager}
 						tooltip={actionLabel('website')}
 						onPressed={() => runAction(action)}
 					>
