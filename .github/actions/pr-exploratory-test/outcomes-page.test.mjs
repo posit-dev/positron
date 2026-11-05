@@ -327,7 +327,7 @@ test('an expanded finding shows its evidence, commits as chips, files, run and l
 	assert.match(html, /<dt>Files<\/dt><dd><code class="chip">src\/a.ts<\/code><\/dd>/);
 	assert.match(text(html), /Decided by The diff, read by the model/);
 	assert.match(text(html), /Run 37#2 ~ started by \/explore ~ skill 1\.9 ~ opus/);
-	assert.match(html, /<a href="https:\/\/example.com\/r\/index.html">Open report<\/a>/);
+	assert.match(html, /<a href="https:\/\/example.com\/r\/index.html#f2">Open report<\/a>/);
 	assert.match(html, /<a href="https:\/\/github.com\/posit-dev\/positron\/pull\/16556" data-pr="16556">Open PR<\/a>/);
 	assert.match(text(render([row('not-fixed', { decidedBy: 'merged-no-fix' })])), /Decided by Merged with no fix found/);
 });
