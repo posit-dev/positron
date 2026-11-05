@@ -267,10 +267,10 @@ else
 	MAP_FILE="$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json"
 
 	# Auto-inject feature tags derived from the PR's changed files, unless the
-	# author opted out with @:no-auto-tags -- which now suppresses every
-	# derivation source uniformly (including the WIN/WEB scan below, which used
-	# to run unconditionally): authors need one total escape hatch to override
-	# auto-tagging at any time, not one exception carved out of it. Additive
+	# author opted out with @:no-auto-tags -- which suppresses every
+	# file-derived source uniformly (including the WIN/WEB scan below, which used
+	# to run unconditionally). The Ark, ai-lib, and Posit Assistant bump checks
+	# above still run, since a dependency bump always needs its tests. Additive
 	# only -- never removes tags the author specified.
 	TEST_CHANGE_TAGS=""
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then

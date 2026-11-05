@@ -206,7 +206,7 @@ WORKBENCH_LANE_PATHS=(
 	'test/e2e/tests/workbench/*'
 	'test/e2e/pages/workbench/*'
 	'test/e2e/infra/workbench*'
-	# Workbench managed credentials (Snowflake, Databricks, Azure)
+	# Workbench managed credentials (Snowflake, Databricks)
 	'extensions/authentication/src/managedCredentials*'
 	'extensions/authentication/src/credentials/databricks*'
 	'extensions/authentication/src/credentials/snowflake*'
