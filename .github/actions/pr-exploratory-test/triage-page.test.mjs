@@ -104,12 +104,11 @@ test('the breakdown counts issues filed from the report apart from matched ones'
 	assert.match(text(section(view().body, 'kind')), /Linked by Filed from the report 6 Matched to its finding 1/);
 });
 
-test('the page has the shared top row and footer, and the counting panel says which issues count', () => {
+test('the page has the shared top row and footer', () => {
 	const html = renderTriagePage({ rows }, { now: new Date(`${TODAY}T12:00:00Z`) });
 	assert.match(html, /<nav[^>]*class="switch"[\s\S]*aria-current="page"[^>]*>Triage outcomes/);
 	assert.match(html, /<footer>Updated /);
-	assert.match(text(html), /issues filed by hand that the PR outcomes page matched to a finding and that mention its PR/);
-	assert.doesNotMatch(text(html), /left out/);
+	assert.doesNotMatch(text(html), /Counted: issues labelled/);
 });
 
 test('the browser renders the same view as the server', () => {
