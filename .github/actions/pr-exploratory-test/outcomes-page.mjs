@@ -193,12 +193,23 @@ function prRows(own) {
 	return accordion('pr', 'By PR', `${plural(byPr.size, 'PR')}${SEP}${withFix} with fixes`, `<div class="rows">${rows}</div>`);
 }
 
+/** What became of a finding in the Already on main group, which hides its outcome: plain text, as the row is a button. */
+function onMainNote(r, issueNum) {
+	if (bucketOf(r) !== 'on-main') {
+		return '';
+	}
+	const note = r.outcome === 'filed-issue' ? (issueNum ? `Issue #${Number(issueNum)}` : 'Issue filed')
+		: r.outcome === 'fixed-later' || r.outcome === 'wont-fix' ? OUTCOMES.find(o => o.key === r.outcome).label : '';
+	return note ? `<span class="why">${escapeHtml(note)}</span>` : '';
+}
+
 function findingRow(r, n) {
 	const ev = splitEvidence(r.evidence);
 	const report = safeUrl(r.reportUrl);
 	// The report's card for the finding.
 	const card = Number(r.finding) ? `#f${Number(r.finding)}` : '';
 	const pr = Number(r.pr);
+	const issueNum = Number(r.issue?.number) || ev.issue;
 	const issueUrl = safeUrl(r.issue?.url);
 	const issue = r.issue && issueUrl ? `<a class="chip" href="${escapeHtml(issueUrl)}">#${Number(r.issue.number)}${SEP}${escapeHtml(r.issue.state)}</a>`
 		: ev.issue ? `<a class="chip" href="${REPO_URL}/issues/${ev.issue}">#${ev.issue}</a>` : '';
@@ -211,11 +222,10 @@ function findingRow(r, n) {
 		['Run', `<span class="mono">${escapeHtml(r.run)}#${escapeHtml(r.finding)}</span>${SEP}${TRIGGER[r.trigger] ?? 'trigger unknown'}${SEP}skill ${escapeHtml(r.skillVersion ?? '?')}${SEP}${escapeHtml(r.model ?? '?')}`],
 	].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 	// A filed issue's triage outcome lives on the other page.
-	const issueNum = Number(r.issue?.number) || ev.issue;
 	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
 	const links = [report ? `<a href="${escapeHtml(report)}${card}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
-		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${onMainFixedInPr(r) ? '<span class="maybe">Already on main</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}</span>`
+		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${onMainFixedInPr(r) ? '<span class="maybe">Already on main</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}${onMainNote(r, issueNum)}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
@@ -264,7 +274,7 @@ export function renderView(rows, { range }) {
 const runDates = rows => rows.map(r => r.postedAt?.slice(0, 10)).filter(Boolean).sort();
 
 // The browser's copy of the view, so it renders the same markup as the server.
-const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, onMainFixedInPr, bucketOf, summarize, splitEvidence, segments, splitBar, header, allBar, howPanel, severityRows, prRows, findingRow, evidence, renderView, prCard };
+const VIEW_FNS = { escapeHtml, safeUrl, ...SHARED_VIEW, pct, codeSpans, plural, isFixed, isCounted, onMainFixedInPr, bucketOf, summarize, splitEvidence, segments, splitBar, header, allBar, howPanel, severityRows, prRows, onMainNote, findingRow, evidence, renderView, prCard };
 export const VIEW_SOURCE = [
 	...Object.entries({ ...SHARED_CONSTS, SEVERITY_LABEL, OUTCOMES, FILTERS, DECIDED_BY, SHIP_REASON, STEPS, TRIGGER, HERO_COLOR, INK, SEP, PR_STATE }).map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`),
 	...Object.entries(VIEW_FNS).map(([k, f]) => `const ${k} = ${f};`),

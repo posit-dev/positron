@@ -244,6 +244,18 @@ test('a finding that also happened on main is its own group, left out of the % f
 	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, and the PR didn't fix it\. .*Outcome Not fixed .*Outcome Fixed later/);
 });
 
+test('a finding already on main shows what became of it on its row: its issue, fixed later, or won\'t fix', () => {
+	const html = render([
+		row('filed-issue', { origin: 'inherited', title: 'Tracked', issue: { number: 17200, url: 'https://github.com/posit-dev/positron/issues/17200', state: 'open' } }),
+		row('fixed-later', { origin: 'inherited', title: 'Fixed elsewhere' }),
+		row('wont-fix', { origin: 'inherited', title: 'Left alone' }),
+		row('not-fixed', { origin: 'inherited', title: 'Untracked' }),
+		row('filed-issue', { title: 'Counted' }),
+	]);
+	const notes = [...markup(html).matchAll(/<span class="title"><span>([^<]+)<\/span>(?:<span class="why">([^<]+)<\/span>)?/g)].map(m => [m[1], m[2] ?? null]);
+	assert.deepEqual(notes.sort(), [['Counted', null], ['Fixed elsewhere', 'Fixed later'], ['Left alone', 'Won\'t fix'], ['Tracked', 'Issue #17200'], ['Untracked', null]]);
+});
+
 test('a finding already on main that the PR fixed counts as fixed in the PR, tagged on its row', () => {
 	const html = render([row('fixed-in-pr'), row('not-fixed'), row('fixed-in-pr', { origin: 'inherited', title: 'Old bug' })]);
 	assert.match(text(html), /Developers fixed 2 of 3 findings \(67%\)/);
