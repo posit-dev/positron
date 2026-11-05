@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -422,4 +422,36 @@ test('outcomeFindings takes the confirmed findings, less the ones the page liste
 	assert.deepEqual(outcomeFindings(report, { demoted: [{ finding: 2, issue: 16634 }] }).map(f => f.n), [1]);
 	// A run from before stats.json, or before it recorded demotions, keeps every confirmed finding.
 	assert.deepEqual(outcomeFindings(report, null).map(f => f.n), [1, 2]);
+});
+
+test('replyKey is the same for the same model and prompt, and differs when either changes', () => {
+	assert.equal(replyKey('opus', 'p'), replyKey('opus', 'p'));
+	assert.notEqual(replyKey('opus', 'p'), replyKey('opus', 'q'));
+	assert.notEqual(replyKey('opus', 'p'), replyKey('sonnet', 'p'));
+});
+
+test('savedReplies merges every row\'s replies and skips rows with none', () => {
+	const saved = savedReplies([{ replies: { a: 'yes. Fixed.' } }, {}, { replies: { b: 'no. Not it.' } }]);
+	assert.deepEqual([...saved], [['a', 'yes. Fixed.'], ['b', 'no. Not it.']]);
+});
+
+test('mapLimit keeps input order and never runs more than the limit at once', async () => {
+	let running = 0;
+	let most = 0;
+	const out = await mapLimit([30, 10, 20, 5, 15], 2, async ms => {
+		most = Math.max(most, ++running);
+		await new Promise(r => setTimeout(r, ms));
+		running--;
+		return ms * 2;
+	});
+	assert.deepEqual(out, [60, 20, 40, 10, 30]);
+	assert.equal(most, 2);
+});
+
+test('findingOrigin marks an inherited finding whose known issue the PR closes as a fix that didn\'t hold', () => {
+	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'target');
+	assert.equal(findingOrigin('inherited', { known: [17000] }, [17021]), 'inherited');
+	assert.equal(findingOrigin('inherited', {}, [17021]), 'inherited');
+	assert.equal(findingOrigin('introduced', { known: [17021] }, [17021]), 'introduced');
+	assert.equal(findingOrigin(null, { known: [17021] }, [17021]), null);
 });

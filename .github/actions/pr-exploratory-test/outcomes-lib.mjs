@@ -6,6 +6,7 @@
 // What happened to each confirmed finding after it was posted, decided from
 // commits, merges and issues. The pure half of outcomes.mjs.
 
+import { createHash } from 'node:crypto';
 import { COMMENT_MARKER } from './lib.mjs';
 
 /** A result comment's tested short SHA, report base URL, run id and what started it, or null when it links no report. */
@@ -101,6 +102,11 @@ const decidedByOf = c => c.source.startsWith('issue') ? 'issue+model' : 'diff+mo
 export function outcomeFindings(report, stats) {
 	const demoted = new Set((stats?.demoted ?? []).map(d => d.finding));
 	return (report.findings ?? []).filter(f => f.verified === 'confirmed' && !demoted.has(f.n));
+}
+
+/** A finding's Origin, or `target` for an inherited one that names a known issue the PR says it closes: the PR's own fix didn't hold. */
+export function findingOrigin(origin, finding, closes) {
+	return origin === 'inherited' && (finding.known ?? []).some(n => closes.includes(Number(n))) ? 'target' : origin;
 }
 
 /** An issue's number, link and state as the page shows it. */
@@ -377,4 +383,28 @@ export function prPreview(pr) {
 		title: pr.title, author: pr.user?.login ?? '', state, date: pr.merged_at ?? (state === 'open' ? pr.created_at : pr.closed_at),
 		additions: pr.additions, deletions: pr.deletions, files: pr.changed_files, desc: firstParagraph(pr.body),
 	};
+}
+
+/** The key a model reply is saved under: the same model and prompt get the same key. */
+export function replyKey(model, prompt) {
+	return createHash('sha256').update(`${model}\n${prompt}`).digest('hex').slice(0, 32);
+}
+
+/** The model replies saved on a previous run's rows, by `replyKey`. */
+export function savedReplies(rows) {
+	return new Map(rows.flatMap(r => Object.entries(r.replies ?? {})));
+}
+
+/** `fn` over `items` with at most `limit` running at once, results in input order. */
+export async function mapLimit(items, limit, fn) {
+	const results = new Array(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			results[i] = await fn(items[i], i);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
 }

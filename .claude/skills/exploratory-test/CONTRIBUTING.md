@@ -119,6 +119,10 @@ closing an issue that way mustn't raise the % fixed. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
+A finding that also happened on a build of main (Origin inherited) is left out
+of the counts, since the PR didn't bring it, unless it names a known issue the
+PR says it closes. Then the PR's own fix didn't hold, so it counts like any
+other finding and is tagged "Fix didn't hold".
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many
@@ -146,7 +150,10 @@ final: a matching issue moves it to filed as an issue, and a later fix, or that
 issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
-a matching issue still run every night. A merged PR that no longer changes
+a matching issue still run every night. Each row also saves the model replies
+its checks used, and the next run reuses a reply when the model and the prompt
+are exactly the same, so an unchanged diff or issue costs no model call. A
+reply from a cut diff, or one that answered unclear, is asked again. A merged PR that no longer changes
 any of the finding's files, though the tested commit did, is change dropped:
 what the run found never shipped, so it is left out of the % fixed. An answer read from a diff that
 was cut for length is never kept, so it is asked again. To check every
