@@ -24,7 +24,7 @@ const OUTCOMES = [
 	{ key: 'wont-fix', label: 'Won\'t fix', group: 'wont-fix', def: 'A matching issue was closed as not planned, so the team chose to leave it.', brief: 'Its issue was closed as not planned.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
 	{ key: 'didnt-ship', label: 'Not merged', group: 'didnt-ship', def: 'The code this finding was about never reached main: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
-	{ key: 'on-main', label: 'Already on main', group: 'on-main', def: 'It also happened on a build of main, so the PR didn\'t bring it. Left out whatever happened to it.', brief: 'It also happened on main, so the PR didn\'t bring it.' },
+	{ key: 'on-main', label: 'Already on main', group: 'on-main', def: 'It also happened on a build of main, so the PR didn\'t bring it. Left out whatever happened to it, unless it is the bug the PR says it fixes.', brief: 'It also happened on main, so the PR didn\'t bring it.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
@@ -45,7 +45,7 @@ const DECIDED_BY = {
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
 // The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
 const STEPS = [
-	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t bring it, so it isn\'t counted, whatever happens to it later.'],
+	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t bring it, so it isn\'t counted, whatever happens to it later. The exception is the bug the PR says it fixes: then its fix didn\'t hold, and it counts like any other finding.'],
 	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
@@ -212,7 +212,7 @@ function findingRow(r, n) {
 	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
 	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
-		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}</span>`
+		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
 		+ `<div class="detail" id="d${n}" hidden>${ev.text ? `<p class="ev">${codeSpans(ev.text)}</p>` : ''}<dl>${dl}</dl><div class="links">${links}</div></div></div>`;
 }
@@ -441,7 +441,7 @@ export function renderOutcomesPage(rows, { now = new Date(), runUrl: run = runUr
 	const range = resolveRange('all', dates, today);
 	const prs = Object.fromEntries(rows.filter(r => r.prPreview).map(r => [r.pr, r.prPreview]));
 	const view = renderView(rows, { range });
-	const data = inlineJson({ rows: rows.map(({ prPreview, ...r }) => r), now: today, prs });
+	const data = inlineJson({ rows: rows.map(({ prPreview, replies, ...r }) => r), now: today, prs });
 	const script = inlineScript(`${VIEW_SOURCE}\n${SHELL_SCRIPT}\n${SCRIPT}`);
 	return `<!doctype html>
 <html lang="en">

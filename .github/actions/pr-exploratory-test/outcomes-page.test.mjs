@@ -237,6 +237,13 @@ test('a finding that also happened on main is its own group, left out of the % f
 	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, so the PR didn't bring it\. Also on main .*Outcome Not fixed .*Outcome Fixed in the PR/);
 });
 
+test('a fix that didn\'t hold counts like any finding and is tagged on its row', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed', { origin: 'target', title: 'Still listed' }), row('not-fixed', { origin: 'inherited' })]);
+	assert.match(text(html), /Developers fixed 1 of 2 findings \(50%\)/);
+	assert.match(text(section(html, 'ev-h')), /Not fixed 1 .*Still listed Fix didn't hold/);
+	assert.match(text(section(html, 'ev-h')), /Already on main 1/);
+});
+
 test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
 	const html = render(today);
 	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
@@ -441,6 +448,12 @@ test('the page embeds one PR preview per PR, not one per finding', () => {
 	assert.deepEqual(Object.keys(data.prs), ['7']);
 	assert.equal(data.prs[7].title, 'Plots: <one> name');
 	assert.ok(data.rows.every(r => !('prPreview' in r)));
+});
+
+test('the page leaves out the model replies saved on each row', () => {
+	const html = render([row('not-fixed', { replies: { abc: 'no. Not this change.' } })]);
+	const data = JSON.parse(html.match(/<script id="rows" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+	assert.ok(data.rows.every(r => !('replies' in r)));
 });
 
 test('every PR link is marked for the card, and the page has one hidden card', () => {
