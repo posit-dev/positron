@@ -109,6 +109,7 @@ test.describe('Notebook Edit Mode', {
 	});
 
 	test('Execute and debug cells with keyboard shortcuts', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, r, }) {
+		test.skip(process.platform === 'win32', 'Breakpoint never pauses on Windows with Python 3.14, see #17146');
 		const { notebooksPositron, debug } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 
