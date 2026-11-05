@@ -198,6 +198,22 @@ patch_is_tag_change_only() {
 	'
 }
 
+# touches_workbench_lane <changed_files>
+# Echoes "true" iff any changed file only runs or matters in the Workbench lane,
+# so pr-tags-parse.sh can start it without the author typing @:workbench. The
+# e2e-workbench project is the only one that runs tests/workbench/**, so a PR
+# editing those tests would otherwise never run them.
+touches_workbench_lane() {
+	local changed="$1" file
+	while IFS= read -r file; do
+		case "$file" in
+			test/e2e/tests/workbench/*|test/e2e/pages/workbench/*|test/e2e/infra/workbench-pwb.ts)
+				echo true; return 0 ;;
+		esac
+	done <<< "$changed"
+	echo false
+}
+
 # is_infra_only <changed_files>
 # Echoes "true" iff EVERY changed file is an infra/doc/lockfile path (no feature
 # e2e coverage expected). Used only to suppress the no-match warning comment;
@@ -441,16 +457,16 @@ find_unmapped_positron_dirs() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
 
-# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>]
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>] [<workbench_files>]
 # Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
 # code by precedence: required -> body -> files -> ark -> test-win -> test-web ->
-# test-changed -> auto. Booleans are the strings "true"/"false". Echoes
+# workbench-files -> test-changed -> auto. Booleans are the strings "true"/"false". Echoes
 # comma-separated "<tag>|<code>" pairs in <final_csv> order; empty final list
 # echoes nothing. <test_change_csv> defaults to empty (older 6-arg callers keep
 # working; those tags just fall through to "auto"). Pure: presentation of an
 # already-decided tag set, no gh / $GITHUB_OUTPUT.
 build_tag_reasons() {
-	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}"
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}" workbench_files="${8:-false}"
 	local tag code author_nl map_nl test_change_nl
 	local -a out=()
 	author_nl="${author//,/$'\n'}"
@@ -474,6 +490,8 @@ build_tag_reasons() {
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
+		elif [[ "$tag" == "@:workbench" && "$workbench_files" == "true" ]]; then
+			code="workbench-files"
 		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
 			code="test-changed"
 		else
@@ -511,6 +529,7 @@ render_why_these_tags() {
 				ark)      label="Ark submodule bump" ;;
 				test-win) label="New test (tags.WIN)" ;;
 				test-web) label="New test (tags.WEB)" ;;
+				workbench-files) label="Changed Workbench e2e files" ;;
 				test-changed) label="Touched test file" ;;
 				*)        label="Auto-selected" ;;
 			esac

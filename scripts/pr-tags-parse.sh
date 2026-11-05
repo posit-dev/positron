@@ -154,6 +154,7 @@ MAP_TAGS=""
 ARK_INJECTED="false"
 ADDED_WIN="false"
 ADDED_WEB="false"
+WORKBENCH_FILES_CHANGED="false"
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
@@ -324,6 +325,15 @@ else
 			fi
 		fi
 
+		# Start the Workbench lane when the PR changes Workbench-only e2e files,
+		# since no other lane runs them. Comment- and tag-only test edits don't count.
+		if [[ -n "$CHANGED_FILES" && "$(touches_workbench_lane "$(exclude_paths "$CHANGED_FILES" "${SKIPPED_TEST_FILES:-}")")" == "true" ]]; then
+			echo "PR changes Workbench e2e files. Enabling Workbench tests."
+			echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+			WORKBENCH_FILES_CHANGED=true
+			TAGS="$(union_csv_tags "$TAGS" "@:workbench")"
+		fi
+
 		# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
 		# Also add @:win/@:web to TAGS so the PR comment explains why those
 		# jobs ran.
@@ -442,7 +452,7 @@ echo "lane_summary=$LANE_SUMMARY" >> "$GITHUB_OUTPUT"
 if [[ -z "$TAGS" ]]; then
 	TAG_REASONS="@:all|body"
 else
-	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS")"
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$WORKBENCH_FILES_CHANGED")"
 fi
 echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 

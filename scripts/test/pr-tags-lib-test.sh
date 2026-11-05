@@ -926,6 +926,21 @@ assert_eq "reasons: test-change-derived tag is test-changed" "@:critical|require
 assert_eq "reasons: map+test-change overlap prefers files" "@:critical|required,@:console|files" \
 	"$(build_tag_reasons "@:critical,@:console" "" "@:console" "false" "false" "false" "@:console")"
 
+# --- touches_workbench_lane ---
+assert_eq "workbench: Workbench test file" "true" \
+	"$(touches_workbench_lane $'src/foo.ts\ntest/e2e/tests/workbench/posit-assistant/posit-assistant-signin.test.ts')"
+assert_eq "workbench: Workbench page object" "true" \
+	"$(touches_workbench_lane "test/e2e/pages/workbench/auth.page.ts")"
+assert_eq "workbench: Workbench infra" "true" \
+	"$(touches_workbench_lane "test/e2e/infra/workbench-pwb.ts")"
+assert_eq "workbench: same-named folder outside tests/workbench" "false" \
+	"$(touches_workbench_lane $'test/e2e/tests/posit-assistant/posit-assistant-signin.test.ts\nsrc/vs/workbench/contrib/positronAssistant/browser/foo.ts')"
+assert_eq "workbench: empty input" "false" "$(touches_workbench_lane "")"
+assert_eq "reasons: Workbench file change is workbench-files" "@:critical|required,@:workbench|workbench-files" \
+	"$(build_tag_reasons "@:critical,@:workbench" "" "" "false" "false" "false" "" "true")"
+assert_eq "reasons: author-typed workbench is body" "@:critical|required,@:workbench|body" \
+	"$(build_tag_reasons "@:critical,@:workbench" "@:workbench" "" "false" "false" "false" "" "true")"
+
 # --- render_why_these_tags ---
 assert_eq "render: critical-only is not informative (empty)" "" \
 	"$(render_why_these_tags "@:critical|required")"
