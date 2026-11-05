@@ -15,14 +15,14 @@ the CI entry's report processor.
 
 | Artifact | Where | Written when |
 |---|---|---|
-| `_trace.zip` | `test-results/<test-dir>/` | locally on every run; on CI only for failures, retries, or `PW_TRACE=on` (`reporting.fixtures.ts` discards passing traces there) |
+| `_trace.zip` | `test-results/<test-dir>/` | every run, unless `CI=true` (CI, or a local repro like the ci-arm container): then only failures, retries, or `PW_TRACE=on` (`reporting.fixtures.ts` discards passing traces) |
 | `error-context.md` | `test-results/<test-dir>/` | failures only -- so it, not the trace, is the failure signal |
 | screenshots | `test-results/<test-dir>/` | `takeScreenshot` calls, plus one on failure |
 | app / kernel logs | `test-logs/<project>/<spec>/` | every run; **not** under `test-results/` |
 
 Two consequences worth holding onto:
 
-- **A trace is not evidence of failure.** Passing runs keep theirs locally. The
+- **A trace is not evidence of failure.** Passing runs keep theirs unless `CI=true`. The
   collector reads `error-context.md` presence instead.
 - **`retries: 0` locally**, so there is no failed/passing attempt pair to diff --
   the CI entry's strongest evidence type. What local *does* have is a retained

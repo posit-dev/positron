@@ -183,6 +183,7 @@ runs:
 
     # A large download can fail mid-way ("The server is busy"), which reads as a miss and
     # forces a full npm install. Retry once; on a real miss this is only a quick key lookup.
+    # Each retry reuses the key its first attempt looked up, so the two can't drift apart.
     - name: Retry npm core dependencies cache restore
       if: ${{ inputs.restore-npm-core == 'true' && steps.cache-npm-core.outputs.cache-hit != 'true' }}
       id: cache-npm-core-retry
@@ -190,7 +191,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: ${{ steps.cache-npm-core.outputs.cache-primary-key }}
 
     - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
@@ -208,7 +209,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
-        key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
+        key: ${{ steps.cache-npm-extensions-volatile.outputs.cache-primary-key }}
 
     - name: Restore npm stable extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
@@ -226,7 +227,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
-        key: npm-extensions-stable-v7-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
+        key: ${{ steps.cache-npm-extensions-stable.outputs.cache-primary-key }}
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}

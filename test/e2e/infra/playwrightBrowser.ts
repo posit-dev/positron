@@ -21,10 +21,12 @@ const root = join(__dirname, '..', '..', '..');
 
 // --- Start Positron ---
 // Each parallel worker owns its own port range, so workers don't all start at 9000 and pay an
-// EADDRINUSE retry. Every launch (including restarts) starts from the worker's base port.
+// EADDRINUSE retry. Each launch starts one port past the last one, since a restarted app's old
+// server may not have released its port yet.
 // let port = 9000;
 const maxLaunchAttempts = 10;
 const basePort = 9000 + Number(process.env.TEST_PARALLEL_INDEX ?? 0) * maxLaunchAttempts;
+let nextPortOffset = 0;
 // --- End Positron ---
 
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
@@ -64,8 +66,14 @@ async function launchServer(options: LaunchOptions) {
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
+	// --- Start Positron ---
+	// const maxRetries = 10;
+	// for (let attempts = 0; attempts < maxRetries; attempts++) {
+	// 	const currentPort = port++;
 	for (let attempts = 0; attempts < maxLaunchAttempts; attempts++) {
-		const currentPort = basePort + attempts;
+		const portOffset = (nextPortOffset + attempts) % maxLaunchAttempts;
+		const currentPort = basePort + portOffset;
+		// --- End Positron ---
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
@@ -81,14 +89,20 @@ async function launchServer(options: LaunchOptions) {
 			);
 
 			logger.log(`Server started successfully on port ${currentPort}`);
+			// --- Start Positron ---
+			nextPortOffset = (portOffset + 1) % maxLaunchAttempts;
+			// --- End Positron ---
 			break; // Exit loop on success
 		} catch (error) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
 				logger.log(`Port ${currentPort} is already in use. Retrying...`);
+				// --- Start Positron ---
 				// The server stays up after EADDRINUSE and runs under a shell wrapper, so kill the whole tree.
+				// serverProcess?.kill();
 				if (serverProcess) {
 					await teardown(serverProcess, logger);
 				}
+				// --- End Positron ---
 			} else {
 				throw error; // Rethrow non-port-related errors
 			}
