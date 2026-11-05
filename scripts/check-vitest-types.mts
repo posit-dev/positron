@@ -75,7 +75,8 @@ function findShadowedFiles(): string[] {
 	return [...files].filter(file => file.endsWith('.tsx') && files.has(file.slice(0, -1)));
 }
 
-async function check(config: string): Promise<{ config: string; code: number; output: string }> {
+// `label` names what was checked; the generated config file is gone by the time errors print.
+async function check({ label, config }: { label: string; config: string }): Promise<{ label: string; code: number; output: string }> {
 	// spawnWithRetry rides out the transient macOS `spawn EBADF` (see build/lib/spawnRetry.ts).
 	const child = await spawnWithRetry(process.execPath, [tsc, '--noEmit', '--skipLibCheck', '-p', config], { cwd: root });
 	return new Promise(resolve => {
@@ -87,7 +88,7 @@ async function check(config: string): Promise<{ config: string; code: number; ou
 			if (signal) {
 				output += `\ntsc was killed by ${signal}`;
 			}
-			resolve({ config, code: code ?? 1, output });
+			resolve({ label, code: code ?? 1, output });
 		});
 	});
 }
@@ -110,7 +111,7 @@ async function main(): Promise<number> {
 		return 1;
 	}
 
-	const generated = projects.map(dir => ({ path: `${dir}/${generatedName}`, config: generateConfig(dir) }));
+	const generated = projects.map(dir => ({ dir, path: `${dir}/${generatedName}`, config: generateConfig(dir) }));
 	if (process.argv.includes('--print-configs')) {
 		for (const { path: file, config } of generated) {
 			console.log(`${file}:\n${JSON.stringify(config, null, '\t')}\n`);
@@ -123,7 +124,10 @@ async function main(): Promise<number> {
 		for (const { path: file, config } of generated) {
 			fs.writeFileSync(path.join(root, file), JSON.stringify(config, null, '\t'));
 		}
-		results = await Promise.all(['vitest.tsconfig.json', ...generated.map(g => g.path)].map(check));
+		results = await Promise.all([
+			{ label: 'src (vitest.tsconfig.json)', config: 'vitest.tsconfig.json' },
+			...generated.map(g => ({ label: g.dir, config: g.path })),
+		].map(check));
 	} finally {
 		for (const { path: file } of generated) {
 			fs.rmSync(path.join(root, file), { force: true });
@@ -131,10 +135,10 @@ async function main(): Promise<number> {
 	}
 
 	let failed = 0;
-	for (const { config, code, output } of results) {
+	for (const { label, code, output } of results) {
 		if (code !== 0) {
 			failed++;
-			console.error(`\n${config}:`);
+			console.error(`\n${label}:`);
 			console.error(output.trimEnd());
 		}
 	}
