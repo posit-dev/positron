@@ -70,7 +70,7 @@ product.json.backup
 test/e2e/release-screenshots/output/
 snowflake.log
 # Written and removed by scripts/check-vitest-types.mts
-**/tsconfig.vitest.generated.json
+**/tsconfig.vitest.*.generated.json
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*

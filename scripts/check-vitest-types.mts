@@ -13,23 +13,18 @@
 // Usage: npm run test:positron:check-ts [-- --print-configs]
 
 import fs from 'fs';
-import { parse } from 'jsonc-parser';
 import { createRequire } from 'module';
 import path from 'path';
+import ts from 'typescript';
 import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 // Same lookup as build/lib/tsgo.ts.
 const tsc = path.join(path.dirname(createRequire(import.meta.url).resolve('@typescript/native/package.json')), 'bin', 'tsc');
 // Written next to each project's tsconfig.json so relative paths and default
-// typeRoots resolve the same way; deleted after the run and gitignored.
-const generatedName = 'tsconfig.vitest.generated.json';
-
-interface TsConfig {
-	extends?: string;
-	include?: string[];
-	compilerOptions?: { types?: string[] };
-}
+// typeRoots resolve the same way; deleted after the run and gitignored. The pid
+// keeps concurrent runs from deleting each other's configs.
+const generatedName = `tsconfig.vitest.${process.pid}.generated.json`;
 
 function glob(pattern: string): string[] {
 	return fs.globSync(pattern, { cwd: root, exclude: p => p.includes('node_modules') })
@@ -47,32 +42,28 @@ function findProjects(): string[] {
 	return [...projectDirs].sort();
 }
 
-// Reads a top-level field or compiler option, following relative `extends`.
-function readSetting<T>(configPath: string, get: (config: TsConfig) => T | undefined): T | undefined {
-	const config: TsConfig = parse(fs.readFileSync(configPath, 'utf8'));
-	const value = get(config);
-	if (value !== undefined || !config.extends?.startsWith('.')) {
-		return value;
-	}
-	return readSetting(path.resolve(path.dirname(configPath), config.extends), get);
-}
-
-// Keeps the build's ambient declarations (the build gets them through its
-// include), swaps in the Vitest files, and drops mocha's globals for Vitest's.
+// Keeps the ambient declarations the build compiles, swaps in the Vitest files,
+// and drops mocha's globals for Vitest's. TypeScript resolves the project's
+// tsconfig, so extends chains, include patterns, and excludes all apply.
 function generateConfig(projectDir: string): object {
-	const tsconfig = path.join(root, projectDir, 'tsconfig.json');
-	const include = readSetting(tsconfig, c => c.include) ?? ['**/*'];
-	const types = readSetting(tsconfig, c => c.compilerOptions?.types) ?? ['node'];
-	const vitestGlobals = path.relative(path.join(root, projectDir), path.join(root, 'node_modules/vitest/globals.d.ts'));
+	const dir = path.join(root, projectDir);
+	const tsconfig = path.join(dir, 'tsconfig.json');
+	const { config, error } = ts.readConfigFile(tsconfig, ts.sys.readFile);
+	if (error) {
+		throw new Error(`${tsconfig}: ${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`);
+	}
+	const parsed = ts.parseJsonConfigFileContent(config, ts.sys, dir, undefined, tsconfig);
+	const toRelative = (file: string) => path.relative(dir, file).split(path.sep).join('/');
+	// An unset `types` loads every @types package, including mocha, whose globals clash with Vitest's.
+	const types = (parsed.options.types ?? ['node']).filter(t => t !== 'mocha');
 	return {
 		extends: './tsconfig.json',
-		compilerOptions: { noEmit: true, types: types.filter(t => t !== 'mocha') },
-		include: [
-			'**/*.vitest.ts',
-			'**/*.vitest.tsx',
-			vitestGlobals.split(path.sep).join('/'),
-			...include.flatMap(entry => entry.endsWith('.d.ts') ? [entry] : entry.endsWith('*') ? [`${entry}.d.ts`] : []),
+		compilerOptions: { noEmit: true, types },
+		files: [
+			toRelative(path.join(root, 'node_modules/vitest/globals.d.ts')),
+			...parsed.fileNames.filter(file => file.endsWith('.d.ts')).map(toRelative),
 		],
+		include: ['**/*.vitest.ts', '**/*.vitest.tsx'],
 		exclude: ['node_modules', 'out'],
 	};
 }

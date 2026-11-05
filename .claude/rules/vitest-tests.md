@@ -96,7 +96,7 @@ Adding the alias is a shared-config change affecting every extension test, so ag
 
 **3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the type check in extensions that build as CommonJS (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
 
-**4. The type check uses the extension's own compiler options.** `npm run test:positron:check-ts` generates a config for each extension with Vitest files. It extends the extension's `tsconfig.json`, keeps its `types` (minus `mocha`) and `.d.ts` includes, and swaps in the Vitest files. There is nothing to add. If a test needs other ambient types, add them to the extension's `tsconfig.json`. To see the generated configs, run `npm run test:positron:check-ts -- --print-configs`.
+**4. The type check uses the extension's own compiler options.** `npm run test:positron:check-ts` generates a config for each extension with Vitest files. It extends the extension's `tsconfig.json`, keeps its `types` (minus `mocha`) and the `.d.ts` files its build compiles, and swaps in the Vitest files. There is nothing to add. If a test needs other ambient types, add them to the extension's `tsconfig.json`. To see the generated configs, run `npm run test:positron:check-ts -- --print-configs`.
 
 Tests under `test/e2e` are checked the same way. The cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`) belong to no extension, so `vitest.tsconfig.json` checks them.
 
