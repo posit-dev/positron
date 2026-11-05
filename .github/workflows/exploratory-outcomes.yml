@@ -1,17 +1,21 @@
+
 name: "Exploratory: Outcome Pages"
 
 # Rebuilds the PR outcomes page, what happened to /explore's findings, and deploys it to
 # the Posit Connect content whose GUID is in the EXPLORE_OUTCOMES_CONNECT_GUID
-# repo variable. Findings already fixed are carried over from the last
-# publish, so only the rest cost model calls. See "What happened to a run's findings" in the exploratory-test
-# skill's CONTRIBUTING.md.
-# The triage job rebuilds the Triage outcomes page, where each filed issue
-# stands today, into EXPLORE_TRIAGE_CONNECT_GUID. It makes no model calls. It
-# runs after publish, even a failed one, to read the rows it published.
+# repo variable.
+#
+# Findings already fixed are carried over from the last publish, so only the rest
+# cost model calls.
+#
+# The triage job rebuilds the Triage outcomes page into EXPLORE_TRIAGE_CONNECT_GUID.
+# It makes no model calls and runs after publish, even a failed one.
+
 on:
   schedule:
-    # 6am Central and 4pm Eastern during daylight time (5am and 3pm in winter).
+    # 6am Central and 4pm Eastern during daylight time.
     - cron: "0 11,20 * * *"
+
   workflow_dispatch:
     inputs:
       recheck:
@@ -31,8 +35,8 @@ jobs:
     name: publish
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     steps:
-      # The checks diff PR commits against main, so they need its history.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -47,6 +51,17 @@ jobs:
           npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
           npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
 
+      # Verify that the 1Password authentication token exists.
+      - name: Verify 1Password token is configured
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::OP_SERVICE_ACCOUNT_TOKEN is missing. Add it under Settings > Secrets and variables > Actions, then rerun this workflow."
+            exit 1
+          fi
+
+      # Load Anthropic API key from 1Password.
       - name: Load secret
         uses: 1password/load-secrets-action@v5
         with:
@@ -55,8 +70,7 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
-      # connect.posit.it, which this job reads from and publishes to, is reachable
-      # only from the tailnet. Required: publishing there is the point of the job.
+      # connect.posit.it is reachable only from the tailnet.
       - name: Join tailnet
         uses: ./.github/actions/join-tailnet
         with:
@@ -95,6 +109,7 @@ jobs:
     if: ${{ !cancelled() && vars.EXPLORE_TRIAGE_CONNECT_GUID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v7
         with:
@@ -109,15 +124,13 @@ jobs:
           npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
           npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
 
-      # connect.posit.it, which this job reads from and publishes to, is reachable
-      # only from the tailnet. Best-effort, so a failed join reaches the fetch fallback below.
+      # Best-effort tailnet connection.
       - name: Join tailnet
         uses: ./.github/actions/join-tailnet
         with:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
 
-      # For the issues filed by hand that the PR outcomes rows matched to a finding.
       - name: Fetch the PR outcomes rows
         working-directory: .github/actions/pr-exploratory-test
         env:
@@ -136,12 +149,3 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/triage"
           node triage.mjs --outcomes "$RUNNER_TEMP/outcomes.jsonl" --out "$RUNNER_TEMP/triage/triage.json"
-
-      - name: Build and publish the page
-        working-directory: .github/actions/pr-exploratory-test
-        env:
-          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-          CONNECT_CONTENT_GUID: ${{ vars.EXPLORE_TRIAGE_CONNECT_GUID }}
-        run: |
-          node triage-page.mjs "$RUNNER_TEMP/triage/triage.json" > "$RUNNER_TEMP/triage/index.html"
-          node outcomes-publish.mjs deploy "$RUNNER_TEMP/triage/index.html" "$RUNNER_TEMP/triage/triage.json"
