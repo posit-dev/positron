@@ -100,6 +100,7 @@ suite('mergeAgentConfig', () => {
 				['claude-code', true, 'cli'],
 				['codex', true, 'file'],
 				['gemini', true, 'file'],
+				['antigravity', true, 'file'],
 				['kiro', true, 'file'],
 				['opencode', true, 'file'],
 				['copilot', true, 'file'],
