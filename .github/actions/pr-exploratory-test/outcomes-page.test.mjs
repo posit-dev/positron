@@ -233,15 +233,23 @@ test('won\'t fix is its own group, counted in the % fixed but never as a fix', (
 	assert.match(text(section(html, 'ev-h')), /Won't fix 1 Its issue was closed as not planned\. .*Decided by Its issue was closed as not planned/);
 });
 
-test('a finding that also happened on main is its own group, left out of the % fixed whatever its outcome', () => {
-	const html = render([row('fixed-in-pr'), row('not-fixed'), row('not-fixed', { origin: 'inherited', title: 'Also on main' }), row('fixed-in-pr', { origin: 'inherited' }), row('not-fixed', { origin: 'introduced' }), row('pending')]);
+test('a finding that also happened on main is its own group, left out of the % fixed unless the PR fixed it', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('not-fixed', { origin: 'inherited', title: 'Also on main' }), row('fixed-later', { origin: 'inherited', title: 'Fixed elsewhere' }), row('not-fixed', { origin: 'introduced' }), row('pending')]);
 	assert.match(text(html), /Developers fixed 1 of 3 findings \(33%\)/);
 	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 3 Not counted 3/);
 	assert.match(text(section(html, 'ev-h')), /All 6 Fixed 1 Not fixed 2 Already on main 2 No outcome yet 1 Expand all/);
 	assert.match(html, /<div class="group" data-group="on-main">/);
 	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
 	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'on-main', 'pending']);
-	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, so the PR didn't bring it\. Also on main .*Outcome Not fixed .*Outcome Fixed in the PR/);
+	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, and the PR didn't fix it\. .*Outcome Not fixed .*Outcome Fixed later/);
+});
+
+test('a finding already on main that the PR fixed counts as fixed in the PR, tagged on its row', () => {
+	const html = render([row('fixed-in-pr'), row('not-fixed'), row('fixed-in-pr', { origin: 'inherited', title: 'Old bug' })]);
+	assert.match(text(html), /Developers fixed 2 of 3 findings \(67%\)/);
+	assert.doesNotMatch(html, /data-group="on-main"/);
+	assert.match(text(section(html, 'ev-h')), /Fixed in the PR 2 .*Old bug Already on main/);
+	assert.doesNotMatch(text(section(html, 'ev-h')), /A finding Already on main/);
 });
 
 test('a fix that didn\'t hold counts like any finding and is tagged on its row', () => {
