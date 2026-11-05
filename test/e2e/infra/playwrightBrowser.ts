@@ -19,10 +19,11 @@ import { laneFromEnv } from '../utils/memory/lanes.js';
 const root = join(__dirname, '..', '..', '..');
 
 // --- Start Positron ---
-// Give each parallel worker its own port range so workers don't all start at 9000 and pay an
-// EADDRINUSE retry. The stride of 10 matches launchServer's maxRetries.
+// Each parallel worker owns its own port range, so workers don't all start at 9000 and pay an
+// EADDRINUSE retry. Every launch (including restarts) starts from the worker's base port.
 // let port = 9000;
-let port = 9000 + Number(process.env.TEST_PARALLEL_INDEX ?? 0) * 10;
+const maxLaunchAttempts = 10;
+const basePort = 9000 + Number(process.env.TEST_PARALLEL_INDEX ?? 0) * maxLaunchAttempts;
 // --- End Positron ---
 
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
@@ -59,12 +60,16 @@ async function launchServer(options: LaunchOptions) {
 		...process.env,
 	};
 
-	const maxRetries = 10;
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
-	for (let attempts = 0; attempts < maxRetries; attempts++) {
-		const currentPort = port++;
+	// --- Start Positron ---
+	// const maxRetries = 10;
+	// for (let attempts = 0; attempts < maxRetries; attempts++) {
+	// const currentPort = port++;
+	for (let attempts = 0; attempts < maxLaunchAttempts; attempts++) {
+		const currentPort = basePort + attempts;
+		// --- End Positron ---
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
