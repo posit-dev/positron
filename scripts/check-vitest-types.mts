@@ -12,10 +12,10 @@
 //
 // Usage: npm run test:positron:check-ts
 
-import { spawn } from 'child_process';
 import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
+import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 // Same lookup as build/lib/tsgo.ts.
@@ -38,13 +38,27 @@ function findUncoveredProjects(): string[] {
 	return [...projectDirs].filter(dir => !fs.existsSync(path.join(root, dir, 'tsconfig.vitest.json')));
 }
 
-function check(config: string): Promise<{ config: string; code: number; output: string }> {
+// TypeScript keeps foo.vitest.ts and silently drops foo.vitest.tsx when both
+// match an include, so the .tsx file would never be checked.
+function findShadowedFiles(): string[] {
+	const files = new Set(glob('{src,extensions,test/e2e}/**/*.vitest.{ts,tsx}'));
+	return [...files].filter(file => file.endsWith('.tsx') && files.has(file.slice(0, -1)));
+}
+
+async function check(config: string): Promise<{ config: string; code: number; output: string }> {
+	// spawnWithRetry rides out the transient macOS `spawn EBADF` (see build/lib/spawnRetry.ts).
+	const child = await spawnWithRetry(process.execPath, [tsc, '--noEmit', '--skipLibCheck', '-p', config], { cwd: root });
 	return new Promise(resolve => {
-		const child = spawn(process.execPath, [tsc, '--noEmit', '--skipLibCheck', '-p', config], { cwd: root });
 		let output = '';
-		child.stdout.on('data', chunk => output += chunk);
-		child.stderr.on('data', chunk => output += chunk);
-		child.on('close', code => resolve({ config, code: code ?? 1, output }));
+		child.stdout?.on('data', chunk => output += chunk);
+		child.stderr?.on('data', chunk => output += chunk);
+		child.on('error', err => output += `\nFailed to run tsc: ${err.message}`);
+		child.on('close', (code, signal) => {
+			if (signal) {
+				output += `\ntsc was killed by ${signal}`;
+			}
+			resolve({ config, code: code ?? 1, output });
+		});
 	});
 }
 
@@ -56,6 +70,16 @@ async function main(): Promise<number> {
 			console.error(`  ${dir}`);
 		}
 		console.error('Copy one from another extension (e.g. extensions/positron-r/tsconfig.vitest.json) and match its "types" and "include" to the directory\'s tsconfig.json.');
+		return 1;
+	}
+
+	const shadowed = findShadowedFiles();
+	if (shadowed.length) {
+		console.error('These .vitest.tsx files share a name with a .vitest.ts file, so TypeScript never checks them:');
+		for (const file of shadowed) {
+			console.error(`  ${file}`);
+		}
+		console.error('Rename one file of each pair.');
 		return 1;
 	}
 

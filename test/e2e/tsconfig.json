@@ -34,6 +34,7 @@
 		// (run by `npm run test:positron:check-ts`). Compiling
 		// them here fails in CI, where the e2e lanes install only the Playwright
 		// dependencies and `vitest` is not resolvable.
-		"**/*.vitest.ts"
+		"**/*.vitest.ts",
+		"**/*.vitest.tsx"
 	]
 }

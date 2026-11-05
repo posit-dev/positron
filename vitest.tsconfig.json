@@ -1,7 +1,7 @@
 {
-	// Type-checks the src/ Vitest files (`npm run test:positron:check-ts`) and
-	// gives them intellisense. Extends the main src tsconfig but adds Vitest
-	// global types. Does NOT affect the main build.
+	// Type-checks the src/ Vitest files (`npm run test:positron:check-ts`).
+	// Extends the main src tsconfig but adds Vitest global types. Does NOT
+	// affect the main build. Editors do not load this file (#17130).
 	//
 	// Vitest files under test/e2e and inside each extension are checked by
 	// their own tsconfig.vitest.json, so they use that project's compiler options.
