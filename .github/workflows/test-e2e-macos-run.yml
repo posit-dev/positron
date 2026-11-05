@@ -249,10 +249,13 @@ jobs:
       # back to the runner's Python 3.14 (see posit-dev/positron-builds#1167).
       # 3.14.9, not the Linux images' 3.14.7: the Intel runner image ships 3.14.7 and
       # the picker cannot tell two same-version base installs apart.
+      # Cloned, not brewed: Homebrew's last Intel bottle (pyenv 2.8.4) predates 3.14.9.
       - name: Install pyenv and Python
         run: |
-          brew install pyenv
+          git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
           export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
           pyenv install 3.14.9
           pyenv install 3.11.0
           pyenv global 3.14.9
