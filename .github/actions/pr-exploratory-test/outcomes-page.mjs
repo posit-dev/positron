@@ -45,7 +45,7 @@ const DECIDED_BY = {
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
 // The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
 const STEPS = [
-	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t bring it, so it isn\'t counted, whatever happens to it later. Two exceptions count like any other finding: a commit on the PR fixed it anyway (tagged Already on main), or it is the bug the PR says it fixes, so its fix didn\'t hold.'],
+	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t cause it, so it isn\'t counted. Two cases still count: a commit on the PR fixed it (its row says Already on main), or it is the bug the PR was meant to fix (its row says Fix didn\'t hold).'],
 	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
