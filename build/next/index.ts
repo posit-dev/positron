@@ -437,7 +437,13 @@ function fileContentMapperPlugin(outDir: string, target: BuildTarget): esbuild.P
 				// Inject built-in extensions list
 				if (contents.includes('/*BUILD->INSERT_BUILTIN_EXTENSIONS*/')) {
 					if (builtinExtensionsReplacement === undefined) {
-						if (target === 'web' || target === 'server-web') {
+						// --- Start Positron ---
+						// server-web loads built-in extensions from the server; bundling them in the
+						// browser skips extensions that depend on them, such as the kernel supervisor.
+						// https://github.com/rstudio/vscode-server/issues/471
+						// if (target === 'web' || target === 'server-web') {
+						if (target === 'web') {
+							// --- End Positron ---
 							// Web target uses .build/web/extensions (from compileWebExtensionsBuildTask)
 							// while server-web uses .build/extensions.
 							const extensionsRoot = target === 'web' ? '.build/web/extensions' : '.build/extensions';
