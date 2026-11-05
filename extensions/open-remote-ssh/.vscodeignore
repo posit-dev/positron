@@ -6,7 +6,6 @@ build/**
 docs/**
 .gitignore
 tsconfig.json
-tsconfig.vitest.json
 yarn.lock
 .eslintignore
 .eslintrc.json

@@ -6,13 +6,14 @@
 // Type-checks every Vitest file. Vitest strips types without checking them, and
 // the main build excludes *.vitest.ts, so this is the only check they get.
 //
-// src/ tests use vitest.tsconfig.json. Tests under test/e2e and inside an
-// extension use that project's tsconfig.vitest.json, so they are checked with
-// the compiler options the project builds with.
+// src/ tests use vitest.tsconfig.json. For test/e2e and each extension with
+// Vitest files, this script generates a config that extends the project's
+// tsconfig.json, so its tests are checked with the options the project builds with.
 //
-// Usage: npm run test:positron:check-ts
+// Usage: npm run test:positron:check-ts [-- --print-configs]
 
 import fs from 'fs';
+import { parse } from 'jsonc-parser';
 import { createRequire } from 'module';
 import path from 'path';
 import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
@@ -20,6 +21,15 @@ import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
 const root = path.resolve(import.meta.dirname, '..');
 // Same lookup as build/lib/tsgo.ts.
 const tsc = path.join(path.dirname(createRequire(import.meta.url).resolve('@typescript/native/package.json')), 'bin', 'tsc');
+// Written next to each project's tsconfig.json so relative paths and default
+// typeRoots resolve the same way; deleted after the run and gitignored.
+const generatedName = 'tsconfig.vitest.generated.json';
+
+interface TsConfig {
+	extends?: string;
+	include?: string[];
+	compilerOptions?: { types?: string[] };
+}
 
 function glob(pattern: string): string[] {
 	return fs.globSync(pattern, { cwd: root, exclude: p => p.includes('node_modules') })
@@ -27,15 +37,44 @@ function glob(pattern: string): string[] {
 		.sort();
 }
 
-// Each extension or test/e2e directory that has Vitest files needs its own
-// tsconfig.vitest.json, or its tests would silently go unchecked.
-function findUncoveredProjects(): string[] {
+// Each extension or test/e2e directory that has Vitest files.
+function findProjects(): string[] {
 	const projectDirs = new Set<string>();
 	for (const file of glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}')) {
 		const parts = file.split('/');
 		projectDirs.add(parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e');
 	}
-	return [...projectDirs].filter(dir => !fs.existsSync(path.join(root, dir, 'tsconfig.vitest.json')));
+	return [...projectDirs].sort();
+}
+
+// Reads a top-level field or compiler option, following relative `extends`.
+function readSetting<T>(configPath: string, get: (config: TsConfig) => T | undefined): T | undefined {
+	const config: TsConfig = parse(fs.readFileSync(configPath, 'utf8'));
+	const value = get(config);
+	if (value !== undefined || !config.extends?.startsWith('.')) {
+		return value;
+	}
+	return readSetting(path.resolve(path.dirname(configPath), config.extends), get);
+}
+
+// Keeps the build's ambient declarations (the build gets them through its
+// include), swaps in the Vitest files, and drops mocha's globals for Vitest's.
+function generateConfig(projectDir: string): object {
+	const tsconfig = path.join(root, projectDir, 'tsconfig.json');
+	const include = readSetting(tsconfig, c => c.include) ?? ['**/*'];
+	const types = readSetting(tsconfig, c => c.compilerOptions?.types) ?? ['node'];
+	const vitestGlobals = path.relative(path.join(root, projectDir), path.join(root, 'node_modules/vitest/globals.d.ts'));
+	return {
+		extends: './tsconfig.json',
+		compilerOptions: { noEmit: true, types: types.filter(t => t !== 'mocha') },
+		include: [
+			'**/*.vitest.ts',
+			'**/*.vitest.tsx',
+			vitestGlobals.split(path.sep).join('/'),
+			...include.flatMap(entry => entry.endsWith('.d.ts') ? [entry] : entry.endsWith('*') ? [`${entry}.d.ts`] : []),
+		],
+		exclude: ['node_modules', 'out'],
+	};
 }
 
 // TypeScript keeps foo.vitest.ts and silently drops foo.vitest.tsx when both
@@ -63,16 +102,6 @@ async function check(config: string): Promise<{ config: string; code: number; ou
 }
 
 async function main(): Promise<number> {
-	const uncovered = findUncoveredProjects();
-	if (uncovered.length) {
-		console.error('These directories have Vitest files but no tsconfig.vitest.json:');
-		for (const dir of uncovered) {
-			console.error(`  ${dir}`);
-		}
-		console.error('Copy one from another extension (e.g. extensions/positron-r/tsconfig.vitest.json) and match its "types" and "include" to the directory\'s tsconfig.json.');
-		return 1;
-	}
-
 	const shadowed = findShadowedFiles();
 	if (shadowed.length) {
 		console.error('These .vitest.tsx files share a name with a .vitest.ts file, so TypeScript never checks them:');
@@ -83,8 +112,32 @@ async function main(): Promise<number> {
 		return 1;
 	}
 
-	const configs = ['vitest.tsconfig.json', ...glob('{extensions/*,test/e2e}/tsconfig.vitest.json')];
-	const results = await Promise.all(configs.map(check));
+	const projects = findProjects();
+	const missing = projects.filter(dir => !fs.existsSync(path.join(root, dir, 'tsconfig.json')));
+	if (missing.length) {
+		console.error(`These directories have Vitest files but no tsconfig.json: ${missing.join(', ')}`);
+		return 1;
+	}
+
+	const generated = projects.map(dir => ({ path: `${dir}/${generatedName}`, config: generateConfig(dir) }));
+	if (process.argv.includes('--print-configs')) {
+		for (const { path: file, config } of generated) {
+			console.log(`${file}:\n${JSON.stringify(config, null, '\t')}\n`);
+		}
+		return 0;
+	}
+
+	let results;
+	try {
+		for (const { path: file, config } of generated) {
+			fs.writeFileSync(path.join(root, file), JSON.stringify(config, null, '\t'));
+		}
+		results = await Promise.all(['vitest.tsconfig.json', ...generated.map(g => g.path)].map(check));
+	} finally {
+		for (const { path: file } of generated) {
+			fs.rmSync(path.join(root, file), { force: true });
+		}
+	}
 
 	let failed = 0;
 	for (const { config, code, output } of results) {
@@ -94,7 +147,7 @@ async function main(): Promise<number> {
 			console.error(output.trimEnd());
 		}
 	}
-	console.log(`\nChecked ${configs.length} Vitest tsconfigs: ${failed ? `${failed} with errors` : 'no errors'}.`);
+	console.log(`\nChecked ${results.length} Vitest tsconfigs: ${failed ? `${failed} with errors` : 'no errors'}.`);
 	return failed ? 1 : 0;
 }
 

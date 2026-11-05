@@ -3,8 +3,8 @@
 	// Extends the main src tsconfig but adds Vitest global types. Does NOT
 	// affect the main build. Editors do not load this file (#17130).
 	//
-	// Vitest files under test/e2e and inside each extension are checked by
-	// their own tsconfig.vitest.json, so they use that project's compiler options.
+	// Vitest files under test/e2e and inside each extension are checked with a
+	// config scripts/check-vitest-types.mts generates from that project's tsconfig.json.
 	"extends": "./src/tsconfig.json",
 	"compilerOptions": {
 		// Match how Vite resolves imports. The inherited nodenext resolution reads

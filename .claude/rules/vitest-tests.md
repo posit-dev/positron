@@ -4,7 +4,7 @@ paths:
   - extensions/**/*.vitest.{ts,tsx}
   - vitest.config.ts
   - vitest.tsconfig.json
-  - "**/tsconfig.vitest.json"
+  - scripts/check-vitest-types.mts
   - src/vs/test/vitest/**
 ---
 
@@ -96,9 +96,9 @@ Adding the alias is a shared-config change affecting every extension test, so ag
 
 **3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the type check in extensions that build as CommonJS (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
 
-**4. Add a `tsconfig.vitest.json` next to the extension's `tsconfig.json`.** `npm run test:positron:check-ts` type-checks the tests (and the source they import) with that config, so they use the extension's own compiler options rather than core's. Copy `extensions/positron-r/tsconfig.vitest.json` and match its `types` (minus `mocha`) and `.d.ts` includes to the extension's `tsconfig.json`. `check-ts` fails if an extension has Vitest files but no `tsconfig.vitest.json`. If the extension has a `.vscodeignore` that lists `tsconfig.json` by name, add `tsconfig.vitest.json` too.
+**4. The type check uses the extension's own compiler options.** `npm run test:positron:check-ts` generates a config for each extension with Vitest files. It extends the extension's `tsconfig.json`, keeps its `types` (minus `mocha`) and `.d.ts` includes, and swaps in the Vitest files. There is nothing to add. If a test needs other ambient types, add them to the extension's `tsconfig.json`. To see the generated configs, run `npm run test:positron:check-ts -- --print-configs`.
 
-Tests under `test/e2e` work the same way through `test/e2e/tsconfig.vitest.json`. The cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`) belong to no extension, so `vitest.tsconfig.json` checks them.
+Tests under `test/e2e` are checked the same way. The cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`) belong to no extension, so `vitest.tsconfig.json` checks them.
 
 Sharing code across extensions is possible through a local `file:` package, as `extensions/positron-data-explorer-protocol` does for about ten driver extensions; it costs a small `package.json` and `tsconfig.json` plus registration in `build/npm/dirs.ts`, `build/gulpfile.extensions.ts`, and `build/lib/extensions.ts`. When a helper is copied per extension instead, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
 
