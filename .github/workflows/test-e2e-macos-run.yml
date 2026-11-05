@@ -247,18 +247,20 @@ jobs:
       # Call the pyenv interpreters by absolute path. The repo's .python-version
       # pins 3.12, which is not installed here, so the pyenv shims silently fall
       # back to the runner's Python 3.14 (see posit-dev/positron-builds#1167).
+      # 3.14.9, not the Linux images' 3.14.7: the Intel runner image ships 3.14.7 and
+      # the picker cannot tell two same-version base installs apart.
       - name: Install pyenv and Python
         run: |
           brew install pyenv
           export PYENV_ROOT="$HOME/.pyenv"
-          pyenv install 3.10.10
+          pyenv install 3.14.9
           pyenv install 3.11.0
-          pyenv global 3.10.10
+          pyenv global 3.14.9
 
       - name: Install Python dependencies
         run: |
-          PY="$HOME/.pyenv/versions/3.10.10/bin/python"
-          "$PY" -c 'import sys; assert sys.version.startswith("3.10.10"), sys.executable; print(sys.executable)'
+          PY="$HOME/.pyenv/versions/3.14.9/bin/python"
+          "$PY" -c 'import sys; assert sys.version.startswith("3.14.9"), sys.executable; print(sys.executable)'
           cp test/e2e/test-files/requirements.txt requirements.txt
           "$PY" -m pip install --upgrade pip
           "$PY" -m pip install -r requirements.txt
@@ -268,7 +270,7 @@ jobs:
       - name: Pre-warm matplotlib font cache
         if: ${{ inputs.arch == 'x64' }}
         run: |
-          "$HOME/.pyenv/versions/3.10.10/bin/python" -c "import matplotlib.pyplot as plt; plt.figure()"
+          "$HOME/.pyenv/versions/3.14.9/bin/python" -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -332,7 +334,7 @@ jobs:
 
       - name: Run Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.9
           POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.11.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}

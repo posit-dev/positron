@@ -184,7 +184,7 @@ jobs:
       - name: Install System Level Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10.10"
+          python-version: "3.14.7"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -407,7 +407,7 @@ jobs:
         id: bootstrap
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.7
           POSITRON_R_VER_SEL: ${{ steps.setup-r.outputs.r-version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-alt-version.outputs.r_alt_version }}
@@ -417,7 +417,7 @@ jobs:
       - name: 🧪 Run Playwright E2E Tests
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.7
           POSITRON_R_VER_SEL: ${{ steps.setup-r.outputs.r-version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-alt-version.outputs.r_alt_version }}
