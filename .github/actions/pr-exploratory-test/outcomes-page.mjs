@@ -195,6 +195,8 @@ function prRows(own) {
 function findingRow(r, n) {
 	const ev = splitEvidence(r.evidence);
 	const report = safeUrl(r.reportUrl);
+	// The report's card for the finding.
+	const card = Number(r.finding) ? `#f${Number(r.finding)}` : '';
 	const pr = Number(r.pr);
 	const issueUrl = safeUrl(r.issue?.url);
 	const issue = r.issue && issueUrl ? `<a class="chip" href="${escapeHtml(issueUrl)}">#${Number(r.issue.number)}${SEP}${escapeHtml(r.issue.state)}</a>`
@@ -210,7 +212,7 @@ function findingRow(r, n) {
 	// A filed issue's triage outcome lives on the other page.
 	const issueNum = Number(r.issue?.number) || ev.issue;
 	const triage = r.outcome === 'filed-issue' && issueNum ? `<a href="${PAGES.triage.url}?issue=${issueNum}">See its triage</a>` : '';
-	const links = [report ? `<a href="${escapeHtml(report)}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
+	const links = [report ? `<a href="${escapeHtml(report)}${card}">Open report</a>` : '', `<a href="${REPO_URL}/pull/${pr}" data-pr="${pr}">Open PR</a>`, triage].join('');
 	return `<div class="finding" id="f${n}"><button type="button" class="row" aria-expanded="false" aria-controls="d${n}">`
 		+ `<span class="title"><span>${codeSpans(r.title)}</span>${r.dupMaybe ? '<span class="maybe">Possible duplicate</span>' : ''}${r.origin === 'target' ? '<span class="maybe">Fix didn\'t hold</span>' : ''}${r.outcome === 'didnt-ship' && SHIP_REASON[r.decidedBy] ? `<span class="why">${SHIP_REASON[r.decidedBy]}</span>` : ''}</span>`
 		+ `<span class="mono link" data-pr="${pr}">#${pr}</span><span class="sev">${escapeHtml(SEVERITY_LABEL[r.severity] ?? r.severity ?? '')}</span><span class="sign" aria-hidden="true">+</span></button>`
@@ -219,8 +221,10 @@ function findingRow(r, n) {
 
 function evidence(own, s) {
 	let n = 0;
+	// Like By PR: the newest run first, then the newest PR, then the report's finding order.
+	const newestFirst = (a, b) => (b.postedAt ?? '').localeCompare(a.postedAt ?? '') || b.pr - a.pr || a.finding - b.finding;
 	const groups = OUTCOMES.map(o => {
-		const items = own.filter(r => bucketOf(r) === o.key);
+		const items = own.filter(r => bucketOf(r) === o.key).sort(newestFirst);
 		return items.length
 			? `<div class="group" data-group="${o.group}"><div class="group-head"><h3><i class="o-${o.key}"></i>${o.label} <span class="n">${items.length}</span></h3><span class="brief">${escapeHtml(o.brief)}</span></div>`
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`

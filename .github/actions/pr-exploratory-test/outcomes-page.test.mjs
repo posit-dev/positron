@@ -204,6 +204,13 @@ test('By PR and Evidence start collapsed behind a heading button, the PR run mos
 	assert.match(text(section(html, 'ev-h')), /> Evidence 4 findings All 4/);
 });
 
+test('evidence lists each group like By PR: the newest run first, then the newest PR, then the report\'s finding order', () => {
+	const f = (pr, finding, postedAt) => row('not-fixed', { pr, finding, postedAt, title: `PR ${pr} finding ${finding}` });
+	const html = render([f(5, 1, '2026-10-01T00:00:00Z'), f(7, 2, '2026-10-12T00:00:00Z'), f(9, 1, '2026-10-02T00:00:00Z'), f(7, 1, '2026-10-12T00:00:00Z'), f(8, 1, '2026-10-02T00:00:00Z')]);
+	const order = [...section(html, 'ev-h').matchAll(/PR (\d+) finding (\d+)/g)].map(m => `${m[1]}#${m[2]}`);
+	assert.deepEqual(order, ['7#1', '7#2', '9#1', '8#1', '5#1']);
+});
+
 test('didn\'t ship is its own group, first of the not counted, left out of the % fixed', () => {
 	const html = render([row('fixed-in-pr'), row('not-fixed'), row('didnt-ship', { decidedBy: 'dropped' }), row('pending')]);
 	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 2 Not counted 2/);
@@ -257,7 +264,7 @@ test('the ? opens how each finding is checked, in decideOutcome\'s order, and is
 
 test('a didn\'t-ship row says why', () => {
 	const html = render([row('didnt-ship', { pr: 3, decidedBy: 'closed-unmerged' }), row('didnt-ship', { pr: 4, finding: 2, decidedBy: 'dropped' })]);
-	assert.match(text(section(html, 'ev-h')), /Not merged 2 The code it was about never reached main\. A finding PR closed #3 .*Decided by PR closed without merging .*A finding Change dropped #4 .*Decided by PR merged without the change/);
+	assert.match(text(section(html, 'ev-h')), /Not merged 2 The code it was about never reached main\. A finding Change dropped #4 .*Decided by PR merged without the change .*A finding PR closed #3 .*Decided by PR closed without merging/);
 	assert.match(html, /<span class="why">PR closed<\/span>/);
 	assert.match(html, /\.why\{font-size:12px;font-weight:400;color:#6B6862;background:#ECE9E2;padding:2px 8px;border-radius:999px\}/);
 });
@@ -320,7 +327,7 @@ test('an expanded finding shows its evidence, commits as chips, files, run and l
 	assert.match(html, /<dt>Files<\/dt><dd><code class="chip">src\/a.ts<\/code><\/dd>/);
 	assert.match(text(html), /Decided by The diff, read by the model/);
 	assert.match(text(html), /Run 37#2 ~ started by \/explore ~ skill 1\.9 ~ opus/);
-	assert.match(html, /<a href="https:\/\/example.com\/r\/index.html">Open report<\/a>/);
+	assert.match(html, /<a href="https:\/\/example.com\/r\/index.html#f2">Open report<\/a>/);
 	assert.match(html, /<a href="https:\/\/github.com\/posit-dev\/positron\/pull\/16556" data-pr="16556">Open PR<\/a>/);
 	assert.match(text(render([row('not-fixed', { decidedBy: 'merged-no-fix' })])), /Decided by Merged with no fix found/);
 });
