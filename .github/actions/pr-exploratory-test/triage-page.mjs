@@ -167,7 +167,7 @@ function age(r, now) {
 }
 
 function renderIssueRow(r, now) {
-	const links = [safeUrl(r.reportUrl) && `<a href="${escapeHtml(r.reportUrl)}">report</a>`, safeUrl(r.findingUrl) && `<a href="${escapeHtml(r.findingUrl)}">finding</a>`].filter(Boolean);
+	const links = [safeUrl(r.findingUrl) && `<a href="${escapeHtml(r.findingUrl)}">finding</a>`].filter(Boolean);
 	const matched = r.via === 'matched' ? ['<span title="Filed by hand; the outcomes job matched it to the finding, and it mentions the PR">matched</span>'] : [];
 	const meta = [`<span class="mono">#${Number(r.num)}</span>`, escapeHtml(r.areas.join(', ') || 'no feature label'), `filed ${day(r.filed)}`, ...matched, ...links].join(SEP);
 	return `<div class="issue" id="i${Number(r.num)}"><span class="sev-col">${sevPill(r.sev)}</span>`

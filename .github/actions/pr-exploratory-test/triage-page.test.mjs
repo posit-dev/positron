@@ -96,7 +96,7 @@ test('each issue row shows where it stands and for how long', () => {
 	assert.match(t, /10 days in Future/);
 	assert.match(t, /filed 3 days ago/);
 	assert.match(t, /closed Oct 10/);
-	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ report/);
+	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ finding /);
 	assert.doesNotMatch(t, /#1 ~ plots ~ filed Oct 1 ~ matched/);
 });
 
@@ -132,4 +132,10 @@ test('each outcome in All issues lists newest first by the date on the right: cl
 	const order = [...v.body.matchAll(/<div class="issue" id="i(\d+)"/g)].map(m => Number(m[1]));
 	const pos = n => order.indexOf(n);
 	assert.ok(pos(2) < pos(1) && pos(4) < pos(3) && pos(6) < pos(5), `order was ${order}`);
+});
+
+test('an issue row links to its finding in the report, not to the report as well', () => {
+	const v = view({ issue: 1 });
+	assert.match(v.body, /<a href="https:\/\/x\/r\/index.html#f1">finding<\/a>/);
+	assert.doesNotMatch(v.body, />report<\/a>/);
 });
