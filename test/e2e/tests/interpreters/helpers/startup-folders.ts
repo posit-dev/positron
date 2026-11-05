@@ -69,7 +69,7 @@ export async function expectNoSession(app: Application): Promise<void> {
 }
 
 /** Checks that exactly one console is running and ready, and which interpreter and start reason it has. */
-export async function expectSingleSession(app: Application, expected: { name: string | RegExp; startReasonId?: string }): Promise<void> {
+export async function expectSingleSession(app: Application, expected: { name: string | RegExp; startReasonId?: string | RegExp }): Promise<void> {
 	await test.step(`Expect a single ${expected.name} session`, async () => {
 		const { sessions } = app.workbench;
 		await sessions.expectSessionCountToBe(1);
@@ -78,7 +78,9 @@ export async function expectSingleSession(app: Application, expected: { name: st
 			const { name, state, startReasonId } = await sessions.getMetadata();
 			expect(state).toBe('idle');
 			expect(name).toMatch(expected.name);
-			if (expected.startReasonId) {
+			if (expected.startReasonId instanceof RegExp) {
+				expect(startReasonId).toMatch(expected.startReasonId);
+			} else if (expected.startReasonId) {
 				expect(startReasonId).toBe(expected.startReasonId);
 			}
 		}).toPass({ timeout: 90000 });
