@@ -135,7 +135,10 @@ describe('CellActionButton', () => {
 		button.click();
 
 		expect(selectCellStub, 'Expected selectCell to be called').toHaveBeenCalledOnce();
-		expect(selectCellStub).toHaveBeenCalledWith(cell, CellSelectionType.Normal);
+		// Compare by identity: printing a stubInterface proxy in a failure diff throws.
+		const [selectedCell, selectionType] = selectCellStub.mock.calls[0];
+		expect(selectedCell === cell, 'Expected selectCell to get the button\'s cell').toBe(true);
+		expect(selectionType).toBe(CellSelectionType.Normal);
 	});
 
 	it('runs the action when clicked', async () => {
