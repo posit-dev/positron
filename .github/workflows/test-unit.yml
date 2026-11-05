@@ -232,11 +232,17 @@ jobs:
 
       - *install-node-deps
 
+      # test/e2e/node_modules is not in the npm caches, so a run that hits every
+      # cache never installs it. The type-check needs it for the e2e code its
+      # tests import.
+      - name: 📦 Install E2E Dependencies
+        run: '[ -d test/e2e/node_modules ] || npm --prefix test/e2e ci --no-audit --no-fund'
+
       - name: 🔎 Type-check Vitest Files
         id: vitest-check-ts
         run: npm run test:positron:check-ts
 
       # Run even when the type-check fails, so one failure doesn't hide the other.
       - name: 🧪 Run Vitest Tests
-        if: ${{ !cancelled() && (steps.vitest-check-ts.outcome == 'success' || steps.vitest-check-ts.outcome == 'failure') }}
+        if: ${{ !cancelled() && steps.vitest-check-ts.outcome != 'skipped' }}
         run: npm run test:positron
