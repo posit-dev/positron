@@ -119,14 +119,15 @@ closing an issue that way mustn't raise the % fixed. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
-A finding that also happened on a build of main (Origin inherited) is left out
-of the counts, since the PR didn't bring it, with two exceptions that count
-like any other finding. If a commit on the PR fixed it anyway, it counts as
-fixed in the PR and is tagged "Already on main". If the verifier listed an
-issue the PR says it closes as a possible duplicate, the PR's own fix didn't
-hold, and it is tagged "Fix didn't hold". An inherited finding doesn't
-wait for its PR to merge: a matching issue marks it filed as an issue even
-while the PR is open.
+A finding that also happened on a build of main (Origin inherited) is not
+counted, since the PR didn't cause it. Two cases still count. If a commit on
+the PR fixed it, it counts as fixed in the PR and its row says "Already on
+main". If it is the bug the PR was meant to fix (the verifier listed an issue
+the PR says it closes as a possible duplicate), the fix didn't hold, and its
+row says "Fix didn't hold". An inherited finding doesn't wait for its PR to
+merge: a matching issue marks it filed as an issue even while the PR is open.
+Rows in the Already on main group show what became of the finding: its issue
+number, Fixed later, or Won't fix.
 
 Runs from before main was replayed have no trusted origin. Their origins
 were checked by hand and are set in `origin-overrides.json`, keyed by
