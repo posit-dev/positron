@@ -120,8 +120,8 @@ finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
 A finding that also happened on a build of main (Origin inherited) is left out
-of the counts, since the PR didn't bring it, unless it names a known issue the
-PR says it closes. Then the PR's own fix didn't hold, so it counts like any
+of the counts, since the PR didn't bring it, unless the verifier listed an
+issue the PR says it closes as a possible duplicate. Then the PR's own fix didn't hold, so it counts like any
 other finding and is tagged "Fix didn't hold".
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`

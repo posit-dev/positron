@@ -104,9 +104,12 @@ export function outcomeFindings(report, stats) {
 	return (report.findings ?? []).filter(f => f.verified === 'confirmed' && !demoted.has(f.n));
 }
 
-/** A finding's Origin, or `target` for an inherited one that names a known issue the PR says it closes: the PR's own fix didn't hold. */
+/**
+ * A finding's Origin, or `target` for an inherited one whose possible duplicate is an issue the PR says it closes: the
+ * PR's own fix didn't hold. `dupes`, not `known`: a known issue can be a different bug that only mentions the symptom.
+ */
 export function findingOrigin(origin, finding, closes) {
-	return origin === 'inherited' && (finding.known ?? []).some(n => closes.includes(Number(n))) ? 'target' : origin;
+	return origin === 'inherited' && (finding.dupes ?? []).some(d => closes.includes(Number(d?.issue))) ? 'target' : origin;
 }
 
 /** An issue's number, link and state as the page shows it. */

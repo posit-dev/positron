@@ -448,10 +448,12 @@ test('mapLimit keeps input order and never runs more than the limit at once', as
 	assert.equal(most, 2);
 });
 
-test('findingOrigin marks an inherited finding whose known issue the PR closes as a fix that didn\'t hold', () => {
-	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'target');
-	assert.equal(findingOrigin('inherited', { known: [17000] }, [17021]), 'inherited');
-	assert.equal(findingOrigin('inherited', {}, [17021]), 'inherited');
-	assert.equal(findingOrigin('introduced', { known: [17021] }, [17021]), 'introduced');
-	assert.equal(findingOrigin(null, { known: [17021] }, [17021]), null);
+test('findingOrigin marks an inherited finding whose duplicate the PR closes as a fix that didn\'t hold', () => {
+	const dupe = { known: [17021], dupes: [{ issue: 17021, why: 'same symptom' }] };
+	assert.equal(findingOrigin('inherited', dupe, [17021]), 'target');
+	assert.equal(findingOrigin('inherited', dupe, [17000]), 'inherited');
+	assert.equal(findingOrigin('introduced', dupe, [17021]), 'introduced');
+	assert.equal(findingOrigin(null, dupe, [17021]), null);
+	// Related but a different bug: known, not a duplicate.
+	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'inherited');
 });
