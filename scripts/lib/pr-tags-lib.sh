@@ -198,18 +198,35 @@ patch_is_tag_change_only() {
 	'
 }
 
+# Paths that only run or matter on Workbench, as shell globs. A test in
+# pr-tags-lib-test.sh fails if any glob stops matching a real file, so a rename
+# shows up there instead of silently turning the lane off.
+WORKBENCH_LANE_PATHS=(
+	# Workbench e2e tests and their helpers
+	'test/e2e/tests/workbench/*'
+	'test/e2e/pages/workbench/*'
+	'test/e2e/infra/workbench*'
+	# Workbench managed credentials (Snowflake, Databricks, Azure)
+	'extensions/authentication/src/managedCredentials*'
+	'extensions/authentication/src/credentials/databricks*'
+	'extensions/authentication/src/credentials/snowflake*'
+	'extensions/positron-data-driver-*/src/workbenchCredentials*'
+)
+
 # touches_workbench_lane <changed_files>
-# Echoes "true" iff any changed file only runs or matters in the Workbench lane,
-# so pr-tags-parse.sh can start it without the author typing @:workbench. The
-# e2e-workbench project is the only one that runs tests/workbench/**, so a PR
-# editing those tests would otherwise never run them.
+# Echoes "true" iff any changed file matches WORKBENCH_LANE_PATHS, so
+# pr-tags-parse.sh can start the Workbench lane without the author typing
+# @:workbench. Only the e2e-workbench project runs tests/workbench/**.
 touches_workbench_lane() {
-	local changed="$1" file
+	local changed="$1" file pattern
 	while IFS= read -r file; do
-		case "$file" in
-			test/e2e/tests/workbench/*|test/e2e/pages/workbench/*|test/e2e/infra/workbench-pwb.ts)
-				echo true; return 0 ;;
-		esac
+		[[ -z "$file" ]] && continue
+		for pattern in "${WORKBENCH_LANE_PATHS[@]}"; do
+			# shellcheck disable=SC2053 # glob match on purpose
+			if [[ "$file" == $pattern ]]; then
+				echo true; return 0
+			fi
+		done
 	done <<< "$changed"
 	echo false
 }
@@ -529,7 +546,7 @@ render_why_these_tags() {
 				ark)      label="Ark submodule bump" ;;
 				test-win) label="New test (tags.WIN)" ;;
 				test-web) label="New test (tags.WEB)" ;;
-				workbench-files) label="Changed Workbench e2e files" ;;
+				workbench-files) label="Changed Workbench-only files" ;;
 				test-changed) label="Touched test file" ;;
 				*)        label="Auto-selected" ;;
 			esac

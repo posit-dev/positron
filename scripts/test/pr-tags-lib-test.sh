@@ -935,7 +935,19 @@ assert_eq "workbench: Workbench infra" "true" \
 	"$(touches_workbench_lane "test/e2e/infra/workbench-pwb.ts")"
 assert_eq "workbench: same-named folder outside tests/workbench" "false" \
 	"$(touches_workbench_lane $'test/e2e/tests/posit-assistant/posit-assistant-signin.test.ts\nsrc/vs/workbench/contrib/positronAssistant/browser/foo.ts')"
+assert_eq "workbench: managed credentials in the auth extension" "true" \
+	"$(touches_workbench_lane "extensions/authentication/src/credentials/snowflake.ts")"
+assert_eq "workbench: data driver Workbench credentials" "true" \
+	"$(touches_workbench_lane "extensions/positron-data-driver-databricks/src/workbenchCredentials.ts")"
+assert_eq "workbench: other auth extension file" "false" \
+	"$(touches_workbench_lane $'extensions/authentication/src/credentials/aws.ts\nextensions/authentication/src/authProvider.ts')"
 assert_eq "workbench: empty input" "false" "$(touches_workbench_lane "")"
+# Each Workbench glob must still match a tracked file, so a rename fails here.
+for pattern in "${WORKBENCH_LANE_PATHS[@]}"; do
+	matched=false
+	[[ -n "$(git -C "$HERE/../.." ls-files -- "$pattern")" ]] && matched=true
+	assert_eq "workbench: '$pattern' matches a tracked file" "true" "$matched"
+done
 assert_eq "reasons: Workbench file change is workbench-files" "@:critical|required,@:workbench|workbench-files" \
 	"$(build_tag_reasons "@:critical,@:workbench" "" "" "false" "false" "false" "" "true")"
 assert_eq "reasons: author-typed workbench is body" "@:critical|required,@:workbench|body" \

@@ -325,10 +325,10 @@ else
 			fi
 		fi
 
-		# Start the Workbench lane when the PR changes Workbench-only e2e files,
-		# since no other lane runs them. Comment- and tag-only test edits don't count.
+		# Start the Workbench lane when the PR changes Workbench-only files (e2e tests
+		# or source), since no other lane covers them. Comment- and tag-only test edits don't count.
 		if [[ -n "$CHANGED_FILES" && "$(touches_workbench_lane "$(exclude_paths "$CHANGED_FILES" "${SKIPPED_TEST_FILES:-}")")" == "true" ]]; then
-			echo "PR changes Workbench e2e files. Enabling Workbench tests."
+			echo "PR changes Workbench-only files. Enabling Workbench tests."
 			echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 			WORKBENCH_FILES_CHANGED=true
 			TAGS="$(union_csv_tags "$TAGS" "@:workbench")"
