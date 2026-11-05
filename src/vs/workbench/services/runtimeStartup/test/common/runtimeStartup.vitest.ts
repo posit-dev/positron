@@ -2279,6 +2279,32 @@ describe('RuntimeStartupService - console in front', () => {
 		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
 	});
 
+	it('keeps the newer console saved when an older one on the same interpreter is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const older = createConsole(uv, 'session-uv');
+		const newer = createConsole(uv, 'session-uv-2');
+
+		bringToFront(older);
+		bringToFront(newer);
+		older.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
+	it('clears only the shut-down console\'s language when consoles for two languages were saved', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const r = metadata({ runtimeId: 'r-4', languageId: 'r' });
+		const rConsole = createConsole(r, 'session-r');
+		const uvConsole = createConsole(uv, 'session-uv');
+
+		bringToFront(rConsole);
+		bringToFront(uvConsole);
+		rConsole.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('r')?.runtimeId).toBeUndefined();
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
 	it('does not save a console restarted behind the one in front', () => {
 		const { svc, createConsole, bringToFront } = createService();
 		const uvConsole = createConsole(uv, 'session-uv');

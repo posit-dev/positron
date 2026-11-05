@@ -310,8 +310,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// reason.
 	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
-	// Sessions ever saved as the affiliated runtime. Only their shutdown clears it.
-	private readonly _affiliatedSessionIds = new Set<string>();
+	// The session that last saved each language's affiliated runtime, by
+	// language ID. Only that session's shutdown clears it.
+	private readonly _affiliatedSessionByLanguage = new Map<string, string>();
 
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
@@ -1163,7 +1164,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Saves the session in front as the affiliated runtime for the workspace.
 	 */
 	private saveForegroundAffiliation(session: ILanguageRuntimeSession): void {
-		this._affiliatedSessionIds.add(session.sessionId);
+		this._affiliatedSessionByLanguage.set(session.runtimeMetadata.languageId, session.sessionId);
 
 		// Get the previous affiliation, if any, to preserve the start time.
 		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
@@ -1206,7 +1207,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `Exiting` state. This state only occurs when the runtime is manually
 		// shut down, so may represent a user's intent to stop using the runtime
 		// for this workspace.
-		if (new_state === RuntimeState.Exiting && this._affiliatedSessionIds.has(session_id)) {
+		const languageId = session.runtimeMetadata.languageId;
+		if (new_state === RuntimeState.Exiting && this._affiliatedSessionByLanguage.get(languageId) === session_id) {
+			this._affiliatedSessionByLanguage.delete(languageId);
+
 			// Just to be safe, check that the runtime is still affiliated
 			// before removing the affiliation
 			const serializedMetadata = this._storageService.get(
