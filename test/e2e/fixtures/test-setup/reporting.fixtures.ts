@@ -337,22 +337,17 @@ export function TracingFixture() {
 		try {
 			await use(app);
 		} finally {
-			// Export the chunk for this test.
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
-			const tracePath = testInfo.outputPath(`${title}.zip`);
-			await app.stopTracing(title, true, tracePath);
 
-			// attach the trace to the report if CI and test failed or not in CI
+			// Keep the trace locally, and in CI only for failures, retries, or PW_TRACE=on.
+			// Otherwise close the chunk without writing it: exporting the zip costs ~1.5s per test.
 			const isCI = process.env.CI === 'true';
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {
+				const tracePath = testInfo.outputPath(`${title}.zip`);
+				await app.stopTracing(title, true, tracePath);
 				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-			} else if (isCI) {
-				// In CI, delete trace files for passing tests to save disk space in blob reports
-				try {
-					await fs.promises.unlink(tracePath);
-				} catch (error) {
-					// Ignore - trace file may not exist or may already be deleted
-				}
+			} else {
+				await app.stopTracing(title, false);
 			}
 		}
 	};
