@@ -37,7 +37,7 @@ import { ListEntry, PositronListInstance, PositronListItemContext } from '../../
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
-import { usePackagesHoverManager } from './usePackagesHoverManager.js';
+import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
@@ -62,7 +62,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		activeInstance,
 	} = usePositronPackagesContext();
 	const services = usePositronReactServicesContext();
-	const hoverManager = usePackagesHoverManager();
+	const hoverManager = usePositronActionBarHoverManager();
 
 	// Whether the pane is too narrow to spend width on the item's fixed-size controls.
 	const isNarrow = props.width < NARROW_WIDTH_THRESHOLD;
