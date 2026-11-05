@@ -219,8 +219,10 @@ function findingRow(r, n) {
 
 function evidence(own, s) {
 	let n = 0;
+	// Like By PR: the newest run first, then the newest PR, then the report's finding order.
+	const newestFirst = (a, b) => (b.postedAt ?? '').localeCompare(a.postedAt ?? '') || b.pr - a.pr || a.finding - b.finding;
 	const groups = OUTCOMES.map(o => {
-		const items = own.filter(r => bucketOf(r) === o.key);
+		const items = own.filter(r => bucketOf(r) === o.key).sort(newestFirst);
 		return items.length
 			? `<div class="group" data-group="${o.group}"><div class="group-head"><h3><i class="o-${o.key}"></i>${o.label} <span class="n">${items.length}</span></h3><span class="brief">${escapeHtml(o.brief)}</span></div>`
 			+ `<div class="rows">${items.map(r => findingRow(r, ++n)).join('\n')}</div></div>`
