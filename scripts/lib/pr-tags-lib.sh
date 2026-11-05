@@ -482,19 +482,19 @@ find_unmapped_positron_dirs() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
 
-# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>] [<workbench_files>] [<bump_csv>]
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>] [<auto_csv>]
 # Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
-# code by precedence: required -> body -> files -> ark -> bump -> test-win ->
-# test-web -> workbench-files -> test-changed -> auto. <bump_csv> holds
-# "<tag>|<code>" pairs for tags a dependency bump added (ai-lib, Posit
-# Assistant); the first pair for a tag wins. Booleans are the strings "true"/"false". Echoes
+# code by precedence: required -> body -> files -> ark -> auto list -> test-win ->
+# test-web -> test-changed -> auto. <auto_csv> holds "<tag>|<code>" pairs for
+# tags the parser added itself (ai-lib bump, Posit Assistant bump, Workbench-only
+# files); the first pair for a tag wins. Booleans are the strings "true"/"false". Echoes
 # comma-separated "<tag>|<code>" pairs in <final_csv> order; empty final list
 # echoes nothing. <test_change_csv> defaults to empty (older 6-arg callers keep
 # working; those tags just fall through to "auto"). Pure: presentation of an
 # already-decided tag set, no gh / $GITHUB_OUTPUT.
 build_tag_reasons() {
-	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}" workbench_files="${8:-false}" bumps="${9:-}"
-	local tag code author_nl map_nl test_change_nl bump_code
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}" auto_reasons="${8:-}"
+	local tag code author_nl map_nl test_change_nl auto_code
 	local -a out=()
 	author_nl="${author//,/$'\n'}"
 	map_nl="${map//,/$'\n'}"
@@ -513,14 +513,12 @@ build_tag_reasons() {
 			# the test-win/test-web branches, so a bump wins over a coincidental
 			# tags.WIN/WEB add in the same PR.
 			code="ark"
-		elif bump_code="$(printf '%s\n' "${bumps//,/$'\n'}" | awk -F'|' -v t="$tag" '$1 == t { print $2; exit }')" && [[ -n "$bump_code" ]]; then
-			code="$bump_code"
+		elif auto_code="$(printf '%s\n' "${auto_reasons//,/$'\n'}" | awk -F'|' -v t="$tag" '$1 == t { print $2; exit }')" && [[ -n "$auto_code" ]]; then
+			code="$auto_code"
 		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
-		elif [[ "$tag" == "@:workbench" && "$workbench_files" == "true" ]]; then
-			code="workbench-files"
 		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
 			code="test-changed"
 		else

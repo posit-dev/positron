@@ -154,8 +154,7 @@ MAP_TAGS=""
 ARK_INJECTED="false"
 ADDED_WIN="false"
 ADDED_WEB="false"
-WORKBENCH_FILES_CHANGED="false"
-BUMP_REASONS=""
+AUTO_TAG_REASONS=""
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
@@ -234,7 +233,7 @@ else
 	if echo "$CHANGED_FILES" | grep -qxF "ai-lib"; then
 		echo "ai-lib submodule changed. Injecting @:assistant."
 		TAGS="$(union_csv_tags "$TAGS" "@:assistant")"
-		BUMP_REASONS="$(union_csv_tags "$BUMP_REASONS" "@:assistant|ai-lib")"
+		AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:assistant|ai-lib")"
 	fi
 
 	# A Posit Assistant version bump in product.json runs the assistant tests,
@@ -255,7 +254,7 @@ else
 			if [[ "$OLD_ASSISTANT" != "$NEW_ASSISTANT" ]]; then
 				echo "Posit Assistant changed (${OLD_ASSISTANT:-none} -> ${NEW_ASSISTANT:-none}). Injecting @:assistant and @:workbench."
 				TAGS="$(union_csv_tags "$TAGS" "@:assistant,@:workbench")"
-				BUMP_REASONS="$(union_csv_tags "$BUMP_REASONS" "@:assistant|assistant-bump,@:workbench|assistant-bump")"
+				AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:assistant|assistant-bump,@:workbench|assistant-bump")"
 				echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 			fi
 		else
@@ -293,6 +292,8 @@ else
 		# guarantee they actually run, without over-selecting sibling
 		# suites. See derive-test-change-tags.mjs and the design doc.
 		DERIVE_TEST_CHANGE_SCRIPT="$SCRIPT_DIR/derive-test-change-tags.mjs"
+		# Changed files minus comment- and tag-only test edits (worked out below).
+		EFFECTIVE_CHANGED_FILES="$CHANGED_FILES"
 		if [[ -n "$CHANGED_FILES" && -f "$DERIVE_TEST_CHANGE_SCRIPT" ]]; then
 			# Drop touched e2e test files whose change doesn't alter what the
 			# test does, so they don't need a derived feature tag:
@@ -322,8 +323,11 @@ else
 			# Drop the skipped files from the changed-files list fed to the
 			# deriver. exclude_paths handles the all-skipped case (empty output,
 			# exit 0) so this stays safe under set -e.
+			EFFECTIVE_CHANGED_FILES="$(exclude_paths "$CHANGED_FILES" "$SKIPPED_TEST_FILES")"
 			CHANGED_FILES_FILE="$(mktemp)"
-			exclude_paths "$CHANGED_FILES" "$SKIPPED_TEST_FILES" > "$CHANGED_FILES_FILE"
+			if [[ -n "$EFFECTIVE_CHANGED_FILES" ]]; then
+				printf '%s\n' "$EFFECTIVE_CHANGED_FILES" > "$CHANGED_FILES_FILE"
+			fi
 			# Assignment is the `if` condition (not piped through `paste`) so a
 			# non-zero node exit is visible here -- under `set -e` with no
 			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed
@@ -363,11 +367,11 @@ else
 
 		# Start the Workbench lane when the PR changes Workbench-only files (e2e tests
 		# or source), since no other lane covers them. Comment- and tag-only test edits don't count.
-		if [[ -n "$CHANGED_FILES" && "$(touches_workbench_lane "$(exclude_paths "$CHANGED_FILES" "${SKIPPED_TEST_FILES:-}")")" == "true" ]]; then
+		if [[ "$(touches_workbench_lane "$EFFECTIVE_CHANGED_FILES")" == "true" ]]; then
 			echo "PR changes Workbench-only files. Enabling Workbench tests."
 			echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
-			WORKBENCH_FILES_CHANGED=true
 			TAGS="$(union_csv_tags "$TAGS" "@:workbench")"
+			AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:workbench|workbench-files")"
 		fi
 
 		# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
@@ -488,7 +492,7 @@ echo "lane_summary=$LANE_SUMMARY" >> "$GITHUB_OUTPUT"
 if [[ -z "$TAGS" ]]; then
 	TAG_REASONS="@:all|body"
 else
-	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$WORKBENCH_FILES_CHANGED" "$BUMP_REASONS")"
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$AUTO_TAG_REASONS")"
 fi
 echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 
