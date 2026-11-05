@@ -12,10 +12,10 @@
 //
 // Usage: npm run test:positron:check-ts [-- --print-configs]
 
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
-import ts from 'typescript';
 import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -43,25 +43,20 @@ function findProjects(): string[] {
 }
 
 // Keeps the ambient declarations the build compiles, swaps in the Vitest files,
-// and drops mocha's globals for Vitest's. TypeScript resolves the project's
-// tsconfig, so extends chains, include patterns, and excludes all apply.
+// and drops mocha's globals for Vitest's. The same tsc that runs the check resolves
+// the project's tsconfig, so extends chains, include patterns, and excludes all apply.
 function generateConfig(projectDir: string): object {
 	const dir = path.join(root, projectDir);
-	const tsconfig = path.join(dir, 'tsconfig.json');
-	const { config, error } = ts.readConfigFile(tsconfig, ts.sys.readFile);
-	if (error) {
-		throw new Error(`${tsconfig}: ${ts.flattenDiagnosticMessageText(error.messageText, '\n')}`);
-	}
-	const parsed = ts.parseJsonConfigFileContent(config, ts.sys, dir, undefined, tsconfig);
-	const toRelative = (file: string) => path.relative(dir, file).split(path.sep).join('/');
+	const resolved: { compilerOptions?: { types?: string[] }; files?: string[] } =
+		JSON.parse(execFileSync(process.execPath, [tsc, '-p', 'tsconfig.json', '--showConfig'], { cwd: dir, encoding: 'utf8' }));
 	// An unset `types` loads every @types package, including mocha, whose globals clash with Vitest's.
-	const types = (parsed.options.types ?? ['node']).filter(t => t !== 'mocha');
+	const types = (resolved.compilerOptions?.types ?? ['node']).filter(t => t !== 'mocha');
 	return {
 		extends: './tsconfig.json',
 		compilerOptions: { noEmit: true, types },
 		files: [
-			toRelative(path.join(root, 'node_modules/vitest/globals.d.ts')),
-			...parsed.fileNames.filter(file => file.endsWith('.d.ts')).map(toRelative),
+			path.relative(dir, path.join(root, 'node_modules/vitest/globals.d.ts')).split(path.sep).join('/'),
+			...(resolved.files ?? []).filter(file => file.endsWith('.d.ts')),
 		],
 		include: ['**/*.vitest.ts', '**/*.vitest.tsx'],
 		exclude: ['node_modules', 'out'],
@@ -91,6 +86,14 @@ async function check({ label, config }: { label: string; config: string }): Prom
 			resolve({ label, code: code ?? 1, output });
 		});
 	});
+}
+
+// Shows each error on the PR's checks page and diff, not only in the job log.
+function printAnnotations(output: string): void {
+	const escape = (s: string) => s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+	for (const [, file, line, col, code, message] of output.matchAll(/^(.+?)\((\d+),(\d+)\): error (TS\d+): (.*)$/gm)) {
+		console.log(`::error file=${escape(file)},line=${line},col=${col},title=${code}::${escape(message)}`);
+	}
 }
 
 async function main(): Promise<number> {
@@ -140,6 +143,9 @@ async function main(): Promise<number> {
 			failed++;
 			console.error(`\n${label}:`);
 			console.error(output.trimEnd());
+			if (process.env.GITHUB_ACTIONS) {
+				printAnnotations(output);
+			}
 		}
 	}
 	console.log(`\nChecked ${results.length} Vitest tsconfigs: ${failed ? `${failed} with errors` : 'no errors'}.`);
