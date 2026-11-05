@@ -953,6 +953,31 @@ assert_eq "reasons: Workbench file change is workbench-files" "@:critical|requir
 assert_eq "reasons: author-typed workbench is body" "@:critical|required,@:workbench|body" \
 	"$(build_tag_reasons "@:critical,@:workbench" "@:workbench" "" "false" "false" "false" "" "true")"
 
+# --- bootstrap_extension_version ---
+PRODUCT_JSON='{"bootstrapExtensions":[{"name":"posit.air-vscode","version":"0.32.0"},{"name":"posit.assistant","version":"1.11.0"}]}'
+assert_eq "bootstrap version: listed extension" "1.11.0" \
+	"$(bootstrap_extension_version "$PRODUCT_JSON" posit.assistant)"
+assert_eq "bootstrap version: unlisted extension" "" \
+	"$(bootstrap_extension_version "$PRODUCT_JSON" posit.shiny)"
+assert_eq "bootstrap version: unparseable JSON" "" \
+	"$(bootstrap_extension_version "not json" posit.assistant)"
+assert_eq "bootstrap version: real product.json lists posit.assistant" "true" \
+	"$([[ -n "$(bootstrap_extension_version "$(cat "$HERE/../../product.json")" posit.assistant)" ]] && echo true || echo false)"
+
+# --- build_tag_reasons: dependency bumps ---
+assert_eq "reasons: ai-lib bump" "@:critical|required,@:assistant|ai-lib" \
+	"$(build_tag_reasons "@:critical,@:assistant" "" "" "false" "false" "false" "" "false" "@:assistant|ai-lib")"
+assert_eq "reasons: Posit Assistant bump labels both tags" \
+	"@:critical|required,@:assistant|assistant-bump,@:workbench|assistant-bump" \
+	"$(build_tag_reasons "@:critical,@:assistant,@:workbench" "" "" "false" "false" "false" "" "false" "@:assistant|assistant-bump,@:workbench|assistant-bump")"
+assert_eq "reasons: ai-lib and Posit Assistant together, first pair wins" \
+	"@:critical|required,@:assistant|ai-lib,@:workbench|assistant-bump" \
+	"$(build_tag_reasons "@:critical,@:assistant,@:workbench" "" "" "false" "false" "false" "" "false" "@:assistant|ai-lib,@:assistant|assistant-bump,@:workbench|assistant-bump")"
+assert_eq "reasons: author-typed assistant beats a bump" "@:critical|required,@:assistant|body" \
+	"$(build_tag_reasons "@:critical,@:assistant" "@:assistant" "" "false" "false" "false" "" "false" "@:assistant|ai-lib")"
+assert_eq "render: bump labels" "true" \
+	"$(out="$(render_why_these_tags "@:critical|required,@:assistant|ai-lib,@:workbench|assistant-bump")"; [[ "$out" == *"ai-lib submodule bump"* && "$out" == *"Posit Assistant version bump"* ]] && echo true || echo false)"
+
 # --- render_why_these_tags ---
 assert_eq "render: critical-only is not informative (empty)" "" \
 	"$(render_why_these_tags "@:critical|required")"

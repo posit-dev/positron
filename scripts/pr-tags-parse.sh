@@ -155,6 +155,7 @@ ARK_INJECTED="false"
 ADDED_WIN="false"
 ADDED_WEB="false"
 WORKBENCH_FILES_CHANGED="false"
+BUMP_REASONS=""
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
@@ -225,6 +226,41 @@ else
 		WIN_LANE=true
 		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
 		WEB_LANE=true
+	fi
+
+	# An ai-lib bump changes the provider and credential code AI features use.
+	# The Workbench assistant tests run Posit Assistant's own copy of ai-lib, so
+	# this doesn't start the Workbench lane.
+	if echo "$CHANGED_FILES" | grep -qxF "ai-lib"; then
+		echo "ai-lib submodule changed. Injecting @:assistant."
+		TAGS="$(union_csv_tags "$TAGS" "@:assistant")"
+		BUMP_REASONS="$(union_csv_tags "$BUMP_REASONS" "@:assistant|ai-lib")"
+	fi
+
+	# A Posit Assistant version bump in product.json runs the assistant tests,
+	# including the Workbench ones. Compare against the merge base so a bump
+	# that landed on main since the branch was cut doesn't count.
+	if echo "$CHANGED_FILES" | grep -qxF "product.json"; then
+		read -r BASE_SHA HEAD_SHA <<< "$(gh api repos/${REPO}/pulls/${PR_NUMBER} \
+			--header "Authorization: token $GITHUB_TOKEN" \
+			--jq '"\(.base.sha) \(.head.sha)"' || true)"
+		MERGE_BASE_SHA="$(gh api "repos/${REPO}/compare/${BASE_SHA}...${HEAD_SHA}" \
+			--header "Authorization: token $GITHUB_TOKEN" \
+			--jq '.merge_base_commit.sha' || true)"
+		if [[ -n "$MERGE_BASE_SHA" && -n "$HEAD_SHA" ]]; then
+			OLD_ASSISTANT="$(bootstrap_extension_version "$(gh api "repos/${REPO}/contents/product.json?ref=${MERGE_BASE_SHA}" \
+				--header "Authorization: token $GITHUB_TOKEN" --header "Accept: application/vnd.github.raw" || true)" posit.assistant)"
+			NEW_ASSISTANT="$(bootstrap_extension_version "$(gh api "repos/${REPO}/contents/product.json?ref=${HEAD_SHA}" \
+				--header "Authorization: token $GITHUB_TOKEN" --header "Accept: application/vnd.github.raw" || true)" posit.assistant)"
+			if [[ "$OLD_ASSISTANT" != "$NEW_ASSISTANT" ]]; then
+				echo "Posit Assistant changed (${OLD_ASSISTANT:-none} -> ${NEW_ASSISTANT:-none}). Injecting @:assistant and @:workbench."
+				TAGS="$(union_csv_tags "$TAGS" "@:assistant,@:workbench")"
+				BUMP_REASONS="$(union_csv_tags "$BUMP_REASONS" "@:assistant|assistant-bump,@:workbench|assistant-bump")"
+				echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+			fi
+		else
+			echo "Warning: could not resolve the PR's merge base; skipping the Posit Assistant bump check."
+		fi
 	fi
 
 	# Resolve the path to the map (this script lives in scripts/).
@@ -452,7 +488,7 @@ echo "lane_summary=$LANE_SUMMARY" >> "$GITHUB_OUTPUT"
 if [[ -z "$TAGS" ]]; then
 	TAG_REASONS="@:all|body"
 else
-	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$WORKBENCH_FILES_CHANGED")"
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$WORKBENCH_FILES_CHANGED" "$BUMP_REASONS")"
 fi
 echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 
