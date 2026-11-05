@@ -16,7 +16,7 @@ const NOW = new Date('2026-10-14T12:00:00Z');
 const preview = extra => ({ title: 'Plots: <one> name', author: 'someone', state: 'merged', date: '2026-10-03T09:00:00Z', additions: 38, deletions: 12, files: 3, desc: 'Fixes the thing.', ...extra });
 const render = rows => renderOutcomesPage(rows, { now: NOW });
 // Visible text only, with tags dropped and the entities used here undone.
-const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="how-panel"[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
+const text = html => html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/g, '').replace(/<div class="how-panel"[\s\S]*?<\/ol><\/div>/g, '').replace(/<div class="range-menu"[\s\S]*?<\/div><\/div>/, '').replace(/<[^>]+>/g, ' ')
 	.replace(/&middot;/g, '~').replace(/&ndash;/g, '-').replace(/&divide;/g, '/').replace(/&mdash;/g, '--').replace(/&#39;/g, '\'').replace(/\s+/g, ' ');
 // The markup, without the embedded rows and the script's copy of the view.
 const markup = html => html.replace(/<script[\s\S]*?<\/script>/g, '');
@@ -281,10 +281,10 @@ test('a fix that didn\'t hold counts like any finding and is tagged on its row',
 test('the ? opens how each finding is checked, in decideOutcome\'s order, and is kept across range changes', () => {
 	const html = render(today);
 	assert.match(html, /<h2 id="all-h">Findings by outcome<\/h2><button type="button" class="how" aria-expanded="false" aria-controls="how" aria-label="How outcomes are counted"/);
-	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<div class="notes">[\s\S]*?<\/div><\/div>/)[0];
+	const panel = html.match(/<div class="how-panel" id="how" hidden>[\s\S]*?<\/ol><\/div>/)[0];
 	const steps = [...panel.matchAll(/<li><span class="step">(\d)<\/span><span class="outs">(.*?)<\/span><\/span><span>/g)].map(m => `${m[1]} ${m[2].replace(/<[^>]+>/g, ' ').trim().replace(/\s+/g, ' ')}`);
 	assert.deepEqual(steps, ['1 Already on main', '2 PR still open', '3 Fixed in the PR', '4 Fixed later', '5 Filed as issue', '6 Won\'t fix', '7 Not merged', '8 Unclear No files named', '9 Not fixed']);
-	assert.match(panel, /Outcomes can move later/);
+	assert.doesNotMatch(panel, /Outcomes can move later/);
 	assert.match(html, /let howOpen = false;/);
 	assert.match(html, /setHow\(howOpen\);/);
 });

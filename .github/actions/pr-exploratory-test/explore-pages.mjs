@@ -184,7 +184,6 @@ footer a.quiet{color:inherit;text-decoration:none}footer a.quiet:hover{color:#2F
 .how-panel{padding:16px 20px 14px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;display:flex;flex-direction:column;gap:12px;font-size:14px;color:#3A3833}
 .how-panel[hidden]{display:none}
 .muted-line{color:#5A5751}
-.notes{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A5751}
 `;
 
 // The date range menu and the footer's local time. Runs after the page's VIEW_SOURCE and before its

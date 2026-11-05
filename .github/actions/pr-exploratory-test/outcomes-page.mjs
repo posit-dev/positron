@@ -157,8 +157,7 @@ function howPanel() {
 	const label = key => OUTCOMES.find(o => o.key === key).label;
 	const steps = STEPS.map(([keys, q], i) => `<li><span class="step">${i + 1}</span><span class="outs">${keys.map(k => `<span><i class="o-${k}" aria-hidden="true"></i>${label(k)}</span>`).join('')}</span><span>${escapeHtml(q)}</span></li>`).join('');
 	return `<div class="how-panel" id="how" hidden><div class="muted-line">Each time the report is built, every finding is checked against GitHub, in this order. The first check that matches decides its outcome.</div>
-<ol class="how-steps" role="list">${steps}</ol>
-<div class="notes">Outcomes can move later: a Not fixed or Filed as issue finding becomes Fixed later if a fix lands on main or its issue is closed as completed. Each finding's evidence shows which check decided it.</div></div>`;
+<ol class="how-steps" role="list">${steps}</ol></div>`;
 }
 
 function severityRows(own) {
