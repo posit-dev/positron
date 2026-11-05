@@ -57,7 +57,7 @@ on:
       run_e2e_workbench:
         description: "E2E Tests / Workbench (Ubuntu)"
         required: false
-        default: false
+        default: true
         type: boolean
       run_e2e_workbench_stable:
         description: "E2E Tests / Workbench Stable (Ubuntu)"
