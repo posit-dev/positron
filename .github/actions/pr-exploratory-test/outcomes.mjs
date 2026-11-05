@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -29,6 +29,8 @@ const MAX_DIFF_CHARS = 60000;
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
 const SKIPPED_PRS = new Set([16616]);
+// PRs closed without merging whose commits shipped in another PR, read as merged with that PR.
+const SHIPPED_VIA = new Map([[16866, 16878]]);
 // PRs read at once. Git runs synchronously, so only the GitHub and model calls overlap.
 const PR_CONCURRENCY = 6;
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
@@ -255,7 +257,8 @@ async function closingIssues(number) {
 }
 
 async function prRows(number) {
-	const pr = await gh(`/repos/${REPO}/pulls/${number}`);
+	const viaNumber = SHIPPED_VIA.get(number);
+	const pr = shippedVia(await gh(`/repos/${REPO}/pulls/${number}`), viaNumber && await gh(`/repos/${REPO}/pulls/${viaNumber}`));
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
 	const preview = prPreview(pr);
 	if (!FETCHED_ALL) {
@@ -269,7 +272,7 @@ async function prRows(number) {
 		return [];
 	});
 	// For a change dropped before the merge.
-	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${number}/files?per_page=100`)).map(f => f.filename) : [];
+	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${viaNumber ?? number}/files?per_page=100`)).map(f => f.filename) : [];
 	const closes = await closingIssues(number);
 	const rows = [];
 	for (const comment of comments) {
@@ -292,7 +295,7 @@ async function prRows(number) {
 			// A page-only report has no Origin column, so a kept row keeps the origin it was saved with.
 			const forced = ORIGIN_OVERRIDES[`${parsed.run}#${finding.n}`]?.origin;
 			const findingOrig = report.fromPage ? (forced ?? kept?.origin ?? null) : findingOrigin(forced ?? origin.get(finding.n) ?? null, finding, closes);
-			if (kept && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
+			if (kept && !viaNumber && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
 				rows.push({ ...kept, origin: findingOrig, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
 				continue;

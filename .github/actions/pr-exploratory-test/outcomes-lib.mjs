@@ -381,6 +381,11 @@ function firstParagraph(body) {
 }
 
 /** What the page's PR card shows, from the REST pull request. */
+/** A closed PR whose commits shipped in another PR, read as merged with that PR's merge; unchanged when the other PR hasn't merged. */
+export function shippedVia(pr, via) {
+	return via?.merged_at ? { ...pr, merged_at: via.merged_at, merge_commit_sha: via.merge_commit_sha } : pr;
+}
+
 export function prPreview(pr) {
 	const state = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
 	return {

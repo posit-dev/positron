@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -449,6 +449,14 @@ test('mapLimit keeps input order and never runs more than the limit at once', as
 	});
 	assert.deepEqual(out, [60, 20, 40, 10, 30]);
 	assert.equal(most, 2);
+});
+
+test('shippedVia reads a closed PR as merged once the PR its commits went into merged', () => {
+	const closed = { number: 16866, state: 'closed', merged_at: null, merge_commit_sha: null, closed_at: '2026-10-27' };
+	const shipped = shippedVia(closed, { merged_at: '2026-10-29', merge_commit_sha: 'abc' });
+	assert.deepEqual([shipped.number, shipped.merged_at, shipped.merge_commit_sha], [16866, '2026-10-29', 'abc']);
+	assert.equal(shippedVia(closed, { merged_at: null }), closed);
+	assert.equal(shippedVia(closed, undefined), closed);
 });
 
 test('findingOrigin marks an inherited finding whose duplicate the PR closes as a fix that didn\'t hold', () => {
