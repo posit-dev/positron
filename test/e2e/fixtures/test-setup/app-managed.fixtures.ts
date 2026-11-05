@@ -8,7 +8,7 @@ import { AppFixtureOptions } from './app.fixtures';
 
 /**
  * Managed Positron app (Electron or browser-based)
- * Projects: e2e-electron, e2e-chromium/firefox/webkit/edge (port 9000 + 10 per parallel worker)
+ * Projects: e2e-electron, e2e-chromium/firefox/webkit/edge (browser server on port 9000 + 10 per parallel worker)
  */
 export async function ManagedApp(
 	fixtureOptions: AppFixtureOptions

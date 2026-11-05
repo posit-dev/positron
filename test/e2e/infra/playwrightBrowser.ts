@@ -12,6 +12,7 @@ import { Logger, measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
 import { PlaywrightDriver } from './playwrightDriver';
 // --- Start Positron ---
+import { teardown } from './processes';
 import { extensionHostInspectPayloadEntry } from '../utils/memory/gc.js';
 import { laneFromEnv } from '../utils/memory/lanes.js';
 // --- End Positron ---
@@ -63,13 +64,8 @@ async function launchServer(options: LaunchOptions) {
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
-	// --- Start Positron ---
-	// const maxRetries = 10;
-	// for (let attempts = 0; attempts < maxRetries; attempts++) {
-	// const currentPort = port++;
 	for (let attempts = 0; attempts < maxLaunchAttempts; attempts++) {
 		const currentPort = basePort + attempts;
-		// --- End Positron ---
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
@@ -89,7 +85,10 @@ async function launchServer(options: LaunchOptions) {
 		} catch (error) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
 				logger.log(`Port ${currentPort} is already in use. Retrying...`);
-				serverProcess?.kill();
+				// The server stays up after EADDRINUSE and runs under a shell wrapper, so kill the whole tree.
+				if (serverProcess) {
+					await teardown(serverProcess, logger);
+				}
 			} else {
 				throw error; // Rethrow non-port-related errors
 			}

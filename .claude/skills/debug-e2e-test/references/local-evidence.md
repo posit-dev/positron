@@ -15,7 +15,7 @@ the CI entry's report processor.
 
 | Artifact | Where | Written when |
 |---|---|---|
-| `_trace.zip` | `test-results/<test-dir>/` | **every** run, pass or fail (`reporting.fixtures.ts` only unlinks passing traces on CI) |
+| `_trace.zip` | `test-results/<test-dir>/` | locally on every run; on CI only for failures, retries, or `PW_TRACE=on` (`reporting.fixtures.ts` discards passing traces there) |
 | `error-context.md` | `test-results/<test-dir>/` | failures only -- so it, not the trace, is the failure signal |
 | screenshots | `test-results/<test-dir>/` | `takeScreenshot` calls, plus one on failure |
 | app / kernel logs | `test-logs/<project>/<spec>/` | every run; **not** under `test-results/` |
