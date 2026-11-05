@@ -95,6 +95,9 @@ test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 
 test('decideOutcome: open PRs are pending; merged with no yes is not fixed at once', () => {
 	assert.equal(decideOutcome({ ...base, prState: 'open' }).outcome, 'pending');
+	assert.equal(decideOutcome({ ...base, prState: 'open', laterChecks: [issue('open')] }).outcome, 'pending');
+	assert.equal(decideOutcome({ ...base, prState: 'open', inherited: true, laterChecks: [issue('open')] }).outcome, 'filed-issue');
+	assert.equal(decideOutcome({ ...base, prState: 'open', inherited: true, laterChecks: [issue('open', 'no')] }).outcome, 'pending');
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc') }), { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: 'commit abc: unrelated' });
 });
 

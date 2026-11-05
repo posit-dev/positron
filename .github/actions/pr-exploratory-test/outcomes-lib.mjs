@@ -148,7 +148,8 @@ export function droppedPaths({ paths, tested, merged }) {
  * `intended` is the issues (as `issueOf` gives them) the run matched that are closed as not planned now. Such a match, or a matching issue
  * closed as not planned after the run, is won't fix: the team chose to leave it. A fix or a still-open issue beats it.
  */
-export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [], intended = [] }) {
+/** `inherited`: the bug is already on main, so a matching issue counts while the PR is still open. */
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [], intended = [], inherited = false }) {
 	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes' && prState !== 'closed') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
@@ -162,10 +163,10 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 	if (done) {
 		return { outcome: 'fixed-later', decidedBy: 'issue-closed', evidence: evidenceOf(done), issue: done.issue };
 	}
-	if (prState === 'open') {
+	const filed = yesLater.find(c => c.issue?.state !== 'closed as not planned');
+	if (prState === 'open' && !(inherited && filed)) {
 		return { outcome: 'pending', decidedBy: 'pr-open', evidence: '' };
 	}
-	const filed = yesLater.find(c => c.issue?.state !== 'closed as not planned');
 	if (filed) {
 		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
 	}

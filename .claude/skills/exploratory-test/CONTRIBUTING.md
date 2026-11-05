@@ -122,7 +122,9 @@ read from it. Read every "fixed" row before trusting the numbers.
 A finding that also happened on a build of main (Origin inherited) is left out
 of the counts, since the PR didn't bring it, unless the verifier listed an
 issue the PR says it closes as a possible duplicate. Then the PR's own fix didn't hold, so it counts like any
-other finding and is tagged "Fix didn't hold".
+other finding and is tagged "Fix didn't hold". An inherited finding doesn't
+wait for its PR to merge: a matching issue marks it filed as an issue even
+while the PR is open.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many

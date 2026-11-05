@@ -262,7 +262,7 @@ async function prRows(number) {
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
 	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
 	// A failed timeline leaves the title search, rather than skipping the PR.
-	const timeline = prState === 'open' ? [] : await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
+	const timeline = await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
 		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);
 		return [];
 	});
@@ -300,13 +300,13 @@ async function prRows(number) {
 			const replies = {};
 			const { inPr, later } = await usedReplies.run(replies, async () => ({
 				inPr: saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null),
-				later: prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline),
+				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline),
 			}));
 			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
 			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
 			// A closed PR didn't ship whatever was tested, so it needs no tested commit.
 			const decided = tested.sha || prState === 'closed'
-				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended })
+				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended, inherited: findingOrig === 'inherited' })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
