@@ -32,12 +32,18 @@ function glob(pattern: string): string[] {
 		.sort();
 }
 
-// Each extension or test/e2e directory that has Vitest files.
+// For each Vitest file, the nearest directory with a tsconfig.json, stopping at
+// its extension or test/e2e (returned even without one, so main() can report it).
 function findProjects(): string[] {
 	const projectDirs = new Set<string>();
 	for (const file of glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}')) {
 		const parts = file.split('/');
-		projectDirs.add(parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e');
+		const top = parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e';
+		let dir = path.posix.dirname(file);
+		while (dir !== top && !fs.existsSync(path.join(root, dir, 'tsconfig.json'))) {
+			dir = path.posix.dirname(dir);
+		}
+		projectDirs.add(dir);
 	}
 	return [...projectDirs].sort();
 }
@@ -45,7 +51,7 @@ function findProjects(): string[] {
 // Keeps the ambient declarations the build compiles, swaps in the Vitest files,
 // and drops mocha's globals for Vitest's. The same tsc that runs the check resolves
 // the project's tsconfig, so extends chains, include patterns, and excludes all apply.
-function generateConfig(projectDir: string): object {
+function generateConfig(projectDir: string, projects: string[]): object {
 	const dir = path.join(root, projectDir);
 	const resolved: { compilerOptions?: { types?: string[] }; files?: string[] } =
 		JSON.parse(execFileSync(process.execPath, [tsc, '-p', 'tsconfig.json', '--showConfig'], { cwd: dir, encoding: 'utf8' }));
@@ -59,7 +65,8 @@ function generateConfig(projectDir: string): object {
 			...(resolved.files ?? []).filter(file => file.endsWith('.d.ts')),
 		],
 		include: ['**/*.vitest.ts', '**/*.vitest.tsx'],
-		exclude: ['node_modules', 'out'],
+		// Nested projects check their own Vitest files.
+		exclude: ['node_modules', 'out', ...projects.filter(p => p.startsWith(`${projectDir}/`)).map(p => p.slice(projectDir.length + 1))],
 	};
 }
 
@@ -114,7 +121,7 @@ async function main(): Promise<number> {
 		return 1;
 	}
 
-	const generated = projects.map(dir => ({ dir, path: `${dir}/${generatedName}`, config: generateConfig(dir) }));
+	const generated = projects.map(dir => ({ dir, path: `${dir}/${generatedName}`, config: generateConfig(dir, projects) }));
 	if (process.argv.includes('--print-configs')) {
 		for (const { path: file, config } of generated) {
 			console.log(`${file}:\n${JSON.stringify(config, null, '\t')}\n`);
