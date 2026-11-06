@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as os from 'os';
 import { join } from 'path';
 import { test, tags } from '../_test.setup.js';
 
@@ -34,6 +36,8 @@ let connectApiKey: string;
 let connectServer: string;
 // The publisher's username, which is the owner node the seeded pins live under in the tree.
 let ownerUsername: string;
+// Holds the key file R reads, so the key is never typed into the console. Removed in afterAll.
+let keyDir: string | undefined;
 
 test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, tags.CONNECT, tags.CONNECTIONS, tags.ARK] }, () => {
 
@@ -52,16 +56,26 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 		ownerUsername = await app.workbench.positConnect.getCurrentUsername();
 	});
 
+	test.afterAll(function () {
+		if (keyDir) {
+			fs.rmSync(keyDir, { recursive: true, force: true });
+		}
+	});
+
 	test('Add a Connect server and browse its pins in the tree', async function ({ app, r, executeCode }) {
 		test.slow();
 		const { console, dataConnections, dataExplorer } = app.workbench;
 
 		await test.step('Seed pins by publishing dummy data with the R pins package', async () => {
-			// board_connect() reads these env vars; set them on the session rather than baking the key
-			// into the script.
+			// board_connect() reads these env vars; the key goes through a 0600 temp file outside the
+			// workspace so it never appears in the console.
+			keyDir = fs.mkdtempSync(join(os.tmpdir(), 'pins-key-'));
+			const keyPath = join(keyDir, 'key');
+			fs.writeFileSync(keyPath, connectApiKey, { mode: 0o600 });
+			const rKeyPath = keyPath.replace(/\\/g, '/');
 			await executeCode(
 				'R',
-				`Sys.setenv(CONNECT_SERVER = ${JSON.stringify(connectServer)}, CONNECT_API_KEY = ${JSON.stringify(connectApiKey)})`
+				`Sys.setenv(CONNECT_SERVER = ${JSON.stringify(connectServer)}, CONNECT_API_KEY = readLines(${JSON.stringify(rKeyPath)}, n = 1))`
 			);
 			const scriptPath = join(app.workspacePathOrFolder, 'workspaces', 'connect-pins-r', 'publish-pins.R');
 			await executeCode('R', `source(${JSON.stringify(scriptPath)}, chdir = TRUE)`, { timeout: 120000 });
