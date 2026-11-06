@@ -1,12 +1,12 @@
-name: Issue Status Checks
+name: Close Done Issues Checks
 
-# Unit tests for the Issue Status workflow's script.
+# Unit tests for the Close Done Issues workflow's script.
 
 on:
   pull_request:
     paths:
-      - '.github/scripts/issue-status*.mts'
-      - '.github/workflows/issue-status*.yml'
+      - '.github/scripts/close-done-issues*.mts'
+      - '.github/workflows/close-done-issues*.yml'
 
 permissions:
   contents: read
@@ -32,4 +32,4 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Run tests
-        run: node --test .github/scripts/issue-status.test.mts
+        run: node --test .github/scripts/close-done-issues.test.mts
