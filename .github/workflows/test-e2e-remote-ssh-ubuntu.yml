@@ -241,7 +241,7 @@ jobs:
 
       - name: Fail if the secret scan did not pass
         if: always()
-        run: test -f secret-scan/clean || { echo "::error::Secret scan did not pass; nothing was uploaded. See the test step output."; exit 1; }
+        run: test -f secret-scan/clean || { echo "::error::Secret scan marker missing, so the scan failed or the tests did not run. Test artifacts were not uploaded."; exit 1; }
 
       - name: Teardown
         if: always()
