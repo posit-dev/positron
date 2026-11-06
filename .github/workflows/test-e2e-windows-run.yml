@@ -151,20 +151,17 @@ jobs:
           REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
           REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
           # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
           # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
+      # Redshift workgroup used by the data-connections e2e tests).
       - name: Tailscale
         uses: tailscale/github-action@v4
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
           tags: tag:positron-gha
 
       - name: Set screen resolution
