@@ -9,6 +9,8 @@ import archiver from 'archiver';
 import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
 import { isArtifactEnabled } from '../../infra/artifactSwitches.js';
+import { secretValues } from '../../infra/appEnv.js';
+import { scrubDirectory } from '../../infra/secretScrub.js';
 
 export interface AttachScreenshotsToReportOptions {
 	app: Application;
@@ -149,6 +151,7 @@ export function AttachCrashDumpsToReportFixture() {
  * Attach logs from the local filesystem (non-Docker projects)
  */
 async function attachLocalLogsToReport(logsPath: string, testInfo: playwright.TestInfo): Promise<void> {
+	await scrubDirectory(logsPath, secretValues(process.env));
 	const zipPath = path.join(logsPath, 'logs.zip');
 	const output = fs.createWriteStream(zipPath);
 	const archive = archiver('zip', { zlib: { level: 9 } });
@@ -248,6 +251,10 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 			console.log('No logs to attach');
 			return;
 		}
+
+		const secrets = secretValues(process.env);
+		await scrubDirectory(tempLogsDir, secrets);
+		await scrubDirectory(logsPath, secrets);
 
 		// Create zip archive from both Docker logs and local test logs
 		const output = fs.createWriteStream(zipPath);
