@@ -69,6 +69,11 @@ async function scanData(label: string, data: Buffer, secrets: SecretValue[], hit
 		return;
 	}
 	const text = data.toString('latin1');
+	// The HTML reporter stores its data as a base64 zip inside index.html.
+	const embedded = /<template id="playwrightReportBase64">data:application\/zip;base64,(?<data>[A-Za-z0-9+/=\s]*)<\/template>/.exec(text);
+	if (embedded?.groups) {
+		await scanData(`${label}!embedded.zip`, Buffer.from(embedded.groups.data, 'base64'), secrets, hits);
+	}
 	for (const { name, value } of secrets) {
 		for (const { encoding, text: form } of encodedForms(value)) {
 			if (text.includes(toLatin1Needle(form))) {

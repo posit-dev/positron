@@ -66,6 +66,15 @@ describe('secretScan', () => {
 		expect(hits[0].name).toBe('FAKE_SECRET');
 	});
 
+	it('finds a secret in the zip an HTML report embeds as base64', async () => {
+		await zip(join(dir, 'data.zip'), { 'report.json': JSON.stringify({ title: `token=${SECRET}` }) });
+		const data = readFileSync(join(dir, 'data.zip')).toString('base64');
+		rmSync(join(dir, 'data.zip'));
+		writeFileSync(join(dir, 'index.html'), `<html><template id="playwrightReportBase64">data:application/zip;base64,${data}</template></html>`);
+		const hits = await scanPaths([dir], secrets);
+		expect(hits.map(h => h.file)).toContain(`${join(dir, 'index.html')}!embedded.zip!report.json`);
+	});
+
 	it('clean tree has no hits', async () => {
 		writeFileSync(join(dir, 'clean.txt'), 'nothing here');
 		expect(await scanPaths([dir, join(dir, 'missing')], secrets)).toEqual([]);
