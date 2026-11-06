@@ -7,6 +7,7 @@ import { expect, FrameLocator, Page } from '@playwright/test';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import { QuickInput } from './quickInput.js';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 const execP = promisify(exec);
 
@@ -58,7 +59,7 @@ export class Publisher {
 		await this.quickInput.selectQuickInputElement(1, true);
 		const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
 		await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
-		await this.quickInput.type(apiKey);
+		await fillSecretValue(apiKeyInputLocator, apiKey);
 		await page.keyboard.press('Enter');
 	}
 

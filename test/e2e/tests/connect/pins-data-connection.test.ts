@@ -108,8 +108,8 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			await dataConnections.fillConnectionInputs({
 				'Connection Name': connectionName,
 				'Server URL': connectServer,
-				'API Key': connectApiKey,
 			});
+			await dataConnections.fillSecretConnectionInput('API Key', connectApiKey);
 			await dataConnections.save();
 			await dataConnections.expectConnectionInTree(connectionName);
 		});
