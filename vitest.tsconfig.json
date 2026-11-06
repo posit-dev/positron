@@ -1,10 +1,10 @@
 {
 	// Type-checks the src/ Vitest files (`npm run test:positron:check-ts`).
 	// Extends the main src tsconfig but adds Vitest global types. Does NOT
-	// affect the main build. Editors do not load this file (#17130).
+	// affect the main build. Listed in the root tsconfig.json so editors use it.
 	//
-	// Vitest files under test/e2e and inside each extension are checked with a
-	// config scripts/check-vitest-types.mts generates from that project's tsconfig.json.
+	// Vitest files under test/e2e and inside each extension are checked with
+	// that project's tsconfig.vitest.json.
 	"extends": "./src/tsconfig.json",
 	"compilerOptions": {
 		// Match how Vite resolves imports. The inherited nodenext resolution reads

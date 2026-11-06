@@ -17,7 +17,7 @@ Edge cases:
 
 - Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && npm run build-check`
 
-**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts`. It checks `src/` tests with `vitest.tsconfig.json` and `test/e2e` / extension tests with a config it generates from each project's `tsconfig.json`, and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
+**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts`. It checks each config listed in the root `tsconfig.json` (`vitest.tsconfig.json` for `src/`, a `tsconfig.vitest.json` for `test/e2e` and each extension with Vitest files) and completes in seconds. The editor uses the same configs, so the Problems pane matches. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
 ### Reproducing CI Failures Locally (Posit-internal)
 
