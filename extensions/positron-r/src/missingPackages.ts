@@ -24,6 +24,7 @@ const NAMESPACE_REGEX = /\b([A-Za-z][A-Za-z0-9._]*)\s*:::?\s*[A-Za-z.]/g;
  * `requireNamespace()`, and `pkg::`/`pkg:::` usages in the given source.
  */
 export function parseRPackageReferences(code: string): string[] {
+	code = stripRComments(code);
 	const packages = new Set<string>();
 	for (const regex of [LIBRARY_REGEX, REQUIRE_NAMESPACE_REGEX, NAMESPACE_REGEX]) {
 		// Reset lastIndex since these are shared module-level /g regexes.
@@ -34,6 +35,34 @@ export function parseRPackageReferences(code: string): string[] {
 		}
 	}
 	return [...packages];
+}
+
+/** Removes `#` comments from R source, leaving `#` inside strings and backtick names intact. */
+function stripRComments(code: string): string {
+	let out = '';
+	let quote: string | undefined;
+	for (let i = 0; i < code.length; i++) {
+		const ch = code[i];
+		if (quote) {
+			if (ch === '\\') {
+				out += ch + (code[++i] ?? '');
+				continue;
+			}
+			if (ch === quote) {
+				quote = undefined;
+			}
+		} else if (ch === '"' || ch === '\'' || ch === '`') {
+			quote = ch;
+		} else if (ch === '#') {
+			while (i < code.length && code[i] !== '\n') {
+				i++;
+			}
+			out += '\n';
+			continue;
+		}
+		out += ch;
+	}
+	return out;
 }
 
 /**
@@ -53,13 +82,10 @@ export function rMissingPackageProbe(errorMessage: string): string | undefined {
 
 /**
  * Analyzes R code and returns the packages it references that are not installed
- * AND that are available in the session's configured repositories.
+ * AND that are available in the repositories the session installs from.
  *
- * Installed packages are dropped via the package manager's installed list;
- * remaining references are kept only when the repository search finds an exact
- * match. This is what excludes the GitHub-only / unpublished case: a package
- * that is not on a configured repository is never offered, because we could not
- * install it from a name alone.
+ * A package that is not in those repositories (e.g. GitHub-only or unpublished)
+ * is never offered, because we could not install it from a name alone.
  */
 export async function listMissingRPackages(
 	packageManager: RPackageManager,
@@ -78,35 +104,12 @@ export async function listMissingRPackages(
 
 	const installed = new Set((await packageManager.getPackages(token)).map((pkg) => pkg.name));
 	const candidates = references.filter((name) => !installed.has(name));
-
-	const result: positron.RuntimeMissingPackage[] = [];
-	for (const name of candidates) {
-		if (token?.isCancellationRequested) {
-			break;
-		}
-		if (await isAvailable(name, packageManager, token)) {
-			result.push({ name });
-		}
+	if (candidates.length === 0) {
+		return [];
 	}
-	return result;
-}
 
-/**
- * Returns true when the package repository has a package with exactly this name,
- * i.e. it can be installed. Errors (e.g. a transient network failure) are
- * treated as "not available" so we never offer a package we could not install.
- */
-async function isAvailable(
-	name: string,
-	packageManager: RPackageManager,
-	token?: vscode.CancellationToken,
-): Promise<boolean> {
-	try {
-		const matches = await packageManager.searchPackages(name, token);
-		return matches.some((pkg) => pkg.name === name);
-	} catch {
-		return false;
-	}
+	const available = await packageManager.filterAvailable(candidates);
+	return available.map((name) => ({ name }));
 }
 
 /** Reads the code to analyze from the target's inline code or file URI. */
