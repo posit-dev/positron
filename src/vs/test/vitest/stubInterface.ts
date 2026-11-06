@@ -45,6 +45,13 @@
  * });
  * ```
  */
+// Keys Vitest reads to print or compare a value in a failure message. Throwing on
+// them would replace the real failure with a stub error.
+const formatterProbes = new Set([
+	'$$typeof', 'asymmetricMatch', 'nodeType', 'tagName', 'hasAttribute', 'toJSON',
+	'@@__IMMUTABLE_ITERABLE__@@', '@@__IMMUTABLE_RECORD__@@',
+]);
+
 export function stubInterface<T extends object>(overrides: Partial<T> = {}): T {
 	return new Proxy(overrides, {
 		get(target, key) {
@@ -60,7 +67,7 @@ export function stubInterface<T extends object>(overrides: Partial<T> = {}): T {
 			}
 			// Promise detection (await-unwrapping) probes for a `.then` property;
 			// the stub should not look thenable unless explicitly configured to.
-			if (key === 'then') {
+			if (key === 'then' || formatterProbes.has(key)) {
 				return undefined;
 			}
 			throw new Error(
