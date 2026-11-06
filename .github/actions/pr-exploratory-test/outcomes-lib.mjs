@@ -6,6 +6,7 @@
 // What happened to each confirmed finding after it was posted, decided from
 // commits, merges and issues. The pure half of outcomes.mjs.
 
+import { createHash } from 'node:crypto';
 import { COMMENT_MARKER } from './lib.mjs';
 
 /** A result comment's tested short SHA, report base URL, run id and what started it, or null when it links no report. */
@@ -103,6 +104,14 @@ export function outcomeFindings(report, stats) {
 	return (report.findings ?? []).filter(f => f.verified === 'confirmed' && !demoted.has(f.n));
 }
 
+/**
+ * A finding's Origin, or `target` for an inherited one whose possible duplicate is an issue the PR says it closes: the
+ * PR's own fix didn't hold. `dupes`, not `known`: a known issue can be a different bug that only mentions the symptom.
+ */
+export function findingOrigin(origin, finding, closes) {
+	return origin === 'inherited' && (finding.dupes ?? []).some(d => closes.includes(Number(d?.issue))) ? 'target' : origin;
+}
+
 /** An issue's number, link and state as the page shows it. */
 export function issueOf(i) {
 	const reason = { completed: ' as completed', not_planned: ' as not planned' }[i.state_reason] ?? '';
@@ -139,7 +148,8 @@ export function droppedPaths({ paths, tested, merged }) {
  * `intended` is the issues (as `issueOf` gives them) the run matched that are closed as not planned now. Such a match, or a matching issue
  * closed as not planned after the run, is won't fix: the team chose to leave it. A fix or a still-open issue beats it.
  */
-export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [], intended = [] }) {
+/** `inherited`: the bug is already on main, so a matching issue counts while the PR is still open. */
+export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped = [], intended = [], inherited = false }) {
 	const cutOf = c => c.cut ? { cut: true } : {};
 	if (prCheck?.answer === 'yes' && prState !== 'closed') {
 		return { outcome: 'fixed-in-pr', decidedBy: 'diff+model', evidence: evidenceOf(prCheck), ...cutOf(prCheck) };
@@ -153,10 +163,10 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 	if (done) {
 		return { outcome: 'fixed-later', decidedBy: 'issue-closed', evidence: evidenceOf(done), issue: done.issue };
 	}
-	if (prState === 'open') {
+	const filed = yesLater.find(c => c.issue?.state !== 'closed as not planned');
+	if (prState === 'open' && !(inherited && filed)) {
 		return { outcome: 'pending', decidedBy: 'pr-open', evidence: '' };
 	}
-	const filed = yesLater.find(c => c.issue?.state !== 'closed as not planned');
 	if (filed) {
 		return { outcome: 'filed-issue', decidedBy: 'issue+model', evidence: evidenceOf(filed), ...(filed.issue ? { issue: filed.issue } : {}) };
 	}
@@ -371,10 +381,39 @@ function firstParagraph(body) {
 }
 
 /** What the page's PR card shows, from the REST pull request. */
+/** A closed PR whose commits shipped in another PR, read as merged with that PR's merge; unchanged when the other PR hasn't merged. */
+export function shippedVia(pr, via) {
+	return via?.merged_at ? { ...pr, merged_at: via.merged_at, merge_commit_sha: via.merge_commit_sha } : pr;
+}
+
 export function prPreview(pr) {
 	const state = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
 	return {
 		title: pr.title, author: pr.user?.login ?? '', state, date: pr.merged_at ?? (state === 'open' ? pr.created_at : pr.closed_at),
 		additions: pr.additions, deletions: pr.deletions, files: pr.changed_files, desc: firstParagraph(pr.body),
 	};
+}
+
+/** The key a model reply is saved under: the same model and prompt get the same key. */
+export function replyKey(model, prompt) {
+	return createHash('sha256').update(`${model}\n${prompt}`).digest('hex').slice(0, 32);
+}
+
+/** The model replies saved on a previous run's rows, by `replyKey`. */
+export function savedReplies(rows) {
+	return new Map(rows.flatMap(r => Object.entries(r.replies ?? {})));
+}
+
+/** `fn` over `items` with at most `limit` running at once, results in input order. */
+export async function mapLimit(items, limit, fn) {
+	const results = new Array(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			results[i] = await fn(items[i], i);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
 }

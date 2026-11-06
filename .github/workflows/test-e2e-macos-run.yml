@@ -123,16 +123,6 @@ jobs:
           # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
 
-      # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
-      - name: Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
-
       - name: Configure display resolution
         run: |
           echo "Current display configuration:"
@@ -247,18 +237,23 @@ jobs:
       # Call the pyenv interpreters by absolute path. The repo's .python-version
       # pins 3.12, which is not installed here, so the pyenv shims silently fall
       # back to the runner's Python 3.14 (see posit-dev/positron-builds#1167).
+      # 3.14.9, not the Linux images' 3.14.7: the Intel runner image ships 3.14.7 and
+      # the picker cannot tell two same-version base installs apart.
+      # Cloned, not brewed: Homebrew's last Intel bottle (pyenv 2.8.4) predates 3.14.9.
       - name: Install pyenv and Python
         run: |
-          brew install pyenv
+          git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
           export PYENV_ROOT="$HOME/.pyenv"
-          pyenv install 3.10.10
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
+          pyenv install 3.14.9
           pyenv install 3.11.0
-          pyenv global 3.10.10
+          pyenv global 3.14.9
 
       - name: Install Python dependencies
         run: |
-          PY="$HOME/.pyenv/versions/3.10.10/bin/python"
-          "$PY" -c 'import sys; assert sys.version.startswith("3.10.10"), sys.executable; print(sys.executable)'
+          PY="$HOME/.pyenv/versions/3.14.9/bin/python"
+          "$PY" -c 'import sys; assert sys.version.startswith("3.14.9"), sys.executable; print(sys.executable)'
           cp test/e2e/test-files/requirements.txt requirements.txt
           "$PY" -m pip install --upgrade pip
           "$PY" -m pip install -r requirements.txt
@@ -268,7 +263,7 @@ jobs:
       - name: Pre-warm matplotlib font cache
         if: ${{ inputs.arch == 'x64' }}
         run: |
-          "$HOME/.pyenv/versions/3.10.10/bin/python" -c "import matplotlib.pyplot as plt; plt.figure()"
+          "$HOME/.pyenv/versions/3.14.9/bin/python" -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -330,9 +325,27 @@ jobs:
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
 
+      # Joined just before the tests, not at the top of the job: only the test run needs the
+      # tailnet, and the action repoints macOS DNS at MagicDNS, which cannot resolve public
+      # hosts on these runners (brew installs fail with "Could not resolve host: ghcr.io").
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
+          tags: tag:positron-gha
+
+      # Tailscale is only needed for IP routing to private infra, not MagicDNS, so put the
+      # runner's default resolver back. Mirrors the action's own logout cleanup.
+      - name: Restore system DNS (Tailscale overrides it on macOS)
+        run: |
+          sudo networksetup -setdnsservers Ethernet Empty
+          sudo networksetup -setsearchdomains Ethernet Empty
+          dscacheutil -flushcache || true
+
       - name: Run Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.9
           POSITRON_R_VER_SEL: ${{ steps.r-versions.outputs.r_version }}
           POSITRON_PY_ALT_VER_SEL: 3.11.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-versions.outputs.r_alt_version }}

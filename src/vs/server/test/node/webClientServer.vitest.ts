@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // webClientServer.ts computes APP_ROOT at module load via FileAccess.asFileUri(''), which
 // requires globalThis._VSCODE_FILE_ROOT. That's normally set by a bootstrap entry point (see
 // agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves,

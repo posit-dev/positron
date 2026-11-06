@@ -174,8 +174,8 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
 	readonly definitionsOnly: boolean;
 	/** The pinned path, already resolved, or undefined if the setting isn't set. */
 	readonly pinnedPath: string | undefined;
-	/** Whether a path is an R entry in `interpreters.definitions`. */
-	isDefined(path: string): boolean;
+	/** The R `interpreters.definitions` path that names `path`, in its own spelling, or undefined. */
+	definedPath(path: string): string | undefined;
 	exists(path: string): boolean;
 	/** The current R's path, with symlinks followed, or undefined if there is none. */
 	currentRPath(): Promise<string | undefined>;
@@ -193,16 +193,20 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
  */
 export async function choosePinnedR<T extends { readonly usable: boolean }, P>(inputs: PinnedRInputs<T, P>): Promise<T | undefined> {
 	const pinnedPath = inputs.pinnedPath;
-	if (!pinnedPath || !inputs.exists(pinnedPath) ||
-		(inputs.definitionsOnly && !inputs.isDefined(pinnedPath))) {
+	if (!pinnedPath || !inputs.exists(pinnedPath)) {
+		return undefined;
+	}
+	const definedPath = inputs.definitionsOnly ? inputs.definedPath(pinnedPath) : undefined;
+	if (inputs.definitionsOnly && !definedPath) {
 		return undefined;
 	}
 	const currentPath = await inputs.currentRPath();
-	// Build from the path discovery lists. Definitions match on the exact
-	// path, so a defined pin keeps its own.
-	const { binpath, current, condaOrPixi } = inputs.definitionsOnly ?
+	// A defined pin takes the definition's spelling, not its symlink target,
+	// so it is the same R (same ID) that the definition creates. Otherwise,
+	// build from the path discovery lists.
+	const { binpath, current, condaOrPixi } = definedPath ?
 		{
-			binpath: pinnedPath,
+			binpath: definedPath,
 			current: currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath),
 			condaOrPixi: inputs.packagerMetadataForPath(pinnedPath),
 		} :

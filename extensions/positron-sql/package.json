@@ -111,6 +111,25 @@
         "title": "%command.selectDataConnection.title%",
         "category": "SQL",
         "enablement": "config.sql.enabled && editorLangId == sql"
+      },
+      {
+        "command": "sql.runStatement",
+        "title": "%command.runStatement.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled && editorLangId == sql"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sql.runStatement",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runStatement",
+        "key": "ctrl+enter",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
       }
     ],
     "menus": {
@@ -121,6 +140,10 @@
         },
         {
           "command": "sql.selectDataConnection",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.runStatement",
           "when": "config.sql.enabled"
         }
       ]

@@ -3,15 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Checks the latest published version of each bootstrap extension in
-// product.json for a declared dependency on an extension Positron blocks and
-// does not ship as a built-in. Such a version installs but can never activate
+// Checks the version each bootstrap extension in product.json would be bumped
+// to for a declared dependency on an extension Positron blocks and does not
+// ship as a built-in. Such a version installs but can never activate
 // (posit-dev/positron#15118), so we want a heads-up before a nightly bump or a
 // user update walks into one. See posit-dev/positron#15124.
 //
-// Usage:
-//   node scripts/check-bootstrap-extension-deps.ts [--json] [--fail-on-hit]
+// The version audited is the one scripts/check-bootstrap-extension-versions.ts
+// picked, so the dependency verdict is about exactly the version the nightly
+// bumps to.
 //
+// Usage:
+//   node scripts/check-bootstrap-extension-versions.ts --json > versions.json
+//   node scripts/check-bootstrap-extension-deps.ts --versions versions.json [--json] [--fail-on-hit]
+//
+//   versions:     the --json output of check-bootstrap-extension-versions.ts.
 //   json:         write the machine-readable report to stdout instead of the
 //                 human-readable summary. The nightly workflow consumes this.
 //   fail-on-hit:  exit 1 when there is at least one hit. Off by default so a
@@ -34,19 +40,13 @@ const blocklist: typeof import('../src/vs/platform/extensionManagement/common/po
 	require('../src/vs/platform/extensionManagement/common/positronExtensionBlocklist.ts');
 const { POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN, isUnsatisfiableDependency } = blocklist;
 
+type IBootstrapVersionResult = import('../src/vs/platform/extensionManagement/common/positronBootstrapExtensionVersions.ts').IBootstrapVersionResult;
+
 const root = join(__dirname, '..');
-// Same endpoint scripts/update-extensions.sh resolves bootstrap versions from.
-const P3M_PACKAGES_API = 'https://p3m.dev/__api__/repos/openvsx/packages';
 
 interface IBootstrapExtension {
 	readonly name: string;
 	readonly version: string;
-}
-
-interface IPackageVersion {
-	readonly version: string;
-	readonly pre_release?: boolean;
-	readonly published_at?: string;
 }
 
 interface IExtensionManifest {
@@ -102,112 +102,12 @@ async function assertBuiltinCarveOutIsAccurate(): Promise<void> {
 	}
 }
 
-// SemVer 2.0 precedence. This is the shared contract with semver_key in
-// scripts/update-extensions.sh; keep the two in step.
-//
-// Prerelease identifiers cannot be discarded: p3m serves versions such as
-// debugpy's 2024.11.0-dev with "pre_release": false, so they survive the stable
-// filter and reach this comparator. Stripping the suffix would make
-// 2024.11.0-dev and 2024.11.0 compare equal and let a -dev build win the
-// published_at tiebreak and get pinned. Build metadata is ignored per spec, and
-// must be stripped before the core is parsed or "3+linux" reads as 0 and
-// silently lowers the version.
-//
-// The core is normalised to a fixed width so 1.2 and 1.2.0 compare equal in
-// both implementations rather than differing on array length.
-const CORE_SEGMENTS = 4;
-
-function splitVersion(version: string): { core: number[]; prerelease: string[] } {
-	const [core, ...prerelease] = version.split('+')[0].split('-');
-	const parts = core.split('.').map(part => Number(part) || 0);
-	return {
-		core: Array.from({ length: CORE_SEGMENTS }, (_, i) => parts[i] ?? 0),
-		prerelease: prerelease.length > 0 ? prerelease.join('-').split('.') : []
-	};
-}
-
-// Numeric identifiers compare numerically and rank below alphanumeric ones; a
-// smaller set of identifiers ranks lower when all preceding ones match.
-function comparePrerelease(a: string[], b: string[]): number {
-	for (let i = 0; i < Math.max(a.length, b.length); i++) {
-		const left = a[i];
-		const right = b[i];
-		if (left === undefined) {
-			return -1;
-		}
-		if (right === undefined) {
-			return 1;
-		}
-		const leftNumeric = /^\d+$/.test(left);
-		const rightNumeric = /^\d+$/.test(right);
-		if (leftNumeric !== rightNumeric) {
-			return leftNumeric ? -1 : 1;
-		}
-		if (leftNumeric) {
-			const diff = Number(left) - Number(right);
-			if (diff !== 0) {
-				return diff;
-			}
-		} else if (left !== right) {
-			return left < right ? -1 : 1;
-		}
-	}
-	return 0;
-}
-
-function compareSemver(a: string, b: string): number {
-	const left = splitVersion(a);
-	const right = splitVersion(b);
-	for (let i = 0; i < CORE_SEGMENTS; i++) {
-		const diff = left.core[i] - right.core[i];
-		if (diff !== 0) {
-			return diff;
-		}
-	}
-	// A release outranks any prerelease of the same core version.
-	if (left.prerelease.length === 0 || right.prerelease.length === 0) {
-		return (right.prerelease.length === 0 ? 0 : 1) - (left.prerelease.length === 0 ? 0 : 1);
-	}
-	return comparePrerelease(left.prerelease, right.prerelease);
-}
-
-// Picks the version a bootstrap bump would land on: the highest stable release
-// by semver, falling back to prereleases for an extension that only publishes
-// those. Mirrors get_extension_info in scripts/update-extensions.sh, including
-// the ordering -- a publisher can ship a backport after a newer release (Meta
-// published pyrefly 1.2.1 two days after 1.3.1), so ordering by publish date
-// would audit the wrong manifest. published_at only breaks exact ties.
-//
-// A candidate has to clear both the pre_release flag and its own version
-// string. p3m's flag is not trustworthy on its own -- debugpy's 2024.11.0-dev
-// is served with "pre_release": false -- and the comparator alone only settles
-// X-dev against X, not against an older genuine release. Filtering on the flag
-// by itself would therefore let a mislabelled dev build outrank the newest
-// stable version and get pinned.
-function selectLatestVersion(versions: IPackageVersion[]): IPackageVersion | undefined {
-	// Drop entries without a usable version string before anything reads one.
-	// splitVersion and compareSemver both call String.split, so a single
-	// malformed entry would otherwise throw and take the whole check down with
-	// exit code 2 -- which also skips the auto-update job for the night. The
-	// caller already reports a missing version as a warning.
-	const usable = versions.filter(v => typeof v.version === 'string' && v.version.length > 0);
-	const stable = usable.filter(v =>
-		v.pre_release !== true && splitVersion(v.version).prerelease.length === 0);
-	const candidates = stable.length > 0 ? stable : usable;
-	// A missing or unparsable published_at sorts oldest rather than poisoning the
-	// comparator with NaN, which would leave the order arbitrary.
-	const publishedAt = (v: IPackageVersion) => Date.parse(v.published_at ?? '') || 0;
-	return candidates
-		.slice()
-		.sort((a, b) => compareSemver(b.version, a.version) || publishedAt(b) - publishedAt(a))[0];
-}
-
 function buildIssueBody(id: string, version: string, pinnedVersion: string, blockedDependencies: string[]): string {
 	return [
 		`The nightly bootstrap extension check found that the latest published version of \`${id}\` declares a dependency that Positron blocks and does not provide as a built-in. An install of this version cannot activate.`,
 		'',
 		`- Extension: \`${id}\``,
-		`- Latest version on the mirror: \`${version}\``,
+		`- Version the nightly would bump to: \`${version}\``,
 		`- Version pinned in \`product.json\`: \`${pinnedVersion}\``,
 		`- Blocked dependency: ${blockedDependencies.map(d => `\`${d}\``).join(', ')}`,
 		'',
@@ -217,21 +117,19 @@ function buildIssueBody(id: string, version: string, pinnedVersion: string, bloc
 	].join('\n');
 }
 
-async function checkExtension(ext: IBootstrapExtension, assetBase: string): Promise<IExtensionResult> {
+async function checkExtension(ext: IBootstrapExtension, latest: IBootstrapVersionResult | undefined, assetBase: string): Promise<IExtensionResult> {
 	const id = ext.name;
 	const [publisher, ...rest] = id.split('.');
 	const name = rest.join('.');
-	const packageInfo = await fetchJson<{ versions?: IPackageVersion[] }>(`${P3M_PACKAGES_API}/${id}`);
-	const latest = selectLatestVersion(packageInfo.versions ?? []);
-	if (!latest?.version) {
-		return { warnings: [`${id}: no published version found on the mirror`] };
+	if (!latest) {
+		return { warnings: [`${id}: not in the gallery check results, skipped`] };
 	}
 
 	// The manifest is the extension's package.json, served as its own asset, so
 	// there is no VSIX to download. It resolves without a targetPlatform query
 	// param even for multi-platform extensions.
 	const manifest = await fetchJson<IExtensionManifest>(
-		`${assetBase}/${publisher}/${name}/${latest.version}/Microsoft.VisualStudio.Code.Manifest`);
+		`${assetBase}/${publisher}/${name}/${latest.latest}/Microsoft.VisualStudio.Code.Manifest`);
 	const blockedDependencies = (manifest.extensionDependencies ?? []).filter(isUnsatisfiableDependency);
 	const blockedPackMembers = (manifest.extensionPack ?? []).filter(isUnsatisfiableDependency);
 
@@ -239,7 +137,7 @@ async function checkExtension(ext: IBootstrapExtension, assetBase: string): Prom
 	if (blockedPackMembers.length > 0) {
 		// A blocked pack member is skipped at install and the pack still works,
 		// so this is informational only.
-		warnings.push(`${id} ${latest.version}: extension pack lists blocked extension(s) ${blockedPackMembers.join(', ')} (pack members are skipped at install)`);
+		warnings.push(`${id} ${latest.latest}: extension pack lists blocked extension(s) ${blockedPackMembers.join(', ')} (pack members are skipped at install)`);
 	}
 	if (blockedDependencies.length === 0) {
 		return { warnings };
@@ -248,19 +146,31 @@ async function checkExtension(ext: IBootstrapExtension, assetBase: string): Prom
 	return {
 		hit: {
 			id,
-			version: latest.version,
+			version: latest.latest,
 			blockedDependencies,
 			blockedPackMembers,
-			issueTitle: `Latest ${id} (${latest.version}) depends on blocked extension: ${blockedDependencies.join(', ')}`,
-			issueBody: buildIssueBody(id, latest.version, ext.version, blockedDependencies)
+			issueTitle: `Latest ${id} (${latest.latest}) depends on blocked extension: ${blockedDependencies.join(', ')}`,
+			issueBody: buildIssueBody(id, latest.latest, ext.version, blockedDependencies)
 		},
 		warnings
 	};
 }
 
+function readVersionsPath(argv: string[]): string {
+	const index = argv.indexOf('--versions');
+	const value = index >= 0 ? argv[index + 1] : argv.find(arg => arg.startsWith('--versions='))?.slice('--versions='.length);
+	if (!value) {
+		throw new Error('--versions <file> is required (the --json output of scripts/check-bootstrap-extension-versions.ts)');
+	}
+	return value;
+}
+
 async function main(): Promise<void> {
-	const args = new Set(process.argv.slice(2));
+	const argv = process.argv.slice(2);
+	const args = new Set(argv);
 	const product = JSON.parse(await readFile(join(root, 'product.json'), 'utf8'));
+	const gallery: { results?: IBootstrapVersionResult[] } = JSON.parse(await readFile(readVersionsPath(argv), 'utf8'));
+	const latestById = new Map((gallery.results ?? []).map(result => [result.id, result]));
 	await assertBuiltinCarveOutIsAccurate();
 
 	// P3M serves assets at {asset_base}/{publisher}/{name}/{version}/{asset},
@@ -271,7 +181,7 @@ async function main(): Promise<void> {
 	const hits: IHit[] = [];
 	const warnings: string[] = [];
 	for (const ext of extensions) {
-		const result = await checkExtension(ext, assetBase);
+		const result = await checkExtension(ext, latestById.get(ext.name), assetBase);
 		if (result.hit) {
 			hits.push(result.hit);
 		}

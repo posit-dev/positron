@@ -98,47 +98,32 @@ jobs:
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
           mkdir -p /tmp/artifacts
-          # Install zstd and pigz if apt is available so we can produce fast zstd archives.
-          if command -v apt-get >/dev/null 2>&1; then
-            echo "Installing pigz and zstd for faster compression (if not already present)"
+          if ! command -v zstd >/dev/null; then
             DEBIAN_FRONTEND=noninteractive apt-get update -y || true
-            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz zstd || true
+            DEBIAN_FRONTEND=noninteractive apt-get install -y zstd || true
           fi
+          command -v zstd >/dev/null || { echo "zstd is required to build the artifact"; exit 1; }
 
-          # Prefer zstd for best compress+decompress speed and smaller output (requires zstd on unpack side).
-          # Fall back to pigz (parallel gzip) if zstd is not available, else gzip -1 as a final fallback.
-          if command -v zstd >/dev/null 2>&1; then
-            echo "Using zstd (multithreaded) for compression"
-            # Place options (exclude) before the filenames so tar respects them.
-            # Only exclude the root .git repository history.
-            tar -C /__w \
-              --exclude='positron/.git' \
-              --exclude='positron/.npm-cache' \
-              --exclude='positron/.pip-cache' \
-              --use-compress-program='zstd -T0 -1' \
-              -cf /tmp/artifacts/positron-build.tar.zst positron || true
-          elif command -v pigz >/dev/null 2>&1; then
-            echo "zstd not available; using pigz (parallel gzip) for compression"
-            tar -C /__w \
-              --exclude='positron/.git' \
-              --exclude='positron/.npm-cache' \
-              --exclude='positron/.pip-cache' \
-              --use-compress-program=pigz \
-              -cf /tmp/artifacts/positron-build.tar.gz positron || true
-          else
-            echo "zstd and pigz not available; using gzip -1 for faster compression"
-            # Use gzip -1 via a pipe to avoid using the deprecated GZIP env var
-            tar -C /__w \
-              --exclude='positron/.git' \
-              --exclude='positron/.npm-cache' \
-              --exclude='positron/.pip-cache' \
-              -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
-          fi
+          # Every e2e shard downloads this archive, so size matters more than compression time.
+          # --long finds repeats across the many duplicate packages in node_modules trees.
+          # Window 2^27 is the default decoder limit, so `zstd -d` needs no extra flag.
+          start=$(date +%s)
+          # Place options (exclude) before the filenames so tar respects them.
+          # tar exit 1 means a file changed while being read (tolerated); 2+ is a real failure.
+          tar -C /__w \
+            --exclude='positron/.git' \
+            --exclude='positron/.npm-cache' \
+            --exclude='positron/.pip-cache' \
+            --use-compress-program='zstd -T0 -3 --long=27' \
+            -cf /tmp/artifacts/positron-build.tar.zst positron || { rc=$?; [ "$rc" -eq 1 ] || exit "$rc"; }
+          echo "Compressed in $(( $(date +%s) - start ))s to $(du -h /tmp/artifacts/positron-build.tar.zst | cut -f1)"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: "positron-build"
-          path: /tmp/artifacts
+          # Unzipped, so the e2e shards can fetch it in parallel byte ranges.
+          # The artifact is named after the file: positron-build.tar.zst.
+          path: /tmp/artifacts/positron-build.tar.zst
+          archive: false
+          if-no-files-found: error
           retention-days: 1
-          compression-level: 0  # Skip GitHub compression since we use tar.zst

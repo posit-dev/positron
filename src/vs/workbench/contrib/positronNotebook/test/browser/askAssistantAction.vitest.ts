@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ContextKeyExpression, IContext } from '../../../../../platform/contextkey/common/contextkey.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';

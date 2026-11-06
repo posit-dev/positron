@@ -1268,6 +1268,19 @@ declare module 'positron' {
 		readonly recommendationIsProjectDefault?: boolean;
 
 		/**
+		 * Whether Positron picks the interpreter when this manager recommends
+		 * nothing after discovery and `interpreters.discovery` is
+		 * `definitionsOnly` for the language. Positron then recommends the
+		 * variant of the first valid entry in `interpreters.definitions`, with
+		 * the same rules it uses to register the variants. That interpreter
+		 * starts when the language is needed, and is never saved as the
+		 * workspace's default, whatever `recommendationIsProjectDefault` is.
+		 * Defaults to `false`: leave it unset if no recommendation means that
+		 * nothing must start.
+		 */
+		readonly defersToFirstDefinition?: boolean;
+
+		/**
 		 * The runtime metadata for the interpreter pinned for this workspace:
 		 * the one that the extension's default interpreter setting names.
 		 * Returns `undefined` if the setting isn't set, the path doesn't lead to
@@ -3790,6 +3803,58 @@ declare module 'positron' {
 		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
 
 		/**
+		 * The interpreter paths in the `interpreters.definitions` setting for a
+		 * language, as Positron reads them: only valid entries with an absolute
+		 * path, each interpreter once in its first spelling, in the order of
+		 * the setting. Paths are compared as Positron compares them to runtime
+		 * paths: lexically, and on Windows ignoring case and the kind of
+		 * separator.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 */
+		export function getInterpreterDefinitionPaths(languageId: string): string[];
+
+		/**
+		 * The path from `getInterpreterDefinitionPaths()` that names the
+		 * interpreter at `path`, in the definition's own spelling, or
+		 * undefined if no definition names it. A runtime's ID usually depends
+		 * on its path, so use this spelling to create the same runtime that
+		 * the definition creates.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param path The interpreter path, as written anywhere.
+		 */
+		export function findInterpreterDefinitionPath(languageId: string, path: string): string | undefined;
+
+		/**
+		 * An entry in the `interpreters.definitions` setting, after Positron
+		 * has validated it.
+		 */
+		export interface InterpreterDefinition {
+			readonly language: string;
+			readonly path: string;
+			readonly label: string;
+			readonly env?: Readonly<Record<string, string>>;
+			readonly modules?: readonly string[];
+			readonly startupScript?: string;
+		}
+
+		/**
+		 * The entry in the `interpreters.definitions` setting that a runtime
+		 * variant was created from (see
+		 * `LanguageRuntimeMetadata.interpreterDefinition`), or undefined if
+		 * the setting no longer has a valid entry with this label for the
+		 * interpreter. The paths are compared as in
+		 * `getInterpreterDefinitionPaths()`, so the variant's `runtimePath`
+		 * can be written differently from the entry's `path`.
+		 *
+		 * @param languageId The language ID, for example `r` or `python`.
+		 * @param label The variant's `interpreterDefinition` label.
+		 * @param runtimePath The variant's `runtimePath`.
+		 */
+		export function findInterpreterDefinition(languageId: string, label: string, runtimePath: string): InterpreterDefinition | undefined;
+
+		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
@@ -4270,6 +4335,39 @@ declare module 'positron' {
 		 * guess -- when a relevant editor is focused, say.
 		 */
 		export const onDidChangeConnections: vscode.Event<void>;
+
+		/**
+		 * The code that reproduces the connection a runtime session opened most recently.
+		 *
+		 * A runtime reports each connection it opens with the code that opens it. ggsql holds one
+		 * database at a time and reports a new one whenever that changes, with code of the form
+		 * `-- @connect: <uri>`, so for a ggsql session this says which database it is on. It is
+		 * the same code a data connection driver generates for ggsql, so the two compare directly.
+		 * Runtimes that hold several connections report each one, and this names only the latest.
+		 *
+		 * @param sessionId The session to ask about, from {@link runtime.getActiveSessions}.
+		 * @returns The code, or `undefined` when it is unknown: the session has reported no
+		 *   connection since it started or restarted, it has exited, or it was reconnected after a
+		 *   window reload (its report went to the previous window). Rejects when the
+		 *   `dataConnections.enabled` setting is off.
+		 */
+		export function getSessionConnectionCode(sessionId: string): Thenable<string | undefined>;
+
+		/**
+		 * Fires when a session's connection code changes; see {@link getSessionConnectionCode}.
+		 * Including to `undefined`, when the session exits. Does not fire while the
+		 * `dataConnections.enabled` setting is off.
+		 */
+		export const onDidChangeSessionConnectionCode: vscode.Event<SessionConnectionCodeChangeEvent>;
+	}
+
+	/** A session's connection code changed; see {@link dataConnections.getSessionConnectionCode}. */
+	export interface SessionConnectionCodeChangeEvent {
+		/** The session whose connection changed. */
+		readonly sessionId: string;
+
+		/** The code for its connection now, or `undefined` when it is unknown. */
+		readonly code: string | undefined;
 	}
 
 	/**

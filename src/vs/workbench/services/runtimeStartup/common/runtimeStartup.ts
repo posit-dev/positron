@@ -16,8 +16,8 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { comparePickerRuntimes, IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeRecommendation, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IPreferredRuntime, IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, PreferredRuntimeReason, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { cachedRuntimeMetadata, IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionStateEvent, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
+import { createInterpreterVariant, getLanguageDefinitions, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -310,6 +310,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// reason.
 	private readonly _pinnedAffiliations = new Map<string, IAffiliatedRuntimeMetadata>();
 
+	// The session that last saved each language's affiliated runtime, by
+	// language ID. Only that session's shutdown clears it.
+	private readonly _affiliatedSessionByLanguage = new Map<string, string>();
+
 	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
@@ -384,6 +388,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
 				this.onDidChangeActiveRuntime, this));
+		this._register(
+			this._runtimeSessionService.onDidChangeRuntimeState(
+				this.onDidChangeSessionState, this));
 
 		this._register(
 			this._languageRuntimeService.onDidRegisterRuntime(
@@ -1145,6 +1152,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// A console ended by `exit()`, or shutting down, comes back to the front
+		// when another console is deleted, or its tab is clicked. That isn't using it.
+		const state = session.getRuntimeState();
+		if (state !== RuntimeState.Exited && state !== RuntimeState.Exiting) {
+			this.saveForegroundAffiliation(session);
+		}
+	}
+
+	/**
+	 * Saves the session in front as the affiliated runtime for the workspace.
+	 */
+	private saveForegroundAffiliation(session: ILanguageRuntimeSession): void {
+		this._affiliatedSessionByLanguage.set(session.runtimeMetadata.languageId, session.sessionId);
+
 		// Get the previous affiliation, if any, to preserve the start time.
 		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
 		const lastStarted =
@@ -1152,38 +1173,61 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				oldAffiliation.lastStarted :
 				Date.now();
 
-		// Save this runtime as the affiliated runtime for the current workspace.
-		const affiliated: IAffiliatedRuntimeMetadata = {
+		this.saveAffiliatedRuntime({
 			metadata: session.runtimeMetadata,
 			lastUsed: Date.now(),
 			lastStarted
-		};
-		this.saveAffiliatedRuntime(affiliated);
+		});
+	}
+
+	/**
+	 * Runs as an event handler when any session's state changes.
+	 */
+	private onDidChangeSessionState({ session_id, new_state }: ILanguageRuntimeSessionStateEvent): void {
+		if (new_state !== RuntimeState.Ready && new_state !== RuntimeState.Exiting) {
+			return;
+		}
+
+		// Look the session up by ID: an extension host restart replaces the
+		// session object but keeps its ID.
+		const session = this._runtimeSessionService.getSession(session_id);
+		if (!session) {
+			return;
+		}
+
+		// A console restarted in front doesn't come to the front again, so save it here.
+		if (new_state === RuntimeState.Ready &&
+			session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+			session.runtimeMetadata.startupBehavior !== LanguageRuntimeStartupBehavior.Manual &&
+			this._runtimeSessionService.foregroundSession?.sessionId === session_id) {
+			this.saveForegroundAffiliation(session);
+		}
 
 		// If the runtime is exiting, remove the affiliation if it enters the
 		// `Exiting` state. This state only occurs when the runtime is manually
 		// shut down, so may represent a user's intent to stop using the runtime
 		// for this workspace.
-		this._register(session.onDidChangeRuntimeState((newState) => {
-			if (newState === RuntimeState.Exiting) {
-				// Just to be safe, check that the runtime is still affiliated
-				// before removing the affiliation
-				const serializedMetadata = this._storageService.get(
-					this.storageKeyForRuntime(session.runtimeMetadata),
-					this.affiliationStorageScope());
-				if (!serializedMetadata) {
-					return;
-				}
-				const affiliated = JSON.parse(serializedMetadata) as IAffiliatedRuntimeMetadata;
-				const affiliatedRuntimeId = affiliated.metadata.runtimeId;
-				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
-					// Remove the affiliation
-					this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
-					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
-						this.affiliationStorageScope());
-				}
+		const languageId = session.runtimeMetadata.languageId;
+		if (new_state === RuntimeState.Exiting && this._affiliatedSessionByLanguage.get(languageId) === session_id) {
+			this._affiliatedSessionByLanguage.delete(languageId);
+
+			// Just to be safe, check that the runtime is still affiliated
+			// before removing the affiliation
+			const serializedMetadata = this._storageService.get(
+				this.storageKeyForRuntime(session.runtimeMetadata),
+				this.affiliationStorageScope());
+			if (!serializedMetadata) {
+				return;
 			}
-		}));
+			const affiliated = JSON.parse(serializedMetadata) as IAffiliatedRuntimeMetadata;
+			const affiliatedRuntimeId = affiliated.metadata.runtimeId;
+			if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
+				// Remove the affiliation
+				this._pinnedAffiliations.delete(session.runtimeMetadata.languageId);
+				this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
+					this.affiliationStorageScope());
+			}
+		}
 	}
 
 	/**
@@ -2542,7 +2586,50 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.debug(`[Runtime startup] Recommended after discovery: ${formatLanguageRuntimeMetadata(runtime)}`);
 			remembered.push(runtime);
 		}
+		if (remembered.length === 0) {
+			const defined = await this.firstDefinedRuntime(languageId);
+			if (defined) {
+				this._recommendedRuntimesByLanguageId.set(languageId, defined);
+				// Like a manager's answer that is not a project default: never
+				// saved, and never replaced by the first registered runtime.
+				this._optedOutLanguageIds.add(languageId);
+				this._logService.debug(`[Runtime startup] Recommended the first defined interpreter after discovery: ${formatLanguageRuntimeMetadata(defined)}`);
+				remembered.push(defined);
+			}
+		}
 		return remembered;
+	}
+
+	/**
+	 * When discovery is limited to definitions and the language's extension
+	 * defers to core, the registered variant of the first valid definition
+	 * for the language, to start when the language is needed. The extension
+	 * opts in because answering nothing can also mean that nothing must start.
+	 */
+	private async firstDefinedRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		if (this._configurationService.getValue<string>(INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: languageId }) !== 'definitionsOnly') {
+			return undefined;
+		}
+		// An extension host that fails to answer doesn't hold back the others.
+		const deferring = await Promise.all(this._runtimeManagers.map(async manager => {
+			try {
+				return await manager.getLanguagesDeferringToFirstDefinition?.() ?? [];
+			} catch (err) {
+				this._logService.warn(`[Runtime startup] Could not ask which languages defer to the first definition: ${err}`);
+				return [];
+			}
+		}));
+		if (!deferring.some(languageIds => languageIds.includes(languageId))) {
+			return undefined;
+		}
+		const registered = this._languageRuntimeService.registeredRuntimes.filter(runtime => runtime.languageId === languageId);
+		for (const definition of getLanguageDefinitions(this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY), languageId)) {
+			const variant = registered.find(runtime => runtime.interpreterDefinition === definition.label);
+			if (variant) {
+				return { ...variant, startupBehavior: LanguageRuntimeStartupBehavior.Implicit };
+			}
+		}
+		return undefined;
 	}
 
 	/**

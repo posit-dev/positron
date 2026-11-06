@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { computeDeploymentPrefix, isWorkbenchVersionAtLeast } from '../../node/pwbConstants.js';
 import { shouldUseSessionLessStaticCallbackRoute, shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
 
@@ -104,13 +102,13 @@ describe('sessionless static route gates', () => {
 		expect({
 			callback: shouldUseSessionLessStaticCallbackRoute(true, true),
 			asset: shouldUseSessionLessStaticRoute({
-					isWorkbench: true,
-					hasStaticRoute: true,
-					quality: 'dailies',
-					sessionCommit: 'abc123',
-					workbenchSendsPreviewCommit: false,
-					workbenchStaticCommit: undefined
-				})
+				isWorkbench: true,
+				hasStaticRoute: true,
+				quality: 'dailies',
+				sessionCommit: 'abc123',
+				workbenchSendsPreviewCommit: false,
+				workbenchStaticCommit: undefined
+			})
 		}).toEqual({
 			callback: true,
 			asset: false

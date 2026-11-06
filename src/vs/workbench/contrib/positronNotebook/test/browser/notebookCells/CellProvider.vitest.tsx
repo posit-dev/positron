@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { renderHook } from '@testing-library/react';
 import { CellProvider, useCell, useCodeCell } from '../../../browser/notebookCells/CellProvider.js';
 import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { stubInterface } from './stubInterface.js';
 
 interface IFoo {
@@ -68,5 +66,40 @@ describe('stubInterface', () => {
 		expect('name' in foo).toBe(true);
 		// eslint-disable-next-line local/code-no-in-operator -- testing the Proxy `has` trap
 		expect('getCount' in foo).toBe(false);
+	});
+
+	describe('in a failing assertion message', () => {
+		// The failure message Vitest throws, or undefined if the assertion passed.
+		function failureMessage(assertion: () => void): string | undefined {
+			try {
+				assertion();
+				return undefined;
+			} catch (err) {
+				return (err as Error).message;
+			}
+		}
+
+		it.each([
+			['toBe', (foo: IFoo) => expect(foo).toBe({ name: 'other' })],
+			['toEqual', (foo: IFoo) => expect(foo).toEqual({ name: 'other' })],
+			['toHaveBeenCalledWith', (foo: IFoo) => {
+				const fn = vi.fn();
+				fn(foo);
+				expect(fn).toHaveBeenCalledWith({ name: 'other' });
+			}],
+			['toHaveBeenCalledWith, stub as the expected value', (foo: IFoo) => {
+				const fn = vi.fn();
+				fn({ name: 'other' });
+				expect(fn).toHaveBeenCalledWith(foo);
+			}],
+		])('%s shows the real failure, not a stub error', (_name, assertion) => {
+			const foo = stubInterface<IFoo>({ name: 'hello' });
+
+			const message = failureMessage(() => assertion(foo));
+
+			expect(message).toBeDefined();
+			expect(message).not.toMatch(/stubInterface/);
+			expect(message).toMatch(/hello/);
+		});
 	});
 });

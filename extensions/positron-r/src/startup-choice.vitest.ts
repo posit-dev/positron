@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as path from 'path';
 import * as semver from 'semver';
 import { choosePinnedR, chooseStartupR, compareRInstallations, createSharedSearch, firstListedR, listedRPath, ListedRPathInputs, PinnedRBuild, PinnedRInputs, RFullSearchTriggers, RStartupCandidate, RStartupInputs, InFlightLookup, ReusableSearch, rVersionsEntryForR, rVersionsMayListR } from './startup-choice';
@@ -256,7 +254,7 @@ describe('choosePinnedR', () => {
 		return {
 			definitionsOnly: false,
 			pinnedPath: '/opt/R/4.4/bin/R',
-			isDefined: () => false,
+			definedPath: () => undefined,
 			exists: () => true,
 			currentRPath: async () => '/Library/Frameworks/R.framework/Versions/4.5/Resources/bin/R',
 			isSameFile: (path1, path2) => (links[path1] ?? path1) === (links[path2] ?? path2),
@@ -356,7 +354,7 @@ describe('choosePinnedR', () => {
 		});
 
 		it('returns the pinned R when the pinned path is one of the definitions', async () => {
-			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, isDefined: path => path === '/opt/R/4.4/bin/R' }))).toEqual({
+			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, definedPath: path => path === '/opt/R/4.4/bin/R' ? path : undefined }))).toEqual({
 				binpath: '/opt/R/4.4/bin/R',
 				current: false,
 				packagerMetadata: undefined,
@@ -364,13 +362,18 @@ describe('choosePinnedR', () => {
 			});
 		});
 
-		it('keeps a defined pin\'s path as written when it links to another R, since definitions match on the exact path', async () => {
-			expect((await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R-4.4', isDefined: path => path === '/usr/local/bin/R-4.4' })))?.binpath)
+		it('keeps a defined pin\'s path as written when it links to another R, since definitions match without following symlinks', async () => {
+			expect((await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R-4.4', definedPath: path => path === '/usr/local/bin/R-4.4' ? path : undefined })))?.binpath)
 				.toBe('/usr/local/bin/R-4.4');
 		});
 
-		it('keeps a defined pin\'s path as written when it links to the current R, since definitions match on the exact path', async () => {
-			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R', isDefined: path => path === '/usr/local/bin/R' }))).toEqual({
+		it('uses the definition\'s spelling of a defined pin, so it is the same R as the one created from the definition', async () => {
+			expect((await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/opt/R/4.4/bin/R', definedPath: () => '/opt/R/4.4/bin//R' })))?.binpath)
+				.toBe('/opt/R/4.4/bin//R');
+		});
+
+		it('keeps a defined pin\'s path as written when it links to the current R, since definitions match without following symlinks', async () => {
+			expect(await choosePinnedR(pinnedInputs({ definitionsOnly: true, pinnedPath: '/usr/local/bin/R', definedPath: path => path === '/usr/local/bin/R' ? path : undefined }))).toEqual({
 				binpath: '/usr/local/bin/R',
 				current: true,
 				packagerMetadata: undefined,

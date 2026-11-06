@@ -16,6 +16,7 @@ import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
+import * as interpreterRanking from '../../client/positron/interpreterRanking';
 import * as interpreterRecommendation from '../../client/positron/interpreterRecommendation';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
@@ -192,6 +193,50 @@ suite('Python runtime manager', () => {
         sinon.assert.notCalled(createMetadata);
     });
 
+    test('discoverAllRuntimes: skips a definition path that writes a registered interpreter another way', async () => {
+        // Discovery or a live registration stores the path as the interpreter reports it.
+        const registeredPath = '/opt/python/3.12/bin/python';
+        pythonRuntimeManager.registeredPythonRuntimes.set(registeredPath, runtimeMetadata.object);
+        sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery').returns(true);
+        sinon.stub(interpreterSettings, 'getInterpreterDefinitionPaths').returns(['/opt/python/3.12/bin//python']);
+        // Positron's comparison, which names the registered interpreter in the definition's spelling.
+        sinon
+            .stub(interpreterSettings, 'findInterpreterDefinitionPath')
+            .callsFake((p: string) => (p === registeredPath ? '/opt/python/3.12/bin//python' : undefined));
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        const createMetadata = sinon.stub(runtime, 'createPythonRuntimeMetadata');
+
+        const yielded: positron.LanguageRuntimeMetadata[] = [];
+        for await (const r of pythonRuntimeManager.discoverAllRuntimes()) {
+            yielded.push(r);
+        }
+
+        // A second base would give two variants with one label.
+        assert.deepStrictEqual(yielded, []);
+        sinon.assert.notCalled(createMetadata);
+    });
+
+    test('validateMetadata: keeps the saved spelling of a path that a definition writes another way', async () => {
+        // A saved runtime has discovery's spelling or the definition's; either must keep its ID.
+        const definitionPath = 'C:/Py/python.exe';
+        const savedPaths = ['C:\\Py\\python.exe', definitionPath];
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').returns(definitionPath);
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        sinon.stub(fs, 'pathExists').callsFake(async (p: string) => savedPaths.includes(p));
+        const createStub = sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
+
+        for (const savedPath of savedPaths) {
+            const saved = createTypeMoq<positron.LanguageRuntimeMetadata>();
+            saved.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath: savedPath }));
+            await pythonRuntimeManager.validateMetadata(saved.object);
+        }
+
+        assert.deepStrictEqual(
+            createStub.getCalls().map((call) => call.args[0].path),
+            savedPaths,
+        );
+    });
+
     // TODO: Test discoverRuntimes
     // test('discoverRuntimes', async () => {
     // });
@@ -297,6 +342,29 @@ suite('Python runtime manager', () => {
         });
 
         sinon.assert.calledOnceWithExactly(createPythonRuntimeMetadata, interpreter.object, serviceContainer.object);
+    });
+
+    test("registerLanguageRuntimeFromPath: under definitionsOnly, uses the definition's spelling of a path reported another way", async () => {
+        // The interpreter service reports the interpreter in its own spelling, which
+        // would give a runtime with another ID than the definition's.
+        const reportedPath = '/opt/python/3.12/bin/python';
+        const definitionPath = '/opt/python/3.12/bin//python';
+        interpreter.setup((i) => i.path).returns(() => reportedPath);
+        const definitionsOnly = sinon.stub(interpreterSettings, 'isDefinitionsOnlyDiscovery');
+        sinon
+            .stub(interpreterSettings, 'findInterpreterDefinitionPath')
+            .callsFake((p: string) => (p === reportedPath ? definitionPath : undefined));
+        const createStub = sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
+
+        for (const limited of [true, false]) {
+            definitionsOnly.returns(limited);
+            await pythonRuntimeManager.registerLanguageRuntimeFromPath(reportedPath);
+        }
+
+        assert.deepStrictEqual(
+            createStub.getCalls().map((call) => call.args[0].path),
+            [definitionPath, reportedPath],
+        );
     });
 
     test('selectLanguageRuntimeFromPath: calls positron.runtime.selectLanguageRuntime with the corresponding runtime ID', async () => {
@@ -673,14 +741,24 @@ suite('Python runtime manager - pinnedWorkspaceRuntime', () => {
             .setup((i) => i.getInterpreterDetails(TypeMoq.It.isValue(linkPath), TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(resolved.object));
         interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
-        let definitions = [{ language: 'python', path: '/opt/python/3.12/bin/python', label: 'Python 3.12' }];
-        interpretersConfig.setup((c) => c.get<unknown>('definitions')).returns(() => definitions);
+        let definedPath: string | undefined;
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').callsFake(() => definedPath);
 
         const notListed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
-        definitions = [{ language: 'python', path: linkPath, label: 'Python 3.13' }];
+        definedPath = linkPath;
         const listed = await pythonRuntimeManager.pinnedWorkspaceRuntime();
 
         assert.deepStrictEqual([notListed, listed?.runtimePath], [undefined, linkPath]);
+    });
+
+    test("under definitionsOnly, returns the definition's spelling when the definition writes the pinned path another way", async () => {
+        pin(pinnedPath);
+        interpretersConfig.setup((c) => c.get<string>('discovery')).returns(() => 'definitionsOnly');
+        sinon.stub(interpreterSettings, 'findInterpreterDefinitionPath').returns('/opt/python/3.13/bin//python');
+
+        const result = await pythonRuntimeManager.pinnedWorkspaceRuntime();
+
+        assert.strictEqual(result?.runtimePath, '/opt/python/3.13/bin//python');
     });
 
     test('returns nothing when no Python is found at the pinned path, without searching for every interpreter again', async () => {
@@ -708,6 +786,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     let pythonRuntimeManager: PythonRuntimeManager;
     let selectSpy: sinon.SinonStub;
     let pathExistsStub: sinon.SinonStub;
+    let isOtherProjectEnvStub: sinon.SinonStub;
     let getActiveSessionsImpl: () => Promise<positron.LanguageRuntimeSession[]>;
     let originalGetActiveSessions: unknown;
 
@@ -742,6 +821,10 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         // A deleted interpreter's path is gone unless a test says otherwise. Stubbed so the
         // delete handler doesn't wait on the disk, which can outlast a test's one-tick wait.
         pathExistsStub = sinon.stub(fs, 'pathExists').resolves(false);
+        // Changed interpreters are checked against the folder's ranking context before registering.
+        sinon.stub(runtime, 'pickerFolderUri').returns(undefined);
+        sinon.stub(interpreterRanking, 'buildRankingContext').resolves({} as interpreterRanking.RankingContext);
+        isOtherProjectEnvStub = sinon.stub(interpreterRanking, 'isOtherProjectEnv').returns(false);
     });
 
     teardown(() => {
@@ -938,6 +1021,27 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         await new Promise((r) => setTimeout(r, 0));
 
         sinon.assert.notCalled(exitedShutdown);
+    });
+
+    test("interpreter creation: another folder's project env is not registered unless it already is", async () => {
+        const otherPath = '/other/project/.venv/bin/python';
+        const pickedPath = '/picked/project/.venv/bin/python';
+        isOtherProjectEnvStub.returns(true);
+        pythonRuntimeManager.registeredPythonRuntimes.set(pickedPath, {
+            runtimeId: 'picked',
+            extraRuntimeData: { pythonPath: pickedPath },
+        } as any);
+        const registerStub = sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire({ new: { path: otherPath } as any });
+        onDidChangeInterpretersEmitter.fire({ new: { path: pickedPath } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        // The one the user picked is already registered, so it is refreshed as before.
+        assert.deepStrictEqual(
+            registerStub.getCalls().map((call) => call.args),
+            [[pickedPath, false, true]],
+        );
     });
 
     test('interpreter replacement: retracts old alias and re-registers survivor with forceRefresh', async () => {

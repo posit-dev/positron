@@ -13,6 +13,9 @@ import { count, inPage, logRead, parse, usage, type Json, type PageFn } from './
 
 // runs in run-code
 const read: PageFn<{ rows: number; title: string }> = async (page, a, lib) => {
+	// First: a hidden area's tabs are out of the accessibility tree, so the lookup below would wait out its timeout.
+	const hidden = await lib.editorAreaHidden();
+	if (hidden) { return { ok: false, error: hidden }; }
 	const group = page.locator(lib.css.editorGroup.active);
 	const active = await group.getByRole('tab', { selected: true }).first().getAttribute('aria-label').catch(() => null);
 	if (a.title && active !== a.title) { return { ok: false, error: `the active tab is ${active}, not ${a.title}` }; }

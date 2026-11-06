@@ -55,6 +55,21 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	}
 	const n = await shown.count();
 	const label = `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''}`;
+	// An element's name, for the matches, "did" and a rename: with --partial or
+	// --nth it is not the name given (debug.sh frame clicks row "" --nth 2). A
+	// field has no text of its own: its name is its label's (Save Plot's Width, a
+	// checkbox's). Named by its content, an element reads its children's labels,
+	// as the tree does: an activity bar tab with an empty aria-label is its icon's
+	// and badge's labels, not the badge's digit. Self-contained: evaluate()
+	// serializes it.
+	const named = (e: Element) => {
+		const text = (x: Element | null | undefined) => (x?.textContent ?? '').replace(/\s+/g, ' ').trim();
+		const content = (x: Element): string => [...x.childNodes].map(c => c.nodeType === Node.TEXT_NODE ? c.textContent ?? ''
+			: c instanceof Element && c.getAttribute('aria-hidden') !== 'true' ? (c.getAttribute('aria-label') ? ` ${c.getAttribute('aria-label')} ` : content(c)) : '').join('');
+		const by = (e.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean).map(id => text(document.getElementById(id))).join(' ');
+		const field = e as HTMLInputElement;
+		return (e.getAttribute('aria-label') || by || text(field.labels?.[0]) || text(e.closest('label')) || e.getAttribute('title') || field.placeholder || content(e)).replace(/\s+/g, ' ').trim();
+	};
 	if (n === 0) {
 		const roles = await lib.snapshot(scope, 40);
 		// Quarto inline output is drawn in the editor but hidden from the tree (Monaco's view zones).
@@ -62,7 +77,7 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 		return { ok: false, error: `no visible ${label}${quarto ? '; Quarto inline output is on screen, and its links and buttons are not in the accessibility tree: click one with qmd.sh --file FILE link N TEXT' : ''}`, hint: 'the view as it reads now is in "view"', view: roles };
 	}
 	if (n > 1 && !a.nth) {
-		const names = await shown.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 60)));
+		const names = await Promise.all(Array.from({ length: n }, (_, i) => shown.nth(i).evaluate(named).then(s => s.slice(0, 60), () => '')));
 		return { ok: false, error: `${n} visible ${label}; pass --nth (1 = first) or a longer name`, matches: names };
 	}
 	let el = shown.nth(Math.max(0, (a.nth || 1) - 1));
@@ -76,15 +91,8 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// Playwright would wait out its timeout on a disabled control and fail with its own message.
 	if (await el.isDisabled().catch(() => false)) { return { ok: false, error: `${label} is disabled; nothing was done` }; }
 	if (a.kind === 'fill' && !await el.isEditable().catch(() => true)) { return { ok: false, error: `${label} is read-only; nothing was filled` }; }
-	// The name of the element acted on, for "did": with --partial or --nth it is
-	// not the name given (debug.sh frame clicks row "" --nth 2). A field has no
-	// text of its own: its name is its label's (Save Plot's Width, a checkbox's).
-	const actual = (await el.evaluate(e => {
-		const text = (x: Element | null | undefined) => (x?.textContent ?? '').replace(/\s+/g, ' ').trim();
-		const by = (e.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean).map(id => text(document.getElementById(id))).join(' ');
-		const field = e as HTMLInputElement;
-		return (e.getAttribute('aria-label') || by || text(field.labels?.[0]) || text(e.closest('label')) || e.getAttribute('title') || field.placeholder || text(e)).replace(/\s+/g, ' ').trim();
-	}).catch(() => '') || a.name).slice(0, 100);
+	// The name of the element acted on, for "did".
+	const actual = (await el.evaluate(named).catch(() => '') || a.name).slice(0, 100);
 	const before = await lib.snapshot(watched, 400);
 	// What opens on top counts as a change too: a dialog, a menu, a quick pick.
 	// A notification toast is a dialog by role but not an overlay: it is reported
@@ -114,7 +122,7 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 		const row = await el.elementHandle({ timeout: 3000 });
 		if (!row) { return { ok: false, error: `${label} went away before the click; nothing was done` }; }
 		const box = await row.$('[role=checkbox], input[type=checkbox]') ?? row;
-		const nameOf = () => row.evaluate(e => e.isConnected ? (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim() : null);
+		const nameOf = async () => await row.evaluate(e => e.isConnected) ? await row.evaluate(named) : null;
 		// What is drawn decides: Positron's modal checkbox draws a check mark and
 		// leaves aria-checked false, so a state read from ARIA alone is wrong there.
 		const state = () => box.evaluate((e, mark) => {

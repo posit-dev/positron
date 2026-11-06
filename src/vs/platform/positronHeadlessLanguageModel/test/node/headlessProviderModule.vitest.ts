@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
 // @vitest-environment node
 
 import type { HeadlessProviders, HeadlessProvidersOptions } from 'ai-provider-bridge/headless';

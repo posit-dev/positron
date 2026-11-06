@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../workbench/services/runtimeSession/common/runtimeSessionService.js';
 import { createLightTestContainer } from './lightTestContainer.js';

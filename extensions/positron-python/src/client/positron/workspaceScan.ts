@@ -21,7 +21,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { shouldIncludeInterpreter } from './interpreterSettings';
 
 /** Env folder names, highest priority first. At the root, `.pixi/envs/*` follows these. */
-const ENV_DIR_NAMES = ['.venv', '.conda', 'venv', '.virtualenv'];
+export const ENV_DIR_NAMES = ['.venv', '.conda', 'venv', '.virtualenv'];
 
 /**
  * Root entries never scanned one level deep, lowercase and matched case-insensitively.
