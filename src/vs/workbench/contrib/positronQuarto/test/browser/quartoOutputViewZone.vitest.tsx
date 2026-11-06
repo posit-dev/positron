@@ -583,4 +583,22 @@ describe('QuartoOutputViewZone replaceOutput with webview outputs', () => {
 
 		zone.dispose();
 	});
+
+	it('keeps the visible webview when an older render of the same output finishes last', async () => {
+		const zone = createWebviewZone();
+		const baseline = scrollSubscriptions;
+		zone.addOutput(widgetOutput('w', 'v1'));
+		// Re-renders the same output object, starting a second webview render.
+		zone.maxLines = 5;
+
+		// The re-render finishes first, then the stale render from addOutput.
+		pending[1].complete(fakeWebview('w').webview);
+		pending[0].complete(fakeWebview('w').webview);
+		await settle();
+
+		expect({ live: scrollSubscriptions - baseline, disposed: created.map(w => w.disposed) })
+			.toEqual({ live: 1, disposed: [false, true] });
+
+		zone.dispose();
+	});
 });

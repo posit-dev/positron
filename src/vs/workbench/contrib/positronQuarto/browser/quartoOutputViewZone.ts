@@ -1214,6 +1214,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Fast path for a single image replaced by another image of the same
 		// type: set the src on the existing <img> so the old picture stays on
 		// screen until the new one loads, and a burst of updates does not blink.
+		// This needs exactly one item on each side, which holds because the
+		// execution manager drops text/plain when an image is present.
 		const oldItem = previous.items.length === 1 ? previous.items[0] : undefined;
 		const newItem = output.items.length === 1 ? output.items[0] : undefined;
 		const img = oldElement.querySelector<HTMLImageElement>('img.quarto-output-image');
@@ -1320,11 +1322,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	/**
 	 * Start tracking a webview that finished rendering for an output, and
 	 * return the store for its listeners. Returns undefined, and disposes the
-	 * webview, when the output was replaced or cleared while the webview was
-	 * being created.
+	 * webview, when the output was replaced, cleared, or re-rendered while the
+	 * webview was being created. A re-render (e.g. a `maxLines` change) keeps
+	 * the same output object but detaches the old container, so check both.
 	 */
 	private _trackWebview(output: ICellOutput, webview: INotebookOutputWebview, container: HTMLElement): DisposableStore | undefined {
-		if (!this._outputs.includes(output)) {
+		if (!this._outputs.includes(output) || !this._outputContainer.contains(container)) {
 			webview.dispose();
 			return undefined;
 		}

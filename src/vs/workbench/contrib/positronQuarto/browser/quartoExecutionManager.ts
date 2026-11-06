@@ -2247,7 +2247,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		};
 		outputs[index] = output;
 		tracker.displayOutputs.set(message.output_id, output);
-		tracker.outputSize += delta;
+		// After truncation the size stays pinned at the limit, so a smaller
+		// replacement does not make room for outputs after the notice.
+		if (!tracker.truncated) {
+			tracker.outputSize += delta;
+		}
 
 		this._onDidUpdateOutput.fire({ cellId, output, documentUri });
 	}

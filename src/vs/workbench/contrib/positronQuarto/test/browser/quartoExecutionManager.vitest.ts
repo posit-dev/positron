@@ -1398,6 +1398,20 @@ describe('QuartoExecutionManager', () => {
 			expect(updated).toHaveLength(0);
 		});
 
+		it('drops output after truncation even when a smaller update replaces a display', async () => {
+			const bigPng = 'x'.repeat(DEFAULT_EXECUTION_CONFIG.maxOutputSize - 10);
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': bigPng } });
+				mockSession.receiveOutputMessage({ parent_id: executionId, data: { 'text/plain': 'too much text' } });
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+				mockSession.receiveOutputMessage({ parent_id: executionId, data: { 'text/plain': 'after the notice' } });
+			});
+
+			expect(received.map(e => e.output.items[0].data))
+				.toEqual([bigPng, '[Output truncated due to size limit]']);
+			expect(updated.map(e => e.output.items[0].data)).toEqual([PNG_A]);
+		});
+
 		it('applies a Python display handle update (text/html)', async () => {
 			await runCell(pythonCell('cell-a'), executionId => {
 				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'disp-1', data: { 'text/html': '<b>0%</b>' } });
