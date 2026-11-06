@@ -14,9 +14,11 @@
 # Usage:
 #   launch.sh [--agents] [--session-title <title>] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
 #             [--clone-extensions] [--full] [--skip-prelaunch]
-#             [--disable-workspace-trust] [-- <extra code.sh args>]
+#             [--disable-workspace-trust] [--pass-env <NAME>]... [-- <extra code.sh args>]
 #
 # Flags:
+#   --pass-env NAME     The app starts without secret-looking env vars (see
+#                       test/e2e/infra/appEnv.ts); NAME (repeatable) is let through.
 #   --clone-extensions  Copy the source extensions/ into the new profile (~10s).
 #                       Default: start with an EMPTY extensions/ dir - fastest
 #                       and conflict-free, but no third-party extensions.
@@ -38,6 +40,7 @@ umask 077
 AGENTS=0
 SOURCE_UDD="${CODE_OSS_DEV_AUTHED_USER_DATA_DIR:-$HOME/.vscode-oss-dev}"
 REPO=""
+PASS_ENV=()
 EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
 FULL=0
@@ -58,6 +61,7 @@ while [[ $# -gt 0 ]]; do
 			;;
 		--source-user-data-dir) SOURCE_UDD="$2"; shift 2 ;;
 		--repo) REPO="$2"; shift 2 ;;
+		--pass-env) PASS_ENV+=(--keep "$2"); shift 2 ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--skip-prelaunch) SKIP_PRELAUNCH=1; shift ;;
@@ -254,7 +258,8 @@ PRELAUNCH_READY_MS=$(monotonic_ms)
 # mid-bootstrap, not from process-group concerns.)
 # Strip secret-looking env vars from the app. Capture first so a failing script
 # exits here instead of launching with the full environment.
-UNSET_NAMES=$(npx tsx "$REPO/test/e2e/scripts/app-env-unset.ts") || {
+ENV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+UNSET_NAMES=$(npx tsx "$ENV_ROOT/test/e2e/scripts/app-env-unset.ts" ${PASS_ENV[@]+"${PASS_ENV[@]}"}) || {
 	echo "[launch.sh] could not compute the secret env names to strip; not launching." >&2
 	exit 1
 }

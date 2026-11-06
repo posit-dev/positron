@@ -941,7 +941,11 @@ jobs:
             --disable-gpu-compositing --password-store=basic)
           echo "APP_ARGS=${APP_ARGS[*]}" >> "$GITHUB_ENV"
           for attempt in 1 2 3; do
-            if LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
+            # The harness copy, not the PR's: a PR's own launch.sh may predate
+            # secret stripping. The key is the one deliberate exception, and the
+            # run-dir scan still gates the uploads.
+            if LAUNCH_JSON=$(.harness/.claude/skills/drive-positron/scripts/launch.sh \
+              --repo "$PWD" --pass-env ANTHROPIC_API_KEY \
               --source-user-data-dir /tmp/positron-seed -- "${APP_ARGS[@]}"); then
               break
             fi

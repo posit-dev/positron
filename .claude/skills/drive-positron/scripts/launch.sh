@@ -18,13 +18,17 @@
 #             [--app <packaged Positron binary>]
 #             [--reuse-profile <run dir>]
 #             [--clone-extensions] [--full] [--no-default-app-args]
-#             [--keep-first-run-prompts] [--no-pyrefly] [-- <extra code.sh args>]
+#             [--keep-first-run-prompts] [--no-pyrefly] [--pass-env <NAME>]...
+#             [-- <extra code.sh args>]
 #   launch.sh -- --folder-uri file:///private/tmp/ws --log debug
 #
 # Everything before the `--` configures the launcher; everything after it goes
 # to the app. A launcher flag after the `--` is not reported: the app ignores
 # it and the launcher keeps its default, so a misplaced --source-user-data-dir
 # copies the real ~/.positron-dev.
+#
+# Secret env vars: the app starts without any variable that looks like a secret
+# (see test/e2e/infra/appEnv.ts). --pass-env NAME (repeatable) lets NAME through.
 #
 # App arguments worth passing (after the `--`):
 #   --folder-uri file:///private/tmp/ws
@@ -245,6 +249,7 @@ copy_tree() {
 AGENTS=0
 SOURCE_UDD="${POSITRON_DEV_USER_DATA_DIR:-$HOME/.positron-dev}"
 REPO=""
+PASS_ENV=()
 APP=""
 EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
@@ -277,6 +282,7 @@ while [[ $# -gt 0 ]]; do
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
 		--no-pyrefly) NO_PYREFLY=1; shift ;;
+		--pass-env) [[ -n "${2-}" ]] || usage_error "$1 needs a value"; PASS_ENV+=(--keep "$2"); shift 2 ;;
 		--reuse-profile) REUSE="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
@@ -634,7 +640,7 @@ else
 	# Strip secret-looking env vars from the app. Capture first so a failing
 	# script exits here instead of launching with the full environment.
 	ENV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-	UNSET_NAMES=$(npx tsx "$ENV_ROOT/test/e2e/scripts/app-env-unset.ts") || {
+	UNSET_NAMES=$(npx tsx "$ENV_ROOT/test/e2e/scripts/app-env-unset.ts" ${PASS_ENV[@]+"${PASS_ENV[@]}"}) || {
 		echo "[launch.sh] could not compute the secret env names to strip; not launching." >&2
 		exit 1
 	}
