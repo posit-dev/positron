@@ -8,6 +8,7 @@ import path = require('path');
 import archiver from 'archiver';
 import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
+import { isArtifactEnabled } from '../../infra/artifactSwitches.js';
 
 export interface AttachScreenshotsToReportOptions {
 	app: Application;
@@ -84,7 +85,7 @@ export function AttachLogsToReportFixture() {
 
 		await use();
 
-		if (!suiteId) { return; }
+		if (!isArtifactEnabled('E2E_ATTACH_LOGS') || !suiteId) { return; }
 
 		// For e2e-workbench, pull logs from Docker container
 		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
@@ -116,6 +117,8 @@ export function AttachCrashDumpsToReportFixture() {
 		const { crashesPath, testInfo } = options;
 
 		await use();
+
+		if (!isArtifactEnabled('E2E_ATTACH_CRASH_DUMPS')) { return; }
 
 		let dumps: string[];
 		try {
@@ -320,6 +323,12 @@ export function TracingFixture() {
 
 		if (!shouldUseCustomTracing(testInfo.project)) {
 			// Playwright's built-in tracing manages the trace for this run.
+			await use(app);
+			return;
+		}
+
+		if (!isArtifactEnabled('E2E_TRACES')) {
+			// Traces are off: no chunks, no trace attachment.
 			await use(app);
 			return;
 		}
