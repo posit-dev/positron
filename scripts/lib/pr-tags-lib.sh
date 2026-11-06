@@ -470,6 +470,8 @@ find_unmapped_positron_dirs() {
 		[[ -z "$file" ]] && continue
 		dir="$(positron_dir_of "$file")"
 		if [[ -z "$dir" ]]; then
+			# owner_root_dir_of truncates above any test/ segment, so skip test files here.
+			[[ "$(is_derivable_source "$file")" == "true" ]] || continue
 			dir="$(owner_root_dir_of "$file")"
 			[[ -z "$dir" ]] && continue
 			[[ "$(is_posit_owned_file "$file")" == "true" ]] || continue
