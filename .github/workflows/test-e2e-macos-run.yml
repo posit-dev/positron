@@ -395,18 +395,6 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-      # A native crash leaves a minidump in `.build/crashes` (electron.ts's
-      # `--crash-reporter-directory`); the job used to discard it. `always()`,
-      # not `failure()`: the Playwright step ends in `|| true`.
-      - name: Upload Crash Dumps
-        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.project }}-macos-crash-dumps-${{ matrix.shard }}
-          path: .build/crashes
-          retention-days: 7
-          if-no-files-found: ignore
-
       - name: Fail if the secret scan did not pass
         if: always()
         run: test -f secret-scan/clean || { echo "::error::Secret scan marker missing, so the scan failed or the tests did not run. Test artifacts were not uploaded."; exit 1; }
