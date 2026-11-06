@@ -47,7 +47,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       enable_diagnostic_logging:
         required: false
         description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
@@ -234,7 +234,7 @@ jobs:
           eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ (success() || failure()) && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -242,7 +242,7 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Results File
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-sles-json-results
@@ -250,9 +250,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-sles-logs
           path: test-logs
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        run: test -f secret-scan/clean || { echo "::error::Secret scan did not pass; nothing was uploaded. See the test step output."; exit 1; }
