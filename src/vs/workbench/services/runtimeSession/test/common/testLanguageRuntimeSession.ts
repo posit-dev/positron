@@ -413,6 +413,18 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
 			kind: message.kind ?? RuntimeOutputKind.Unknown,
 			data: message.data ?? {},
+			output_id: message.output_id,
+			outputMetadata: message.outputMetadata,
+		};
+	}
+
+	private _updateOutputMessage(message: Partial<ILanguageRuntimeMessageUpdateOutput>): ILanguageRuntimeMessageUpdateOutput {
+		return {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.UpdateOutput),
+			kind: message.kind ?? RuntimeOutputKind.Unknown,
+			data: message.data ?? {},
+			output_id: message.output_id ?? '',
+			outputMetadata: message.outputMetadata,
 		};
 	}
 
@@ -421,6 +433,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Result),
 			kind: message.kind ?? RuntimeOutputKind.Unknown,
 			data: message.data ?? {},
+			output_id: message.output_id,
+			outputMetadata: message.outputMetadata,
 			execution_count: message.execution_count ?? 0,
 		};
 	}
@@ -495,6 +509,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		const output = this._outputMessage(message);
 		this._onDidReceiveRuntimeMessageOutput.fire(output);
 		return output;
+	}
+
+	receiveUpdateOutputMessage(message: Partial<ILanguageRuntimeMessageUpdateOutput>) {
+		const update = this._updateOutputMessage(message);
+		this._onDidReceiveRuntimeMessageUpdateOutput.fire(update);
+		return update;
 	}
 
 	receiveResultMessage(message: Partial<ILanguageRuntimeMessageResult>) {

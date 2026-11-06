@@ -192,6 +192,16 @@ export interface IQuartoExecutionManager {
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent>;
 
 	/**
+	 * Event fired when the runtime updates an output it displayed earlier
+	 * (a Jupyter `update_display_data` message), for example when an R plot
+	 * gets more layers. `event.output.outputId` equals the `outputId` of an
+	 * output already fired through {@link onDidReceiveOutput} for the same
+	 * `cellId` and `documentUri`; consumers replace that output with
+	 * `event.output`.
+	 */
+	readonly onDidUpdateOutput: Event<ExecutionOutputEvent>;
+
+	/**
 	 * Event fired when a cell's fragment-level execution progress changes.
 	 * Used to update the gutter as individual statements execute within a cell.
 	 */
@@ -378,6 +388,13 @@ export interface IQuartoOutputCacheService {
 	 * Save output for a cell. Marks the document as dirty for debounced write.
 	 */
 	saveOutput(documentUri: URI, cellId: string, contentHash: string, label: string | undefined, output: ICellOutput, source?: string): void;
+
+	/**
+	 * Replace the cached output that has the same `outputId` in a cell, e.g.
+	 * when the runtime updates a displayed plot. Does nothing when the cell
+	 * or the output is not in the cache.
+	 */
+	replaceOutput(documentUri: URI, cellId: string, output: ICellOutput): void;
 
 	/**
 	 * Clear outputs for a cell in the cache.

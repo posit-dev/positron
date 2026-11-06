@@ -378,8 +378,6 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 	 * @param data The update_display_data message
 	 */
 	private onUpdateDisplayData(message: JupyterMessage, data: JupyterUpdateDisplayData) {
-		// NOTE: We don't yet include data.metadata i.e. display metadata,
-		//       which is not the same as message.metadata.
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -387,6 +385,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			type: positron.LanguageRuntimeMessageType.UpdateOutput,
 			output_id: data.transient.display_id,
 			data: data.data,
+			outputMetadata: data.metadata,
 			metadata: message.metadata,
 		} satisfies positron.LanguageRuntimeUpdateOutput);
 	}

@@ -18,6 +18,12 @@ import { IConfigurationChangeEvent } from '../../../../../platform/configuration
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { CellExecutionState, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputViewZone } from '../../browser/quartoOutputViewZone.js';
+import { DeferredPromise } from '../../../../../base/common/async.js';
+import { toDisposable } from '../../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IOverlayWebview } from '../../../webview/browser/webview.js';
+import { getImageDataUrl } from '../../../../services/positronPlots/common/imageDataUrl.js';
 import { registerTestErrorActionHandler } from '../../../positronAssistant/test/browser/errorActionTestUtils.js';
 
 // The inline-output webview is a fixed-position overlay anchored to a
@@ -106,6 +112,42 @@ describe('chooseHtmlRenderMode', () => {
 	});
 });
 
+function createViewZone(): QuartoOutputViewZone {
+	const containerDomNode = document.createElement('div');
+	const editor = stubInterface<ICodeEditor>({
+		getContainerDomNode: () => containerDomNode,
+		onDidChangeConfiguration: Event.None,
+		onDidLayoutChange: Event.None,
+		onDidScrollChange: Event.None,
+		onDidContentSizeChange: Event.None,
+		onDidChangeHiddenAreas: Event.None,
+		onMouseMove: Event.None,
+		onMouseLeave: Event.None,
+		// The zone reads only fontInfo, and only hands it to `applyFontInfo`,
+		// which takes a BareFontInfo. Throwing on any other option keeps the
+		// stub honest if the zone starts reading more of the editor config.
+		getOption: ((id: EditorOption) => {
+			if (id !== EditorOption.fontInfo) {
+				throw new Error(`unexpected getOption(${id})`);
+			}
+			return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
+		}) as ICodeEditor['getOption'],
+	});
+	return new QuartoOutputViewZone(editor, 'cell-1', 1);
+}
+
+function textOutput(id: string, text: string): ICellOutput {
+	return { outputId: id, items: [{ mime: 'text/plain', data: text }] };
+}
+
+function imageOutput(id: string, data: string): ICellOutput {
+	return {
+		outputId: id,
+		items: [{ mime: 'image/png', data }],
+		outputMetadata: { 'image/png': { width: 100, height: 80 } },
+	};
+}
+
 // A cell's output can arrive hundreds of ms after the user collapsed it, while
 // the zone is still in its recomputing window. Expanding on fresh output is the
 // default so new results are visible, but doing it after an explicit collapse
@@ -117,34 +159,6 @@ describe('chooseHtmlRenderMode', () => {
 // the bug was never in the predicate but in the ordering of setRecomputing /
 // setCollapsed / addOutput around it, so the sequence is what has to be pinned.
 describe('QuartoOutputViewZone collapse across a re-execution', () => {
-	function createViewZone(): QuartoOutputViewZone {
-		const containerDomNode = document.createElement('div');
-		const editor = stubInterface<ICodeEditor>({
-			getContainerDomNode: () => containerDomNode,
-			onDidChangeConfiguration: Event.None,
-			onDidLayoutChange: Event.None,
-			onDidScrollChange: Event.None,
-			onDidContentSizeChange: Event.None,
-			onDidChangeHiddenAreas: Event.None,
-			onMouseMove: Event.None,
-			onMouseLeave: Event.None,
-			// The zone reads only fontInfo, and only hands it to `applyFontInfo`,
-			// which takes a BareFontInfo. Throwing on any other option keeps the
-			// stub honest if the zone starts reading more of the editor config.
-			getOption: ((id: EditorOption) => {
-				if (id !== EditorOption.fontInfo) {
-					throw new Error(`unexpected getOption(${id})`);
-				}
-				return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
-			}) as ICodeEditor['getOption'],
-		});
-		return new QuartoOutputViewZone(editor, 'cell-1', 1);
-	}
-
-	function textOutput(id: string, text: string): ICellOutput {
-		return { outputId: id, items: [{ mime: 'text/plain', data: text }] };
-	}
-
 	it('keeps the output collapsed when the user collapses mid-execution', () => {
 		const zone = createViewZone();
 		zone.addOutput(textOutput('out-1', 'first run'));
@@ -385,5 +399,222 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 
 		zone.dispose();
 		zone.domNode.remove();
+	});
+});
+
+describe('QuartoOutputViewZone replaceOutput', () => {
+	const PNG_A = 'iVBORw0KGgoAAAA';
+	const PNG_B = 'iVBORw0KGgoBBBB';
+
+	function nodeFor(zone: QuartoOutputViewZone, id: string): HTMLElement {
+		// eslint-disable-next-line no-restricted-syntax -- the test checks DOM node identity of the zone's plain output divs, which have no role or label
+		return zone.domNode.querySelector(`.quarto-output-content > .quarto-output-item[data-output-id="${id}"]`) as HTMLElement;
+	}
+
+	function texts(zone: QuartoOutputViewZone): string[] {
+		// eslint-disable-next-line no-restricted-syntax -- reads the zone's plain output divs in DOM order; they have no role or label
+		return Array.from(zone.domNode.querySelectorAll('.quarto-output-content > .quarto-output-item'))
+			.map(node => node.textContent ?? '');
+	}
+
+	it('replaces only the output with the same outputId, keeping order', () => {
+		const zone = createViewZone();
+		zone.addOutput(textOutput('a', 'one'));
+		zone.addOutput(textOutput('b', 'two'));
+		zone.addOutput(textOutput('c', 'three'));
+		const nodeA = nodeFor(zone, 'a');
+		const nodeC = nodeFor(zone, 'c');
+
+		expect(zone.replaceOutput(textOutput('b', 'TWO'))).toBe(true);
+
+		expect(texts(zone)).toEqual(['one', 'TWO', 'three']);
+		expect(nodeFor(zone, 'a')).toBe(nodeA);
+		expect(nodeFor(zone, 'c')).toBe(nodeC);
+
+		zone.dispose();
+	});
+
+	it('returns false for an unknown outputId', () => {
+		const zone = createViewZone();
+		zone.addOutput(textOutput('a', 'one'));
+
+		expect(zone.replaceOutput(textOutput('zzz', 'x'))).toBe(false);
+		expect(texts(zone)).toEqual(['one']);
+
+		zone.dispose();
+	});
+
+	it('updates an image in place, keeping the same <img> element', () => {
+		const zone = createViewZone();
+		zone.addOutput(imageOutput('p', PNG_A));
+		// eslint-disable-next-line no-restricted-syntax -- the test checks that the same <img> element is reused
+		const imgBefore = nodeFor(zone, 'p').querySelector('img');
+
+		expect(zone.replaceOutput(imageOutput('p', PNG_B))).toBe(true);
+
+		// eslint-disable-next-line no-restricted-syntax -- the test checks that the same <img> element is reused
+		const img = nodeFor(zone, 'p').querySelector('img');
+		expect(img).toBe(imgBefore);
+		expect(img?.src).toBe(getImageDataUrl('image/png', PNG_B));
+
+		zone.dispose();
+	});
+
+	it('sizes an in-place image from the new metadata, dropping a dimension it omits', () => {
+		const zone = createViewZone();
+		zone.addOutput(imageOutput('p', PNG_A));
+
+		expect(zone.replaceOutput({
+			...imageOutput('p', PNG_B),
+			outputMetadata: { 'image/png': { width: 200 } },
+		})).toBe(true);
+
+		// eslint-disable-next-line no-restricted-syntax -- the size attributes live on the <img> inside the output item
+		const img = nodeFor(zone, 'p').querySelector('img');
+		expect(img).toHaveAttribute('width', '200');
+		expect(img).not.toHaveAttribute('height');
+
+		zone.dispose();
+	});
+});
+
+// A replaced webview output (e.g. a plotly display handle updated in a loop)
+// must release everything its render registered. The editor scroll listener
+// calls into the webview, whose container getter throws once it is disposed.
+describe('QuartoOutputViewZone replaceOutput with webview outputs', () => {
+	interface FakeWebview {
+		readonly webview: INotebookOutputWebview;
+		disposed: boolean;
+	}
+
+	let scrollSubscriptions: number;
+	let created: FakeWebview[];
+	let pending: DeferredPromise<INotebookOutputWebview>[];
+
+	function createWebviewZone(): QuartoOutputViewZone {
+		scrollSubscriptions = 0;
+		created = [];
+		pending = [];
+		const containerDomNode = document.createElement('div');
+		// Counts live subscriptions so a test can see a listener left behind.
+		const onDidScrollChange: Event<unknown> = () => {
+			scrollSubscriptions++;
+			return toDisposable(() => { scrollSubscriptions--; });
+		};
+		const editor = stubInterface<ICodeEditor>({
+			getContainerDomNode: () => containerDomNode,
+			onDidChangeConfiguration: Event.None,
+			onDidLayoutChange: Event.None,
+			onDidScrollChange: onDidScrollChange as ICodeEditor['onDidScrollChange'],
+			onDidContentSizeChange: Event.None,
+			onDidChangeHiddenAreas: Event.None,
+			onMouseMove: Event.None,
+			onMouseLeave: Event.None,
+			getOption: ((id: EditorOption) => {
+				if (id !== EditorOption.fontInfo) {
+					throw new Error(`unexpected getOption(${id})`);
+				}
+				return BareFontInfo._create('monospace', 'normal', 12, '', '', 18, 0, 1, false);
+			}) as ICodeEditor['getOption'],
+		});
+		const webviewService = stubInterface<IPositronNotebookOutputWebviewService>({
+			createNotebookOutputWebview: () => {
+				const deferred = new DeferredPromise<INotebookOutputWebview>();
+				pending.push(deferred);
+				return deferred.p;
+			},
+		});
+		const session = stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' });
+		return new QuartoOutputViewZone(editor, 'cell-1', 1, webviewService, session);
+	}
+
+	function fakeWebview(id: string): FakeWebview {
+		const overlay = document.createElement('div');
+		const fake: FakeWebview = {
+			disposed: false,
+			webview: stubInterface<INotebookOutputWebview>({
+				id,
+				sessionId: 'session-1',
+				onDidRender: Event.None,
+				dispose: () => { fake.disposed = true; },
+				webview: stubInterface<IOverlayWebview>({
+					claim: () => { },
+					release: () => { },
+					setAnchorElement: () => { },
+					onMessage: Event.None,
+					get container() {
+						if (fake.disposed) {
+							throw new Error('OverlayWebview has been disposed');
+						}
+						return overlay;
+					},
+				}),
+			}),
+		};
+		created.push(fake);
+		return fake;
+	}
+
+	function widgetOutput(id: string, html: string): ICellOutput {
+		return {
+			outputId: id,
+			items: [{ mime: 'application/vnd.plotly.v1+json', data: html }],
+			webviewMetadata: { webviewType: 'display', rawData: { 'application/vnd.plotly.v1+json': html } },
+		};
+	}
+
+	const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+	it('releases the scroll listener and webview of the output it replaces', async () => {
+		const zone = createWebviewZone();
+		const baseline = scrollSubscriptions;
+		zone.addOutput(widgetOutput('w', 'v1'));
+		pending[0].complete(fakeWebview('w').webview);
+		await settle();
+		expect(scrollSubscriptions).toBe(baseline + 1);
+
+		expect(zone.replaceOutput(widgetOutput('w', 'v2'))).toBe(true);
+		pending[1].complete(fakeWebview('w').webview);
+		await settle();
+
+		expect({ live: scrollSubscriptions - baseline, disposed: created.map(w => w.disposed) })
+			.toEqual({ live: 1, disposed: [true, false] });
+
+		zone.dispose();
+	});
+
+	it('drops a webview whose output was replaced before its render finished', async () => {
+		const zone = createWebviewZone();
+		const baseline = scrollSubscriptions;
+		zone.addOutput(widgetOutput('w', 'v1'));
+		expect(zone.replaceOutput(widgetOutput('w', 'v2'))).toBe(true);
+
+		// Both renders finish after the replace, the stale one first.
+		pending[0].complete(fakeWebview('w').webview);
+		pending[1].complete(fakeWebview('w').webview);
+		await settle();
+
+		expect({ live: scrollSubscriptions - baseline, disposed: created.map(w => w.disposed) })
+			.toEqual({ live: 1, disposed: [true, false] });
+
+		zone.dispose();
+	});
+
+	it('keeps the visible webview when an older render of the same output finishes last', async () => {
+		const zone = createWebviewZone();
+		const baseline = scrollSubscriptions;
+		zone.addOutput(widgetOutput('w', 'v1'));
+		// Re-renders the same output object, starting a second webview render.
+		zone.maxLines = 5;
+
+		// The re-render finishes first, then the stale render from addOutput.
+		pending[1].complete(fakeWebview('w').webview);
+		pending[0].complete(fakeWebview('w').webview);
+		await settle();
+
+		expect({ live: scrollSubscriptions - baseline, disposed: created.map(w => w.disposed) })
+			.toEqual({ live: 1, disposed: [false, true] });
+
+		zone.dispose();
 	});
 });
