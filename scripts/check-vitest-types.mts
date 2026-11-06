@@ -12,6 +12,7 @@
 // Usage: npm run test:positron:check-ts
 
 import fs from 'fs';
+import { parse } from 'jsonc-parser';
 import { createRequire } from 'module';
 import path from 'path';
 import { spawnWithRetry } from '../build/lib/spawnRetry.ts';
@@ -28,20 +29,25 @@ function glob(pattern: string): string[] {
 
 // The configs referenced by the root tsconfig.json, relative to the repo root.
 function listedConfigs(): string[] {
-	const text = fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-	const { references }: { references: { path: string }[] } = JSON.parse(text);
+	const { references }: { references: { path: string }[] } = parse(fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8'));
 	return references.map(ref => path.posix.normalize(ref.path));
+}
+
+// Vitest files outside src/, which each belong to an extension or test/e2e.
+function projectFiles(): string[] {
+	return glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}');
+}
+
+// The extension or test/e2e directory a Vitest file belongs to.
+function projectOf(file: string): string {
+	const parts = file.split('/');
+	return parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e';
 }
 
 // Each project with Vitest files needs a tsconfig.vitest.json listed in the root
 // tsconfig.json, or its tests go unchecked here and unclaimed in the editor.
-function findMissingConfigs(listed: string[]): string[] {
-	const needed = new Set<string>();
-	for (const file of glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}')) {
-		const parts = file.split('/');
-		const project = parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e';
-		needed.add(`${project}/tsconfig.vitest.json`);
-	}
+function findMissingConfigs(listed: string[], files: string[]): string[] {
+	const needed = new Set(files.map(file => `${projectOf(file)}/tsconfig.vitest.json`));
 	for (const config of glob('{extensions/*,test/e2e}/tsconfig.vitest.json')) {
 		needed.add(config);
 	}
@@ -50,10 +56,9 @@ function findMissingConfigs(listed: string[]): string[] {
 
 // A Vitest file under a nested tsconfig.json (a package inside an extension or
 // test/e2e) would be checked with the outer project's options, not its own.
-function findNestedFiles(): string[] {
-	return glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}').filter(file => {
-		const parts = file.split('/');
-		const top = parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e';
+function findNestedFiles(files: string[]): string[] {
+	return files.filter(file => {
+		const top = projectOf(file);
 		for (let dir = path.posix.dirname(file); dir !== top; dir = path.posix.dirname(dir)) {
 			if (fs.existsSync(path.join(root, dir, 'tsconfig.json'))) {
 				return true;
@@ -106,7 +111,8 @@ async function main(): Promise<number> {
 		return 1;
 	}
 
-	const nested = findNestedFiles();
+	const files = projectFiles();
+	const nested = findNestedFiles(files);
 	if (nested.length) {
 		console.error('These Vitest files are in a nested package with its own tsconfig.json, so they would be checked with the wrong compiler options:');
 		for (const file of nested) {
@@ -117,7 +123,7 @@ async function main(): Promise<number> {
 	}
 
 	const listed = listedConfigs();
-	const missing = findMissingConfigs(listed);
+	const missing = findMissingConfigs(listed, files);
 	if (missing.length) {
 		console.error('These Vitest configs are missing, or not listed in the root tsconfig.json:');
 		for (const config of missing) {
