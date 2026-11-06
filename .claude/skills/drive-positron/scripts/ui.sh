@@ -95,9 +95,9 @@
 # A name matches the whole accessible name, case aside, the name without a
 # trailing keybinding, or the name before a comma and more (a Breakpoints row
 # "dbg.R 7, Unverified Breakpoint" by "dbg.R 7", the label the view shows).
-# It also matches a name the tree says twice: a deselected activity bar tab
-# with a badge reads "Explorer (Ctrl+Shift+E) - 1 unsaved file" twice, and
-# that text once finds it. When nothing matches, the error carries the view's
+# It also matches a name the tree says twice: an activity bar tab with a
+# badge reads "Explorer (Ctrl+Shift+E) - 1 unsaved file" twice once it has been
+# selected or deselected, and that text once finds it. When nothing matches, the error carries the view's
 # tree.
 #
 # While the editor area is hidden (a maximized panel), anything in "editor"

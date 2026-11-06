@@ -125,8 +125,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * suffix, then before a comma, then (partial) any name containing it. Icon glyphs
 		 * at either end are ignored. A name is said twice when the element's own
 		 * aria-label is empty and the name comes from children that each carry it
-		 * (an activity bar tab with a badge, once it was deselected: VS Code's
-		 * CompositeBarActionViewItem.updateChecked).
+		 * (an activity bar tab with a badge, selected or not, once VS Code's
+		 * CompositeBarActionViewItem.updateChecked has run).
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -469,8 +469,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
 			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
 			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
-			// Undo lib.byRole's regex to get the plain name back.
-			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
+			// Undo lib.byRole's regex to get the plain name back, dropping its repeated-name group.
+			const name = (role?.[2] ?? '').replace(/\(\?:\\s\+.*\)\+(?=\[|\$)/, '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
 			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
 			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';
 			const why = /intercepts pointer events/.test(msg) ? 'something drawn on top of it took the click'
