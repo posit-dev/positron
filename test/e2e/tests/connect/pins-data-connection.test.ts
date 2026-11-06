@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
@@ -38,11 +39,14 @@ let connectServer: string;
 let ownerUsername: string;
 // Holds the key file R reads, so the key is never typed into the console. Removed in afterAll.
 let keyDir: string | undefined;
+// Set when the key was copied into the Workbench container (non-local lanes), for cleanup.
+let containerKeyPath: string | undefined;
+let isLocal: boolean;
 
 test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, tags.CONNECT, tags.CONNECTIONS, tags.ARK] }, () => {
 
 	test.beforeAll('Resolve Connect credentials', async function ({ app, runDockerCommand }) {
-		const isLocal = test.info().project.name === 'e2e-connect';
+		isLocal = test.info().project.name === 'e2e-connect';
 		connectServer = isLocal ? 'http://localhost:3939' : 'http://connect:3939';
 
 		// Skip the suite when Connect isn't up (e.g. the full local suite run without local Connect).
@@ -56,13 +60,20 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 		ownerUsername = await app.workbench.positConnect.getCurrentUsername();
 	});
 
-	test.afterAll(function () {
+	test.afterAll(async function ({ runDockerCommand }) {
 		if (keyDir) {
 			fs.rmSync(keyDir, { recursive: true, force: true });
 		}
+		if (!isLocal && containerKeyPath) {
+			try {
+				await runDockerCommand(`docker exec test rm -f ${containerKeyPath}`, 'Remove Connect key from container');
+			} catch {
+				// best-effort cleanup
+			}
+		}
 	});
 
-	test('Add a Connect server and browse its pins in the tree', async function ({ app, r, executeCode }) {
+	test('Add a Connect server and browse its pins in the tree', async function ({ app, r, executeCode, runDockerCommand }) {
 		test.slow();
 		const { console, dataConnections, dataExplorer } = app.workbench;
 
@@ -72,7 +83,14 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			keyDir = fs.mkdtempSync(join(os.tmpdir(), 'pins-key-'));
 			const keyPath = join(keyDir, 'key');
 			fs.writeFileSync(keyPath, connectApiKey, { mode: 0o600 });
-			const rKeyPath = keyPath.replace(/\\/g, '/');
+			let rKeyPath = keyPath.replace(/\\/g, '/');
+			if (!isLocal) {
+				// R runs inside the Workbench container and can't see the host temp dir.
+				containerKeyPath = `/tmp/pins-key-${randomUUID()}`;
+				await runDockerCommand(`docker cp ${JSON.stringify(keyPath)} test:${containerKeyPath}`, 'Copy Connect key into container');
+				await runDockerCommand(`docker exec test chmod 0644 ${containerKeyPath}`, 'Make Connect key readable');
+				rKeyPath = containerKeyPath;
+			}
 			await executeCode(
 				'R',
 				`Sys.setenv(CONNECT_SERVER = ${JSON.stringify(connectServer)}, CONNECT_API_KEY = readLines(${JSON.stringify(rKeyPath)}, n = 1))`
