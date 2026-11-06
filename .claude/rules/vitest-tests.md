@@ -55,7 +55,7 @@ Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selec
 
 - Place test files next to the source: `browser/` tests go in `test/browser/`, `common/` in `test/common/`. Match `test/` vs `tests/` per existing convention. If no test directory exists yet, create the matching one.
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
-- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
+- No `/// <reference types="vitest/globals" />` directive: every Vitest tsconfig already provides the globals, in the editor and in check-ts
 - Tabs for indentation
 
 ### Tests inside `extensions/`
