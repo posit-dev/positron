@@ -5,10 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ILanguageRuntimePackage, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
@@ -402,5 +403,42 @@ describe('PackageDetail while detail fetch is pending', () => {
 		expect(screen.getAllByTestId('package-detail-loading')).toHaveLength(2);
 		// The Overview (and its detail-only rows) stays hidden until the fetch resolves.
 		expect(screen.queryByText('MIT')).not.toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail icon button tooltips', () => {
+	const showInstantHover = vi.fn();
+	const instance = makeInstance([dplyr()]);
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IHoverService, { showInstantHover, hideHover: vi.fn() })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		showInstantHover.mockClear();
+	});
+
+	// Button only shows its tooltip when it is given a hover manager, so the tooltip text alone
+	// is not enough: hovering has to reach the hover service.
+	it.each([
+		['Show Help'],
+		['Website'],
+	])('shows the "%s" tooltip when hovering the icon button', async (label) => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		const user = userEvent.setup();
+		await user.hover(screen.getByRole('button', { name: label }));
+		await waitFor(() => expect(showInstantHover).toHaveBeenCalledWith(
+			expect.objectContaining({ content: label }),
+			false
+		));
 	});
 });
