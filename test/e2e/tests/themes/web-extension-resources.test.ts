@@ -32,7 +32,7 @@ test.describe('Web: extension resources', {
 		});
 
 		await test.step('Reload so the startup theme and icon theme requests are observed', async () => {
-			await hotKeys.reloadWindowWith(() => page.reload());
+			await hotKeys.reloadWindowWith(async () => { await page.reload(); });
 		});
 
 		await openFile(PYTHON_FILE);
