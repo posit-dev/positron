@@ -11,6 +11,18 @@ export type SecretEncoding = 'raw' | 'json' | 'url' | 'base64';
 
 const MIN_FORM_LENGTH = 8;
 
+/**
+ * Base64 of the secret as it appears inside a longer blob at byte offset 0, 1 or 2 (mod 3).
+ * Keeps only the characters fixed by the secret's own bytes, so surrounding bytes cannot break the match.
+ */
+function midBlobBase64(value: string): string[] {
+	const bytes = Buffer.from(value, 'utf8');
+	return [0, 1, 2].map(filler => {
+		const encoded = Buffer.concat([Buffer.alloc(filler, 0x78), bytes]).toString('base64');
+		return encoded.slice(Math.ceil((8 * filler) / 6), Math.floor((8 * (filler + bytes.length)) / 6));
+	});
+}
+
 /** The forms a secret can take once it is written into a log. */
 export function encodedForms(value: string): { encoding: SecretEncoding; text: string }[] {
 	const candidates: { encoding: SecretEncoding; text: string }[] = [
@@ -18,6 +30,7 @@ export function encodedForms(value: string): { encoding: SecretEncoding; text: s
 		{ encoding: 'json', text: JSON.stringify(value).slice(1, -1) },
 		{ encoding: 'url', text: encodeURIComponent(value) },
 		{ encoding: 'base64', text: Buffer.from(value, 'utf8').toString('base64') },
+		...midBlobBase64(value).map(text => ({ encoding: 'base64' as const, text })),
 	];
 	const seen = new Set<string>();
 	return candidates.filter(({ text }) => {

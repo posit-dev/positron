@@ -15,11 +15,32 @@ const secrets = [{ name: 'FAKE_SECRET', value: SECRET }];
 describe('secretScrub', () => {
 	it('scrubs every encoding', () => {
 		const forms = encodedForms(SECRET);
-		expect(forms.map(f => f.encoding).sort()).toEqual(['base64', 'json', 'raw', 'url']);
+		expect(forms.map(f => f.encoding).sort()).toEqual(['base64', 'base64', 'base64', 'base64', 'json', 'raw', 'url']);
 		const input = Buffer.from(forms.map(f => `x ${f.text} y`).join('\n'), 'utf8');
 		const { data, replaced } = scrubBuffer(input, secrets);
-		expect(replaced).toBe(4);
+		expect(replaced).toBe(forms.length);
 		expect(data.toString('utf8')).toBe(forms.map(() => 'x *** y').join('\n'));
+	});
+
+	it.each([0, 1, 2])('finds a base64 secret embedded at offset %i of a longer blob', offset => {
+		const blob = Buffer.from('x'.repeat(offset) + 'user:' + SECRET + ':trailing-bytes').toString('base64');
+		const input = Buffer.from(`token=${blob}\n`);
+		const { data, replaced } = scrubBuffer(input, secrets);
+		expect(replaced).toBeGreaterThan(0);
+		expect(data.toString()).not.toContain(blob);
+		expect(data.toString()).toContain('***');
+	});
+
+	it('finds a base64 secret at the very start and end of a blob', () => {
+		const blob = Buffer.from(SECRET).toString('base64');
+		expect(scrubBuffer(Buffer.from(blob), secrets).replaced).toBe(1);
+	});
+
+	it('scrubs a non-ASCII secret in raw form', () => {
+		const secret = 'p\u00e4ssw\u00f6rd-\u4e2d\u6587-123';
+		const { data, replaced } = scrubBuffer(Buffer.from(`a ${secret} b`, 'utf8'), [{ name: 'U', value: secret }]);
+		expect(replaced).toBe(1);
+		expect(data.toString('utf8')).toBe('a *** b');
 	});
 
 	it('replaces the longer form first', () => {
