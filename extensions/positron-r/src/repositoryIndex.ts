@@ -32,8 +32,8 @@ const SESSION_CONFIG_CODE = `local({
 	cache_dir <- ${CACHE_DIR_CODE}
 	list(
 		rscript = file.path(R.home("bin"), "Rscript"),
+		env = as.list(Sys.getenv()),
 		maxAge = max_age,
-		cacheDir = cache_dir,
 		config = paste(deparse(list(
 			repos = getOption("repos"),
 			lib = .libPaths(),
@@ -47,16 +47,16 @@ const SESSION_CONFIG_CODE = `local({
 
 interface SessionConfig {
 	rscript: string;
+	env: Record<string, string>;
 	maxAge: number;
-	cacheDir: string;
 	config: string;
 }
 
 interface IndexState {
 	usePak: boolean;
 	expires: number;
-	/** Resolves with the session's cache directory and the contrib URLs cached in it. */
-	ready: Promise<{ cacheDir: string; urls: string[] }>;
+	/** Resolves with the contrib URLs cached in the session's cache directory. */
+	ready: Promise<string[]>;
 }
 
 /**
@@ -65,8 +65,7 @@ interface IndexState {
  *
  * A helper R process downloads the repository indexes into the session's
  * available.packages() cache. The session then answers from that cache alone.
- * Results are remembered until the cache would expire, or until the cache
- * directory changes because R restarted.
+ * Results are remembered until the cache would expire, or until `reset()`.
  */
 export class RRepositoryIndex {
 	private _state: IndexState | undefined;
@@ -81,18 +80,16 @@ export class RRepositoryIndex {
 	 */
 	async filterAvailable(names: string[], usePak: boolean): Promise<string[]> {
 		try {
-			let ready = await this._ready(usePak);
-			let unknown = names.filter(name => !this._available.has(name));
+			const state = this._ready(usePak);
+			const urls = await state.ready;
+			const unknown = names.filter(name => !this._available.has(name));
 			if (unknown.length > 0) {
-				let result = await this._lookup(ready.urls, unknown);
-				if (result.cacheDir !== ready.cacheDir) {
-					this._state = undefined;
-					ready = await this._ready(usePak);
-					unknown = names;
-					result = await this._lookup(ready.urls, unknown);
-				}
-				for (const name of unknown) {
-					this._available.set(name, result.found.has(name));
+				const found = await this._lookup(urls, unknown);
+				// Answers from before a reset describe a cache that no longer exists.
+				if (this._state === state) {
+					for (const name of unknown) {
+						this._available.set(name, found.has(name));
+					}
 				}
 			}
 		} catch (err) {
@@ -102,47 +99,51 @@ export class RRepositoryIndex {
 		return names.filter(name => this._available.get(name));
 	}
 
+	/** Forgets all results; call when R restarts and its cache directory is replaced. */
+	reset(): void {
+		this._state = undefined;
+		this._available.clear();
+	}
+
 	private _isStale(usePak: boolean): boolean {
 		return !this._state || this._state.usePak !== usePak || Date.now() >= this._state.expires;
 	}
 
-	/** Warms the session's cache when stale, then resolves with what is cached. */
-	private _ready(usePak: boolean): IndexState['ready'] {
+	/** Starts warming the session's cache when stale, and returns the current state. */
+	private _ready(usePak: boolean): IndexState {
 		if (this._isStale(usePak)) {
 			this._available.clear();
-			const state: IndexState = { usePak, expires: Infinity, ready: Promise.resolve({ cacheDir: '', urls: [] }) };
-			state.ready = this._warmCache(usePak).then(({ cacheDir, urls, ttlMs }) => {
+			const state: IndexState = { usePak, expires: Infinity, ready: Promise.resolve([]) };
+			state.ready = this._warmCache(usePak).then(({ urls, ttlMs }) => {
 				state.expires = Date.now() + ttlMs;
-				return { cacheDir, urls };
+				return urls;
 			});
 			this._state = state;
 		}
-		return this._state!.ready;
+		return this._state!;
 	}
 
 	/** Runs the helper and resolves with the contrib URLs whose index is now cached. */
-	private async _warmCache(usePak: boolean): Promise<{ cacheDir: string; urls: string[]; ttlMs: number }> {
-		let cacheDir = '';
+	private async _warmCache(usePak: boolean): Promise<{ urls: string[]; ttlMs: number }> {
 		try {
 			const config = (await this._session.evaluate(SESSION_CONFIG_CODE)).result as SessionConfig;
-			cacheDir = config.cacheDir;
-			const stdout = await runHelper(config.rscript, `c(${config.config}, list(pak = ${usePak ? 'TRUE' : 'FALSE'}))`);
+			const stdout = await runHelper(config.rscript, config.env, `c(${config.config}, list(pak = ${usePak ? 'TRUE' : 'FALSE'}))`);
 			const urls = stdout.split(/\r?\n/).filter(url => url.length > 0);
 			LOGGER.info(`Cached the package indexes of ${urls.length} R repositories`);
 			if (urls.length > 0) {
-				return { cacheDir, urls, ttlMs: config.maxAge * 1000 };
+				return { urls, ttlMs: config.maxAge * 1000 };
 			}
 		} catch (err) {
 			LOGGER.warn(`Failed to fetch R repository indexes: ${err}`);
 		}
-		return { cacheDir, urls: [], ttlMs: FAILURE_RETRY_MS };
+		return { urls: [], ttlMs: FAILURE_RETRY_MS };
 	}
 
 	/**
 	 * Looks up `names` in the session's cached indexes. Repositories whose
 	 * cached index is missing are skipped, so this never touches the network.
 	 */
-	private async _lookup(urls: string[], names: string[]): Promise<{ cacheDir: string; found: Set<string> }> {
+	private async _lookup(urls: string[], names: string[]): Promise<Set<string>> {
 		const code = `local({
 			dir <- ${CACHE_DIR_CODE}
 			urls <- as.character(${rVector(urls)})
@@ -155,21 +156,24 @@ export class RRepositoryIndex {
 				if ("max_repo_cache_age" %in% names(formals(ap))) args$max_repo_cache_age <- Inf
 				found <- intersect(${rVector(names)}, rownames(do.call(ap, args)))
 			}
-			list(dir = dir, found = as.list(found))
+			as.list(found)
 		})`;
-		const result = (await this._session.evaluate(code)).result as { dir: string; found: string[] };
-		return { cacheDir: result.dir, found: new Set(Array.isArray(result.found) ? result.found : []) };
+		const found = (await this._session.evaluate(code)).result;
+		return new Set(Array.isArray(found) ? found as string[] : []);
 	}
 }
 
-function runHelper(rscript: string, config: string): Promise<string> {
+/** Runs the helper with the session's environment, so proxy and TLS settings match. */
+function runHelper(rscript: string, env: Record<string, string>, config: string): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const child = execFile(
 			rscript,
 			['--no-init-file', HELPER_SCRIPT],
-			{ cwd: os.tmpdir(), timeout: HELPER_TIMEOUT_MS, windowsHide: true },
+			{ cwd: os.tmpdir(), env, timeout: HELPER_TIMEOUT_MS, windowsHide: true },
 			(err, stdout) => err ? reject(err) : resolve(stdout),
 		);
+		// Write failures (e.g. EPIPE when Rscript exits early) are reported by the callback.
+		child.stdin?.on('error', () => { });
 		child.stdin?.end(config);
 	});
 }

@@ -353,6 +353,11 @@ export class RPackageManager {
 		return this._repositoryIndex.filterAvailable(names, usePak);
 	}
 
+	/** Forgets cached repository lookups; call when R restarts. */
+	resetRepositoryIndex(): void {
+		this._repositoryIndex.reset();
+	}
+
 	/**
 	 * Get available versions of a specific package.
 	 * Returns the current version from configured repos.
