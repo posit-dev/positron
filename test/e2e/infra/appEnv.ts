@@ -1,0 +1,130 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// Keep this file import-free: launch.sh loads it via tsx before the harness exists.
+
+/** Env var names that look like secrets. */
+export const SECRET_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSKEY|CREDENTIAL|LICENSE|OTP)/i;
+
+/**
+ * CI secrets mapped into e2e test step env, plus the 1Password and GitHub tokens.
+ * Backup for names the pattern misses (and for the ones it catches).
+ */
+export const SECRET_ENV_DENYLIST: readonly string[] = [
+	'CONNECT_BOOTSTRAP_SECRETKEY',
+	'DATABRICKS_PAT',
+	'DATABRICKS_WORKSPACE',
+	'E2E_CONNECT_APIKEY',
+	'E2E_CONNECT_SERVER',
+	'E2E_POSTGRES_PASSWORD',
+	'E2E_POSTGRES_USER',
+	'GH_TOKEN',
+	'GITHUB_TOKEN',
+	'OP_MANAGED_VARIABLES',
+	'OP_SERVICE_ACCOUNT_TOKEN',
+	'POSIT_WORKBENCH_PASSWORD',
+	'SNOWFLAKE_ACCOUNT',
+	'SNOWFLAKE_PASSWORD',
+	'SNOWFLAKE_USER',
+	'WB_PASSWORD',
+];
+
+/** Names kept even though they match the pattern. Never beats the denylist or 1Password names. */
+export const SECRET_ENV_ALLOWLIST: readonly string[] = [];
+
+const MIN_SECRET_LENGTH = 8;
+const MIN_LINE_LENGTH = 20;
+const NON_SECRET_SUFFIX = /(_URL|_HOST|_HOSTNAME|_USER|_USERNAME|_EMAIL|_ORG|_ACCOUNT)$/i;
+
+export interface SecretValue {
+	name: string;
+	value: string;
+}
+
+function norm(name: string, platform: NodeJS.Platform): string {
+	return platform === 'win32' ? name.toLowerCase() : name;
+}
+
+/** Names in `source` that must not reach the app. */
+export function secretEnvNames(
+	source: NodeJS.ProcessEnv,
+	platform: NodeJS.Platform = process.platform,
+	allowlist: readonly string[] = SECRET_ENV_ALLOWLIST
+): string[] {
+	const managedKey = Object.keys(source).find(k => norm(k, platform) === norm('OP_MANAGED_VARIABLES', platform));
+	const managed = new Set(
+		(managedKey ? source[managedKey] ?? '' : '')
+			.split(',')
+			.map(n => n.trim())
+			.filter(Boolean)
+			.map(n => norm(n, platform))
+	);
+	const deny = new Set(SECRET_ENV_DENYLIST.map(n => norm(n, platform)));
+	const allow = new Set(allowlist.map(n => norm(n, platform)));
+
+	return Object.keys(source).filter(name => {
+		const key = norm(name, platform);
+		if (managed.has(key) || deny.has(key)) {
+			return true;
+		}
+		return SECRET_NAME_PATTERN.test(name) && !allow.has(key);
+	});
+}
+
+/** `source` without secrets, then `extraEnv` applied on top (undefined unsets). */
+export function appEnv(
+	source: NodeJS.ProcessEnv,
+	extraEnv: Record<string, string | undefined> = {},
+	platform: NodeJS.Platform = process.platform
+): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = { ...source };
+	for (const name of secretEnvNames(source, platform)) {
+		delete env[name];
+	}
+	for (const [name, value] of Object.entries(extraEnv)) {
+		if (value === undefined) {
+			for (const k of Object.keys(env)) {
+				if (norm(k, platform) === norm(name, platform)) {
+					delete env[k];
+				}
+			}
+		} else {
+			env[name] = value;
+		}
+	}
+	return env;
+}
+
+/** Values that scrub and scan look for. */
+export function secretValues(source: NodeJS.ProcessEnv): SecretValue[] {
+	const seen = new Set<string>();
+	const result: SecretValue[] = [];
+	const add = (name: string, value: string) => {
+		if (!seen.has(value)) {
+			seen.add(value);
+			result.push({ name, value });
+		}
+	};
+
+	for (const name of secretEnvNames(source)) {
+		const value = source[name];
+		if (!value || name.toUpperCase() === 'OP_MANAGED_VARIABLES') {
+			continue;
+		}
+		if (NON_SECRET_SUFFIX.test(name) && !SECRET_NAME_PATTERN.test(name)) {
+			continue;
+		}
+		if (/[\r\n]/.test(value)) {
+			for (const line of value.split(/\r?\n/).map(l => l.trim())) {
+				if (line.length >= MIN_LINE_LENGTH && !line.startsWith('-----')) {
+					add(name, line);
+				}
+			}
+		} else if (value.length >= MIN_SECRET_LENGTH) {
+			add(name, value);
+		}
+	}
+	return result;
+}
