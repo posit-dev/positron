@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { AppError } from '../appError';
 import { AppOutput } from '../appOutput';
 import { AppController, AppInfo, AppRegistry, AppStatus, ReadOutputResult, RESULT_BUDGET, RunningApp, UNTRUSTED_NOTE } from '../appRegistry';

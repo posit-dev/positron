@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { pickConfiguredDownloadUrlTemplate } from './serverDownloadUrl';
 
 const LEGACY_URL = 'https://example.test/legacy/positron-reh-${os}-${arch}-${version}.tar.gz';

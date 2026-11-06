@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { screen } from '@testing-library/react';
 import { EditorFontLigatures, EditorFontVariations } from '../../../../../editor/common/config/editorOptions.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';

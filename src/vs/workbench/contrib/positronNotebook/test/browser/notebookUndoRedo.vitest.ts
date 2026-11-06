@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { IUndoRedoService } from '../../../../../platform/undoRedo/common/undoRedo.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';

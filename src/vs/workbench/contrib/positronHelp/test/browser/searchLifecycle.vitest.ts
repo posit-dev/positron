@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 vi.hoisted(() => Object.assign(globalThis, {
 	_VSCODE_FILE_ROOT: new URL('../../../../../../..', import.meta.url).pathname
 }));

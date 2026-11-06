@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Emitter } from '../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
 import { setupRTLRenderer } from './reactTestingLibrary.js';

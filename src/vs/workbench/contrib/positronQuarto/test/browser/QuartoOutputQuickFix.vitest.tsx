@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IPositronAcademicLicenseService } from '../../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 import { IStorageService } from '../../../../../platform/storage/common/storage.js';

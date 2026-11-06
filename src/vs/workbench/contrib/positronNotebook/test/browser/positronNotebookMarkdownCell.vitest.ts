@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ISettableObservable } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';

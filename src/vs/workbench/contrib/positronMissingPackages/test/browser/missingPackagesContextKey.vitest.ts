@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IContextKey, IContextKeyService, ContextKeyValue } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';

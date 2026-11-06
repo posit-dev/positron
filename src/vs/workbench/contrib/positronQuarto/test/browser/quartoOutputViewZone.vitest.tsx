@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
 /// <reference types="@testing-library/jest-dom/vitest" />
 
 import { act } from '@testing-library/react';
