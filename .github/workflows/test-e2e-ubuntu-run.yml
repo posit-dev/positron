@@ -190,18 +190,15 @@ jobs:
           # test. Pairs with the SNOWFLAKE_ACCOUNT secret already exported above, which
           # doubles as the account identifier that test signs in with.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      # Redshift workgroup used by the data-connections e2e tests).
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: 'true'
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"

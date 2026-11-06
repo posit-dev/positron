@@ -117,8 +117,6 @@ jobs:
           REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
           REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
           # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
           # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
@@ -328,12 +326,12 @@ jobs:
       # Joined just before the tests, not at the top of the job: only the test run needs the
       # tailnet, and the action repoints macOS DNS at MagicDNS, which cannot resolve public
       # hosts on these runners (brew installs fail with "Could not resolve host: ghcr.io").
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: 'true'
 
       # Tailscale is only needed for IP routing to private infra, not MagicDNS, so put the
       # runner's default resolver back. Mirrors the action's own logout cleanup.
