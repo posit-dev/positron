@@ -90,6 +90,7 @@ test.describe('MCP Server', {
 			'interrupt_session',
 			'list_positron_commands',
 			'run_positron_command',
+			'run_privileged_positron_command',
 			'get_plot',
 		]));
 
@@ -182,6 +183,12 @@ test.describe('MCP Server', {
 		expect(focused.isError).not.toBe(true);
 		await expect(app.code.driver.currentPage.locator('.positron-plots-container'))
 			.toBeVisible();
+
+		const refused = await agent.callTool('run_privileged_positron_command', {
+			command_id: 'workbench.panel.positronPlots.focus',
+		});
+		expect(refused.isError).toBe(true);
+		expect(toolResultText(refused)).toContain('wrong-tool');
 	});
 
 	test('A request without a valid token is refused', { tag: [tags.PYTHON] }, async function ({ app, python }) {
