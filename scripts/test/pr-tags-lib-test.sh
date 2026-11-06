@@ -754,11 +754,15 @@ assert_eq "fallback: Posit-owned non-positron-named dir flagged, upstream one is
 # for a copyright header, so it's skipped rather than guessed at.
 assert_eq "fallback: nonexistent file not flagged" "" \
 	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/legacyRuntime/gone.ts" "$EMPTY_MAP")"
-# A Posit-owned test file in an upstream dir is not a feature dir to map.
-mkdir -p "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser"
-cp "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser/z.vitest.ts"
-assert_eq "fallback: Posit-owned test file in an upstream dir not flagged" "" \
-	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/upstreamThing/test/browser/z.vitest.ts" "$EMPTY_MAP")"
+# A Posit-owned test file in an upstream dir is not a feature dir to map, under
+# a test/ dir (plain name, so only the test/ rule applies) or co-located.
+mkdir -p "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/common"
+cp "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser/helper.ts"
+cp "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/common/z.vitest.ts"
+assert_eq "fallback: Posit-owned file under test/ in an upstream dir not flagged" "" \
+	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/upstreamThing/test/browser/helper.ts" "$EMPTY_MAP")"
+assert_eq "fallback: co-located Posit-owned vitest file in an upstream dir not flagged" "" \
+	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/upstreamThing/common/z.vitest.ts" "$EMPTY_MAP")"
 
 # --- check-test-tag-map.sh: dir-coverage ignores untracked cruft ---
 # The dir-coverage sweep walks the filesystem (`find src extensions`), not
