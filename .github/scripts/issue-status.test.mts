@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, milestoneForVersion, statusAt, type DecisionInput } from './issue-status.mts';
+import { decide, isBefore, releaseTitle, statusAt, type DecisionInput } from './issue-status.mts';
 
 const base: DecisionInput = {
 	action: 'opened',
@@ -16,7 +16,8 @@ const base: DecisionInput = {
 	intoDefaultBranch: true,
 	status: 'Backlog',
 	previous: undefined,
-	hasMilestone: false,
+	milestone: undefined,
+	release: undefined,
 	otherOpenPRs: false,
 };
 
@@ -45,8 +46,9 @@ test('issues off the board or already Done are left alone', () => {
 	assert.equal(decide({ ...base, status: 'Done', action: 'closed' }).setStatus, undefined);
 });
 
+const merged = { ...base, action: 'closed', merged: true, status: 'PR Ready' as const, release: '2026.12.0 Release' };
+
 test('merged PR adds a milestone and leaves the status to the board', () => {
-	const merged = { ...base, action: 'closed', merged: true, status: 'PR Ready' as const, previous: 'Backlog' as const };
 	assert.deepEqual(
 		[decide(merged).setStatus, decide(merged).setMilestone],
 		[undefined, true],
@@ -55,10 +57,17 @@ test('merged PR adds a milestone and leaves the status to the board', () => {
 	assert.equal(decide({ ...merged, status: 'Done' }).setMilestone, true);
 });
 
-test('merged PR keeps an existing milestone and skips non-default branches', () => {
-	const merged = { ...base, action: 'closed', merged: true, status: 'PR Ready' as const };
-	assert.equal(decide({ ...merged, hasMilestone: true }).setMilestone, undefined);
+test('merged PR replaces a planning or earlier release milestone', () => {
+	assert.equal(decide({ ...merged, milestone: '2026.11.0 Release' }).setMilestone, true);
+	assert.equal(decide({ ...merged, milestone: '2026 Backlog' }).setMilestone, true);
+	assert.equal(decide({ ...merged, milestone: 'Future' }).setMilestone, true);
+});
+
+test('merged PR keeps the same or a later release, and skips non-default branches', () => {
+	assert.equal(decide({ ...merged, milestone: '2026.12.0 Release' }).setMilestone, undefined);
+	assert.equal(decide({ ...merged, milestone: '2027.01.0 Release' }).setMilestone, undefined);
 	assert.equal(decide({ ...merged, intoDefaultBranch: false }).setMilestone, undefined);
+	assert.equal(decide({ ...merged, release: undefined }).setMilestone, undefined);
 });
 
 test('unmerged close restores the status from when the PR opened', () => {
@@ -95,15 +104,14 @@ test('statusAt treats a cleared status as no status', () => {
 	assert.equal(statusAt(changes, 2, '2026-11-03T00:00:00Z'), undefined);
 });
 
-test('milestoneForVersion maps a version to its release milestone', () => {
-	const milestones = [
-		{ number: 1, title: 'Future' },
-		{ number: 2, title: '2026.11.0 Release' },
-		{ number: 3, title: '2026.12.0 Release' },
-		{ number: 4, title: '2026 Backlog' },
-	];
-	assert.equal(milestoneForVersion(milestones, '2026.12.0')?.number, 3);
-	assert.equal(milestoneForVersion(milestones, '2026.11.1')?.number, 2);
-	assert.equal(milestoneForVersion(milestones, '2027.01.0'), undefined);
-	assert.equal(milestoneForVersion(milestones, 'garbage'), undefined);
+test('releaseTitle maps a version to its release milestone', () => {
+	assert.equal(releaseTitle('2026.12.0'), '2026.12.0 Release');
+	assert.equal(releaseTitle('2026.11.1'), '2026.11.0 Release');
+	assert.equal(releaseTitle('garbage'), undefined);
+});
+
+test('isBefore orders releases across a year boundary', () => {
+	assert.equal(isBefore('2026.12.0 Release', '2027.01.0 Release'), true);
+	assert.equal(isBefore('2027.01.0 Release', '2026.12.0 Release'), false);
+	assert.equal(isBefore(undefined, '2026.12.0 Release'), true);
 });

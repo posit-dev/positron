@@ -14,9 +14,10 @@
 //                                             unless another open PR still closes the issue
 //                                             or someone has since moved it elsewhere
 //   PR merged into the default branch      -> the release milestone for the version in
-//                                             product.json at the merge commit, if the issue
-//                                             has none; the board's own "Item closed" rule
-//                                             moves the issue to Done
+//                                             product.json at the merge commit, replacing a
+//                                             missing, planning (Future, 2026 Backlog), or
+//                                             older release milestone; the board's own
+//                                             "Item closed" rule moves the issue to Done
 //
 // The milestone is chosen at merge, not earlier, because a PR that misses a release fork
 // ships in the next release. The fork bumps positronVersion on main, so the merge commit
@@ -62,23 +63,29 @@ export interface DecisionInput {
 	status: Status | undefined;
 	/** Board status when the PR was opened; undefined if it had none. */
 	previous: Status | undefined;
-	hasMilestone: boolean;
+	/** Current milestone title; undefined when it has none. */
+	milestone: string | undefined;
+	/** Release milestone title for the merge commit's version; only set for merges. */
+	release: string | undefined;
 	otherOpenPRs: boolean;
 }
 
 /** Pure transition rules. Everything that talks to GitHub lives below. */
 export function decide(input: DecisionInput): Decision {
-	const { action, draft, merged, intoDefaultBranch, status, previous, hasMilestone, otherOpenPRs } = input;
+	const { action, draft, merged, intoDefaultBranch, status, previous, milestone, release, otherOpenPRs } = input;
 	// Checked before the board status: by the time this runs the merge may already have
 	// closed the issue and moved it to Done.
 	if (action === 'closed' && merged) {
 		if (!intoDefaultBranch) {
 			return { reason: 'merged into a non-default branch; leaving the milestone' };
 		}
-		if (hasMilestone) {
-			return { reason: 'merged; issue already has a milestone' };
+		if (release === undefined) {
+			return { reason: 'merged; no release milestone for this version' };
 		}
-		return { setMilestone: true, reason: 'merged; adding the release milestone' };
+		if (!isBefore(milestone, release)) {
+			return { reason: `merged; keeping ${milestone}` };
+		}
+		return { setMilestone: true, reason: `merged; ${milestone ?? 'no milestone'} -> ${release}` };
 	}
 	if (status === undefined) {
 		return { reason: 'issue is not on the board' };
@@ -117,10 +124,24 @@ export function decide(input: DecisionInput): Decision {
 	return { setStatus: target, reason: `${draft ? 'draft' : 'ready'} PR -> ${target}` };
 }
 
-/** The release milestone for a Positron version: 2026.12.0 and 2026.12.1 both map to "2026.12.0 Release". */
-export function milestoneForVersion<M extends { title: string }>(milestones: M[], version: string): M | undefined {
+/** The release milestone title for a Positron version: 2026.12.0 and 2026.12.1 both map to "2026.12.0 Release". */
+export function releaseTitle(version: string): string | undefined {
 	const release = /^(\d+\.\d+)\./.exec(version)?.[1];
-	return release === undefined ? undefined : milestones.find(m => m.title === `${release}.0 Release`);
+	return release === undefined ? undefined : `${release}.0 Release`;
+}
+
+/**
+ * Whether `current` should give way to the release milestone `release`: it is missing, a
+ * planning milestone (Future, 2026 Backlog), or an earlier release. A same or later release
+ * is kept, so a backport's milestone is never pulled back.
+ */
+export function isBefore(current: string | undefined, release: string): boolean {
+	const key = (title: string) => {
+		const m = /^(\d+)\.(\d+)\.\d+ Release$/.exec(title);
+		return m ? Number(m[1]) * 100 + Number(m[2]) : undefined;
+	};
+	const currentKey = current === undefined ? undefined : key(current);
+	return currentKey === undefined || currentKey < key(release)!;
 }
 
 export interface StatusChange {
@@ -172,7 +193,7 @@ interface IssueOnBoard {
 	itemId: string | undefined;
 	status: Status | undefined;
 	statusAtPROpen: Status | undefined;
-	hasMilestone: boolean;
+	milestone: string | undefined;
 	otherOpenPRs: boolean;
 }
 
@@ -185,7 +206,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 				closingIssuesReferences: {
 					nodes: {
 						number: number;
-						milestone: { number: number } | null;
+						milestone: { title: string } | null;
 						projectItems: { nodes: { id: string; project: { number: number }; fieldValueByName: { name: string } | null }[] };
 						closedByPullRequestsReferences: { nodes: { number: number; state: string }[] };
 						timelineItems: { nodes: StatusChange[] };
@@ -207,7 +228,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 					closingIssuesReferences(first: 20) {
 						nodes {
 							number
-							milestone { number }
+							milestone { title }
 							projectItems(first: 10) {
 								nodes {
 									id
@@ -234,7 +255,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 			itemId: item?.id,
 			status: item?.fieldValueByName?.name as Status | undefined,
 			statusAtPROpen: statusAt(n.timelineItems.nodes, projectNumber, prOpenedAt),
-			hasMilestone: n.milestone !== null,
+			milestone: n.milestone?.title,
 			otherOpenPRs: n.closedByPullRequestsReferences.nodes.some(p => p.number !== pr && p.state === 'OPEN'),
 		};
 	});
@@ -318,7 +339,13 @@ async function main() {
 		return;
 	}
 
+	const intoDefaultBranch = pr.base?.ref === event.repository?.default_branch;
 	let version: string | undefined;
+	let release: string | undefined;
+	if (action === 'closed' && pr.merged && intoDefaultBranch) {
+		version = JSON.parse(await readFile('product.json', 'utf8')).positronVersion as string;
+		release = releaseTitle(version);
+	}
 	let milestone: { number: number; title: string } | undefined;
 
 	for (const issue of issues) {
@@ -326,10 +353,11 @@ async function main() {
 			action,
 			draft: Boolean(pr.draft),
 			merged: Boolean(pr.merged),
-			intoDefaultBranch: pr.base?.ref === event.repository?.default_branch,
+			intoDefaultBranch,
 			status: issue.status,
 			previous: issue.statusAtPROpen,
-			hasMilestone: issue.hasMilestone,
+			milestone: issue.milestone,
+			release,
 			otherOpenPRs: issue.otherOpenPRs,
 		});
 		console.log(`#${issue.number} (${issue.status ?? 'not on board'}): ${decision.reason}`);
@@ -348,15 +376,15 @@ async function main() {
 			}
 		}
 		if (decision.setMilestone) {
-			version ??= JSON.parse(await readFile('product.json', 'utf8')).positronVersion as string;
-			milestone ??= milestoneForVersion(await rest('GET', `/repos/${owner}/${repo}/milestones?state=open&per_page=100`), version);
+			milestone ??= (await rest<{ number: number; title: string }[]>('GET', `/repos/${owner}/${repo}/milestones?state=open&per_page=100`))
+				.find(m => m.title === release);
 			if (milestone) {
 				console.log(`  set milestone -> ${milestone.title}`);
 				if (!dryRun) {
 					await rest('PATCH', `/repos/${owner}/${repo}/issues/${issue.number}`, { milestone: milestone.number });
 				}
 			} else {
-				console.log(`  no open milestone for version ${version}; leaving milestone unset`);
+				console.log(`  no open milestone named ${release} (version ${version}); leaving it`);
 			}
 		}
 	}
