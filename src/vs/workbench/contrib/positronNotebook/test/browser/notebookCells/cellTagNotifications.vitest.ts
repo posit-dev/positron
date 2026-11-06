@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { notifyTagResult } from '../../../browser/notebookCells/cellTagNotifications.js';

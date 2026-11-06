@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { deserialize, serialize } from 'v8';
 import { DuckDBConnection, DuckDBInstance } from '@duckdb/node-api';
 import { materializeRows } from './duckdbRows';

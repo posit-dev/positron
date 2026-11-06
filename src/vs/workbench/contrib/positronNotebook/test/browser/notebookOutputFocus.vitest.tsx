@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { VSBuffer } from '../../../../../base/common/buffer.js';

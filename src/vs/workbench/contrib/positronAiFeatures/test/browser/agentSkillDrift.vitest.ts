@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 /* eslint-disable local/code-import-patterns -- this test scans repository files with Node APIs. */
 import * as fs from 'fs';
 import * as path from 'path';

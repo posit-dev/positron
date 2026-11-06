@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { screen } from '@testing-library/react';
 import * as marked from '../../../../../base/common/marked/marked.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';

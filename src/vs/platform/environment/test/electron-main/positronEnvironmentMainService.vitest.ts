@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import product from '../../../product/common/product.js';
 import { EnvironmentMainService } from '../../electron-main/environmentMainService.js';
 import { OPTIONS, parseArgs } from '../../node/argv.js';
