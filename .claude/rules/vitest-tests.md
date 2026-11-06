@@ -106,7 +106,7 @@ Adding the alias is a shared-config change affecting every extension test, so ag
 }
 ```
 
-Add its path to `references` in the root `tsconfig.json`. The editor uses that list to pick the config for each Vitest file. The config keeps the extension's compiler options, and `tsconfig.vitest.base.json` adds the Vitest files, Vitest's globals, and the `vscode` and `positron` API types. If a test needs other ambient types, add them to the extension's `tsconfig.vitest.json`. check-ts fails if an extension has Vitest files but no listed config.
+Add its path to `references` in the root `tsconfig.json`. The editor uses that list to pick the config for each Vitest file. The config keeps the extension's compiler options, and `tsconfig.vitest.base.json` adds the Vitest files, Vitest's globals, and the `vscode` and `positron` API types. The base's `include` replaces the extension's, so if the extension's `tsconfig.json` includes other `.d.ts` files (such as a `vscode.proposed.*.d.ts`), list them under `files` in its `tsconfig.vitest.json`. check-ts fails if an extension has Vitest files but no listed config.
 
 `test/e2e` has a `tsconfig.vitest.json` too. Tests under `src/`, and the cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`), use `vitest.tsconfig.json` instead.
 
