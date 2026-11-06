@@ -62,10 +62,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// `test.use({ enablePositAIProvider: true })`.
 	enablePositAIProvider: [false, { scope: 'worker', option: true }],
 
-	// Extra environment variables merged onto the launched app's env. Set a value
-	// to `undefined` to UNSET a variable for the app (e.g. scrubbing provider auth
-	// vars so a modal starts disconnected). Opt in with
-	// `test.use({ extraEnv: { ANTHROPIC_API_KEY: undefined } })`.
+	// Extra environment variables merged onto the launched app's env, after appEnv
+	// has removed secrets. Set a value to `undefined` to UNSET a variable for the
+	// app. Opt in with `test.use({ extraEnv: { POSITRON_FOO: undefined } })`.
 	extraEnv: [{}, { scope: 'worker', option: true }],
 
 	// Extra user settings written before the app starts, so no window reload is

@@ -1095,7 +1095,7 @@ jobs:
             cp "$F" "$STAGE/$F"
           done
           cd "$GITHUB_WORKSPACE"
-          env -u E2E_POSTGRES_PASSWORD npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts "$STAGE"
+          npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts "$STAGE"
 
       - name: Upload run directory
         if: always() && steps.secret-scan.outcome == 'success'
