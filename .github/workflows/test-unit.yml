@@ -236,13 +236,15 @@ jobs:
       # cache never installs it. The type-check needs it for the e2e code its
       # tests import. Types only, so skip install scripts (native builds are most of the time).
       - name: 📦 Install E2E Dependencies
+        id: e2e-deps
         run: '[ -d test/e2e/node_modules ] || npm --prefix test/e2e ci --ignore-scripts --prefer-offline --no-audit --no-fund'
 
       - name: 🔎 Type-check Vitest Files
         id: vitest-check-ts
         run: npm run test:positron:check-ts
 
-      # Run even when the type-check fails, so one failure doesn't hide the other.
+      # Run even when the e2e install or type-check fails, so one failure doesn't
+      # hide the other. Skipped only when the main install failed.
       - name: 🧪 Run Vitest Tests
-        if: ${{ !cancelled() && steps.vitest-check-ts.outcome != 'skipped' }}
+        if: ${{ !cancelled() && steps.e2e-deps.outcome != 'skipped' }}
         run: npm run test:positron
