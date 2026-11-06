@@ -12,7 +12,8 @@ import { scanPaths } from './secretScan';
 const CANARY_NAME = 'E2E_LEAK_CANARY_KEY';
 const MARKER_DIR = 'secret-scan';
 const MARKER = join(MARKER_DIR, 'clean');
-const SCAN_DIRS = ['test-results', 'playwright-report', 'blob-report', 'test-logs', join('.build', 'crashes'), join('test', 'assistant-inspect-ai')];
+// The upload set. Crash dumps are never uploaded, so they are not scanned.
+const SCAN_DIRS = ['test-results', 'playwright-report', 'blob-report', 'test-logs', join('test', 'assistant-inspect-ai')];
 
 /**
  * Runs last in CI. Writes secret-scan/clean only when nothing in the upload set
