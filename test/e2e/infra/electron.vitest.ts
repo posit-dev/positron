@@ -20,11 +20,16 @@ describe('resolveElectronConfiguration', () => {
 
 	it('strips secrets and applies extraEnv', async () => {
 		process.env.FAKE_TEST_API_KEY = 'fake-value-123456';
+		// Quality lives in application.ts, which opens a network connection on import.
+		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		const options = {
+			logger: { log: () => { } },
 			logsPath: '/fake/logs',
 			crashesPath: '/fake/crashes',
+			quality: 0,
+			version: { major: 0, minor: 0, patch: 0 },
 			extraEnv: { ADDED: '1' },
-		} as unknown as LaunchOptions;
+		} as LaunchOptions;
 
 		const { env } = await resolveElectronConfiguration(options);
 

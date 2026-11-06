@@ -67,7 +67,7 @@ export interface LaunchOptions {
 	readonly extensionDevelopmentPath?: string;
 
 	/**
-	 * Extra environment variables merged on top of the inherited `process.env`
+	 * Extra environment variables merged on top of the filtered env (secrets removed by `appEnv`)
 	 * when launching the Electron child process. Set a value to `undefined`
 	 * to unset the variable. Used by tests that need to inject env-based
 	 * mocks (e.g. `VSCODE_COPILOT_CHAT_TOKEN`).
