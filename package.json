@@ -71,6 +71,7 @@
     "watch-e2ed": "deemon npm run watch-e2e",
     "e2e-watch": "npm run watch-e2e",
     "kill-watch-e2ed": "deemon --kill npm run watch-e2e",
+    "e2e-scan-secrets": "npx tsx test/e2e/scripts/scan-for-secrets.ts test-results playwright-report test-logs blob-report",
     "e2e-electron": "npx playwright test --project e2e-electron",
     "e2e-chromium": "npx playwright test --project e2e-chromium",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @:critical",

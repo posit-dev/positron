@@ -42,10 +42,14 @@ export function encodedForms(value: string): { encoding: SecretEncoding; text: s
 	});
 }
 
+/** latin1 maps bytes 1:1, so searching a latin1 string works on any binary content. */
+export function toLatin1Needle(text: string): string {
+	return Buffer.from(text, 'utf8').toString('latin1');
+}
+
 /** Replaces secret values with `***`. Returns the same Buffer when nothing matched. */
 export function scrubBuffer(data: Buffer, secrets: SecretValue[]): { data: Buffer; replaced: number } {
-	// latin1 maps bytes 1:1, so non-UTF-8 content survives the round trip.
-	const needles = [...new Set(secrets.flatMap(s => encodedForms(s.value).map(f => Buffer.from(f.text, 'utf8').toString('latin1'))))]
+	const needles = [...new Set(secrets.flatMap(s => encodedForms(s.value).map(f => toLatin1Needle(f.text))))]
 		.sort((a, b) => b.length - a.length);
 
 	let text = data.toString('latin1');
