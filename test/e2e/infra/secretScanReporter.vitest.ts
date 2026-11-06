@@ -1,0 +1,79 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import { join } from 'path';
+import { secretEnvNames } from './appEnv';
+import SecretScanReporter from './secretScanReporter';
+
+const CANARY_NAME = 'E2E_LEAK_CANARY_KEY';
+const FAKE_CANARY = 'canary-fake-value-123456';
+const FullResult = { status: 'passed' as const, startTime: new Date(), duration: 0 };
+
+describe('SecretScanReporter', () => {
+	let cwd: string;
+	let tmp: string;
+	let savedEnv: NodeJS.ProcessEnv;
+	let savedCwd: string;
+
+	beforeEach(() => {
+		savedCwd = process.cwd();
+		savedEnv = { ...process.env };
+		// Drop the developer's real secrets so the scan neither looks for nor reports them.
+		for (const name of secretEnvNames(process.env)) {
+			delete process.env[name];
+		}
+		process.env[CANARY_NAME] = FAKE_CANARY;
+		tmp = fs.mkdtempSync(join(os.tmpdir(), 'secret-scan-reporter-'));
+		cwd = tmp;
+		process.chdir(cwd);
+		fs.mkdirSync('test-results', { recursive: true });
+	});
+
+	afterEach(() => {
+		process.chdir(savedCwd);
+		for (const key of Object.keys(process.env)) {
+			if (savedEnv[key] === undefined) {
+				delete process.env[key];
+			}
+		}
+		Object.assign(process.env, savedEnv);
+		fs.rmSync(tmp, { recursive: true, force: true });
+	});
+
+	const marker = () => join(cwd, 'secret-scan', 'clean');
+
+	it('clean run writes the marker', async () => {
+		fs.writeFileSync(join('test-results', 'log.txt'), 'nothing to see');
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toBeUndefined();
+		expect(fs.existsSync(marker())).toBe(true);
+	});
+
+	it('dirty run removes the marker and fails', async () => {
+		fs.mkdirSync('secret-scan');
+		fs.writeFileSync(marker(), '');
+		fs.writeFileSync(join('test-results', 'log.txt'), `token=${FAKE_CANARY}`);
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+		expect(fs.existsSync(marker())).toBe(false);
+	});
+
+	it('scan error fails closed', async () => {
+		fs.writeFileSync(join('test-results', 'bad.zip'), 'this is not a zip');
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+		expect(fs.existsSync(marker())).toBe(false);
+	});
+
+	it('fails closed when the canary is not set', async () => {
+		delete process.env[CANARY_NAME];
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+		expect(fs.existsSync(marker())).toBe(false);
+	});
+});

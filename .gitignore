@@ -109,3 +109,6 @@ dist
 # Posit Assistant plans, which are local working notes rather than repo content
 .posit/assistant/plans/
 # --- End Positron ---
+
+# CI secret scan marker
+secret-scan/

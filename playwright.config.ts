@@ -61,6 +61,7 @@ if (process.env.CI) {
 		...insightsReporters,
 		['json', { outputFile: jsonOut }],
 		['list'], ['html'], ['blob'],
+		['./test/e2e/infra/secretScanReporter.ts'],
 	];
 } else {
 	reporter = [['list']];
