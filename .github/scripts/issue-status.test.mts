@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, formatMarker, parseMarkers, pickReleaseMilestone, type DecisionInput } from './issue-status.mts';
+import { decide, pickReleaseMilestone, statusAt, type DecisionInput } from './issue-status.mts';
 
 const base: DecisionInput = {
 	action: 'opened',
@@ -19,10 +19,9 @@ const base: DecisionInput = {
 	otherOpenPRs: false,
 };
 
-test('ready PR moves the issue to PR Ready and remembers the old status', () => {
+test('ready PR moves the issue to PR Ready', () => {
 	const d = decide(base);
 	assert.equal(d.setStatus, 'PR Ready');
-	assert.equal(d.remember, true);
 	assert.equal(d.setMilestone, undefined);
 });
 
@@ -41,16 +40,8 @@ test('draft PR does not pull an issue down from PR Ready unless converted', () =
 	assert.equal(decide({ ...base, draft: true, status: 'PR Ready', action: 'converted_to_draft' }).setStatus, 'In Progress');
 });
 
-test('a second run does not remember again', () => {
-	const d = decide({ ...base, status: 'PR Ready', previous: 'Backlog' });
-	assert.equal(d.setStatus, undefined);
-	assert.equal(d.remember, undefined);
-});
-
-test('an issue a human already moved to PR Ready is not remembered', () => {
-	const d = decide({ ...base, status: 'PR Ready' });
-	assert.equal(d.setStatus, undefined);
-	assert.equal(d.remember, undefined);
+test('a second run on an issue already PR Ready changes nothing', () => {
+	assert.equal(decide({ ...base, status: 'PR Ready', previous: 'Backlog' }).setStatus, undefined);
 });
 
 test('issues off the board or already Done are left alone', () => {
@@ -65,22 +56,38 @@ test('merged PR changes nothing', () => {
 	assert.equal(d.setMilestone, undefined);
 });
 
-test('unmerged close restores the saved status', () => {
-	const d = decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'Up Next' });
-	assert.equal(d.setStatus, 'Up Next');
+test('unmerged close restores the status from when the PR opened', () => {
+	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'Up Next' }).setStatus, 'Up Next');
+	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'In Progress' }).setStatus, 'In Progress');
 });
 
-test('unmerged close with no saved status or another open PR does nothing', () => {
+test('unmerged close with no earlier status or another open PR does nothing', () => {
 	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready' }).setStatus, undefined);
 	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'Backlog', otherOpenPRs: true }).setStatus, undefined);
 });
 
-test('markers round-trip through PR comments', () => {
-	const bodies = ['hello', formatMarker(12, 'Up Next'), `${formatMarker(13, 'Triage')}\nmore text`];
-	const parsed = parseMarkers(bodies);
-	assert.equal(parsed.get(12), 'Up Next');
-	assert.equal(parsed.get(13), 'Triage');
-	assert.equal(parsed.size, 2);
+test('unmerged close leaves an issue someone moved off In Progress or PR Ready', () => {
+	assert.equal(decide({ ...base, action: 'closed', status: 'Up Next', previous: 'Backlog' }).setStatus, undefined);
+});
+
+test('statusAt reads the latest change on the board at or before the time', () => {
+	const changes = [
+		{ createdAt: '2026-11-01T00:00:00Z', status: 'Triage', project: { number: 2 } },
+		{ createdAt: '2026-11-03T00:00:00Z', status: 'Backlog', project: { number: 2 } },
+		{ createdAt: '2026-11-04T00:00:00Z', status: 'Doing', project: { number: 9 } },
+		{ createdAt: '2026-11-05T00:00:00Z', status: 'PR Ready', project: { number: 2 } },
+	];
+	assert.equal(statusAt(changes, 2, '2026-11-04T12:00:00Z'), 'Backlog');
+	assert.equal(statusAt(changes, 2, '2026-11-03T00:00:00Z'), 'Backlog');
+	assert.equal(statusAt(changes, 2, '2026-10-01T00:00:00Z'), undefined);
+});
+
+test('statusAt treats a cleared status as no status', () => {
+	const changes = [
+		{ createdAt: '2026-11-01T00:00:00Z', status: 'Backlog', project: { number: 2 } },
+		{ createdAt: '2026-11-02T00:00:00Z', status: '', project: { number: 2 } },
+	];
+	assert.equal(statusAt(changes, 2, '2026-11-03T00:00:00Z'), undefined);
 });
 
 test('picks the earliest release milestone that is not yet due', () => {

@@ -10,13 +10,14 @@
 //
 //   draft PR opened / converted to draft   -> In Progress
 //   PR opened / marked ready for review    -> PR Ready, and a release milestone if it has none
-//   PR closed without merging              -> back to the status it had before, unless
-//                                             another open PR still closes the issue
+//   PR closed without merging              -> back to the status it had when the PR opened,
+//                                             unless another open PR still closes the issue
+//                                             or someone has since moved it elsewhere
 //   PR merged                              -> nothing; the board's own "Item closed" rule
 //                                             moves the issue to Done
 //
-// The previous status is kept in a hidden marker comment on the PR, so the restore does
-// not have to guess. Issues already in Done are never touched.
+// The status before the PR comes from the issue's board history, so nothing is written
+// to the PR. Issues already in Done are never touched.
 //
 // The second mode, `close-done`, closes every open issue whose board status is Done.
 // Dragging an issue to Done on the board does not close it, so without this the issue
@@ -27,7 +28,7 @@
 //   node .github/scripts/issue-status.mts close-done   # close open issues that are Done
 //
 // Env:
-//   GITHUB_TOKEN          token with issues: write, pull-requests: write, organization projects: write
+//   GITHUB_TOKEN          token with issues: write, pull-requests: read, organization projects: write
 //   GITHUB_REPOSITORY     owner/repo (set by Actions)
 //   GITHUB_EVENT_PATH     pull_request event payload (set by Actions)
 //   PROJECT_OWNER         org that owns the board, default posit-dev
@@ -40,8 +41,6 @@ export type Status = 'Triage' | 'Backlog' | 'Up Next' | 'In Progress' | 'PR Read
 
 export interface Decision {
 	setStatus?: Status;
-	/** Record the current status in the PR marker so an unmerged close can restore it. */
-	remember?: boolean;
 	setMilestone?: boolean;
 	reason: string;
 }
@@ -52,7 +51,7 @@ export interface DecisionInput {
 	merged: boolean;
 	/** Current board status; undefined when the issue is not on the board. */
 	status: Status | undefined;
-	/** Status saved in the PR marker by an earlier run, if any. */
+	/** Board status when the PR was opened; undefined if it had none. */
 	previous: Status | undefined;
 	hasMilestone: boolean;
 	otherOpenPRs: boolean;
@@ -75,11 +74,14 @@ export function decide(input: DecisionInput): Decision {
 		if (otherOpenPRs) {
 			return { reason: 'another open PR still closes this issue' };
 		}
+		if (status !== 'In Progress' && status !== 'PR Ready') {
+			return { reason: `someone moved it to ${status}; leaving it` };
+		}
 		if (previous === undefined) {
-			return { reason: 'no saved status to restore' };
+			return { reason: 'no status before the PR to restore' };
 		}
 		if (previous === status) {
-			return { reason: `already at saved status ${status}` };
+			return { reason: `already at its status before the PR, ${status}` };
 		}
 		return { setStatus: previous, reason: `PR closed without merging; restoring ${previous}` };
 	}
@@ -92,15 +94,11 @@ export function decide(input: DecisionInput): Decision {
 	const decision: Decision = { reason: `${draft ? 'draft' : 'ready'} PR -> ${target}` };
 	if (status !== target) {
 		decision.setStatus = target;
-		// Save the status only when this PR is the one moving the issue away from it.
-		if (previous === undefined) {
-			decision.remember = true;
-		}
 	}
 	if (!draft && !hasMilestone) {
 		decision.setMilestone = true;
 	}
-	if (!decision.setStatus && !decision.remember && !decision.setMilestone) {
+	if (!decision.setStatus && !decision.setMilestone) {
 		decision.reason = `already ${status}`;
 	}
 	return decision;
@@ -116,20 +114,19 @@ export function pickReleaseMilestone(
 		.sort((a, b) => new Date(a.due_on!).getTime() - new Date(b.due_on!).getTime())[0];
 }
 
-const MARKER = /<!-- issue-status issue=(\d+) prev="([^"]*)" -->/g;
-
-export function parseMarkers(bodies: string[]): Map<number, Status> {
-	const out = new Map<number, Status>();
-	for (const body of bodies) {
-		for (const m of body.matchAll(MARKER)) {
-			out.set(Number(m[1]), m[2] as Status);
-		}
-	}
-	return out;
+export interface StatusChange {
+	createdAt: string;
+	status: string;
+	project: { number: number } | null;
 }
 
-export function formatMarker(issue: number, prev: Status): string {
-	return `<!-- issue-status issue=${issue} prev="${prev}" -->\nBoard status of #${issue} before this PR: ${prev}. It goes back there if this PR closes unmerged.`;
+/** The issue's status on one board at a point in time, from its status-change history. */
+export function statusAt(changes: StatusChange[], projectNumber: number, at: string): Status | undefined {
+	const atMs = new Date(at).getTime();
+	const before = changes
+		.filter(c => c.project?.number === projectNumber && new Date(c.createdAt).getTime() <= atMs)
+		.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+	return (before.at(-1)?.status || undefined) as Status | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +162,7 @@ interface IssueOnBoard {
 	number: number;
 	itemId: string | undefined;
 	status: Status | undefined;
+	statusAtPROpen: Status | undefined;
 	hasMilestone: boolean;
 	otherOpenPRs: boolean;
 }
@@ -174,12 +172,14 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 		organization: { projectV2: { id: string; field: { id: string; options: { id: string; name: string }[] } } };
 		repository: {
 			pullRequest: {
+				createdAt: string;
 				closingIssuesReferences: {
 					nodes: {
 						number: number;
 						milestone: { number: number } | null;
 						projectItems: { nodes: { id: string; project: { number: number }; fieldValueByName: { name: string } | null }[] };
 						closedByPullRequestsReferences: { nodes: { number: number; state: string }[] };
+						timelineItems: { nodes: StatusChange[] };
 					}[];
 				};
 			};
@@ -194,6 +194,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 			}
 			repository(owner: $owner, name: $repo) {
 				pullRequest(number: $pr) {
+					createdAt
 					closingIssuesReferences(first: 20) {
 						nodes {
 							number
@@ -206,6 +207,9 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 								}
 							}
 							closedByPullRequestsReferences(first: 20) { nodes { number state } }
+							timelineItems(last: 100, itemTypes: [PROJECT_V2_ITEM_STATUS_CHANGED_EVENT]) {
+								nodes { ... on ProjectV2ItemStatusChangedEvent { createdAt status project { number } } }
+							}
 						}
 					}
 				}
@@ -213,12 +217,14 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 		}`, { owner, repo, pr, projectOwner, projectNumber });
 
 	const project = data.organization.projectV2;
+	const prOpenedAt = data.repository.pullRequest.createdAt;
 	const issues: IssueOnBoard[] = data.repository.pullRequest.closingIssuesReferences.nodes.map(n => {
 		const item = n.projectItems.nodes.find(i => i.project.number === projectNumber);
 		return {
 			number: n.number,
 			itemId: item?.id,
 			status: item?.fieldValueByName?.name as Status | undefined,
+			statusAtPROpen: statusAt(n.timelineItems.nodes, projectNumber, prOpenedAt),
 			hasMilestone: n.milestone !== null,
 			otherOpenPRs: n.closedByPullRequestsReferences.nodes.some(p => p.number !== pr && p.state === 'OPEN'),
 		};
@@ -303,11 +309,7 @@ async function main() {
 		return;
 	}
 
-	const comments = await rest<{ body: string }[]>('GET', `/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`);
-	const previous = parseMarkers(comments.map(c => c.body ?? ''));
-
 	let milestone: { number: number; title: string } | undefined;
-	const markers: string[] = [];
 
 	for (const issue of issues) {
 		const decision = decide({
@@ -315,15 +317,12 @@ async function main() {
 			draft: Boolean(pr.draft),
 			merged: Boolean(pr.merged),
 			status: issue.status,
-			previous: previous.get(issue.number),
+			previous: issue.statusAtPROpen,
 			hasMilestone: issue.hasMilestone,
 			otherOpenPRs: issue.otherOpenPRs,
 		});
 		console.log(`#${issue.number} (${issue.status ?? 'not on board'}): ${decision.reason}`);
 
-		if (decision.remember && issue.status) {
-			markers.push(formatMarker(issue.number, issue.status));
-		}
 		if (decision.setStatus) {
 			const option = project.field.options.find(o => o.name === decision.setStatus);
 			if (!option) {
@@ -347,13 +346,6 @@ async function main() {
 			} else {
 				console.log('  no upcoming release milestone found; leaving milestone unset');
 			}
-		}
-	}
-
-	if (markers.length > 0) {
-		console.log(`  save previous status:\n${markers.join('\n\n')}`);
-		if (!dryRun) {
-			await rest('POST', `/repos/${owner}/${repo}/issues/${pr.number}/comments`, { body: markers.join('\n\n') });
 		}
 	}
 }
