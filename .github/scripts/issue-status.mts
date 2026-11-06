@@ -10,8 +10,8 @@
 //
 //   draft PR opened / converted to draft   -> In Progress
 //   PR opened / marked ready for review    -> PR Ready
-//   PR closed without merging, or the      -> back to the status it had when the PR first
-//   closing reference edited out of it        referenced it, unless another open PR still
+//   PR closed without merging              -> back to the status it had when the PR first
+//                                             referenced it, unless another open PR still
 //                                             closes the issue or someone has since moved it
 //   PR merged into the default branch      -> the release milestone for the version in
 //                                             product.json at the merge commit, replacing a
@@ -55,7 +55,7 @@ export interface Decision {
 }
 
 export interface DecisionInput {
-	/** The pull_request event action, or 'unlinked' for a closing reference edited out of the PR. */
+	/** The pull_request event action. */
 	action: string;
 	/** The PR is still open. */
 	open: boolean;
@@ -102,14 +102,14 @@ export function decide(input: DecisionInput): Decision {
 		return { reason: 'issue is already Done' };
 	}
 
-	if (action === 'closed' || action === 'unlinked') {
+	if (action === 'closed') {
 		if (otherOpenPRs) {
 			return { reason: 'another open PR still closes this issue' };
 		}
 		if (status !== 'In Progress' && status !== 'PR Ready') {
 			return { reason: `someone moved it to ${status}; leaving it` };
 		}
-		const decision: Decision = { reason: action === 'closed' ? 'PR closed without merging' : 'PR no longer closes this issue' };
+		const decision: Decision = { reason: 'PR closed without merging' };
 		if (previous === undefined) {
 			decision.reason += '; no status before the PR to restore';
 		} else if (previous === status) {
@@ -187,26 +187,6 @@ export function linkedAt(refs: CrossReference[], pr: number, repo: string, prOpe
 		.map(r => new Date(r.createdAt).getTime());
 	const opened = new Date(prOpenedAt).getTime();
 	return times.length === 0 ? prOpenedAt : new Date(Math.max(opened, Math.min(...times))).toISOString();
-}
-
-/**
- * Issue numbers in `repo` that a PR body closes with a keyword: "Fixes #1", "closes: owner/repo#2",
- * "Resolves https://github.com/owner/repo/issues/3". Used only to spot references removed by an
- * edit; the current set comes from GitHub's own closingIssuesReferences.
- */
-export function closingRefs(body: string | null | undefined, repo: string): number[] {
-	if (!body) {
-		return [];
-	}
-	const found = new Set<number>();
-	const re = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/|([\w.-]+\/[\w.-]+)?#)(\d+)\b/gi;
-	for (const m of body.matchAll(re)) {
-		const target = m[1] ?? m[2];
-		if (target === undefined || target.toLowerCase() === repo.toLowerCase()) {
-			found.add(Number(m[3]));
-		}
-	}
-	return [...found];
 }
 
 // ---------------------------------------------------------------------------
@@ -317,26 +297,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 	const prOpenedAt = data.repository.pullRequest.createdAt;
 	const issues = data.repository.pullRequest.closingIssuesReferences.nodes
 		.map(n => toIssue(n, pr, `${owner}/${repo}`, prOpenedAt, projectNumber));
-	return { project, prOpenedAt, issues };
-}
-
-/** Issues in this repo by number, for references an edit removed. Missing numbers (a PR, a typo) are dropped. */
-async function loadIssues(owner: string, repo: string, numbers: number[], pr: number, prOpenedAt: string, projectNumber: number) {
-	const issues: IssueOnBoard[] = [];
-	// One query each: a number that is a PR or does not exist fails its whole query.
-	for (const number of numbers) {
-		try {
-			const data = await graphql<{ repository: { issue: IssueNode } }>(`
-				query($owner: String!, $repo: String!, $number: Int!) {
-					repository(owner: $owner, name: $repo) { issue(number: $number) { ...IssueFields } }
-				}
-				${ISSUE_FIELDS}`, { owner, repo, number });
-			issues.push(toIssue(data.repository.issue, pr, `${owner}/${repo}`, prOpenedAt, projectNumber));
-		} catch (err) {
-			console.log(`#${number}: no longer referenced, but could not load it: ${(err as Error).message}`);
-		}
-	}
-	return issues;
+	return { project, issues };
 }
 
 async function openMilestone(owner: string, repo: string, title: string) {
@@ -442,18 +403,8 @@ async function main() {
 	const pr = event.pull_request;
 	const thisRepo = `${owner}/${repo}`;
 
-	const { project, prOpenedAt, issues } = await loadPR(owner, repo, pr.number, projectOwner, projectNumber);
-
-	// An edit can drop a closing reference. GitHub only lists what the body closes now, so
-	// compare against the body before the edit to find issues the PR let go of.
-	let unlinked: IssueOnBoard[] = [];
-	if (action === 'edited' && event.changes?.body) {
-		const current = new Set(issues.filter(i => i.repo === thisRepo).map(i => i.number));
-		const removed = closingRefs(event.changes.body.from, thisRepo).filter(n => !current.has(n));
-		unlinked = await loadIssues(owner, repo, removed, pr.number, prOpenedAt, projectNumber);
-	}
-
-	if (issues.length === 0 && unlinked.length === 0) {
+	const { project, issues } = await loadPR(owner, repo, pr.number, projectOwner, projectNumber);
+	if (issues.length === 0) {
 		console.log(`PR #${pr.number} closes no issues; nothing to do`);
 		return;
 	}
@@ -467,8 +418,7 @@ async function main() {
 	}
 	let milestone: { number: number; title: string } | null | undefined;
 
-	const work = [...issues.map(issue => ({ issue, action })), ...unlinked.map(issue => ({ issue, action: 'unlinked' }))];
-	for (const { issue, action } of work) {
+	for (const issue of issues) {
 		const label = issue.repo === thisRepo ? `#${issue.number}` : `${issue.repo}#${issue.number}`;
 		const decision = decide({
 			action,

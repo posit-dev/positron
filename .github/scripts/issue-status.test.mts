@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closingRefs, decide, isBefore, linkedAt, releaseTitle, statusAt, type DecisionInput } from './issue-status.mts';
+import { decide, isBefore, linkedAt, releaseTitle, statusAt, type DecisionInput } from './issue-status.mts';
 
 const base: DecisionInput = {
 	action: 'opened',
@@ -124,24 +124,6 @@ test('isBefore orders releases across a year boundary', () => {
 test('an edit to a closed PR changes nothing', () => {
 	assert.equal(decide({ ...base, action: 'edited', open: false, status: 'Backlog' }).setStatus, undefined);
 	assert.equal(decide({ ...base, action: 'edited', open: false, merged: true, status: 'Backlog' }).setStatus, undefined);
-});
-
-test('a closing reference edited out restores the earlier status', () => {
-	assert.equal(decide({ ...base, action: 'unlinked', status: 'PR Ready', previous: 'Up Next' }).setStatus, 'Up Next');
-	assert.equal(decide({ ...base, action: 'unlinked', status: 'PR Ready', previous: 'Up Next', otherOpenPRs: true }).setStatus, undefined);
-	assert.equal(decide({ ...base, action: 'unlinked', status: 'Backlog', previous: 'Up Next' }).setStatus, undefined);
-});
-
-test('closingRefs finds keyword references to this repo only', () => {
-	const body = [
-		'Fixes #1, closes: #2',
-		'Resolves posit-dev/positron#3 and resolves https://github.com/posit-dev/positron/issues/4',
-		'Fixes posit-dev/assistant#5',
-		'See #6, related to #7',
-		'prefixes #8',
-	].join('\n');
-	assert.deepEqual(closingRefs(body, 'posit-dev/positron').sort((a, b) => a - b), [1, 2, 3, 4]);
-	assert.deepEqual(closingRefs(null, 'posit-dev/positron'), []);
 });
 
 test('linkedAt uses the earliest reference from this PR, never before it opened', () => {
