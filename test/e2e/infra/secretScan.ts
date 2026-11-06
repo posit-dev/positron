@@ -54,8 +54,15 @@ function readZipEntries(zip: Buffer, label: string): Promise<{ path: string; dat
 	});
 }
 
+function isZip(label: string, data: Buffer): boolean {
+	const magic = data.subarray(0, 4);
+	return label.toLowerCase().endsWith('.zip')
+		|| magic.equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))
+		|| magic.equals(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+}
+
 async function scanData(label: string, data: Buffer, secrets: SecretValue[], hits: Map<string, ScanHit>): Promise<void> {
-	if (label.toLowerCase().endsWith('.zip')) {
+	if (isZip(label, data)) {
 		for (const entry of await readZipEntries(data, label)) {
 			await scanData(`${label}!${entry.path}`, entry.data, secrets, hits);
 		}
@@ -71,22 +78,25 @@ async function scanData(label: string, data: Buffer, secrets: SecretValue[], hit
 	}
 }
 
-async function scanPath(path: string, secrets: SecretValue[], hits: Map<string, ScanHit>): Promise<void> {
+// upload-artifact follows symlinks, so links are scanned as what they point to.
+async function scanPath(path: string, secrets: SecretValue[], hits: Map<string, ScanHit>, visited: Set<string>): Promise<void> {
 	let stat;
 	try {
-		stat = await fs.lstat(path);
+		stat = await fs.stat(path);
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
 			return;
 		}
 		throw err;
 	}
-	if (stat.isSymbolicLink()) {
-		return;
-	}
 	if (stat.isDirectory()) {
+		const real = await fs.realpath(path);
+		if (visited.has(real)) {
+			return;
+		}
+		visited.add(real);
 		for (const child of await fs.readdir(path)) {
-			await scanPath(join(path, child), secrets, hits);
+			await scanPath(join(path, child), secrets, hits, visited);
 		}
 	} else if (stat.isFile()) {
 		await scanData(path, await fs.readFile(path), secrets, hits);
@@ -99,8 +109,9 @@ async function scanPath(path: string, secrets: SecretValue[], hits: Map<string, 
  */
 export async function scanPaths(paths: string[], secrets: SecretValue[]): Promise<ScanHit[]> {
 	const hits = new Map<string, ScanHit>();
+	const visited = new Set<string>();
 	for (const path of paths) {
-		await scanPath(path, secrets, hits);
+		await scanPath(path, secrets, hits, visited);
 	}
 	return [...hits.values()];
 }

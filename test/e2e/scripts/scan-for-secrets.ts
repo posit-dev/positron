@@ -22,9 +22,11 @@ async function main(): Promise<number> {
 }
 
 main().then(
-	code => process.exit(code),
+	code => {
+		process.exitCode = code;
+	},
 	err => {
 		console.error(`secret scan failed: ${err instanceof Error ? err.message : String(err)}`);
-		process.exit(2);
+		process.exitCode = 2;
 	}
 );

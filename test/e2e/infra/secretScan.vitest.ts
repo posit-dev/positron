@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import archiver from 'archiver';
-import { execFileSync } from 'child_process';
-import { createWriteStream, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { spawnSync } from 'child_process';
+import { createWriteStream, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -71,7 +71,7 @@ describe('secretScan', () => {
 		expect(await scanPaths([dir, join(dir, 'missing')], secrets)).toEqual([]);
 	});
 
-	it('ignores values shorter than 8 characters', async () => {
+	it('does not match a raw form shorter than 8 characters', async () => {
 		writeFileSync(join(dir, 'short.txt'), 'abc1234');
 		expect(await scanPaths([dir], [{ name: 'SHORT', value: 'abc1234' }])).toEqual([]);
 	});
@@ -81,27 +81,68 @@ describe('secretScan', () => {
 		await expect(scanPaths([dir], secrets)).rejects.toThrow(/bad\.zip/);
 	});
 
-	it('hit output never contains the value', () => {
-		writeFileSync(join(dir, 'log.txt'), `token=${SECRET}`);
+	function runCli(target: string, extraEnv: Record<string, string>): { status: number; stdout: string; stderr: string } {
 		// Child env: real secret names removed so developer values never enter the test.
 		const env: NodeJS.ProcessEnv = { ...process.env };
 		for (const name of secretEnvNames(process.env)) {
 			delete env[name];
 		}
-		env.E2E_LEAK_CANARY_KEY = 'fake-canary-value-123456';
-		env.FAKE_SECRET_KEY = SECRET;
+		Object.assign(env, extraEnv);
 		const cli = resolve(__dirname, '../scripts/scan-for-secrets.ts');
-		let status = 0;
-		let stdout = '';
-		try {
-			stdout = execFileSync('npx', ['tsx', cli, dir], { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-		} catch (err) {
-			const e = err as { status: number; stdout: string };
-			status = e.status;
-			stdout = e.stdout;
-		}
+		const result = spawnSync('npx', ['tsx', cli, target], { env, encoding: 'utf8' });
+		return { status: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
+	}
+
+	it('hit output never contains the value', () => {
+		writeFileSync(join(dir, 'log.txt'), `token=${SECRET}`);
+		const { status, stdout, stderr } = runCli(dir, { E2E_LEAK_CANARY_KEY: 'fake-canary-value-123456', FAKE_SECRET_KEY: SECRET });
 		expect(status).toBe(1);
 		expect(stdout).toContain('FAKE_SECRET_KEY');
 		expect(stdout).not.toContain(SECRET);
+		expect(stderr).not.toContain(SECRET);
+	});
+
+	it('CLI exits 2 when the canary key is unset', () => {
+		writeFileSync(join(dir, 'log.txt'), 'clean');
+		expect(runCli(dir, { FAKE_SECRET_KEY: SECRET }).status).toBe(2);
+	});
+
+	it('CLI exits 2 on a corrupt zip', () => {
+		writeFileSync(join(dir, 'bad.zip'), Buffer.from(Array.from({ length: 200 }, (_, i) => (i * 37 + 11) % 256)));
+		const { status, stderr } = runCli(dir, { E2E_LEAK_CANARY_KEY: 'fake-canary-value-123456', FAKE_SECRET_KEY: SECRET });
+		expect(status).toBe(2);
+		expect(stderr).not.toContain(SECRET);
+	});
+
+	it('scans a symlink to a dirty file outside the tree', async () => {
+		const outside = mkdtempSync(join(tmpdir(), 'scan-out-'));
+		try {
+			writeFileSync(join(outside, 'dirty.txt'), SECRET);
+			symlinkSync(join(outside, 'dirty.txt'), join(dir, 'link.txt'));
+			const hits = await scanPaths([dir], secrets);
+			expect(hits).toEqual([{ file: join(dir, 'link.txt'), name: 'FAKE_SECRET', encoding: 'raw' }]);
+		} finally {
+			rmSync(outside, { recursive: true, force: true });
+		}
+	});
+
+	it('skips a dangling symlink', async () => {
+		symlinkSync(join(dir, 'nowhere'), join(dir, 'dangling'));
+		expect(await scanPaths([dir], secrets)).toEqual([]);
+	});
+
+	it('terminates on a symlinked directory loop', async () => {
+		mkdirSync(join(dir, 'a'));
+		writeFileSync(join(dir, 'a', 'log.txt'), SECRET);
+		symlinkSync(dir, join(dir, 'a', 'loop'));
+		const hits = await scanPaths([dir], secrets);
+		expect(hits.length).toBeGreaterThan(0);
+	});
+
+	it('treats a zip without a .zip name as a zip', async () => {
+		await zip(join(dir, 'attachment.bin'), { 'log.txt': SECRET });
+		const hits = await scanPaths([dir], secrets);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].file.endsWith('attachment.bin!log.txt')).toBe(true);
 	});
 });
