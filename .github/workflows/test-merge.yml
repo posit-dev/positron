@@ -1,11 +1,13 @@
 name: "Test: Merge to branch"
 
 on:
-  push:
-    branches:
-      - main
-      - "prerelease/**"
-      - "release/**"
+  workflow_dispatch:
+  # Automatic merge runs are disabled during a security incident. Restore when cleared.
+  # push:
+  #   branches:
+  #     - main
+  #     - "prerelease/**"
+  #     - "release/**"
 
 jobs:
   # Decides whether this push to main changes only docs or tooling (see
