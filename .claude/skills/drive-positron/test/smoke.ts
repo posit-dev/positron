@@ -89,6 +89,8 @@ const logged = (needle: string) => { const f = join(root, 'actions.log'); return
 const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => !(j && k in j)); return miss.length ? `missing keys: ${miss.join(', ')}` : undefined; };
 /** Started a session of the interpreter that found.copied names. */
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
+/** Says the editor area is hidden and names analysis.R open in it, the active tab. */
+const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
 const cases: Case[] = [
 	// ---- Palette, sessions, consoles
@@ -180,6 +182,11 @@ const cases: Case[] = [
 	{ name: 'editor insert with a trailing newline', run: ['editor.sh', 'insert', '3', 'smoke_y <- 2\n'], check: o => o.json!.at !== '3-3' && `at ${o.json!.at}` },
 	{ name: 'editor read the inserted lines', run: ['editor.sh', 'read', '1:4'], check: o => (o.json!.lines?.['2'] !== 'smoke_x <- 1' || o.json!.lines?.['3'] !== 'smoke_y <- 2' || !String(o.json!.lines?.['4']).startsWith('values <-')) && `lines ${JSON.stringify(o.json!.lines)}` },
 	{ name: 'editor insert without text', run: ['editor.sh', 'insert', '2'], fail: true },
+	// A deselected activity bar tab with a badge has an empty aria-label, so its name is its icon's and badge's labels: the same text twice.
+	{ name: 'palette-run Show Explorer with analysis.R unsaved', run: ['palette-run.sh', 'View: Show Explorer'] },
+	{ name: 'palette-run Show Search deselects the badged Explorer tab', run: ['palette-run.sh', 'View: Show Search'] },
+	{ name: 'ui click tab E --partial lists the deselected badged tab by name', run: ['ui.sh', 'click', 'tab', 'E', '--partial'], fail: true, check: o => includes(o.json!.matches, ') - 1 unsaved file') },
+	{ name: 'ui click a deselected activity bar tab by its badge name', run: () => ['ui.sh', 'click', 'tab', `Explorer (${process.platform === 'darwin' ? '\u21E7\u2318E' : 'Ctrl+Shift+E'}) - 1 unsaved file`], check: o => includes(o.json!.did, ') - 1 unsaved file') },
 	{ name: 'palette-run Revert File', run: ['palette-run.sh', 'File: Revert File'] },
 	// Language features in R, from Ark: completions, the hover, Go to Definition.
 	{ name: 'editor suggest R', run: ['editor.sh', 'suggest', '--at', '7:13'], retry: 3, retryOn: /no completion list|message/, check: o => includes(o.json!.rows, 'sum, {base}, Function') || (o.json!.closed !== true && 'the list is still open') || logged('editor.sh -s=net1: suggest at analysis.R 7:13 ->') },
@@ -439,6 +446,8 @@ const cases: Case[] = [
 	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel editors, editor area hidden', run: ['panel.sh', 'editors'], check: o => (o.json!.editorArea !== 'hidden' && 'editorArea is not hidden') || includes(o.json!.groups, '"title":"analysis.R"') },
+	{ name: 'ui read editor, editor area hidden', run: ['ui.sh', 'read', 'editor'], fail: true, check: editorAreaHidden },
+	{ name: 'de-read, editor area hidden', run: ['de-read.sh'], fail: true, check: editorAreaHidden },
 	{ name: 'palette-run Toggle Maximized Panel back', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel layout', run: ['panel.sh', 'layout'], check: o => keys(o.json, 'window', 'sidebar', 'secondary', 'panel', 'editor') || logged('panel.sh -s=net1: read layout: window 1600x1000') },
 	// Dragged below its minimum, a part closes: "hidden", not null.

@@ -102,7 +102,7 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
 
     {
       "outcome": "fixed | product | flake",
-      "reason": "the cause, the line, and why the change is right (or why there is no change)",
+      "reason": "the cause, the line, and why the change is right (or why there is no change); under 1000 characters, the report cuts it at 1500",
       "reproduction": { "at": "<ISO time>", "by": "fixer", "result": "fail | pass", "observed": "what you saw" },
       "broke": "what stopped working, as the person using the helper sees it",
       "cause": "why, in one sentence",
