@@ -25,6 +25,10 @@ jobs:
       (github.event.action != 'edited' || github.event.changes.body != null)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Events for one PR run in order, so a quick ready -> draft flip ends in the right status.
+    concurrency:
+      group: issue-status-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
@@ -41,9 +45,11 @@ jobs:
           repositories: positron
 
       # On merge, check out the merge commit: its product.json names the release the change ships in.
+      # Otherwise use the default branch, so the script that runs is the reviewed one, not the PR's.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || github.event.repository.default_branch }}
+          persist-credentials: false
           sparse-checkout: |
             .github/scripts/issue-status.mts
             .nvmrc
@@ -86,6 +92,7 @@ jobs:
             .github/scripts/issue-status.mts
             .nvmrc
           sparse-checkout-cone-mode: false
+          persist-credentials: false
 
       - uses: actions/setup-node@v7.1.0
         with:

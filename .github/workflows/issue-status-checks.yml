@@ -1,0 +1,35 @@
+name: Issue Status Checks
+
+# Unit tests for the Issue Status workflow's script.
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/issue-status*.mts'
+      - '.github/workflows/issue-status*.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .nvmrc
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run tests
+        run: node --test .github/scripts/issue-status.test.mts

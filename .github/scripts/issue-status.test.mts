@@ -7,10 +7,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, isBefore, releaseTitle, statusAt, type DecisionInput } from './issue-status.mts';
+import { closingRefs, decide, isBefore, linkedAt, releaseTitle, statusAt, type DecisionInput } from './issue-status.mts';
 
 const base: DecisionInput = {
 	action: 'opened',
+	open: true,
 	draft: false,
 	merged: false,
 	intoDefaultBranch: true,
@@ -46,7 +47,7 @@ test('issues off the board or already Done are left alone', () => {
 	assert.equal(decide({ ...base, status: 'Done', action: 'closed' }).setStatus, undefined);
 });
 
-const merged = { ...base, action: 'closed', merged: true, status: 'PR Ready' as const, release: '2026.12.0 Release' };
+const merged = { ...base, action: 'closed', open: false, merged: true, status: 'PR Ready' as const, release: '2026.12.0 Release' };
 
 test('merged PR adds a milestone and leaves the status to the board', () => {
 	assert.deepEqual(
@@ -73,17 +74,17 @@ test('merged PR keeps the same or a later release, and skips non-default branche
 });
 
 test('unmerged close restores the status from when the PR opened', () => {
-	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'Up Next' }).setStatus, 'Up Next');
-	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'In Progress' }).setStatus, 'In Progress');
+	assert.equal(decide({ ...base, open: false, action: 'closed', status: 'PR Ready', previous: 'Up Next' }).setStatus, 'Up Next');
+	assert.equal(decide({ ...base, open: false, action: 'closed', status: 'PR Ready', previous: 'In Progress' }).setStatus, 'In Progress');
 });
 
 test('unmerged close with no earlier status or another open PR does nothing', () => {
-	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready' }).setStatus, undefined);
-	assert.equal(decide({ ...base, action: 'closed', status: 'PR Ready', previous: 'Backlog', otherOpenPRs: true }).setStatus, undefined);
+	assert.equal(decide({ ...base, open: false, action: 'closed', status: 'PR Ready' }).setStatus, undefined);
+	assert.equal(decide({ ...base, open: false, action: 'closed', status: 'PR Ready', previous: 'Backlog', otherOpenPRs: true }).setStatus, undefined);
 });
 
 test('unmerged close leaves an issue someone moved off In Progress or PR Ready', () => {
-	assert.equal(decide({ ...base, action: 'closed', status: 'Up Next', previous: 'Backlog' }).setStatus, undefined);
+	assert.equal(decide({ ...base, open: false, action: 'closed', status: 'Up Next', previous: 'Backlog' }).setStatus, undefined);
 });
 
 test('statusAt reads the latest change on the board at or before the time', () => {
@@ -118,4 +119,39 @@ test('isBefore orders releases across a year boundary', () => {
 	assert.equal(isBefore(undefined, '2026.12.0 Release'), true);
 	// A malformed target never replaces anything.
 	assert.equal(isBefore('Future', 'not a release'), false);
+});
+
+test('an edit to a closed PR changes nothing', () => {
+	assert.equal(decide({ ...base, action: 'edited', open: false, status: 'Backlog' }).setStatus, undefined);
+	assert.equal(decide({ ...base, action: 'edited', open: false, merged: true, status: 'Backlog' }).setStatus, undefined);
+});
+
+test('a closing reference edited out restores the earlier status', () => {
+	assert.equal(decide({ ...base, action: 'unlinked', status: 'PR Ready', previous: 'Up Next' }).setStatus, 'Up Next');
+	assert.equal(decide({ ...base, action: 'unlinked', status: 'PR Ready', previous: 'Up Next', otherOpenPRs: true }).setStatus, undefined);
+	assert.equal(decide({ ...base, action: 'unlinked', status: 'Backlog', previous: 'Up Next' }).setStatus, undefined);
+});
+
+test('closingRefs finds keyword references to this repo only', () => {
+	const body = [
+		'Fixes #1, closes: #2',
+		'Resolves posit-dev/positron#3 and resolves https://github.com/posit-dev/positron/issues/4',
+		'Fixes posit-dev/assistant#5',
+		'See #6, related to #7',
+		'prefixes #8',
+	].join('\n');
+	assert.deepEqual(closingRefs(body, 'posit-dev/positron').sort((a, b) => a - b), [1, 2, 3, 4]);
+	assert.deepEqual(closingRefs(null, 'posit-dev/positron'), []);
+});
+
+test('linkedAt uses the earliest reference from this PR, never before it opened', () => {
+	const refs = [
+		{ createdAt: '2026-11-03T00:00:00Z', source: { number: 10, repository: { nameWithOwner: 'posit-dev/positron' } } },
+		{ createdAt: '2026-11-04T00:00:00Z', source: { number: 10, repository: { nameWithOwner: 'posit-dev/positron' } } },
+		{ createdAt: '2026-11-01T00:00:00Z', source: { number: 11, repository: { nameWithOwner: 'posit-dev/positron' } } },
+		{ createdAt: '2026-11-01T00:00:00Z', source: { number: 10, repository: { nameWithOwner: 'posit-dev/assistant' } } },
+	];
+	assert.equal(linkedAt(refs, 10, 'posit-dev/positron', '2026-11-02T00:00:00Z'), '2026-11-03T00:00:00.000Z');
+	assert.equal(linkedAt(refs, 10, 'posit-dev/positron', '2026-11-05T00:00:00Z'), '2026-11-05T00:00:00.000Z');
+	assert.equal(linkedAt([], 10, 'posit-dev/positron', '2026-11-02T00:00:00Z'), '2026-11-02T00:00:00Z');
 });
