@@ -32,12 +32,18 @@ test.use({
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic',
 	'openai',
+	// Skipped below: see BEDROCK_SKIP_REASON before re-enabling.
 	'bedrock',
 	'positai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
 	// credentials path is covered separately in the workbench suite.
 	'ms-foundry',
 ];
+
+// Do not re-enable without security sign-off (SEC-3673). Bedrock signs in only from
+// AWS credentials in the app's own environment. CI no longer passes secrets into the
+// app, because app logs leaked them into uploaded test reports.
+const BEDROCK_SKIP_REASON = 'SEC-3673: needs AWS credentials in the app env, which CI no longer passes in';
 
 test.describe('Posit Assistant Sign-in', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
@@ -49,6 +55,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
+			test.skip(provider === 'bedrock', BEDROCK_SKIP_REASON);
 			await app.workbench.providerManager.loginModelProvider(provider);
 
 			try {
