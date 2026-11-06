@@ -15,6 +15,7 @@ import { IActivatedEnvironmentLaunch } from '../../client/interpreter/contracts'
 import { IServiceContainer } from '../../client/ioc/types';
 import {
     buildRankingContext,
+    isOtherProjectEnv,
     RankingContext,
     rankInterpreters,
     Tier,
@@ -61,6 +62,9 @@ function env(
 const emptyContext: RankingContext = {
     workspacePath: p('/proj'),
     homeInsideWorkspace: false,
+    userEnvParents: [p('/home/u'), p('/home/u/.virtualenvs')],
+    homeDirs: [p('/home/u')],
+    searchPathDirs: [],
     activatedEnvPrefix: undefined,
     definitionPaths: [],
     definitionsOnly: false,
@@ -262,6 +266,77 @@ suite('interpreterRanking', () => {
         );
     });
 
+    test("another folder's project env is hidden unless something names it", () => {
+        // PET reports `envPath` as the executable for envs other than conda.
+        const native = (e: PythonEnvironment): PythonEnvironment => ({ ...e, envPath: e.path });
+        const otherVenv = native(env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
+        const otherPlainVenv = native(env(p('/home/u/code/other/venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const otherPixi = native(
+            env(p('/home/u/code/other/.pixi/envs/default/bin/python'), EnvironmentType.Pixi, '3.12.0'),
+        );
+        const otherConda = env(p('/home/u/code/other/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: '',
+        });
+        const thisFolder = native(env(p('/proj/.venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const homeVenv = native(env(p('/home/u/.venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        // `pixi global` keeps its envs in ~/.pixi/envs.
+        const pixiGlobal = native(env(p('/home/u/.pixi/envs/python/bin/python'), EnvironmentType.Global, '3.12.0'));
+        // PET can't classify it; it is still another project's env.
+        const otherUnknown = native(env(p('/home/u/code/other/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0'));
+        const nestedUnknown = native(env(p('/proj/sub/.venv/bin/python'), EnvironmentType.Unknown, '3.12.0'));
+        // Global envs that happen to have a project env folder's name.
+        const wrapperNamedVenv = native(env(p('/home/u/.virtualenvs/venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
+        const condaNamedVenv = env(p('/home/u/miniconda3/envs/venv/bin/python'), EnvironmentType.Conda, '3.11.0', {
+            envName: 'venv',
+        });
+        // Envs outside home are often shared, e.g. in a Docker image or on a server.
+        const optVenv = native(env(p('/opt/venv/bin/python'), EnvironmentType.Venv, '3.12.0'));
+        const srvVenv = native(env(p('/srv/app/.venv/bin/python'), EnvironmentType.Uv, '3.12.0'));
+        const onPath = { ...emptyContext, searchPathDirs: [path.dirname(otherVenv.path)] };
+        assert.deepEqual(
+            [
+                isOtherProjectEnv(otherVenv, emptyContext),
+                isOtherProjectEnv(otherPlainVenv, emptyContext),
+                isOtherProjectEnv(otherPixi, emptyContext),
+                isOtherProjectEnv(otherConda, emptyContext),
+                isOtherProjectEnv(otherVenv, { ...emptyContext, activatedEnvPrefix: otherVenv.envPath }),
+                isOtherProjectEnv(otherVenv, { ...emptyContext, configuredPaths: [p('/home/u/code/other')] }),
+                isOtherProjectEnv(thisFolder, emptyContext),
+                isOtherProjectEnv(homeVenv, emptyContext),
+                isOtherProjectEnv(pixiGlobal, emptyContext),
+                isOtherProjectEnv(otherUnknown, emptyContext),
+                isOtherProjectEnv(nestedUnknown, emptyContext),
+                isOtherProjectEnv(globalVirtualenv, emptyContext),
+                isOtherProjectEnv(wrapperNamedVenv, emptyContext),
+                isOtherProjectEnv(condaNamedVenv, emptyContext),
+                isOtherProjectEnv(positronDefault, emptyContext),
+                isOtherProjectEnv(optVenv, emptyContext),
+                isOtherProjectEnv(srvVenv, emptyContext),
+                isOtherProjectEnv(otherVenv, onPath),
+            ],
+            [
+                true,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+            ],
+        );
+    });
+
     test("another folder's conda --prefix env is never recommended unless a setting names it", () => {
         const otherProject = env(p('/home/u/code/other/.conda/bin/python'), EnvironmentType.Conda, '3.11.0', {
             envName: '',
@@ -434,6 +509,9 @@ suite('interpreterRanking', () => {
         home.returns(p('/home/u'));
         const realHomeOpened = await buildRankingContext(serviceContainer.object, vscode.Uri.file(p('/export/home/u')));
         assert.isTrue(realHomeOpened.homeInsideWorkspace);
+        // Its env folders are the user's own by either path.
+        assert.includeMembers(realHomeOpened.userEnvParents, [p('/home/u'), p('/export/home/u')]);
+        assert.sameMembers(realHomeOpened.homeDirs, [p('/home/u'), p('/export/home/u')]);
     });
 
     test('withDiscoveredFacts waits for module discovery, then fills modulePaths', async () => {
