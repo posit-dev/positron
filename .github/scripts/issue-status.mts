@@ -141,7 +141,11 @@ export function isBefore(current: string | undefined, release: string): boolean 
 		return m ? Number(m[1]) * 100 + Number(m[2]) : undefined;
 	};
 	const currentKey = current === undefined ? undefined : key(current);
-	return currentKey === undefined || currentKey < key(release)!;
+	const releaseKey = key(release);
+	if (releaseKey === undefined) {
+		return false;
+	}
+	return currentKey === undefined || currentKey < releaseKey;
 }
 
 export interface StatusChange {

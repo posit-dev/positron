@@ -55,6 +55,8 @@ test('merged PR adds a milestone and leaves the status to the board', () => {
 	);
 	// The merge may already have closed the issue and moved it to Done.
 	assert.equal(decide({ ...merged, status: 'Done' }).setMilestone, true);
+	// The milestone is an issue field, so it is set even when the issue is not on the board.
+	assert.equal(decide({ ...merged, status: undefined }).setMilestone, true);
 });
 
 test('merged PR replaces a planning or earlier release milestone', () => {
@@ -114,4 +116,6 @@ test('isBefore orders releases across a year boundary', () => {
 	assert.equal(isBefore('2026.12.0 Release', '2027.01.0 Release'), true);
 	assert.equal(isBefore('2027.01.0 Release', '2026.12.0 Release'), false);
 	assert.equal(isBefore(undefined, '2026.12.0 Release'), true);
+	// A malformed target never replaces anything.
+	assert.equal(isBefore('Future', 'not a release'), false);
 });
