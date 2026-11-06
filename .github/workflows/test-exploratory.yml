@@ -903,8 +903,9 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
-      # A value only the secret scan knows. If it turns up in the run output,
-      # the app or the agent saw this job's environment.
+      # A value only the secret scan knows. The redact step strips *_KEY values
+      # first, so a hit on this one means a secret in an encoded form or a
+      # redaction that did not run.
       - name: Plant leak canary
         shell: bash
         run: |
@@ -1063,38 +1064,50 @@ jobs:
             fi
           done
 
-      # Runs after the redaction above, on the same paths. The scan reads this
-      # job's environment, so it needs the credentials still loaded. The
-      # Postgres login is a fixed test value the report shows on purpose. The
-      # scripts come from the harness checkout, not the PR's code.
-      - name: Scan run output for secrets
+      # Copies exactly what the artifact will hold into /tmp/exploratory-upload,
+      # with the upload's own exclusions (hidden entries, the run's tmp/, and
+      # the workspace's dependency dirs), then scans that copy. The artifact is
+      # taken from the same copy, so what is scanned is what is uploaded. Runs
+      # after the redaction above. The scan reads this job's environment, so it
+      # needs the credentials still loaded. The Postgres login is a fixed test
+      # value the report shows on purpose. The scripts come from the harness
+      # checkout; tsx and yauzl resolve from the PR's node_modules.
+      - name: Stage and scan the upload set
         id: secret-scan
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          env -u E2E_POSTGRES_PASSWORD npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts \
-            /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace
+          STAGE=/tmp/exploratory-upload
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          cd /tmp
+          if [ -d exploratory-run ]; then
+            tar -cf - --exclude='.*' --exclude='exploratory-run/tmp' exploratory-run | tar -xf - -C "$STAGE"
+          fi
+          if [ -d exploratory-workspace ]; then
+            tar -cf - --exclude='.*' --exclude='node_modules' --exclude='__pycache__' --exclude='renv/library' \
+              exploratory-workspace | tar -xf - -C "$STAGE"
+          fi
+          for F in positron-dev-launch/*/code.log positron-dev-launch/instances.log; do
+            [ -f "$F" ] || continue
+            mkdir -p "$STAGE/$(dirname "$F")"
+            cp "$F" "$STAGE/$F"
+          done
+          cd "$GITHUB_WORKSPACE"
+          env -u E2E_POSTGRES_PASSWORD npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts "$STAGE"
 
       - name: Upload run directory
         if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: exploratory-run-${{ matrix.model }}
-          # The workspace as the run left it, a fallback for a test file the
-          # agent did not save to files/. Artifact only, not the published page.
-          # Hidden entries (.venv, .git) are already left out by default.
-          # The run's tmp/ is scratch (a venv or build can run to gigabytes) and
-          # never part of the report.
-          path: |
-            /tmp/exploratory-run
-            !/tmp/exploratory-run/tmp
-            /tmp/positron-dev-launch/*/code.log
-            /tmp/positron-dev-launch/instances.log
-            /tmp/exploratory-workspace
-            !/tmp/exploratory-workspace/**/node_modules/**
-            !/tmp/exploratory-workspace/**/__pycache__/**
-            !/tmp/exploratory-workspace/**/renv/library/**
+          # The staged copy of the run directory, the launch logs and the
+          # workspace as the run left it (a fallback for a test file the agent
+          # did not save to files/; artifact only, not the published page).
+          # Hidden entries, the run's tmp/ and the workspace's dependency dirs
+          # were left out when it was staged and scanned.
+          path: /tmp/exploratory-upload
           if-no-files-found: warn
           retention-days: 3
 

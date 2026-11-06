@@ -27,8 +27,8 @@
 # it and the launcher keeps its default, so a misplaced --source-user-data-dir
 # copies the real ~/.positron-dev.
 #
-# Secret env vars: the app starts without any variable that looks like a secret
-# (see test/e2e/infra/appEnv.ts). --pass-env NAME (repeatable) lets NAME through.
+# Secret env vars (not on Windows): the app starts without any variable that
+# looks like a secret (see test/e2e/infra/appEnv.ts). --pass-env NAME (repeatable) lets NAME through.
 #
 # App arguments worth passing (after the `--`):
 #   --folder-uri file:///private/tmp/ws
@@ -272,7 +272,7 @@ fi
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--source-user-data-dir=*|--repo=*|--reuse-profile=*|--app=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--source-user-data-dir=*|--repo=*|--reuse-profile=*|--app=*|--pass-env=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--agents) AGENTS=1; shift ;;
 		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--repo) REPO="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
@@ -639,8 +639,9 @@ if [[ "$IS_WINDOWS" == "1" ]]; then
 else
 	# Strip secret-looking env vars from the app. Capture first so a failing
 	# script exits here instead of launching with the full environment.
-	ENV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-	UNSET_NAMES=$(npx tsx "$ENV_ROOT/test/e2e/scripts/app-env-unset.ts" ${PASS_ENV[@]+"${PASS_ENV[@]}"}) || {
+	# LAUNCH_ENV_ROOT is for a copy of this script that lives outside the checkout.
+	ENV_ROOT="${LAUNCH_ENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}"
+	UNSET_NAMES=$(cd "$ENV_ROOT" && npx --no-install tsx test/e2e/scripts/app-env-unset.ts ${PASS_ENV[@]+"${PASS_ENV[@]}"}) || {
 		echo "[launch.sh] could not compute the secret env names to strip; not launching." >&2
 		exit 1
 	}
