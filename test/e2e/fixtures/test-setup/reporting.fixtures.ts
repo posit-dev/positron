@@ -107,12 +107,11 @@ const attachedCrashDumps = new Set<string>();
 
 /**
  * Attach any Electron minidump written during this test to the report, so a
- * native crash arrives with the failure instead of only in the job's artifacts.
+ * native crash arrives with the failure.
  *
  * Deliberately does not wait for a dump: crashpad writes asynchronously, and
  * polling on every test to catch the rare late write would cost more than it
- * saves. A dump that lands after teardown is still picked up by the workflow's
- * `.build/crashes` upload.
+ * saves. A dump that lands after teardown stays in `.build/crashes` locally.
  */
 export function AttachCrashDumpsToReportFixture() {
 	return async (options: AttachCrashDumpsToReportOptions, use: (arg0: void) => Promise<void>) => {
