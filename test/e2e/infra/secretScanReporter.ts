@@ -12,7 +12,7 @@ import { scanPaths } from './secretScan';
 const CANARY_NAME = 'E2E_LEAK_CANARY_KEY';
 const MARKER_DIR = 'secret-scan';
 const MARKER = join(MARKER_DIR, 'clean');
-const SCAN_DIRS = ['test-results', 'playwright-report', 'blob-report', 'test-logs', join('.build', 'crashes')];
+const SCAN_DIRS = ['test-results', 'playwright-report', 'blob-report', 'test-logs', join('.build', 'crashes'), join('test', 'assistant-inspect-ai')];
 
 /**
  * Runs last in CI. Writes secret-scan/clean only when nothing in the upload set
@@ -21,6 +21,11 @@ const SCAN_DIRS = ['test-results', 'playwright-report', 'blob-report', 'test-log
 export default class SecretScanReporter implements Reporter {
 	printsToStdio(): boolean {
 		return false;
+	}
+
+	onBegin(): void {
+		// A run killed before onEnd must not leave an old marker behind.
+		fs.rmSync(MARKER, { force: true });
 	}
 
 	async onEnd(_result: FullResult): Promise<{ status: 'failed' } | undefined> {

@@ -64,6 +64,8 @@ describe('SecretScanReporter', () => {
 	});
 
 	it('scan error fails closed', async () => {
+		fs.mkdirSync('secret-scan');
+		fs.writeFileSync(marker(), '');
 		fs.writeFileSync(join('test-results', 'bad.zip'), 'this is not a zip');
 		const result = await new SecretScanReporter().onEnd(FullResult);
 		expect(result).toEqual({ status: 'failed' });
@@ -71,9 +73,34 @@ describe('SecretScanReporter', () => {
 	});
 
 	it('fails closed when the canary is not set', async () => {
+		fs.mkdirSync('secret-scan');
+		fs.writeFileSync(marker(), '');
 		delete process.env[CANARY_NAME];
 		const result = await new SecretScanReporter().onEnd(FullResult);
 		expect(result).toEqual({ status: 'failed' });
+		expect(fs.existsSync(marker())).toBe(false);
+	});
+
+	it('scans PW_JSON_FILE outside the scanned directories', async () => {
+		fs.mkdirSync('elsewhere');
+		fs.writeFileSync(join('elsewhere', 'report.json'), `{"x":"${FAKE_CANARY}"}`);
+		process.env.PW_JSON_FILE = join('elsewhere', 'report.json');
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+		expect(fs.existsSync(marker())).toBe(false);
+	});
+
+	it('scans the inspect-ai output directory', async () => {
+		fs.mkdirSync(join('test', 'assistant-inspect-ai'), { recursive: true });
+		fs.writeFileSync(join('test', 'assistant-inspect-ai', 'r.json'), FAKE_CANARY);
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+	});
+
+	it('onBegin removes a pre-existing marker', () => {
+		fs.mkdirSync('secret-scan');
+		fs.writeFileSync(marker(), '');
+		new SecretScanReporter().onBegin();
 		expect(fs.existsSync(marker())).toBe(false);
 	});
 });
