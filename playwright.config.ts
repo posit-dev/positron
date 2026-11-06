@@ -22,7 +22,7 @@ const shardingEnabled = reportingEnabled && !isDisabled(process.env.ENABLE_PREDI
 
 const insightsReporters: ReporterDescription[] = [
 	...(reportingEnabled
-		? [['@midleman/playwright-reporter',
+		? [['@posit-dev/playwright-reporter',
 			{
 				repoName: 'positron',
 				mode: 'prod'
@@ -30,7 +30,7 @@ const insightsReporters: ReporterDescription[] = [
 		] as ReporterDescription]
 		: []),
 	...(shardingEnabled
-		? [['@midleman/playwright-reporter/sharding'] as ReporterDescription]
+		? [['@posit-dev/playwright-reporter/sharding'] as ReporterDescription]
 		: []),
 ];
 

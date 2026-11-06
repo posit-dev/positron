@@ -47,7 +47,7 @@ runs:
         }
         ROOT_DEPS=$(lockedSpecs \
           @playwright/test \
-          @midleman/playwright-reporter \
+          @posit-dev/playwright-reporter \
           @midleman/github-actions-reporter \
           @vscode/v8-heap-parser)
         TS_SPEC=$(lockedSpecs typescript)
