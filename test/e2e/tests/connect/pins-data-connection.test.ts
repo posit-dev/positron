@@ -82,13 +82,17 @@ test.describe('Data Connections - Posit Connect Pins', { tag: [tags.WORKBENCH, t
 			// workspace so it never appears in the console.
 			keyDir = fs.mkdtempSync(join(os.tmpdir(), 'pins-key-'));
 			const keyPath = join(keyDir, 'key');
-			fs.writeFileSync(keyPath, connectApiKey, { mode: 0o600 });
+			fs.writeFileSync(keyPath, `${connectApiKey}\n`, { mode: 0o600 });
 			let rKeyPath = keyPath.replace(/\\/g, '/');
 			if (!isLocal) {
 				// R runs inside the Workbench container and can't see the host temp dir.
 				containerKeyPath = `/tmp/pins-key-${randomUUID()}`;
 				await runDockerCommand(`docker cp ${JSON.stringify(keyPath)} test:${containerKeyPath}`, 'Copy Connect key into container');
-				await runDockerCommand(`docker exec test chmod 0644 ${containerKeyPath}`, 'Make Connect key readable');
+				// Hand it to the session user (the workspace owner) and keep it 0600.
+				await runDockerCommand(
+					`docker exec test sh -c 'chown "$(stat -c %U ${JSON.stringify(app.workspacePathOrFolder)})" ${containerKeyPath} && chmod 0600 ${containerKeyPath}'`,
+					'Make Connect key readable by the session user'
+				);
 				rKeyPath = containerKeyPath;
 			}
 			await executeCode(
