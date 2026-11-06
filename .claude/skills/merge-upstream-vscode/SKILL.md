@@ -145,10 +145,39 @@ which changes need to be preserved.
 For files that have been changed upstream but deleted in Positron, resolve the
 conflict by deleting the file in Positron.
 
-## Github Workflows
+## Github Workflows and Azure Pipelines
 
 Positron doesn't use any Github workflows from upstream. You can ignore or
 delete these changes.
+
+Positron doesn't use Azure Pipelines either. Changes under `build/azure-pipelines/` need no attention.
+
+## Upstream Additions Positron Doesn't Use
+
+Some upstream additions merge without conflicts but still change how the repo behaves for Positron engineers, or what Positron ships. Review what upstream added and renamed outside the source tree, not just the conflicted files. During the cherry-pick, those changes are already staged:
+
+```bash
+git diff --cached -M --diff-filter=AR --name-status HEAD -- ':!src' ':!extensions' ':!test'
+```
+
+Known cases, with what to do on every merge:
+
+- **Root `.mcp.json`.** In 1.143 upstream renamed `.vscode/mcp.json` to `.mcp.json`. Claude Code reads a root `.mcp.json` and prompts every engineer to enable its servers; `.vscode/mcp.json` is read only by VS Code, and `test/mcp/README.md` links to it. Keep the file at `.vscode/mcp.json` (with the `servers` / `cwd` format) and port any server changes into it. Don't take the rename.
+- **GitHub cloud agent config.** `.github/sandbox.yml` and `.github/hooks/` (plus `build/npm/cloudSandboxSetup.ts` and `build/lib/test/cloudSandbox.test.ts`) configure GitHub's cloud coding agent. Positron removed them in 1.143. Resolve modify/delete conflicts on them by deleting, and delete any new hook files upstream adds there.
+- **Copilot CLI shim.** Positron deleted the `copilot_shim/` Rust crate in 1.143 (only upstream's Azure pipelines build it) and commented out its `rust-analyzer.linkedProjects` entry in `.vscode/settings.json`. Resolve modify/delete conflicts under `copilot_shim/` by deleting. The references to it elsewhere (`build/azure-pipelines/copilot-shim/`, `resources/linux/copilot-link.sh`, the `#ifdef CopilotShim` parts of `code.iss`) do nothing in Positron; leave them for the Copilot removal rather than adding conflicts in ~30 upstream files. The Windows launcher is the exception because it ships, see "Check what ships" below.
+
+### Before deleting an unused upstream file
+
+- **Check what imports it.** A file can look like part of an unused feature and still be load-bearing. In 1.143, `build/npm/cloudSandbox.ts` arrived with the cloud agent config, but `preinstall.ts`, `postinstall.ts` and `fast-install.ts` import it, so deleting it breaks `npm install`. Grep for the file's basename before deleting. If the module is a no-op for Positron (`cloudSandbox.ts` returns early unless `GITHUB_ENVIRONMENT_ID` is set), keep it rather than editing the upstream importers.
+- **Weigh the merge cost.** Every deleted file that upstream keeps changing becomes a modify/delete conflict on later merges. Delete only what causes a real problem (a prompt, a CI job, something that ships). Leave inert code that belongs to a feature Positron plans to remove, and note it as deferred in the log.
+
+### Check what ships
+
+Release packaging lives in the `positron-builds` repo, checked out next to this one (`../positron-builds`), not in `.github/workflows`. Read its release workflows before deciding whether an upstream packaging change reaches users.
+
+In particular, `build-release-windows.yml` zips the whole Windows package folder into `Positron-win32-<version>-<arch>.zip` for extension testing. Anything gulp writes into that folder ships in the zip, even when `code.iss` keeps it out of the installers (they exclude `\bin\*`). In 1.143 that was the Copilot CLI launcher, `bin/copilot-shim/copilot`. Positron comments out the block that writes it in `build/gulpfile.vscode.ts` (search for `renderCopilotShimLauncher`), and drops the helper from the `./lib/copilot.ts` import. Check that both Positron markers survived the merge.
+
+When you comment out build code like this, remember `build/tsconfig.json` sets `noUnusedLocals`: also remove imports that become unused, inside the same Positron marker, and confirm with `cd build && npm run typecheck`.
 
 ## Design Decisions
 
@@ -165,15 +194,21 @@ for the user to review. Place it in the root of the repository, named
 Make a special note of any design decisions you made during the merge that did
 not require you to consult the user.
 
+When you remove, keep, or defer an upstream addition, add it to "Known cases" under "Upstream Additions Positron Doesn't Use" in this skill, saying what the next merge should do with it (e.g. "keep deleted", "don't take the rename"). The log isn't committed, so the next merge only sees what's in the skill. Otherwise it quietly brings the addition back.
+
 ## Committing
 
 Do not make any commits. The user will do so instead.
+
+Don't stage the merge log. It's for the user's review and stays untracked.
 
 ## Step by step
 
 ### Step 1: Review
 
 Review the conflicts in the working tree as a whole to note patterns and any big picture issues.
+
+Also review the non-conflicting files upstream added or renamed outside the source tree; see "Upstream Additions Positron Doesn't Use".
 
 ### Step 2: Resolve
 
@@ -269,6 +304,28 @@ means a file didn't emit its `.js`, so the workbench fails to load at runtime
 with `ERR_FILE_NOT_FOUND` / "Failed to fetch dynamically imported module" even
 though every gulp-based check passed.
 
+#### Check the default themes
+
+Theme regressions produce no conflicts, compile errors, or test failures. Upstream turning a redesign on by default (e.g. `workbench.experimental.modernUI` in 1.143), or adding colors to the `light_modern` / `dark_modern` themes that Positron's themes inherit, can quietly break Positron's colored activity bar and editor tabs. Follow `references/themes.md` to find these in the diff, and check both Default Positron themes in the smoke-launched build.
+
+#### Keep Modern UI off
+
+Positron does not currently use upstream's Modern UI Update. Upstream turned `workbench.experimental.modernUI` on by default in 1.143. Positron overrides the default to `false` in `src/vs/workbench/browser/workbench.contribution.ts`, inside a Positron marker, and comments out its `experiment: { mode: 'auto' }` so an upstream rollout can't turn it back on. Users can still enable it.
+
+On every merge, check that the override survived. If upstream rewrites that setting block, the conflict can look like a plain upstream divergence, and taking upstream's side turns Modern UI back on with no compile or unit test failure:
+
+```bash
+grep -n -A10 "\[LayoutSettings.MODERN_UI\]:" src/vs/workbench/browser/workbench.contribution.ts
+```
+
+Modern UI on by default shows up as a scatter of unrelated e2e failures, so suspect it first when you see this pattern. In 1.143 it caused all of these:
+
+- 28px pane headers instead of 22px (Help pane reopened 6px too tall)
+- smaller panes, so plot screenshots stopped matching their baselines and editor lines and Data Explorer summary rows ended up out of view
+- the context menu close animation, which needs the `modern-ui` class
+
+Don't update tests or baselines to match Modern UI. Keep the setting off. Turning Modern UI on is a product decision; raise it with the user rather than changing the default yourself.
+
 ### Step 5: Test
 
 Run the unit tests and the extension host tests. Investigate and fix any
@@ -313,6 +370,43 @@ edits. Watch for all of them, not just the first:
   `positronVersion` or gating on `update.positron.channel`) but the upstream
   test still exercises the pre-Positron behavior. Update the test to set up the
   Positron inputs the production code now reads.
+- **A Positron vitest copy of an upstream test goes stale.** Some upstream
+  (mostly vscode-server) Mocha tests have a Positron `.vitest.ts` port next to
+  them (e.g. `socketOwnership.test.ts` and `socketOwnership.vitest.ts`). When
+  upstream changes the module and its `.test.ts`, the port doesn't conflict and
+  isn't updated, so it fails. In 1.143, `socketOwnership` became async and the
+  vitest port compared un-awaited Promises. Many of these ports are
+  `describe.runIf(linux)`, so they're skipped on macOS and fail only in the
+  `test / vitest` CI job. For each upstream `.test.ts` the merge changed, check
+  for a sibling port and apply the same change to it:
+
+  ```bash
+  git diff --name-only <pre-merge-commit> HEAD -- '*.test.ts' \
+    | sed 's/\.test\.ts$/.vitest.ts/' | xargs ls 2>/dev/null
+  ```
+- **The browser runner fails to resolve a bare package import.** The `test /
+  vscode` job runs the core suite three times: Electron (`scripts/test.sh`), node
+  (`npm run test-node`), and Chromium (`npm run test-browser-no-install`). The
+  Electron and browser runners each have an import map
+  (`test/unit/{electron,browser}/renderer.html`), and each maps Positron's ESM
+  package dependencies (React, `@dnd-kit`, etc.) to `out/esm-package-dependencies`.
+  Before 1.143 the browser map had no Positron entries. Any test file whose
+  imports reached Positron React code was silently dropped: the log shows `BAD
+  <file>` and no failure. That was 380 files. A *dynamic* `import()` in
+  `suiteSetup` fails instead, with `Failed to resolve module specifier
+  "react/jsx-runtime"`. If you see that error, or the `BAD` count climbs, check
+  that both maps list the same packages. To reproduce: `npm run
+  test-browser-no-install -- --browser chromium --run <file>.test.ts`. The `BAD`
+  lines only show in a full run.
+- **The browser runner's Chromium is not Electron's.** The browser runner uses
+  the Chromium that `@playwright/test` pins, which can be several major versions
+  ahead of Electron's. A test that asserts a CSSOM string can pass under Electron
+  and fail in Chromium. In 1.143, `paneCompositePart.test.ts` expected
+  `element.style.height` to read back `calc(100% + 0px)` after the code set
+  `calc(100% - 0px)`. That's true in Chromium 139-150 (Electron 43 ships 150),
+  but Chromium 156 (Playwright 1.64) returns `calc(100% - 0px)` unchanged. Don't
+  pin either spelling. Compare against what the current engine returns for the
+  same input.
 
 #### Extension host tests
 
@@ -341,6 +435,18 @@ license issuer at `../positron-license/pdol/target/debug/` next to the checkout
 (link `/positron-license` from the image and put the lab's `license.txt` there as
 `pdol_rsa`). Check `unshare -U true` fails there before trusting the result.
 
+The same container also breaks new upstream node `*.integrationTest.ts` files that pass on macOS and in upstream's CI. Two kinds showed up in 1.143:
+
+- **A child Electron process run as root.** The container runs as root, and Electron then exits with `FATAL: Running as root without --no-sandbox is not supported`. The test runner gets `--no-sandbox` from `LINUX_EXTRA_ARGS` in `scripts/test-integration.sh`, but a test that starts its own Electron child (e.g. `gpuProcess.integrationTest.ts` runs its fixture through `VSCODE_TEST_ELECTRON_PATH`) doesn't. Add `--no-sandbox` to that child's args only when `process.getuid?.() === 0`, inside a Positron marker.
+- **A Linux tool the CI image doesn't install.** Upstream's runners have tools Positron's image lacks (e.g. `fuser` from `psmisc`), so the test fails with `spawnSync <tool> ENOENT`. If the test covers upstream-only infrastructure (like the agent-host e2e storage wrapper), skip it when the tool is missing. Adding the package to the image is an option, but that's a separate repo (`positron-ci-images`).
+
+To find candidates before CI does, list the new integration tests that spawn processes:
+
+```bash
+git diff --diff-filter=A --name-only <pre-merge-commit> HEAD -- '*.integrationTest.ts' \
+  | xargs grep -lE "execFile|spawn|VSCODE_TEST_ELECTRON_PATH"
+```
+
 Read this job's failure carefully: it has a signature that looks green. Every
 suite can report `N passing` and `Extension host test runner exit code: 0` while
 the job still ends in `##[error]Process completed with exit code 1`. When that
@@ -364,6 +470,17 @@ last `exited with code: 0` and the final exit code.
 
 Next, install all e2e test dependencies and run the test suite. Investigate any
 failures and fix them if they are caused by the merge.
+
+#### Triage e2e failures by shared stack frame
+
+A merge rarely breaks dozens of features at once. When a Full Suite run shows many e2e failures across unrelated areas, look for one page-object helper they all go through before debugging tests one by one. In 1.143, all 75 failures on three platforms (connections, apps, autocomplete, data explorer, and more) were one race in `QuickInput.selectQuickInputElement`.
+
+- If the merge job fails with `Missing blob reports for shards` and `Directory does not exist: ...all-blob-reports`, the shards crashed before running any tests, usually in a setup step. Find the failing step in each shard's log (`##[error]` near an `outcome=failure` line) before suspecting the merge. In 1.143, both Windows shards failed in `setup-r-windows` with `there is no package called 'pak'`. That happened because R 4.6.2 was released before its Windows installer was on CRAN, so the `rig add` above it got a 404. Main had already fixed this (#16996), so merging `origin/main` into the merge branch was the whole fix. For infrastructure failures like this, check `git log HEAD..origin/main -- .github/` before writing a fix of your own.
+- The shard jobs (`e2e / electron-1` ... `-4`) report success even when tests fail. Only the merge job (`e2e / electron`, `e2e / chromium`, `e2e / electron-win`) goes red. Its "Check test results" step lists the failing tests.
+- The merge job's log prints `REPORT_URL`. Its directory also serves `results.json`. Group the failures in that file by the top non-`node_modules` stack frame, and by the deepest failing `test.step` title (e.g. `Run command: workbench.action.clearEditorHistory`). One frame for every failure means one helper fix.
+- `results.json` attachment paths point into the runner's blob-report directory and can't be downloaded. For the trace and error-context of a single test, decode the base64 zip embedded in the report's `index.html`. Its per-file JSON maps each attachment to `data/<sha>.<ext>` under the report URL. Then read the click/expect call logs from `trace.trace` inside the trace zip.
+
+**Watch for upstream UI motion.** Upstream is adding open/close animations (e.g. 1.143's quick input close animation under `modern-ui.monaco-enable-motion`). A widget that's closing still counts as visible for its animation. A helper that checks `isVisible()` right after an action and then retries (re-clicks) it will hit an element that's fading out. Playwright retries "element is not visible" with no timeout of its own, so the helper's `toPass` budget expires. Fix the helper to wait for the expected state first and to give every retry action its own `timeout`. Don't add sleeps or turn off motion.
 
 ### Step 6: Check the test tag map
 
@@ -415,3 +532,4 @@ See these references for more information:
 - `change-markers.md`: how to interpret, create and use change markers (Start Positron, Start PWB)
 - `package-json.md`: how to handle conflicts in package.json and package-lock.json files
 - `codicons.md`: how to handle conflicts in codicon.ttf and codiconLibrary.ts files
+- `themes.md`: how to catch theme regressions from upstream default-on settings and new inherited colors

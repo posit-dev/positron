@@ -3,17 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebContents, webContents, WebFrameMain } from 'electron';
+import electron, { WebContents, WebFrameMain } from 'electron';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
+import { hasKey } from '../../../base/common/types.js';
 import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from '../common/webviewManagerService.js';
 import { WebviewProtocolProvider } from './webviewProtocolProvider.js';
 import { IWindowsMainService } from '../../windows/electron-main/windows.js';
-import { IFileService } from '../../files/common/files.js';
+import { IInstantiationService } from '../../instantiation/common/instantiation.js';
+import { ILogService } from '../../log/common/log.js';
 
 // --- Start Positron ---
+// Use the default `electron` export for runtime values (as upstream does), so this
+// module also links where `electron` is the renderer API, e.g. the unit test runner.
 // eslint-disable-next-line no-duplicate-imports
-import { Rectangle, webFrameMain, Menu, MenuItem } from 'electron';
+import type { Rectangle } from 'electron';
 // eslint-disable-next-line no-duplicate-imports
 import { DisposableMap, IDisposable } from '../../../base/common/lifecycle.js';
 // eslint-disable-next-line no-duplicate-imports
@@ -37,34 +41,22 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	// --- End Positron ---
 
 	constructor(
-		@IFileService fileService: IFileService,
+		@IInstantiationService instantiationService: IInstantiationService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		super();
-		this._register(new WebviewProtocolProvider(fileService));
+		this._register(instantiationService.createInstance(WebviewProtocolProvider));
 	}
 
 	// --- Start Positron ---
 	// public async setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void> {
 	public async setIgnoreMenuShortcuts(id: WebviewMenuShortcutsTarget, enabled: boolean): Promise<void> {
 		// --- End Positron ---
-		let contents: WebContents | undefined;
-
-		if (typeof (id as WebviewWindowId).windowId === 'number') {
-			const { windowId } = (id as WebviewWindowId);
-			const window = this.windowsMainService.getWindowById(windowId);
-			if (!window?.win) {
-				throw new Error(`Invalid windowId: ${windowId}`);
-			}
-			contents = window.win.webContents;
-		} else {
-			const { webContentsId } = (id as WebviewWebContentsId);
-			contents = webContents.fromId(webContentsId);
-			if (!contents) {
-				throw new Error(`Invalid webContentsId: ${webContentsId}`);
-			}
+		const contents = this.getWebContents(id);
+		if (!contents) {
+			throw new Error(hasKey(id, { windowId: true }) ? `Invalid windowId: ${id.windowId}` : `Invalid webContentsId: ${id.webContentsId}`);
 		}
-
 		if (!contents.isDestroyed()) {
 			// --- Start Positron ---
 			const owner = this._menuShortcutOwners.get(contents);
@@ -123,8 +115,20 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 	// --- End Positron ---
 
-	public async findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: { findNext?: boolean; forward?: boolean }): Promise<void> {
-		const initialFrame = this.getFrameByName(windowId, frameName);
+	private getWebContents(id: WebviewWebContentsId | WebviewWindowId): WebContents | undefined {
+		if (hasKey(id, { windowId: true })) {
+			const window = this.windowsMainService.getWindowById(id.windowId)?.win;
+			return window && !window.isDestroyed() ? window.webContents : undefined;
+		}
+
+		return electron.webContents.fromId(id.webContentsId);
+	}
+
+	public async findInFrame(id: WebviewWebContentsId | WebviewWindowId, frameName: string, text: string, options: { findNext?: boolean; forward?: boolean }): Promise<void> {
+		const initialFrame = this.getFrameByName(id, frameName);
+		if (!initialFrame) {
+			return;
+		}
 
 		type WebFrameMainWithFindSupport = WebFrameMain & {
 			findInFrame?(text: string, findOptions: FindInFrameOptions): void;
@@ -147,8 +151,11 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		}
 	}
 
-	public async stopFindInFrame(windowId: WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void> {
-		const initialFrame = this.getFrameByName(windowId, frameName);
+	public async stopFindInFrame(id: WebviewWebContentsId | WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void> {
+		const initialFrame = this.getFrameByName(id, frameName);
+		if (!initialFrame) {
+			return;
+		}
 
 		type WebFrameMainWithFindSupport = WebFrameMain & {
 			stopFindInFrame?(stopOption: 'keepSelection' | 'clearSelection'): void;
@@ -222,7 +229,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				_isMainFrame: boolean,
 				frameProcessId: number,
 				frameRoutingId: number) => {
-				const frameTreeNodeId = webFrameMain.fromId(frameProcessId, frameRoutingId)?.frameTreeNodeId;
+				const frameTreeNodeId = electron.webFrameMain.fromId(frameProcessId, frameRoutingId)?.frameTreeNodeId;
 				const frameId = { processId: frameProcessId, routingId: frameRoutingId, frameTreeNodeId };
 				this.onFrameNavigated(frameId, url);
 			};
@@ -303,7 +310,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 */
 	public async getWebviewHostFrameId(webviewId: string): Promise<WebviewFrameId | undefined> {
 		const webviewPrefix = `${Schemas.vscodeWebview}://`;
-		for (const contents of webContents.getAllWebContents()) {
+		for (const contents of electron.webContents.getAllWebContents()) {
 			const frame = contents.mainFrame.framesInSubtree.find(f =>
 				f.name === webviewId && f.url.startsWith(webviewPrefix) && !f.parent?.url.startsWith(webviewPrefix));
 			if (frame) {
@@ -319,12 +326,12 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 * the frame by its place in the frame tree instead.
 	 */
 	private findFrame(frameId: WebviewFrameId): WebFrameMain | undefined {
-		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		const frame = electron.webFrameMain.fromId(frameId.processId, frameId.routingId);
 		if (frame && !frame.detached) {
 			return frame;
 		}
 		if (frameId.frameTreeNodeId !== undefined) {
-			for (const contents of webContents.getAllWebContents()) {
+			for (const contents of electron.webContents.getAllWebContents()) {
 				const current = contents.mainFrame.framesInSubtree.find(f => f.frameTreeNodeId === frameId.frameTreeNodeId);
 				if (current) {
 					return current;
@@ -376,21 +383,21 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			return;
 		}
 
-		const menu = new Menu();
+		const menu = new electron.Menu();
 		const { editFlags, isEditable } = params;
 		if (isEditable && editFlags.canCut) {
-			menu.append(new MenuItem({ role: 'cut' }));
+			menu.append(new electron.MenuItem({ role: 'cut' }));
 		}
 		if (editFlags.canCopy) {
-			menu.append(new MenuItem({ role: 'copy' }));
+			menu.append(new electron.MenuItem({ role: 'copy' }));
 		}
 		if (isEditable && editFlags.canPaste) {
-			menu.append(new MenuItem({ role: 'paste' }));
+			menu.append(new electron.MenuItem({ role: 'paste' }));
 		}
 		if (menu.items.length > 0) {
-			menu.append(new MenuItem({ type: 'separator' }));
+			menu.append(new electron.MenuItem({ type: 'separator' }));
 		}
-		menu.append(new MenuItem({ role: 'selectAll' }));
+		menu.append(new electron.MenuItem({ role: 'selectAll' }));
 
 		menu.popup({ window, x: params.x, y: params.y });
 	}
@@ -446,16 +453,31 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 	// --- End Positron ---
 
-	private getFrameByName(windowId: WebviewWindowId, frameName: string): WebFrameMain {
-		const window = this.windowsMainService.getWindowById(windowId.windowId);
-		if (!window?.win) {
-			throw new Error(`Invalid windowId: ${windowId}`);
+	private getFrameByName(id: WebviewWebContentsId | WebviewWindowId, frameName: string): WebFrameMain | undefined {
+		const contents = this.getWebContents(id);
+		if (!contents || contents.isDestroyed()) {
+			this.logService.trace('[WebviewMainService] Skipping find request for unavailable web contents', id);
+			return undefined;
 		}
-		const frame = window.win.webContents.mainFrame.framesInSubtree.find(frame => {
-			return frame.name === frameName;
+
+		const mainFrame = contents.mainFrame;
+		if (!mainFrame || mainFrame.isDestroyed()) {
+			this.logService.trace('[WebviewMainService] Skipping find request for an unavailable main frame', id);
+			return undefined;
+		}
+
+		// Electron can fail to convert the entire subtree while a descendant is pending deletion.
+		const framesInSubtree = mainFrame.framesInSubtree;
+		if (!framesInSubtree) {
+			this.logService.warn('[WebviewMainService] Frame subtree unavailable for find request', id);
+			return undefined;
+		}
+
+		const frame = framesInSubtree.find(frame => {
+			return !frame.isDestroyed() && !frame.detached && frame.name === frameName;
 		});
 		if (!frame) {
-			throw new Error(`Unknown frame: ${frameName}`);
+			this.logService.trace('[WebviewMainService] Skipping find request for a missing frame', id, frameName);
 		}
 		return frame;
 	}
