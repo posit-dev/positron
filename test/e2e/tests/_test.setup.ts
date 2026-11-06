@@ -21,6 +21,7 @@ import {
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { defaultWorkspacePath } from '../infra/test-runner';
+import { isArtifactEnabled } from '../infra/artifactSwitches.js';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -214,7 +215,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			// It is written under logsPath, which `renameTempLogsDir` (below) renames,
 			// so remember the basename and attach it from renamedLogsPath in afterAll.
 			try {
-				if (shouldUseCustomTracing(workerInfo.project)) {
+				if (isArtifactEnabled('E2E_TRACES') && shouldUseCustomTracing(workerInfo.project)) {
 					await app.stopTracing('app-start-failure', true, join(logsPath, APP_START_FAILURE_TRACE));
 					appFixtureTracePath = APP_START_FAILURE_TRACE;
 				}
