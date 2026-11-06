@@ -460,6 +460,23 @@ describe('QuartoOutputViewZone replaceOutput', () => {
 
 		zone.dispose();
 	});
+
+	it('sizes an in-place image from the new metadata, dropping a dimension it omits', () => {
+		const zone = createViewZone();
+		zone.addOutput(imageOutput('p', PNG_A));
+
+		expect(zone.replaceOutput({
+			...imageOutput('p', PNG_B),
+			outputMetadata: { 'image/png': { width: 200 } },
+		})).toBe(true);
+
+		// eslint-disable-next-line no-restricted-syntax -- the size attributes live on the <img> inside the output item
+		const img = nodeFor(zone, 'p').querySelector('img');
+		expect(img).toHaveAttribute('width', '200');
+		expect(img).not.toHaveAttribute('height');
+
+		zone.dispose();
+	});
 });
 
 // A replaced webview output (e.g. a plotly display handle updated in a loop)

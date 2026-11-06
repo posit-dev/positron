@@ -219,6 +219,28 @@ export function shouldExpandOnFreshOutput(isCollapsed: boolean, userCollapsedDur
 }
 
 /**
+ * Set an image's width and height from the output metadata for its MIME
+ * type. On high DPI displays, kernels render images at >1 pixel ratio and
+ * specify the actual display size in the metadata. A dimension that the
+ * metadata does not give is removed, so an image whose source is replaced
+ * does not keep a stale size.
+ */
+function applyImageSize(img: HTMLImageElement, mime: string, outputMetadata: Record<string, unknown> | undefined): void {
+	const meta = outputMetadata?.[mime];
+	const { width, height } = meta && typeof meta === 'object' ? meta as Record<string, unknown> : {};
+	if (typeof width === 'number') {
+		img.width = width;
+	} else {
+		img.removeAttribute('width');
+	}
+	if (typeof height === 'number') {
+		img.height = height;
+	} else {
+		img.removeAttribute('height');
+	}
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -1221,16 +1243,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const img = oldElement.querySelector<HTMLImageElement>('img.quarto-output-image');
 		if (oldItem && newItem && img && newItem.mime.startsWith('image/') && newItem.mime === oldItem.mime) {
 			img.src = getImageDataUrl(newItem.mime, newItem.data);
-			const meta = output.outputMetadata?.[newItem.mime];
-			if (meta && typeof meta === 'object') {
-				const { width, height } = meta as Record<string, unknown>;
-				if (typeof width === 'number') {
-					img.width = width;
-				}
-				if (typeof height === 'number') {
-					img.height = height;
-				}
-			}
+			applyImageSize(img, newItem.mime, output.outputMetadata);
 		} else {
 			this._disposeOutputRenderers(output.outputId);
 			// Keep the _imageDimensions entry so the collapsed summary still
@@ -2878,19 +2891,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		img.className = 'quarto-output-image';
 		img.setAttribute('alt', localize('outputImage', 'Output image'));
 
-		// Set width and height from output metadata if available.
-		// On high DPI displays, kernels render images at >1 pixel ratio
-		// and specify the actual display size in the metadata.
-		const meta = outputMetadata?.[mime];
-		if (meta && typeof meta === 'object') {
-			const { width, height } = meta as Record<string, unknown>;
-			if (typeof width === 'number') {
-				img.width = width;
-			}
-			if (typeof height === 'number') {
-				img.height = height;
-			}
-		}
+		applyImageSize(img, mime, outputMetadata);
 
 		// Cache the natural dimensions once the image loads so the collapse
 		// summary can show "Plot (WxH)".
