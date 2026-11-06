@@ -4,6 +4,9 @@ paths:
   - extensions/**/*.vitest.{ts,tsx}
   - vitest.config.ts
   - vitest.tsconfig.json
+  - scripts/check-vitest-types.mts
+  - tsconfig.vitest.base.json
+  - '**/tsconfig.vitest.json'
   - src/vs/test/vitest/**
 ---
 
@@ -52,7 +55,7 @@ Read [`vitest-rtl.md`](vitest-rtl.md) for query priority, jest-dom matcher selec
 
 - Place test files next to the source: `browser/` tests go in `test/browser/`, `common/` in `test/common/`. Match `test/` vs `tests/` per existing convention. If no test directory exists yet, create the matching one.
 - File extension: `.vitest.ts` (or `.vitest.tsx` for React components)
-- `/// <reference types="vitest/globals" />` after the copyright header (required for IDE intellisense)
+- No `/// <reference types="vitest/globals" />` directive: every Vitest tsconfig already provides the globals, in the editor and in check-ts
 - Tabs for indentation
 
 ### Tests inside `extensions/`
@@ -93,11 +96,19 @@ Prefer not to need one. Keep the logic worth testing in a plain module that impo
 
 Adding the alias is a shared-config change affecting every extension test, so agree on the stub's shape first rather than growing it ad hoc per test.
 
-**3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the CommonJS type check in `vitest.tsconfig.json` (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
+**3. To read files from the test, use `__dirname`.** `import.meta.url` reads better but does not survive the type check in extensions that build as CommonJS (`TS1470`). `process.cwd()` is not the repo root: Vitest resolves `root` for module resolution but never changes the working directory, so a test using it passes from the repo root and fails from anywhere else.
 
-**4. Type checking covers these files, but with core's compiler options.** `npm run test:positron:check-ts` picks them up through the `extensions/**/*.vitest.{ts,tsx}` entries in `vitest.tsconfig.json` -- both the test and any source it imports. Confirm with `npx tsc -p vitest.tsconfig.json --listFilesOnly | grep /extensions/`.
+**4. Add a type-check config with the first test.** Vitest does not check types, so `npm run test:positron:check-ts` and the editor check them with a `tsconfig.vitest.json` in the extension:
 
-Those options come from `src/tsconfig.json`, not from the extension's own. The program checks at `strict: true, target: es2024`, while, for example, `positron-dev-containers` builds at `strict: false, target: es2018`. A green `check-ts` therefore does not prove the file would compile under the extension's tsconfig -- which is fine, because step 1 excludes it from that build on purpose. Just don't read it as coverage of the extension's real build settings.
+```json
+{
+	"extends": ["./tsconfig.json", "../../tsconfig.vitest.base.json"]
+}
+```
+
+Add its path to `references` in the root `tsconfig.json`. The editor uses that list to pick the config for each Vitest file. The config keeps the extension's compiler options, and `tsconfig.vitest.base.json` adds the Vitest files, Vitest's globals, and the `vscode` and `positron` API types. The base's `include` replaces the extension's, so if the extension's `tsconfig.json` includes other `.d.ts` files (such as a `vscode.proposed.*.d.ts`), list them under `files` in its `tsconfig.vitest.json`. check-ts fails if an extension has Vitest files but no listed config.
+
+`test/e2e` has a `tsconfig.vitest.json` too. Tests under `src/`, and the cross-extension guards at the top of `extensions/` (e.g. `serverDownloadUrl-copies.vitest.ts`), use `vitest.tsconfig.json` instead.
 
 Sharing code across extensions is possible through a local `file:` package, as `extensions/positron-data-explorer-protocol` does for about ten driver extensions; it costs a small `package.json` and `tsconfig.json` plus registration in `build/npm/dirs.ts`, `build/gulpfile.extensions.ts`, and `build/lib/extensions.ts`. When a helper is copied per extension instead, add a guard that the copies stay identical -- see `extensions/serverDownloadUrl-copies.vitest.ts`.
 

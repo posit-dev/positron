@@ -1,0 +1,19 @@
+{
+	// Lists the Vitest type-check configs. Editors use it to check each Vitest file
+	// with its config, and `npm run test:positron:check-ts` checks every entry.
+	// The main build does not use this file.
+	"files": [],
+	"references": [
+		{ "path": "./vitest.tsconfig.json" },
+		{ "path": "./test/e2e/tsconfig.vitest.json" },
+		{ "path": "./extensions/open-remote-ssh/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-claude-code/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-data-driver-databricks/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-data-driver-duckdb/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-data-driver-sqlite/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-data-explorer-duckdb/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-file-transfer/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-r/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-run-app/tsconfig.vitest.json" }
+	]
+}
