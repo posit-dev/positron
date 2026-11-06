@@ -300,7 +300,21 @@ async function pipInstall(args) {
     ]);
 }
 
+/**
+ * Removes a `pip install --target` directory before a fresh install. pip does
+ * not remove the files of an old version from a target directory, or a
+ * directory that the task no longer installs to. In a dev checkout these
+ * accumulate, and a local release build ships them.
+ * See https://github.com/posit-dev/positron/issues/16695.
+ * @param {string} target - The target directory, relative to this file.
+ */
+async function cleanPipTarget(target) {
+    fancyLog('Removing old bundled packages from:', ansiColors.cyan(target));
+    await del([target], { cwd: __dirname });
+}
+
 async function installPythonScriptRequirements() {
+    await cleanPipTarget('python_files/lib/python');
     await pipInstall(['--target', './python_files/lib/python', '--implementation', 'py', '-r', './requirements.txt']);
 }
 
@@ -320,6 +334,8 @@ async function bundleIPykernel() {
         { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },
         { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },
     ];
+
+    await cleanPipTarget('python_files/lib/ipykernel');
 
     // Pure Python 3 requirements (same for all architectures).
     await pipInstall([
