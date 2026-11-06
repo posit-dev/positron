@@ -117,7 +117,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		log.error(`Failed to apply the Posit Workbench default for Posit AI Pass: ${err}`)
 	);
 
-	await registerAwsProvider(context);
+	const aws = registerUnlessAssistantOwns(AWS_AUTH_PROVIDER_ID, () => registerAwsProvider(context));
+	context.subscriptions.push(aws.disposable);
+	await aws.ready;
 	const snowflake = registerUnlessAssistantOwns(SNOWFLAKE_AUTH_PROVIDER_ID, () => registerSnowflakeProvider(context));
 	context.subscriptions.push(snowflake.disposable);
 	await snowflake.ready;
@@ -157,9 +159,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	};
 }
 
-async function registerAwsProvider(
+function registerAwsProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): ProviderRegistration {
 	const logger = new AuthProviderLogger('AWS');
 
 	const credentialChain = createAwsCredentialChain(
@@ -176,16 +178,17 @@ async function registerAwsProvider(
 			)?.connection.aws?.profile,
 		})
 	);
-	context.subscriptions.push(registerProvider(AWS_AUTH_PROVIDER_ID, 'AWS', provider));
+	const registered = registerProvider(AWS_AUTH_PROVIDER_ID, 'AWS', provider);
 
+	// Created only after registration succeeds, so a failed registration can't
+	// leave the watcher's timer running.
 	const tokenWatcher = watchWebIdentityTokenFile(
 		process.env, credentialChain, () => provider.resolveChainCredentials()
 	);
-	if (tokenWatcher) {
-		context.subscriptions.push(tokenWatcher);
-	}
-	await provider.resolveChainCredentials();
-	logger.info('Registered auth provider');
+	return {
+		disposable: vscode.Disposable.from(registered, ...(tokenWatcher ? [tokenWatcher] : [])),
+		ready: provider.resolveChainCredentials().then(() => logger.info('Registered auth provider')),
+	};
 }
 
 /** An auth provider registration, plus its first look for existing credentials. */
