@@ -117,3 +117,18 @@ suite('declaresAuthProvider', () => {
 		);
 	});
 });
+
+suite('authentication manifest', () => {
+	test('does not declare an auth provider, so Assistant\'s declaration is the only one', () => {
+		const extension = vscode.extensions.getExtension('positron.authentication');
+
+		assert.deepStrictEqual(
+			{
+				found: extension !== undefined,
+				declaresBedrock: declaresAuthProvider(extension?.packageJSON, 'bedrock'),
+				activatesOnBedrock: extension?.packageJSON.activationEvents.includes('onAuthenticationRequest:bedrock'),
+			},
+			{ found: true, declaresBedrock: false, activatesOnBedrock: true }
+		);
+	});
+});
