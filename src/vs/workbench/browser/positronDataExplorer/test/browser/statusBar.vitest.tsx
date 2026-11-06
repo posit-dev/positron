@@ -6,12 +6,16 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { BackendState, ColumnDisplayType, FilterComparisonOp, RowFilter, RowFilterCondition, RowFilterType, SupportStatus } from '../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
+import { TableDataDataGridInstance } from '../../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
+import { getFormatOptions } from '../../../../services/positronDataExplorer/common/positronDataExplorerMocks.js';
+import { makeGlobalSearchFilter } from '../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 import { StatusBar } from '../../components/dataExplorerPanel/components/statusBar.js';
 import { PositronDataExplorerContextProvider } from '../../positronDataExplorerContext.js';
 
@@ -50,14 +54,14 @@ describe('StatusBar', () => {
 	const rtl = setupRTLRenderer();
 
 	/** Renders the status bar over a client reporting the given state, and returns the bar. */
-	function renderStatusBar(state: BackendState) {
+	function renderStatusBar(state: BackendState, tableDataDataGridInstance = stubInterface<TableDataDataGridInstance>()) {
 		const client = stubInterface<DataExplorerClientInstance>({
 			cachedBackendState: state,
 			onDidUpdateBackendState: Event.None,
 			status: DataExplorerClientStatus.Idle,
 			onDidStatusUpdate: Event.None,
 		});
-		const instance = stubInterface<IPositronDataExplorerInstance>({ dataExplorerClientInstance: client });
+		const instance = stubInterface<IPositronDataExplorerInstance>({ dataExplorerClientInstance: client, tableDataDataGridInstance });
 		rtl.render(
 			<PositronDataExplorerContextProvider instance={instance}>
 				<StatusBar />
@@ -87,5 +91,24 @@ describe('StatusBar', () => {
 	it('measures a filtered window against the matching rows, not the rows shown', () => {
 		const statusBar = renderStatusBar(backendState(50000, 2000000, { total_num_rows: 500000, row_filters: [FILTER] }));
 		expect(statusBar).toHaveTextContent(/^First 50,000 of 500,000 matching rows \(25\.00% of 2,000,000 total\) 3 columns$/);
+	});
+
+	it('offers to search every row when the search scanned only the leading rows', async () => {
+		const gridInstance = stubInterface<TableDataDataGridInstance>({ setSearchTerm: vi.fn(async () => { }) });
+		const statusBar = renderStatusBar(backendState(10, 2000000, {
+			row_filters: [FILTER, makeGlobalSearchFilter('abc', 10_000_000, getFormatOptions())],
+			global_search_rows_scanned: 1000000,
+		}), gridInstance);
+		expect(statusBar).toHaveTextContent(/Showing matches from 10M cells\s*Search All$/);
+		await userEvent.setup().click(screen.getByRole('button', { name: 'Search All' }));
+		expect(gridInstance.setSearchTerm).toHaveBeenCalledWith('abc', 0);
+	});
+
+	it('does not offer to search every row when the search scanned every row', () => {
+		const statusBar = renderStatusBar(backendState(10, 2000000, {
+			row_filters: [makeGlobalSearchFilter('abc', 10_000_000, getFormatOptions())],
+			global_search_rows_scanned: null as unknown as undefined,
+		}));
+		expect(statusBar).not.toHaveTextContent(/Search All/);
 	});
 });

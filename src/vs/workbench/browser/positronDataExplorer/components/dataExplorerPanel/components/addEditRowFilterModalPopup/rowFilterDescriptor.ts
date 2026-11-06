@@ -16,6 +16,7 @@ import {
 	RowFilterType,
 	TextSearchType
 } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnRowFilter } from '../../../../../../services/positronDataExplorer/common/dataExplorerSearch.js';
 
 /**
  * RowFilterDescrType enumeration.
@@ -610,7 +611,7 @@ function getSearchDescrType(searchType: TextSearchType) {
 	}
 }
 
-export function getRowFilterDescriptor(backendFilter: RowFilter): RowFilterDescriptor {
+export function getRowFilterDescriptor(backendFilter: ColumnRowFilter): RowFilterDescriptor {
 	const commonProps = {
 		columnSchema: backendFilter.column_schema,
 		isValid: backendFilter.is_valid,

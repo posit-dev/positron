@@ -1715,6 +1715,14 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				[getTextSearch(tailnum, TextSearchType.RegexMatch, 'n5.*b', false)],
 				'regexp_matches(tailnum, \'n5.*b\', \'i\')'
 			],
+			[
+				[getTextSearch(tailnum, TextSearchType.RegexMatch, 'n5.*b')],
+				'regexp_matches(tailnum, \'n5.*b\')'
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.Contains, 'N5\'')],
+				'tailnum LIKE \'%N5\'\'%\''
+			],
 			// SetMembership
 			[
 				[getFilter(carrier, RowFilterType.SetMembership, { values: ['UA', 'AA', 'DL'], inclusive: true })],
@@ -1891,6 +1899,204 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const unfilteredData = await getAllDataValues(tableName);
 		assert.strictEqual(unfilteredData.columns.length, 3);
 		assert.strictEqual(unfilteredData.columns[0].length, 5);
+	});
+
+	const globalSearchFilter = (term: string): RowFilter => ({
+		filter_id: 'global-search',
+		condition: RowFilterCondition.And,
+		filter_type: RowFilterType.GlobalSearch,
+		params: { term }
+	});
+
+	async function applyRowFilters(uri: vscode.Uri, filters: RowFilter[]): Promise<number> {
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: { filters } satisfies SetRowFiltersParams
+		});
+		return result.selected_num_rows;
+	}
+
+	// Returns the values of one column of the filtered table, formatted with
+	// enough digits to tell the numeric test values apart.
+	async function getColumnValues(tableName: string, columnIndex: number): Promise<Array<string | number>> {
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const state = await getState(uri);
+		if (state.table_shape.num_rows === 0) {
+			return [];
+		}
+		const data: TableData = await dxExec({
+			method: DataExplorerBackendRequest.GetDataValues,
+			uri: uri.toString(),
+			params: {
+				columns: [{ column_index: columnIndex, spec: { first_index: 0, last_index: state.table_shape.num_rows - 1 } }],
+				format_options: { ...DEFAULT_FORMAT_OPTIONS, large_num_digits: 10, small_num_digits: 10 }
+			} satisfies GetDataValuesParams
+		});
+		return data.columns[0];
+	}
+
+	test('global_search is a supported row filter type', async () => {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [{ name: 'x', type: 'INTEGER', values: ['1'] }]);
+		const state = await getState(vscode.Uri.from({ scheme: 'duckdb', path: tableName }));
+		assert.ok(state.supported_features.set_row_filters.supported_types.some(t =>
+			t.row_filter_type === RowFilterType.GlobalSearch && t.support_status === SupportStatus.Supported));
+	});
+
+	test('global_search matches numeric terms at their implied precision', async () => {
+		const tableName = makeTempTableName();
+		const values = [
+			'3', '3.5', '3.999', '2.9999999999', '2.9', '4', '-3', '3.9999999999', '3.1', '3.14159',
+			'3.19', '3.0999', '3.2', '3.105', '3.11', '3.1999', '-3.5', '-3.999', '-4', '-2.9', '0',
+			'0.5', '-0.5', '0.999', '1', '-1', '0.55', '0.6', '0.49', '1234', '1234.9', '12340',
+			'1233', '2', '2.5', '1000', '123', '\'Inf\'', '\'-Inf\'', '\'NaN\'', 'NULL'
+		];
+		await createTempTable(tableName, [{ name: 'v', type: 'DOUBLE', values }]);
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		const specials = new Map<number, string>([[0, 'NULL'], [2, 'NaN'], [10, 'Inf'], [11, '-Inf']]);
+		const cases: Array<[string, Array<number | string>]> = [
+			['3', [3, 3.5, 3.999, 2.9999999999, 3.1, 3.14159, 3.19, 3.0999, 3.2, 3.105, 3.11, 3.1999]],
+			['3.', [3, 3.5, 3.999, 2.9999999999, 3.1, 3.14159, 3.19, 3.0999, 3.2, 3.105, 3.11, 3.1999]],
+			['  3', [3, 3.5, 3.999, 2.9999999999, 3.1, 3.14159, 3.19, 3.0999, 3.2, 3.105, 3.11, 3.1999]],
+			['3.1', [3.1, 3.14159, 3.19, 3.105, 3.11, 3.1999]],
+			['3.10', [3.1, 3.105]],
+			['-3', [-3, -3.5, -3.999]],
+			['0', [0, 0.5, -0.5, 0.999, 0.55, 0.6, 0.49]],
+			['.5', [0.5, 0.55]],
+			['1,234', [1234, 1234.9]],
+			['+2', [2, 2.5, 2.9]],
+			['1e3', []],
+			['1,23', []],
+			['Inf', []],
+			['-', []],
+			['nan', ['NaN', 'NULL']],
+			[' NULL ', ['NaN', 'NULL']],
+			['nu', []],
+		];
+		const sortKey = (x: number | string) => String(x);
+		for (const [term, expected] of cases) {
+			const numRows = await applyRowFilters(uri, [globalSearchFilter(term)]);
+			const actual = (await getColumnValues(tableName, 0)).map(v =>
+				typeof v === 'number' ? specials.get(v)! : Number(v));
+			assert.strictEqual(numRows, expected.length, `term '${term}'`);
+			assert.deepStrictEqual(actual.sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+				[...expected].sort((a, b) => sortKey(a).localeCompare(sortKey(b))), `term '${term}'`);
+		}
+	});
+
+	test('global_search matches floats as displayed and integers exactly', async () => {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{ name: 'v', type: 'DOUBLE', values: ['2.996', '2.994', '-2.996', '0.99996', '0.12346', '1234567890.5', '0'] },
+			{ name: 'i', type: 'BIGINT', values: ['9007199254740993', '9007199254740992', '10', '20', '30', '40', '50'] }
+		]);
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const search = (term: string): RowFilter => ({
+			...globalSearchFilter(term),
+			params: { term, format_options: DEFAULT_FORMAT_OPTIONS }
+		});
+
+		// Displayed: 3.00, 2.99, -3.00, 1.0000, 0.1235, 1.23e+09, 0.00
+		const cases: Array<[string, number[]]> = [
+			['3.00', [2.996]],
+			['2.99', [2.994]],
+			['-3', [-2.996]],
+			['1.0000', [0.99996]],
+			['0.1235', [0.12346]],
+			['0.12346', []],
+			['1234567890', []],
+			['9007199254740993', [2.996]],
+		];
+		for (const [term, expected] of cases) {
+			await applyRowFilters(uri, [search(term)]);
+			const actual = (await getColumnValues(tableName, 0)).map(Number);
+			assert.deepStrictEqual(actual, expected, `term '${term}'`);
+		}
+
+		// Without format options, values match unrounded.
+		await applyRowFilters(uri, [globalSearchFilter('2.99')]);
+		assert.deepStrictEqual((await getColumnValues(tableName, 0)).map(Number), [2.996, 2.994]);
+	});
+
+	// A mixed-type table. The `label` column is a list, which the search skips,
+	// so it identifies rows without matching terms itself.
+	async function createMixedSearchTable(): Promise<string> {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{ name: 'label', type: 'INTEGER[]', values: ['[1]', '[2]', '[3]', '[4]'] },
+			{ name: 'i', type: 'INTEGER', values: ['1', '30', 'NULL', '4'] },
+			{ name: 's', type: 'VARCHAR', values: ['\'Apple\'\'s\'', '\'v3.2\'', '\'nullable\'', 'NULL'] },
+			{ name: 'b', type: 'BOOLEAN', values: ['true', 'false', 'NULL', 'false'] },
+			{ name: 'd', type: 'DATE', values: ['\'2024-01-15\'', '\'2023-03-03\'', 'NULL', '\'1999-12-31\''] }
+		]);
+		return tableName;
+	}
+
+	test('global_search matches across column types', async () => {
+		const tableName = await createMixedSearchTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const cases: Array<[string, string[]]> = [
+			['APPLE', ['[1]']],
+			['\'s', ['[1]']],
+			['true', ['[1]']],
+			['2023', ['[2]']],
+			['3', ['[2]', '[4]']],
+			['30', ['[2]']],
+			['null', ['[3]', '[4]']],
+			['nu', ['[3]']],
+			['[1]', []],
+			['xyz', []],
+		];
+		for (const [term, expected] of cases) {
+			await applyRowFilters(uri, [globalSearchFilter(term)]);
+			assert.deepStrictEqual(await getColumnValues(tableName, 0), expected, `term '${term}'`);
+		}
+	});
+
+	test('global_search stacks with column filters', async () => {
+		const tableName = await createMixedSearchTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const schema = await getSchema(tableName);
+		const compare: RowFilter = {
+			filter_id: 'compare',
+			condition: RowFilterCondition.And,
+			column_schema: schema.columns[1],
+			filter_type: RowFilterType.Compare,
+			params: { op: FilterComparisonOp.Lt, value: '10' }
+		};
+		assert.strictEqual(await applyRowFilters(uri, [compare, globalSearchFilter('3')]), 1);
+		assert.deepStrictEqual(await getColumnValues(tableName, 0), ['[4]']);
+		assert.strictEqual(await applyRowFilters(uri, [globalSearchFilter('3'), compare]), 1);
+		assert.deepStrictEqual(await getColumnValues(tableName, 0), ['[4]']);
+	});
+
+	test('get_data_values returns search_matches when a global search is active', async () => {
+		const tableName = await createMixedSearchTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const getData = async (columns: GetDataValuesParams['columns']): Promise<TableData> => dxExec({
+			method: DataExplorerBackendRequest.GetDataValues,
+			uri: uri.toString(),
+			params: { columns, format_options: DEFAULT_FORMAT_OPTIONS } satisfies GetDataValuesParams
+		});
+		const allColumns = [0, 1, 2, 3, 4].map(column_index => ({ column_index, spec: { first_index: 0, last_index: 1 } }));
+
+		assert.strictEqual((await getData(allColumns)).search_matches, undefined);
+
+		await applyRowFilters(uri, [globalSearchFilter('null')]);
+		const data = await getData(allColumns);
+		assert.deepStrictEqual(data.columns[0], ['[3]', '[4]']);
+		assert.deepStrictEqual(data.search_matches, [
+			[false, false],
+			[true, false],
+			[true, true],
+			[true, false],
+			[true, false]
+		]);
+
+		const indexed = await getData([{ column_index: 2, spec: { indices: [1] } }]);
+		assert.deepStrictEqual(indexed.search_matches, [[true]]);
 	});
 
 	test('set_sort_columns works correctly', async () => {

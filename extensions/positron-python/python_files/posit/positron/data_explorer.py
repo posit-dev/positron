@@ -26,6 +26,13 @@ from ._data_explorer_internal import (
     _get_histogram_numpy,
     _get_histogram_polars,
 )
+from ._data_explorer_search import (
+    DISPLAY_STRING_TYPES,
+    SEARCHABLE_TYPES,
+    SearchTerm,
+    numeric_mask,
+    parse_search_term,
+)
 from .access_keys import decode_access_key
 from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
@@ -67,6 +74,7 @@ from .data_explorer_comm import (
     FilterBetween,
     FilterComparison,
     FilterComparisonOp,
+    FilterGlobalSearch,
     FilterMatchDataTypes,
     FilterResult,
     FilterSetMembership,
@@ -225,6 +233,11 @@ class DataExplorerTableView:
         # changes, we discard the last search result. We might add an
         # LRU cache here or something if it helps performance.
         self._search_schema_last_result: tuple[list[ColumnFilter], list[int]] | None = None
+
+        # Active global_search term and the number of candidate rows it
+        # scanned when limited by max_cells
+        self._search_term: SearchTerm | None = None
+        self._global_search_rows_scanned: int | None = None
 
         self._update_schema_cache()
 
@@ -394,17 +407,99 @@ class DataExplorerTableView:
 
     def get_data_values(self, params: GetDataValuesParams):
         self._recompute_if_needed()
-        return self._get_data_values(
+        result = self._get_data_values(
             params.columns,
             params.format_options,
         )
+        if self._search_term is not None:
+            result["search_matches"] = [
+                self._selection_search_matches(selection, len(values))
+                for selection, values in zip(params.columns, result["columns"], strict=True)
+            ]
+        return result
+
+    def _selection_search_matches(self, selection: ColumnSelection, num_values: int) -> list:
+        display_type = self._get_single_column_schema(selection.column_index).type_display
+        if display_type not in SEARCHABLE_TYPES:
+            return [False] * num_values
+        return self._spec_search_matches(
+            selection.column_index, display_type, selection.spec, num_values
+        )
+
+    def _spec_search_matches(
+        self, key, display_type: ColumnDisplayType, spec, num_values: int
+    ) -> list:
+        import numpy as np
+
+        if isinstance(spec, DataSelectionRange):
+            rows = slice(spec.first_index, spec.last_index + 1)
+        else:
+            rows = np.asarray(spec.indices)
+        if self.row_view_indices is not None:
+            rows = np.asarray(self.row_view_indices[rows])
+        mask = self._search_mask(key, display_type, rows)
+        return [False] * num_values if mask is None else mask.tolist()
+
+    def _searches_row_labels(self) -> bool:
+        return False
+
+    def _search_keys(self) -> list:
+        # (column index, display type) of every searched column
+        return [
+            (i, display_type)
+            for i in range(self.table.shape[1])
+            if (display_type := self._get_single_column_schema(i).type_display) in SEARCHABLE_TYPES
+        ]
+
+    def _eval_global_search(self, params: FilterGlobalSearch, candidates):
+        import numpy as np
+
+        keys = self._search_keys()
+        num_rows = len(self.table) if candidates is None else len(candidates)
+        limit = num_rows
+        if params.max_cells and keys and num_rows * len(keys) > params.max_cells:
+            limit = params.max_cells // len(keys)
+            self._global_search_rows_scanned = limit
+
+        rows = slice(0, limit) if candidates is None else np.asarray(candidates)[:limit]
+        matched = np.zeros(limit, dtype=bool)
+        for key, display_type in keys:
+            mask = self._search_mask(key, display_type, rows)
+            if mask is not None:
+                matched |= mask
+
+        full_mask = np.zeros(len(self.table), dtype=bool)
+        full_mask[rows] = matched
+        return self._mask_to_indices(full_mask)
+
+    def _search_mask(self, key, display_type: ColumnDisplayType, rows):
+        # Returns a bool array over rows, or None if the column cannot be searched
+        assert self._search_term is not None
+        try:
+            return self._search_values(key, display_type, self._search_term, rows)
+        except Exception as e:
+            logger.warning(e, exc_info=True)
+            return None
+
+    def _search_values(self, key, display_type: ColumnDisplayType, term: SearchTerm, rows):
+        raise NotImplementedError
 
     def get_row_labels(self, params: GetRowLabelsParams):
         self._recompute_if_needed()
-        return self._get_row_labels(
+        result = self._get_row_labels(
             params.selection,
             params.format_options,
         )
+        if self._search_term is not None and result["row_labels"]:
+            num_labels = len(result["row_labels"][0])
+            result["search_matches"] = [
+                self._spec_search_matches(
+                    None, ColumnDisplayType.Object, params.selection, num_labels
+                )
+                if self._searches_row_labels()
+                else [False] * num_labels
+            ]
+        return result
 
     def _get_row_labels(self, _selection: ArraySelection, _format_options: FormatOptions):
         # By default, the table has no row labels, so this will only
@@ -472,6 +567,8 @@ class DataExplorerTableView:
 
     def _set_row_filters(self, filters: list[RowFilter]):
         self.state.row_filters = filters
+        self._search_term = None
+        self._global_search_rows_scanned = None
         for filt in filters:
             # If is_valid isn't set, set it based on what is currently
             # supported
@@ -488,24 +585,22 @@ class DataExplorerTableView:
         # indicated conditions
         combined_mask = None
         had_errors = False
+        search = None
         for filt in filters:
             if filt.is_valid is False:
                 # If filter is invalid, do not evaluate it
+                continue
+
+            if filt.filter_type == RowFilterType.GlobalSearch:
+                # Evaluated last, on the rows the other filters select
+                search = filt
                 continue
 
             try:
                 single_mask = self._eval_filter(filt)
             except Exception as e:
                 had_errors = True
-
-                # Filter fails: we capture the error message and mark
-                # the filter as invalid
-                filt.is_valid = False
-                filt.error_message = str(e)
-
-                # Perhaps use a different log level, but to help with
-                # debugging for now.
-                logger.warning(e, exc_info=True)
+                self._invalidate_filter(filt, e)
                 continue
 
             if combined_mask is None:
@@ -516,6 +611,20 @@ class DataExplorerTableView:
                 combined_mask |= single_mask
 
         self.filtered_indices = self._mask_to_indices(combined_mask)
+
+        if search is not None:
+            params = search.params
+            assert isinstance(params, FilterGlobalSearch)
+            self._search_term = parse_search_term(params.term, params.format_options)
+            if self._search_term is not None:
+                try:
+                    self.filtered_indices = self._eval_global_search(params, self.filtered_indices)
+                except Exception as e:
+                    had_errors = True
+                    self._search_term = None
+                    self._global_search_rows_scanned = None
+                    self._invalidate_filter(search, e)
+
         selected_num_rows = (
             len(self.table) if self.filtered_indices is None else len(self.filtered_indices)
         )
@@ -523,6 +632,17 @@ class DataExplorerTableView:
         # Update the view indices, re-sorting if needed
         self._update_row_view_indices()
         return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
+
+    @staticmethod
+    def _invalidate_filter(filt: RowFilter, error: Exception):
+        # Filter fails: we capture the error message and mark the
+        # filter as invalid
+        filt.is_valid = False
+        filt.error_message = str(error)
+
+        # Perhaps use a different log level, but to help with
+        # debugging for now.
+        logger.warning(error, exc_info=error)
 
     def _mask_to_indices(self, mask):
         raise NotImplementedError
@@ -635,6 +755,7 @@ class DataExplorerTableView:
             row_filters=self.state.row_filters,
             sort_keys=self.state.sort_keys,
             supported_features=self.FEATURES,
+            global_search_rows_scanned=self._global_search_rows_scanned,
         )
 
     def _recompute(self):
@@ -656,40 +777,42 @@ class DataExplorerTableView:
         # Shared by implementations of get_updated_state
         new_filters = []
         for filt in self.state.row_filters:
-            column_index = filt.column_schema.column_index
-            column_name = filt.column_schema.column_name
-
             filt = filt.copy(deep=True)
 
             is_deleted = False
-            if column_index in schema_changes:
-                # A schema change is only valid if the column name is
-                # the same, otherwise it's a deletion
-                change = schema_changes[column_index]
-                if column_name == change.column_name:
-                    filt.column_schema = change.copy()
-                else:
-                    # Column may be deleted. We need to distinguish
-                    # between the case of a deleted column that was
-                    # filtered and a filter that was invalid and is
-                    # now valid again as a result of changes in the
-                    # data (e.g. deleting a column and then re-adding
-                    # it right away)
-                    if str(new_columns[column_index]) == column_name:
-                        # Probably a new column that allows the old
-                        # filter to become valid again if the type is
-                        # compatible
-                        filt.column_schema = schema_getter(
-                            column_name,
-                            column_index,
-                        )
+            # Filters without a column (global_search) are never deleted
+            if filt.column_schema is not None:
+                column_index = filt.column_schema.column_index
+                column_name = filt.column_schema.column_name
+
+                if column_index in schema_changes:
+                    # A schema change is only valid if the column name is
+                    # the same, otherwise it's a deletion
+                    change = schema_changes[column_index]
+                    if column_name == change.column_name:
+                        filt.column_schema = change.copy()
                     else:
-                        is_deleted = True
-            elif column_index in shifted_columns:
-                filt.column_schema.column_index = shifted_columns[column_index]
-            elif column_index in deleted_columns:
-                # Column deleted
-                is_deleted = True
+                        # Column may be deleted. We need to distinguish
+                        # between the case of a deleted column that was
+                        # filtered and a filter that was invalid and is
+                        # now valid again as a result of changes in the
+                        # data (e.g. deleting a column and then re-adding
+                        # it right away)
+                        if str(new_columns[column_index]) == column_name:
+                            # Probably a new column that allows the old
+                            # filter to become valid again if the type is
+                            # compatible
+                            filt.column_schema = schema_getter(
+                                column_name,
+                                column_index,
+                            )
+                        else:
+                            is_deleted = True
+                elif column_index in shifted_columns:
+                    filt.column_schema.column_index = shifted_columns[column_index]
+                elif column_index in deleted_columns:
+                    # Column deleted
+                    is_deleted = True
 
             # If the column was not deleted, we always reset the
             # validity state of the filter in case something we
@@ -750,6 +873,9 @@ class DataExplorerTableView:
     def _is_supported_filter(self, filt: RowFilter) -> bool:
         if filt.filter_type not in self.SUPPORTED_FILTERS:
             return False
+
+        if filt.column_schema is None:
+            return filt.filter_type == RowFilterType.GlobalSearch
 
         display_type = filt.column_schema.type_display
 
@@ -1280,7 +1406,9 @@ class PandasView(DataExplorerTableView):
 
     def get_updated_state(self, new_table) -> StateUpdate:
         filtered_columns = {
-            filt.column_schema.column_index: filt.column_schema for filt in self.state.row_filters
+            filt.column_schema.column_index: filt.column_schema
+            for filt in self.state.row_filters
+            if filt.column_schema is not None
         }
 
         new_state = DataExplorerState(self.state.name)
@@ -1709,6 +1837,52 @@ class PandasView(DataExplorerTableView):
             return mask.nonzero()[0]
         return None
 
+    def _searches_row_labels(self) -> bool:
+        import pandas as pd
+
+        # Row labels are searched by their displayed text, except default numbering
+        return not isinstance(self.table.index, pd.RangeIndex)
+
+    def _search_keys(self) -> list:
+        keys = super()._search_keys()
+        if self._searches_row_labels():
+            keys.append((None, ColumnDisplayType.Object))
+        return keys
+
+    def _search_values(self, key, display_type: ColumnDisplayType, term: SearchTerm, rows):
+        import numpy as np
+        import pandas as pd
+
+        if key is None:
+            index = self.table.index[rows]
+            if isinstance(index, pd.MultiIndex):
+                index = index.to_flat_index()
+            values = pd.Series([str(x) for x in index])
+        else:
+            values = self.table.iloc[rows, key]
+        strings = None
+        if key is None or display_type in DISPLAY_STRING_TYPES or values.dtype.kind == "c":
+            strings = (
+                values.astype(object).map(str, na_action="ignore").astype("string").str.lower()
+            )
+        elif display_type == ColumnDisplayType.String:
+            strings = values.astype("string").str.lower()
+
+        if strings is not None:
+            contains = strings.str.contains(term.text, regex=False)
+            mask = contains.to_numpy(dtype=bool, na_value=False)
+        elif display_type == ColumnDisplayType.Integer and term.integer is not None:
+            # Compare exactly; integers can exceed the precision of a float
+            mask = (values == term.integer).to_numpy(dtype=bool, na_value=False)
+        elif term.bounds is not None:
+            mask = numeric_mask(values.to_numpy(dtype=float, na_value=np.nan), display_type, term)
+        else:
+            mask = np.zeros(len(values), dtype=bool)
+
+        if term.matches_null:
+            mask = mask | values.isna().to_numpy()
+        return mask
+
     def _eval_filter(self, filt: RowFilter):
         import pandas as pd
 
@@ -1959,6 +2133,7 @@ class PandasView(DataExplorerTableView):
         {
             RowFilterType.Between,
             RowFilterType.Compare,
+            RowFilterType.GlobalSearch,
             RowFilterType.IsEmpty,
             RowFilterType.IsFalse,
             RowFilterType.IsNull,
@@ -2536,14 +2711,47 @@ class PolarsView(DataExplorerTableView):
             RowFilterType.IsFalse,
             RowFilterType.Search,
             RowFilterType.SetMembership,
+            RowFilterType.GlobalSearch,
         }
     )
 
     def _mask_to_indices(self, mask):
+        import polars as pl
+
         # Boolean array -> int32 array of true indices
         if mask is not None:
-            return mask.arg_true()
+            return pl.Series(mask).arg_true()
         return None
+
+    def _search_values(self, key, display_type: ColumnDisplayType, term: SearchTerm, rows):
+        import numpy as np
+        import polars as pl
+
+        values = self.table[:, key][rows]
+        strings = None
+        if display_type in DISPLAY_STRING_TYPES:
+            strings = pl.Series(
+                [None if x is None else str(x) for x in values], dtype=pl.String
+            ).str.to_lowercase()
+        elif display_type == ColumnDisplayType.String:
+            strings = values.cast(pl.String).str.to_lowercase()
+
+        if strings is not None:
+            mask = strings.str.contains(term.text, literal=True).fill_null(value=False).to_numpy()
+        elif display_type == ColumnDisplayType.Integer and term.integer is not None:
+            # Compare exactly; integers can exceed the precision of a float
+            mask = (values == term.integer).fill_null(value=False).to_numpy()
+        elif term.bounds is not None:
+            mask = numeric_mask(values.cast(pl.Float64).to_numpy(), display_type, term)
+        else:
+            mask = np.zeros(len(values), dtype=bool)
+
+        if term.matches_null:
+            nulls = values.is_null()
+            if values.dtype.is_float():
+                nulls |= values.is_nan().fill_null(value=False)
+            mask = mask | nulls.to_numpy()
+        return mask
 
     def _eval_filter(self, filt: RowFilter):
         import polars as pl

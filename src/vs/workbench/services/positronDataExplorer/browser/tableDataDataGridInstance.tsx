@@ -10,6 +10,7 @@ import { JSX } from 'react';
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { onUnexpectedError } from '../../../../base/common/errors.js';
+import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
@@ -19,26 +20,39 @@ import { TableDataRowHeader } from './components/tableDataRowHeader.js';
 import { TableDataCellPlaceholder } from './components/tableDataCellPlaceholder.js';
 import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
-import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators } from '../common/tableDataCache.js';
+import { InvalidateCacheFlags, TableDataCache, ColumnWidthCalculators, DataCell, toDataCell } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { BackendState, ColumnSchema, ExportFormat, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, ColumnSchema, ExportFormat, FilterGlobalSearch, RowFilter, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardData, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { buildTableSelectionFromClipboardData } from './utils.js';
+import { DATA_EXPLORER_SEARCH_MAX_CELLS_KEY } from './positronDataExplorerSummary.js';
+import { cellMatchesSearch, findMatchSpan, getGlobalSearchTerm, isGlobalSearchSupported, makeGlobalSearchFilter, parseSearchTerm, SearchTerm, splitRowFilters } from '../common/dataExplorerSearch.js';
 
 /**
  * Constants.
  */
 const OVERSCAN_FACTOR = 3;
+const SEARCH_REVEAL_CHUNK_SIZE = 1000;
 
 /**
  * Localized strings.
  */
 const addFilterTitle = localize('positron.addFilter', "Add Filter");
+
+/**
+ * Determines whether a data cell matches a search term, preferring the backend's per-cell result.
+ * @param dataCell The data cell.
+ * @param typeDisplay The display type of the cell's column.
+ * @param search The search term.
+ */
+function isSearchMatch(dataCell: DataCell, typeDisplay: ColumnDisplayType, search: SearchTerm): boolean {
+	return search.kind !== 'none' && (dataCell.searchMatch ?? cellMatchesSearch(dataCell, typeDisplay, search));
+}
 
 /**
  * TableDataDataGridInstance class.
@@ -137,6 +151,43 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadFailed = false;
 
+	/**
+	 * The global search filter: the one being applied while a search is in flight, otherwise the
+	 * backend's. Undefined when there is no search.
+	 */
+	private _searchFilter?: RowFilter;
+
+	/**
+	 * Whether a search is being applied. Search requests made meanwhile are coalesced into one
+	 * that is applied after it.
+	 */
+	private _searchInFlight = false;
+
+	/**
+	 * Whether a search request is waiting for the one in flight to finish.
+	 */
+	private _searchPending = false;
+
+	/**
+	 * The parsed term of the search the backend has applied.
+	 */
+	private _appliedSearch: SearchTerm = parseSearchTerm('');
+
+	/**
+	 * The search term in the backend state when the search filter was last synchronized.
+	 */
+	private _backendSearchTerm = '';
+
+	/**
+	 * The onDidChangeSearchTerm event emitter.
+	 */
+	private readonly _onDidChangeSearchTerm = this._register(new Emitter<string>());
+
+	/**
+	 * The onDidRequestSearchFocus event emitter.
+	 */
+	private readonly _onDidRequestSearchFocus = this._register(new Emitter<void>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -209,6 +260,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			this.syncSearchFilter();
+
 			// If not visible, skip layout and sort key updates. Backend-
 			// initiated events will also fire onDidSchemaUpdate or
 			// onDidDataUpdate, which set the pending flags and will
@@ -399,6 +452,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override rowHeader(rowIndex: number) {
 		return (
 			<TableDataRowHeader
+				search={this._tableDataCache.getRowLabelSearchMatch(rowIndex) !== false ? this.appliedSearch : undefined}
 				unavailable={this._tableDataCache.rowLabelsLoadFailed}
 				value={this._tableDataCache.getRowLabel(rowIndex)}
 			/>
@@ -444,11 +498,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// Return the TableDataCell.
+		const search = this.appliedSearch;
 		return (
 			<TableDataCell
 				column={column}
 				dataCell={dataCell}
 				hoverManager={this._hoverManager}
+				search={search}
+				searchMatched={isSearchMatch(dataCell, column.columnSchema.type_display, search)}
 			/>
 		);
 	}
@@ -798,7 +855,189 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	readonly onDidSetRowFilters = this._onDidSetRowFilters.event;
 
+	/**
+	 * The onDidChangeSearchTerm event. Fired with the term when a search is requested or the
+	 * backend's search differs from it.
+	 */
+	readonly onDidChangeSearchTerm = this._onDidChangeSearchTerm.event;
+
+	/**
+	 * The onDidRequestSearchFocus event.
+	 */
+	readonly onDidRequestSearchFocus = this._onDidRequestSearchFocus.event;
+
+	/**
+	 * Gets the requested search term, or the backend's when it changed its search.
+	 */
+	get searchTerm(): string {
+		return getGlobalSearchTerm(this._searchFilter);
+	}
+
+	/**
+	 * Gets whether the backend supports searching across all columns.
+	 */
+	get isSearchSupported(): boolean {
+		return isGlobalSearchSupported(this._dataExplorerClientInstance.cachedBackendState?.supported_features.set_row_filters);
+	}
+
+	/**
+	 * Gets the parsed term of the valid search the backend has applied.
+	 */
+	private get appliedSearch(): SearchTerm {
+		const { globalSearch } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
+		const term = globalSearch?.is_valid === false ? '' : getGlobalSearchTerm(globalSearch);
+		if (term !== this._appliedSearch.text) {
+			this._appliedSearch = parseSearchTerm(term);
+		}
+		return this._appliedSearch;
+	}
+
 	//#region Public Methods
+
+	/**
+	 * Requests that the search input take focus.
+	 */
+	focusSearch() {
+		this._onDidRequestSearchFocus.fire();
+	}
+
+	/**
+	 * Sets the global search term, keeping the column filters. Requests made while a search is
+	 * being applied are coalesced, and only the latest is applied after it.
+	 * @param term The search term; '' clears the search.
+	 * @param maxCells The maximum number of cells to scan; defaults to the configured limit.
+	 */
+	async setSearchTerm(term: string, maxCells?: number): Promise<void> {
+		this._searchFilter = term === '' ? undefined : makeGlobalSearchFilter(
+			term,
+			maxCells ?? this._services.configurationService.getValue<number>(DATA_EXPLORER_SEARCH_MAX_CELLS_KEY) ?? 0,
+			this._dataExplorerClientInstance.dataFormatOptions
+		);
+		this._onDidChangeSearchTerm.fire(term);
+
+		if (this._searchInFlight) {
+			this._searchPending = true;
+			return;
+		}
+		this._searchInFlight = true;
+		do {
+			this._searchPending = false;
+			try {
+				const { columnFilters } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
+				await this.applyRowFilters(columnFilters);
+				if (!this._searchPending) {
+					await this.revealSearchMatch();
+				}
+			} catch (error) {
+				onUnexpectedError(error);
+			}
+		} while (this._searchPending);
+		this._searchInFlight = false;
+		this.syncSearchFilter();
+	}
+
+	/**
+	 * Takes the search filter from the backend state when the backend changes its search (e.g. on
+	 * reset) and no search is in flight. A search the backend failed to apply leaves its search
+	 * unchanged, so the requested term is kept for the user to correct.
+	 */
+	private syncSearchFilter() {
+		if (this._searchInFlight) {
+			return;
+		}
+		const { globalSearch } = splitRowFilters(this._dataExplorerClientInstance.cachedBackendState?.row_filters ?? []);
+		const term = getGlobalSearchTerm(globalSearch);
+		if (term === this._backendSearchTerm) {
+			return;
+		}
+		this._backendSearchTerm = term;
+		const changed = term !== this.searchTerm;
+		// Rebuild the filter rather than keeping the backend's, whose validity it would send back.
+		this._searchFilter = globalSearch && makeGlobalSearchFilter(term, (globalSearch.params as FilterGlobalSearch).max_cells ?? 0, this._dataExplorerClientInstance.dataFormatOptions);
+		if (changed) {
+			this._onDidChangeSearchTerm.fire(term);
+		}
+	}
+
+	/**
+	 * Scrolls horizontally to a matching cell in the first visible row when no visible cell or row
+	 * label matches the applied search. Every row the search keeps has a match in some column.
+	 */
+	private async revealSearchMatch(): Promise<void> {
+		const search = this.appliedSearch;
+		if (search.kind === 'none' || this.layoutWidth <= 0 || this.layoutHeight <= 0) {
+			return;
+		}
+
+		// Get the visible rows and the columns that are fully visible or span the viewport.
+		const left = this.horizontalScrollOffset;
+		const right = this.layoutRight;
+		const rowIndexes = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 0);
+		const columnIndexes = this._columnLayoutManager.getLayoutIndexes(left, this.layoutWidth, 0).filter(columnIndex => {
+			const entry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+			return this._columnLayoutManager.isPinnedIndex(columnIndex) ||
+				(entry !== undefined && (entry.start >= left ? entry.end <= right : entry.end >= right));
+		});
+		if (!rowIndexes.length || !columnIndexes.length) {
+			return;
+		}
+
+		// If a visible row label or cell matches, leave the scroll position alone.
+		for (const rowIndex of rowIndexes) {
+			const rowLabel = this._tableDataCache.getRowLabel(rowIndex);
+			const rowLabelMatch = this._tableDataCache.getRowLabelSearchMatch(rowIndex);
+			if (rowLabelMatch ?? (rowLabel !== undefined && findMatchSpan(rowLabel, search))) {
+				return;
+			}
+			for (const columnIndex of columnIndexes) {
+				const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
+				if (dataCell && columnSchema && isSearchMatch(dataCell, columnSchema.type_display, search)) {
+					return;
+				}
+			}
+		}
+
+		// Order the other unpinned columns by their distance from the viewport.
+		const rowIndex = rowIndexes[0];
+		const visible = new Set(columnIndexes);
+		const firstPosition = this._columnLayoutManager.mapIndexToPosition(this.firstColumn?.columnIndex ?? 0) ?? 0;
+		const candidates: number[] = [];
+		for (let before = firstPosition, after = firstPosition; before >= 0 || after < this._columnLayoutManager.entryCount; before--, after++) {
+			for (const position of after === before ? [after] : [after, before]) {
+				const columnIndex = this._columnLayoutManager.mapPositionToIndex(position);
+				if (columnIndex !== undefined && !visible.has(columnIndex) && !this._columnLayoutManager.isPinnedIndex(columnIndex)) {
+					candidates.push(columnIndex);
+				}
+			}
+		}
+
+		// Scan the row's values in chunks, nearest first, and scroll to the first match.
+		for (let i = 0; i < candidates.length; i += SEARCH_REVEAL_CHUNK_SIZE) {
+			const chunk = candidates.slice(i, i + SEARCH_REVEAL_CHUNK_SIZE);
+			const [tableSchema, tableData] = await Promise.all([
+				this._dataExplorerClientInstance.getSchema(chunk),
+				this._dataExplorerClientInstance.getDataValues(chunk.map(column_index => ({
+					column_index,
+					spec: { first_index: rowIndex, last_index: rowIndex }
+				})))
+			]);
+			// A newer search supersedes this one.
+			if (this._searchPending) {
+				return;
+			}
+			const match = chunk.findIndex((_, j) => {
+				const value = tableData.columns[j]?.[0];
+				const typeDisplay = tableSchema.columns[j]?.type_display;
+				return tableData.search_matches?.[j]?.[0] ??
+					(value !== undefined && typeDisplay !== undefined && isSearchMatch(toDataCell(value), typeDisplay, search));
+			});
+			if (match !== -1) {
+				await this.scrollToColumn(chunk[match]);
+				return;
+			}
+		}
+	}
 
 	/**
 	 * Sets the column width calculators.
@@ -850,11 +1089,22 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Sets row filters.
-	 * @param rowFilters The row filters.
-	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
+	 * Sets the column row filters, keeping the global search.
+	 * @param filters The column row filters.
+	 * @returns A Promise that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		await this.applyRowFilters(filters);
+	}
+
+	/**
+	 * Applies the column row filters followed by the most recently requested global search, so
+	 * backends search only the rows the column filters keep.
+	 * @param columnFilters The column row filters.
+	 */
+	private async applyRowFilters(columnFilters: Array<RowFilter>): Promise<void> {
+		const filters = this._searchFilter ? [...columnFilters, this._searchFilter] : columnFilters;
+
 		// Clear pinned rows whenever a filter is applied to avoid
 		// the bug where pinned row data is in the wrong position.
 		// See https://github.com/posit-dev/positron/issues/9344
@@ -864,6 +1114,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		try {
 			await this._dataExplorerClientInstance.setRowFilters(filters);
 		} catch (error) {
+			// Closing the data explorer rejects the request; there is nothing left to filter.
+			if (this._dataExplorerClientInstance.status === DataExplorerClientStatus.Disconnected) {
+				return;
+			}
+
 			// The backend did not apply the filters, but the row filter bar already shows them.
 			// Synchronize the backend state, which the bar re-reads its filters from, so that it shows
 			// the filters the data is actually filtered by, and tell the user why.
@@ -871,7 +1126,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			this._services.notificationService.error(localize(
 				'positron.dataExplorer.setRowFiltersFailed',
 				"Unable to apply the filters: {0}",
-				error instanceof Error ? error.message : String(error)
+				toErrorMessage(error)
 			));
 			return;
 		}

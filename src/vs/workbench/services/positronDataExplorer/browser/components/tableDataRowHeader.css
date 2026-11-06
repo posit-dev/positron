@@ -26,3 +26,12 @@
 	line-height: normal;
 	text-overflow: ellipsis;
 }
+
+.data-grid-row-header
+.content
+.text
+mark.search-match-text {
+	color: inherit;
+	border-radius: 2px;
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
