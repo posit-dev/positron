@@ -193,12 +193,12 @@ jobs:
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
       # Redshift workgroup used by the data-connections e2e tests).
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          required: 'true'
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"

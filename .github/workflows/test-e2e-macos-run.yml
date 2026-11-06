@@ -326,12 +326,12 @@ jobs:
       # Joined just before the tests, not at the top of the job: only the test run needs the
       # tailnet, and the action repoints macOS DNS at MagicDNS, which cannot resolve public
       # hosts on these runners (brew installs fail with "Could not resolve host: ghcr.io").
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
           oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          required: 'true'
 
       # Tailscale is only needed for IP routing to private infra, not MagicDNS, so put the
       # runner's default resolver back. Mirrors the action's own logout cleanup.
