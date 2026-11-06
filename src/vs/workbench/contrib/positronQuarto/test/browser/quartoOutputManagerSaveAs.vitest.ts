@@ -78,6 +78,7 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 		})
 		.stub(IQuartoExecutionManager, {
 			onDidReceiveOutput: Event.None,
+			onDidUpdateOutput: Event.None,
 			onDidChangeExecutionState: Event.None,
 			onWillExecute: Event.None,
 		})

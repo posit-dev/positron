@@ -15,7 +15,8 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { QuartoOutputContribution, IQuartoOutputManager } from '../../browser/quartoOutputManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
-import { IQuartoExecutionManager, IQuartoOutputCacheService, ICachedDocument } from '../../common/quartoExecutionTypes.js';
+import { IQuartoExecutionManager, IQuartoOutputCacheService, ICachedDocument, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { QuartoOutputCacheService } from '../../browser/quartoOutputCacheService.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../../common/quartoTypes.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED } from '../../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -74,6 +75,7 @@ describe('QuartoOutputContribution -- cached output restore on reopen', () => {
 		})
 		.stub(IQuartoExecutionManager, {
 			onDidReceiveOutput: Event.None,
+			onDidUpdateOutput: Event.None,
 			onDidChangeExecutionState: Event.None,
 			onWillExecute: Event.None,
 		})
@@ -190,5 +192,109 @@ describe('QuartoOutputContribution -- cached output restore on reopen', () => {
 		parse([cell()]);
 		await settle();
 		expect(contribution.getOutputsForCell(cachedCellId)).toHaveLength(0);
+	});
+});
+
+/**
+ * Display updates (`update_display_data`, e.g. more layers on an R plot)
+ * replace the shown output and its cache entry, so a reopened document shows
+ * the completed plot rather than the first partial snapshot.
+ */
+describe('QuartoOutputContribution -- display updates', () => {
+	const cellId = '0-abchash-unlabeled';
+	const contentHash = 'abchash';
+	const documentUri = URI.file('/updates.qmd');
+
+	const onDidReceiveOutput = new Emitter<ExecutionOutputEvent>();
+	const onDidUpdateOutput = new Emitter<ExecutionOutputEvent>();
+	// The real cache service, created per test; the stub delegates to it.
+	let cache: QuartoOutputCacheService;
+
+	const quartoModel = stubInterface<IQuartoDocumentModel>({
+		cells: [stubInterface<QuartoCodeCell>({ id: cellId, contentHash })],
+		isParsed: true,
+		whenParsed: async () => { },
+		onDidParse: Event.None,
+		findCellByContentHash: (hash: string) => hash === contentHash ? stubInterface<QuartoCodeCell>({ id: cellId, contentHash }) : undefined,
+		getCellById: () => undefined,
+	});
+
+	const ctx = createTestContainer()
+		.withContributionServices()
+		.stub(IQuartoDocumentModelService, { getModel: () => quartoModel })
+		.stub(IQuartoOutputCacheService, {
+			loadCache: (uri: URI) => cache.loadCache(uri),
+			findCacheByContentHash: async () => undefined,
+			replaceOutput: (uri: URI, id: string, output: ICellOutput) => cache.replaceOutput(uri, id, output),
+			clearCellOutputs: (uri: URI, id: string) => cache.clearCellOutputs(uri, id),
+		})
+		.stub(IQuartoExecutionManager, {
+			onDidReceiveOutput: onDidReceiveOutput.event,
+			onDidUpdateOutput: onDidUpdateOutput.event,
+			onDidChangeExecutionState: Event.None,
+			onWillExecute: Event.None,
+		})
+		.stub(IQuartoKernelManager, {
+			onDidChangeKernelState: Event.None,
+			getSessionForDocument: () => undefined,
+		})
+		.stub(IQuartoOutputManager, {
+			onDidChangeOutputs: Event.None,
+			onDidRequestClearDocument: Event.None,
+			onDidRequestClearAll: Event.None,
+		})
+		.stub(IPositronNotebookOutputWebviewService, {})
+		.stub(IResourceUsageHistoryService, {})
+		.stub(IUntitledTextEditorService, { onDidSave: Event.None })
+		.build();
+
+	const pngOutput = (data: string): ICellOutput => ({ outputId: 'o1', items: [{ mime: 'image/png', data }] });
+
+	beforeEach(() => {
+		cache = ctx.disposables.add(ctx.instantiationService.createInstance(QuartoOutputCacheService));
+		// The output from the first display_data, as the run cached it.
+		cache.saveOutput(documentUri, cellId, contentHash, undefined, pngOutput('A'));
+	});
+
+	function open(): QuartoOutputContribution {
+		const editorModel = ctx.disposables.add(createTextModel('', 'quarto', undefined, documentUri));
+		const editor = stubInterface<ICodeEditor>({
+			hasModel: (() => true) as ICodeEditor['hasModel'],
+			getModel: () => editorModel,
+			getOption: (() => false) as ICodeEditor['getOption'],
+			onDidChangeModel: Event.None,
+			onDidScrollChange: Event.None,
+		});
+		QUARTO_INLINE_OUTPUT_ENABLED.bindTo(ctx.get(IContextKeyService)).set(true);
+		return ctx.disposables.add(ctx.instantiationService.createInstance(QuartoOutputContribution, editor));
+	}
+
+	const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+	it('restores the updated output, not the first one, after reopen', async () => {
+		const contribution = open();
+		await settle();
+		onDidUpdateOutput.fire({ documentUri, cellId, output: pngOutput('B') });
+		contribution.dispose();
+
+		const reopened = open();
+		await settle();
+
+		expect(reopened.getOutputsForCell(cellId).map(o => [o.outputId, o.items[0].data]))
+			.toEqual([['o1', 'B']]);
+	});
+
+	it('ignores an update for an output that is no longer shown', async () => {
+		const contribution = open();
+		await settle();
+		contribution.clearOutputsForCell(cellId);
+		const changes: unknown[] = [];
+		ctx.disposables.add(contribution.onDidChangeOutputs(event => changes.push(event)));
+
+		onDidUpdateOutput.fire({ documentUri, cellId, output: pngOutput('B') });
+
+		expect(changes).toEqual([]);
+		expect(contribution.getOutputsForCell(cellId)).toEqual([]);
+		expect(cache.getCachedOutputs(documentUri).get(cellId) ?? []).toEqual([]);
 	});
 });

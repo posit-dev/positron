@@ -11,7 +11,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ExecutionOutputEvent, IQuartoExecutionManager, IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
-import { QuartoOutputManagerService } from '../../browser/quartoOutputManager.js';
+import { OutputChangeEvent, QuartoOutputManagerService } from '../../browser/quartoOutputManager.js';
 
 // Must match the non-exported constant in quartoOutputManager.ts. If the key
 // is renamed, that is a migration concern and this test should fail to flag it.
@@ -19,10 +19,12 @@ const STORAGE_KEY = 'positron.quarto.collapsedCells';
 
 describe('QuartoOutputManagerService', () => {
 	const onDidReceiveOutput = new Emitter<ExecutionOutputEvent>();
+	const onDidUpdateOutput = new Emitter<ExecutionOutputEvent>();
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(IQuartoExecutionManager, {
 			onDidReceiveOutput: onDidReceiveOutput.event,
+			onDidUpdateOutput: onDidUpdateOutput.event,
 			onDidChangeExecutionState: Event.None,
 		})
 		.stub(IQuartoOutputCacheService, {
@@ -180,6 +182,27 @@ describe('QuartoOutputManagerService', () => {
 			service.clearOutputsForCell(uriA, '2-abcd1234-unlabeled');
 
 			expect([outputs, service.getOutputsForCell(uriA, '0-abcd1234-unlabeled'), service.getOutputsForCell(uriA, '1-abcd1234-unlabeled')]).toEqual([[], [output], [output]]);
+		});
+	});
+
+	describe('display updates', () => {
+		it('replaces an output in the global map when the execution manager updates it', () => {
+			const service = createService();
+			let lastChange: OutputChangeEvent | undefined;
+			ctx.disposables.add(service.onDidChangeOutputs(event => { lastChange = event; }));
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: 'cell-1', output: { outputId: 'o1', items: [{ mime: 'image/png', data: 'A' }] } });
+			onDidReceiveOutput.fire({ documentUri: uriA, cellId: 'cell-1', output: { outputId: 'o2', items: [{ mime: 'text/plain', data: 'hi' }] } });
+
+			onDidUpdateOutput.fire({ documentUri: uriA, cellId: 'cell-1', output: { outputId: 'o1', items: [{ mime: 'image/png', data: 'B' }] } });
+
+			expect(lastChange).toEqual({
+				cellId: 'cell-1',
+				documentUri: uriA,
+				outputs: [
+					{ outputId: 'o1', items: [{ mime: 'image/png', data: 'B' }] },
+					{ outputId: 'o2', items: [{ mime: 'text/plain', data: 'hi' }] },
+				],
+			});
 		});
 	});
 });

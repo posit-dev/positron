@@ -8,7 +8,7 @@ import * as React from 'react';
 import * as dom from '../../../../base/browser/dom.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
@@ -253,7 +253,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Webview support
 	private readonly _webviewService: IPositronNotebookOutputWebviewService | undefined;
 	private _session: ILanguageRuntimeSession | undefined;
-	private readonly _webviewDisposables = this._register(new DisposableStore());
+	// Per-output store for each webview and the listeners its render registers,
+	// so one replaced output can release them without touching the others.
+	private readonly _webviewDisposablesByOutputId = this._register(new DisposableMap<string, DisposableStore>());
 	private readonly _webviewsByOutputId = new Map<string, INotebookOutputWebview>();
 	// Map from output ID to the container element for re-layout during scrolling
 	private readonly _webviewContainersByOutputId = new Map<string, HTMLElement>();
@@ -1190,6 +1192,58 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Replace the shown output that has the same `outputId`, in place. Other
+	 * outputs (and their webviews or data explorers) are not re-rendered.
+	 *
+	 * @returns false, with no change, when no output with that ID is shown.
+	 */
+	replaceOutput(output: ICellOutput): boolean {
+		const index = this._outputs.findIndex(o => o.outputId === output.outputId);
+		if (index === -1) {
+			return false;
+		}
+		const oldElement = this._outputContainer.querySelector<HTMLElement>(
+			`:scope > .quarto-output-item[data-output-id="${CSS.escape(output.outputId)}"]`
+		);
+		if (!oldElement) {
+			return false;
+		}
+		const previous = this._outputs[index];
+		this._outputs[index] = output;
+
+		// Fast path for a single image replaced by another image of the same
+		// type: set the src on the existing <img> so the old picture stays on
+		// screen until the new one loads, and a burst of updates does not blink.
+		const oldItem = previous.items.length === 1 ? previous.items[0] : undefined;
+		const newItem = output.items.length === 1 ? output.items[0] : undefined;
+		const img = oldElement.querySelector<HTMLImageElement>('img.quarto-output-image');
+		if (oldItem && newItem && img && newItem.mime.startsWith('image/') && newItem.mime === oldItem.mime) {
+			img.src = getImageDataUrl(newItem.mime, newItem.data);
+			const meta = output.outputMetadata?.[newItem.mime];
+			if (meta && typeof meta === 'object') {
+				const { width, height } = meta as Record<string, unknown>;
+				if (typeof width === 'number') {
+					img.width = width;
+				}
+				if (typeof height === 'number') {
+					img.height = height;
+				}
+			}
+		} else {
+			this._disposeOutputRenderers(output.outputId);
+			// Keep the _imageDimensions entry so the collapsed summary still
+			// reads "Plot (WxH)" while the new image loads.
+			oldElement.replaceWith(this._createOutputElement(output));
+		}
+
+		if (this._isCollapsed) {
+			this._summaryElement.textContent = this._buildSummary();
+		}
+		this._updateHeight();
+		return true;
+	}
+
+	/**
 	 * Set all outputs, replacing existing ones.
 	 */
 	setOutputs(outputs: ICellOutput[]): void {
@@ -1257,11 +1311,47 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _disposeAllWebviews(): void {
 		for (const webview of this._webviewsByOutputId.values()) {
 			webview.webview.release(this);
-			webview.dispose();
 		}
 		this._webviewsByOutputId.clear();
 		this._webviewContainersByOutputId.clear();
-		this._webviewDisposables.clear();
+		this._webviewDisposablesByOutputId.clearAndDisposeAll();
+	}
+
+	/**
+	 * Start tracking a webview that finished rendering for an output, and
+	 * return the store for its listeners. Returns undefined, and disposes the
+	 * webview, when the output was replaced or cleared while the webview was
+	 * being created.
+	 */
+	private _trackWebview(output: ICellOutput, webview: INotebookOutputWebview, container: HTMLElement): DisposableStore | undefined {
+		if (!this._outputs.includes(output)) {
+			webview.dispose();
+			return undefined;
+		}
+		const webviewStore = new DisposableStore();
+		webviewStore.add(webview);
+		this._webviewDisposablesByOutputId.set(output.outputId, webviewStore);
+		this._webviewsByOutputId.set(output.outputId, webview);
+		this._webviewContainersByOutputId.set(output.outputId, container);
+		return webviewStore;
+	}
+
+	/**
+	 * Dispose the webview and React renderer of a single output, if any.
+	 */
+	private _disposeOutputRenderers(outputId: string): void {
+		const webview = this._webviewsByOutputId.get(outputId);
+		if (webview) {
+			webview.webview.release(this);
+			this._webviewsByOutputId.delete(outputId);
+			this._webviewContainersByOutputId.delete(outputId);
+		}
+		this._webviewDisposablesByOutputId.deleteAndDispose(outputId);
+		const renderer = this._reactRenderersByOutputId.get(outputId);
+		if (renderer) {
+			renderer.dispose();
+			this._reactRenderersByOutputId.delete(outputId);
+		}
 	}
 
 	/**
@@ -2328,9 +2418,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _renderOutput(output: ICellOutput): void {
+		this._outputContainer.appendChild(this._createOutputElement(output));
+	}
+
+	private _createOutputElement(output: ICellOutput): HTMLElement {
 		const outputElement = document.createElement('div');
 		outputElement.className = 'quarto-output-item';
 		outputElement.setAttribute('role', 'log');
+		outputElement.setAttribute('data-output-id', output.outputId);
 
 		// Check for data explorer MIME type
 		const dataExplorerItem = output.items.find(
@@ -2383,7 +2478,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		}
 
-		this._outputContainer.appendChild(outputElement);
+		return outputElement;
 	}
 
 	private _renderOutputItem(item: ICellOutputItem, output: ICellOutput): HTMLElement | null {
@@ -2903,10 +2998,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				return;
 			}
 
-			// Store the webview and container for later cleanup and scroll updates
-			this._webviewsByOutputId.set(output.outputId, webview);
-			this._webviewContainersByOutputId.set(output.outputId, webviewContainer);
-			this._webviewDisposables.add(webview);
+			const webviewStore = this._trackWebview(output, webview, webviewContainer);
+			if (!webviewStore) {
+				return;
+			}
 
 			// Remove loading indicator
 			webviewContainer.removeChild(loadingIndicator);
@@ -2923,7 +3018,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 			// Listen for webview messages to get the actual content height
 			// The webview sends webviewMetrics messages with bodyScrollHeight when content loads/resizes
-			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
+			webviewStore.add(webview.webview.onMessage(({ message }) => {
 				if (isHTMLOutputWebviewMessage(message) && webviewContainer) {
 					// Set the container height to match the webview content height
 					// Cap at a reasonable maximum to prevent extremely tall outputs
@@ -2942,7 +3037,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}));
 
 			// Update height when webview renders
-			this._webviewDisposables.add(webview.onDidRender(() => {
+			webviewStore.add(webview.onDidRender(() => {
 				this._updateHeight();
 				this._anchorWebview(webview, webviewContainer);
 				this._scheduleWebviewLayout();
@@ -2951,7 +3046,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Handle scroll events - update webview position
 			// Note: onDomNodeTop provides more immediate updates during scrolling,
 			// but we keep this as a backup for any scroll events that might be missed
-			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
+			webviewStore.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
 					this._anchorWebview(webview, webviewContainer);
 					this._scheduleWebviewLayout();
@@ -3003,10 +3098,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				baseUri,
 			);
 
-			// Store the webview and container for later cleanup and scroll updates
-			this._webviewsByOutputId.set(output.outputId, webview);
-			this._webviewContainersByOutputId.set(output.outputId, container);
-			this._webviewDisposables.add(webview);
+			const webviewStore = this._trackWebview(output, webview, container);
+			if (!webviewStore) {
+				return;
+			}
 
 			// Remove loading indicator
 			container.removeChild(loadingIndicator);
@@ -3022,7 +3117,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._anchorWebview(webview, container);
 
 			// Listen for webview messages to get the actual content height
-			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
+			webviewStore.add(webview.webview.onMessage(({ message }) => {
 				if (isHTMLOutputWebviewMessage(message) && container) {
 					const maxHeight = 800;
 					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
@@ -3038,7 +3133,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}));
 
 			// Update height when webview renders
-			this._webviewDisposables.add(webview.onDidRender(() => {
+			webviewStore.add(webview.onDidRender(() => {
 				this._updateHeight();
 				this._anchorWebview(webview, container);
 				this._scheduleWebviewLayout();
@@ -3047,7 +3142,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Handle scroll events
 			// Note: onDomNodeTop provides more immediate updates during scrolling,
 			// but we keep this as a backup for any scroll events that might be missed
-			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
+			webviewStore.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
 					this._anchorWebview(webview, container);
 					this._scheduleWebviewLayout();
