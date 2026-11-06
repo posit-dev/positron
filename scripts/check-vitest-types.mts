@@ -48,6 +48,21 @@ function findMissingConfigs(listed: string[]): string[] {
 	return [...needed].filter(config => !listed.includes(config) || !fs.existsSync(path.join(root, config))).sort();
 }
 
+// A Vitest file under a nested tsconfig.json (a package inside an extension or
+// test/e2e) would be checked with the outer project's options, not its own.
+function findNestedFiles(): string[] {
+	return glob('{extensions/*/**,test/e2e/**}/*.vitest.{ts,tsx}').filter(file => {
+		const parts = file.split('/');
+		const top = parts[0] === 'extensions' ? parts.slice(0, 2).join('/') : 'test/e2e';
+		for (let dir = path.posix.dirname(file); dir !== top; dir = path.posix.dirname(dir)) {
+			if (fs.existsSync(path.join(root, dir, 'tsconfig.json'))) {
+				return true;
+			}
+		}
+		return false;
+	});
+}
+
 // TypeScript keeps foo.vitest.ts and silently drops foo.vitest.tsx when both
 // match an include, so the .tsx file would never be checked.
 function findShadowedFiles(): string[] {
@@ -88,6 +103,16 @@ async function main(): Promise<number> {
 			console.error(`  ${file}`);
 		}
 		console.error('Rename one file of each pair.');
+		return 1;
+	}
+
+	const nested = findNestedFiles();
+	if (nested.length) {
+		console.error('These Vitest files are in a nested package with its own tsconfig.json, so they would be checked with the wrong compiler options:');
+		for (const file of nested) {
+			console.error(`  ${file}`);
+		}
+		console.error('Move the tests out of the nested package, or add nested package support to scripts/check-vitest-types.mts.');
 		return 1;
 	}
 
