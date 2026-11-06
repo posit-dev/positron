@@ -40,11 +40,14 @@ jobs:
           owner: posit-dev
           repositories: positron
 
+      # On merge, check out the merge commit: its product.json names the release the change ships in.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
           sparse-checkout: |
             .github/scripts/issue-status.mts
             .nvmrc
+            product.json
           sparse-checkout-cone-mode: false
 
       - uses: actions/setup-node@v7.1.0
@@ -54,7 +57,6 @@ jobs:
       - name: Update board status
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          BOT_LOGIN: ${{ steps.generate-token.outputs.app-slug }}
           PROJECT_OWNER: posit-dev
           PROJECT_NUMBER: 2
         run: node .github/scripts/issue-status.mts

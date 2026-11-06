@@ -9,13 +9,18 @@
 // the issues. For each one on the board:
 //
 //   draft PR opened / converted to draft   -> In Progress
-//   PR opened / marked ready for review    -> PR Ready, and a release milestone if it has none
+//   PR opened / marked ready for review    -> PR Ready
 //   PR closed without merging              -> back to the status it had when the PR opened,
 //                                             unless another open PR still closes the issue
-//                                             or someone has since moved it elsewhere; a
-//                                             milestone this workflow added is removed too
-//   PR merged                              -> nothing; the board's own "Item closed" rule
+//                                             or someone has since moved it elsewhere
+//   PR merged into the default branch      -> the release milestone for the version in
+//                                             product.json at the merge commit, if the issue
+//                                             has none; the board's own "Item closed" rule
 //                                             moves the issue to Done
+//
+// The milestone is chosen at merge, not earlier, because a PR that misses a release fork
+// ships in the next release. The fork bumps positronVersion on main, so the merge commit
+// says which release the change is in.
 //
 // The status before the PR comes from the issue's board history, so nothing is written
 // to the PR. Issues already in Done are never touched.
@@ -28,13 +33,13 @@
 //   node .github/scripts/issue-status.mts              # react to the pull_request event
 //   node .github/scripts/issue-status.mts close-done   # close open issues that are Done
 //
-// Env:
+// Env and files:
+//   product.json          read from the working directory (checked out at the merge commit)
 //   GITHUB_TOKEN          token with issues: write, pull-requests: read, organization projects: write
 //   GITHUB_REPOSITORY     owner/repo (set by Actions)
 //   GITHUB_EVENT_PATH     pull_request event payload (set by Actions)
 //   PROJECT_OWNER         org that owns the board, default posit-dev
 //   PROJECT_NUMBER        board number, default 2 (Positron Backlog)
-//   BOT_LOGIN             login this workflow acts as, to recognize milestones it added
 //   DRY_RUN               set to 1 to log the plan without changing anything
 
 import { readFile } from 'node:fs/promises';
@@ -44,7 +49,6 @@ export type Status = 'Triage' | 'Backlog' | 'Up Next' | 'In Progress' | 'PR Read
 export interface Decision {
 	setStatus?: Status;
 	setMilestone?: boolean;
-	clearMilestone?: boolean;
 	reason: string;
 }
 
@@ -52,19 +56,30 @@ export interface DecisionInput {
 	action: string;
 	draft: boolean;
 	merged: boolean;
+	/** The PR targets the repository's default branch. */
+	intoDefaultBranch: boolean;
 	/** Current board status; undefined when the issue is not on the board. */
 	status: Status | undefined;
 	/** Board status when the PR was opened; undefined if it had none. */
 	previous: Status | undefined;
 	hasMilestone: boolean;
-	/** The current milestone was set by this workflow after the PR opened. */
-	milestoneAddedByUs: boolean;
 	otherOpenPRs: boolean;
 }
 
 /** Pure transition rules. Everything that talks to GitHub lives below. */
 export function decide(input: DecisionInput): Decision {
-	const { action, draft, merged, status, previous, hasMilestone, milestoneAddedByUs, otherOpenPRs } = input;
+	const { action, draft, merged, intoDefaultBranch, status, previous, hasMilestone, otherOpenPRs } = input;
+	// Checked before the board status: by the time this runs the merge may already have
+	// closed the issue and moved it to Done.
+	if (action === 'closed' && merged) {
+		if (!intoDefaultBranch) {
+			return { reason: 'merged into a non-default branch; leaving the milestone' };
+		}
+		if (hasMilestone) {
+			return { reason: 'merged; issue already has a milestone' };
+		}
+		return { setMilestone: true, reason: 'merged; adding the release milestone' };
+	}
 	if (status === undefined) {
 		return { reason: 'issue is not on the board' };
 	}
@@ -73,9 +88,6 @@ export function decide(input: DecisionInput): Decision {
 	}
 
 	if (action === 'closed') {
-		if (merged) {
-			return { reason: 'merged; the board moves closed issues to Done on its own' };
-		}
 		if (otherOpenPRs) {
 			return { reason: 'another open PR still closes this issue' };
 		}
@@ -91,10 +103,6 @@ export function decide(input: DecisionInput): Decision {
 			decision.setStatus = previous;
 			decision.reason += `; restoring ${previous}`;
 		}
-		if (milestoneAddedByUs) {
-			decision.clearMilestone = true;
-			decision.reason += '; removing the milestone this workflow added';
-		}
 		return decision;
 	}
 
@@ -103,27 +111,16 @@ export function decide(input: DecisionInput): Decision {
 	if (draft && status === 'PR Ready' && action !== 'converted_to_draft') {
 		return { reason: 'draft PR, issue already PR Ready' };
 	}
-	const decision: Decision = { reason: `${draft ? 'draft' : 'ready'} PR -> ${target}` };
-	if (status !== target) {
-		decision.setStatus = target;
+	if (status === target) {
+		return { reason: `already ${status}` };
 	}
-	if (!draft && !hasMilestone) {
-		decision.setMilestone = true;
-	}
-	if (!decision.setStatus && !decision.setMilestone) {
-		decision.reason = `already ${status}`;
-	}
-	return decision;
+	return { setStatus: target, reason: `${draft ? 'draft' : 'ready'} PR -> ${target}` };
 }
 
-/** Earliest open milestone that is a release and is not yet due. */
-export function pickReleaseMilestone(
-	milestones: { number: number; title: string; due_on: string | null }[],
-	now = new Date(),
-): { number: number; title: string } | undefined {
-	return milestones
-		.filter(m => /release/i.test(m.title) && m.due_on && new Date(m.due_on) >= now)
-		.sort((a, b) => new Date(a.due_on!).getTime() - new Date(b.due_on!).getTime())[0];
+/** The release milestone for a Positron version: 2026.12.0 and 2026.12.1 both map to "2026.12.0 Release". */
+export function milestoneForVersion<M extends { title: string }>(milestones: M[], version: string): M | undefined {
+	const release = /^(\d+\.\d+)\./.exec(version)?.[1];
+	return release === undefined ? undefined : milestones.find(m => m.title === `${release}.0 Release`);
 }
 
 export interface StatusChange {
@@ -139,33 +136,6 @@ export function statusAt(changes: StatusChange[], projectNumber: number, at: str
 		.filter(c => c.project?.number === projectNumber && new Date(c.createdAt).getTime() <= atMs)
 		.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 	return (before.at(-1)?.status || undefined) as Status | undefined;
-}
-
-export interface MilestoneChange {
-	createdAt: string;
-	milestoneTitle: string;
-	actor: { login: string } | null;
-}
-
-/** Whether the issue's current milestone was set by `botLogin` at or after `since`. */
-export function milestoneSetBy(
-	changes: MilestoneChange[],
-	currentTitle: string | undefined,
-	botLogin: string | undefined,
-	since: string,
-): boolean {
-	if (!currentTitle || !botLogin) {
-		return false;
-	}
-	const bare = (login: string) => login.replace(/^app\//, '').replace(/\[bot\]$/, '');
-	const latest = changes
-		.filter(c => c.milestoneTitle === currentTitle)
-		.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-		.at(-1);
-	return latest !== undefined
-		&& new Date(latest.createdAt).getTime() >= new Date(since).getTime()
-		&& latest.actor !== null
-		&& bare(latest.actor.login) === bare(botLogin);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,11 +173,10 @@ interface IssueOnBoard {
 	status: Status | undefined;
 	statusAtPROpen: Status | undefined;
 	hasMilestone: boolean;
-	milestoneAddedByUs: boolean;
 	otherOpenPRs: boolean;
 }
 
-async function loadPR(owner: string, repo: string, pr: number, projectOwner: string, projectNumber: number, botLogin: string | undefined) {
+async function loadPR(owner: string, repo: string, pr: number, projectOwner: string, projectNumber: number) {
 	const data = await graphql<{
 		organization: { projectV2: { id: string; field: { id: string; options: { id: string; name: string }[] } } };
 		repository: {
@@ -216,11 +185,10 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 				closingIssuesReferences: {
 					nodes: {
 						number: number;
-						milestone: { title: string } | null;
+						milestone: { number: number } | null;
 						projectItems: { nodes: { id: string; project: { number: number }; fieldValueByName: { name: string } | null }[] };
 						closedByPullRequestsReferences: { nodes: { number: number; state: string }[] };
 						timelineItems: { nodes: StatusChange[] };
-						milestoneEvents: { nodes: MilestoneChange[] };
 					}[];
 				};
 			};
@@ -239,7 +207,7 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 					closingIssuesReferences(first: 20) {
 						nodes {
 							number
-							milestone { title }
+							milestone { number }
 							projectItems(first: 10) {
 								nodes {
 									id
@@ -250,9 +218,6 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 							closedByPullRequestsReferences(first: 20) { nodes { number state } }
 							timelineItems(last: 100, itemTypes: [PROJECT_V2_ITEM_STATUS_CHANGED_EVENT]) {
 								nodes { ... on ProjectV2ItemStatusChangedEvent { createdAt status project { number } } }
-							}
-							milestoneEvents: timelineItems(last: 20, itemTypes: [MILESTONED_EVENT]) {
-								nodes { ... on MilestonedEvent { createdAt milestoneTitle actor { login } } }
 							}
 						}
 					}
@@ -270,7 +235,6 @@ async function loadPR(owner: string, repo: string, pr: number, projectOwner: str
 			status: item?.fieldValueByName?.name as Status | undefined,
 			statusAtPROpen: statusAt(n.timelineItems.nodes, projectNumber, prOpenedAt),
 			hasMilestone: n.milestone !== null,
-			milestoneAddedByUs: milestoneSetBy(n.milestoneEvents.nodes, n.milestone?.title, botLogin, prOpenedAt),
 			otherOpenPRs: n.closedByPullRequestsReferences.nodes.some(p => p.number !== pr && p.state === 'OPEN'),
 		};
 	});
@@ -348,12 +312,13 @@ async function main() {
 	const action: string = event.action;
 	const pr = event.pull_request;
 
-	const { project, issues } = await loadPR(owner, repo, pr.number, projectOwner, projectNumber, process.env.BOT_LOGIN);
+	const { project, issues } = await loadPR(owner, repo, pr.number, projectOwner, projectNumber);
 	if (issues.length === 0) {
 		console.log(`PR #${pr.number} closes no issues; nothing to do`);
 		return;
 	}
 
+	let version: string | undefined;
 	let milestone: { number: number; title: string } | undefined;
 
 	for (const issue of issues) {
@@ -361,10 +326,10 @@ async function main() {
 			action,
 			draft: Boolean(pr.draft),
 			merged: Boolean(pr.merged),
+			intoDefaultBranch: pr.base?.ref === event.repository?.default_branch,
 			status: issue.status,
 			previous: issue.statusAtPROpen,
 			hasMilestone: issue.hasMilestone,
-			milestoneAddedByUs: issue.milestoneAddedByUs,
 			otherOpenPRs: issue.otherOpenPRs,
 		});
 		console.log(`#${issue.number} (${issue.status ?? 'not on board'}): ${decision.reason}`);
@@ -383,20 +348,15 @@ async function main() {
 			}
 		}
 		if (decision.setMilestone) {
-			milestone ??= pickReleaseMilestone(await rest('GET', `/repos/${owner}/${repo}/milestones?state=open&per_page=100`));
+			version ??= JSON.parse(await readFile('product.json', 'utf8')).positronVersion as string;
+			milestone ??= milestoneForVersion(await rest('GET', `/repos/${owner}/${repo}/milestones?state=open&per_page=100`), version);
 			if (milestone) {
 				console.log(`  set milestone -> ${milestone.title}`);
 				if (!dryRun) {
 					await rest('PATCH', `/repos/${owner}/${repo}/issues/${issue.number}`, { milestone: milestone.number });
 				}
 			} else {
-				console.log('  no upcoming release milestone found; leaving milestone unset');
-			}
-		}
-		if (decision.clearMilestone) {
-			console.log('  remove milestone');
-			if (!dryRun) {
-				await rest('PATCH', `/repos/${owner}/${repo}/issues/${issue.number}`, { milestone: null });
+				console.log(`  no open milestone for version ${version}; leaving milestone unset`);
 			}
 		}
 	}
