@@ -682,6 +682,8 @@ jobs:
             .github/actions
             .claude/skills/exploratory-test
             .claude/skills/drive-positron/scripts
+            test/e2e/infra
+            test/e2e/scripts
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -901,6 +903,16 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
+      # A value only the secret scan knows. If it turns up in the run output,
+      # the app or the agent saw this job's environment.
+      - name: Plant leak canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(cat /proc/sys/kernel/random/uuid)"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # The build's caches are relative paths, so pip or npm run inside the app
       # under test would make .pip-cache/ or .npm-cache/ in the folder being
       # tested. Give the app, and the main build the explorer launches, the
@@ -1047,8 +1059,21 @@ jobs:
             fi
           done
 
-      - name: Upload run directory
+      # Runs after the redaction above, on the same paths. The scan reads this
+      # job's environment, so it needs the credentials still loaded. The
+      # Postgres login is a fixed test value the report shows on purpose. The
+      # scripts come from the harness checkout, not the PR's code.
+      - name: Scan run output for secrets
+        id: secret-scan
         if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          env -u E2E_POSTGRES_PASSWORD npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts \
+            /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace
+
+      - name: Upload run directory
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: exploratory-run-${{ matrix.model }}

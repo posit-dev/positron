@@ -631,10 +631,21 @@ if [[ "$IS_WINDOWS" == "1" ]]; then
 	fi
 	echo "[launch.sh] launched out-of-tree via WMI (wrapper PID $PID)" >&2
 else
+	# Strip secret-looking env vars from the app. Capture first so a failing
+	# script exits here instead of launching with the full environment.
+	ENV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+	UNSET_NAMES=$(npx tsx "$ENV_ROOT/test/e2e/scripts/app-env-unset.ts") || {
+		echo "[launch.sh] could not compute the secret env names to strip; not launching." >&2
+		exit 1
+	}
+	UNSET_ARGS=()
+	while IFS= read -r name; do
+		[[ -n "$name" ]] && UNSET_ARGS+=(-u "$name")
+	done <<<"$UNSET_NAMES"
 	if [[ -n "$APP" ]]; then
-		nohup "$APP" "${ARGS[@]}" </dev/null >>"$LOG_FILE" 2>&1 &
+		nohup env ${UNSET_ARGS[@]+"${UNSET_ARGS[@]}"} "$APP" "${ARGS[@]}" </dev/null >>"$LOG_FILE" 2>&1 &
 	else
-		nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
+		nohup env ${UNSET_ARGS[@]+"${UNSET_ARGS[@]}"} VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
 			</dev/null >>"$LOG_FILE" 2>&1 &
 	fi
 	PID=$!

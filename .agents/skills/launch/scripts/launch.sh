@@ -252,7 +252,17 @@ PRELAUNCH_READY_MS=$(monotonic_ms)
 # forked into its own process tree, so it's robust to its launching shell
 # going away. (Earlier failures came from returning while Electron was still
 # mid-bootstrap, not from process-group concerns.)
-nohup env VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
+# Strip secret-looking env vars from the app. Capture first so a failing script
+# exits here instead of launching with the full environment.
+UNSET_NAMES=$(npx tsx "$REPO/test/e2e/scripts/app-env-unset.ts") || {
+	echo "[launch.sh] could not compute the secret env names to strip; not launching." >&2
+	exit 1
+}
+UNSET_ARGS=()
+while IFS= read -r name; do
+	[[ -n "$name" ]] && UNSET_ARGS+=(-u "$name")
+done <<<"$UNSET_NAMES"
+nohup env ${UNSET_ARGS[@]+"${UNSET_ARGS[@]}"} VSCODE_SKIP_PRELAUNCH=1 "$CODE_SH" "${ARGS[@]}" \
 	</dev/null >>"$LOG_FILE" 2>&1 &
 PID=$!
 disown $PID 2>/dev/null || true
