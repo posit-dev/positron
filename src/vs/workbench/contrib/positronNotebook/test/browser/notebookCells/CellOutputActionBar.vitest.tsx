@@ -35,7 +35,6 @@ function mockAction(id: string, label: string, iconId?: string): MenuItemAction 
 			icon: iconId ? ThemeIcon.fromId(iconId) : undefined,
 		},
 		run: () => Promise.resolve(),
-		dispose: () => { },
 	});
 }
 

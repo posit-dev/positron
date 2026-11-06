@@ -33,6 +33,7 @@
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
 
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/editor/common/editorResolverService.js';
@@ -54,7 +55,7 @@ describe.skip('Positron Notebook Editor Resolution', () => {
 	beforeEach(async () => {
 		({ part, editorResolverService } = await attachEditorPart(
 			ctx.instantiationService,
-			ctx.disposables,
+			ctx.disposables.add(new DisposableStore()),
 		));
 	});
 

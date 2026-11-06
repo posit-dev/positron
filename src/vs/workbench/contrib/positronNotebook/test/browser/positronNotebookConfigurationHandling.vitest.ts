@@ -7,7 +7,6 @@
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
@@ -16,6 +15,7 @@ import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEdito
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { notebookTestBuilder, attachEditorPart } from './testUtils.js';
 import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 
 // Mock implementation for testing static editor registration
 class MockPositronNotebookContribution extends DisposableStore {
@@ -78,15 +78,12 @@ class MockPositronNotebookContribution extends DisposableStore {
 describe('Positron Notebook Configuration Handling', () => {
 
 	describe('usingPositronNotebooks', () => {
-		// These tests only need configurationService -- no EditorPart needed.
-		const configurationService = new TestConfigurationService();
-		const ctx = notebookTestBuilder()
-			.stub(IConfigurationService, configurationService)
-			.build();
+		// These tests call usingPositronNotebooks directly; no container needed.
+		ensureNoLeakedDisposables();
+		let configurationService: TestConfigurationService;
 
-		// Reset the configuration before each test so they don't bleed into each other.
 		beforeEach(() => {
-			configurationService.setUserConfiguration('positron.notebook.enabled', undefined);
+			configurationService = new TestConfigurationService();
 		});
 
 		it('returns true when positron.notebook.enabled is true', () => {
@@ -114,7 +111,7 @@ describe('Positron Notebook Configuration Handling', () => {
 		beforeEach(async () => {
 			({ editorResolverService } = await attachEditorPart(
 				ctx.instantiationService,
-				ctx.disposables,
+				ctx.disposables.add(new DisposableStore()),
 			));
 			notebookContribution = new MockPositronNotebookContribution(
 				editorResolverService,

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { IConfigurationService, IConfigurationValue } from '../../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationOverrides, IConfigurationService, IConfigurationValue } from '../../../../../../platform/configuration/common/configuration.js';
 import { isFileExcludedFromAI } from '../../../browser/tools/utils.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 
@@ -29,8 +29,9 @@ function makeService(ai: SettingState = {}, inline: SettingState = {}): IConfigu
 			};
 			return result as IConfigurationValue<T>;
 		},
-		getValue: <T,>(key: string | undefined): T => {
-			const s = key === AI_KEY ? ai : key === INLINE_KEY ? inline : {};
+		// One signature covering every getValue overload; only the section-string form is read.
+		getValue: <T,>(section?: string | IConfigurationOverrides): T => {
+			const s = section === AI_KEY ? ai : section === INLINE_KEY ? inline : {};
 			return s.value as T;
 		},
 	});

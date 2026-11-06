@@ -3,6 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Keys Vitest reads to print or compare a value in a failure message. Throwing on
+// them would replace the real failure with a stub error.
+const formatterProbes = new Set([
+	'$$typeof', 'asymmetricMatch', 'nodeType', 'tagName', 'hasAttribute', 'toJSON',
+	'@@__IMMUTABLE_ITERABLE__@@', '@@__IMMUTABLE_RECORD__@@',
+]);
+
 /**
  * Builds a typed partial stub of interface or class `T` for tests, backed by a
  * `Proxy` that throws on any property access the stub did not explicitly set.
@@ -60,7 +67,7 @@ export function stubInterface<T extends object>(overrides: Partial<T> = {}): T {
 			}
 			// Promise detection (await-unwrapping) probes for a `.then` property;
 			// the stub should not look thenable unless explicitly configured to.
-			if (key === 'then') {
+			if (key === 'then' || formatterProbes.has(key)) {
 				return undefined;
 			}
 			throw new Error(

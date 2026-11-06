@@ -19,13 +19,13 @@ describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
 
 	let outputIsCollapsed: ISettableObservable<boolean>;
-	let selectStub: ReturnType<typeof vi.fn>;
-	let toggleStub: ReturnType<typeof vi.fn>;
+	let selectStub: ReturnType<typeof vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>>;
+	let toggleStub: ReturnType<typeof vi.fn<PositronNotebookCodeCell['toggleOutputCollapse']>>;
 
 	beforeEach(() => {
 		outputIsCollapsed = observableValue('outputIsCollapsed', false);
-		selectStub = vi.fn();
-		toggleStub = vi.fn();
+		selectStub = vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>();
+		toggleStub = vi.fn<PositronNotebookCodeCell['toggleOutputCollapse']>();
 	});
 
 	function renderButton() {
