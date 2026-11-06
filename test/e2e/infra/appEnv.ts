@@ -36,7 +36,7 @@ export const SECRET_ENV_ALLOWLIST: readonly string[] = [];
 
 const MIN_SECRET_LENGTH = 8;
 const MIN_LINE_LENGTH = 20;
-const NON_SECRET_SUFFIX = /(_URL|_HOST|_HOSTNAME|_USER|_USERNAME|_EMAIL|_ORG|_ACCOUNT)$/i;
+const NON_SECRET_SUFFIX = /(_URL|_HOST|_HOSTNAME|_USER|_USERNAME|_EMAIL|_ORG|_ACCOUNT|_SERVER|_WORKSPACE)$/i;
 
 export interface SecretValue {
 	name: string;
@@ -84,13 +84,12 @@ export function appEnv(
 		delete env[name];
 	}
 	for (const [name, value] of Object.entries(extraEnv)) {
-		if (value === undefined) {
-			for (const k of Object.keys(env)) {
-				if (norm(k, platform) === norm(name, platform)) {
-					delete env[k];
-				}
+		for (const k of Object.keys(env)) {
+			if (norm(k, platform) === norm(name, platform)) {
+				delete env[k];
 			}
-		} else {
+		}
+		if (value !== undefined) {
 			env[name] = value;
 		}
 	}
@@ -109,7 +108,7 @@ export function secretValues(source: NodeJS.ProcessEnv): SecretValue[] {
 	};
 
 	for (const name of secretEnvNames(source)) {
-		const value = source[name];
+		const value = source[name]?.trim();
 		if (!value || name.toUpperCase() === 'OP_MANAGED_VARIABLES') {
 			continue;
 		}

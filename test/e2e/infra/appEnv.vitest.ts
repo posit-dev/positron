@@ -51,6 +51,18 @@ describe('appEnv', () => {
 		expect(win.Path).toBe('C:\\');
 		expect(appEnv(source, {}, 'linux').foo).toBe('x');
 	});
+
+	it('replaces a differently-cased key from extraEnv on win32', () => {
+		const env = appEnv({ Path: 'a' }, { PATH: 'b' }, 'win32');
+		const keys = Object.keys(env).filter(k => /^path$/i.test(k));
+		expect(keys).toHaveLength(1);
+		expect(env[keys[0]]).toBe('b');
+	});
+
+	it('strips host-name denylist vars from the app env', () => {
+		const env = appEnv({ E2E_CONNECT_SERVER: 'https://connect.example.test', DATABRICKS_WORKSPACE: 'https://dbc.example.test', PATH: '/bin' });
+		expect(Object.keys(env)).toEqual(['PATH']);
+	});
 });
 
 describe('secretValues', () => {
@@ -80,5 +92,15 @@ describe('secretValues', () => {
 			{ name: 'MY_PRIVATE_KEY', value: body1 },
 			{ name: 'MY_PRIVATE_KEY', value: body2 },
 		]);
+	});
+
+	it('trims single-line values', () => {
+		for (const raw of ['abcdefghijkl\n', '  abcdefghijkl  ', 'abcdefghijkl\r\n']) {
+			expect(secretValues({ A_KEY: raw })).toEqual([{ name: 'A_KEY', value: 'abcdefghijkl' }]);
+		}
+	});
+
+	it('skips host-name denylist vars', () => {
+		expect(secretValues({ E2E_CONNECT_SERVER: 'https://connect.example.test', DATABRICKS_WORKSPACE: 'https://dbc.example.test' })).toEqual([]);
 	});
 });
