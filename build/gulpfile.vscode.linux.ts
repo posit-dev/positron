@@ -7,9 +7,15 @@ import { gulp, replace, rename } from './lib/gulp/facade.ts';
 import es from 'event-stream';
 import vfs from 'vinyl-fs';
 import { rimraf } from './lib/util.ts';
-import { getVersion } from './lib/getVersion.ts';
+// --- Start Positron ---
+// Positron versions Linux packages from product.json, so the commit and package.json
+// version are unused (noUnusedLocals). See the @@VERSION@@ replacements below.
+// import { getVersion } from './lib/getVersion.ts';
+// --- End Positron ---
 import * as task from './lib/gulp/task.ts';
-import packageJson from '../package.json' with { type: 'json' };
+// --- Start Positron ---
+// import packageJson from '../package.json' with { type: 'json' };
+// --- End Positron ---
 import product from '../product.json' with { type: 'json' };
 import { getDependencies } from './linux/dependencies-generator.ts';
 import { recommendedDeps as debianRecommendedDependencies } from './linux/debian/dep-lists.ts';
@@ -27,7 +33,9 @@ const require = createRequire(import.meta.url);
 
 const exec = promisify(cp.exec);
 const root = path.dirname(import.meta.dirname);
-const commit = getVersion(root);
+// --- Start Positron ---
+// const commit = getVersion(root);
+// --- End Positron ---
 const linuxDesktopName = product.linuxDesktopName;
 const copilotLinkHelper = readFileSync(path.join(root, 'resources/linux/copilot-link.sh'), 'utf8');
 const rpmCopilotLinkHelper = copilotLinkHelper.replace(/%/g, '%%');

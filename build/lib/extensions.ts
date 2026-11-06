@@ -868,6 +868,12 @@ export function packageCopilotExtensionStream(): Stream {
 		`${extensionCopilotPackage}/**`,
 		...['prebuilds', 'clipboard', 'ripgrep', 'pvrecorder', 'foundry-local-sdk', 'mxc-bin', 'sharp'].map(dir => `!${extensionCopilotPackage}/${dir}/**`),
 		`!${extensionCopilotPackage}/**/keytar.node`,
+		// --- Start Positron ---
+		// Running the extension from source writes shims.txt here, and the extension's postinstall
+		// (run by .esbuild.mts in the merged localExtensionsStream) deletes it mid-glob, failing
+		// the build with ENOENT. prepareBuiltInCopilotRipgrepShim writes the packaged copy.
+		`!${extensionCopilotPackage}/shims.txt`,
+		// --- End Positron ---
 	];
 
 	return es.merge(

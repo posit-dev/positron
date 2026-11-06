@@ -145,10 +145,39 @@ which changes need to be preserved.
 For files that have been changed upstream but deleted in Positron, resolve the
 conflict by deleting the file in Positron.
 
-## Github Workflows
+## Github Workflows and Azure Pipelines
 
 Positron doesn't use any Github workflows from upstream. You can ignore or
 delete these changes.
+
+Positron doesn't use Azure Pipelines either. Changes under `build/azure-pipelines/` need no attention.
+
+## Upstream Additions Positron Doesn't Use
+
+Some upstream additions merge without conflicts but still change how the repo behaves for Positron engineers, or what Positron ships. Review what upstream added and renamed outside the source tree, not just the conflicted files. During the cherry-pick, those changes are already staged:
+
+```bash
+git diff --cached -M --diff-filter=AR --name-status HEAD -- ':!src' ':!extensions' ':!test'
+```
+
+Known cases, with what to do on every merge:
+
+- **Root `.mcp.json`.** In 1.143 upstream renamed `.vscode/mcp.json` to `.mcp.json`. Claude Code reads a root `.mcp.json` and prompts every engineer to enable its servers; `.vscode/mcp.json` is read only by VS Code, and `test/mcp/README.md` links to it. Keep the file at `.vscode/mcp.json` (with the `servers` / `cwd` format) and port any server changes into it. Don't take the rename.
+- **GitHub cloud agent config.** `.github/sandbox.yml` and `.github/hooks/` (plus `build/npm/cloudSandboxSetup.ts` and `build/lib/test/cloudSandbox.test.ts`) configure GitHub's cloud coding agent. Positron removed them in 1.143. Resolve modify/delete conflicts on them by deleting, and delete any new hook files upstream adds there.
+- **Copilot CLI shim.** Positron deleted the `copilot_shim/` Rust crate in 1.143 (only upstream's Azure pipelines build it) and commented out its `rust-analyzer.linkedProjects` entry in `.vscode/settings.json`. Resolve modify/delete conflicts under `copilot_shim/` by deleting. The references to it elsewhere (`build/azure-pipelines/copilot-shim/`, `resources/linux/copilot-link.sh`, the `#ifdef CopilotShim` parts of `code.iss`) do nothing in Positron; leave them for the Copilot removal rather than adding conflicts in ~30 upstream files. The Windows launcher is the exception because it ships, see "Check what ships" below.
+
+### Before deleting an unused upstream file
+
+- **Check what imports it.** A file can look like part of an unused feature and still be load-bearing. In 1.143, `build/npm/cloudSandbox.ts` arrived with the cloud agent config, but `preinstall.ts`, `postinstall.ts` and `fast-install.ts` import it, so deleting it breaks `npm install`. Grep for the file's basename before deleting. If the module is a no-op for Positron (`cloudSandbox.ts` returns early unless `GITHUB_ENVIRONMENT_ID` is set), keep it rather than editing the upstream importers.
+- **Weigh the merge cost.** Every deleted file that upstream keeps changing becomes a modify/delete conflict on later merges. Delete only what causes a real problem (a prompt, a CI job, something that ships). Leave inert code that belongs to a feature Positron plans to remove, and note it as deferred in the log.
+
+### Check what ships
+
+Release packaging lives in the `positron-builds` repo, checked out next to this one (`../positron-builds`), not in `.github/workflows`. Read its release workflows before deciding whether an upstream packaging change reaches users.
+
+In particular, `build-release-windows.yml` zips the whole Windows package folder into `Positron-win32-<version>-<arch>.zip` for extension testing. Anything gulp writes into that folder ships in the zip, even when `code.iss` keeps it out of the installers (they exclude `\bin\*`). In 1.143 that was the Copilot CLI launcher, `bin/copilot-shim/copilot`. Positron comments out the block that writes it in `build/gulpfile.vscode.ts` (search for `renderCopilotShimLauncher`), and drops the helper from the `./lib/copilot.ts` import. Check that both Positron markers survived the merge.
+
+When you comment out build code like this, remember `build/tsconfig.json` sets `noUnusedLocals`: also remove imports that become unused, inside the same Positron marker, and confirm with `cd build && npm run typecheck`.
 
 ## Design Decisions
 
@@ -165,15 +194,21 @@ for the user to review. Place it in the root of the repository, named
 Make a special note of any design decisions you made during the merge that did
 not require you to consult the user.
 
+When you remove, keep, or defer an upstream addition, add it to "Known cases" under "Upstream Additions Positron Doesn't Use" in this skill, saying what the next merge should do with it (e.g. "keep deleted", "don't take the rename"). The log isn't committed, so the next merge only sees what's in the skill. Otherwise it quietly brings the addition back.
+
 ## Committing
 
 Do not make any commits. The user will do so instead.
+
+Don't stage the merge log. It's for the user's review and stays untracked.
 
 ## Step by step
 
 ### Step 1: Review
 
 Review the conflicts in the working tree as a whole to note patterns and any big picture issues.
+
+Also review the non-conflicting files upstream added or renamed outside the source tree; see "Upstream Additions Positron Doesn't Use".
 
 ### Step 2: Resolve
 

@@ -31,8 +31,10 @@ import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 // includes Positron-specific icons. Copying from the npm package would overwrite these.
 // import { checkApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
 import { checkApiProposalNamesTask } from './lib/compilation.ts';
+// The Copilot CLI shim launcher is not packaged; see the Windows packaging step below.
+// import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim, renderCopilotShimLauncher } from './lib/copilot.ts';
+import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
 // --- End Positron ---
-import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim, renderCopilotShimLauncher } from './lib/copilot.ts';
 import { ensureOSProxyResolverPlatformPackage, getOSProxyResolverExcludeFilter, getOSProxyResolverPlatformFiles } from './lib/osProxyResolver.ts';
 import { readAgentSdkResults } from './agent-sdk/common.ts';
 import { readDictationRuntimeResults } from './dictation-runtime/common.ts';
@@ -510,19 +512,23 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				.pipe(replace('@@VERSIONFOLDER@@', versionedResourcesFolder ? `${versionedResourcesFolder}\\` : ''))
 				.pipe(rename(product.nameShort + '.VisualElementsManifest.xml')));
 
-			// Setup publishes it next to the copilot.exe shim; see build/win32/copilot.iss.
-			result = es.merge(result, gulp.src('resources/win32/bin/copilot.sh', { base: 'resources/win32' })
-				.pipe(es.through(function (file) {
-					file.contents = Buffer.from(renderCopilotShimLauncher(file.contents.toString('utf8'), {
-						commit: String(commit),
-						quality: String(quality),
-						applicationName: product.applicationName,
-						dataFolderName: product.dataFolderName,
-						serverDataFolderName: product.serverDataFolderName || '.vscode-remote',
-					}));
-					this.emit('data', file);
-				}))
-				.pipe(rename(f => { f.dirname = 'bin/copilot-shim'; f.basename = 'copilot'; f.extname = ''; })));
+			// --- Start Positron ---
+			// Positron does not build the Copilot CLI shim (copilot.exe), so this launcher would be
+			// a dead file in the Windows app archive that positron-builds publishes.
+			// // Setup publishes it next to the copilot.exe shim; see build/win32/copilot.iss.
+			// result = es.merge(result, gulp.src('resources/win32/bin/copilot.sh', { base: 'resources/win32' })
+			// 	.pipe(es.through(function (file) {
+			// 		file.contents = Buffer.from(renderCopilotShimLauncher(file.contents.toString('utf8'), {
+			// 			commit: String(commit),
+			// 			quality: String(quality),
+			// 			applicationName: product.applicationName,
+			// 			dataFolderName: product.dataFolderName,
+			// 			serverDataFolderName: product.serverDataFolderName || '.vscode-remote',
+			// 		}));
+			// 		this.emit('data', file);
+			// 	}))
+			// 	.pipe(rename(f => { f.dirname = 'bin/copilot-shim'; f.basename = 'copilot'; f.extname = ''; })));
+			// --- End Positron ---
 
 			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));

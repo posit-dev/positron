@@ -235,8 +235,12 @@
 	"emmet.excludeLanguages": [],
 	"gulp.autoDetect": "off",
 	"rust-analyzer.linkedProjects": [
-		"cli/Cargo.toml",
-		"copilot_shim/Cargo.toml"
+		// --- Start Positron ---
+		// Positron deletes copilot_shim/ (built only by upstream's Azure pipelines).
+		// "cli/Cargo.toml",
+		// "copilot_shim/Cargo.toml"
+		"cli/Cargo.toml"
+		// --- End Positron ---
 	],
 	"conventionalCommits.scopes": [
 		"tree",
