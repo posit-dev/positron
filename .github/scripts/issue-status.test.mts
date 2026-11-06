@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, pickReleaseMilestone, statusAt, type DecisionInput } from './issue-status.mts';
+import { decide, milestoneSetBy, pickReleaseMilestone, statusAt, type DecisionInput } from './issue-status.mts';
 
 const base: DecisionInput = {
 	action: 'opened',
@@ -16,6 +16,7 @@ const base: DecisionInput = {
 	status: 'Backlog',
 	previous: undefined,
 	hasMilestone: true,
+	milestoneAddedByUs: false,
 	otherOpenPRs: false,
 };
 
@@ -68,6 +69,39 @@ test('unmerged close with no earlier status or another open PR does nothing', ()
 
 test('unmerged close leaves an issue someone moved off In Progress or PR Ready', () => {
 	assert.equal(decide({ ...base, action: 'closed', status: 'Up Next', previous: 'Backlog' }).setStatus, undefined);
+});
+
+test('unmerged close removes a milestone this workflow added', () => {
+	const closed = { ...base, action: 'closed', status: 'PR Ready' as const, previous: 'Backlog' as const, milestoneAddedByUs: true };
+	const d = decide(closed);
+	assert.equal(d.setStatus, 'Backlog');
+	assert.equal(d.clearMilestone, true);
+	// Even when the status needs no restore.
+	assert.equal(decide({ ...closed, previous: 'PR Ready' }).clearMilestone, true);
+});
+
+test('milestone is kept when a person set it, the PR merged, or another PR is open', () => {
+	const closed = { ...base, action: 'closed', status: 'PR Ready' as const, previous: 'Backlog' as const };
+	assert.equal(decide(closed).clearMilestone, undefined);
+	assert.equal(decide({ ...closed, milestoneAddedByUs: true, merged: true }).clearMilestone, undefined);
+	assert.equal(decide({ ...closed, milestoneAddedByUs: true, otherOpenPRs: true }).clearMilestone, undefined);
+	assert.equal(decide({ ...closed, milestoneAddedByUs: true, status: 'Up Next' }).clearMilestone, undefined);
+});
+
+test('milestoneSetBy only credits the bot for the current milestone after the PR opened', () => {
+	const prOpened = '2026-11-05T00:00:00Z';
+	const byBot = { createdAt: '2026-11-05T00:00:05Z', milestoneTitle: '2026.12.0 Release', actor: { login: 'positron-projects' } };
+	const byPerson = { ...byBot, actor: { login: 'juliasilge' } };
+	const early = { ...byBot, createdAt: '2026-11-01T00:00:00Z' };
+	assert.equal(milestoneSetBy([byBot], '2026.12.0 Release', 'positron-projects', prOpened), true);
+	assert.equal(milestoneSetBy([byBot], '2026.12.0 Release', 'positron-projects[bot]', prOpened), true);
+	assert.equal(milestoneSetBy([byPerson], '2026.12.0 Release', 'positron-projects', prOpened), false);
+	assert.equal(milestoneSetBy([early], '2026.12.0 Release', 'positron-projects', prOpened), false);
+	assert.equal(milestoneSetBy([byBot], '2027.01.0 Release', 'positron-projects', prOpened), false);
+	assert.equal(milestoneSetBy([byBot], '2026.12.0 Release', undefined, prOpened), false);
+	// A person re-set the same milestone after the bot did; it is theirs now.
+	const reset = { ...byPerson, createdAt: '2026-11-06T00:00:00Z' };
+	assert.equal(milestoneSetBy([byBot, reset], '2026.12.0 Release', 'positron-projects', prOpened), false);
 });
 
 test('statusAt reads the latest change on the board at or before the time', () => {

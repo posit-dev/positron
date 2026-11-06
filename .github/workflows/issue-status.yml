@@ -54,6 +54,7 @@ jobs:
       - name: Update board status
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BOT_LOGIN: ${{ steps.generate-token.outputs.app-slug }}
           PROJECT_OWNER: posit-dev
           PROJECT_NUMBER: 2
         run: node .github/scripts/issue-status.mts
