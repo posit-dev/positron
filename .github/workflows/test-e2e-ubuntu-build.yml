@@ -40,8 +40,8 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e-postgres-test
           POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,8 +51,8 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
       AWS_S3_BUCKET: positron-test-reports
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}

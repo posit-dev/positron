@@ -47,8 +47,8 @@ jobs:
 
     env:
       POSITRON_BUILD_NUMBER: 0
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
       HOME: /home/runner

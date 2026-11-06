@@ -18,8 +18,6 @@ export const SECRET_ENV_DENYLIST: readonly string[] = [
 	'DATABRICKS_WORKSPACE',
 	'E2E_CONNECT_APIKEY',
 	'E2E_CONNECT_SERVER',
-	'E2E_POSTGRES_PASSWORD',
-	'E2E_POSTGRES_USER',
 	'GH_TOKEN',
 	'GITHUB_TOKEN',
 	'OP_MANAGED_VARIABLES',
@@ -32,7 +30,10 @@ export const SECRET_ENV_DENYLIST: readonly string[] = [
 ];
 
 /** Names kept even though they match the pattern. Never beats the denylist or 1Password names. */
-export const SECRET_ENV_ALLOWLIST: readonly string[] = [];
+export const SECRET_ENV_ALLOWLIST: readonly string[] = [
+	// A fixed test value for a Postgres container each job starts for itself.
+	'E2E_POSTGRES_PASSWORD',
+];
 
 const MIN_SECRET_LENGTH = 8;
 const MIN_LINE_LENGTH = 20;

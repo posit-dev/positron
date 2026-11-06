@@ -63,6 +63,10 @@ describe('appEnv', () => {
 		const env = appEnv({ E2E_CONNECT_SERVER: 'https://connect.example.test', DATABRICKS_WORKSPACE: 'https://dbc.example.test', PATH: '/bin' });
 		expect(Object.keys(env)).toEqual(['PATH']);
 	});
+
+	it('treats the fixed test Postgres login as non-secret', () => {
+		expect(secretEnvNames({ E2E_POSTGRES_USER: 'e2e', E2E_POSTGRES_PASSWORD: 'e2e-postgres-test' })).toEqual([]);
+	});
 });
 
 describe('secretValues', () => {

@@ -22,7 +22,7 @@ function sourceFiles(dir: string): string[] {
 
 describe('findSecretTypingCalls', () => {
 	it('flags a secret env var passed straight to fill', () => {
-		expect(findSecretTypingCalls(`await page.fill('#pw', process.env.E2E_POSTGRES_PASSWORD!);`)).toEqual(['1: process.env.E2E_POSTGRES_PASSWORD']);
+		expect(findSecretTypingCalls(`await page.fill('#pw', process.env.WB_PASSWORD!);`)).toEqual(['1: process.env.WB_PASSWORD']);
 	});
 
 	it('flags a variable bound from a secret env var', () => {
