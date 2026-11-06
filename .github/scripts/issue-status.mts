@@ -408,12 +408,17 @@ async function closeDone(owner: string, repo: string, projectOwner: string, proj
 		// Close first: if that fails, no comment is left behind to repeat tomorrow.
 		try {
 			await rest('PATCH', `/repos/${owner}/${repo}/issues/${number}`, { state: 'closed', state_reason: 'completed' });
+		} catch (err) {
+			failed++;
+			console.error(`  failed to close #${number}: ${(err as Error).message}`);
+			continue;
+		}
+		try {
 			await rest('POST', `/repos/${owner}/${repo}/issues/${number}/comments`, {
 				body: 'Closed because it is marked Done on the Positron Backlog board.',
 			});
 		} catch (err) {
-			failed++;
-			console.error(`  failed #${number}: ${(err as Error).message}`);
+			console.warn(`  closed #${number}, but could not comment: ${(err as Error).message}`);
 		}
 	}
 	if (failed > 0) {
