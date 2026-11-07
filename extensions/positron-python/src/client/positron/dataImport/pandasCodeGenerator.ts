@@ -371,3 +371,28 @@ export function generatePandasImportCode(request: PandasImportRequest): PandasIm
 
     return { code: lines.join('\n'), unsupported };
 }
+
+/**
+ * Generates the pyreadstat code that loads a SAS data file (.sas7bdat or SAS transport .xpt) into
+ * a dataframe. pyreadstat returns the dataframe and a metadata object; only the dataframe is kept.
+ */
+export function generatePyreadstatImportCode(request: PandasImportRequest): PandasImportResult {
+    const readFunction = request.pathLiteral.toLowerCase().endsWith('.xpt"') ? 'read_xport' : 'read_sas7bdat';
+    const lines = [
+        'import pyreadstat',
+        '',
+        `# Load ${request.variableName} data`,
+        `${request.variableName}, _ = pyreadstat.${readFunction}(${request.pathLiteral})`,
+    ];
+
+    const unsupported: string[] = [];
+    if (request.view) {
+        const statements = translateView(request.variableName, request.view, undefined, unsupported);
+        if (statements.length > 0) {
+            lines.push('', '# Filter and sort as shown in the Data Explorer', ...statements);
+        }
+    }
+    lines.push('');
+
+    return { code: lines.join('\n'), unsupported };
+}

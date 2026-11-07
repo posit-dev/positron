@@ -10,7 +10,10 @@ import { anything, when } from 'ts-mockito';
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { createPandasDataImporter } from '../../client/positron/dataImport/pandasImporter';
+import {
+    createPandasDataImporter,
+    createPyreadstatDataImporter,
+} from '../../client/positron/dataImport/pandasImporter';
 import { mockedPositronNamespaces } from '../vscode-mock';
 
 /** Runs the importer's generateCode over a file with the given name and options. */
@@ -18,8 +21,8 @@ async function generate(
     fileName: string,
     options: positron.DataImportOptions = {},
     view?: positron.DataImportView,
+    importer: positron.DataImporter = createPandasDataImporter(),
 ): Promise<positron.DataImportResult> {
-    const importer = createPandasDataImporter();
     const request: positron.DataImportRequest = {
         fileUri: vscode.Uri.file(`/data/${fileName}`),
         variableName: 'flights',
@@ -86,6 +89,53 @@ suite('pandasImporter Tests', () => {
                 rowFilters: [],
                 sortKeys: [{ columnName: 'delay', ascending: false }],
             },
+        );
+
+        expect(result.code).to.contain('flights.sort_values("delay", ascending=False)');
+        expect(result.unsupported).to.deep.equal([]);
+    });
+});
+
+suite('pyreadstatImporter Tests', () => {
+    setup(() => {
+        when(mockedPositronNamespaces.paths!.formatPathForCode(anything(), anything())).thenCall((filePath: string) =>
+            Promise.resolve(`"${filePath}"`),
+        );
+    });
+
+    test('registers python for SAS data files', () => {
+        const importer = createPyreadstatDataImporter();
+
+        expect(importer.languageId).to.equal('python');
+        expect(importer.fileExtensions).to.deep.equal(['sas7bdat', 'xpt']);
+    });
+
+    test('reads a .sas7bdat file with read_sas7bdat', async () => {
+        const result = await generate('adsl.sas7bdat', {}, undefined, createPyreadstatDataImporter());
+
+        expect(result.code).to.equal(
+            [
+                'import pyreadstat',
+                '',
+                '# Load flights data',
+                'flights, _ = pyreadstat.read_sas7bdat("/data/adsl.sas7bdat")',
+                '',
+            ].join('\n'),
+        );
+    });
+
+    test('reads a .xpt file with read_xport', async () => {
+        const result = await generate('adsl.xpt', {}, undefined, createPyreadstatDataImporter());
+
+        expect(result.code).to.contain('flights, _ = pyreadstat.read_xport("/data/adsl.xpt")');
+    });
+
+    test('forwards the view so its filters and sorts are translated', async () => {
+        const result = await generate(
+            'adsl.xpt',
+            {},
+            { rowFilters: [], sortKeys: [{ columnName: 'delay', ascending: false }] },
+            createPyreadstatDataImporter(),
         );
 
         expect(result.code).to.contain('flights.sort_values("delay", ascending=False)');

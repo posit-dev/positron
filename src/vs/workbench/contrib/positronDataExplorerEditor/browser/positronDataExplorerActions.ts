@@ -1286,14 +1286,14 @@ class PositronImportDataFromFileAction extends Action2 {
 	 */
 	constructor() {
 		// Match the file types the Data Explorer opens and an importer can read (.csv/.tsv/.xlsx/
-		// .parquet/.parq), and JSON, which opens in the Object Explorer instead. Compressed files
-		// (.gz) are deliberately absent: the importer registry matches only the final extension, so
+		// .parquet/.parq/.sas7bdat/.xpt), and JSON, which opens in the Object Explorer instead.
+		// Compressed files (.gz) are deliberately absent: the importer registry matches only the final extension, so
 		// gzip support is its own change.
 		// Scheme-gate to files a runtime session could plausibly open; a virtual-filesystem file
 		// names no path on the session's machine, so no menu item is offered for it.
 		const importableFile = ContextKeyExpr.and(
 			ExplorerFolderContext.toNegated(),
-			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|json)$/i),
+			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|sas7bdat|xpt|json)$/i),
 			ContextKeyExpr.or(
 				ResourceContextKey.Scheme.isEqualTo(Schemas.file),
 				ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeRemote)
@@ -1361,7 +1361,7 @@ class PositronImportDataFromFileAction extends Action2 {
 				defaultUri: await fileDialogService.defaultFilePath(),
 				filters: [{
 					name: localize('positronDataExplorer.importDataPickerFilter', "Data Files"),
-					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'json']
+					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'sas7bdat', 'xpt', 'json']
 				}]
 			});
 			fileUri = uris?.at(0);
