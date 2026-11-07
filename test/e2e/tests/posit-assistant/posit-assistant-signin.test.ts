@@ -8,12 +8,8 @@ import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
-	// Launch the app with the auto-sign-in env vars unset so the API-key providers
-	// start disconnected and the test genuinely drives the provider manager's connect flow
-	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
-	// AWS Bedrock keeps its environment credential chain (it has no key to type and
-	// authenticates from the environment by design).
-	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
+	// appEnv keeps API keys out of the app's env, so the API-key providers start disconnected
+	// and the test drives the provider manager's connect flow (typing ANTHROPIC_KEY / OPENAI_KEY).
 });
 
 // Apart from the dev-build update in beforeAll, do not reach for a window reload. A

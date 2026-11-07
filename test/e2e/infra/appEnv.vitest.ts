@@ -78,12 +78,12 @@ describe('secretValues', () => {
 
 	it('skips non-secret 1Password values', () => {
 		const values = secretValues({
-			OP_MANAGED_VARIABLES: 'MS_FOUNDRY_BASE_URL,MS_FOUNDRY_KEY',
+			OP_MANAGED_VARIABLES: 'MS_FOUNDRY_BASE_URL,MS_FOUNDRY_KEY,DATABRICKS_HTTP_PATH',
 			MS_FOUNDRY_BASE_URL: 'https://fake-host.example.com',
 			MS_FOUNDRY_KEY: 'fake-value-123456',
+			DATABRICKS_HTTP_PATH: '/sql/1.0/warehouses/fake123456',
 		}).map(s => s.value);
-		expect(values).toContain('fake-value-123456');
-		expect(values).not.toContain('https://fake-host.example.com');
+		expect(values).toEqual(['fake-value-123456']);
 	});
 
 	it('splits multi-line values', () => {

@@ -37,7 +37,7 @@ export const SECRET_ENV_ALLOWLIST: readonly string[] = [
 
 const MIN_SECRET_LENGTH = 8;
 const MIN_LINE_LENGTH = 20;
-const NON_SECRET_SUFFIX = /(_URL|_HOST|_HOSTNAME|_USER|_USERNAME|_EMAIL|_ORG|_ACCOUNT|_SERVER|_WORKSPACE)$/i;
+const NON_SECRET_SUFFIX = /(_URL|_HOST|_HOSTNAME|_USER|_USERNAME|_EMAIL|_ORG|_ACCOUNT|_SERVER|_WORKSPACE|_PATH)$/i;
 
 export interface SecretValue {
 	name: string;
