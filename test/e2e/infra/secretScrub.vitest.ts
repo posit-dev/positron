@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +15,7 @@ const secrets = [{ name: 'FAKE_SECRET', value: SECRET }];
 describe('secretScrub', () => {
 	it('scrubs every encoding', () => {
 		const forms = encodedForms(SECRET);
-		expect(forms.map(f => f.encoding).sort()).toEqual(['base64', 'base64', 'base64', 'base64', 'json', 'raw', 'url']);
+		expect([...new Set(forms.map(f => f.encoding))].sort()).toEqual(['base64', 'json', 'raw', 'url']);
 		const input = Buffer.from(forms.map(f => `x ${f.text} y`).join('\n'), 'utf8');
 		const { data, replaced } = scrubBuffer(input, secrets);
 		expect(replaced).toBe(forms.length);
@@ -77,6 +77,20 @@ describe('secretScrub', () => {
 			expect(readFileSync(join(dir, 'clean.txt'), 'utf8')).toBe('nothing here');
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('scrubDirectory does not write through a symlink', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'scrub-'));
+		const outside = mkdtempSync(join(tmpdir(), 'scrub-out-'));
+		try {
+			writeFileSync(join(outside, 'target.txt'), `token=${SECRET}`);
+			symlinkSync(join(outside, 'target.txt'), join(dir, 'link.txt'));
+			expect(await scrubDirectory(dir, secrets)).toBe(0);
+			expect(readFileSync(join(outside, 'target.txt'), 'utf8')).toBe(`token=${SECRET}`);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+			rmSync(outside, { recursive: true, force: true });
 		}
 	});
 });

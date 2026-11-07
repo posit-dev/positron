@@ -11,29 +11,25 @@ describe('app-env-unset script', () => {
 	const script = resolve(__dirname, '../scripts/app-env-unset.ts');
 	const value = 'fake-value-123456';
 
-	function names(args: string[]): string[] {
+	function run(args: string[]): { stdout: string; stderr: string } {
 		const result = spawnSync('npx', ['tsx', script, ...args], {
 			env: { ...process.env, FAKE_SCAN_TEST_KEY: value, FAKE_KEPT_KEY: value },
 			encoding: 'utf8',
 		});
 		expect(result.status).toBe(0);
-		return result.stdout.split('\n');
+		return { stdout: result.stdout, stderr: result.stderr };
 	}
 
 	it('leaves out a --keep name but still lists the others', () => {
-		const out = names(['--keep', 'FAKE_KEPT_KEY']);
+		const out = run(['--keep', 'FAKE_KEPT_KEY']).stdout.split('\n');
 		expect(out).not.toContain('FAKE_KEPT_KEY');
 		expect(out).toContain('FAKE_SCAN_TEST_KEY');
 	});
 
 	it('prints secret names and never their values', () => {
-		const result = spawnSync('npx', ['tsx', script], {
-			env: { ...process.env, FAKE_SCAN_TEST_KEY: value },
-			encoding: 'utf8',
-		});
-		expect(result.status).toBe(0);
-		expect(result.stdout.split('\n')).toContain('FAKE_SCAN_TEST_KEY');
-		expect(result.stdout).not.toContain(value);
-		expect(result.stderr).not.toContain(value);
+		const { stdout, stderr } = run([]);
+		expect(stdout.split('\n')).toContain('FAKE_SCAN_TEST_KEY');
+		expect(stdout).not.toContain(value);
+		expect(stderr).not.toContain(value);
 	});
 });

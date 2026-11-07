@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
@@ -15,7 +15,6 @@ const FAKE_CANARY = 'canary-fake-value-123456';
 const FullResult = { status: 'passed' as const, startTime: new Date(), duration: 0 };
 
 describe('SecretScanReporter', () => {
-	let cwd: string;
 	let tmp: string;
 	let savedEnv: NodeJS.ProcessEnv;
 	let savedCwd: string;
@@ -29,8 +28,7 @@ describe('SecretScanReporter', () => {
 		}
 		process.env[CANARY_NAME] = FAKE_CANARY;
 		tmp = fs.mkdtempSync(join(os.tmpdir(), 'secret-scan-reporter-'));
-		cwd = tmp;
-		process.chdir(cwd);
+		process.chdir(tmp);
 		fs.mkdirSync('test-results', { recursive: true });
 	});
 
@@ -45,7 +43,7 @@ describe('SecretScanReporter', () => {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	});
 
-	const marker = () => join(cwd, 'secret-scan', 'clean');
+	const marker = () => join(tmp, 'secret-scan', 'clean');
 
 	it('clean run writes the marker', async () => {
 		fs.writeFileSync(join('test-results', 'log.txt'), 'nothing to see');
@@ -95,6 +93,16 @@ describe('SecretScanReporter', () => {
 		fs.writeFileSync(join('test', 'assistant-inspect-ai', 'r.json'), FAKE_CANARY);
 		const result = await new SecretScanReporter().onEnd(FullResult);
 		expect(result).toEqual({ status: 'failed' });
+	});
+
+	it('never prints a secret, even one in a file name', async () => {
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => { });
+		fs.writeFileSync(join('test-results', `log-${FAKE_CANARY}.txt`), `token=${FAKE_CANARY}`);
+		const result = await new SecretScanReporter().onEnd(FullResult);
+		expect(result).toEqual({ status: 'failed' });
+		const output = errors.mock.calls.flat().join('\n');
+		expect(output).toContain(CANARY_NAME);
+		expect(output).not.toContain(FAKE_CANARY);
 	});
 
 	it('onBegin removes a pre-existing marker', () => {
