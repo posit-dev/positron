@@ -354,7 +354,7 @@ export function TracingFixture() {
 		} finally {
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 
-			// Keep the trace locally, and in CI only for failures, retries, or PW_TRACE=on.
+			// With traces on (E2E_TRACES; off by default in CI): keep the trace locally, and in CI only for failures, retries, or PW_TRACE=on.
 			// Otherwise close the chunk without writing it: exporting the zip costs ~1.5s per test.
 			const isCI = process.env.CI === 'true';
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {

@@ -283,7 +283,9 @@ New tests are not complete until they run successfully across operating systems 
 
 ### Github Actions Test Artifacts
 
-When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: error info, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
+When a run is complete, you can debug any test failures that occurred using the HTML report. It has error info, test steps and screenshot(s).
+
+Traces, log attachments and crash dumps are off by default in CI and on by default locally. To override either way, set `E2E_TRACES`, `E2E_ATTACH_LOGS` or `E2E_ATTACH_CRASH_DUMPS` to `on` or `off`. Before anything is uploaded, CI scans the artifacts for secret values and skips the upload if it finds any.
 
 > [!TIP]
 > To reproduce and debug a CI failure locally using the actual CI image, see [`.devcontainer/ci-arm/README.md`](../../.devcontainer/ci-arm/README.md).
