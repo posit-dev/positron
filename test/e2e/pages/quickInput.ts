@@ -208,15 +208,19 @@ export class QuickInput {
 	}
 
 	async selectQuickInputElementContaining(
-		text: string,
+		text: string | string[],
 		{ timeout, force = true, deprioritize, ignoreCase = false }: { timeout?: number; force?: boolean; deprioritize?: (string | RegExp)[]; ignoreCase?: boolean } = {},
 	): Promise<string> {
+		// A row matches when its aria-label contains every given substring.
+		const attributes = (Array.isArray(text) ? text : [text])
+			.map(part => `[aria-label*="${part}"${ignoreCase ? ' i' : ''}]`)
+			.join('');
 		const matches = this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"${ignoreCase ? ' i' : ''}]`);
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}${attributes}`);
 
 		// By default select the first matching row. When `deprioritize` is set and
 		// several rows share `text` (e.g. a project venv and a base pyenv both
-		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
+		// showing "Python 3.10.12"), prefer the first row whose aria-label contains
 		// none of the deprioritized source markers. Falls back to the first match
 		// when every match is deprioritized (e.g. a platform where only the base
 		// interpreter is installed).
