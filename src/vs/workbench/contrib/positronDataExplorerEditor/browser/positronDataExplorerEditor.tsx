@@ -24,9 +24,11 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_HAS_IMPORTER, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
+import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { extname } from '../../../../base/common/resources.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -133,6 +135,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is file backed context key.
 	 */
 	private readonly _isFileBackedContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the has importer context key.
+	 */
+	private readonly _hasImporterContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the supports refresh context key.
@@ -255,6 +262,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	constructor(
 		readonly _group: IEditorGroup,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
+		@IPositronDataImporterRegistry private readonly _importerRegistry: IPositronDataImporterRegistry,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
@@ -297,6 +305,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			this._group.scopedContextKeyService
 		);
 		this._isFileBackedContextKey = POSITRON_DATA_EXPLORER_IS_FILE_BACKED.bindTo(
+			this._group.scopedContextKeyService
+		);
+		this._hasImporterContextKey = POSITRON_DATA_EXPLORER_HAS_IMPORTER.bindTo(
 			this._group.scopedContextKeyService
 		);
 		this._supportsRefreshContextKey = POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH.bindTo(
@@ -417,9 +428,16 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					const path = uri.path.toLowerCase();
 					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => path.endsWith(ext)));
 					this._isXlsxContextKey.set(path.endsWith('.xlsx'));
+					this._hasImporterContextKey.reset();
+					this._importerRegistry.getImporters(extname(uri)).then(importers => {
+						if (this.input === input) {
+							this._hasImporterContextKey.set(importers.length > 0);
+						}
+					});
 				} else {
 					this._isPlaintextContextKey.reset();
 					this._isXlsxContextKey.reset();
+					this._hasImporterContextKey.reset();
 				}
 
 

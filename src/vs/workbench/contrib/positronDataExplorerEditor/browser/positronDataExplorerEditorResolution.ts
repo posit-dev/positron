@@ -51,6 +51,12 @@ export function moveOpenDataExplorerEditorToGroup(
 export const DUCKDB_BUILTIN_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz', 'xlsx'];
 
 /**
+ * Text formats a `dataExplorer.fileReaders` entry can read, but which people also edit as text.
+ * The Data Explorer is offered for these under Open With rather than as the default editor.
+ */
+export const DUCKDB_OPTIONAL_EXTENSIONS = ['geojson', 'json', 'kml', 'yaml', 'yml'];
+
+/**
  * Whether the Data Explorer can open a file with DuckDB.
  *
  * @param resource The file.

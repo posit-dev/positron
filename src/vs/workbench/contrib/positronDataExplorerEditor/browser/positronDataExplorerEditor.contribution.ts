@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { localize } from '../../../../nls.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { EditorExtensions } from '../../../common/editor.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -19,7 +19,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { canOpenWithDuckDB, DUCKDB_BUILTIN_EXTENSIONS, moveOpenDataExplorerEditorToGroup } from './positronDataExplorerEditorResolution.js';
+import { canOpenWithDuckDB, DUCKDB_BUILTIN_EXTENSIONS, DUCKDB_OPTIONAL_EXTENSIONS, moveOpenDataExplorerEditorToGroup } from './positronDataExplorerEditorResolution.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
 import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
 import { PositronDataExplorerClickToViewContribution } from './positronDataExplorerClickToViewProvider.js';
@@ -103,14 +103,13 @@ export class PositronDataExplorerContribution extends Disposable {
 		));
 
 		// Register the file editor for the built-in formats plus those in `dataExplorer.fileReaders`,
-		// and register it again when that setting changes.
-		const fileEditorRegistration = this._register(new MutableDisposable());
-		const registerFileEditor = () => {
-			const readerExtensions = DataExplorerFileReaderExtensions(configurationService);
-			const extensions = [...new Set([...DUCKDB_BUILTIN_EXTENSIONS, ...readerExtensions])];
-			fileEditorRegistration.value = editorResolverService.registerEditor(
+		// and register it again when that setting changes. Text formats are only offered under
+		// Open With.
+		const fileEditorRegistration = this._register(new MutableDisposable<DisposableStore>());
+		const registerFileEditor = (extensions: string[], readerExtensions: string[], priority: RegisteredEditorPriority) => {
+			return editorResolverService.registerEditor(
 				`*.{${extensions.join(',')}}`,
-				editorInfo,
+				{ ...editorInfo, priority },
 				{
 					singlePerResource: true,
 					canSupportResource: resource => canOpenWithDuckDB(resource, readerExtensions)
@@ -143,10 +142,25 @@ export class PositronDataExplorerContribution extends Disposable {
 				}
 			);
 		};
-		registerFileEditor();
+		const registerFileEditors = () => {
+			const readerExtensions = DataExplorerFileReaderExtensions(configurationService);
+			const extensions = [...new Set([...DUCKDB_BUILTIN_EXTENSIONS, ...readerExtensions])];
+			const store = new DisposableStore();
+			store.add(registerFileEditor(
+				extensions.filter(ext => !DUCKDB_OPTIONAL_EXTENSIONS.includes(ext)),
+				readerExtensions,
+				RegisteredEditorPriority.builtin
+			));
+			const optionalExtensions = readerExtensions.filter(ext => DUCKDB_OPTIONAL_EXTENSIONS.includes(ext));
+			if (optionalExtensions.length) {
+				store.add(registerFileEditor(optionalExtensions, readerExtensions, RegisteredEditorPriority.option));
+			}
+			fileEditorRegistration.value = store;
+		};
+		registerFileEditors();
 		this._register(configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(DATA_EXPLORER_FILE_READERS_KEY)) {
-				registerFileEditor();
+				registerFileEditors();
 			}
 		}));
 	}
