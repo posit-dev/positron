@@ -111,7 +111,16 @@ function urlCredentials(value: string): string[] {
 	if (url.password === '' && url.search === '') {
 		return [];
 	}
-	return url.password === '' ? [value] : [value, decodeURIComponent(url.password)];
+	if (url.password === '') {
+		return [value];
+	}
+	let password = url.password;
+	try {
+		password = decodeURIComponent(password);
+	} catch {
+		// A broken percent escape: keep the raw password.
+	}
+	return [value, password];
 }
 
 /** Values that scrub and scan look for. */

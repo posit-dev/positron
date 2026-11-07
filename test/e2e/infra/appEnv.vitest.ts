@@ -133,6 +133,12 @@ describe('secretValues', () => {
 		expect(values).toEqual(['postgres://svc:p%40ssw0rd99@db.internal/app', 'p@ssw0rd99']);
 	});
 
+	it('keeps the raw password when its percent escape is broken', () => {
+		const url = 'postgres://svc:ab%zzcdefgh@db/x';
+		expect(secretValues({ DATABASE_URL: url, OP_MANAGED_VARIABLES: 'DATABASE_URL' }).map(s => s.value))
+			.toEqual([url, 'ab%zzcdefgh']);
+	});
+
 	it('scrubs a URL that carries a query string', () => {
 		expect(secretValues({ E2E_CONNECT_SERVER: 'https://h.example.test/?token=abc' }).map(s => s.value))
 			.toEqual(['https://h.example.test/?token=abc']);
