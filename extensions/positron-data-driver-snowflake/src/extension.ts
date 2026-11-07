@@ -11,7 +11,6 @@ import { watchForFileCreation } from './connectionsFileArrival.js';
 import { connectionsFilePath, isSameConnectionsFile, readConnectionsFile, SnowflakeConnectionsFileEntry } from './snowflakeConnectionsFile.js';
 import { createSnowflakeDriver } from './snowflakeDriver.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
-import { isWorkbenchManaged } from './workbenchCredentials.js';
 
 /**
  * How long connections.toml has to be quiet before it is re-read. An editor or the Snowflake CLI
@@ -56,7 +55,8 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	// Checked before the first read, so a file created between the two is still waited for. If the
-	// file arrives after this check, the wait sees it at once and the reload finds nothing new.
+	// file arrives after this check, the wait sees it at its first check and the reload finds
+	// nothing new.
 	const missingAtStart = !existsSync(filePath);
 
 	// What the driver currently offers, to tell a real edit from a file event that changed nothing.
@@ -69,12 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// connections.toml is edited outside Positron -- by the Snowflake CLI, or by the user with a
 	// text editor -- so the driver is updated when the file changes rather than only at startup.
 	// The driver is updated in place, so the connections the user has open stay open.
-	//
-	// Workbench writes the file for managed credentials as the session starts, and sometimes after
-	// this extension activates. Only then is a missing file expected to appear, so only then is it
-	// polled for.
-	const waitForCreation = isWorkbenchManaged('SNOWFLAKE_HOME') && missingAtStart;
-	context.subscriptions.push(watchConnectionsFile(filePath, waitForCreation, () => {
+	context.subscriptions.push(watchConnectionsFile(filePath, missingAtStart, () => {
 		const connections = read();
 		if (connections === undefined) {
 			// Keep offering what the last good reading found until the file parses again.
@@ -98,18 +93,26 @@ export function activate(context: vscode.ExtensionContext) {
  * it.
  *
  * The watcher does not report a file created together with its directory, if the directory did not
- * exist when watching started. With waitForCreation, the file path is also polled until the file
- * exists.
+ * exist when watching started. Workbench writes $SNOWFLAKE_HOME/connections.toml this way, and so
+ * does `snow connection add` when ~/.snowflake does not exist yet. So while the file is missing, its
+ * path is also checked until the file exists.
+ *
+ * @param filePath The connections file.
+ * @param missingAtStart Whether the file was missing before the caller first read it. Checked by
+ * the caller, so a file created between that check and the start of watching is still reported.
+ * @param onChange Called once a burst of file events has settled.
+ * @param logger The driver's logger.
  */
 function watchConnectionsFile(
 	filePath: string,
-	waitForCreation: boolean,
+	missingAtStart: boolean,
 	onChange: () => void,
 	logger: positron.DataConnectionLogger
 ): vscode.Disposable {
 	const watcher = vscode.workspace.createFileSystemWatcher(
 		new vscode.RelativePattern(vscode.Uri.file(path.dirname(filePath)), path.basename(filePath)));
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let creationWatch: { dispose(): void } | undefined;
 	const reload = () => {
 		if (timer !== undefined) {
 			clearTimeout(timer);
@@ -118,12 +121,26 @@ function watchConnectionsFile(
 			timer = undefined;
 			logger.info(`The Snowflake connections file changed (${filePath}).`);
 			onChange();
+			// The file may have been deleted, so wait for it to come back.
+			updateCreationWatch(!existsSync(filePath));
 		}, CONNECTIONS_FILE_DEBOUNCE_MS);
+	};
+	/** Checks for the file to be created while it is missing, and stops once it exists. */
+	const updateCreationWatch = (missing: boolean) => {
+		if (missing && creationWatch === undefined) {
+			creationWatch = watchForFileCreation(filePath, () => {
+				creationWatch = undefined;
+				reload();
+			});
+		} else if (!missing && creationWatch !== undefined) {
+			creationWatch.dispose();
+			creationWatch = undefined;
+		}
 	};
 	watcher.onDidCreate(reload);
 	watcher.onDidChange(reload);
 	watcher.onDidDelete(reload);
-	const creationWatch = waitForCreation ? watchForFileCreation(filePath, reload) : undefined;
+	updateCreationWatch(missingAtStart);
 	return new vscode.Disposable(() => {
 		if (timer !== undefined) {
 			clearTimeout(timer);
