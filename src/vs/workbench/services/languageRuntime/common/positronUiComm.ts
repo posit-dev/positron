@@ -1019,10 +1019,13 @@ export interface ExecuteCodeRequest {
 /**
  * Request: Execute code in a new session
  *
- * Start a new console session of the caller's runtime in the background,
- * without making it the foreground session, and queue code in it.
- * Returns once the code is queued. The code must be complete; it is run
- * as-is without completeness checks.
+ * Start a new console session in the background, without making it the
+ * foreground session, and queue code in it. When a session sends the
+ * request, the new session uses that session's runtime, and the request
+ * fails if that session is for another language. Otherwise the new
+ * session uses the preferred runtime for the language. Returns once the
+ * code is queued. The code must be complete; it is run as-is without
+ * completeness checks.
  */
 export interface ExecuteCodeInNewSessionRequest {
 	/**

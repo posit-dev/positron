@@ -527,22 +527,22 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 			expect(executeCode).not.toHaveBeenCalled();
 		});
 
-		it('falls back to the preferred runtime when the calling session is for another language', async () => {
-			const pythonSession = stubInterface<ILanguageRuntimeSession>({
-				sessionId: 'py-1',
-				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'py-3.12', languageId: 'python', languageName: 'Python' }),
-			});
-			const startNewRuntimeSession = vi.fn<IRuntimeSessionService['startNewRuntimeSession']>(async () => 'job-1');
+		it('fails without starting a session when the calling session is for another language', async () => {
+			const getPreferredRuntime = vi.fn<IRuntimeStartupService['getPreferredRuntime']>(() => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'py-pref' }));
+			const { mainThread, startNewRuntimeSession } = setup({ getPreferredRuntime });
+
+			await expect(mainThread.$executeCodeInNewSession('python', 'x', 'a.py', 'positron.positron-supervisor', 'caller-1'))
+				.rejects.toThrow('Could not start a new session for the language \'python\' because the calling session runs R.');
+			expect([getPreferredRuntime.mock.calls.length, startNewRuntimeSession.mock.calls.length]).toEqual([0, 0]);
+		});
+
+		it('fails without starting a session when the calling session does not exist', async () => {
 			const getPreferredRuntime = vi.fn<IRuntimeStartupService['getPreferredRuntime']>(() => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'r-pref' }));
-			const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
-				registerSessionManager: () => Disposable.None,
-				getSession: sessionId => sessionId === pythonSession.sessionId ? pythonSession : undefined,
-				startNewRuntimeSession,
-			}), async () => 'job-1', { getPreferredRuntime });
+			const { mainThread, startNewRuntimeSession } = setup({ getPreferredRuntime });
 
-			await mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', 'py-1');
-
-			expect([getPreferredRuntime.mock.calls[0][0], startNewRuntimeSession.mock.calls[0][0]]).toEqual(['r', 'r-pref']);
+			await expect(mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', 'gone-1'))
+				.rejects.toThrow('Could not start a new session because the calling session \'gone-1\' was not found.');
+			expect([getPreferredRuntime.mock.calls.length, startNewRuntimeSession.mock.calls.length]).toEqual([0, 0]);
 		});
 
 		it('fails without running the code when no session starts', async () => {

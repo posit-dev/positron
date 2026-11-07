@@ -2259,12 +2259,16 @@ export class MainThreadLanguageRuntime
 	 * Starts a new background console session and runs code in it, without
 	 * changing the active console or revealing the Console view.
 	 *
+	 * When a session sent the request, the new session uses that session's
+	 * runtime, so that the code runs in the same interpreter. Otherwise it uses
+	 * the preferred runtime for the language.
+	 *
 	 * @returns The new session ID, once the code is queued in the session.
 	 */
 	async $executeCodeInNewSession(languageId: string, code: string, sessionName: string, extensionId: string, callerSessionId: string | undefined): Promise<string> {
-		const callerRuntime = callerSessionId ? this._runtimeSessionService.getSession(callerSessionId)?.runtimeMetadata : undefined;
-		const runtime = callerRuntime?.languageId === languageId ?
-			callerRuntime : this._runtimeStartupService.getPreferredRuntime(languageId);
+		const runtime = callerSessionId ?
+			this.getCallerRuntime(languageId, callerSessionId) :
+			this._runtimeStartupService.getPreferredRuntime(languageId);
 		if (!runtime) {
 			throw new Error(localize('positron.executeCodeInNewSession.noInterpreter', "No interpreter is available for the language '{0}' to start a new session.", languageId));
 		}
@@ -2297,6 +2301,22 @@ export class MainThreadLanguageRuntime
 			languageId, newSessionId, code, attribution, false, false, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Continue,
 			undefined, undefined, undefined, true, false);
 		return newSessionId;
+	}
+
+	/**
+	 * Returns the runtime of the session that requested a new session. Throws
+	 * if that session does not exist or runs another language, rather than
+	 * starting a session in an interpreter the caller did not ask for.
+	 */
+	private getCallerRuntime(languageId: string, callerSessionId: string): ILanguageRuntimeMetadata {
+		const callerRuntime = this._runtimeSessionService.getSession(callerSessionId)?.runtimeMetadata;
+		if (!callerRuntime) {
+			throw new Error(localize('positron.executeCodeInNewSession.callerNotFound', "Could not start a new session because the calling session '{0}' was not found.", callerSessionId));
+		}
+		if (callerRuntime.languageId !== languageId) {
+			throw new Error(localize('positron.executeCodeInNewSession.callerLanguageMismatch', "Could not start a new session for the language '{0}' because the calling session runs {1}.", languageId, callerRuntime.languageName));
+		}
+		return callerRuntime;
 	}
 
 	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void> {
