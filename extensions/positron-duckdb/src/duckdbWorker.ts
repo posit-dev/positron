@@ -25,26 +25,44 @@ function send(response: WorkerQueryResponse): void {
 let connection: DuckDBConnection | undefined;
 let initError: Error | undefined;
 
+/**
+ * In signed mode (`--signed-extension-directory=<dir>`), the worker keeps DuckDB's extension
+ * signature check on and installs extensions from DuckDB's repositories into `<dir>`.
+ */
+const SIGNED_ARG = '--signed-extension-directory=';
+const signedExtensionDirectory = process.argv.find(arg => arg.startsWith(SIGNED_ARG))?.slice(SIGNED_ARG.length);
+
+/** The DuckDB configuration for this worker's mode. */
+function workerConfig(): Record<string, string> {
+	if (signedExtensionDirectory !== undefined) {
+		return { allow_community_extensions: 'true', extension_directory: signedExtensionDirectory };
+	}
+	// On macOS the bundled `excel` extension is Apple code-signed, which
+	// rewrites its Mach-O image; DuckDB's own signature (computed over the
+	// original image) no longer matches, so we must allow loading unsigned
+	// extensions. (The extension ships with DuckDB's footer stripped so it can
+	// be signed, then reconstructed at runtime; see install-excel-extension.ts
+	// and resolveExcelExtensionPath in extension.ts.) Trust comes instead from
+	// the OS code signature, the SHA-256 pinned at install time, and the fact
+	// that we only ever LOAD our own vendored extension by path. On
+	// Linux/Windows the extension keeps DuckDB's signature, so we leave the
+	// check in place rather than loosening it.
+	return process.platform === 'darwin' ? { allow_unsigned_extensions: 'true' } : {};
+}
+
 // Initialize the native database once. Failures (e.g. a native binding that
 // fails to load) are captured and reported per-query rather than crashing.
 const ready: Promise<void> = (async () => {
 	try {
-		// On macOS the bundled `excel` extension is Apple code-signed, which
-		// rewrites its Mach-O image; DuckDB's own signature (computed over the
-		// original image) no longer matches, so we must allow loading unsigned
-		// extensions. (The extension ships with DuckDB's footer stripped so it can
-		// be signed, then reconstructed at runtime; see install-excel-extension.ts
-		// and resolveExcelExtensionPath in extension.ts.) Trust comes instead from
-		// the OS code signature, the SHA-256 pinned at install time, and the fact
-		// that we only ever LOAD our own vendored extension by path. On
-		// Linux/Windows the extension keeps DuckDB's signature, so we leave the
-		// check in place rather than loosening it.
-		const config = process.platform === 'darwin' ? { allow_unsigned_extensions: 'true' } : {};
-		const instance = await DuckDBInstance.create(':memory:', config);
+		const instance = await DuckDBInstance.create(':memory:', workerConfig());
 		connection = await instance.connect();
 		await connection.run(`LOAD icu;
 		SET TIMEZONE='UTC';
 		`);
+		if (signedExtensionDirectory !== undefined) {
+			// Stop later SQL from turning off signature checks or moving the extension directory.
+			await connection.run('SET lock_configuration = true;');
+		}
 	} catch (error) {
 		initError = error instanceof Error ? error : new Error(String(error));
 	}

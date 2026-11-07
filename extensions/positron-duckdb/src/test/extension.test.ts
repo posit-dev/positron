@@ -74,6 +74,7 @@ const schemaUpdateListeners = new Set<(uri: string) => void>();
 // it directly (rather than through the typed Data Explorer channel, which needs the core/main-thread
 // side) and capture its UI events via the injected sink below.
 let testDb: DuckDBInstance | undefined;
+let testSignedDb: DuckDBInstance | undefined;
 let testHandler: DataExplorerRpcHandler | undefined;
 
 // The handler's UI-event sink: routes column profiles / schema updates to the test registries above.
@@ -99,9 +100,23 @@ async function ensureTestHandler(): Promise<DataExplorerRpcHandler> {
 	if (!testHandler) {
 		testDb = await DuckDBInstance.create();
 		const storageDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-excel-cache-'));
-		testHandler = new DataExplorerRpcHandler(testDb, routeUiEvent, storageDir);
+		testSignedDb = await createSignedDb(storageDir);
+		testHandler = new DataExplorerRpcHandler(testDb, testSignedDb, routeUiEvent, storageDir, testLog());
 	}
 	return testHandler;
+}
+
+/** Creates a signed DuckDB instance that installs extensions under `storageDir`. */
+function createSignedDb(storageDir: string): Promise<DuckDBInstance> {
+	return DuckDBInstance.create({
+		workerArgs: [`--signed-extension-directory=${path.join(storageDir, 'duckdb-extensions')}`]
+	});
+}
+
+let log: vscode.LogOutputChannel | undefined;
+function testLog(): vscode.LogOutputChannel {
+	log ??= vscode.window.createOutputChannel('DuckDB Tests', { log: true });
+	return log;
 }
 
 // Not sure why it is not possible to use Mocha's 'before' for this
@@ -3361,7 +3376,7 @@ suite('DuckDB worker isolation', () => {
 		const stubPath = path.join(dir, 'stubWorker.js');
 		await fs.promises.writeFile(stubPath, STUB_WORKER);
 
-		const db = await DuckDBInstance.create(stubPath);
+		const db = await DuckDBInstance.create({ workerPath: stubPath });
 		let crashCount = 0;
 		const crashListener = db.onDidCrash(() => { crashCount++; });
 		try {
@@ -3398,7 +3413,7 @@ suite('DuckDB worker isolation', () => {
 		const stubPath = path.join(dir, 'stubWorker.js');
 		await fs.promises.writeFile(stubPath, STUB_WORKER);
 
-		const db = await DuckDBInstance.create(stubPath);
+		const db = await DuckDBInstance.create({ workerPath: stubPath });
 		try {
 			// Creating the instance (e.g. on activation) must not fork the child.
 			assert.strictEqual(db.isWorkerRunning, false, 'worker should not spawn on create');
@@ -3418,7 +3433,7 @@ suite('DuckDB worker isolation', () => {
 		await fs.promises.writeFile(stubPath, STUB_WORKER);
 
 		// A short cooldown keeps the test fast.
-		const db = await DuckDBInstance.create(stubPath, 30);
+		const db = await DuckDBInstance.create({ workerPath: stubPath, idleShutdownMs: 30 });
 		try {
 			await db.runQuery('SELECT 1');
 			assert.strictEqual(db.isWorkerRunning, true);
@@ -3442,7 +3457,7 @@ suite('DuckDB worker isolation', () => {
 		const stubPath = path.join(dir, 'stubWorker.js');
 		await fs.promises.writeFile(stubPath, STUB_WORKER);
 
-		const db = await DuckDBInstance.create(stubPath, 30);
+		const db = await DuckDBInstance.create({ workerPath: stubPath, idleShutdownMs: 30 });
 		try {
 			await db.runQuery('SELECT 1');
 
@@ -3457,5 +3472,103 @@ suite('DuckDB worker isolation', () => {
 			db.close();
 			await fs.promises.rm(dir, { recursive: true, force: true });
 		}
+	});
+});
+
+suite('DuckDB extension file readers', () => {
+	let storageDir: string;
+	let db: DuckDBInstance;
+	let signedDb: DuckDBInstance;
+
+	suiteSetup(async function () {
+		storageDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-readers-'));
+		db = await DuckDBInstance.create();
+		signedDb = await createSignedDb(storageDir);
+		try {
+			await signedDb.runQuery('INSTALL read_stat FROM community;');
+		} catch {
+			// The community extension repository is unreachable (e.g. offline).
+			this.skip();
+		}
+	});
+
+	suiteTeardown(async () => {
+		db?.close();
+		signedDb?.close();
+		await fs.promises.rm(storageDir, { recursive: true, force: true });
+	});
+
+	/** Opens a file with a handler that uses the given `dataExplorer.fileReaders` value. */
+	async function open(fileName: string, fileReaders: unknown): Promise<{ handler: DataExplorerRpcHandler; uri: vscode.Uri }> {
+		const handler = new DataExplorerRpcHandler(db, signedDb, routeUiEvent, storageDir, testLog(), () => fileReaders);
+		const uri = vscode.Uri.file(path.join(__dirname, 'data', fileName));
+		await handler.openDataset({ uri: uri.toString() });
+		return { handler, uri };
+	}
+
+	async function call<T>(handler: DataExplorerRpcHandler, uri: vscode.Uri, method: DataExplorerBackendRequest, params: object = {}): Promise<T> {
+		const resp = await handler.handleRequest({ method, uri: uri.toString(), params });
+		if (resp.error_message) {
+			throw new Error(resp.error_message);
+		}
+		return resp.result as T;
+	}
+
+	for (const fileName of ['small.xpt', 'small.sas7bdat']) {
+		test(`opens ${fileName} with read_stat`, async () => {
+			const { handler, uri } = await open(fileName, { xpt: 'read_stat', sas7bdat: 'read_stat' });
+			try {
+				const state = await call<BackendState>(handler, uri, DataExplorerBackendRequest.GetState);
+				assert.strictEqual(state.connected, true, state.error_message);
+				assert.deepStrictEqual(state.table_shape, { num_rows: 3, num_columns: 4 });
+
+				const schema = await call<TableSchema>(handler, uri, DataExplorerBackendRequest.GetSchema, { column_indices: [0, 1, 2, 3] });
+				assert.deepStrictEqual(
+					schema.columns.map(c => [c.column_name, c.type_name]),
+					[['id', 'DOUBLE'], ['name', 'VARCHAR'], ['value', 'DOUBLE'], ['when', 'DATE']]
+				);
+
+				// The table lives in the signed instance only.
+				const tables = (await signedDb.runQuery(`SELECT count(*) AS n FROM duckdb_tables() WHERE table_name LIKE 'positron_%';`)).toArray();
+				assert.ok(Number(tables[0].n) > 0);
+			} finally {
+				handler.dispose();
+			}
+		});
+	}
+
+	test('does not handle a file whose extension has no reader', async () => {
+		const { handler, uri } = await open('small.xpt', {});
+		try {
+			const state = await call<BackendState>(handler, uri, DataExplorerBackendRequest.GetState);
+			assert.strictEqual(state.connected, false);
+			assert.match(state.error_message ?? '', /Unsupported file extension/);
+		} finally {
+			handler.dispose();
+		}
+	});
+
+	test('shows a disconnected view when the reader extension cannot be installed', async () => {
+		const { handler, uri } = await open('small.xpt', { xpt: 'no_such_extension_positron' });
+		try {
+			const state = await call<BackendState>(handler, uri, DataExplorerBackendRequest.GetState);
+			assert.strictEqual(state.connected, false);
+			assert.match(state.error_message ?? '', /Could not download the "no_such_extension_positron" DuckDB extension/);
+		} finally {
+			handler.dispose();
+		}
+	});
+
+	test('the signed instance refuses tampered extensions and signature setting changes', async () => {
+		await signedDb.runQuery('LOAD read_stat;');
+		const installPath = (await signedDb.runQuery(
+			`SELECT install_path FROM duckdb_extensions() WHERE extension_name = 'read_stat';`)).toArray()[0].install_path;
+		const bytes = await fs.promises.readFile(installPath);
+		bytes[Math.floor(bytes.length / 2)] ^= 0xff;
+		const tamperedPath = path.join(storageDir, 'tampered.duckdb_extension');
+		await fs.promises.writeFile(tamperedPath, bytes);
+
+		await assert.rejects(signedDb.runQuery(`LOAD '${tamperedPath.replace(/'/g, "''")}';`));
+		await assert.rejects(signedDb.runQuery('SET allow_unsigned_extensions = true;'), /locked/);
 	});
 });

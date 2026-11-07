@@ -12,6 +12,7 @@
 		{ "path": "./extensions/positron-data-driver-duckdb/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-driver-sqlite/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-explorer-duckdb/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-duckdb/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-file-transfer/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-r/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-run-app/tsconfig.vitest.json" }
