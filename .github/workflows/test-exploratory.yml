@@ -1082,12 +1082,22 @@ jobs:
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
           cd /tmp
+          # GNU tar exits 1 when a file changes while it is read (a process the agent left running);
+          # that copy is still usable, so only fail on worse.
+          copy_tree() {
+            local status
+            set +e
+            tar -cf - "$@" | tar -xf - -C "$STAGE"
+            status=("${PIPESTATUS[@]}")
+            set -e
+            [ "${status[0]}" -le 1 ] && [ "${status[1]}" -eq 0 ]
+          }
           if [ -d exploratory-run ]; then
-            tar -cf - --exclude='.*' --exclude='exploratory-run/tmp' exploratory-run | tar -xf - -C "$STAGE"
+            copy_tree --exclude='.*' --exclude='exploratory-run/tmp' exploratory-run
           fi
           if [ -d exploratory-workspace ]; then
-            tar -cf - --exclude='.*' --exclude='node_modules' --exclude='__pycache__' --exclude='renv/library' \
-              exploratory-workspace | tar -xf - -C "$STAGE"
+            copy_tree --exclude='.*' --exclude='node_modules' --exclude='__pycache__' --exclude='renv/library' \
+              exploratory-workspace
           fi
           for F in positron-dev-launch/*/code.log positron-dev-launch/instances.log; do
             [ -f "$F" ] || continue
