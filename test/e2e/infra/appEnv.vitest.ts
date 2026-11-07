@@ -97,9 +97,16 @@ describe('secretValues', () => {
 		const result = secretValues({
 			MY_PRIVATE_KEY: `-----BEGIN FAKE KEY-----\n${body1}\n${body2}\nshort\n-----END FAKE KEY-----`,
 		});
-		expect(result).toEqual([
-			{ name: 'MY_PRIVATE_KEY', value: body1 },
-			{ name: 'MY_PRIVATE_KEY', value: body2 },
+		expect(result.map(s => s.value)).toEqual([
+			body1,
+			body2,
+			`-----BEGIN FAKE KEY-----\n${body1}\n${body2}\nshort\n-----END FAKE KEY-----`,
+		]);
+	});
+
+	it('scrubs a multi-line value whose lines are all short as a whole', () => {
+		expect(secretValues({ MY_CREDENTIAL: 'user=svc\npass=s3cr3tpw99' })).toEqual([
+			{ name: 'MY_CREDENTIAL', value: 'user=svc\npass=s3cr3tpw99' },
 		]);
 	});
 
@@ -109,7 +116,30 @@ describe('secretValues', () => {
 		}
 	});
 
-	it('skips host-name denylist vars', () => {
-		expect(secretValues({ E2E_CONNECT_SERVER: 'https://connect.example.test', DATABRICKS_WORKSPACE: 'https://dbc.example.test' })).toEqual([]);
+	it('skips host, account, and user denylist vars', () => {
+		expect(secretValues({
+			E2E_CONNECT_SERVER: 'https://connect.example.test',
+			DATABRICKS_WORKSPACE: 'https://dbc.example.test',
+			SNOWFLAKE_ACCOUNT: 'fake-account-123',
+			SNOWFLAKE_USER: 'fake-user-12345',
+		})).toEqual([]);
+	});
+
+	it('scrubs a 1Password URL that carries a password, and the password alone', () => {
+		const values = secretValues({
+			OP_MANAGED_VARIABLES: 'DATABASE_URL',
+			DATABASE_URL: 'postgres://svc:p%40ssw0rd99@db.internal/app',
+		}).map(s => s.value);
+		expect(values).toEqual(['postgres://svc:p%40ssw0rd99@db.internal/app', 'p@ssw0rd99']);
+	});
+
+	it('scrubs a URL that carries a query string', () => {
+		expect(secretValues({ E2E_CONNECT_SERVER: 'https://h.example.test/?token=abc' }).map(s => s.value))
+			.toEqual(['https://h.example.test/?token=abc']);
+	});
+
+	it('keeps pattern names with a suffix as secrets', () => {
+		expect(secretValues({ MY_TOKEN_URL: 'https://fake.example.test' }).map(s => s.value))
+			.toEqual(['https://fake.example.test']);
 	});
 });

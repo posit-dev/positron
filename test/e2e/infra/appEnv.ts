@@ -97,6 +97,23 @@ export function appEnv(
 	return env;
 }
 
+/**
+ * For a URL with a password or a query string (`postgres://svc:pw@db`, `https://h/?token=x`),
+ * the whole URL plus its decoded password. Empty for anything else.
+ */
+function urlCredentials(value: string): string[] {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return [];
+	}
+	if (url.password === '' && url.search === '') {
+		return [];
+	}
+	return url.password === '' ? [value] : [value, decodeURIComponent(url.password)];
+}
+
 /** Values that scrub and scan look for. */
 export function secretValues(source: NodeJS.ProcessEnv): SecretValue[] {
 	const seen = new Set<string>();
@@ -113,7 +130,14 @@ export function secretValues(source: NodeJS.ProcessEnv): SecretValue[] {
 		if (!value || name.toUpperCase() === 'OP_MANAGED_VARIABLES') {
 			continue;
 		}
+		// Hosts, users, and URLs show up in logs and on screen. Scanning for them would block
+		// uploads, so they count only when the URL carries a credential.
 		if (NON_SECRET_SUFFIX.test(name) && !SECRET_NAME_PATTERN.test(name)) {
+			for (const part of urlCredentials(value)) {
+				if (part.length >= MIN_SECRET_LENGTH) {
+					add(name, part);
+				}
+			}
 			continue;
 		}
 		if (/[\r\n]/.test(value)) {
@@ -122,7 +146,8 @@ export function secretValues(source: NodeJS.ProcessEnv): SecretValue[] {
 					add(name, line);
 				}
 			}
-		} else if (value.length >= MIN_SECRET_LENGTH) {
+		}
+		if (value.length >= MIN_SECRET_LENGTH) {
 			add(name, value);
 		}
 	}
