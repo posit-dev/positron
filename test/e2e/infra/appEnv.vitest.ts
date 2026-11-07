@@ -67,6 +67,11 @@ describe('appEnv', () => {
 	it('treats the fixed test Postgres login as non-secret', () => {
 		expect(secretEnvNames({ E2E_POSTGRES_USER: 'e2e', E2E_POSTGRES_PASSWORD: 'e2e-postgres-test' })).toEqual([]);
 	});
+
+	it('matches PAT, passphrase, webhook, PEM, and regcode names, but not PATH', () => {
+		const names = ['GH_PAT', 'PAT_RO', 'SSH_PASSPHRASE', 'SLACK_WEBHOOK', 'SIGNING_PEM', 'RSPM_REGCODE', 'PATH', 'DATABRICKS_HTTP_PATH', 'PATTERN'];
+		expect(names.filter(n => SECRET_NAME_PATTERN.test(n))).toEqual(names.slice(0, 6));
+	});
 });
 
 describe('secretValues', () => {

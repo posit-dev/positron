@@ -5,8 +5,8 @@
 
 // Keep this file import-free: launch.sh loads it via tsx before the harness exists.
 
-/** Env var names that look like secrets. */
-export const SECRET_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSKEY|CREDENTIAL|LICENSE|OTP)/i;
+/** Env var names that look like secrets. PAT is a whole word so PATH and *_PATH names pass. */
+export const SECRET_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSKEY|PASSPHRASE|CREDENTIAL|LICENSE|OTP|WEBHOOK|PEM|REGCODE|(^|_)PAT(_|$))/i;
 
 /**
  * CI secrets mapped into e2e test step env, plus the 1Password and GitHub tokens.
