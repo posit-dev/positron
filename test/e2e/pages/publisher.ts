@@ -60,7 +60,8 @@ export class Publisher {
 		const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
 		await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
 		await fillSecretValue(apiKeyInputLocator, apiKey);
-		await page.keyboard.press('Enter');
+		// fillSecretValue does not focus the input; press on it so Enter reaches the prompt.
+		await apiKeyInputLocator.press('Enter');
 	}
 
 	/**
