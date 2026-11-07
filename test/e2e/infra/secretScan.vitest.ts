@@ -75,6 +75,24 @@ describe('secretScan', () => {
 		expect(hits.map(h => h.file)).toContain(`${join(dir, 'index.html')}!embedded.zip!report.json`);
 	});
 
+	describe('secret in a file name', () => {
+		const NAME_SECRET = 'fakeNameSecret123456';
+		const nameSecrets = [{ name: 'FAKE_NAME_SECRET', value: NAME_SECRET }];
+
+		it('finds it on disk and in a zip entry, and redacts it from the labels', async () => {
+			mkdirSync(join(dir, `dir-${NAME_SECRET}`));
+			writeFileSync(join(dir, `dir-${NAME_SECRET}`, 'clean.txt'), 'nothing here');
+			await zip(join(dir, 'a.zip'), { [`entry-${NAME_SECRET}.txt`]: 'nothing here' });
+			const hits = await scanPaths([dir], nameSecrets);
+			expect(hits.map(h => h.file).sort()).toEqual([join(dir, 'a.zip!entry-***.txt'), join(dir, 'dir-***')]);
+		});
+
+		it('redacts it from an error message', async () => {
+			writeFileSync(join(dir, `bad-${NAME_SECRET}.zip`), 'not a zip');
+			await expect(scanPaths([dir], nameSecrets)).rejects.toThrow(/bad-\*\*\*\.zip/);
+		});
+	});
+
 	it('clean tree has no hits', async () => {
 		writeFileSync(join(dir, 'clean.txt'), 'nothing here');
 		expect(await scanPaths([dir, join(dir, 'missing')], secrets)).toEqual([]);

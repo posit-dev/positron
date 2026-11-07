@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import yauzl from 'yauzl';
 import type { SecretValue } from './appEnv';
-import { encodedForms, toLatin1Needle, type SecretEncoding } from './secretScrub';
+import { encodedForms, scrubBuffer, toLatin1Needle, type SecretEncoding } from './secretScrub';
 
 export interface ScanHit {
 	file: string;
@@ -61,10 +61,34 @@ function isZip(label: string, data: Buffer): boolean {
 		|| magic.equals(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
 }
 
+/** `text` with secret values replaced by `***`, so labels and errors are safe to print. */
+function redact(text: string, secrets: SecretValue[]): string {
+	return scrubBuffer(Buffer.from(text, 'utf8'), secrets).data.toString('utf8');
+}
+
+/** Records a hit for each secret in `text`. The hit's file label is redacted. */
+function findSecrets(label: string, text: string, secrets: SecretValue[], hits: Map<string, ScanHit>): void {
+	for (const { name, value } of secrets) {
+		for (const { encoding, text: form } of encodedForms(value)) {
+			if (text.includes(toLatin1Needle(form))) {
+				const file = redact(label, secrets);
+				hits.set(`${file}\0${name}\0${encoding}`, { file, name, encoding });
+			}
+		}
+	}
+}
+
+/** Checks a file, directory or zip entry name. */
+function scanName(label: string, name: string, secrets: SecretValue[], hits: Map<string, ScanHit>): void {
+	findSecrets(label, Buffer.from(name, 'utf8').toString('latin1'), secrets, hits);
+}
+
 async function scanData(label: string, data: Buffer, secrets: SecretValue[], hits: Map<string, ScanHit>): Promise<void> {
 	if (isZip(label, data)) {
 		for (const entry of await readZipEntries(data, label)) {
-			await scanData(`${label}!${entry.path}`, entry.data, secrets, hits);
+			const entryLabel = `${label}!${entry.path}`;
+			scanName(entryLabel, entry.path, secrets, hits);
+			await scanData(entryLabel, entry.data, secrets, hits);
 		}
 		return;
 	}
@@ -74,13 +98,7 @@ async function scanData(label: string, data: Buffer, secrets: SecretValue[], hit
 	if (embedded?.groups) {
 		await scanData(`${label}!embedded.zip`, Buffer.from(embedded.groups.data, 'base64'), secrets, hits);
 	}
-	for (const { name, value } of secrets) {
-		for (const { encoding, text: form } of encodedForms(value)) {
-			if (text.includes(toLatin1Needle(form))) {
-				hits.set(`${label}\0${name}\0${encoding}`, { file: label, name, encoding });
-			}
-		}
-	}
+	findSecrets(label, text, secrets, hits);
 }
 
 // upload-artifact follows symlinks, so links are scanned as what they point to.
@@ -94,6 +112,7 @@ async function scanPath(path: string, secrets: SecretValue[], hits: Map<string, 
 		}
 		throw err;
 	}
+	scanName(path, basename(path), secrets, hits);
 	if (stat.isDirectory()) {
 		const real = await fs.realpath(path);
 		if (visited.has(real)) {
@@ -109,14 +128,20 @@ async function scanPath(path: string, secrets: SecretValue[], hits: Map<string, 
 }
 
 /**
- * Looks for secret values in files and zips (nested too) under `paths`. Reports names only.
+ * Looks for secret values in the contents and names of files and zips (nested too) under
+ * `paths`. Reports secret names only, and redacts secrets from file labels and error messages.
  * Missing paths are skipped. Unreadable files or zips throw, so callers fail closed.
  */
 export async function scanPaths(paths: string[], secrets: SecretValue[]): Promise<ScanHit[]> {
 	const hits = new Map<string, ScanHit>();
 	const visited = new Set<string>();
-	for (const path of paths) {
-		await scanPath(path, secrets, hits, visited);
+	try {
+		for (const path of paths) {
+			await scanPath(path, secrets, hits, visited);
+		}
+	} catch (err) {
+		// fs and zip errors quote the path, which can hold a secret.
+		throw new Error(redact(err instanceof Error ? err.message : String(err), secrets));
 	}
 	return [...hits.values()];
 }
