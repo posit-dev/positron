@@ -15,6 +15,7 @@ import { PlaywrightDriver } from './playwrightDriver';
 import { teardown } from './processes';
 import { extensionHostInspectPayloadEntry } from '../utils/memory/gc.js';
 import { laneFromEnv } from '../utils/memory/lanes.js';
+import { appEnv } from './appEnv';
 // --- End Positron ---
 
 const root = join(__dirname, '..', '..', '..');
@@ -58,10 +59,16 @@ async function launchServer(options: LaunchOptions) {
 
 	await measureAndLog(() => fs.promises.mkdir(agentFolder, { recursive: true }), `mkdirp(${agentFolder})`, logger);
 
+	// --- Start Positron ---
+	// const env = {
+	// 	VSCODE_REMOTE_SERVER_PATH: codeServerPath,
+	// 	...process.env,
+	// };
 	const env = {
 		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
-		...process.env,
+		...appEnv(process.env),
 	};
+	// --- End Positron ---
 
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;

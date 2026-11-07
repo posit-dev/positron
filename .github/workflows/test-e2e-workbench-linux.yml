@@ -27,7 +27,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       install_mode:
         required: false
         description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
@@ -95,8 +95,8 @@ jobs:
 
     env:
       POSITRON_BUILD_NUMBER: 0
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
@@ -254,7 +254,7 @@ jobs:
             $GREP_INVERT_ARG
 
       - name: Upload HTML report to S3
-        if: always()
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -262,13 +262,17 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-workbench-${{ inputs.os }}-logs-${{ matrix.shard.name }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
       - name: Stop Docker containers
         if: always()

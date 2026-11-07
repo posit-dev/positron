@@ -2555,6 +2555,7 @@ export default defineConfig(
 						'@vscode/*',
 						'@parcel/*',
 						'@playwright/*',
+						'@playwright/test/reporter',
 						'@anthropic-ai/*', // For LLM evaluation tests
 						'*' // node modules
 					]

@@ -57,8 +57,8 @@ test.describe('Data Connections - Postgres', {
 			['Port', port],
 			[/^Database/, database],
 			[/^User/, user],
-			[/^Password/, password],
 		]);
+		await dataConnections.fillSecretConnectionInput(/^Password/, password);
 
 		await dataConnections.save();
 		await dataConnections.expectConnectionInTree(connectionName);

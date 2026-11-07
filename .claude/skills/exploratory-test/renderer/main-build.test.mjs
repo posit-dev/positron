@@ -100,7 +100,7 @@ test('mainBuildBrief says a failed lookup is not a missing ID', () => {
 
 test('mainBuildBrief gives the app arguments when the run knows them', () => {
 	const build = { version: 'v', commit: 'c'.repeat(40), pubDate: '', platform: 'deb/x86_64', binary: '/b' };
-	assert.match(mainBuildBrief(build, { repo: '/r', base: 'a', appArgs: '--no-sandbox --log debug' }), /--app \/b -- --no-sandbox --log debug`/);
+	assert.match(mainBuildBrief(build, { repo: '/r', base: 'a', appArgs: '--no-sandbox --log debug' }), /--app \/b --pass-env ANTHROPIC_API_KEY -- --no-sandbox --log debug`/);
 	assert.match(mainBuildBrief(build, { repo: '/r', base: 'a' }), /the same launcher flags and app arguments as your PR instance/);
 });
 

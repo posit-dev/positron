@@ -1,0 +1,12 @@
+name: "Require Secret Scan"
+description: "Fail the job if the secret scan did not write its clean marker"
+
+# The e2e scan reporter writes secret-scan/clean only when it finds no secret
+# values in the test output. Uploads skip without it; this step makes that
+# skip a visible failure.
+runs:
+  using: "composite"
+  steps:
+    - name: Fail if the secret scan did not pass
+      shell: bash
+      run: test -f secret-scan/clean || { echo "::error::Secret scan marker missing, so the scan failed or the tests did not run. Test artifacts were not uploaded."; exit 1; }

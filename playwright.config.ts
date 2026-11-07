@@ -11,7 +11,8 @@ import * as fs from 'fs';
 
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
-const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
+// No error text: it can hold secrets, and this summary is written before the secret scan.
+const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', { showError: false }] as const] : [];
 // E2E Insights: results reporting + duration-balanced sharding (preprocess
 // hook, needs Playwright >= 1.62; no-ops on unsharded runs).
 //   ENABLE_CUSTOM_REPORTER=false     -> disables both
@@ -22,7 +23,7 @@ const shardingEnabled = reportingEnabled && !isDisabled(process.env.ENABLE_PREDI
 
 const insightsReporters: ReporterDescription[] = [
 	...(reportingEnabled
-		? [['@midleman/playwright-reporter',
+		? [['@posit-dev/playwright-reporter',
 			{
 				repoName: 'positron',
 				mode: 'prod'
@@ -30,7 +31,7 @@ const insightsReporters: ReporterDescription[] = [
 		] as ReporterDescription]
 		: []),
 	...(shardingEnabled
-		? [['@midleman/playwright-reporter/sharding'] as ReporterDescription]
+		? [['@posit-dev/playwright-reporter/sharding'] as ReporterDescription]
 		: []),
 ];
 
@@ -61,6 +62,7 @@ if (process.env.CI) {
 		...insightsReporters,
 		['json', { outputFile: jsonOut }],
 		['list'], ['html'], ['blob'],
+		['./test/e2e/infra/secretScanReporter.ts'],
 	];
 } else {
 	reporter = [['list']];
