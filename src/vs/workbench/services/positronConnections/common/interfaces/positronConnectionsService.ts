@@ -40,4 +40,20 @@ export interface IPositronConnectionsService extends IDisposable {
 	onDidFocus: Event<string>;
 
 	runtimeSessionService: IRuntimeSessionService;
+
+	/**
+	 * The code behind the connection comm a session opened most recently, or undefined if none
+	 * has been seen. For a ggsql session, the `-- @connect: <uri>` line for the database it is on.
+	 * Only tracked while the Data Connections feature is on.
+	 */
+	getSessionConnectionCode(sessionId: string): string | undefined;
+
+	/** Fires when a session's connection code changes, including to undefined when it exits. */
+	onDidChangeSessionConnectionCode: Event<ISessionConnectionCodeChangeEvent>;
+}
+
+/** A session's connection code changed; see IPositronConnectionsService.getSessionConnectionCode. */
+export interface ISessionConnectionCodeChangeEvent {
+	readonly sessionId: string;
+	readonly code: string | undefined;
 }

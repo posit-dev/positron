@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import TYPE_CHECKING, Callable, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from .plot_comm import (
     GetIntrinsicSizeRequest,
@@ -28,6 +28,8 @@ from .plot_comm import (
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .session_mode import SessionMode
     from .utils import JsonRecord
 

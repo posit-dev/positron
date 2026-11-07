@@ -1272,6 +1272,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return { extensionId: m.extension.identifier, ...runtime };
 	}
 
+	/**
+	 * The languages whose runtime manager sets `defersToFirstDefinition`.
+	 */
+	public async $getLanguagesDeferringToFirstDefinition(): Promise<string[]> {
+		return [...new Set(this._runtimeManagers
+			.filter(m => m.manager.defersToFirstDefinition === true)
+			.map(m => m.languageId))];
+	}
+
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(

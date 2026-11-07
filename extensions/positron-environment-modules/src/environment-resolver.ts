@@ -57,6 +57,10 @@ export async function resolveModuleInterpreter(
 			for (const msg of errorMessages) {
 				log.warn(msg);
 			}
+			if (options.throwOnError) {
+				throw new Error(errorMessages.join('\n') ||
+					`None of ${options.interpreterBinaryNames.join(', ')} found after loading ${config.modules.join(', ')}`);
+			}
 			return undefined;
 		}
 
@@ -92,6 +96,9 @@ export async function resolveModuleInterpreter(
 		};
 	} catch (error) {
 		log.error(`Failed to resolve interpreter for environment "${options.environmentName}": ${error}`);
+		if (options.throwOnError) {
+			throw error;
+		}
 		return undefined;
 	}
 }

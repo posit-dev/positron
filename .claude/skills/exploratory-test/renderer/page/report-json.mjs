@@ -108,6 +108,8 @@ function findingFromJson(f) {
 		corrected: f.corrected ?? [],
 		known: f.known ?? [],
 		intended: f.intended ?? [],
+		// The matches the verifier confirmed are the same bug, each with why.
+		dupes: f.dupes ?? [],
 		// The finding replayed on a build of main, which decides its Origin.
 		main: f.main ?? null,
 		// The explorer's opening sentence for the issue.
@@ -212,7 +214,8 @@ function stepText(step) {
 /**
  * Verification details: the preamble, a chip per verdict, the verifier's
  * notes, each finding's origin it judged from the change, and its severity for
- * each linked issue the run ran into.
+ * each linked issue the run ran into, and why it did not meet the others the
+ * ledger marks.
  */
 function verificationFromJson(json) {
 	const v = json.verification;
@@ -222,6 +225,7 @@ function verificationFromJson(json) {
 		preambleHtml: at === -1 ? '' : inline(lines[at].trim()),
 		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
 		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
+		unmet: new Map((v.unmet ?? []).map(l => [l.issue, l.why])),
 		origin: new Map(Object.entries(v.origin ?? {}).map(([n, o]) => [Number(n), o])),
 		// Why a confirmed finding has no Origin, when it came from a replay on main.
 		originReason: new Map(Object.entries(v.originReason ?? {}).map(([n, r]) => [Number(n), r])),

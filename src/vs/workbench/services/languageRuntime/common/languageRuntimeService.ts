@@ -233,6 +233,15 @@ export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMes
 
 	/** The identifier of the output to update */
 	readonly output_id: string;
+
+	/**
+	 * Optional metadata about the output itself, keyed by MIME type. This is
+	 * distinct from {@link ILanguageRuntimeMessage.metadata}, which describes the
+	 * message more generally. It corresponds to the `metadata` field of a Jupyter
+	 * `update_display_data` message, e.g.
+	 * `{ 'image/png': { width: 640, height: 480 } }`.
+	 */
+	readonly outputMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -1205,6 +1214,13 @@ export interface IRuntimeManager {
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
 	recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
+
+	/**
+	 * The languages whose extension lets core recommend the first defined
+	 * interpreter when it recommends nothing after discovery (see
+	 * `defersToFirstDefinition` in the Positron API).
+	 */
+	getLanguagesDeferringToFirstDefinition?(): Promise<string[]>;
 
 	/**
 	 * Whether this manager is responsible for the given runtime. Used by the

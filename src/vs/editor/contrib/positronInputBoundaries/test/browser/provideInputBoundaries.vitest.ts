@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { IInputBoundary } from '../../../../common/languages.js';
 import { codeFragmentsFromBoundaries } from '../../browser/provideInputBoundaries.js';
 

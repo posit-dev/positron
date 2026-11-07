@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // The steps after the explorer, shared by CI (run.mjs) and a local run: stop
-// its instances, verify, isolate what the verifier could not settle, apply the
-// verdicts. The caller only says how to run an agent.
+// its instances, verify, apply the verdicts. The caller only says how to run an agent.
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
@@ -27,7 +26,6 @@ import { applyVerifyReply, MAIN_REPLAY_OFF, parseVerifyReply, readReport, report
 import { readCheckedReport } from './lint-json.mjs';
 import { ensureCommit, localMainBuild, mainBuildBrief } from './main-build.mjs';
 
-export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
 // Added to the time limit when the run has a main build, so replaying findings
 // on main does not cut into exploring. 6 covers the most any run used (5.3,
@@ -46,24 +44,13 @@ export function withMainReplay(timeLimit, mainBuild) {
 }
 const READ_TOOLS = ['Bash', 'Read', 'Glob', 'Grep'];
 const EXPLORER_PATH = fileURLToPath(new URL('../explorer.md', import.meta.url));
-const ISOLATOR_PATH = fileURLToPath(new URL('../isolator.md', import.meta.url));
 const STOP_INSTANCES = fileURLToPath(new URL('./stop-instances.sh', import.meta.url));
 const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 const STATE_DIR = join(homedir(), '.local', 'state', 'exploratory-test');
 
-/** What the verifier is sent once the isolator has written isolation.md. */
-export function reviseMessage(dir) {
-	return `Read \`${join(dir, 'isolation.md')}\`, revise those findings' verdicts, and name the Cause and Feature it points to, with a new feature when the Feature changes and a new title when the title names the wrong trigger. If a cause is broader than the cases in its table, narrow it. Reply again in full, in the same format: the json block, then your notes.`;
-}
-
 /** What the verifier is told when its last message has no json block. */
 export const REFORMAT_MESSAGE = 'Your last message has no json block, and only the last message is read. Reply again in full, in the format your instructions give: the json block, then your notes.';
-
-/** What the isolator is told once its time is up. */
-export function isolateTimeUpMessage(dir) {
-	return `Time is up: your ${ISOLATE_MINUTES} minutes have run out. Run no more cases. Write \`${join(dir, 'isolation.md')}\` now with what you have, and list the findings you did not reach.`;
-}
 
 /** What the explorer is told once its time is up, as CI's is; the limit can change, so no minutes. */
 export const EXPLORE_TIME_UP = `Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
@@ -214,36 +201,13 @@ function stopInstances(dir) {
 	}
 }
 
-function isolatePrompt(dir, { repo, base, head }, findings, reply) {
-	return [
-		readFileSync(ISOLATOR_PATH, 'utf8').trim(),
-		'',
-		'---',
-		'',
-		'# Brief',
-		'',
-		`Run directory: \`${dir}\``,
-		`Checkout: \`${repo}\``,
-		`Base: \`${base}\``,
-		`Head: \`${head}\``,
-		`Report: \`${reportPath(dir)}\``,
-		`Playwright session: \`${sessionName(dir)}-iso\``,
-		`Findings: ${findings.map(n => `Finding ${n}`).join(', ')}`,
-		'',
-		'The verifier\'s reply, which says for each of them what evidence is missing. Run that control first:',
-		'',
-		reply,
-		'',
-	].join('\n');
-}
-
 /**
  * Runs every step after the explorer on `dir`, rewriting its report.json; returns each agent's `{ role, model, durationMs, turns, costUsd }`.
- * `runAgent({ role, purpose, model, prompt, tools, cwd, resume, timeLimitMinutes, timeUpMessage })` resolves to
+ * `runAgent({ role, purpose, model, prompt, tools, cwd, resume })` resolves to
  * `{ text, durationMs, turns, costUsd, sessionId, opened }`, `opened` being the files it read, if known; a throw leaves the report as it was. Replies go to `<purpose>-reply.md`.
- * `model` is the verifier's, `isolateModel` the isolator's: Opus caught every planted mistake in the 2026-10-15 plant test, and the isolator was not measured.
+ * `model` is the verifier's: Opus caught every planted mistake in the 2026-10-15 plant test.
  */
-export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'opus', isolateModel = 'sonnet', stop = stopInstances, log = () => { } }) {
+export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'opus', stop = stopInstances, log = () => { } }) {
 	const passes = [];
 	// Every file a verifier session read, across its replies, so its claim to
 	// have looked at a screenshot can be checked. Null when the runner does not say.
@@ -251,12 +215,11 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 	const ask = async step => {
 		log(`${step.resume ? 'message to' : 'new'} ${step.role} agent: ${step.purpose}`);
 		try {
-			const asked = step.role === 'isolate' ? isolateModel : model;
-			const result = await runAgent({ model: asked, ...step });
+			const result = await runAgent({ model, ...step });
 			if (step.role === 'verify' && Array.isArray(result.opened)) {
 				opened = [...(opened ?? []), ...result.opened];
 			}
-			passes.push({ role: step.role, model: result.model ?? asked, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
+			passes.push({ role: step.role, model: result.model ?? model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
 			const text = String(result.text ?? '').trim();
 			writeFileSync(join(dir, `${step.purpose}-reply.md`), text);
 			return { text, sessionId: result.sessionId ?? null, error: '' };
@@ -271,33 +234,21 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 	}
 	stop(dir);
 	if (verify) {
-		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log, () => opened);
+		await verifyFindings(dir, { repo, base, head, baseName }, ask, log, () => opened);
 	}
 	return passes;
 }
 
-async function verifyFindings(dir, range, ask, stop, log, opened = () => null) {
+async function verifyFindings(dir, range, ask, log, opened = () => null) {
 	const promptPath = writeVerifyPrompt(dir, range);
 	if (!promptPath) {
 		return;
 	}
 	const verifier = { role: 'verify', tools: READ_TOOLS, cwd: range.repo };
 	const first = await ask({ ...verifier, purpose: 'verify', prompt: readFileSync(promptPath, 'utf8') });
-	// The latest usable reply: a failed revision keeps the first verdicts.
+	// The latest usable reply: a failed reformat keeps the first verdicts.
 	let best = first.text;
 	const session = first.sessionId;
-	const unresolved = [...parseVerifyReply(best).findings].filter(([, f]) => f.verified === 'unresolved').map(([n]) => n);
-	if (unresolved.length) {
-		const prompt = isolatePrompt(dir, range, unresolved, best);
-		writeFileSync(join(dir, 'isolate-prompt.md'), prompt);
-		await ask({ role: 'isolate', purpose: 'isolate', prompt, tools: READ_TOOLS, cwd: range.repo, timeLimitMinutes: ISOLATE_MINUTES, timeUpMessage: isolateTimeUpMessage(dir) });
-		stop(dir);
-		if (!existsSync(join(dir, 'isolation.md'))) {
-			log('the isolator wrote no isolation.md; applying the verifier\'s first reply');
-		} else if (session) {
-			best = (await ask({ ...verifier, purpose: 'revise', resume: session, prompt: reviseMessage(dir) })).text || best;
-		}
-	}
 	// Only the last message is read; one sent after the block (a background
 	// command finishing, say) leaves none, so ask once for the reply again.
 	if (best && session && parseVerifyReply(best).problem) {

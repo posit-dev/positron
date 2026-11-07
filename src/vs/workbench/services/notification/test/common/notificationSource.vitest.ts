@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { INotificationSource, NotificationPriority, NotificationsFilter, Severity } from '../../../../../platform/notification/common/notification.js';

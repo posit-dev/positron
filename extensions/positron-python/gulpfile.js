@@ -9,7 +9,6 @@
 'use strict';
 
 const gulp = require('gulp');
-const ts = require('gulp-typescript');
 const spawn = require('cross-spawn');
 const path = require('path');
 const del = require('del');
@@ -24,10 +23,6 @@ const os = require('os');
 const fancyLog = require('fancy-log');
 const ansiColors = require('ansi-colors');
 // --- End Positron ---
-const typescript = require('typescript');
-
-const tsProject = ts.createProject('./tsconfig.json', { typescript });
-
 const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined;
 
 // --- Start Positron ---
@@ -65,15 +60,12 @@ function getPlatformTag(arch) {
 // --- End Positron ---
 
 gulp.task('compileCore', (done) => {
-    let failed = false;
-    tsProject
-        .src()
-        .pipe(tsProject())
-        .on('error', () => {
-            failed = true;
-        })
-        .js.pipe(gulp.dest('out'))
-        .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
+    spawnAsync(process.execPath, ['./node_modules/typescript/lib/tsc.js', '-p', './tsconfig.json'], undefined, true)
+        .then(() => done())
+        .catch((ex) => {
+            console.log(ex);
+            done(new Error(`TypeScript compilation errors: ${ex instanceof Error ? ex.message : ex}`));
+        });
 });
 
 gulp.task('compileApi', (done) => {
@@ -205,9 +197,14 @@ async function buildWebPack(webpackConfigName, args, env) {
         ['run', 'webpack', '--', ...args, ...['--mode', 'production', '--devtool', 'source-map']],
         env,
     );
+    // Strip ANSI color/style escape codes before parsing webpack output lines.
+    // Webpack colorizes output (e.g. "\u001b[1m\u001b[31mERROR\u001b[39m\u001b[22m in ..."),
+    // which would prevent startsWith('ERROR in') / startsWith('WARNING in') from matching.
+    // eslint-disable-next-line no-control-regex
+    const stripAnsi = (str) => str.replace(/\u001b\[[0-9;]*m/g, '');
     const stdOutLines = stdOut
         .split(os.EOL)
-        .map((item) => item.trim())
+        .map((item) => stripAnsi(item).trim())
         .filter((item) => item.length > 0);
     // Remember to perform a case insensitive search.
     const warnings = stdOutLines
@@ -303,7 +300,21 @@ async function pipInstall(args) {
     ]);
 }
 
+/**
+ * Removes a `pip install --target` directory before a fresh install. pip does
+ * not remove the files of an old version from a target directory, or a
+ * directory that the task no longer installs to. In a dev checkout these
+ * accumulate, and a local release build ships them.
+ * See https://github.com/posit-dev/positron/issues/16695.
+ * @param {string} target - The target directory, relative to this file.
+ */
+async function cleanPipTarget(target) {
+    fancyLog('Removing old bundled packages from:', ansiColors.cyan(target));
+    await del([target], { cwd: __dirname });
+}
+
 async function installPythonScriptRequirements() {
+    await cleanPipTarget('python_files/lib/python');
     await pipInstall(['--target', './python_files/lib/python', '--implementation', 'py', '-r', './requirements.txt']);
 }
 
@@ -323,6 +334,8 @@ async function bundleIPykernel() {
         { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },
         { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },
     ];
+
+    await cleanPipTarget('python_files/lib/ipykernel');
 
     // Pure Python 3 requirements (same for all architectures).
     await pipInstall([

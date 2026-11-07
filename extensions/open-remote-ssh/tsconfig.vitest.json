@@ -1,0 +1,5 @@
+{
+	"extends": ["./tsconfig.json", "../../tsconfig.vitest.base.json"],
+	// The base include replaces this project's, so add back the proposed API it uses.
+	"files": ["../../src/vscode-dts/vscode.proposed.resolvers.d.ts"]
+}

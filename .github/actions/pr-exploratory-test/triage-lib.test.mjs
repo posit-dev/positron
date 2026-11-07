@@ -15,6 +15,7 @@ const issue = extra => ({
 
 test('reportLink reads the provenance line, and nothing else', () => {
 	assert.deepEqual(reportLink(`Body.\n<sub>Reported by [exploratory test](${BASE}/index.html#f3)</sub>`), { base: BASE, finding: 3 });
+	assert.deepEqual(reportLink(`## System details\n\n- **Found by:** [exploratory test](${BASE}/index.html#f2) of #1234`), { base: BASE, finding: 2 });
 	assert.equal(reportLink(`See ${BASE}/index.html#f3`), null);
 	assert.equal(reportLink(null), null);
 });

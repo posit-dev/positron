@@ -24,6 +24,8 @@
 # "Showing 5 rows (41.67% of 12 total) 3 columns". Every value is the text the
 # cell shows; a cell the grid has not drawn yet reads as null. Column names are taken as
 # unique; with two columns of one name, the second gets " (2)".
+# While the editor area is hidden (a maximized panel), the error says so and
+# names the editors open in it.
 # Exit code: 0 when a grid was read, 1 when there is none, 2 on a usage error
 # (such as --rows abc), before the grid is read.
 

@@ -241,18 +241,12 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         // The connection now starts lazily via ensureConnection(); make sure the
         // server is stopped when the finder itself is disposed.
         this._register(new Disposable(() => this.shutdownServer()));
-        // void this.configure();
         // this.firstRefreshResults = this.refreshFirstTime();
         // When Python startup is disabled or discovery is limited to
-        // interpreters.definitions, skip the eager configure and first
-        // refresh so no PET server spawns at startup; discovery still works
-        // lazily when explicitly requested.
+        // interpreters.definitions, skip the first refresh so no PET server
+        // spawns at startup; discovery still works lazily when explicitly
+        // requested. The first refresh configures PET before refreshing.
         if (!isEagerDiscoveryDisabled()) {
-            // configure() rejects when the configuration cannot be assembled; it has
-            // already logged and recorded the failure, and the first refresh below
-            // reports it too, so swallow it here rather than raising an unhandled
-            // rejection.
-            this.configure().catch(() => undefined);
             this.firstRefreshResults = this.refreshFirstTime();
         }
         // --- End Positron ---
@@ -728,13 +722,13 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
 
     // --- Start Positron ---
     // Serializes configure requests. PET (as of 2026.12) reports zero environments
-    // if a `refresh` is processed while a `configure` is still in flight. At startup
-    // the constructor fires `void this.configure()` and the first refresh
-    // (`refreshFirstTime`) concurrently; the two `configure()` calls race and the
-    // `lastConfiguration` short-circuit below let the refresh's request go out before
-    // the in-flight configure was acknowledged, so discovery came back empty. Chaining
-    // each configure() after the previous one guarantees a caller that sends `refresh`
-    // next never races an unfinished configure. See #14483.
+    // if a `refresh` is processed while a `configure` is still in flight. When two
+    // callers configure concurrently (e.g. a refresh and a resolve), the
+    // `lastConfiguration` short-circuit below can let one caller's `refresh` go out
+    // before the other's in-flight configure was acknowledged, so discovery comes back
+    // empty. Chaining each configure() after the previous one guarantees a caller that
+    // sends `refresh` next never races an unfinished configure. See #14483. (Upstream
+    // fixed the startup case of this race by removing the constructor's configure.)
     private configureQueue: Promise<void> = Promise.resolve();
     // --- End Positron ---
 

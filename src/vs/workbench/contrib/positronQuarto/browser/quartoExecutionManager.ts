@@ -42,7 +42,7 @@ import {
 	WillExecuteEvent,
 } from '../common/quartoExecutionTypes.js';
 import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
-import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput, ILanguageRuntimeMessageUpdateOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
@@ -83,6 +83,24 @@ interface ExecutionTracker {
 	outputSize: number;
 	outputCount: number;
 	disposables: DisposableStore;
+	/**
+	 * The current output for each runtime display ID (`output_id`) shown in
+	 * this run, so `update_display_data` messages can replace it.
+	 */
+	displayOutputs: Map<string, ICellOutput>;
+	/** Whether the size limit was reached and the truncation notice added. */
+	truncated: boolean;
+}
+
+/**
+ * Total data length of a set of output items, used for the output size limit.
+ */
+function sizeOfItems(items: readonly ICellOutputItem[]): number {
+	let size = 0;
+	for (const item of items) {
+		size += item.data.length;
+	}
+	return size;
 }
 
 /**
@@ -195,6 +213,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	private readonly _onDidReceiveOutput = this._register(new Emitter<ExecutionOutputEvent>());
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent> = this._onDidReceiveOutput.event;
+
+	private readonly _onDidUpdateOutput = this._register(new Emitter<ExecutionOutputEvent>());
+	readonly onDidUpdateOutput: Event<ExecutionOutputEvent> = this._onDidUpdateOutput.event;
 
 	private readonly _onDidExecuteCode = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._onDidExecuteCode.event;
@@ -1647,6 +1668,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			outputSize: 0,
 			outputCount: 0,
 			disposables,
+			displayOutputs: new Map(),
+			truncated: false,
 		};
 
 		this._executionTrackers.set(cell.id, tracker);
@@ -2092,7 +2115,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
 			const webMessage = message as ILanguageRuntimeMessageWebOutput;
-			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, webMessage);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, message.output_id, webMessage);
 		}));
 
 		// Handle result messages (execute_result) - these are computation results like "2 + 3"
@@ -2100,7 +2123,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			if (message.parent_id !== executionId) {
 				return;
 			}
-			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata);
+			this._handleOutputMessage(tracker, documentUri, message.data, message.outputMetadata, message.output_id);
+		}));
+
+		// Handle update messages (update_display_data), e.g. more layers on an R plot
+		disposables.add(session.onDidReceiveRuntimeMessageUpdateOutput(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			this._handleUpdateOutputMessage(tracker, documentUri, message);
 		}));
 
 		// Handle stream messages (stdout/stderr)
@@ -2146,14 +2177,93 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Handle output message data from runtime.
+	 *
+	 * @param outputId The runtime display ID, if any. When set, the stored
+	 *   output is recorded so later `update_display_data` messages replace it.
 	 */
 	private _handleOutputMessage(
 		tracker: ExecutionTracker,
 		documentUri: URI,
 		data: Record<string, unknown>,
 		outputMetadata?: Record<string, unknown>,
+		outputId?: string,
 		runtimeMessage?: ILanguageRuntimeMessageWebOutput
 	): void {
+		const { items, webviewMetadata } = this._toCellOutputContent(data, runtimeMessage);
+		if (items.length === 0) {
+			return;
+		}
+		const output = this._addOutput(tracker, documentUri, items, webviewMetadata, outputMetadata);
+		if (output && outputId) {
+			tracker.displayOutputs.set(outputId, output);
+		}
+	}
+
+	/**
+	 * Handle an `update_display_data` message: replace the output this run
+	 * shows for the same display ID. A display from an earlier chunk, or one
+	 * whose `display_data` never arrived, is shown as a new output in the
+	 * current chunk; other cells are never changed.
+	 */
+	private _handleUpdateOutputMessage(
+		tracker: ExecutionTracker,
+		documentUri: URI,
+		message: ILanguageRuntimeMessageUpdateOutput
+	): void {
+		const { items, webviewMetadata } = this._toCellOutputContent(message.data);
+		if (items.length === 0) {
+			return;
+		}
+
+		const cellId = tracker.execution.cellId;
+		const previous = tracker.displayOutputs.get(message.output_id);
+		if (!previous) {
+			const output = this._addOutput(tracker, documentUri, items, webviewMetadata, message.outputMetadata);
+			if (output) {
+				tracker.displayOutputs.set(message.output_id, output);
+			}
+			return;
+		}
+
+		const delta = sizeOfItems(items) - sizeOfItems(previous.items);
+		if (tracker.outputSize + delta > DEFAULT_EXECUTION_CONFIG.maxOutputSize) {
+			this._logService.warn(`[QuartoExecutionManager] Output size limit reached for cell ${cellId}; keeping the previous display output`);
+			return;
+		}
+
+		const outputs = this._outputsByCell.get(cellId);
+		const index = outputs?.indexOf(previous) ?? -1;
+		if (!outputs || index === -1) {
+			this._logService.debug(`[QuartoExecutionManager] Display output for ${message.output_id} is no longer shown in cell ${cellId}`);
+			return;
+		}
+
+		// An update without metadata keeps the previous image size.
+		const output: ICellOutput = {
+			outputId: previous.outputId,
+			items,
+			webviewMetadata,
+			outputMetadata: message.outputMetadata ?? previous.outputMetadata,
+		};
+		outputs[index] = output;
+		tracker.displayOutputs.set(message.output_id, output);
+		// After truncation the size stays pinned at the limit, so a smaller
+		// replacement does not make room for outputs after the notice.
+		if (!tracker.truncated) {
+			tracker.outputSize += delta;
+		}
+
+		this._onDidUpdateOutput.fire({ cellId, output, documentUri });
+	}
+
+	/**
+	 * Convert runtime output data into output items, in MIME preference order,
+	 * and detect whether the output needs webview rendering.
+	 */
+	private _toCellOutputContent(
+		data: Record<string, unknown>,
+		runtimeMessage?: ILanguageRuntimeMessageWebOutput
+	): { items: ICellOutputItem[]; webviewMetadata?: ICellOutputWebviewMetadata } {
 		const outputItems: ICellOutputItem[] = [];
 
 		// Process MIME types in order of preference
@@ -2215,11 +2325,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			}
 		}
 
+		let webviewMetadata: ICellOutputWebviewMetadata | undefined;
 		if (outputItems.length > 0) {
 			// Detect if this output needs webview rendering
 			const webviewType = getWebviewMessageType(outputItems);
-			let webviewMetadata: ICellOutputWebviewMetadata | undefined;
-
 			if (webviewType) {
 				webviewMetadata = {
 					webviewType,
@@ -2234,13 +2343,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					}),
 				};
 			}
-
-			this._addOutput(tracker, documentUri, outputItems, webviewMetadata, outputMetadata);
 		}
+
+		return { items: outputItems, webviewMetadata };
 	}
 
 	/**
 	 * Add output to a cell, respecting size and count limits.
+	 *
+	 * @returns The stored output, or undefined when the output was dropped or
+	 *   replaced by the truncation notice.
 	 */
 	private _addOutput(
 		tracker: ExecutionTracker,
@@ -2248,21 +2360,25 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		items: ICellOutputItem[],
 		webviewMetadata?: ICellOutputWebviewMetadata,
 		outputMetadata?: Record<string, unknown>
-	): void {
+	): ICellOutput | undefined {
 		// Check output limits
 		if (tracker.outputCount >= DEFAULT_EXECUTION_CONFIG.maxOutputItems) {
 			this._logService.warn(`[QuartoExecutionManager] Output count limit reached for cell ${tracker.execution.cellId}`);
-			return;
+			return undefined;
 		}
 
-		// Calculate size of new items
-		let newSize = 0;
-		for (const item of items) {
-			newSize += item.data.length;
-		}
+		const newSize = sizeOfItems(items);
 
 		// Check size limit
 		if (tracker.outputSize + newSize > DEFAULT_EXECUTION_CONFIG.maxOutputSize) {
+			// One notice per run, even when a burst of plot updates keeps
+			// going over the limit
+			if (tracker.truncated) {
+				this._logService.debug(`[QuartoExecutionManager] Dropping output for cell ${tracker.execution.cellId} after truncation`);
+				return undefined;
+			}
+			tracker.truncated = true;
+
 			// Truncate output
 			this._logService.warn(`[QuartoExecutionManager] Output size limit reached for cell ${tracker.execution.cellId}`);
 
@@ -2287,7 +2403,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			// Set size to max to prevent further outputs
 			tracker.outputSize = DEFAULT_EXECUTION_CONFIG.maxOutputSize;
-			return;
+			return undefined;
 		}
 
 		// Create output with optional webview metadata
@@ -2313,6 +2429,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			output,
 			documentUri,
 		});
+
+		return output;
 	}
 
 	/**

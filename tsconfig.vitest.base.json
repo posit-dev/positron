@@ -1,0 +1,20 @@
+{
+	// Shared settings for type-checking Vitest files outside src/. Each project's
+	// tsconfig.vitest.json extends its own tsconfig.json and then this file, so its
+	// tests get the project's compiler options with Vitest's files and globals.
+	// ${configDir} is the directory of the extending config.
+	"compilerOptions": {
+		"noEmit": true,
+		// Replaces the project's list, so mocha's globals don't clash with Vitest's.
+		"types": ["node"]
+	},
+	"include": [
+		"${configDir}/**/*.vitest.ts",
+		"${configDir}/**/*.vitest.tsx",
+		"${configDir}/src/**/*.d.ts",
+		"node_modules/vitest/globals.d.ts",
+		"src/vscode-dts/vscode.d.ts",
+		"src/positron-dts/positron.d.ts"
+	],
+	"exclude": ["${configDir}/node_modules", "${configDir}/out"]
+}

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
@@ -21,7 +19,7 @@ function makeImporter(overrides: Partial<IDataImporter> = {}): IDataImporter {
 		fileExtensions: ['csv', 'tsv'],
 		reservedNames: ['class', 'import'],
 		generateCode: async (request: IDataImportRequest): Promise<IDataImportResult | undefined> =>
-			({ code: `${request.variableName} = load(${request.fileUri.fsPath})` }),
+			({ code: `${request.variableName} = load(${request.fileUri.path})` }),
 		...overrides
 	};
 }

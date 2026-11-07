@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockScopableContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
@@ -69,7 +67,9 @@ describe('PositronNotebookInstance', () => {
 			notebook.selectionStateMachine.selectCell(markdownCell, CellSelectionType.Add);
 
 			const state = notebook.selectionStateMachine.state.get();
-			expect(state.type).toBe(SelectionState.MultiSelection);
+			if (state.type !== SelectionState.MultiSelection) {
+				throw new Error(`Expected MultiSelection, got ${state.type}`);
+			}
 			expect(getSelectedCells(state)).toEqual([codeCell, markdownCell]);
 			expect(state.active).toBe(markdownCell);
 			expect(codeCell.selectionStatus.get()).not.toBe(CellSelectionStatus.Editing);

@@ -178,6 +178,13 @@ test('renderStepSummary says so when there is nothing to report', () => {
 	assert.match(renderStepSummary({ findings: [] }, 'https://cdn.example/run'), /\*\*No findings\*\*/);
 });
 
+test('renderStepSummary leaves out the findings the page lists as known issues', () => {
+	// Findings 1 and 4 matched an open issue and fail on main too, so the page shows three.
+	const summary = renderStepSummary(SUMMARY, 'https://cdn.example/run', [1, 4]);
+	assert.match(summary, /^\*\*2 moderate \u00b7 1 minor\*\*$/m);
+	assert.match(renderStepSummary({ findings: [finding(1, 'major')] }, 'https://cdn.example/run', [1]), /\*\*No findings\*\*/);
+});
+
 test('renderStepSummary points at the artifact when nothing was published', () => {
 	const summary = renderStepSummary(SUMMARY, '');
 	// A dead link is worse than no link.
@@ -254,6 +261,11 @@ test('turnCapWarning warns from 80% of the cap up to, but not at, the cap', () =
 
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
+
+test('renderPrComment counts the findings the page shows, not the ones it lists as known issues', () => {
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, demoted: [2, 3], baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /^1 major \u00b7 2 minor$/m);
+});
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
 	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
@@ -478,8 +490,8 @@ test('timeUpHook adds nothing before the deadline, then tells every tool result 
 });
 
 test('timeUpHook tells an agent that is not the explorer its own message', async () => {
-	const hook = timeUpHook({ deadline: 0, message: 'Write isolation.md now.' });
-	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
+	const hook = timeUpHook({ deadline: 0, message: 'Write report.json now.' });
+	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write report.json now.');
 });
 
 test('renderPrComment says when a run was stopped at its time limit', () => {

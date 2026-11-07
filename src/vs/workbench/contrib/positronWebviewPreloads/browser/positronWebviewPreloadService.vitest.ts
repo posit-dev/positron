@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
@@ -213,7 +211,8 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 
 		const webview = await (result as Extract<NotebookPreloadOutputResults, { preloadMessageType: 'display' }>).webview;
 		expect(webview.id).toBe('pdf-out-1');
-		expect(commandService.executeCommand).toHaveBeenCalledWith('positron.pdfServer.getViewerUrl', '/workspace/report.pdf');
+		// The path is joined from the notebook's fsPath, so it carries backslashes on Windows.
+		expect(commandService.executeCommand).toHaveBeenCalledWith('positron.pdfServer.getViewerUrl', URI.file('/workspace/report.pdf').fsPath);
 	});
 
 	it('caches the PDF webview on repeated calls for the same output', async () => {

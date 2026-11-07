@@ -276,6 +276,7 @@ export const names = {
 		reloadWindow: 'Developer: Reload Window',
 		openFolder: 'File: Open Folder...',
 		newWindow: 'New Window', // no category: "File: New Window" is not a title
+		showNotifications: 'Notifications: Show Notifications', // the center: it keeps the toasts that hid themselves
 		selectSession: 'Interpreter: Select Session', // its picker lists every session: console, notebook and Quarto
 		similarCommands: 'similar commands', // the heading over the palette's guesses when no command matches; Enter there runs one
 	},

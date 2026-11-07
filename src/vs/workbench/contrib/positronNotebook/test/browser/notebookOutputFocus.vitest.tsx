@@ -3,17 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
-import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
@@ -224,15 +220,11 @@ describe('Notebook output focus state', () => {
 			const cells = notebook.cells.get();
 			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 
-			const writeText = vi.fn();
-			const accessor = stubInterface<ServicesAccessor>({
-				get: (id: unknown) => {
-					if (id === IClipboardService) {
-						return { writeText };
-					}
-					return {};
-				},
-			});
+			const writeText = vi.fn<IClipboardService['writeText']>();
+			ctx.instantiationService.stub(IClipboardService, { writeText });
+			const runCopyAction = () => ctx.instantiationService.invokeFunction(
+				accessor => new CopyOutputAction().runNotebookAction(notebook, accessor)
+			);
 
 			// Focus a non-editable element so editable/selection guards don't trigger
 			const outputDiv = document.createElement('div');
@@ -240,11 +232,11 @@ describe('Notebook output focus state', () => {
 			outputDiv.tabIndex = 0;
 			outputDiv.focus();
 
-			return { notebook, accessor, writeText, cleanup: () => document.body.removeChild(outputDiv) };
+			return { runCopyAction, writeText, cleanup: () => document.body.removeChild(outputDiv) };
 		}
 
 		it('writes empty string to clipboard when text outputs have empty content', async () => {
-			const { notebook, accessor, writeText, cleanup } = setupCopyAction([{
+			const { runCopyAction, writeText, cleanup } = setupCopyAction([{
 				source: 'print("")',
 				language: 'python',
 				mime: undefined,
@@ -255,8 +247,7 @@ describe('Notebook output focus state', () => {
 				}],
 			}]);
 
-			const action = new CopyOutputAction();
-			await action.runNotebookAction(notebook, accessor);
+			await runCopyAction();
 
 			expect(writeText).toHaveBeenCalledWith('');
 			cleanup();
@@ -264,7 +255,7 @@ describe('Notebook output focus state', () => {
 
 		it('copies formatted JSON when cell has a single JSON output', async () => {
 			const jsonData = { key: 'value', nested: { n: 42 } };
-			const { notebook, accessor, writeText, cleanup } = setupCopyAction([{
+			const { runCopyAction, writeText, cleanup } = setupCopyAction([{
 				source: 'data',
 				language: 'python',
 				mime: undefined,
@@ -275,8 +266,7 @@ describe('Notebook output focus state', () => {
 				}],
 			}]);
 
-			const action = new CopyOutputAction();
-			await action.runNotebookAction(notebook, accessor);
+			await runCopyAction();
 
 			expect(writeText).toHaveBeenCalledWith(JSON.stringify(jsonData, null, 2));
 			cleanup();

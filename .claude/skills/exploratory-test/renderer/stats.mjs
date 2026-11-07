@@ -68,8 +68,7 @@ function clip(text, max) {
 
 /**
  * buildStats' cost fields from report.json's `cost.passes`: the explorer's
- * model and turns, the total when every pass has a cost, and the isolation
- * pass apart, since its cost is the one that is a choice.
+ * model and turns, and the total when every pass has a cost.
  */
 export function passStats(passes = []) {
 	const pass = label => passes.find(p => p.label === label);
@@ -79,15 +78,16 @@ export function passStats(passes = []) {
 		maxTurns: pass('explore')?.maxTurns ?? null,
 		costUsd: passes.length && passes.every(p => typeof p.costUsd === 'number') ? passes.reduce((sum, p) => sum + p.costUsd, 0) : null,
 		durationMs: passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0) || null,
-		isolate: pass('isolate') ? { durationMs: pass('isolate').durationMs, turns: pass('isolate').turns ?? null } : null,
 	};
 }
 
 /**
  * One run's stats record. `parsed` is reportFromJson's model of the finished
- * report, so findings and verdicts are counted the way the page shows them.
+ * report less the findings the page lists as known issues, so findings and
+ * verdicts are counted the way the page shows them. `demoted` is those
+ * findings, withoutKnownDuplicates' list.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit, mainReplayMs }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, demoted, checks, timeLimit, mainReplayMs }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -106,13 +106,13 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		maxTurns: maxTurns ?? null,
 		costUsd: typeof costUsd === 'number' ? Math.round(costUsd * 100) / 100 : null,
 		durationMs: durationMs ?? null,
-		// `{ durationMs, turns }` when an isolation pass ran, else null.
-		isolate: isolate ?? null,
 		// Minutes the explorer spent replaying findings on main, when the run had a main build.
 		mainReplayMinutes: typeof mainReplayMs === 'number' ? Math.round(mainReplayMs / 6000) / 10 : null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,
+		// By their number in report.json, which the PR comment and outcomes count from.
+		demoted: (demoted ?? []).map(d => ({ finding: d.f.n, issue: d.issue.number })),
 		// What the run meant to test and did not, and why: often a setup problem.
 		notRun: parsed?.coverage?.notExercised?.length ?? 0,
 		notRunReasons: (parsed?.coverage?.notExercised ?? []).map(r => clip(r.reason ?? '', 100)),

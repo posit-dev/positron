@@ -20,10 +20,8 @@ is handed:
    `parseVerifyReply` in `finish.mjs` reads, then its notes. Each runner
    reports the files the session read, so a screenshot it lists but never
    opened is asked about once, then shown as not checked. So is a finding
-   whose reply has no `setup` list of the run's own setup.
-3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
-   launches its own instance, runs a few controls in 12 minutes, and writes
-   `isolation.md`. The verifier is then sent that file and revises.
+   whose reply has no `setup` list of the run's own setup. An UNRESOLVED
+   verdict names the evidence that is missing, for a person to follow up.
 
 Each of them writes what it decided into `report.json`: verdicts, known
 issues, and what each pass cost. `renderer/render.mjs` (or `run.mjs` in CI,
@@ -62,7 +60,8 @@ about cost:
    draft.
 2. **Free checks** (`skipReason` in `suggest-lib.ts`). Skipped if the PR is
    closed or a draft, its branch is on a fork, it targets `release/*`, its
-   author is a bot or not an active `positron-dev` member, the thread already
+   author is a bot or not an active `positron-dev` member (except
+   `positron-projects[bot]` while it is on the auto-run list), the thread already
    has a tip, an `/explore` or a run's result, or no file it changes is
    product code (tests, docs, `.md`, `.github/` and `.claude/` are not).
 3. **The judge** (`buildSuggestPrompt`). One model call with no tools reads
@@ -86,6 +85,10 @@ skipped with a reply linking to that run; one with a focus runs alongside it.
 `EXPLORE_AUTO_RUN_AUTHORS` is a repo variable (Settings > Secrets and
 variables > Actions > Variables): GitHub logins separated by commas. Edit it
 to add or remove someone; empty it to end the experiment. No PR needed.
+
+Add `positron-projects[bot]` to auto-run the agent PRs that `claude.yml`
+opens. It is the only bot the list lets through, so other bots, such as the
+drive-positron nightly's `positron-bot[bot]`, stay skipped.
 
 An automatic run's name starts with `Exploratory auto-run #<PR>`, followed by
 the branch, and the suggest workflow skips a PR that already has a run with
@@ -116,6 +119,20 @@ closing an issue that way mustn't raise the % fixed. It diffs the files the
 finding's cause names and asks Opus (`--model` picks another) whether the
 change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
+A finding that also happened on a build of main (Origin inherited) is not
+counted, since the PR didn't cause it. Two cases still count. If a commit on
+the PR fixed it, it counts as fixed in the PR and its row says "Already on
+main". If it is the bug the PR was meant to fix (the verifier listed an issue
+the PR says it closes as a possible duplicate), the fix didn't hold, and its
+row says "Fix didn't hold". An inherited finding doesn't wait for its PR to
+merge: a matching issue marks it filed as an issue even while the PR is open.
+Rows in the Already on main group show what became of the finding: its issue
+number, Fixed later, or Won't fix.
+
+Runs from before main was replayed have no trusted origin. Their origins
+were checked by hand and are set in `origin-overrides.json`, keyed by
+`<run>#<finding>`, with a reason for each. An entry there wins over the
+report's own origin.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many
@@ -143,7 +160,10 @@ final: a matching issue moves it to filed as an issue, and a later fix, or that
 issue closing as completed, moves it to fixed later. For a not-fixed
 finding on a merged PR, the answer to whether the PR fixed it is
 kept too, since that diff can't change; the checks for a later fix on main or
-a matching issue still run every night. A merged PR that no longer changes
+a matching issue still run every night. Each row also saves the model replies
+its checks used, and the next run reuses a reply when the model and the prompt
+are exactly the same, so an unchanged diff or issue costs no model call. A
+reply from a cut diff, or one that answered unclear, is asked again. A merged PR that no longer changes
 any of the finding's files, though the tested commit did, is change dropped:
 what the run found never shipped, so it is left out of the % fixed. An answer read from a diff that
 was cut for length is never kept, so it is asked again. To check every
@@ -187,9 +207,9 @@ holds the text helpers and the ledger parser.
 
 | To change | Edit |
 |---|---|
-| What an agent is told | `explorer.md`, `verifier.md`, `isolator.md` |
+| What an agent is told | `explorer.md`, `verifier.md` |
 | Why each agent's rules exist, and what checks them | `RULES.md` |
-| Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
+| Step order, retries, fallbacks | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
@@ -254,8 +274,7 @@ replay a saved run: copy a run directory whose `report.json` is as the
 explorer left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkout>
 --base <sha> --head <sha>` on it. A replay sends no usage row: a CI run has
 `cost.json`, and a local one keeps the `usage-reported` marker from its first
-render. That covers everything after the explorer,
-the isolator included when a finding comes back UNRESOLVED. For the explorer,
+render. That covers everything after the explorer. For the explorer,
 run the skill locally on a small branch, or start `test-exploratory.yml` with
 workflow_dispatch on your branch. A `/explore` comment always runs main's copy
 of the harness, so it won't test your change.

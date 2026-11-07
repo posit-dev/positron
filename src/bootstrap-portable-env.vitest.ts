@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { describe, it, expect } from 'vitest';
 import { getPortableEnvOverride, normalizePortableEnv } from './bootstrap-portable-env.js';
 

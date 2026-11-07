@@ -83,6 +83,7 @@ permissions:
   id-token: write
   contents: read
   packages: read
+  actions: read # download the build artifact over the REST API
 
 jobs:
   e2e-ubuntu-run:
@@ -189,45 +190,60 @@ jobs:
           # test. Pairs with the SNOWFLAKE_ACCOUNT secret already exported above, which
           # doubles as the account identifier that test signs in with.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      # Redshift workgroup used by the data-connections e2e tests).
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: 'true'
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
+      # One slow connection once stretched this download to 108 minutes, so fetch it in
+      # parallel byte ranges, and fall back to the stock action if that fails or stalls.
       - name: Download build artifact
+        id: download-build
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          mkdir -p /tmp/artifacts
+          node .github/scripts/download-artifact-parallel.mts positron-build.tar.zst /tmp/artifacts/positron-build.tar.zst
+
+      - name: Clear partial download
+        if: steps.download-build.outcome != 'success'
+        run: rm -f /tmp/artifacts/positron-build.tar.zst
+
+      - name: Download build artifact (fallback)
+        if: steps.download-build.outcome != 'success'
+        timeout-minutes: 30
         uses: actions/download-artifact@v8
         with:
-          name: "positron-build"
+          name: positron-build.tar.zst
           path: /tmp/artifacts
 
       - name: Extract build artifact
+        shell: bash
         run: |
           mkdir -p /__w
-          if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
-            echo "Extracting zstd archive with parallel decompression"
-            zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
-            echo "Cleaning up compressed archive to free disk space"
-            rm -f /tmp/artifacts/positron-build.tar.zst
-          elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
-            echo "Extracting gzip archive"
-            tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
-            echo "Cleaning up compressed archive to free disk space"
-            rm -f /tmp/artifacts/positron-build.tar.gz
-          else
-            echo "No known build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
+          if [ ! -f /tmp/artifacts/positron-build.tar.zst ]; then
+            echo "No build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
           fi
+          echo "Extracting zstd archive with parallel decompression"
+          # Fail on a corrupt archive (zstd) or a real tar error (exit 2+), so tests never start on a partial workspace.
+          set +eo pipefail
+          zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w
+          status=("${PIPESTATUS[@]}")
+          set -eo pipefail
+          if [ "${status[0]}" -ne 0 ] || [ "${status[1]}" -gt 1 ]; then
+            echo "Extract failed: zstd exit ${status[0]}, tar exit ${status[1]}"; exit 1
+          fi
+          echo "Cleaning up compressed archive to free disk space"
+          rm -f /tmp/artifacts/positron-build.tar.zst
 
           if [ -d /__w/positron ]; then
             chown -R $(id -u):$(id -g) /__w/positron || true

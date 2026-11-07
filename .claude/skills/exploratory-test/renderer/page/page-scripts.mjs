@@ -45,6 +45,8 @@ window.addEventListener('scroll',sync,{passive:true});sync();}
 function openRun(){var d=document.getElementById('run-details');if(d){d.open=true;}}
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
+// A link to a Coverage row, such as a known issue's evidence, opens it.
+function openRow(){var d=location.hash&&document.getElementById(location.hash.slice(1));if(d&&d.tagName==='DETAILS'&&d.classList.contains('cv')){d.open=true;}}window.addEventListener('hashchange',openRow);openRow();
 if(location.hash==='#run-details'){openRun();}
 // A step's screenshot preview is fixed to the window: centred on its icon,
 // 12px inside the edges, above it when there is room, else below.
@@ -63,8 +65,9 @@ var lb=document.getElementById('lightbox');
 if(lb){
 var img=lb.querySelector('img'),cap=lb.querySelector('.lb-cap'),file=lb.querySelector('.lb-file'),cmp=lb.querySelector('.lb-cmp');
 // A comparison column: its header, and its screenshot or a note that this build has none.
-// A side with no screenshot keeps its column: "no screenshot" in place of a result, and a placeholder the other image's shape.
-function fill(col,h,r,src,none){if(h){col.querySelector('b').textContent=h;}col.querySelector('span').textContent=src?r:'no screenshot';var im=col.querySelector('img'),p=col.querySelector('.lb-none');im.hidden=!src;p.hidden=!!src;if(src){im.src=src;}else{im.removeAttribute('src');p.textContent=none;}}
+// Its header matches the hover's: the build, a PASS/FAIL pill, then the build in muted text.
+// A side with no screenshot keeps its column: "no screenshot" in place of the pill, and a placeholder the other image's shape.
+function fill(col,h,r,bd,src,none){if(h){col.querySelector('b').textContent=h;}var pill=col.querySelector('.st-rs');pill.hidden=!src||!r;if(r){pill.className='st-rs st-'+r;pill.textContent=r.toUpperCase();}col.querySelector('.lb-bd').textContent=src?bd:'no screenshot';var im=col.querySelector('img'),p=col.querySelector('.lb-none');im.hidden=!src;p.hidden=!!src;if(src){im.src=src;}else{im.removeAttribute('src');p.textContent=none;}}
 function shape(){var ims=cmp.querySelectorAll('img'),ps=cmp.querySelectorAll('.lb-none');[0,1].forEach(function(k){var o=ims[1-k];if(ps[k].hidden||!o.getAttribute('src')){return;}var set=function(){if(o.naturalWidth){ps[k].style.aspectRatio=o.naturalWidth+' / '+o.naturalHeight;}};if(o.complete){set();}else{o.onload=set;}});}
 var closeBtn=lb.querySelector('.lb-close'),backdrop=lb.querySelector('.lb-backdrop'),pos=lb.querySelector('.lb-pos');
 var prev=lb.querySelector('.lb-prev'),next=lb.querySelector('.lb-next');
@@ -75,7 +78,7 @@ var group=[],at=0,opener=null;
 function show(i){if(i<0||i>=group.length){return;}at=i;var a=group[at];
 var both=a.dataset.main!==undefined;img.hidden=both;cmp.hidden=!both;
 lb.classList.toggle('is-cmp',both);
-if(both){var h=a.dataset.prH||'This PR';fill(cmp.children[0],h,a.dataset.prR||'',a.dataset.pr,h+'\u2019s run didn\u2019t capture this view.');fill(cmp.children[1],'',a.dataset.mainR||'',a.dataset.main,'The latest build\u2019s replay didn\u2019t capture this view.');shape();}
+if(both){var h=a.dataset.prH||'This PR';fill(cmp.children[0],h,a.dataset.prR||'','',a.dataset.pr,h+'\u2019s run didn\u2019t capture this view.');fill(cmp.children[1],'',a.dataset.mainR||'',a.dataset.mainBd||'',a.dataset.main,'The latest build\u2019s replay didn\u2019t capture this view.');shape();}
 else{img.src=a.getAttribute('href');}img.alt=a.dataset.caption||'';
 cap.textContent='';
 if(a.dataset.step){var st=document.createElement(a.dataset.stepHref?'a':'span');st.className='lb-step';
@@ -220,12 +223,19 @@ var el=document.getElementById(a.dataset.issue);if(!el){return;}
 var text=el.textContent.replace(/<\\\\(?=\\/script|!--)/gi,'<');
 ${copyScript('text', 'show')}});});})();`;
 
+// Arriving at a card from its "Not reported yet" row flashes its File issue
+// button once, for 1.2s, which also ends the outline when motion is reduced.
+// Only on a hash change, not on load or a scroll.
+export const FILE_FLASH_SCRIPT = `window.addEventListener('hashchange',function(){var c=document.getElementById(location.hash.slice(1));var b=c&&c.querySelector('.gh-btn.is-file');if(!b){return;}clearTimeout(b._flash);b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');b._flash=setTimeout(function(){b.classList.remove('flash');},1200);});`;
+
 // The Linked issues counts open their hidden list in one floating panel: on
 // hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or
-// Space pins it, Escape closes it.
+// Space pins it, Escape closes it. A list taller than the window scrolls; a
+// shorter one doesn't, so a tooltip in it can open past its edge.
 export const KI_LIST_SCRIPT = `(function(){var pop=document.createElement('div');pop.className='ki-lc';pop.id='ki-lc';pop.setAttribute('role','dialog');
 document.body.appendChild(pop);var cur=null,pinned=false,t=null;
-function place(a){var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+function place(a){pop.classList.remove('ki-lc-scroll');var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+if(h>window.innerHeight-2*m){pop.classList.add('ki-lc-scroll');h=pop.offsetHeight;}
 pop.style.left=Math.min(Math.max(m,r.left-12),window.innerWidth-w-m)+'px';
 var top=r.bottom+8;if(top+h>window.innerHeight-m){top=Math.max(m,r.top-h-8);}pop.style.top=top+'px';}
 function show(a,pin){clearTimeout(t);if(cur&&cur!==a){cur.setAttribute('aria-expanded','false');}
@@ -265,10 +275,10 @@ function find(t){return t&&t.closest?t.closest(SEL):null;}
 function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
 var top=el('div','ki-card-top'),s=el('span','ki-s '+(st==='open'?'is-open':'is-closed'));
 s.innerHTML=pr?ICON[st==='merged'?'merged':'pr']:ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+(pr?'Pull request \\u00b7 ':'')+{open:'Open',closed:'Closed',merged:'Merged'}[st]));
-top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
+top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent+(a.tagName==='A'?' \\u2197':'')));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
-card.appendChild(el('div','ki-card-f','From the '+(pr?'PR':'issue')+'\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+if(a.tagName==='A'&&pointer==='touch'){card.appendChild(el('div','ki-card-f','Tap again to open on GitHub'));}}
 function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}

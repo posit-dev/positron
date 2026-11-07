@@ -52,6 +52,7 @@ suite('pythonRuntimeDiscoverer', () => {
         sinon.stub(interpreterRanking, 'buildRankingContext').resolves({} as interpreterRanking.RankingContext);
 
         sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        sinon.stub(interpreterRanking, 'isOtherProjectEnv').returns(false);
         const create = sinon
             .stub(runtime, 'createPythonRuntimeMetadata')
             .callsFake(async (interpreter) => ({ runtimePath: interpreter.path } as positron.LanguageRuntimeMetadata));
@@ -95,6 +96,7 @@ suite('pythonRuntimeDiscoverer', () => {
             .callsFake(async (_, uri) => ({ workspacePath: uri?.fsPath } as interpreterRanking.RankingContext));
 
         sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        sinon.stub(interpreterRanking, 'isOtherProjectEnv').returns(false);
         const create = sinon
             .stub(runtime, 'createPythonRuntimeMetadata')
             .callsFake(async (interpreter) => ({ runtimePath: interpreter.path } as positron.LanguageRuntimeMetadata));
@@ -110,6 +112,35 @@ suite('pythonRuntimeDiscoverer', () => {
                 [inSecond.path, second.uri.fsPath],
                 [global.path, first.uri.fsPath],
             ],
+        );
+    });
+
+    test("skips another folder's project envs", async () => {
+        const otherProject = makeInterpreter(EnvironmentType.Venv, '3.12.7');
+        const system = makeInterpreter(EnvironmentType.System, '3.13.1');
+        const interpreterService = createTypeMoq<IInterpreterService>();
+        interpreterService.setup((s) => s.triggerRefresh(TypeMoq.It.isAny())).returns(() => Promise.resolve());
+        interpreterService.setup((s) => s.getInterpreters(TypeMoq.It.isAny())).returns(() => [otherProject, system]);
+        const serviceContainer = createTypeMoq<IServiceContainer>();
+        serviceContainer.setup((c) => c.get(IInterpreterService)).returns(() => interpreterService.object);
+        const workspaceService = createTypeMoq<IWorkspaceService>();
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        serviceContainer.setup((c) => c.get(IWorkspaceService)).returns(() => workspaceService.object);
+        sinon.stub(interpreterRanking, 'buildRankingContext').resolves({} as interpreterRanking.RankingContext);
+
+        sinon.stub(interpreterSettings, 'shouldIncludeInterpreter').returns(true);
+        sinon.stub(interpreterRanking, 'isOtherProjectEnv').callsFake((interpreter) => interpreter === otherProject);
+        const create = sinon
+            .stub(runtime, 'createPythonRuntimeMetadata')
+            .callsFake(async (interpreter) => ({ runtimePath: interpreter.path } as positron.LanguageRuntimeMetadata));
+
+        for await (const _ of pythonRuntimeDiscoverer(serviceContainer.object)) {
+            // drain
+        }
+
+        assert.deepEqual(
+            create.getCalls().map((call) => call.args[0].path),
+            [system.path],
         );
     });
 });

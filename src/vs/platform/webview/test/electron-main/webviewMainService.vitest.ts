@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-/// <reference types="vitest/globals" />
 
 import type { BrowserWindow, WebContents } from 'electron';
 import { EventEmitter } from 'events';

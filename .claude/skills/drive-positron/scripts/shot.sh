@@ -11,7 +11,7 @@
 #   scripts/shot.sh --session NAME --view 'active console' S03-04.png
 #   scripts/shot.sh --session NAME --view Plots S03-05.png
 #   scripts/shot.sh --session NAME --crop --view Variables S03-06.png
-#   scripts/shot.sh --session NAME --crop e153 S03-07.png
+#   scripts/shot.sh --session NAME --crop S03-07.png e153
 #
 #   NAME.png    the file; a bare name goes in $DRIVE_POSITRON_SHOTS (the run's
 #               shots/ folder) when that is set, else the current directory.
@@ -19,8 +19,9 @@
 #               next free name, since a run's shot is never overwritten; a name
 #               with characters other than A-Z a-z 0-9 . _ - is refused (lint
 #               cannot read it), with one that works
-#   SELECTOR    optional: shoot only that element; it must match exactly
-#               one visible element, or be a snapshot ref (e153)
+#   SELECTOR    optional, after NAME.png: shoot only that element; it must
+#               match exactly one visible element, or be a snapshot ref (e153).
+#               A SELECTOR before a NAME.png is refused, naming the order
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)

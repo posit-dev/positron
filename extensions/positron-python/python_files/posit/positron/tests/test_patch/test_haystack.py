@@ -5,7 +5,7 @@
 
 import sys
 from importlib.util import find_spec
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -66,7 +66,7 @@ result
 
     # Ensure patch_result is not None and is a dictionary
     assert patch_result is not None, "Result from cell execution is None"
-    result_dict: Dict[str, Any] = patch_result
+    result_dict: dict[str, Any] = patch_result
 
     # We should have at least one of the modules
     has_haystack_ai = result_dict.get("has_haystack_ai", False)

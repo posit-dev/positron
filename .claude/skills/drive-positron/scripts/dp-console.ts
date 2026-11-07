@@ -62,7 +62,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			const several = / rows match /.test(p.error);
 			const all = (a.name && none) || several ? await lib.allRows() : null;
 			const fits = lib.hasWords(several ? a.words : a.word);
-			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
+			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(lib.shownAs);
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
 			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
 			await lib.closeQuickInput();
@@ -115,7 +115,8 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 				const inst = document.querySelector(`[data-testid="${c.instanceTestId}${i}"]`);
 				return !!inst?.querySelector(c.inputEditContext) && !document.querySelector(c.busy);
 			}, { i: id, c: lib.css.console });
-			if (ready) { return { ok: true, sessionId: id, session: c.tabs.find(t => t.id === id)?.name ?? null, ...(answered.length ? { answered } : {}) }; }
+			// The name as consoles() reads it: the tab's, or with one session (no tabs) its status line.
+			if (ready) { return { ok: true, sessionId: id, session: c.sessions.find(t => t.id === id)?.name || null, ...(answered.length ? { answered } : {}) }; }
 			const d = await lib.dialogs();
 			// With --answer, a dialog that holds start-up (create a virtual
 			// environment?) is answered with that button, and the wait goes on.

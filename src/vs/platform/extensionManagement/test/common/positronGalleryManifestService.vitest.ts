@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, POSITRON_GALLERY_PRESET_BASES, deriveGalleryConfig, resolvePositronGalleryConfig, sameGalleryHost } from '../../common/extensionGalleryManifestService.js';
 import { isExtensionsGalleryDisabled, parseExtensionsGalleryEnv } from '../../common/extensionsGalleryEnv.js';
 import { ExtensionGalleryResourceType, getExtensionGalleryManifestResourceUri } from '../../common/extensionGalleryManifest.js';

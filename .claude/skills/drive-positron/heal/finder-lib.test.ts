@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import type { Finding } from './finding.ts';
-import { isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
+import { finderProblems, isoWeek, knownBugs, pickArea, type Area } from './finder-lib.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const areas = (JSON.parse(readFileSync(join(here, 'areas.json'), 'utf8')) as { areas: Area[] }).areas;
@@ -47,4 +47,12 @@ test('knownBugs: finder product findings filed as an issue, each id once', () =>
 	const p = (id: string, extra: Partial<Finding>): Finding => ({ id, source: 'finder', helper: 'palette-run.sh', steps: ['s'], observed: 'the palette did\nnot open', expected: 'e', reproductions: [], outcome: 'product', ...extra });
 	assert.deepEqual(knownBugs([p('finder-a', { issue: 16340 }), p('finder-a', { issue: 16340 }), p('finder-b', {}), p('finder-c', { outcome: 'fixed', issue: 1 }), { ...p('smoke-d', { issue: 2 }), source: 'smoke' }]),
 		['- finder-a (palette-run.sh, issue #16340): the palette did not open']);
+});
+
+test('finderProblems: without an area, a finding needs its lead', () => {
+	const rep = { at: 't', by: 'finder', result: 'fail', observed: 'o' };
+	const base = { id: 'finder-x', source: 'finder', helper: 'a.sh', steps: ['a.sh'], observed: 'o', expected: 'e', reproductions: [rep, rep] };
+	const led = { ...base, lead: 'https://run/1', cost: { kind: 'by hand', evidence: 'clicked it' } };
+	assert.deepEqual({ explored: finderProblems(base, true), led: finderProblems(led, false), side: finderProblems(base, false).length, smoke: finderProblems({ ...led, source: 'smoke', case: 'c' }, false).length },
+		{ explored: [], led: [], side: 1, smoke: 1 });
 });

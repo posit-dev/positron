@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // webClientServer.ts computes APP_ROOT at module load via FileAccess.asFileUri(''), which
 // requires globalThis._VSCODE_FILE_ROOT. That's normally set by a bootstrap entry point (see
 // agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves,
@@ -280,11 +278,15 @@ async function requestPath(webClientServer: WebClientServer, pathname: string): 
 }
 
 describe('WebClientServer /proxy/ port ownership gate', () => {
+	// `process.getuid` does not exist on Windows, so a spy cannot be installed there: swap the
+	// function in by hand and put the original back afterwards.
+	const originalGetuid = process.getuid;
 	beforeEach(() => {
-		vi.spyOn(process, 'getuid').mockReturnValue(ourUid);
+		process.getuid = () => ourUid;
 	});
 
 	afterEach(() => {
+		process.getuid = originalGetuid;
 		vi.restoreAllMocks();
 	});
 

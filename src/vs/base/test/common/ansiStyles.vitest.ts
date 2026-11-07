@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ensureNoLeakedDisposables } from '../../../test/vitest/vitestUtils.js';
 import { ANSIColor } from '../../common/ansiOutput.js';
 import { resolveAnsiColor } from '../../common/ansiStyles.js';

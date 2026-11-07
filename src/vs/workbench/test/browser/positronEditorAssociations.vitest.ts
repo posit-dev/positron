@@ -3,13 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
+import { DisposableStore, IDisposable } from '../../../base/common/lifecycle.js';
 import { Schemas } from '../../../base/common/network.js';
 import { URI } from '../../../base/common/uri.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
-import { IConstructorSignature } from '../../../platform/instantiation/common/instantiation.js';
+import { SyncDescriptor, SyncDescriptor0 } from '../../../platform/instantiation/common/descriptors.js';
 import { DEFAULT_EDITOR_ASSOCIATION } from '../../common/editor.js';
 import { EditorResolverService } from '../../services/editor/browser/editorResolverService.js';
 import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
@@ -42,18 +41,19 @@ describe('Positron internal editors with user editor associations', () => {
 		.build();
 
 	/**
-	 * Registers a contribution with a real editor resolver, configured with the given editor
+	 * Registers a contribution (as a descriptor, so the injector supplies its services) with a real editor resolver, configured with the given editor
 	 * associations, and returns the resolver.
 	 */
 	async function createResolver(
-		contribution: IConstructorSignature<{ dispose(): void }>,
+		contribution: SyncDescriptor0<IDisposable>,
 		associations: Record<string, string>
 	): Promise<EditorResolverService> {
 		const instantiationService = ctx.instantiationService;
 		instantiationService.stub(IConfigurationService, new TestConfigurationService({
 			[editorsAssociationsSettingId]: associations
 		}));
-		const part = await createEditorPart(instantiationService, ctx.disposables);
+		// createEditorPart needs a full DisposableStore; this one is disposed with the test's disposables.
+		const part = await createEditorPart(instantiationService, ctx.disposables.add(new DisposableStore()));
 		instantiationService.stub(IEditorGroupsService, part);
 		const editorResolverService = ctx.disposables.add(instantiationService.createInstance(EditorResolverService));
 		instantiationService.stub(IEditorResolverService, editorResolverService);
@@ -81,14 +81,14 @@ describe('Positron internal editors with user editor associations', () => {
 		{ name: 'Plots gallery editor', contribution: PositronPlotsGalleryEditorContribution, scheme: Schemas.positronPlotsGallery, editorId: PositronPlotsGalleryEditorInput.EditorID },
 		{ name: 'Preview editor', contribution: PositronPreviewEditorContribution, scheme: Schemas.positronPreviewEditor, editorId: PositronPreviewEditorInput.EditorID },
 	])('$name opens its scheme when a user association matches every file', async ({ contribution, scheme, editorId }) => {
-		const editorResolverService = await createResolver(contribution, { '*': DEFAULT_EDITOR_ASSOCIATION.id });
+		const editorResolverService = await createResolver(new SyncDescriptor<IDisposable>(contribution), { '*': DEFAULT_EDITOR_ASSOCIATION.id });
 
 		const resource = URI.from({ scheme, path: `${scheme}-1` });
 		expect(editorResolverService.getEditorMatches(resource).defaultRule.editor.id).toBe(editorId);
 	});
 
 	it('lets a user association override the Data Explorer for data files', async () => {
-		const editorResolverService = await createResolver(PositronDataExplorerContribution, { '*.csv': DEFAULT_EDITOR_ASSOCIATION.id });
+		const editorResolverService = await createResolver(new SyncDescriptor<IDisposable>(PositronDataExplorerContribution), { '*.csv': DEFAULT_EDITOR_ASSOCIATION.id });
 
 		const resource = URI.file('/workspace/data.csv');
 		expect(editorResolverService.getEditorMatches(resource).defaultRule.editor.id).toBe(DEFAULT_EDITOR_ASSOCIATION.id);

@@ -3,10 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
+import { createInterpreterVariant, findInterpreterDefinition, findInterpreterDefinitionPath, getInterpreterDefinitionPaths, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const base: ILanguageRuntimeMetadata = {
@@ -43,6 +41,13 @@ describe('getMatchingDefinitions', () => {
 			{ ...xx, env: { R_LIBS_SITE: '/dup' } },
 		];
 		expect(getMatchingDefinitions(definitions as IInterpreterDefinition[], base)).toEqual([xx]);
+	});
+
+	it('matches a Windows definition written with forward slashes and a lowercase drive letter', () => {
+		// R normalizes the runtime path, so it has backslashes; users often write forward slashes in JSON.
+		const windows = { ...base, runtimePath: 'C:\\Program Files\\R\\R-4.4.1\\bin\\x64\\R.exe' };
+		const definition = { ...xx, path: 'c:/Program Files/R/R-4.4.1/bin/x64/R.exe' };
+		expect(getMatchingDefinitions([definition], windows)).toEqual([definition]);
 	});
 
 	it('returns nothing when the setting is unset', () => {
@@ -95,5 +100,100 @@ describe('recreateInterpreterVariant', () => {
 	it('returns undefined when the definition was removed or no longer matches the base', () => {
 		expect(recreateInterpreterVariant([], base, xx.label)).toBeUndefined();
 		expect(recreateInterpreterVariant([{ ...xx, path: '/elsewhere/R' }], base, xx.label)).toBeUndefined();
+	});
+});
+
+describe('isSameInterpreterPath', () => {
+	it.each([
+		['C:/Program Files/R/R-4.4.1/bin/x64/R.exe', 'C:\\Program Files\\R\\R-4.4.1\\bin\\x64\\R.exe'],
+		['c:\\R\\bin\\R.exe', 'C:\\R\\bin\\R.exe'],
+		['C:\\R\\BIN\\R.EXE', 'C:\\R\\bin\\R.exe'],
+		['C:\\R\\.\\bin\\\\R.exe', 'C:\\R\\bin\\R.exe'],
+		['\\\\SERVER\\share\\R\\bin\\R.exe', '\\\\server\\share\\R\\bin\\R.exe'],
+		// A UNC definition with forward slashes matches the runtime, whose path has backslashes.
+		// A leading `//` alone is not taken as Windows, because it is also a valid posix path.
+		['//SERVER/share/R/bin/R.exe', '\\\\server\\share\\R\\bin\\R.exe'],
+		['//opt/R/bin/R', '/opt/R/bin/R'],
+		['/opt/R//bin/R', '/opt/R/bin/R'],
+		['/opt/R/./bin/R', '/opt/R/bin/R'],
+		['/opt/R/4.4/../4.4/bin/R', '/opt/R/4.4/bin/R'],
+	])('treats %s and %s as the same interpreter', (a, b) => {
+		expect([isSameInterpreterPath(a, b), isSameInterpreterPath(b, a)]).toEqual([true, true]);
+	});
+
+	it.each([
+		// Case matters on Linux, and a backslash is a valid file name character there.
+		['/opt/R/bin/R', '/opt/r/bin/R'],
+		['/opt/R\\bin/R', '/opt/R/bin/R'],
+		['C:\\R\\4.4\\bin\\R.exe', 'C:\\R\\4.5\\bin\\R.exe'],
+		['D:\\R\\bin\\R.exe', 'C:\\R\\bin\\R.exe'],
+	])('treats %s and %s as different interpreters', (a, b) => {
+		expect([isSameInterpreterPath(a, b), isSameInterpreterPath(b, a)]).toEqual([false, false]);
+	});
+});
+
+describe('getInterpreterDefinitionPaths', () => {
+	it('lists the valid, absolute paths for a language, each interpreter once, in setting order', () => {
+		const definitions: unknown[] = [
+			{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'A' },
+			{ language: 'python', path: 'C:/Python312/python.exe', label: 'B' },
+			{ language: 'r', path: 'C:\\R\\R-4.5.0\\bin\\R.exe', label: 'C' },
+			{ language: 'r', path: 'c:\\R\\R-4.4.1\\bin\\R.exe', label: 'D' },
+			{ language: 'r', path: '/opt/R/4.4/bin/R' },
+			{ language: 'r', path: 'bin/R', label: 'Relative' },
+			{ language: 'r', path: '/opt/R/4.3/bin/R', label: 'Bad env', env: { N: 1 } },
+			{ language: 'r', path: '/opt/R/4.2/bin/R', label: 'Posix' },
+		];
+		expect(getInterpreterDefinitionPaths(definitions as IInterpreterDefinition[], 'r')).toEqual([
+			'C:/R/R-4.4.1/bin/R.exe',
+			'C:\\R\\R-4.5.0\\bin\\R.exe',
+			'/opt/R/4.2/bin/R',
+		]);
+	});
+});
+
+describe('findInterpreterDefinition', () => {
+	const setting = [
+		{ language: 'r', path: '/opt/R/4.5/bin/R', label: 'Pizza', env: { N: 1 } },
+		{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'Windows R' },
+		{ language: 'r', path: '/opt/R/4.6.1//bin/R', label: 'R CPU' },
+		{ language: 'r', path: '/opt/R/4.6.1/bin/R', label: 'R GPU' },
+		{ language: 'python', path: '/opt/R/4.6.1/bin/R', label: 'R CPU' },
+		{ language: 'r', path: '/opt/R/4.5/bin/R', label: 'Pizza', env: { N: '2' } },
+		{ language: 'r', path: '/opt/R/4.4/bin/R', label: 'Pizza' },
+	];
+	const definitions = setting as IInterpreterDefinition[];
+
+	it('finds the valid entry with the label that names the runtime path, however either is written', () => {
+		expect([
+			findInterpreterDefinition(definitions, 'r', 'Windows R', 'c:\\r\\r-4.4.1\\bin\\r.exe'),
+			findInterpreterDefinition(definitions, 'r', 'R CPU', '/opt/R/4.6.1/bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'R GPU', '/opt/R/4.6.1/./bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'Pizza', '/opt/R/4.5/bin/R'),
+		]).toEqual([definitions[1], definitions[2], definitions[3], definitions[5]]);
+	});
+
+	it('finds nothing for another path, a label later entries reuse, another language, or no setting', () => {
+		expect([
+			findInterpreterDefinition(definitions, 'r', 'R CPU', '/opt/R/4.5/bin/R'),
+			findInterpreterDefinition(definitions, 'r', 'Pizza', '/opt/R/4.4/bin/R'),
+			findInterpreterDefinition(definitions, 'python', 'R GPU', '/opt/R/4.6.1/bin/R'),
+			findInterpreterDefinition(undefined, 'r', 'R CPU', '/opt/R/4.6.1/bin/R'),
+		]).toEqual([undefined, undefined, undefined, undefined]);
+	});
+});
+
+describe('findInterpreterDefinitionPath', () => {
+	const definitions: IInterpreterDefinition[] = [
+		{ language: 'r', path: 'C:/R/R-4.4.1/bin/R.exe', label: 'A' },
+		{ language: 'python', path: 'C:/R/R-4.5.0/bin/R.exe', label: 'B' },
+	];
+
+	it('returns the definition\'s spelling of an interpreter written another way, or undefined', () => {
+		expect([
+			findInterpreterDefinitionPath(definitions, 'r', 'c:\\r\\r-4.4.1\\bin\\r.exe'),
+			findInterpreterDefinitionPath(definitions, 'r', 'C:\\R\\R-4.5.0\\bin\\R.exe'),
+			findInterpreterDefinitionPath(undefined, 'r', 'C:/R/R-4.4.1/bin/R.exe'),
+		]).toEqual(['C:/R/R-4.4.1/bin/R.exe', undefined, undefined]);
 	});
 });

@@ -17,7 +17,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, withoutKnownDuplicates } from './html.mjs';
 import { REPORT_CSS } from './report-css.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
@@ -1018,7 +1018,7 @@ const LONG_LEDGER = ledgerOf([
 	['S21', 'first hit', 'fail - Finding 1', 'broke'], ...[9, 10].map(passed),
 	...Array.from({ length: 12 }, (_, i) => [`N${String(i + 1).padStart(2, '0')}`, `skip ${i}`, 'later']),
 ]);
-const KNOWN = fullWith(1, { known: [15102, 14991] });
+const KNOWN = fullWith(1, { known: [15102, 14991], dupes: [{ issue: 15102, why: 'the same duplicate entry' }] });
 const ORIGINS = {
 	...FULL,
 	findings: [...FULL.findings, fnd(3, { title: 'a flaky claim', verified: 'confirmed', reproduced: { n: 2, m: 3 } }), fnd(4, { title: 'a disputed claim', verified: 'disputed' })],
@@ -1080,7 +1080,7 @@ const SCENES = {
 		const html = richHtml(richWith(1, { verified: 'unresolved' }));
 		return [between(card(html, 1), '<details class="lc regtest">', '</summary>'), promptText(html, 1)].join('\n--\n');
 	},
-	'a finding the verifier matched to an issue says Dupe? on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
+	'a finding the verifier matched to issues says Dupe? for the same bug and Related for the rest, on its card, row and prompt': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
 	'a finding matched to a not-planned issue says Won\'t fix? on its card and row': () => {
 		const html = fullHtml(fullWith(2, { intended: [14210] }));
 		return [card(html, 2), findingRow(html, 2), promptText(html, 2)].join('\n--\n');
@@ -1192,7 +1192,7 @@ const SCENES = {
 		['Typing while busy aborts'], ['R aborts while busy'], ['PyPI lookups are skipped'], ['A preview goes blank'],
 		['Quarto previews go blank'], ['Quarto previews go blank', 'Opening the Quarto preview shows nothing.'],
 	].map(args => issueTitle(...args)).join('\n'),
-	'issue: System details list each kernel the ledger records': () => issueCopied(logsHtml(LOGS_REPORT, { ledger: LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n') }), 1),
+	'issue: Details list each kernel the ledger records': () => issueCopied(logsHtml(LOGS_REPORT, { ledger: LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n') }), 1),
 	'issue: an error longer than six lines is clipped, and a finding with none says so': () => {
 		const [f] = LOGS_REPORT.findings;
 		const step = f.steps[2];
@@ -1229,11 +1229,13 @@ const SCENES = {
 		return [findingRow(html, 1), context, coverage, html.includes('Not fixed') ? 'says Not fixed' : 'never says Not fixed'].join('\n--\n');
 	},
 	'no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage': () => between(findingsOf(kiHtml(KI_REPORT, { knownIssues: { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) } })), '<div class="ki-grp">', '</div></div>') || '(none)',
+	'an issue the verifier says the run did not meet is listed as not observed, with why': () => between(kiHtml({ ...KI_REPORT, verification: { ...KI_VERIFICATION, unmet: [{ issue: 22, why: 'saw the <b>panel</b>, not the jump' }] } }), 'id="ki-list-no"', '</div></div>'),
 	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
 	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
-	'with no issue list, a finding row shows its matches as Dupe? without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
+	'with no issue list, a finding row shows its matches as Related without previews': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
 	'one dupe shows no count': () => findingRow(kiHtml(kiWith(3, { known: [25] })), 3),
-	'matches split by kind: issues say Dupe?, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
+	'a match on a fix the run showed holding is left off the finding, so it does not read as not fixed': () => { const html = kiHtml(kiWith(3, { known: [10, 25] })); return [findingRow(html, 3), between(card(html, 3), '<div class="meta">', '</div>'), promptText(html, 3)].join('\n--\n'); },
+	'matches split by kind: issues the verifier did not call the same bug say Related, an open PR Fix in PR?, a merged PR Fixed in #N?, and a closed PR is left out': () => {
 		const refs = [...ISSUE_REFS,
 			{ number: 8200, kind: 'pr', state: 'open', title: 'Keep zoom', createdAt: '2026-08-20T00:00:00Z', summary: 'Keeps the zoom level.' },
 			{ number: 8300, kind: 'pr', state: 'closed', title: 'Abandoned zoom', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
@@ -1316,7 +1318,9 @@ test('a finding number\'s tooltip gives the evidence for its group', () => {
 	assert.deepEqual(badgeTip(html, 2), ['Also in latest build', 'Also reproduced in the latest build: step 9 (2 of 2 tries).']);
 	assert.deepEqual(badgeTip(html, 6), ['Also in latest build', 'Also reproduced in the latest build (1 of 1 tries).']);
 	assert.deepEqual(badgeTip(html, 4), ['Unknown', 'It couldn&rsquo;t run on the latest build: R did not start.']);
-	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'This issue only shows up sometimes (1 of 4 tries here). It didn&rsquo;t show up in 2 tries on the latest build, but that could be luck, so we can&rsquo;t say either way.']);
+	assert.deepEqual(badgeTip(html, 5), ['Unknown', 'It&rsquo;s intermittent: it happened in 1 of 4 tries on this branch. It didn&rsquo;t happen in 2 tries on the latest build, but that&rsquo;s too few to rule it out.']);
+	const pr = grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
+	assert.match(badgeTip(pr, 5)[1], /^It&rsquo;s intermittent: it happened in 1 of 4 tries on this PR\. /);
 	assert.deepEqual(badgeTip(html, 9), ['Unknown', 'It showed up every time here (2 of 2 tries), but the latest build was tried only 1 time, so we can&rsquo;t say yet.']);
 	assert.deepEqual(badgeTip(html, 7), ['Unknown', 'This finding wasn&rsquo;t replayed on the latest build.']);
 	assert.deepEqual(badgeTip(html, 10), ['Unknown', 'Main has changed the code where the fix likely goes, so the latest build can&rsquo;t show how this behaved before this branch.']);
@@ -1330,7 +1334,7 @@ test('a card shows its group after Reproduced, Unknown with its reason, and noth
 	assert.equal(cardGroup(html, 1), 'Only in branch');
 	assert.equal(cardGroup(html, 2), 'Also in latest build');
 	assert.equal(cardGroup(html, 4), 'Unknown: couldn&rsquo;t run on the latest build');
-	assert.equal(cardGroup(html, 5), 'Unknown: intermittent, needs more tries on the latest build');
+	assert.equal(cardGroup(html, 5), 'Unknown: too few tries on the latest build');
 	assert.equal(cardGroup(html, 9), 'Unknown: needs more tries on the latest build');
 	assert.equal(cardGroup(html, 7), 'Unknown: not replayed on the latest build');
 	assert.equal(cardGroup(html, 10), 'Unknown: main has changed in this area');
@@ -1347,19 +1351,26 @@ test('a Not fixed finding is Also in latest build, citing its issue, with no gro
 	assert.equal(cardGroup(html, 1), undefined);
 });
 
-test('the info button explains the visible groups and links the daily build', () => {
-	const info = html => between(html, '<span class="ffi">', '</span></span></div>');
+test('the info button says only what the groups are compared with, and links the daily build', () => {
+	const info = html => between(html, '<span class="ffi">', '</div>');
 	const html = info(grouped());
-	assert.match(html, /How findings are grouped/);
 	assert.match(html, /<button type="button" class="ffi-btn" aria-label="How findings are grouped" aria-describedby="ffi-pop">/);
-	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip">/);
-	assert.match(html, /<div class="ffi-row"><b>Only in branch<\/b>/);
-	assert.match(html, /<b>Only in branch<\/b><span>Reproduced on this branch&rsquo;s build but not in the latest build of main\.<\/span>/);
-	assert.match(html, /<b>Also in latest build<\/b><span>Issues that already exist\. They also reproduced in the latest build of main, so they weren&rsquo;t caused by this branch&rsquo;s changes\.<\/span>/);
-	assert.match(html, /<b>Unknown<\/b><span>Not enough evidence to tell\. Hover a finding&rsquo;s number to see why\.<\/span>/);
-	assert.match(html, /Compared with the latest build of main: <a href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453"[^>]*>daily 2026\.11\.0-236 \(57b03d3\)<\/a>/);
-	assert.doesNotMatch(info(grouped({ ...REPLAYED, findings: REPLAYED.findings.slice(0, 3) })), /<b>Unknown<\/b>/);
-	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /No build of main was available for this run\./);
+	assert.match(html, /<span class="ffi-pop" id="ffi-pop" role="tooltip"><span class="ffi-h">Compared with the latest build<\/span><span class="ffi-p">Each finding was retried on main&rsquo;s latest daily build to see if it also happens there\.<\/span><a class="ffi-l" href="https:\/\/github\.com\/posit-dev\/positron\/commit\/57b03d33f537a868e49c48c7acd0c59d84f9b453" target="_blank" rel="noopener">daily 2026\.11\.0-236 \(57b03d3\) &#8599;<\/a><\/span>/);
+	assert.doesNotMatch(html, /ffi-row|Only in branch|Also in latest build|Unknown/);
+	assert.match(info(grouped(REPLAYED, { mainBuild: undefined })), /<span class="ffi-p">Each finding[^<]*<\/span><span class="ffi-p">No build of main was available for this run\.<\/span><\/span><\/span>$/);
+	assert.match(REPORT_CSS, /\.ffi-pop\{[^}]*width:300px;/);
+});
+
+test('term tooltips wait 0.4s and the info panel 0.15s, and the tabs have none', () => {
+	assert.match(REPORT_CSS, /\.og:hover \.og-tip,\.og:focus-visible \.og-tip,a\.row:focus-visible \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
+	assert.match(REPORT_CSS, /\.f-b:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
+	assert.match(REPORT_CSS, /\.ffi:hover \.ffi-pop,\.ffi:focus-within \.ffi-pop\{opacity:1;visibility:visible;transition:opacity \.15s ease \.15s,visibility 0s linear \.15s\}/);
+	const tips = REPORT_CSS.match(/[^}]*:hover[^{]*\.og-tip[^{]*\{[^}]*\}/g);
+	assert.ok(tips.length >= 4);
+	for (const rule of tips) {
+		assert.match(rule, /transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}$/, rule);
+	}
+	assert.doesNotMatch(REPORT_CSS, /ff-tab[^{,]*\.og-tip/);
 });
 
 test('screen readers hear the group first, in the severity cell', () => {
@@ -1377,9 +1388,13 @@ test('a run with no comparison shows no tabs, info, badges or group labels', () 
 	assert.equal(cardGroup(render(ORIGINS, { ledger: FULL_LEDGER, changeBase: USABLE }), 1), undefined);
 });
 
-test('the findings table is Severity, Finding and Matches, with no Origin column', () => {
+test('the findings table is Severity, Finding and Related, with no Origin column', () => {
 	assert.match(REPORT_CSS, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 156px\}/);
-	assert.doesNotMatch(grouped(), /og-cell|og-grid|og-hc/);
+	const html = grouped();
+	assert.doesNotMatch(html, /og-cell|og-grid|og-hc/);
+	assert.match(html, /<span class="og og-h" tabindex="0">Related<span class="og-tip"[^>]*><b>Related<\/b><span>Existing GitHub issues or PRs related to this finding: one this PR meant to fix, a possible duplicate, or a PR that may fix it\. A dash means none were found\.<\/span>/);
+	assert.match(html, /<span class="og-sr">Nothing related<\/span><span class="og-tip"[^>]*><span>No related issues or PRs found\.<\/span>/);
+	assert.doesNotMatch(html, /Matches|No matching/);
 });
 
 test('a finding whose verification did not finish is Unknown, not verified', () => {
@@ -1390,8 +1405,61 @@ test('a finding whose verification did not finish is Unknown, not verified', () 
 	assert.equal(cardGroup(html, 1), 'Unknown: not verified');
 });
 
-test('the tabs wrap at narrow widths instead of running off the page', () => {
-	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{flex-wrap:wrap;row-gap:8px\}/);
+test('at phone width a tooltip fits the screen: a card label opens it under the meta line, a number under the finding title, and Related rightward', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.og-tip\{max-width:calc\(100vw - 32px\)\}\.card \.meta,\.ff-card \.claim\{position:relative\}\.og-meta,\.ff-card \.f-b\{position:static\}\.og-meta \.og-tip,\.ff-card \.f-b \.og-tip\{left:0;right:0;width:auto;max-width:none;transform:none\}\.ff-card \.f-b \.og-tip\{top:calc\(100% \+ 6px\);bottom:auto\}\.ff-card \.row>:last-child \.og-tip\{left:0;right:auto;transform:none;max-width:calc\(100vw - 64px\)\}\}/);
+});
+
+test('at phone width the tabs scroll sideways, the info button hides, and the footer counts stack without breaking', () => {
+	assert.match(REPORT_CSS, /@media \(max-width:820px\)\{\.ffi\{display:none\}\.ff \.cf-tabs\{overflow-x:auto;scrollbar-width:none\}\.ff \.cf-tabs::-webkit-scrollbar\{display:none\}\.ki-bar\{grid-template-columns:minmax\(0,1fr\) !important;gap:4px !important\}\.ki-sum \.ki-cnt\{white-space:nowrap\}/);
+	assert.doesNotMatch(REPORT_CSS, /flex-wrap:wrap;row-gap:8px/);
+});
+
+const NOT_REPORTED = '<span class="ki-st"><span class="og ki-nry">Not reported yet<span class="og-tip" aria-hidden="true" role="tooltip"><b>Not reported yet</b><span>This bug also happens on main and no GitHub issue matches it.</span></span></span></span>';
+const issueButton = (html, n) => /<a class="gh-btn[^"]*"[^>]*>[\s\S]*?<\/a>/.exec(card(html, n))?.[0] ?? '';
+const issueBody = (html, n) => decodeURIComponent(/&amp;body=([^"&]*)/.exec(issueButton(html, n))?.[1] ?? '');
+
+test('a confirmed bug that also happens on main with nothing related reads Not reported yet, and its card has a labelled File issue button', () => {
+	const html = grouped();
+	for (const n of [2, 6]) {
+		assert.ok(findingRow(html, n).includes(NOT_REPORTED), `finding ${n}`);
+		assert.doesNotMatch(findingRow(html, n), /Nothing related/);
+		assert.match(issueButton(html, n), /^<a class="gh-btn is-file" href="[^"]+" target="_blank" rel="noopener" aria-label="File a GitHub issue for finding \d+ \(opens GitHub in a new tab\)"><svg[\s\S]*<\/svg><span>File issue<\/span><\/a>$/);
+	}
+	// Only in branch, Unknown and Disputed keep the dash and the plain icon.
+	for (const n of [1, 5, 8]) {
+		assert.doesNotMatch(findingRow(html, n), /ki-nry/);
+		assert.match(issueButton(html, n), /^<a class="gh-btn" [^>]*data-tip="File a GitHub issue"/);
+	}
+	// A match on GitHub is related, so it is not this case.
+	const known = grouped({ ...REPLAYED, findings: REPLAYED.findings.map(f => (f.n === 2 ? { ...f, known: [5741] } : f)) });
+	assert.doesNotMatch(findingRow(known, 2), /ki-nry/);
+	assert.match(issueButton(known, 2), /^<a class="gh-btn" /);
+	assert.match(REPORT_CSS, /\.ki-nry\{position:relative;font-size:13px;color:var\(--faint\);text-decoration:underline dotted;text-underline-offset:3px\}/);
+	assert.match(REPORT_CSS, /\.ff-card a\.row:hover\{position:relative;z-index:2\}/);
+	// The icons' tight pairing would overlap the labelled button.
+	assert.match(REPORT_CSS, /\.gh-btn\.is-file\+\.cp-btn,\.gh-btn\.is-file\+\.ln-btn\{margin-left:-12px\}/);
+});
+
+test('the File issue body opens with the checkbox, and Details lead with where the finding came from', () => {
+	const branch = issueBody(grouped(), 2);
+	assert.match(branch, /^- \[ \] Reproduced by a human[^\n]*\n\n## Details\n\n- \*\*Found by:\*\* exploratory test on `[^`\n]+`\n- \*\*Reproduces on main:\*\* 2026\.11\.0-236 \(`57b03d3`\)\n- \*\*Positron:\*\*/);
+	const pr = issueBody(grouped({ ...REPLAYED, header: { ...REPLAYED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }), 2);
+	assert.match(pr, /- \*\*Found by:\*\* exploratory test on `[^`\n]+`\n/);
+	assert.doesNotMatch(issueBody(grouped(), 1), /Reproduces on main/);
+});
+
+test('the File issue body names a daily build with no commit by its version alone', () => {
+	const body = issueBody(grouped(REPLAYED, { mainBuild: { version: '2026.11.0-12' } }), 2);
+	assert.match(body, /- \*\*Reproduces on main:\*\* 2026\.11\.0-12\n/);
+});
+
+
+test('arriving at a Not reported yet card through its row flashes the File issue button once', () => {
+	assert.match(REPORT_CSS, /@keyframes fileFlash\{from\{outline-color:var\(--focus\)\}to\{outline-color:transparent\}\}/);
+	assert.match(REPORT_CSS, /\.gh-btn\.is-file\.flash\{outline:2px solid var\(--focus\);outline-offset:3px;animation:fileFlash 1\.2s ease-out forwards\}/);
+	assert.match(REPORT_CSS, /@media \(prefers-reduced-motion:reduce\)\{\.gh-btn\.is-file\.flash\{animation:none\}\}/);
+	const html = grouped();
+	assert.match(html, /window\.addEventListener\('hashchange',function\(\)\{var c=document\.getElementById\(location\.hash\.slice\(1\)\);var b=c&&c\.querySelector\('\.gh-btn\.is-file'\);if\(!b\)\{return;\}clearTimeout\(b\._flash\);b\.classList\.remove\('flash'\);void b\.offsetWidth;b\.classList\.add\('flash'\);b\._flash=setTimeout\(function\(\)\{b\.classList\.remove\('flash'\);\},1200\);\}\);/);
 });
 
 test('a card shows the screenshots from the latest build, and fails differently is Unknown with what main showed', () => {
@@ -1449,22 +1517,63 @@ test('a failing step with a screenshot from the latest build compares the two', 
 	// A split-frame icon the size of the normal one, with no text, so the step never wraps.
 	assert.match(li, /<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16"[^>]*><rect x="1\.5" y="3" width="13" height="10" rx="1\.5"><\/rect><path d="M8 3v10"><\/path>/);
 	assert.doesNotMatch(li, /PR vs latest build|st-cmp/);
-	assert.match(li, /<span class="ev-hd"><b>This branch<\/b><span>Click to compare with latest build<\/span><\/span>/);
-	assert.doesNotMatch(li, /ev-cap/);
+	assert.doesNotMatch(li, /ev-cap|ev-hd/);
 	const links = shotLinks(html, 1).filter(t => attr(t, 'data-step') === 'Step 2');
 	assert.equal(links.length, 1, 'one pair, not a stack of both builds');
 	assert.equal(attr(links[0], 'data-pr'), 'shots/P1.png');
 	assert.equal(attr(links[0], 'data-main'), 'shots/M1.png');
 	assert.equal(attr(links[0], 'data-pr-h'), 'This branch');
-	assert.equal(attr(links[0], 'data-pr-r'), 'Fails');
-	assert.equal(attr(links[0], 'data-main-r'), 'daily 2026.11.0-236 &middot; Passes');
+	// The viewer's headers match the hover's: the build, its PASS/FAIL pill, then the build in muted text.
+	assert.deepEqual(['data-pr-r', 'data-main-r', 'data-main-bd'].map(a => attr(links[0], a)), ['fail', 'pass', 'daily 2026.11.0-236']);
+});
+
+const cmpPop = li => /<span class="ev-pop ev-cmp"[\s\S]*?<span class="ev-ft">[^<]*<\/span><\/span>/.exec(li)?.[0] ?? '';
+const popCols = li => [...cmpPop(li).matchAll(/<span class="ev-col">([\s\S]*?)<\/span>(?=<span class="ev-col">|<\/span><span class="ev-ft">)/g)].map(m => m[1]);
+
+test('a compared step\'s hover shows both builds side by side, each with its result', () => {
+	const html = grouped(COMPARED);
+	const pop = cmpPop(stepLi(html, 1, 2));
+	assert.ok(pop, 'the hover is a comparison');
+	const [pr, main] = popCols(stepLi(html, 1, 2));
+	assert.match(pr, /^<span class="ev-h"><b>This branch<\/b><span class="st-rs st-fail">FAIL<\/span><\/span><img class="shot-full" src="shots\/P1\.png"/);
+	assert.match(main, /^<span class="ev-h"><b>Latest build<\/b><span class="st-rs st-pass">PASS<\/span><span class="ev-bd">daily 2026\.11\.0-236<\/span><\/span><img class="shot-full" src="shots\/M1\.png"/);
+	assert.match(pop, /<span class="ev-ft">Click to open both full size<\/span><\/span>$/);
+	// Each side's header and image are inside its own column, and the step's icon follows the preview.
+	assert.match(stepLi(html, 1, 2), /<\/span><\/span><svg aria-hidden="true"/);
+});
+
+test('the latest build\'s hover pill follows its counts, and an unknown origin names the tries', () => {
+	const html = grouped(COMPARED);
+	const mainHead = n => /<span class="ev-h">[\s\S]*?<\/span><\/span>/.exec(popCols(stepLi(html, n, 2))[1])?.[0];
+	assert.equal(mainHead(2), '<span class="ev-h"><b>Latest build</b><span class="st-rs st-fail">FAIL</span><span class="ev-bd">daily 2026.11.0-236</span></span>');
+	assert.equal(mainHead(3), '<span class="ev-h"><b>Latest build</b><span class="st-rs st-pass">PASS</span><span class="ev-bd">daily 2026.11.0-236 &middot; 1 try</span></span>');
+});
+
+test('a side with no screenshot in the hover says so, with a placeholder the other image\'s shape', () => {
+	const json = rep({
+		findings: [fnd(1, { verified: 'confirmed', reproduced: { n: 2, m: 2 }, steps: [act('Open.'), fail('it works', 1)], main: { steps: [{ step: 2, n: 0, m: 2, saw: 'x', shots: ['shots/M1.png'] }] } })],
+		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
+	});
+	const png = Buffer.alloc(24);
+	png.write('IHDR', 12, 'latin1');
+	png.writeUInt32BE(800, 16);
+	png.writeUInt32BE(250, 20);
+	const html = grouped(json, { readFile: p => (p === 'shots/M1.png' ? png : null) });
+	const [pr, main] = popCols(stepLi(html, 1, 2));
+	assert.equal(pr, '<span class="ev-h"><b>This branch</b><span class="ev-bd">no screenshot</span></span><span class="ev-none" style="aspect-ratio:800 / 250">This branch&rsquo;s run didn&rsquo;t capture this view.</span>');
+	assert.match(main, /<img class="shot-full" src="shots\/M1\.png" alt="" width="800" height="250"/);
+});
+
+test('the hover stacks the builds on a narrow window', () => {
+	assert.match(REPORT_CSS, /\.ev-cols\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);/);
+	assert.match(REPORT_CSS, /@media \(max-width:640px\)\{\.ev-cols\{grid-template-columns:minmax\(0,1fr\)\}\.ev-pop\.ev-cmp img,\.ev-none\{width:calc\(100vw - 50px\)\}\}/);
 });
 
 test('the latest build\'s result follows the finding\'s counts', () => {
 	const html = grouped(COMPARED);
-	const mainResult = n => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), 'data-main-r');
-	assert.equal(mainResult(2), 'daily 2026.11.0-236 &middot; Also fails');
-	assert.equal(mainResult(3), 'daily 2026.11.0-236 &middot; Didn&rsquo;t fail in 1 try');
+	const mainHead = n => ['data-main-r', 'data-main-bd'].map(a => attr(shotLinks(html, n).find(t => attr(t, 'data-step') === 'Step 2'), a));
+	assert.deepEqual(mainHead(2), ['fail', 'daily 2026.11.0-236']);
+	assert.deepEqual(mainHead(3), ['pass', 'daily 2026.11.0-236 &middot; 1 try']);
 });
 
 test('screenshots pair by order, and a side with fewer says so', () => {
@@ -1484,8 +1593,12 @@ test('passing steps and findings not confirmed show screenshots as before', () =
 
 test('the viewer has two columns for a comparison, stacking under 900px, and every preview is clickable', () => {
 	const html = grouped(COMPARED);
-	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
+	assert.match(html, /<div class="lb-cmp" hidden><div><div class="lb-cmp-h"><b><\/b><span class="st-rs" hidden><\/span><span class="lb-bd"><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><div><div class="lb-cmp-h"><b>Latest build<\/b><span class="st-rs" hidden><\/span><span class="lb-bd"><\/span><\/div><img class="shot-full" alt=""><p class="lb-none" hidden><\/p><\/div><\/div>/);
 	assert.match(REPORT_CSS, /\.lb-cmp\{display:grid;grid-template-columns:1fr 1fr;/);
+	// Only the muted note is muted; a rule on every span would turn the pill grey.
+	assert.match(REPORT_CSS, /\.lb-cmp-h \.lb-bd\{color:var\(--muted\);/);
+	assert.doesNotMatch(REPORT_CSS, /\.lb-cmp-h span\{/);
+	assert.match(REPORT_CSS, /\.lb-cmp-h \.st-rs\[hidden\]\{display:none\}/);
 	assert.match(REPORT_CSS, /@media \(max-width:900px\)\{\.lb-cmp\{grid-template-columns:1fr\}\}/);
 	assert.match(REPORT_CSS, /a\.st-ev:hover \.ev-pop,a\.st-ev:focus-visible \.ev-pop\{pointer-events:auto;cursor:pointer\}/);
 });
@@ -1495,10 +1608,10 @@ test('the viewer has two columns for a comparison, stacking under 900px, and eve
 const MORE_REFS = [3, 4, 5].map(i => ({ number: 5700 + i, kind: 'issue', state: 'open', title: `Bug ${i}`, createdAt: '2026-08-20T00:00:00Z', summary: '' }));
 
 test('two matches show both numbers; three or more show +N more with a tooltip, and the card lists them all', () => {
-	const two = fullHtml(fullWith(1, { known: [5703, 5704] }), { issueRefs: MORE_REFS });
+	const two = fullHtml(fullWith(1, { known: [5703, 5704], dupes: [{ issue: 5703, why: 'x' }, { issue: 5704, why: 'x' }] }), { issueRefs: MORE_REFS });
 	assert.match(findingRow(two, 1), /Dupe\? <span class="ki-num-t"[^>]*>#5703<\/span> <span class="ki-num-t"[^>]*>#5704<\/span>/);
 	assert.doesNotMatch(findingRow(two, 1), /\+1|ki-more/);
-	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705] }), { issueRefs: MORE_REFS });
+	const three = fullHtml(fullWith(1, { known: [5703, 5704, 5705], dupes: [5703, 5704, 5705].map(issue => ({ issue, why: 'x' })) }), { issueRefs: MORE_REFS });
 	assert.match(findingRow(three, 1), /#5703<\/span><span class="ki-more">\+2 more<span class="og-tip" aria-hidden="true" role="tooltip"><b>2 more possible duplicates<\/b><span>#5704 Bug 4<\/span><span>#5705 Bug 5<\/span><\/span><\/span>/);
 	assert.match(card(three, 1), /#5703[\s\S]*#5704[\s\S]*#5705/);
 	assert.match(REPORT_CSS, /\.ki-more:hover \.og-tip\{opacity:1;visibility:visible;transition:opacity \.15s ease \.4s,visibility 0s linear \.4s\}/);
@@ -1555,4 +1668,360 @@ test('an Only in PR finding whose replay could not run says the code is new', ()
 		verification: { failed: false, text: 'x', origin: { 1: 'introduced' } },
 	});
 	assert.deepEqual(badgeTip(grouped(json), 1), ['Only in branch', 'The code involved is new in this branch, so the latest build couldn&rsquo;t run it: the Export button is not in the toolbar.']);
+});
+
+// ---- Confirmed duplicates: a known issue, not a new finding ------------------
+
+const DUPE_REFS = [
+	{ number: 501, kind: 'issue', state: 'open', title: 'Grid goes blank after a filter', createdAt: '2026-01-02T00:00:00Z', summary: '' },
+	{ number: 502, kind: 'issue', state: 'closed', stateReason: 'completed', title: 'Old fixed bug', createdAt: '2025-03-02T00:00:00Z', summary: '' },
+	{ number: 503, kind: 'issue', state: 'closed', stateReason: 'not_planned', title: 'Judged intended', createdAt: '2025-04-02T00:00:00Z', summary: '' },
+	{ number: 504, kind: 'pr', state: 'open', title: 'Fix the grid', createdAt: '2026-08-02T00:00:00Z', summary: '' },
+];
+const dupe = (issue, why = `same as ${issue}`) => ({ dupes: [{ issue, why }] });
+const fails = main => ({ verified: 'confirmed', reproduced: { n: 2, m: 2 }, main });
+const DUPES = rep({
+	findings: [
+		fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid after the same filter'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+		fnd(2, { ...fails(twoSteps(0, 0)), known: [501], ...dupe(501) }),
+		fnd(3, { verified: 'confirmed', known: [501], ...dupe(501) }),
+		fnd(4, { ...fails(twoSteps(0, 2)), known: [502], ...dupe(502) }),
+		fnd(5, { ...fails(twoSteps(0, 2)), severity: 'major', intended: [503], ...dupe(503, 'the same message, closed as by design') }),
+		fnd(6, { ...fails(twoSteps(0, 2)), known: [504, 501] }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced', 4: 'inherited', 5: 'inherited', 6: 'inherited' }, originReason: { 3: { reason: 'not replayed', detail: '' } } },
+});
+const DUPE_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank'], ['S02', 'open the grid', 'fail (finding 2)', 'x'], ['S03', 'by design', 'fail (finding 5)', 'x']]);
+const dupes = (json = DUPES, options = {}) => grouped(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS, ...options });
+const knownList = html => between(html, 'id="ki-list-obs"', '</div></div>\n') || between(html, 'id="ki-list-obs"', '<section');
+
+test('a confirmed duplicate of an open issue that also fails on the latest build leaves the findings', () => {
+	const html = dupes();
+	assert.deepEqual(tabs(html), ['All 4', 'Only in branch 1', 'Also in latest build 2', 'Unknown 1']);
+	assert.equal(findingRow(html, 5), '');
+	assert.doesNotMatch(html, /id="f5"/);
+	assert.match(html, /<div class="ki-bar"><span class="ki-lbl"><b>Existing issues<\/b><\/span><span class="ki-sum">[^\n]*2 observed/);
+});
+
+test('a duplicate leaves every count: the tiles and the link card count only what is left', () => {
+	const { report, demoted } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(demoted.map(d => [d.issue.number, d.wontFix]), [[503, true], [501, false]]);
+	assert.deepEqual(report.severityCounts, { major: 0, moderate: 0, minor: 4 });
+	assert.equal(report.findingCount, 4);
+});
+
+test('Only in PR says Similar, Unknown keeps Dupe, an unconfirmed match says Related, and a closed fixed issue reads Regressed', () => {
+	const html = dupes();
+	const tip = '<span class="og-tip" aria-hidden="true" role="tooltip"><b>Similar?</b><span>Didn&rsquo;t reproduce on the latest build, so this is likely a different bug.</span></span>';
+	assert.ok(findingRow(html, 2).includes(`<span class="og ki-sim">Similar?${tip}</span> <span class="ki-num-t"`), findingRow(html, 2));
+	assert.doesNotMatch(findingRow(html, 2), /Dupe\?/);
+	assert.match(card(html, 2), /<span class="og ki-sim ki-sim-c" tabindex="0">Similar\?<span class="og-tip" role="tooltip"><b>Similar\?<\/b><span>Didn&rsquo;t reproduce/);
+	assert.match(findingRow(html, 3), /Dupe\? <span class="ki-num-t"[^>]*>#501/);
+	assert.match(findingRow(html, 4), /Regressed<\/span><span class="ki-state"><span class="ki-num-t"[^>]*>#502/);
+	assert.doesNotMatch(findingRow(html, 4), /Dupe\?/);
+	assert.match(card(html, 4), /Regressed <a class="ki-num"[^>]*>#502/);
+	// A PR match never demotes, and an issue match the verifier did not call the same bug is only Related.
+	assert.match(findingRow(html, 6), /Related[\s\S]*Fix in PR\?/);
+	assert.doesNotMatch(findingRow(html, 6), /Dupe\?/);
+});
+
+test('a demoted finding is listed under known issues, worst first, in two lines, its reason a tooltip on its source', () => {
+	const list = knownList(dupes());
+	assert.ok(list.indexOf('#503') < list.indexOf('#501'), 'the major one first');
+	const source = why => `<span class="og ki-src" tabindex="0">matched a finding<span class="og-tip" role="tooltip"><b>Same bug as a finding</b><span>${why}</span></span></span>`;
+	const entry = (state, severity, why) => `<span class="ki-lc-m"><span class="ki-sev ki-sev-${severity.toLowerCase()}" aria-hidden="true"></span>${severity} &middot; ${state} &middot; ${source(why)} &middot; <a class="ki-ev" href="#cv-row-`;
+	assert.ok(list.includes(`#503</a><span>Judged intended${entry('Won&rsquo;t fix', 'Major', 'the same message, closed as by design')}`), list);
+	assert.ok(list.includes(`#501</a><span>Grid goes blank after a filter${entry('Open', 'Moderate', 'the same blank grid after the same filter')}`), list);
+	assert.doesNotMatch(list, /ki-copy|Copy comment|seen in/);
+});
+
+test('a linked issue the run saw has the same two lines, with its rated severity and linked to the change', () => {
+	const list = knownList(render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES }));
+	assert.match(list, /#23<\/a><span>major one<span class="ki-lc-m"><span class="ki-sev ki-sev-major" aria-hidden="true"><\/span>Major &middot; Open &middot; linked to branch &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span><\/span><\/div>/);
+});
+
+const STEPS_LEDGER = `## S01 - filter the grid
+Status: fail (finding 1)
+Result: Fails 2/2
+Steps:
+1. Open the grid.
+2. VERIFY the grid shows rows -> FAIL - Finding 1
+   Observed: The grid is blank
+
+## S02 - open the grid
+Status: fail (finding 2)
+Result: x
+Steps:
+1. Open it.
+2. VERIFY rows -> FAIL - Finding 2
+`;
+
+test('a failing coverage row with no finding left opens on its steps, as a passing row does, without the rate', () => {
+	const html = dupes(DUPES, { ledger: STEPS_LEDGER });
+	const row = /<details class="cv cf-r cf-i" id="(cv-row-\d+)"><summary class="row coverage-grid">([\s\S]*?)<\/summary><div class="cv-steps">([\s\S]*?)<\/div><\/details>/.exec(html);
+	assert.ok(row, 'the known issue row is a details');
+	assert.match(row[2], /<span>filter the grid<\/span>[\s\S]*<span class="cov-result">Known issue <a class="ki-num"[^>]*>#501<\/a><\/span>/);
+	assert.doesNotMatch(row[2], /Fails 2\/2/);
+	assert.match(row[3], /<ol class="steps">[\s\S]*Open the grid\.[\s\S]*Verify the grid shows rows<\/span><span class="st-rs st-fail">FAIL/);
+	// Its evidence link in the known issues list is the row's id.
+	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
+	// A row that still links to a finding does not expand: its steps are on the card.
+	assert.match(html, /<div class="row coverage-grid cf-r cf-i" id="cv-row-\d+"><span class="cov-scenario">[^\n]*<span>open the grid<\/span>[^\n]*<a href="#f2" class="cv-f">Finding 2<\/a>/);
+	// Following a link to a closed row opens it.
+	assert.match(html, /function openRow\(\)\{var d=location\.hash&&document\.getElementById\(location\.hash\.slice\(1\)\);if\(d&&d\.tagName==='DETAILS'&&d\.classList\.contains\('cv'\)\)\{d\.open=true;\}\}window\.addEventListener\('hashchange',openRow\);openRow\(\);/);
+});
+
+test('a known issues list taller than the window scrolls, and a shorter one keeps its tooltips unclipped', () => {
+	assert.match(REPORT_CSS, /\.ki-lc\{[^}]*max-height:none;overflow:visible;/);
+	assert.match(REPORT_CSS, /\.ki-lc\.ki-lc-scroll\{max-height:calc\(100vh - 24px\);overflow-y:auto\}/);
+	const html = dupes();
+	assert.match(html, /function place\(a\)\{pop\.classList\.remove\('ki-lc-scroll'\);var r=a\.getBoundingClientRect\(\),w=pop\.offsetWidth,h=pop\.offsetHeight,m=12;\nif\(h>window\.innerHeight-2\*m\)\{pop\.classList\.add\('ki-lc-scroll'\);h=pop\.offsetHeight;\}/);
+});
+
+test('an issue closed as a duplicate is still open under another number: never Regressed, and a confirmed match is a known issue', () => {
+	const refs = [...DUPE_REFS, { number: 505, kind: 'issue', state: 'closed', stateReason: 'duplicate', title: 'Grid blank again', createdAt: '2026-02-02T00:00:00Z', summary: '' }];
+	const json = rep({
+		findings: [
+			fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [505], ...dupe(505, 'the same blank grid') }),
+			fnd(2, { ...fails(twoSteps(0, 0)), known: [505], ...dupe(505) }),
+		],
+		verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced' }, originReason: {} },
+	});
+	const { demoted } = withoutKnownDuplicates(reportFromJson(json, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: refs });
+	assert.deepEqual(demoted.map(d => [d.f.n, d.issue.number]), [[1, 505]]);
+	const html = grouped(json, { ledger: DUPE_LEDGER, issueRefs: refs });
+	assert.match(knownList(html), /#505<\/a><span>Grid blank again<span class="ki-lc-m"><span class="ki-sev ki-sev-moderate" aria-hidden="true"><\/span>Moderate &middot; Duplicate &middot; /);
+	// Only in branch: not Regressed, just a possible match.
+	assert.doesNotMatch(findingRow(html, 2), /Regressed/);
+	assert.match(findingRow(html, 2), /Similar\?/);
+	assert.doesNotMatch(card(html, 2), /Regressed/);
+});
+
+test('a scenario that hit a known issue and a new bug links the finding and still opens on its steps', () => {
+	const json = rep({
+		findings: [
+			fnd(1, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+			fnd(2, { ...fails(twoSteps(0, 0)), steps: [act('Sort.'), fail('Verify the arrow', 2)] }),
+		],
+		verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'introduced' }, originReason: {} },
+	});
+	const ledger = `## S01 - filter then sort the grid
+Status: fail (finding 1, finding 2)
+Result: x
+Steps:
+1. Open the grid.
+2. VERIFY the grid shows rows -> FAIL - Finding 1
+3. Sort.
+4. VERIFY the arrow -> FAIL - Finding 2
+`;
+	const html = grouped(json, { ledger, issueRefs: DUPE_REFS });
+	const row = /<details class="cv cf-r cf-i" id="(cv-row-\d+)"><summary class="row coverage-grid">([\s\S]*?)<\/summary><div class="cv-steps">([\s\S]*?)<\/div><\/details>/.exec(html);
+	assert.ok(row, 'the row opens');
+	assert.match(row[2], /<a href="#f2" class="cv-f">Finding 2<\/a> &middot; Known issue <a class="ki-num"[^>]*>#501<\/a>/);
+	assert.match(row[3], /Verify the grid shows rows[\s\S]*Verify the arrow/);
+	assert.ok(knownList(html).includes(`<a class="ki-ev" href="#${row[1]}">View evidence</a>`));
+});
+
+// A run on main: no comparison, so no groups, but a confirmed duplicate is still a known issue.
+const ON_MAIN = { usable: false, name: 'main' };
+const MAIN_RUN = rep({
+	header: { ...HEADER, branch: 'main' },
+	findings: [
+		fnd(1, { ...fails(twoSteps(2, 2)), severity: 'moderate', known: [501], ...dupe(501, 'the same blank grid') }),
+		fnd(2, { ...fails(twoSteps(2, 2)), known: [502], ...dupe(502) }),
+		fnd(3, { verified: 'disputed', known: [501], ...dupe(501) }),
+		fnd(4, { ...fails(twoSteps(2, 2)), known: [501] }),
+		fnd(5, { ...fails(twoSteps(2, 2)), known: [503], intended: [503], ...dupe(503, 'closed as by design') }),
+	],
+	verification: { failed: false, text: 'x', origin: {}, originReason: {} },
+});
+const onMain = (json = MAIN_RUN, base = ON_MAIN) => render(json, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS, changeBase: base, mainBuild: MAIN_BUILD });
+
+test('on a run of main, a confirmed duplicate of an open or won\'t-fix issue is a known issue too, with no groups shown', () => {
+	const { report, demoted } = withoutKnownDuplicates(reportFromJson(MAIN_RUN, { ledger: DUPE_LEDGER }), { changeBase: ON_MAIN, issueRefs: DUPE_REFS });
+	assert.deepEqual(demoted.map(d => [d.f.n, d.issue.number]), [[1, 501], [5, 503]]);
+	// A closed fixed issue came back, a disputed finding is not confirmed, and a loose match is not a duplicate.
+	assert.equal(report.findingCount, 3);
+	const html = onMain();
+	assert.doesNotMatch(between(html, 'id="findings"', '</section>'), /data-og=|class="cf-tabs"/);
+	assert.match(html, /<span class="ki-sum">[^\n]*2 observed/);
+	assert.match(findingRow(html, 2), /Regressed/);
+	// A branch run whose change base is unusable is not a run on main: nothing is demoted.
+	const branch = rep({ ...MAIN_RUN, header: { ...HEADER, branch: 'feature/x' } });
+	assert.equal(withoutKnownDuplicates(reportFromJson(branch, { ledger: DUPE_LEDGER }), { changeBase: ON_MAIN, issueRefs: DUPE_REFS }).demoted.length, 0);
+	assert.equal(withoutKnownDuplicates(reportFromJson(MAIN_RUN, { ledger: DUPE_LEDGER }), { changeBase: undefined, issueRefs: DUPE_REFS }).demoted.length, 0);
+});
+
+// Three findings that are the same bug as one issue, one of them also linked.
+const SAME_ISSUE = rep({
+	findings: [
+		fnd(1, { ...fails(twoSteps(0, 2)), severity: 'minor', known: [501], ...dupe(501, 'first reason'), steps: [act('Open the grid.'), fail('Verify the grid shows rows', 1)] }),
+		fnd(2, { ...fails(twoSteps(0, 2)), severity: 'major', known: [501], ...dupe(501, 'second reason'), steps: [act('Open it.'), fail('Verify rows', 2)] }),
+		fnd(3, { ...fails(twoSteps(0, 2)), severity: 'moderate', known: [501], ...dupe(501, 'third reason') }),
+		fnd(4, { ...fails(twoSteps(0, 0)) }),
+	],
+	verification: { failed: false, text: 'x', origin: { 1: 'inherited', 2: 'inherited', 3: 'inherited', 4: 'introduced' }, originReason: {} },
+});
+const SAME_LEDGER = ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank'], ['S02', 'open the grid', 'fail (finding 2)', 'x']]);
+
+test('an issue several findings duplicate is listed and counted once, with every reason in its tooltip', () => {
+	const html = grouped(SAME_ISSUE, { ledger: SAME_LEDGER, issueRefs: DUPE_REFS });
+	assert.match(html, /<span class="ki-sum">[^\n]*1 observed/);
+	const list = knownList(html);
+	assert.equal(list.match(/#501<\/a>/g)?.length, 1, list);
+	const source = '<span class="og ki-src" tabindex="0">matched 3 findings<span class="og-tip" role="tooltip"><b>Same bug as 3 findings</b><span>second reason</span><span>third reason</span><span>first reason</span></span></span>';
+	// The worst severity, and the evidence of the worst finding.
+	assert.ok(list.includes(`<span class="ki-sev ki-sev-major" aria-hidden="true"></span>Major &middot; Open &middot; ${source} &middot; <a class="ki-ev" href="#cv-row-`), list);
+	assert.equal(between(html, '<span>open the grid</span>', '</div>').match(/#501/g)?.length, 1);
+	// One coverage row citing two of them names the issue once.
+	const twice = rep({ ...SAME_ISSUE, findings: SAME_ISSUE.findings.map(f => (f.n === 2 ? { ...f, steps: [act('Open it.'), fail('Verify rows', 1)] } : f)) });
+	const one = withoutKnownDuplicates(reportFromJson(twice, { ledger: ledgerOf([['S01', 'filter the grid', 'fail (findings 1, 2)', 'blank']]) }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(one.report.coverage.exercised.flatMap(r => r.issues ?? []).map(i => i.n), [501]);
+});
+
+test('a linked issue a finding matched is listed once as observed, with both sources, and not as not observed', () => {
+	const linked = { repo: 'posit-dev/positron', pr: 9, fetchedAt: '', issues: [{ number: 501, url: '', relation: 'linked', title: 'Grid goes blank after a filter', state: 'open', createdAt: '', summary: '' }] };
+	const json = { ...SAME_ISSUE, findings: SAME_ISSUE.findings.filter(f => f.n !== 3 && f.n !== 2) };
+	const html = grouped(json, { ledger: ledgerOf([['S01', 'filter the grid', 'fail (finding 1)', 'blank']]), issueRefs: DUPE_REFS, knownIssues: linked });
+	assert.match(html, /<span class="ki-sum">[^\n]*1 observed/);
+	const list = knownList(html);
+	assert.equal(list.match(/#501<\/a>/g)?.length, 1, list);
+	assert.match(list, /Minor &middot; Open &middot; linked to branch &middot; <span class="og ki-src" tabindex="0">matched a finding</);
+	// The finding shows the run reached it, so it is not also listed as not observed.
+	assert.doesNotMatch(html, /id="ki-list-no"|not observed/);
+});
+
+test('a coverage row whose finding was demoted names the known issue instead', () => {
+	const html = dupes();
+	const row = between(html, '<span>filter the grid</span>', '</div>');
+	assert.match(row, /Known issue <a class="ki-num"[^>]*>#501<\/a>/);
+	assert.doesNotMatch(row, /Finding \d/);
+});
+
+test('when every finding is demoted, the page says no new findings and counts the known issues', () => {
+	const html = dupes({ ...DUPES, findings: DUPES.findings.slice(0, 1) });
+	assert.match(findingsOf(html), /<b>No new findings<\/b><span class="ki-empty-sum">.*1 known issue observed/);
+	assert.match(knownList(html), /#501/);
+});
+
+test('a duplicate stays a finding on a run with no replay on main', () => {
+	const html = render(DUPES, { ledger: DUPE_LEDGER, issueRefs: DUPE_REFS });
+	assert.ok(findingRow(html, 5));
+	assert.match(findingRow(html, 1), /Dupe\?/);
+});
+
+test('the known issues popover is wider and lets the reason tooltip show in full', () => {
+	assert.match(REPORT_CSS, /\.ki-lc\{[^}]*width:420px;[^}]*max-height:none;[^}]*overflow:visible;/);
+	assert.match(REPORT_CSS, /\.ki-src \.og-tip\{left:0;right:auto;transform:none;width:280px;top:calc\(100% \+ 6px\);bottom:auto;white-space:normal\}/);
+	assert.match(REPORT_CSS, /\.ki-sev-minor\{background:var\(--minor-dot\)\}/);
+	assert.match(REPORT_CSS, /\.ki-src:focus-visible \.og-tip/);
+});
+
+test('with a demoted finding, every footer count still opens its list, and only the demoted card is gone', () => {
+	const json = {
+		...KI_REPORT,
+		findings: [...KI_REPORT.findings, fnd(4, { ...fails(twoSteps(0, 2)), title: 'Grid blanks', known: [501], ...dupe(501) })],
+		verification: { ...KI_VERIFICATION, origin: { 4: 'inherited' } },
+	};
+	const html = grouped(json, { ledger: `${KI_LEDGER.replace('## Not run', '## S06 - grid\nStatus: fail - Finding 4\nResult: blank\n\n## Not run')}`, knownIssues: KI_ISSUES, issueRefs: DUPE_REFS });
+	const counts = [...html.matchAll(/<span class="ki-cnt"[^>]*aria-controls="([^"]+)">([^<]*)<\/span>/g)].map(m => [m[1], m[2]]);
+	assert.deepEqual(counts.map(c => c[1]), ['1 fix verified', '4 observed', '1 not observed']);
+	for (const [id] of counts) {
+		assert.match(html, new RegExp(`<div class="ki-list" id="${id}" hidden>`), `${id} has its list`);
+	}
+	assert.match(knownList(html), /#501<\/a><span>Grid goes blank after a filter/);
+	assert.deepEqual([...html.matchAll(/<article id="(f\d+)"/g)].map(m => m[1]), ['f1', 'f3', 'f2']);
+	for (const title of ['Still jumps', 'Old bug back', 'Looks known']) {
+		assert.ok(html.includes(title), title);
+	}
+	assert.ok(!html.includes('Grid blanks'), 'the demoted finding has no row or card');
+});
+
+// ---- The issue and PR preview card -------------------------------------------
+
+/** The preview card's parts, by class, after `act` drives the page's card script against a stub DOM. */
+function previewCard(act) {
+	const html = render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes("card.id='ki-card'"));
+	assert.ok(src, 'the page has the preview card script');
+	const el = () => {
+		const node = { children: [], className: '', style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, removeAttribute() {}, appendChild: c => { node.children.push(c); return c; } };
+		Object.defineProperty(node, 'textContent', { get: () => node.text ?? node.children.map(c => c.textContent).join(''), set: v => { node.text = v || null; node.children = []; } });
+		return node;
+	};
+	let card;
+	const handlers = {};
+	const document = {
+		createElement: () => (card ??= el(), card.children.length || card.id ? el() : card),
+		createTextNode: text => ({ textContent: text }),
+		body: { appendChild() {} },
+		addEventListener: (type, fn) => { handlers[type] = fn; },
+	};
+	const window = { innerWidth: 1280, addEventListener() {} };
+	new Function('document', 'window', src)(document, window);
+	const link = tag => ({ tagName: tag, textContent: '#5690', dataset: { state: 'open', title: 'A title', summary: 'From the body.', opened: 'Opened Aug 3' }, closest() { return this; }, matches: () => false, setAttribute() {}, removeAttribute() {}, getBoundingClientRect: () => ({ left: 0, top: 200, bottom: 216, width: 40 }) });
+	act({ handlers, link });
+	const parts = {};
+	const walk = node => { for (const c of node.children ?? []) { if (c.className) { parts[c.className.split(' ')[0]] = c.textContent; } walk(c); } };
+	walk(card);
+	return parts;
+}
+
+test('the preview card has no footer for mouse users, an arrow on a linked number, and an upright summary', () => {
+	const linked = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('A') }));
+	assert.equal(linked['ki-n'], '#5690 ↗');
+	assert.equal(linked['ki-card-x'], 'From the body.');
+	assert.equal(linked['ki-card-f'], undefined);
+	const row = previewCard(({ handlers, link }) => handlers.mouseover({ target: link('SPAN') }));
+	assert.equal(row['ki-n'], '#5690');
+	assert.equal(row['ki-card-f'], undefined);
+	assert.doesNotMatch(REPORT_CSS, /\.ki-card-x\{[^}]*font-style:italic/);
+});
+
+test('on touch, a linked number\'s card says to tap again to open it on GitHub', () => {
+	const linked = previewCard(({ handlers, link }) => {
+		handlers.pointerdown({ pointerType: 'touch' });
+		handlers.click({ target: link('A'), preventDefault() {} });
+	});
+	assert.equal(linked['ki-card-f'], 'Tap again to open on GitHub');
+});
+
+
+test('a finding the change says it fixes is never a known issue, even when the explorer did not tag the fix as failed', () => {
+	const fixes = { repo: 'posit-dev/positron', pr: 9, fetchedAt: '', issues: [{ number: 501, url: '', relation: 'fixes', title: 'Grid goes blank after a filter', state: 'open', createdAt: '', summary: '' }] };
+	const { demoted } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS, knownIssues: fixes });
+	assert.deepEqual(demoted.map(d => d.issue.number), [503]);
+	assert.notEqual(findingRow(dupes(DUPES, { knownIssues: fixes }), 1), '');
+});
+
+test('a demoted finding keeps report.json\'s numbers on the rest, so the notes and outcomes name the same findings', () => {
+	const { report } = withoutKnownDuplicates(reportFromJson(DUPES, { ledger: DUPE_LEDGER }), { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.deepEqual(report.findings.map(f => f.n), [2, 3, 4, 6]);
+	assert.deepEqual([...report.verification.origin], [[2, 'introduced'], [4, 'inherited'], [6, 'inherited']]);
+	assert.deepEqual([...report.verification.originReason.keys()], [3]);
+	const html = dupes();
+	assert.deepEqual([2, 3, 4, 6].map(n => groupOfRow(html, n)), ['pr', 'un', 'ex', 'ex']);
+	assert.doesNotMatch(html, /id="f1"|id="f5"/);
+});
+
+test('a report the known issue check cannot read keeps every finding rather than failing the page', () => {
+	const parsed = reportFromJson(DUPES, { ledger: DUPE_LEDGER });
+	const { report, demoted } = withoutKnownDuplicates({ ...parsed, coverage: undefined }, { changeBase: USABLE, issueRefs: DUPE_REFS });
+	assert.equal(demoted.length, 0);
+	assert.equal(report.findings.length, 6);
+});
+
+test('the page reuses known issues already worked out for it', () => {
+	const parsed = reportFromJson(DUPES, { ledger: DUPE_LEDGER });
+	const shown = withoutKnownDuplicates(parsed, { changeBase: USABLE, issueRefs: DUPE_REFS });
+	// Without the issue previews it could not work them out itself.
+	const html = renderReportHtml(parsed, { changeBase: USABLE, mainBuild: MAIN_BUILD, ledger: DUPE_LEDGER, shown });
+	assert.doesNotMatch(html, /id="f1"|id="f5"/);
+});
+
+test('an issue closed for a reason the saved preview does not record is not called Regressed', () => {
+	const refs = DUPE_REFS.map(r => (r.number === 502 ? { ...r, stateReason: undefined } : r));
+	const html = dupes(DUPES, { issueRefs: refs });
+	assert.doesNotMatch(findingRow(html, 4), /Regressed/);
+	assert.match(findingRow(html, 4), /Dupe\?/);
 });

@@ -25,7 +25,7 @@ jobs:
     outputs:
       artifact-name: positron-server-linux-x64
     container:
-      image: ghcr.io/posit-dev/positron-builds-rocky8:5
+      image: ghcr.io/posit-dev/positron-builds-rocky8:6
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -61,15 +61,24 @@ jobs:
           npm_config_arch: x64
         shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
         run: |
+          # Parallel node-gyp postinstalls race on this cache and can read a truncated common.gypi
+          node "$(npm root -g)/npm/node_modules/node-gyp/bin/node-gyp.js" install \
+            --target="$(npm config get target)" --dist-url="$(npm config get disturl)"
+
           npm install --prefix build --fetch-timeout 120000
           npm ci --fetch-timeout 120000
+
+      - name: Download compiled core
+        uses: actions/download-artifact@v8
+        with:
+          name: positron-compilation
 
       - name: Build Positron Server
         env:
           npm_config_arch: x64
-          MANGLER_WORKER_POOL_SIZE: 1
         run: |
-          npm run gulp vscode-reh-web-linux-x64
+          tar xzf positron-compilation.tar.gz
+          npm run gulp -- --series compile-extensions-build copy-extension-binaries compile-copilot-extension-build compile-extension-media-build vscode-reh-web-linux-x64-min-ci
 
       - name: Package server tar.gz
         run: |

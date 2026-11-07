@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { act, screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { runWithFakedTimers } from '../../../../../../base/test/common/timeTravelScheduler.js';
@@ -39,7 +37,6 @@ function mockAction(overrides?: Partial<{
 			icon: overrides?.iconId ? ThemeIcon.fromId(overrides.iconId) : undefined,
 		},
 		run: overrides?.run ?? (() => Promise.resolve()),
-		dispose: () => { },
 	});
 }
 
@@ -67,12 +64,12 @@ async function clickAndFlush(button: HTMLElement) {
 describe('CellActionButton', () => {
 	const rtl = setupRTLRenderer();
 
-	let selectCellStub: ReturnType<typeof vi.fn>;
+	let selectCellStub: ReturnType<typeof vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>>;
 	let instance: IPositronNotebookInstance;
 	let cell: IPositronNotebookCell;
 
 	beforeEach(() => {
-		selectCellStub = vi.fn();
+		selectCellStub = vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>();
 		instance = stubInterface<IPositronNotebookInstance>({
 			hoverManager: undefined,
 			currentContainer: undefined,
@@ -80,7 +77,7 @@ describe('CellActionButton', () => {
 				selectCell: selectCellStub,
 			}),
 		});
-		cell = stubInterface<IPositronNotebookCell>({ id: 'cell-1' });
+		cell = stubInterface<IPositronNotebookCell>({});
 	});
 
 	function renderButton(
@@ -135,8 +132,7 @@ describe('CellActionButton', () => {
 
 		button.click();
 
-		expect(selectCellStub, 'Expected selectCell to be called').toHaveBeenCalledOnce();
-		expect(selectCellStub.mock.calls[0][1]).toBe(CellSelectionType.Normal);
+		expect(selectCellStub).toHaveBeenCalledExactlyOnceWith(cell, CellSelectionType.Normal);
 	});
 
 	it('runs the action when clicked', async () => {

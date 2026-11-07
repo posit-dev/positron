@@ -102,20 +102,6 @@ test('lint-json counts the explorer\'s checks, renders do not, and the pipeline\
 	}, [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 142, durationMs: 1500000 }]);
 });
 
-test('render.mjs records an isolation pass in the Agents table and stats.json', () => {
-	withLogsRun(({ dir, report, render }) => {
-		render(report);
-		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
-		assert.deepEqual(stats.isolate, { durationMs: 300000, turns: 30 });
-		assert.equal(stats.durationMs, 960000);
-		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Isolate<\/span>/);
-	}, [
-		{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 70, durationMs: 600000 },
-		{ label: 'verify', model: 'claude-sonnet-5-5', costUsd: null, turns: 10, durationMs: 60000 },
-		{ label: 'isolate', model: 'claude-sonnet-5-5', costUsd: null, turns: 30, durationMs: 300000 },
-	]);
-});
-
 test('render.mjs gives the stats a cost when every pass has one, and keeps the stats CI recorded', () => {
 	withLogsRun(({ dir, report, render }) => {
 		render(report);
@@ -170,4 +156,10 @@ test('the stats command rejects a --limit that is not a positive whole number', 
 test('buildStats records main replay minutes only with a main build', () => {
 	assert.equal(buildStats({ where: 'local', parsed: null, mainReplayMs: 150_000 }).mainReplayMinutes, 2.5);
 	assert.equal(buildStats({ where: 'local', parsed: null }).mainReplayMinutes, null);
+});
+
+test('buildStats records the findings the page listed as known issues, by their report.json number', () => {
+	const stats = buildStats({ where: 'ci', parsed: null, demoted: [{ f: { n: 3 }, issue: { number: 16634 } }] });
+	assert.deepEqual(stats.demoted, [{ finding: 3, issue: 16634 }]);
+	assert.deepEqual(buildStats({ where: 'ci', parsed: null }).demoted, []);
 });

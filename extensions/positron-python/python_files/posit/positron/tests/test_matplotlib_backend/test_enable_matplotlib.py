@@ -18,7 +18,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Iterator, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -40,6 +40,7 @@ from ..utils import run_with_metadata
 from .conftest import active_backend
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
     from types import ModuleType
 
     from positron.positron_ipkernel import PositronShell
@@ -412,7 +413,7 @@ def test_legacy_ipython_lists_short_names_without_a_switch(
     # backends, because `-l` has to list them without one.
     shell.init_magics()
 
-    assert set(pt.backends) == {
+    assert set(vars(pt)["backends"]) == {
         "inline",
         Backend.CONSOLE.short_name,
         Backend.NOTEBOOK.short_name,

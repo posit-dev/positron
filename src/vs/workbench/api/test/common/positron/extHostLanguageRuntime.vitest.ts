@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import type * as positron from 'positron';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -284,6 +282,23 @@ function pinnedMetadata(runtimeId: string, overrides: Partial<ILanguageRuntimeMe
 	const { extensionId: _extensionId, ...metadata } = fakeMetadata({ runtimeId, languageId: 'python', ...overrides });
 	return metadata as unknown as positron.LanguageRuntimeMetadata;
 }
+
+class DeferringManager extends mock<positron.LanguageRuntimeManager>() {
+	constructor(override readonly defersToFirstDefinition?: boolean) { super(); }
+}
+
+describe('ExtHostLanguageRuntime - $getLanguagesDeferringToFirstDefinition', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	it('lists the languages whose manager sets defersToFirstDefinition', async () => {
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(createMockShape()), new NullLogService());
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', new DeferringManager(true)));
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'python', new DeferringManager()));
+
+		expect(await runtime.$getLanguagesDeferringToFirstDefinition()).toEqual(['r']);
+	});
+});
 
 describe('ExtHostLanguageRuntime - $pinnedWorkspaceRuntime', function () {
 

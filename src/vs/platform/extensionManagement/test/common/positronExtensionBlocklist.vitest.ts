@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { isBlockedExtension, isUnsatisfiableDependency, POSITRON_BLOCKED_EXTENSIONS, POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN } from '../../common/positronExtensionBlocklist.js';
 
 describe('positronExtensionBlocklist', () => {

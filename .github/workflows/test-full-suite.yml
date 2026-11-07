@@ -57,7 +57,7 @@ on:
       run_e2e_workbench:
         description: "E2E Tests / Workbench (Ubuntu)"
         required: false
-        default: false
+        default: true
         type: boolean
       run_e2e_workbench_stable:
         description: "E2E Tests / Workbench Stable (Ubuntu)"
@@ -341,9 +341,22 @@ jobs:
       install_license: true
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
-  build-workbench:
+  # The Workbench, Connect, Jupyter and Remote SSH lanes package their Positron
+  # builds from one shared core compile (`gulp core-ci`), as positron-builds
+  # does for releases, so the TypeScript compile runs once per run and never
+  # inside a packaging job (#17013).
+  compile:
     name: build
     needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable || inputs.run_e2e_workbench_rocky || inputs.run_e2e_workbench_suse || inputs.run_e2e_connect || inputs.run_e2e_jupyter || inputs.run_e2e_remote_ssh) }}
+    uses: ./.github/workflows/build-compile-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+
+  build-workbench:
+    name: build
+    needs: [compile]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench || inputs.run_e2e_workbench_stable || inputs.run_e2e_workbench_rocky || inputs.run_e2e_workbench_suse) }}
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
@@ -443,7 +456,7 @@ jobs:
 
   build-connect:
     name: build
-    needs: [validate-commit]
+    needs: [compile]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_connect) }}
     uses: ./.github/workflows/build-connect-linux.yml
     secrets: inherit
@@ -464,7 +477,7 @@ jobs:
 
   build-jupyter:
     name: build
-    needs: [validate-commit]
+    needs: [compile]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_jupyter) }}
     uses: ./.github/workflows/build-jupyter-linux.yml
     secrets: inherit
@@ -487,7 +500,7 @@ jobs:
 
   build-remote-ssh:
     name: build
-    needs: [validate-commit]
+    needs: [compile]
     if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_remote_ssh) }}
     uses: ./.github/workflows/build-remote-ssh-linux.yml
     secrets: inherit

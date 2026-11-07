@@ -90,6 +90,9 @@ export function initialize() {
     when(mockedPositronNamespaces.runtime!.registerRuntimePickerContribution(anything())).thenReturn({
         dispose: () => undefined,
     });
+    // No interpreters.definitions entries unless a test stubs them.
+    when(mockedPositronNamespaces.runtime!.getInterpreterDefinitionPaths(anything())).thenReturn([]);
+    when(mockedPositronNamespaces.runtime!.findInterpreterDefinitionPath(anything(), anything())).thenReturn(undefined);
     // --- End Positron ---
 
     // When upgrading to npm 9-10, this might have to change, as we could have explicit imports (named imports).
@@ -205,6 +208,12 @@ mockedPositron.LanguageRuntimeArchitecture = positronMocks.LanguageRuntimeArchit
 mockedPositron.RuntimeExitReason = positronMocks.RuntimeExitReason;
 mockedPositron.LanguageRuntimeStartupBehavior = positronMocks.LanguageRuntimeStartupBehavior;
 // --- End Positron ---
+(mockedVSCode as any).LanguageModelTextPart = class LanguageModelTextPart {
+    constructor(public value: string) {}
+};
+(mockedVSCode as any).LanguageModelToolResult = class LanguageModelToolResult {
+    constructor(public content: unknown[]) {}
+};
 
 // Mock TestController for vscode.tests namespace
 function createMockTestController(): vscode.TestController {

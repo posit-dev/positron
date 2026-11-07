@@ -3,14 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import type * as positron from 'positron';
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtHostDataConnections } from '../../../common/positron/extHostDataConnections.js';
 import { IMainPositronContext, MainThreadDataConnectionsShape } from '../../../common/positron/extHost.positron.protocol.js';
+import { IDataConnectionSchemaWalk } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 
 /**
  * Builds the ext host over a main-thread proxy stubbed with the given methods.
@@ -537,11 +536,11 @@ describe('ExtHostDataConnections node handles', () => {
 });
 
 describe('ExtHostDataConnections getSchema', () => {
-	const schema = { nodes: [], truncated: false };
+	const schema: IDataConnectionSchemaWalk = { nodes: [], omitted: 0, truncated: false };
 
 	it('rejects as soon as the token is cancelled, without waiting for the walk to answer', async () => {
 		// The main thread only looks at the token before each query, so its answer can come late.
-		let answer!: (walk: typeof schema) => void;
+		let answer!: (walk: IDataConnectionSchemaWalk) => void;
 		const extHost = createExtHost({
 			$getDataConnectionSchema: () => new Promise(resolve => answer = resolve),
 		});

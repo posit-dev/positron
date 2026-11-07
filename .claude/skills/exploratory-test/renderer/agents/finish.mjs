@@ -108,13 +108,14 @@ const SEVERITIES = ['major', 'moderate', 'minor'];
  * The verifier's reply: the fenced `json` block it opens with, and its notes
  * after the block. Anything before the block is its notes to itself, and is
  * dropped. `findings` maps a finding number to `{ verified, known, intended,
- * feature, title, fix }`, `linked` an issue number to its severity, and
+ * feature, title, fix }`, `linked` an issue number to its severity, `unmet`
+ * one the run did not meet to why, and
  * `problem` says why the block could not be read, or is ''. An entry it
  * cannot read is skipped, so one bad entry costs only that finding.
  */
 export function parseVerifyReply(text) {
 	const raw = String(text ?? '');
-	const out = { findings: new Map(), linked: new Map(), notes: raw.trim(), problem: '' };
+	const out = { findings: new Map(), linked: new Map(), unmet: new Map(), notes: raw.trim(), problem: '' };
 	const block = /```json[ \t]*\n([\s\S]*?)\n```[ \t]*$/m.exec(raw);
 	if (!block) {
 		out.problem = 'the reply has no ```json block';
@@ -145,12 +146,24 @@ export function parseVerifyReply(text) {
 			const setup = Array.isArray(f.setup)
 				? f.setup.filter(x => x && typeof x === 'object').map(x => ({ what: typeof x.what === 'string' ? x.what.trim() : '', log: Number.isInteger(x.log) ? x.log : null, alone: x.alone === true, why: typeof x.why === 'string' ? x.why.trim() : '' }))
 				: null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup });
+			// A confirmed duplicate is one of the finding's matches, with why it is the same bug.
+			const matched = new Set([...issues(f.known), ...issues(f.intended)]);
+			const dupes = Array.isArray(f.dupes)
+				? f.dupes.filter(x => matched.has(x?.issue) && typeof x.why === 'string' && x.why.trim()).map(x => ({ issue: x.issue, why: x.why.trim() }))
+				: [];
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), cause: prose(f.cause), observed: prose(f.observed), tests: testsCorrection(f.tests), fix: Array.isArray(f.fix) ? f.fix.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [], log, shots, setup, dupes });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
 		const severity = String(l?.severity ?? '').toLowerCase();
-		if (Number.isInteger(l?.issue) && SEVERITIES.includes(severity)) {
+		if (!Number.isInteger(l?.issue)) {
+			continue;
+		}
+		// One the run did not meet needs why; one with no `met` is read as met.
+		if (l.met === false) {
+			const why = prose(l.why);
+			if (why) { out.unmet.set(l.issue, why); }
+		} else if (SEVERITIES.includes(severity)) {
 			out.linked.set(l.issue, severity);
 		}
 	}
@@ -320,7 +333,7 @@ export function verifyLogLines(knownIssues, ledger, reply) {
 	if (!coverage) {
 		return [];
 	}
-	const ki = knownIssueOutcomes(knownIssues, coverage, reply.linked, issueMatches(reply, 'known'));
+	const ki = knownIssueOutcomes(knownIssues, coverage, reply.linked, issueMatches(reply, 'known'), reply.unmet);
 	return [...ki.unrated.map(n => `Couldn't rate #${n}: verifier line missing or malformed`), ...knownFixLines(ki)];
 }
 
@@ -364,6 +377,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			verified: v.verified,
 			...(v.known.length ? { known: v.known } : {}),
 			...(v.intended.length ? { intended: v.intended } : {}),
+			...(v.dupes.length ? { dupes: v.dupes } : {}),
 			...corrections,
 			...(corrected.length ? { corrected, explorer: Object.fromEntries(corrected.map(key => [key, f[key] ?? null])) } : {}),
 		};
@@ -404,6 +418,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		unchecked.setup ? `${named(unchecked.setup)} against the run's setup` : '',
 	].filter(Boolean).join(', or ');
 	const linked = [...reply.linked].map(([issue, severity]) => ({ issue, severity }));
+	const unmet = [...reply.unmet].map(([issue, why]) => ({ issue, why }));
 	return {
 		...json,
 		findings,
@@ -415,6 +430,7 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 			...(Object.keys(origin).length ? { origin } : {}),
 			...(Object.keys(originReason).length ? { originReason } : {}),
 			...(linked.length ? { linked } : {}),
+			...(unmet.length ? { unmet } : {}),
 			...(skipped ? { unchecked } : {}),
 		},
 	};

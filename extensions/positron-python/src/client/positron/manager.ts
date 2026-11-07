@@ -19,7 +19,7 @@ import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpre
 import { traceError, traceInfo, traceWarn } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
 import { getActivePythonSessions, PythonRuntimeSession } from './session';
-import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
+import { createPythonRuntimeMetadata, pickerFolderUri, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
 import {
     EXTENSION_ROOT_DIR,
@@ -29,9 +29,10 @@ import {
 } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolder } from '../common/vscodeApis/workspaceApis';
 import {
     shouldIncludeInterpreter,
+    findInterpreterDefinitionPath,
     getInterpreterDefinitionPaths,
     getPinnedInterpreterPath,
     isDefinitionsOnlyDiscovery,
@@ -39,12 +40,16 @@ import {
 import { resolveInterpreterOnce, resolveInterpreterWithRetry } from './util';
 import { canBeModuleEnv, recommendWorkspaceRuntime } from './interpreterRecommendation';
 import { IInterpreterAutoSelectionService } from '../interpreter/autoSelection/types';
+import { scanWorkspace } from './workspaceScan';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import {
     pendingModuleRuntimeRegistrations,
     getEnvironmentModulesApi,
 } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { CondaPythonPickerContribution } from './condaPickerContribution';
+import { buildRankingContext, isOtherProjectEnv } from './interpreterRanking';
+import { IWorkspaceService } from '../common/application/types';
+import { PythonEnvironment } from '../pythonEnvironments/info';
 import {
     CreateVirtualEnvironmentPromptOutcome,
     promptToCreateVirtualEnvironment,
@@ -240,12 +245,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   same interpreter.
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
+        // An env made or deleted in a workspace folder changes what the ranking finds there.
+        // Read the folder again before core hears of it; the next ranking waits for this scan.
+        const madeOrDeletedPath = !event.old ? event.new?.path : !event.new ? event.old.path : undefined;
+        const folder = madeOrDeletedPath && getWorkspaceFolder(vscode.Uri.file(madeOrDeletedPath))?.uri.fsPath;
+        if (folder) {
+            scanWorkspace(folder, true);
+        }
         if (!event.old && event.new) {
-            await this.registerLanguageRuntimeFromPath(
-                event.new.path,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            await this.registerDiscoveredInterpreter(event.new);
         } else if (event.old && !event.new) {
             const deletedPath = event.old.path;
             // The interpreter can be back by the time this runs: a delete reported late, after
@@ -253,11 +261,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // recreated it and maybe started a session on it. Handle that like a change in
             // place, keeping sessions on the runtime now at the path, so the new session survives.
             const current = (await fs.pathExists(deletedPath))
-                ? await this.registerLanguageRuntimeFromPath(
-                      deletedPath,
-                      /* recreateRuntime */ false,
-                      /* forceRefresh */ true,
-                  )
+                ? await this.registerDiscoveredInterpreter(event.old)
                 : undefined;
             if (current) {
                 traceInfo(`Interpreter ${deletedPath} was deleted and is back; keeping its current runtime's sessions`);
@@ -268,11 +272,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             await this.shutdownSessionsForPath(deletedPath, 'deleted interpreter');
         } else if (event.old && event.new && event.old.path !== event.new.path) {
             this.unregisterRuntimeForPath(event.old.path);
-            await this.registerLanguageRuntimeFromPath(
-                event.new.path,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            await this.registerDiscoveredInterpreter(event.new);
         } else if (event.old && event.new) {
             const changedPath = event.new.path;
             const oldVersion = event.old.version;
@@ -285,15 +285,37 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 return;
             }
             traceInfo(`Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw})`);
-            const current = await this.registerLanguageRuntimeFromPath(
-                changedPath,
-                /* recreateRuntime */ false,
-                /* forceRefresh */ true,
-            );
+            const current = await this.registerDiscoveredInterpreter(event.new);
             if (current) {
                 await this.shutdownSessionsForPath(changedPath, 'replaced interpreter', current.runtimeId);
             }
         }
+    }
+
+    /**
+     * Register an interpreter reported by an environment change, re-checking its metadata.
+     * Skips another folder's project env, as discovery does, unless it is already
+     * registered (e.g. the user picked it).
+     */
+    private async registerDiscoveredInterpreter(
+        interpreter: PythonEnvironment,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        if (!this.registeredPythonRuntimes.has(interpreter.path)) {
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const context = await buildRankingContext(
+                this.serviceContainer,
+                pickerFolderUri(workspaceService, interpreter),
+            );
+            if (isOtherProjectEnv(interpreter, context)) {
+                traceInfo(`Not registering another folder's project env: ${interpreter.path}`);
+                return undefined;
+            }
+        }
+        return this.registerLanguageRuntimeFromPath(
+            interpreter.path,
+            /* recreateRuntime */ false,
+            /* forceRefresh */ true,
+        );
     }
 
     /**
@@ -433,7 +455,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!shouldIncludeInterpreter(pinnedPath)) {
             return undefined;
         }
-        if (isDefinitionsOnlyDiscovery() && !getInterpreterDefinitionPaths().includes(pinnedPath)) {
+        const definitionsOnly = isDefinitionsOnlyDiscovery();
+        const definedPath = definitionsOnly ? findInterpreterDefinitionPath(pinnedPath) : undefined;
+        if (definitionsOnly && !definedPath) {
             traceInfo(
                 `[pinnedWorkspaceRuntime] Pinned interpreter ${pinnedPath} is not in interpreters.definitions, and discovery is limited to it`,
             );
@@ -446,11 +470,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return undefined;
         }
         traceInfo(`[pinnedWorkspaceRuntime] Pinned interpreter: ${interpreter.path}`);
-        // Positron matches interpreters.definitions on the exact path, so keep the path as written there,
-        // as the recommendation does. Implicit, like a recommendation that doesn't start right away, so
-        // opening a Python file starts the pin.
+        // Use the definition's spelling, not the symlink target, so the pin is the same runtime (same ID)
+        // that the definition creates. Implicit, so opening a Python file starts the pin.
         return createPythonRuntimeMetadata(
-            isDefinitionsOnlyDiscovery() ? { ...interpreter, path: pinnedPath } : interpreter,
+            definedPath ? { ...interpreter, path: definedPath } : interpreter,
             this.serviceContainer,
             positron.LanguageRuntimeStartupBehavior.Implicit,
             { skipModuleWait: !canBeModuleEnv(interpreter.envType) },
@@ -757,9 +780,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         if (!interpreter) {
             throw new Error(`Failed to resolve interpreter ${resolvePath}; the environment may no longer be usable`);
         }
-        // Keep a definition's path as written, as discovery does, so its
-        // variants still match it.
-        const definitionPath = getInterpreterDefinitionPaths().includes(resolvePath);
+        // Keep a defined interpreter's saved path, not its symlink target: the
+        // runtime ID depends on the path, and the saved spelling is the one it
+        // was registered with.
+        const definitionPath = findInterpreterDefinitionPath(resolvePath) !== undefined;
         return createPythonRuntimeMetadata(
             definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
             this.serviceContainer,
@@ -849,6 +873,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         // Interpreters named in interpreters.definitions that discovery missed.
         // Positron hides these and shows only the variants created from the
         // definitions, so they are not saved with the discovered runtimes.
+        // Discovery stores paths as the interpreter reports them, and a
+        // definition may be written another way, so compare in the
+        // definitions' own spelling.
+        const registeredDefinitions = new Set(
+            [...this.registeredPythonRuntimes.keys()].map((registered) => findInterpreterDefinitionPath(registered)),
+        );
         for (const pythonPath of getInterpreterDefinitionPaths()) {
             if (!shouldIncludeInterpreter(pythonPath)) {
                 traceInfo(
@@ -856,7 +886,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 );
                 continue;
             }
-            if (this.registeredPythonRuntimes.has(pythonPath)) {
+            if (registeredDefinitions.has(pythonPath)) {
                 continue;
             }
             try {
@@ -869,9 +899,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     );
                     continue;
                 }
-                // Definitions match on the exact runtime path, so keep the path
-                // as written even if it resolves to another one (e.g. a python3
-                // symlink to python).
+                // Keep the path as written, not its symlink target (e.g. a
+                // python3 link to python), so it matches the definition.
                 const runtime = await createPythonRuntimeMetadata(
                     { ...interpreter, path: pythonPath },
                     this.serviceContainer,
@@ -894,6 +923,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         recreateRuntime?: boolean,
         forceRefresh?: boolean,
     ): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // Under definitionsOnly, the interpreter service can report a defined interpreter
+        // in its own spelling (PET normalizes the path when it resolves it). The runtime ID
+        // depends on the path, so keep the definition's spelling: another spelling is a
+        // second base, and Positron shows a second variant with the definition's label.
+        const definedPath = isDefinitionsOnlyDiscovery() ? findInterpreterDefinitionPath(pythonPath) : undefined;
+        if (definedPath) {
+            pythonPath = definedPath;
+        }
         const alreadyRegisteredRuntime = this.registeredPythonRuntimes.get(pythonPath);
         if (alreadyRegisteredRuntime && !recreateRuntime && !forceRefresh) {
             // Fast path: a runtime is already registered for this path and the
@@ -917,7 +954,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
-            const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer);
+            const newRuntime = await createPythonRuntimeMetadata(
+                definedPath ? { ...interpreter, path: definedPath } : interpreter,
+                this.serviceContainer,
+            );
             // On a forceRefresh, if the resolved runtime matches what's already
             // registered for this path, there's nothing to do. If it differs (e.g.
             // the real version supersedes a stale one from discovery),

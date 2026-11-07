@@ -44,7 +44,7 @@ _COMMAND = f"python {_FILE}" + " ".join(sys.argv[1:])
 
 
 def main(
-    requirement: str,
+    requirements: list[str],
     python_versions: List[str],
     output_dir: Path,
     max_rounds: int,
@@ -58,14 +58,16 @@ def main(
     )
 
     # Create the constraints, as they would usually be parsed from a requirements.in file.
-    install_req = InstallRequirement(
-        req=Requirement(requirement),
-        # The final requirements files will include this string as a comment, for example:
-        # '# comes from: python scripts/pip-compile-ipykernel.py'.
-        comes_from=_COMMAND,
-        user_supplied=True,
-    )
-    constraints = [install_req]
+    constraints = [
+        InstallRequirement(
+            req=Requirement(requirement),
+            # The final requirements files will include this string as a comment, for example:
+            # '# comes from: python scripts/pip-compile-ipykernel.py'.
+            comes_from=_COMMAND,
+            user_supplied=True,
+        )
+        for requirement in requirements
+    ]
 
     # NOTE: If we want to take existing requirements.txt file(s) into account, we need to
     #       set this from the existing file, see piptools.script.compile:cli.
@@ -316,7 +318,15 @@ def write_output(
 
 if __name__ == "__main__":
     main(
-        requirement="ipykernel",
+        requirements=[
+            # ipykernel 7.0-7.3 can stop reading shell requests (ipython/ipykernel#1554). The
+            # fix is in 7.4, which needs Python 3.11; this bundle must also support 3.10.
+            "ipykernel<7",
+            # The bundle is added to the kernel's PYTHONPATH, so it shadows the user's own
+            # packages. python-dateutil 3 changes time zone behavior, and common libraries
+            # (e.g. botocore) require python-dateutil<3.
+            "python-dateutil<3",
+        ],
         python_versions=["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"],
         output_dir=Path("./python_files/ipykernel_requirements/"),
         max_rounds=10,
