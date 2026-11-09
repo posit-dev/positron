@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IExtensionManagementService } from '../common/extensionManagement.js';
+import { areSameExtensions } from '../common/extensionManagementUtil.js';
 import { IExtensionManifest } from '../../extensions/common/extensions.js';
 import { URI } from '../../../base/common/uri.js';
 import { join } from '../../../base/common/path.js';
@@ -144,7 +145,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 				const vsixManifest: IExtensionManifest = await this.extensionManagementService.getManifest(vsix.resource);
 				const extensionId = vsixManifest.publisher + '.' + vsixManifest.name;
 
-				const installedExtension = installedExtensions.find(e => e.identifier.id === extensionId);
+				const installedExtension = installedExtensions.find(e => areSameExtensions(e.identifier, { id: extensionId }));
 				if (installedExtension) {
 					const installedVersion = installedExtension.manifest.version;
 					if (!this.isVSIXNewer(installedVersion, vsixManifest.version)) {

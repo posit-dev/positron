@@ -27,7 +27,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       install_mode:
         required: false
         description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
@@ -95,8 +95,8 @@ jobs:
 
     env:
       POSITRON_BUILD_NUMBER: 0
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
@@ -165,18 +165,15 @@ jobs:
           REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
           REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      # Redshift workgroup used by the data-connections e2e tests).
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: 'true'
 
       - name: Write license files
         run: |
@@ -257,7 +254,7 @@ jobs:
             $GREP_INVERT_ARG
 
       - name: Upload HTML report to S3
-        if: always()
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -265,13 +262,17 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-workbench-${{ inputs.os }}-logs-${{ matrix.shard.name }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
       - name: Stop Docker containers
         if: always()

@@ -55,7 +55,8 @@ test.describe('Interpreter Startup - Auto', {
 		await fs.promises.writeFile(path.join(folder, 'main.py'), 'x = 1\n');
 		await openFile('main.py');
 
-		await expectSingleSession(app, { name: PYTHON_NAME, startReasonId: 'languageFileOpened' });
+		// A packaged build can register Python after the file opens, which is the AtRegistration reason.
+		await expectSingleSession(app, { name: PYTHON_NAME, startReasonId: /^languageFileOpened(AtRegistration)?$/ });
 	});
 
 	test('The interpreter used last starts on the next open, until its console is closed', async function ({ app }) {

@@ -45,11 +45,15 @@ runs:
             console.log(specs.join(" "));
           ' "$@"
         }
+        # tsx and yauzl: the secret scan (reporter and CLI) needs them; without
+        # them the scan cannot load and every upload stays blocked.
         ROOT_DEPS=$(lockedSpecs \
           @playwright/test \
-          @midleman/playwright-reporter \
+          @posit-dev/playwright-reporter \
           @midleman/github-actions-reporter \
-          @vscode/v8-heap-parser)
+          @vscode/v8-heap-parser \
+          tsx \
+          yauzl)
         TS_SPEC=$(lockedSpecs typescript)
 
         # Must remove root package.json and provide simple stub to use root dir for test run but not build

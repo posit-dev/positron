@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { screen } from '@testing-library/react';
 import * as marked from '../../../../../base/common/marked/marked.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
@@ -20,7 +18,9 @@ describe('TokenMarkdownRenderer', () => {
 		// Use marked.lexer directly: KaTeX/superscript/footnote extensions are
 		// only relevant for content that triggers them, and our fixtures are
 		// plain CommonMark.
-		const tokens = marked.lexer(content);
+		// Same cast as renderNotebookMarkdown: marked's TokensList includes
+		// generic tokens that the renderer's ExtendedToken union does not name.
+		const tokens = marked.lexer(content) as Parameters<TokenMarkdownRenderer['render']>[0];
 		const renderer = new TokenMarkdownRenderer(
 			stubInterface<IExtensionService>({}),
 			stubInterface<ILanguageService>({}),

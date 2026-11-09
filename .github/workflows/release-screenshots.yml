@@ -211,6 +211,15 @@ jobs:
         with:
           identifier: release-screenshots-${{ env.MODE }}
 
+      # The upload scan fails closed without a canary. Set it here so the tests
+      # and the scan share one value.
+      - name: Plant the leak canary
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(node -e 'console.log(crypto.randomUUID())')"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # Wait for bundled extensions (quarto, air, etc.) to finish bootstrapping
       # so language-aware screenshots have the full set of languages and
       # completions available. Mirrors the bootstrap step in the e2e workflows.
@@ -233,9 +242,6 @@ jobs:
           POSIT_PASSWORD: ${{ env.POSIT_PASSWORD }}
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
-          # Keep Playwright traces for every test (pass or fail) — debugging
-          # screenshot drift after the fact is much easier with a trace.
-          PW_TRACE: 'on'
           # CDP setDeviceMetricsOverride forces the renderer to lay out at
           # this size internally regardless of OS window clamping. Same 8:5
           # aspect ratio as the historical 1680x1050 config but scaled down
@@ -248,14 +254,6 @@ jobs:
           SKIP_BOOTSTRAP: 'true'
           SKIP_CLONE: 'true'
         run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
-
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        continue-on-error: true
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
 
       - name: Compare and report
         id: compare
@@ -270,15 +268,30 @@ jobs:
             "$RUNNER_TEMP/positron-website/images" \
             "$RUNNER_TEMP/classification.json"
 
+      # Everything below uploads these paths (S3, artifacts, the docs-site PR),
+      # so scan them first and upload only if the scan passed.
+      - name: Scan the upload set for secrets
+        id: secret-scan
+        if: always()
+        run: npx tsx test/e2e/scripts/scan-for-secrets.ts test/e2e/release-screenshots/output test-results playwright-report
+
+      - name: Upload Playwright Report to S3
+        if: ${{ (success() || failure()) && steps.secret-scan.outcome == 'success' }}
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
       - name: Upload generated screenshots to S3
-        if: ${{ success() || failure() }}
+        if: ${{ (success() || failure()) && steps.secret-scan.outcome == 'success' }}
         run: |
           aws s3 cp test/e2e/release-screenshots/output/ \
             "s3://positron-test-reports/${REPORT_DIR}/screenshots/" \
             --recursive
 
       - name: Upload generated screenshots
-        if: always()
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MODE }}-screenshots
@@ -286,7 +299,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload Playwright traces and test-results
-        if: always()
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MODE }}-test-results
@@ -294,7 +307,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Playwright HTML report
-        if: always()
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.MODE }}-playwright-report
@@ -311,7 +324,9 @@ jobs:
           NEW="${{ steps.compare.outputs.new_count }}"
           TOTAL=$((CHANGED + NEW))
           echo "changed=$CHANGED new=$NEW total=$TOTAL"
-          if [[ "$TOTAL" -eq 0 ]]; then
+          if [[ "${{ steps.secret-scan.outcome }}" != "success" ]]; then
+            echo "decision=skip-secret-scan" >> "$GITHUB_OUTPUT"
+          elif [[ "$TOTAL" -eq 0 ]]; then
             echo "decision=skip-no-changes" >> "$GITHUB_OUTPUT"
           elif [[ "${{ inputs.open_pr }}" == "false" ]]; then
             echo "decision=skip-dry-run" >> "$GITHUB_OUTPUT"

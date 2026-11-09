@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // The test reads the real HTML file from disk, so it needs Node's fs.
 // eslint-disable-next-line local/code-import-patterns
 import { readFileSync } from 'fs';

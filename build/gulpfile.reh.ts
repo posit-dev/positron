@@ -9,11 +9,11 @@ import es from 'event-stream';
 import * as util from './lib/util.ts';
 import { getVersion } from './lib/getVersion.ts';
 import * as task from './lib/gulp/task.ts';
-import * as optimize from './lib/optimize.ts';
 import { inlineMeta } from './lib/inlineMeta.ts';
+import { computeNLSMetadataHash } from './lib/nlsMetadata.ts';
 import product from '../product.json' with { type: 'json' };
 import { getProductionDependencies } from './lib/dependencies.ts';
-import { readISODate } from './lib/date.ts';
+import { readISODate, writeISODate } from './lib/date.ts';
 import vfs from 'vinyl-fs';
 import packageJson from '../package.json' with { type: 'json' };
 import { untar } from './lib/util.ts';
@@ -22,16 +22,20 @@ import * as fs from 'fs';
 import glob from 'glob';
 import { promisify } from 'util';
 import rceditCallback from 'rcedit';
-import { compileBuildWithManglingTask } from './gulpfile.compile.ts';
+// --- Start Positron ---
+// Do not import copyCodiconsTask. Positron maintains a custom codicon.ttf in the repo that
+// includes Positron-specific icons. Copying from the npm package would overwrite these.
+// import { compileApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
+import { compileApiProposalNamesTask } from './lib/compilation.ts';
+// --- End Positron ---
 import { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
-import { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } from './gulpfile.vscode.web.ts';
 import * as cp from 'child_process';
 import crypto from 'crypto';
 import log from 'fancy-log';
-import buildfile from './buildfile.ts';
+import { runEsbuildBundle, getBootstrapEntryPointsForTarget } from './lib/esbuild.ts';
 import { fetchUrls } from './lib/fetch.ts';
 import { downloadFeedPackage } from './lib/azureFeed.ts';
-import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getMxcExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
 import { readAgentSdkResults } from './agent-sdk/common.ts';
 
 
@@ -44,8 +48,6 @@ import { getQuartoBinaries } from './lib/quarto.ts';
 import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 // --- End Positron ---
 // --- Start PWB: build-time gzip compression ---
-// eslint-disable-next-line no-duplicate-imports
-import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import through2 from 'through2';
 import { gzip } from 'zlib';
 import { createBrowserFetchableTest } from './lib/pwbGzip.ts';
@@ -76,38 +78,7 @@ const BUILD_TARGETS = [
 	{ platform: 'linux', arch: 'alpine' },
 ];
 
-const serverResourceIncludes = [
-	// NLS
-	'out-build/nls.messages.json',
-	'out-build/nls.keys.json',
-
-	// Process monitor
-	'out-build/vs/base/node/cpuUsage.sh',
-	'out-build/vs/base/node/ps.sh',
-
-	// External Terminal
-	'out-build/vs/workbench/contrib/externalTerminal/**/*.scpt',
-
-	// Terminal shell integration
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.ps1',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/CodeTabExpansion.psm1',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/GitTabExpansion.psm1',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-env.zsh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-profile.zsh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
-];
-
 // --- Start PWB ---
-// Web resources including PWB-specific files (for reh-web-pwb builds)
-const pwbWebResourceIncludes = [
-	...serverResourceIncludes,
-	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
-];
-
 /**
  * Helper function to check if a build type is a web type.
  * @param type The build type to check
@@ -125,78 +96,26 @@ function isWebType(type: string): boolean {
 function isPwbWebType(type: string): boolean {
 	return type === 'reh-web-pwb';
 }
+
+// PWB-specific resources shipped only in reh-web-pwb builds, relative to src/
+const pwbWebResources = [
+	'vs/code/browser/workbench/rsLoginCheck.js',
+];
+
+/**
+ * Copies the PWB-specific web resources into an esbuild output folder.
+ * @param outDir The esbuild output folder, relative to the repository root
+ */
+function copyPwbWebResourcesTask(outDir: string) {
+	return async () => {
+		for (const resource of pwbWebResources) {
+			const destination = path.join(REPO_ROOT, outDir, resource);
+			await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+			await fs.promises.copyFile(path.join(REPO_ROOT, 'src', resource), destination);
+		}
+	};
+}
 // --- End PWB ---
-
-const serverResourceExcludes = [
-	'!out-build/vs/**/{electron-browser,electron-main,electron-utility}/**',
-	'!out-build/vs/editor/standalone/**',
-	'!out-build/vs/workbench/**/*-tb.png',
-	'!**/test/**'
-];
-
-const serverResources = [
-	...serverResourceIncludes,
-	...serverResourceExcludes
-];
-
-const serverWithWebResourceIncludes = [
-	...serverResourceIncludes,
-	'out-build/vs/code/browser/workbench/*.html',
-	...vscodeWebResourceIncludes
-];
-
-const serverWithWebResourceExcludes = [
-	...serverResourceExcludes,
-	'!out-build/vs/code/**/*-dev.html'
-];
-
-const serverWithWebResources = [
-	...serverWithWebResourceIncludes,
-	...serverWithWebResourceExcludes
-];
-
-// --- Start PWB ---
-// Server with web resources for reh-web-pwb (includes PWB-specific rsLoginCheck.js)
-const pwbServerWithWebResourceIncludes = [
-	...pwbWebResourceIncludes,
-	'out-build/vs/code/browser/workbench/*.html',
-	...vscodeWebResourceIncludes
-];
-
-const pwbServerWithWebResources = [
-	...pwbServerWithWebResourceIncludes,
-	...serverWithWebResourceExcludes
-];
-// --- End PWB ---
-
-const serverEntryPoints = buildfile.codeServer;
-
-const webEntryPoints = [
-	buildfile.workerEditor,
-	buildfile.workerExtensionHost,
-	buildfile.workerNotebook,
-	buildfile.workerLanguageDetection,
-	buildfile.workerLocalFileSearch,
-	buildfile.workerOutputLinks,
-	buildfile.workerBackgroundTokenization,
-	buildfile.keyboardMaps,
-	buildfile.codeWeb
-].flat();
-
-const serverWithWebEntryPoints = [
-
-	// Include all of server
-	...serverEntryPoints,
-
-	// Include all of web
-	...webEntryPoints,
-].flat();
-
-const bootstrapEntryPoints = [
-	'out-build/server-main.js',
-	'out-build/server-cli.js',
-	'out-build/bootstrap-fork.js'
-];
 
 function getNodeVersion() {
 	const npmrc = fs.readFileSync(path.join(REPO_ROOT, 'remote', '.npmrc'), 'utf8');
@@ -575,6 +494,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			.pipe(jsonEditor((json: Record<string, unknown>) => {
 				json.commit = commit;
+				json.nlsMetadataHash = computeNLSMetadataHash(path.join(REPO_ROOT, sourceFolderName), commit);
 				json.date = readISODate(sourceFolderName);
 				json.version = version;
 				// --- Start Positron ---
@@ -632,7 +552,6 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			.pipe(filter(getCopilotExcludeFilter(platform, arch)))
 			.pipe(filter(getCopilotTgrepExcludeFilter(platform, arch)))
 			.pipe(filter(getRipgrepExcludeFilter(platform, arch)))
-			.pipe(filter(getMxcExcludeFilter(arch)))
 			.pipe(jsFilter)
 			.pipe(util.stripSourceMappingURL())
 			.pipe(jsFilter.restore);
@@ -735,7 +654,7 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		}
 
 		result = inlineMeta(result, {
-			targetPaths: bootstrapEntryPoints,
+			targetPaths: getBootstrapEntryPointsForTarget(type === 'reh' ? 'server' : 'server-web').map(entry => `${entry}.js`),
 			packageJsonFn: () => packageJsonContents,
 			productJsonFn: () => productJsonContents
 		});
@@ -847,46 +766,17 @@ function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destin
 	};
 }
 
-/**
- * @param product The parsed product.json file contents
- */
-function tweakProductForServerWeb(product: typeof import('../product.json')) {
-	const result: typeof product & { webEndpointUrlTemplate?: string } = { ...product };
-	delete result.webEndpointUrlTemplate;
-	return result;
-}
-
 // --- Start PWB ---
 ['reh', 'reh-web', 'reh-web-pwb'].forEach(type => {
+	const target = type === 'reh' ? 'server' : 'server-web';
+	// reh-web-pwb bundles like reh-web, then adds the PWB-specific web resources (rsLoginCheck.js)
+	const esbuildBundleTask = task.define(`esbuild-vscode-${type}`, isPwbWebType(type)
+		? task.series(() => runEsbuildBundle(`out-vscode-${type}`, false, true, target), copyPwbWebResourcesTask(`out-vscode-${type}`))
+		: () => runEsbuildBundle(`out-vscode-${type}`, false, true, target));
+	const esbuildBundleMinTask = task.define(`esbuild-vscode-${type}-min`, isPwbWebType(type)
+		? task.series(() => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`), copyPwbWebResourcesTask(`out-vscode-${type}-min`))
+		: () => runEsbuildBundle(`out-vscode-${type}-min`, true, true, target, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`));
 	// --- End PWB ---
-	const bundleTask = task.define(`bundle-vscode-${type}`, task.series(
-		util.rimraf(`out-vscode-${type}`),
-		optimize.bundleTask(
-			{
-				out: `out-vscode-${type}`,
-				esm: {
-					src: 'out-build',
-					entryPoints: [
-						...(type === 'reh' ? serverEntryPoints : serverWithWebEntryPoints),
-						...bootstrapEntryPoints
-					],
-					// --- Start PWB ---
-					// reh-web-pwb uses pwbServerWithWebResources (includes rsLoginCheck.js for PWB)
-					// reh-web uses serverWithWebResources (no rsLoginCheck.js)
-					resources: type === 'reh' ? serverResources : (isPwbWebType(type) ? pwbServerWithWebResources : serverWithWebResources),
-					fileContentMapper: createVSCodeWebFileContentMapper(isWebType(type) ? '.build/web/extensions' : '.build/extensions', isWebType(type) ? tweakProductForServerWeb(product) : product)
-					// --- End PWB ---
-				}
-			}
-		)
-	));
-
-	const minifyTask = task.define(`minify-vscode-${type}`, task.series(
-		bundleTask,
-		util.rimraf(`out-vscode-${type}-min`),
-		optimize.minifyTask(`out-vscode-${type}`, `https://main.vscode-cdn.net/sourcemaps/${commit}/core`)
-	));
-	task.task(minifyTask);
 
 	BUILD_TARGETS.forEach(buildTarget => {
 		const dashed = (str: string) => (str ? `-${str}` : ``);
@@ -917,11 +807,12 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 			task.task(serverTaskCI);
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				// --- Start PWB ---
-				// Only mangle when minified is true. This matches the behavior of gulpfile.vscode:628.
-				// compileBuildWithManglingTask,
-				minified ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
-				// --- End PWB ---
+				// --- Start Positron ---
+				// copyCodiconsTask removed: Positron maintains a custom codicon.ttf in the repo with
+				// Positron-specific icons; copying from npm would overwrite them.
+				// copyCodiconsTask,
+				// --- End Positron ---
+				compileApiProposalNamesTask,
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileCopilotExtensionBuildTask,
@@ -929,7 +820,8 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				// --- Start Positron ---
 				copyExtensionBinariesTask,
 				// --- End Positron ---
-				minified ? minifyTask : bundleTask,
+				writeISODate('out-build'),
+				minified ? esbuildBundleMinTask : esbuildBundleTask,
 				serverTaskCI
 			));
 			task.task(serverTask);

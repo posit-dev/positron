@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Barrier, DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
@@ -40,7 +38,7 @@ import {
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
@@ -263,6 +261,11 @@ function startupTestContainer() {
 		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
 		.stub(INotificationService, new TestNotificationService())
 		.stub(IRuntimeDiscoveryCache, {});
+}
+
+/** Replaces one of the session service's events. The container is rebuilt for each test, so this doesn't leak. */
+function replaceEvent<K extends keyof IRuntimeSessionService>(service: IRuntimeSessionService, name: K, event: IRuntimeSessionService[K]): void {
+	Object.defineProperty(service, name, { value: event });
 }
 
 function makeBucket(opts: {
@@ -2127,6 +2130,218 @@ describe('RuntimeStartupService - getPreferredRuntime', () => {
 	});
 });
 
+describe('RuntimeStartupService - console in front', () => {
+
+	const ctx = startupTestContainer()
+		.build();
+
+	const uv = metadata({ runtimeId: 'python-uv' });
+	const pyenv = metadata({ runtimeId: 'python-pyenv' });
+
+	interface IConsole {
+		session: ILanguageRuntimeSession;
+		setState(state: RuntimeState): void;
+	}
+
+	/**
+	 * Creates the service with a stand-in for the session service's consoles: `createConsole` adds one (with an ID
+	 * already in use, it replaces that console, as an extension host restart does) and `bringToFront` brings one to
+	 * the front.
+	 */
+	function createService() {
+		const foreground = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
+		const stateChanges = ctx.disposables.add(new Emitter<ILanguageRuntimeSessionStateEvent>());
+		const sessions = new Map<string, ILanguageRuntimeSession>();
+		let inFront: ILanguageRuntimeSession | undefined;
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		replaceEvent(runtimeSessionService, 'onDidChangeForegroundSession', foreground.event);
+		replaceEvent(runtimeSessionService, 'onDidChangeRuntimeState', stateChanges.event);
+		vi.spyOn(runtimeSessionService, 'foregroundSession', 'get').mockImplementation(() => inFront);
+		vi.spyOn(runtimeSessionService, 'getSession').mockImplementation(id => sessions.get(id));
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		return {
+			svc,
+			createConsole: (runtime: ILanguageRuntimeMetadata, sessionId: string, sessionMode = LanguageRuntimeSessionMode.Console): IConsole => {
+				let state = RuntimeState.Idle;
+				const session = stubInterface<ILanguageRuntimeSession>({
+					sessionId,
+					runtimeMetadata: runtime,
+					metadata: stubInterface<IRuntimeSessionMetadata>({ sessionMode }),
+					getRuntimeState: () => state,
+				});
+				sessions.set(sessionId, session);
+				return {
+					session,
+					setState: newState => {
+						const oldState = state;
+						state = newState;
+						stateChanges.fire({ session_id: sessionId, old_state: oldState, new_state: newState });
+					},
+				};
+			},
+			bringToFront: (c: IConsole) => {
+				inFront = c.session;
+				foreground.fire(c.session);
+			},
+		};
+	}
+
+	it('does not save a console ended by exit() as the last used runtime when it comes back to the front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		// Start uv, then end it with exit(), which skips Exiting.
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		// Start pyenv, then delete its console, which shuts it down.
+		bringToFront(pyenvConsole);
+		pyenvConsole.setState(RuntimeState.Exiting);
+		pyenvConsole.setState(RuntimeState.Exited);
+		// The exited uv console comes back to the front.
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('does not save a console that is shutting down when it comes back to the front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(pyenvConsole);
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exiting);
+		bringToFront(pyenvConsole);
+		pyenvConsole.setState(RuntimeState.Exiting);
+		// The uv tab is clicked before it finishes shutting down.
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('keeps the running console saved when an exited console\'s tab is clicked', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		bringToFront(pyenvConsole);
+		bringToFront(uvConsole);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('saves a console ended by exit() once it is restarted in front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Exited);
+		bringToFront(pyenvConsole);
+		// Click the exited uv tab, then restart it. It is already in front, so
+		// nothing comes to the front.
+		bringToFront(uvConsole);
+		uvConsole.setState(RuntimeState.Starting);
+		uvConsole.setState(RuntimeState.Ready);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
+	it('does not save a manually started console restarted in front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const manual = { ...metadata({ runtimeId: 'python-manual' }), startupBehavior: LanguageRuntimeStartupBehavior.Manual };
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+		const manualConsole = createConsole(manual, 'session-manual');
+
+		bringToFront(pyenvConsole);
+		bringToFront(manualConsole);
+		manualConsole.setState(RuntimeState.Starting);
+		manualConsole.setState(RuntimeState.Ready);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('keeps the newer console saved when an older one on another interpreter is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		uvConsole.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('keeps the newer console saved when an older one on the same interpreter is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const older = createConsole(uv, 'session-uv');
+		const newer = createConsole(uv, 'session-uv-2');
+
+		bringToFront(older);
+		bringToFront(newer);
+		older.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
+	it('clears only the shut-down console\'s language when consoles for two languages were saved', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const r = metadata({ runtimeId: 'r-4', languageId: 'r' });
+		const rConsole = createConsole(r, 'session-r');
+		const uvConsole = createConsole(uv, 'session-uv');
+
+		bringToFront(rConsole);
+		bringToFront(uvConsole);
+		rConsole.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('r')?.runtimeId).toBeUndefined();
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+
+	it('does not save a console restarted behind the one in front', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const uvConsole = createConsole(uv, 'session-uv');
+		const pyenvConsole = createConsole(pyenv, 'session-pyenv');
+
+		bringToFront(uvConsole);
+		bringToFront(pyenvConsole);
+		// An extension host restart reconnects every console, not just the one in front.
+		uvConsole.setState(RuntimeState.Starting);
+		uvConsole.setState(RuntimeState.Ready);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(pyenv.runtimeId);
+	});
+
+	it('forgets the runtime when a notebook that was in front shuts down', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const notebook = createConsole(uv, 'session-notebook', LanguageRuntimeSessionMode.Notebook);
+		bringToFront(notebook);
+
+		notebook.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBeUndefined();
+	});
+
+	it('keeps the console saved when another console on the same interpreter is deleted', () => {
+		const { svc, createConsole, bringToFront } = createService();
+		const inUse = createConsole(uv, 'session-uv');
+		inUse.setState(RuntimeState.Ready);
+		bringToFront(inUse);
+
+		// A second uv console, started in the background, is deleted.
+		const background = createConsole(uv, 'session-uv-2');
+		background.setState(RuntimeState.Ready);
+		background.setState(RuntimeState.Exiting);
+
+		expect(svc.getAffiliatedRuntimeMetadata('python')?.runtimeId).toBe(uv.runtimeId);
+	});
+});
+
 describe('RuntimeStartupService - hasLanguageRuntimeProvider', () => {
 
 	const ctx = startupTestContainer()
@@ -2851,6 +3066,8 @@ describe('RuntimeStartupService - startup sequence', () => {
 		foregroundChanges?: Event<ILanguageRuntimeSession | undefined>;
 		/** Fires when a session starts, in place of the session service's own event. */
 		runtimeStarts?: Event<ILanguageRuntimeSession>;
+		/** Fires when a session's state changes, in place of the session service's own event. */
+		stateChanges?: Event<ILanguageRuntimeSessionStateEvent>;
 		/** Runs when the interpreter search starts, before it finds anything. */
 		beforeSearch?: () => Promise<void>;
 		/**
@@ -2957,11 +3174,13 @@ describe('RuntimeStartupService - startup sequence', () => {
 			consoleLanguageIds.size > 0 ? stubInterface<ILanguageRuntimeSession>() : undefined);
 
 		if (options.foregroundChanges) {
-			// The container is rebuilt for each test, so this doesn't leak.
-			Object.defineProperty(runtimeSessionService, 'onDidChangeForegroundSession', { value: options.foregroundChanges });
+			replaceEvent(runtimeSessionService, 'onDidChangeForegroundSession', options.foregroundChanges);
 		}
 		if (options.runtimeStarts) {
-			Object.defineProperty(runtimeSessionService, 'onDidStartRuntime', { value: options.runtimeStarts });
+			replaceEvent(runtimeSessionService, 'onDidStartRuntime', options.runtimeStarts);
+		}
+		if (options.stateChanges) {
+			replaceEvent(runtimeSessionService, 'onDidChangeRuntimeState', options.stateChanges);
 		}
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
@@ -3477,20 +3696,28 @@ describe('RuntimeStartupService - startup sequence', () => {
 			// front. The pin check answers after that, so old R stays saved.
 			const lateAnswer = new DeferredPromise<ILanguageRuntimeMetadata | undefined>();
 			const foreground = ctx.disposables.add(new Emitter<ILanguageRuntimeSession | undefined>());
-			const runtimeState = ctx.disposables.add(new Emitter<RuntimeState>());
+			const stateChanges = ctx.disposables.add(new Emitter<ILanguageRuntimeSessionStateEvent>());
 			const { service } = await runStartupSequence({
 				languages: [{ ...rLanguage, discovered: [oldR], affiliated: affiliatedR }],
 				startupBehavior: { default: LanguageStartupBehavior.Auto },
 				manager: { pinnedWorkspaceRuntime: () => lateAnswer.p },
 				reconnected: [oldR],
 				foregroundChanges: foreground.event,
+				stateChanges: stateChanges.event,
 			});
-			foreground.fire(stubInterface<ILanguageRuntimeSession>({ runtimeMetadata: oldR, onDidChangeRuntimeState: runtimeState.event }));
+			const rConsole = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-0',
+				runtimeMetadata: oldR,
+				metadata: stubInterface<IRuntimeSessionMetadata>({ sessionMode: LanguageRuntimeSessionMode.Console }),
+				getRuntimeState: () => RuntimeState.Idle,
+			});
+			vi.spyOn(ctx.get(IRuntimeSessionService), 'getSession').mockImplementation(id => id === 'session-0' ? rConsole : undefined);
+			foreground.fire(rConsole);
 			await lateAnswer.complete(pinnedR);
 			await timeout(0);
 
 			// The user shuts down old R, which removes the saved affiliation.
-			runtimeState.fire(RuntimeState.Exiting);
+			stateChanges.fire({ session_id: 'session-0', old_state: RuntimeState.Idle, new_state: RuntimeState.Exiting });
 
 			expect({
 				affiliated: service.getAffiliatedRuntimeMetadata('r')?.runtimeId,

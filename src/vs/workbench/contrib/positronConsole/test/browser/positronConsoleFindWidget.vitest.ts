@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -26,16 +24,17 @@ class TestableConsoleFindWidget extends PositronConsoleFindWidget {
 		this._onFindInputFocusTrackerBlur();
 	}
 
+	// The option toggles go through the public find state, which syncs the (private) find input.
 	setCaseSensitive(value: boolean) {
-		this._findInput.setCaseSensitive(value);
+		this.state.change({ matchCase: value }, false);
 	}
 
 	setWholeWords(value: boolean) {
-		this._findInput.setWholeWords(value);
+		this.state.change({ wholeWord: value }, false);
 	}
 
 	setRegex(value: boolean) {
-		this._findInput.setRegex(value);
+		this.state.change({ isRegex: value }, false);
 	}
 }
 

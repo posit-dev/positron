@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import React from 'react';
 import { screen } from '@testing-library/react';
 import { mainWindow } from '../../../../../../base/browser/window.js';
@@ -35,7 +33,6 @@ function mockAction(id: string, label: string, iconId?: string): MenuItemAction 
 			icon: iconId ? ThemeIcon.fromId(iconId) : undefined,
 		},
 		run: () => Promise.resolve(),
-		dispose: () => { },
 	});
 }
 

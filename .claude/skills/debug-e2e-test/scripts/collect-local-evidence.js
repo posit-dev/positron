@@ -377,8 +377,13 @@ async function main() {
 	let report;
 	let traceError = null;
 	try {
-		const tracePath = await extractTrace(path.join(selectedPath, TRACE_NAME), traceDir);
-		report = parseTraceReport(runNode(analyzerScript('e2e-parse-trace.js'), [tracePath, '--last', '120']));
+		if (fs.existsSync(path.join(selectedPath, TRACE_NAME))) {
+			const tracePath = await extractTrace(path.join(selectedPath, TRACE_NAME), traceDir);
+			report = parseTraceReport(runNode(analyzerScript('e2e-parse-trace.js'), [tracePath, '--last', '120']));
+		} else {
+			// Traces are off by default when CI=true; error-context.md and the logs still say a lot.
+			report = { timeline: ['(no trace: CI=true turns traces off; rerun with E2E_TRACES=on for one)'], errors: [] };
+		}
 	} catch (err) {
 		traceError = err;
 	} finally {

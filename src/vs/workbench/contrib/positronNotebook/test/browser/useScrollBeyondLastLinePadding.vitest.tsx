@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { act, screen } from '@testing-library/react';
 import { IObservable, observableValue } from '../../../../../base/common/observable.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';

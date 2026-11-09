@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { checkBootstrapExtensionVersion, compareSemver, IGalleryVersion, satisfiesPositronEngine, selectLatestVersion } from '../../common/positronBootstrapExtensionVersions.js';
 
 // Fixtures are trimmed from PPM gallery extensionquery responses recorded on

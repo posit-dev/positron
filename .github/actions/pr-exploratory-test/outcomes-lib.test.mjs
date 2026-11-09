@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -95,6 +95,9 @@ test('decideOutcome: a yes in the PR wins, then a yes later', () => {
 
 test('decideOutcome: open PRs are pending; merged with no yes is not fixed at once', () => {
 	assert.equal(decideOutcome({ ...base, prState: 'open' }).outcome, 'pending');
+	assert.equal(decideOutcome({ ...base, prState: 'open', laterChecks: [issue('open')] }).outcome, 'pending');
+	assert.equal(decideOutcome({ ...base, prState: 'open', inherited: true, laterChecks: [issue('open')] }).outcome, 'filed-issue');
+	assert.equal(decideOutcome({ ...base, prState: 'open', inherited: true, laterChecks: [issue('open', 'no')] }).outcome, 'pending');
 	assert.deepEqual(decideOutcome({ ...base, prCheck: no('commit abc') }), { outcome: 'not-fixed', decidedBy: 'merged-no-fix', evidence: 'commit abc: unrelated' });
 });
 
@@ -422,4 +425,46 @@ test('outcomeFindings takes the confirmed findings, less the ones the page liste
 	assert.deepEqual(outcomeFindings(report, { demoted: [{ finding: 2, issue: 16634 }] }).map(f => f.n), [1]);
 	// A run from before stats.json, or before it recorded demotions, keeps every confirmed finding.
 	assert.deepEqual(outcomeFindings(report, null).map(f => f.n), [1, 2]);
+});
+
+test('replyKey is the same for the same model and prompt, and differs when either changes', () => {
+	assert.equal(replyKey('opus', 'p'), replyKey('opus', 'p'));
+	assert.notEqual(replyKey('opus', 'p'), replyKey('opus', 'q'));
+	assert.notEqual(replyKey('opus', 'p'), replyKey('sonnet', 'p'));
+});
+
+test('savedReplies merges every row\'s replies and skips rows with none', () => {
+	const saved = savedReplies([{ replies: { a: 'yes. Fixed.' } }, {}, { replies: { b: 'no. Not it.' } }]);
+	assert.deepEqual([...saved], [['a', 'yes. Fixed.'], ['b', 'no. Not it.']]);
+});
+
+test('mapLimit keeps input order and never runs more than the limit at once', async () => {
+	let running = 0;
+	let most = 0;
+	const out = await mapLimit([30, 10, 20, 5, 15], 2, async ms => {
+		most = Math.max(most, ++running);
+		await new Promise(r => setTimeout(r, ms));
+		running--;
+		return ms * 2;
+	});
+	assert.deepEqual(out, [60, 20, 40, 10, 30]);
+	assert.equal(most, 2);
+});
+
+test('shippedVia reads a closed PR as merged once the PR its commits went into merged', () => {
+	const closed = { number: 16866, state: 'closed', merged_at: null, merge_commit_sha: null, closed_at: '2026-10-27' };
+	const shipped = shippedVia(closed, { merged_at: '2026-10-29', merge_commit_sha: 'abc' });
+	assert.deepEqual([shipped.number, shipped.merged_at, shipped.merge_commit_sha], [16866, '2026-10-29', 'abc']);
+	assert.equal(shippedVia(closed, { merged_at: null }), closed);
+	assert.equal(shippedVia(closed, undefined), closed);
+});
+
+test('findingOrigin marks an inherited finding whose duplicate the PR closes as a fix that didn\'t hold', () => {
+	const dupe = { known: [17021], dupes: [{ issue: 17021, why: 'same symptom' }] };
+	assert.equal(findingOrigin('inherited', dupe, [17021]), 'target');
+	assert.equal(findingOrigin('inherited', dupe, [17000]), 'inherited');
+	assert.equal(findingOrigin('introduced', dupe, [17021]), 'introduced');
+	assert.equal(findingOrigin(null, dupe, [17021]), null);
+	// Related but a different bug: known, not a duplicate.
+	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'inherited');
 });

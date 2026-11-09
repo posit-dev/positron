@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { isColorThemeVisibleInPicker } from '../../browser/positronColorThemeFilter.js';
 
 const upstreamVisualStudioLight = 'vs vscode-theme-defaults-themes-light_vs-json';

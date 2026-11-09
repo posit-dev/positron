@@ -2,7 +2,6 @@
  *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-/// <reference types="vitest/globals" />
 
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { DOCS_MAX_CHECKSUM_BYTES, DOCS_MAX_DOWNLOAD_BYTES, IDocsBundleRequest } from '../../common/positronDocsBundle.js';

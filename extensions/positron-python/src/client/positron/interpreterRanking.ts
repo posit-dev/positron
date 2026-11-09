@@ -12,6 +12,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { getSearchPathEntries } from '../common/utils/exec';
 import { getUserHomeDir } from '../common/utils/platform';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { IActivatedEnvironmentLaunch } from '../interpreter/contracts';
@@ -36,7 +37,10 @@ import {
     normCasePath,
 } from '../pythonEnvironments/common/externalDependencies';
 import { getCondaEnvDirs } from '../pythonEnvironments/common/environmentManagers/conda';
-import { getGlobalEnvironmentDir } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
+import {
+    getGlobalEnvironmentDir,
+    getGlobalEnvironmentParent,
+} from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getPyenvVersionsDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import { getUvPythonInstallDirs } from './discoveryRootSignature';
@@ -47,7 +51,7 @@ import {
     isDefinitionsOnlyDiscovery,
     resolveDefaultInterpreterPath,
 } from './interpreterSettings';
-import { isProjectEnvironment, ProjectEnvironment, scanWorkspace } from './workspaceScan';
+import { ENV_DIR_NAMES, isProjectEnvironment, ProjectEnvironment, scanWorkspace } from './workspaceScan';
 
 /** Ranking tiers, best first. */
 export enum Tier {
@@ -88,6 +92,15 @@ export interface RankingContext {
      * so only the root project env and envs one level down count as the folder's own.
      */
     homeInsideWorkspace: boolean;
+    /**
+     * Folders whose env folders are the user's own, not a project's: home (`~/.venv`,
+     * `~/.pixi/envs/*`), `$WORKON_HOME` and `~/.virtualenvs`. Each also by its real path.
+     */
+    userEnvParents: string[];
+    /** The home folder, as given and by real path. */
+    homeDirs: string[];
+    /** The folders on `PATH`. */
+    searchPathDirs: string[];
     activatedEnvPrefix: string | undefined;
     definitionPaths: string[];
     definitionsOnly: boolean;
@@ -190,19 +203,48 @@ export function isPyenvVirtualenv(interpreter: PythonEnvironment): boolean {
 }
 
 /**
- * Whether this is a conda env created with `--prefix` for some project, reached here
- * only when it isn't this folder's. Such an env has no name and is outside conda's
- * env dirs; a named env can also have no name, when PET didn't report one.
+ * Whether this is the env of another project under home, not one inside this folder
+ * (`isWorkspaceEnv`) or on `PATH`. Envs outside home, often shared (`/opt/venv`), stay listed.
+ * - a conda env created with `--prefix`. It has no name and is outside conda's env dirs;
+ *   a named env can also have no name, when PET didn't report one.
+ * - an env folder a project keeps at its root (`ENV_DIR_NAMES`, `.pixi/envs/*`), unless
+ *   it is in one of `userEnvParents`. A pyenv virtualenv can have these names too.
  */
-function isOtherFolderCondaPrefixEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
-    const { envPath } = interpreter;
-    return (
-        interpreter.envType === EnvironmentType.Conda &&
-        !interpreter.envName &&
-        !!envPath &&
-        path.basename(path.dirname(envPath)) !== 'envs' &&
-        !context.condaEnvDirs.some((dir) => isUnder(envPath, dir))
-    );
+function isOtherFolderProjectEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+    if (
+        isWorkspaceEnv(interpreter, context) ||
+        !context.homeDirs.some((dir) => isUnder(interpreter.path, dir)) ||
+        context.searchPathDirs.some((dir) => samePath(path.dirname(interpreter.path), dir))
+    ) {
+        return false;
+    }
+    if (interpreter.envType === EnvironmentType.Conda) {
+        const { envPath } = interpreter;
+        return (
+            !!envPath &&
+            !interpreter.envName &&
+            path.basename(path.dirname(envPath)) !== 'envs' &&
+            !context.condaEnvDirs.some((dir) => isUnder(envPath, dir))
+        );
+    }
+    // PET reports `envPath` as the executable for envs other than conda, so use the prefix.
+    const envDir = interpreter.sysPrefix || path.dirname(path.dirname(interpreter.path));
+    const parent = path.dirname(envDir);
+    const isPixi = path.basename(parent) === 'envs' && path.basename(path.dirname(parent)) === '.pixi';
+    if (!isPixi && !ENV_DIR_NAMES.includes(path.basename(envDir))) {
+        return false;
+    }
+    // The folder that keeps the env: `<folder>/.venv` or `<folder>/.pixi/envs/<name>`.
+    const owner = isPixi ? path.dirname(path.dirname(parent)) : parent;
+    return !context.userEnvParents.some((dir) => samePath(owner, dir)) && !isPyenvVirtualenv(interpreter);
+}
+
+/**
+ * Whether the picker hides this interpreter: another folder's project env that nothing
+ * names (the activated env, `python.defaultInterpreterPath`, or a setting).
+ */
+export function isOtherProjectEnv(interpreter: PythonEnvironment, context: RankingContext): boolean {
+    return isOtherFolderProjectEnv(interpreter, context) && tierOf(interpreter, context) === undefined;
 }
 
 /** Whether this is a base Python installed by `uv python install`. */
@@ -314,7 +356,7 @@ export function tierOf(interpreter: PythonEnvironment, context: RankingContext):
         return Tier.PositronDefaultEnv;
     }
     // Another folder's project env: never recommended unless a setting names it (above).
-    if (isOtherFolderCondaPrefixEnv(interpreter, context)) {
+    if (isOtherFolderProjectEnv(interpreter, context)) {
         return undefined;
     }
     if (
@@ -464,6 +506,22 @@ async function containsHome(folder: string): Promise<boolean> {
     return isParentPath(realHome, realFolder);
 }
 
+/** `homeDirs`: home, as given and by real path. */
+async function findHomeDirs(): Promise<string[]> {
+    const home = getUserHomeDir();
+    return home ? [...new Set([home, await canonicalizePath(home)])] : [];
+}
+
+/** `userEnvParents`: home, `$WORKON_HOME` and `~/.virtualenvs`, as given and by real path. */
+async function findUserEnvParents(): Promise<string[]> {
+    const home = getUserHomeDir();
+    const dirs = [home, getGlobalEnvironmentParent(), home ? path.join(home, '.virtualenvs') : undefined].filter(
+        (dir): dir is string => !!dir,
+    );
+    const realDirs = await Promise.all(dirs.map((dir) => canonicalizePath(dir)));
+    return [...new Set([...dirs, ...realDirs])];
+}
+
 /**
  * Gather the settings, environment and workspace facts the ranking reads. This is
  * the only place they are read; it scans the folder and never selects or writes an
@@ -474,14 +532,19 @@ export async function buildRankingContext(
     serviceContainer: IServiceContainer,
     workspaceUri: vscode.Uri | undefined,
 ): Promise<RankingContext> {
-    const [scan, activatedEnvPrefix, homeInsideWorkspace] = await Promise.all([
+    const [scan, activatedEnvPrefix, homeInsideWorkspace, userEnvParents, homeDirs] = await Promise.all([
         workspaceUri ? scanWorkspace(workspaceUri.fsPath) : undefined,
         serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch).getActivatedEnvPrefix(),
         workspaceUri ? containsHome(workspaceUri.fsPath) : false,
+        findUserEnvParents(),
+        findHomeDirs(),
     ]);
     return {
         workspacePath: workspaceUri?.fsPath,
         homeInsideWorkspace,
+        userEnvParents,
+        homeDirs,
+        searchPathDirs: getSearchPathEntries(),
         activatedEnvPrefix,
         definitionPaths: getInterpreterDefinitionPaths(),
         definitionsOnly: isDefinitionsOnlyDiscovery(),

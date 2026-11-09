@@ -346,23 +346,10 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 			cellEntry.source = source;
 		}
 
-		// Filter out the data and object explorer MIME types before caching.
-		// The explorers require a live runtime connection that won't exist when
-		// restoring from cache; text/plain is kept as the fallback.
-		// When data explorer is present, also strip text/html since it is
-		// typically a stub (e.g. "Hello, world!") and not the real content;
-		// text/plain contains the actual data frame representation.
-		const hasDataExplorer = output.items?.some(
-			item => item.mime === DATA_EXPLORER_MIME_TYPE
-		);
-		const filteredItems = output.items?.filter(
-			item => item.mime !== DATA_EXPLORER_MIME_TYPE &&
-				item.mime !== OBJECT_EXPLORER_MIME_TYPE &&
-				!(hasDataExplorer && item.mime === 'text/html')
-		);
+		const filteredItems = this._cacheableItems(output);
 
 		// If filtering removed all items, skip saving this output entirely
-		if (!filteredItems || filteredItems.length === 0) {
+		if (filteredItems.length === 0) {
 			return;
 		}
 
@@ -374,6 +361,43 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		this.markDirty(documentUri);
 
 		this._logService.debug('[QuartoOutputCacheService] Saved output for cell', cellId, 'in', documentUri.toString());
+	}
+
+	replaceOutput(documentUri: URI, cellId: string, output: ICellOutput): void {
+		const entry = this._documentCaches.get(documentUri.toString());
+		const cellEntry = entry?.cells.get(cellId);
+		const index = cellEntry?.outputs.findIndex(o => o.outputId === output.outputId) ?? -1;
+		if (!entry || !cellEntry || index === -1) {
+			return;
+		}
+
+		const filteredItems = this._cacheableItems(output);
+		if (filteredItems.length === 0) {
+			cellEntry.outputs.splice(index, 1);
+		} else {
+			cellEntry.outputs[index] = { ...output, items: filteredItems };
+		}
+		entry.lastUpdated = Date.now();
+		this.markDirty(documentUri);
+	}
+
+	/**
+	 * The output items that can be cached. The data and object explorer MIME
+	 * types are dropped: the explorers require a live runtime connection that
+	 * won't exist when restoring from cache, and text/plain is kept as the
+	 * fallback. When a data explorer is present, text/html is dropped too,
+	 * since it is typically a stub (e.g. "Hello, world!") and not the real
+	 * content; text/plain contains the actual data frame representation.
+	 */
+	private _cacheableItems(output: ICellOutput): ICellOutputItem[] {
+		const hasDataExplorer = output.items?.some(
+			item => item.mime === DATA_EXPLORER_MIME_TYPE
+		);
+		return output.items?.filter(
+			item => item.mime !== DATA_EXPLORER_MIME_TYPE &&
+				item.mime !== OBJECT_EXPLORER_MIME_TYPE &&
+				!(hasDataExplorer && item.mime === 'text/html')
+		) ?? [];
 	}
 
 	clearCellOutputs(documentUri: URI, cellId: string): void {

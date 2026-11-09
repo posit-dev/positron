@@ -13,11 +13,23 @@ import { DEFAULT_EDITOR_ASSOCIATION } from '../../../../common/editor.js';
 import { DiffEditorInput } from '../../../../common/editor/diffEditorInput.js';
 import { EditorResolverService } from '../../browser/editorResolverService.js';
 import { IEditorGroupsService } from '../../common/editorGroupsService.js';
-import { diffEditorsAssociationsAgentsWindowDefault, EditorInputFactoryObject, EditorMatchRuleSource, EditorMatches, IEditorResolverService, ResolvedStatus, RegisteredEditorPriority, diffEditorsAssociationsSettingId, editorsAssociationsSettingId } from '../../common/editorResolverService.js';
+import { diffEditorsAssociationsAgentsWindowDefault, EditorInputFactoryObject, EditorMatchRuleSource, EditorMatches, IEditorResolverService, ResolvedStatus, RegisteredEditorPriority, diffEditorsAssociationsSettingId, editorsAssociationsAgentsWindowDefault, editorsAssociationsSettingId } from '../../common/editorResolverService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createEditorPart, ITestInstantiationService, TestFileEditorInput, TestServiceAccessor, workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 
 suite('EditorResolverService', () => {
+	test('Agents window editor defaults use the Integrated Browser for HTML when available and follow the Markdown editor setting', () => {
+		assert.deepStrictEqual({
+			enabled: editorsAssociationsAgentsWindowDefault({ markdownDefaultEditor: true, integratedBrowserAvailable: true }),
+			disabled: editorsAssociationsAgentsWindowDefault({ markdownDefaultEditor: false, integratedBrowserAvailable: true }),
+			unavailable: editorsAssociationsAgentsWindowDefault({ markdownDefaultEditor: true, integratedBrowserAvailable: false }),
+		}, {
+			enabled: { '*.html': 'workbench.editor.browser', '*.md': 'vscode.markdown.editor' },
+			disabled: { '*.html': 'workbench.editor.browser', '*.md': 'vscode.markdown.preview.editor' },
+			unavailable: { '*.md': 'vscode.markdown.editor' },
+		});
+	});
+
 	test('Agents window diff editor default follows the Markdown editor setting', () => {
 		assert.deepStrictEqual({
 			enabled: diffEditorsAssociationsAgentsWindowDefault({ markdownDefaultEditor: true }),
@@ -867,6 +879,30 @@ suite('EditorResolverService', () => {
 					merge: RegisteredEditorPriority.option
 				}
 			}]
+		});
+	});
+
+	test('getEditors excludes registrations without diff support when requested', async () => {
+		const [, service] = await createEditorResolverService();
+		const createEditorInput: EditorInputFactoryObject['createEditorInput'] = ({ resource }) => ({ editor: new TestFileEditorInput(resource, TEST_EDITOR_INPUT_ID) });
+		disposables.add(service.registerEditor('*.diffable', {
+			id: 'test.diffable',
+			label: 'Diffable Editor',
+			priority: RegisteredEditorPriority.default
+		}, {}, { createEditorInput, createDiffEditorInput: ({ modified }) => ({ editor: new TestFileEditorInput(modified.resource!, TEST_EDITOR_INPUT_ID) }) }));
+		disposables.add(service.registerEditor('*.notDiffable', {
+			id: 'test.notDiffable',
+			label: 'Non-Diffable Editor',
+			priority: RegisteredEditorPriority.default
+		}, {}, { createEditorInput }));
+
+		const testEditorIds = (editors: readonly { id: string }[]) => editors.map(editor => editor.id).filter(id => id.startsWith('test.'));
+		assert.deepStrictEqual({
+			all: testEditorIds(service.getEditors()),
+			diff: testEditorIds(service.getEditors({ isDiffEditor: true }))
+		}, {
+			all: ['test.diffable', 'test.notDiffable'],
+			diff: ['test.diffable']
 		});
 	});
 

@@ -3,14 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { IUndoRedoService } from '../../../../../platform/undoRedo/common/undoRedo.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { IEditorPane } from '../../../../common/editor.js';
+import { IVisibleEditorPane } from '../../../../common/editor.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -295,13 +293,13 @@ describe('PositronNotebookInstance undo/redo', () => {
 		// exercised -- the model-level describes call IUndoRedoService.undo(uri)
 		// and skip both.
 
-		function makeNotebookEditorPane(notebook: TestPositronNotebookInstance): IEditorPane {
-			// `notebookInstance` is not on IEditorPane; production code at
+		function makeNotebookEditorPane(notebook: TestPositronNotebookInstance): IVisibleEditorPane {
+			// `notebookInstance` is not on IVisibleEditorPane; production code at
 			// notebookUtils.ts:80 widens via the same cast to read it off
 			// PositronNotebookEditor.
-			// eslint-disable-next-line local/code-no-dangerous-type-assertions -- modeling PositronNotebookEditor's `notebookInstance` field on a structurally-stubbed IEditorPane (production code casts the same way)
-			const overrides = { getId: () => POSITRON_NOTEBOOK_EDITOR_ID, notebookInstance: notebook } as unknown as Partial<IEditorPane>;
-			return stubInterface<IEditorPane>(overrides);
+			// eslint-disable-next-line local/code-no-dangerous-type-assertions -- modeling PositronNotebookEditor's `notebookInstance` field on a structurally-stubbed IVisibleEditorPane (production code casts the same way)
+			const overrides = { getId: () => POSITRON_NOTEBOOK_EDITOR_ID, notebookInstance: notebook } as unknown as Partial<IVisibleEditorPane>;
+			return stubInterface<IVisibleEditorPane>(overrides);
 		}
 
 		it('handleNotebookUndo returns false and leaves the model untouched when the notebook editor is not focused', () => {

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { InvalidateCacheFlags, TableDataCache } from '../../common/tableDataCache.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { DataExplorerClientInstance } from '../../../languageRuntime/common/languageRuntimeDataExplorerClient.js';

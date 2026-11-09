@@ -465,6 +465,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
+		// Listen for updates to displayed outputs (e.g. more layers on an R plot)
+		this._outputHandlingDisposables.add(this._executionManager.onDidUpdateOutput(event => {
+			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
+				this._handleOutputUpdate(event.cellId, event.output);
+			}
+		}));
+
 		// Arm auto-scroll on a fresh execution gesture (Run Cell, Run All, ...)
 		// so the editor follows the output it produces. The same Quarto document
 		// can be open in more than one editor at once (a split view); each has
@@ -1187,6 +1194,32 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			cellId,
 			documentUri: this._documentUri!,
 			outputs: outputs,
+		});
+	}
+
+	/**
+	 * Replace a shown output with an updated version that has the same
+	 * `outputId`. An update for an output that is no longer shown (for
+	 * example, the user closed it while the cell ran) is ignored. An update
+	 * does not scroll the editor.
+	 */
+	private _handleOutputUpdate(cellId: string, output: ICellOutput): void {
+		const outputs = this._outputsByCell.get(cellId);
+		const index = outputs?.findIndex(o => o.outputId === output.outputId) ?? -1;
+		if (!outputs || index === -1) {
+			return;
+		}
+
+		outputs[index] = output;
+		this._viewZones.get(cellId)?.replaceOutput(output);
+		if (this._documentUri) {
+			this._cacheService.replaceOutput(this._documentUri, cellId, output);
+		}
+
+		this._onDidChangeOutputs.fire({
+			cellId,
+			documentUri: this._documentUri!,
+			outputs,
 		});
 	}
 
@@ -1959,6 +1992,23 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 			const outputs = this._outputsByCell.get(key) ?? [];
 			outputs.push(event.output);
 			this._outputsByCell.set(key, outputs);
+
+			this._onDidChangeOutputs.fire({
+				cellId: event.cellId,
+				documentUri: event.documentUri,
+				outputs: outputs,
+			});
+		}));
+
+		// Replace outputs the runtime updates (e.g. more layers on an R plot)
+		this._register(this._executionManager.onDidUpdateOutput(event => {
+			const key = `${event.documentUri.toString()}:${event.cellId}`;
+			const outputs = this._outputsByCell.get(key);
+			const index = outputs?.findIndex(o => o.outputId === event.output.outputId) ?? -1;
+			if (!outputs || index === -1) {
+				return;
+			}
+			outputs[index] = event.output;
 
 			this._onDidChangeOutputs.fire({
 				cellId: event.cellId,

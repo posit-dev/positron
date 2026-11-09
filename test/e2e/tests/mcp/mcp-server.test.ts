@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Application } from '../../infra';
+import { appEnv } from '../../infra/appEnv';
 import { test, expect, tags } from '../_test.setup';
 import { McpStdioClient, McpTestClient, toolResultText } from './helpers/mcp-client';
 
@@ -90,6 +91,7 @@ test.describe('MCP Server', {
 			'interrupt_session',
 			'list_positron_commands',
 			'run_positron_command',
+			'run_privileged_positron_command',
 			'get_plot',
 		]));
 
@@ -182,6 +184,12 @@ test.describe('MCP Server', {
 		expect(focused.isError).not.toBe(true);
 		await expect(app.code.driver.currentPage.locator('.positron-plots-container'))
 			.toBeVisible();
+
+		const refused = await agent.callTool('run_privileged_positron_command', {
+			command_id: 'workbench.panel.positronPlots.focus',
+		});
+		expect(refused.isError).toBe(true);
+		expect(toolResultText(refused)).toContain('wrong-tool');
 	});
 
 	test('A request without a valid token is refused', { tag: [tags.PYTHON] }, async function ({ app, python }) {
@@ -216,11 +224,13 @@ test.describe('MCP Server over stdio', {
 
 		// Without the variables a Positron terminal exports, the bridge has
 		// to find the workspace from the directory the agent runs in, and
-		// the connections directory from the launcher's arguments.
-		const env = { ...process.env };
-		delete env.POSITRON_MCP_URL;
-		delete env.POSITRON_MCP_TOKEN;
-		delete env.POSITRON_MCP_CONNECTIONS;
+		// the connections directory from the launcher's arguments. appEnv also
+		// keeps CI secrets away from the bridge and the app it starts.
+		const env = appEnv(process.env, {
+			POSITRON_MCP_URL: undefined,
+			POSITRON_MCP_TOKEN: undefined,
+			POSITRON_MCP_CONNECTIONS: undefined,
+		});
 		const agent = new McpStdioClient(command, args, app.workspacePathOrFolder, env, 'codex');
 		try {
 			await agent.initialize();

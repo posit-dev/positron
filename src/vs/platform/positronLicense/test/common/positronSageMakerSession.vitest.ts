@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { sageMakerMarkerScript } from '../../common/positronSageMakerSession.js';
 
 const PLATFORM_MODULE = '../../../../base/common/platform.js';

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import { act, screen } from '@testing-library/react';

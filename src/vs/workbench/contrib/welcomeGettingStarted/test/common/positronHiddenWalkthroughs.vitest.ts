@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { walkthroughs } from '../../common/gettingStartedContent.js';
 import { isHiddenWalkthrough } from '../../common/positronHiddenWalkthroughs.js';
 

@@ -16,6 +16,7 @@ import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
+import * as interpreterRanking from '../../client/positron/interpreterRanking';
 import * as interpreterRecommendation from '../../client/positron/interpreterRecommendation';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
@@ -785,6 +786,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     let pythonRuntimeManager: PythonRuntimeManager;
     let selectSpy: sinon.SinonStub;
     let pathExistsStub: sinon.SinonStub;
+    let isOtherProjectEnvStub: sinon.SinonStub;
     let getActiveSessionsImpl: () => Promise<positron.LanguageRuntimeSession[]>;
     let originalGetActiveSessions: unknown;
 
@@ -819,6 +821,10 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         // A deleted interpreter's path is gone unless a test says otherwise. Stubbed so the
         // delete handler doesn't wait on the disk, which can outlast a test's one-tick wait.
         pathExistsStub = sinon.stub(fs, 'pathExists').resolves(false);
+        // Changed interpreters are checked against the folder's ranking context before registering.
+        sinon.stub(runtime, 'pickerFolderUri').returns(undefined);
+        sinon.stub(interpreterRanking, 'buildRankingContext').resolves({} as interpreterRanking.RankingContext);
+        isOtherProjectEnvStub = sinon.stub(interpreterRanking, 'isOtherProjectEnv').returns(false);
     });
 
     teardown(() => {
@@ -1015,6 +1021,27 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         await new Promise((r) => setTimeout(r, 0));
 
         sinon.assert.notCalled(exitedShutdown);
+    });
+
+    test("interpreter creation: another folder's project env is not registered unless it already is", async () => {
+        const otherPath = '/other/project/.venv/bin/python';
+        const pickedPath = '/picked/project/.venv/bin/python';
+        isOtherProjectEnvStub.returns(true);
+        pythonRuntimeManager.registeredPythonRuntimes.set(pickedPath, {
+            runtimeId: 'picked',
+            extraRuntimeData: { pythonPath: pickedPath },
+        } as any);
+        const registerStub = sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire({ new: { path: otherPath } as any });
+        onDidChangeInterpretersEmitter.fire({ new: { path: pickedPath } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        // The one the user picked is already registered, so it is refreshed as before.
+        assert.deepStrictEqual(
+            registerStub.getCalls().map((call) => call.args),
+            [[pickedPath, false, true]],
+        );
     });
 
     test('interpreter replacement: retracts old alias and re-registers survivor with forceRefresh', async () => {
