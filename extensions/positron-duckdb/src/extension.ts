@@ -2341,13 +2341,13 @@ function getFileReadersSetting(): unknown {
 export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	/**
-	 * Datasets with a currently-open data explorer, keyed by dataset URI. Distinct
-	 * from `_uriToTableView`, whose entries are dropped on a crash and lazily
-	 * rebuilt: this set tracks live clients so the worker can idle-shut-down once
-	 * the last explorer closes. Added in {@link openDataset}, removed in
+	 * The instance backing each dataset with a currently-open data explorer, keyed
+	 * by dataset URI. Distinct from `_uriToTableView`, whose entries are dropped on
+	 * a crash and lazily rebuilt: this map tracks live clients so each worker can
+	 * idle-shut-down once its last explorer closes. Added in {@link openDataset}, removed in
 	 * {@link closeDataset}.
 	 */
-	private readonly _openDatasets = new Set<string>();
+	private readonly _openDatasets = new Map<string, DuckDBInstance>();
 	private _tableIndex: number = 0;
 	private _watchers: vscode.Disposable[] = [];
 	private readonly _crashListeners: vscode.Disposable[];
@@ -2464,28 +2464,26 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
-		// A dataset is open, so the worker has a live client: cancel any pending
-		// idle shutdown. (Re-imports after a crash pass through here too; the set
-		// add is idempotent.)
-		this._openDatasets.add(params.uri.toString());
+		// A dataset is open, so its worker has a live client: cancel any pending
+		// idle shutdown. (Re-imports after a crash pass through here too.)
+		this._openDatasets.set(params.uri.toString(), tableView.db);
 		debugLog(`Opened dataset ${params.uri.toString()}; open datasets: ${this._openDatasets.size}`);
-		this.db.cancelIdleShutdown();
-		this.signedDb.cancelIdleShutdown();
+		tableView.db.cancelIdleShutdown();
 		return {};
 	}
 
 	/**
 	 * Called by the host when a data explorer for a dataset closes. Drops the
-	 * dataset's table view and, once no explorers remain open, asks the worker to
+	 * dataset's table view and, once no explorers on its worker remain open, asks that worker to
 	 * idle-shut-down after a cooldown so its native memory is reclaimed.
 	 */
 	closeDataset(uri: string): void {
 		this._uriToTableView.delete(uri);
+		const db = this._openDatasets.get(uri);
 		this._openDatasets.delete(uri);
 		debugLog(`Closed dataset ${uri}; open datasets: ${this._openDatasets.size}`);
-		if (this._openDatasets.size === 0) {
-			this.db.requestIdleShutdown();
-			this.signedDb.requestIdleShutdown();
+		if (db && ![...this._openDatasets.values()].includes(db)) {
+			db.requestIdleShutdown();
 		}
 	}
 
