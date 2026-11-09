@@ -22,6 +22,10 @@ on:
         description: "After the leads, explore one area of the helpers (off on a scheduled run)"
         type: boolean
         default: false
+      plant_leak:
+        description: "Write the leak canary into the night's output, to check the secret scan blocks the upload"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -171,6 +175,16 @@ jobs:
           echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
           echo "RUNNER=$PWD/session-cli.mjs" >> "$GITHUB_ENV"
 
+      # The upload scan fails closed without a canary. Set before smoke so the app,
+      # the agents and the scan share one value.
+      - name: Plant the leak canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(node -e 'console.log(crypto.randomUUID())')"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # Before smoke: the app needs a chat model to show an error's Fix and Explain, which smoke clicks.
       - name: Load the Anthropic key
         uses: 1password/load-secrets-action@v5
@@ -296,7 +310,8 @@ jobs:
           fi
           exit "$code"
 
-      - name: Step summary
+      # Written to a file, not the public run page, until the scan below passes.
+      - name: Write the step summary
         if: always()
         shell: bash
         env:
@@ -307,7 +322,37 @@ jobs:
         run: |
           args=(--dir "$HEAL_DIR" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
           [ "$SMOKE_RED" = true ] && args+=(--smoke-red)
-          node .claude/skills/drive-positron/heal/report.ts "${args[@]}" summary >> "$GITHUB_STEP_SUMMARY" || true
+          node .claude/skills/drive-positron/heal/report.ts "${args[@]}" summary > "$RUNNER_TEMP/summary.md" || true
+
+      # A negative check of the gate: the scan below must fail and the upload must not run.
+      - name: Plant a leak (manual check)
+        if: always() && inputs.plant_leak
+        shell: bash
+        run: |
+          mkdir -p "$HEAL_DIR"
+          echo "planted: $E2E_LEAK_CANARY_KEY" > "$HEAL_DIR/planted-leak.txt"
+
+      # The smoke fixture passes ANTHROPIC_API_KEY into the app, and the agents hold it too, so
+      # the app's logs and user-data dir and the agents' output can carry it. The artifact and
+      # the step summary are public, and publish builds the PR body from the artifact: scan them
+      # all first. Runs the scanner from the commit under test, not a fixer's edit of it.
+      - name: Scan the upload set for secrets
+        id: secret-scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Set up git is skipped on a red night; git refuses a root-owned checkout without this.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if ! git diff --quiet "$GITHUB_SHA" -- test/e2e/scripts/scan-for-secrets.ts test/e2e/infra; then
+            echo "::error::the secret scanner changed during the run; refusing to trust it"; exit 2
+          fi
+          npx tsx test/e2e/scripts/scan-for-secrets.ts "$HEAL_DIR" /tmp/positron-dev-launch "$RUNNER_TEMP/summary.md"
+
+      - name: Step summary
+        if: always() && steps.secret-scan.outcome == 'success'
+        shell: bash
+        run: cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
       - name: Name the failed step
         id: failed
@@ -336,7 +381,7 @@ jobs:
           echo "step=${step:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Upload the night
-        if: always()
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: drive-positron-heal
