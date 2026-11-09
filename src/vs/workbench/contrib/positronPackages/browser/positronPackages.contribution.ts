@@ -36,7 +36,7 @@ import { IPositronPackagesService } from './interfaces/positronPackagesService.j
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING } from './packageVulnerabilityLookup.js';
-import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_CAN_UNINSTALL_SELECTION, PACKAGES_CAN_UPDATE_SELECTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
@@ -800,15 +800,110 @@ class UpdateAllPackagesAction extends Action2 {
 }
 
 /**
- * Menu wrapper for Update Package that passes the selected package to the main command.
+ * Updates every selected package that has a newer version, in one operation,
+ * and reports only the packages whose installed version actually changed.
+ * Exported so it can be unit-tested.
  */
-class UpdateSelectedPackageAction extends Action2 {
+export async function updateSelectedPackages(accessor: ServicesAccessor, names: readonly string[]): Promise<void> {
+	const service = accessor.get(IPositronPackagesService);
+	const notifications = accessor.get(INotificationService);
+	const progress = accessor.get(IProgressService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	const commandService = accessor.get(ICommandService);
+
+	const cts = new CancellationTokenSource();
+	try {
+		await progress.withProgress({
+			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
+			location: ProgressLocation.Notification,
+			cancellable: true,
+			delay: 500
+		}, async () => {
+			try {
+				const updated = await service.updateOutdatedPackages(names, cts.token);
+				if (cts.token.isCancellationRequested) {
+					return;
+				}
+				if (updated.length === 0) {
+					notifications.info(nls.localize('positronPackages.noSelectedPackagesUpdated', 'No selected packages were updated.'));
+				} else {
+					showRestartSessionNotification(
+						notifications,
+						runtimeSessionService,
+						commandService,
+						service,
+						nls.localize('positronPackages.operationUpdated', 'updated'),
+						updated
+					);
+				}
+			} catch (e) {
+				notifications.error(cleanErrorMessage(e));
+			}
+		}, () => cts.cancel());
+	} finally {
+		cts.dispose(true);
+	}
+}
+
+/**
+ * Uninstalls every selected package after a single confirmation. Exported so
+ * it can be unit-tested.
+ */
+export async function uninstallSelectedPackages(accessor: ServicesAccessor, names: readonly string[]): Promise<void> {
+	const service = accessor.get(IPositronPackagesService);
+	const notifications = accessor.get(INotificationService);
+	const progress = accessor.get(IProgressService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	const commandService = accessor.get(ICommandService);
+	const dialogService = accessor.get(IDialogService);
+
+	const message = names.length <= 3
+		? nls.localize('positronPackages.confirmUninstallNamedPackages', "Are you sure you want to uninstall the packages {0}?", names.map(name => `'${name}'`).join(', '))
+		: nls.localize('positronPackages.confirmUninstallPackageCount', "Are you sure you want to uninstall {0} packages?", names.length);
+	const res = await dialogService.confirm({ message });
+	if (!res.confirmed) {
+		return;
+	}
+
+	const cts = new CancellationTokenSource();
+	try {
+		await progress.withProgress({
+			title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...'),
+			location: ProgressLocation.Notification,
+			cancellable: true,
+			delay: 500
+		}, async () => {
+			try {
+				await service.uninstallPackages([...names], cts.token);
+				showRestartSessionNotification(
+					notifications,
+					runtimeSessionService,
+					commandService,
+					service,
+					nls.localize('positronPackages.operationUninstalled', 'uninstalled'),
+					[...names]
+				);
+			} catch (e) {
+				notifications.error(cleanErrorMessage(e));
+			}
+		}, () => cts.cancel());
+	} finally {
+		cts.dispose(true);
+	}
+}
+
+/**
+ * Menu wrapper for Update Package. Acts on the whole selection: a single
+ * package goes through the main command (version picker), several are updated
+ * to latest in one operation.
+ */
+export class UpdateSelectedPackageAction extends Action2 {
 	constructor() {
 		super({
 			id: 'positronPackages.updateSelectedPackage',
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_UPDATE_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
 				when: PACKAGES_VIEW_VISIBLE,
@@ -820,22 +915,27 @@ class UpdateSelectedPackageAction extends Action2 {
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const service = accessor.get(IPositronPackagesService);
 		const commandService = accessor.get(ICommandService);
-		if (service.selectedPackage) {
-			await commandService.executeCommand(PACKAGES_UPDATE_COMMAND_ID, service.selectedPackage);
+		const selected = service.selectedPackages;
+		if (selected.length === 1) {
+			await commandService.executeCommand(PACKAGES_UPDATE_COMMAND_ID, selected[0]);
+		} else if (selected.length > 1) {
+			await updateSelectedPackages(accessor, selected);
 		}
 	}
 }
 
 /**
- * Menu wrapper for Uninstall Package that passes the selected package to the main command.
+ * Menu wrapper for Uninstall Package. Acts on the whole selection: a single
+ * package goes through the main command, several are uninstalled together
+ * after one confirmation.
  */
-class UninstallSelectedPackageAction extends Action2 {
+export class UninstallSelectedPackageAction extends Action2 {
 	constructor() {
 		super({
 			id: 'positronPackages.uninstallSelectedPackage',
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_UNINSTALL_SELECTION),
 			menu: {
 				id: MenuId.ViewTitle,
 				when: PACKAGES_VIEW_VISIBLE,
@@ -847,8 +947,11 @@ class UninstallSelectedPackageAction extends Action2 {
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const service = accessor.get(IPositronPackagesService);
 		const commandService = accessor.get(ICommandService);
-		if (service.selectedPackage) {
-			await commandService.executeCommand(PACKAGES_UNINSTALL_COMMAND_ID, service.selectedPackage);
+		const selected = service.selectedPackages;
+		if (selected.length === 1) {
+			await commandService.executeCommand(PACKAGES_UNINSTALL_COMMAND_ID, selected[0]);
+		} else if (selected.length > 1) {
+			await uninstallSelectedPackages(accessor, selected);
 		}
 	}
 }
