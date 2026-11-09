@@ -57,12 +57,14 @@ jobs:
         run: |
           set -euo pipefail
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run pr-test.yml -R posit-dev/positron-builds -f "pr_number=$PR" -f "head_sha=$HEAD_SHA"
+          # pr-lane mirrors positron-builds main; PR runs use it so their build caches
+          # stay in that branch's cache scope, away from the privileged main runs.
+          gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane -f "pr_number=$PR" -f "head_sha=$HEAD_SHA"
           # The dispatch API returns no run id; find the run by its run-name.
           title="positron PR #$PR at $HEAD_SHA"
           id=""
           for i in $(seq 1 24); do
-            id=$(gh run list -R posit-dev/positron-builds --workflow pr-test.yml --created ">=$since" \
+            id=$(gh run list -R posit-dev/positron-builds --workflow pr-test.yml --branch pr-lane --created ">=$since" \
               --json databaseId,displayTitle --jq ".[] | select(.displayTitle == \"$title\") | .databaseId" | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
