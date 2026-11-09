@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';

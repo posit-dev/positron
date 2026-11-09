@@ -68,7 +68,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       skip_extension_tests:
         required: false
         description: "Whether to skip the extensions tests."
@@ -151,21 +151,18 @@ jobs:
           REDSHIFT_TEST_HOST: "op://Positron/Redshift_Test_Environment/hostname"
           REDSHIFT_TEST_USERNAME: "op://Positron/Redshift_Test_Environment/username"
           REDSHIFT_TEST_PASSWORD: "op://Positron/Redshift_Test_Environment/password"
-          TS_OAUTH_CLIENT_ID: "op://Positron/Tailscale_OAuth/client_id"
-          TS_OAUTH_SECRET: "op://Positron/Tailscale_OAuth/client_secret"
           # Snowflake programmatic access token for the posit-assistant Snowflake Cortex
           # test. Pairs with the SNOWFLAKE_ACCOUNT env var set on the job above.
           SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
 
       # Bring up Tailscale so tests can reach private test infrastructure (e.g. the serverless
-      # Redshift workgroup used by the data-connections e2e tests). OAuth creds are loaded from
-      # 1Password in the previous step.
-      - name: Tailscale
-        uses: tailscale/github-action@v4
+      # Redshift workgroup used by the data-connections e2e tests).
+      - name: Join tailnet
+        uses: ./.github/actions/join-tailnet
         with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:positron-gha
+          oauth-client-id: ${{ secrets.POSITRON_TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+          required: 'true'
 
       - name: Set screen resolution
         shell: pwsh
@@ -184,7 +181,7 @@ jobs:
       - name: Install System Level Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10.10"
+          python-version: "3.14.7"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -407,7 +404,7 @@ jobs:
         id: bootstrap
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.7
           POSITRON_R_VER_SEL: ${{ steps.setup-r.outputs.r-version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-alt-version.outputs.r_alt_version }}
@@ -417,7 +414,7 @@ jobs:
       - name: 🧪 Run Playwright E2E Tests
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.14.7
           POSITRON_R_VER_SEL: ${{ steps.setup-r.outputs.r-version }}
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: ${{ steps.r-alt-version.outputs.r_alt_version }}
@@ -459,7 +456,7 @@ jobs:
           eval SKIP_BOOTSTRAP=true $CMD || true
 
       - name: Upload Blob Report
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
@@ -467,24 +464,16 @@ jobs:
           retention-days: 1
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-win-logs
           path: test-logs
           if-no-files-found: ignore
 
-      # A native crash leaves a minidump in `.build/crashes` (electron.ts's
-      # `--crash-reporter-directory`); the job used to discard it. `always()`,
-      # not `failure()`: the Playwright step ends in `|| true`.
-      - name: Upload Crash Dumps
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: e2e-win-crash-dumps-${{ inputs.project }}-${{ matrix.shard }}
-          path: .build/crashes
-          retention-days: 7
-          if-no-files-found: ignore
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
   merge-reports:
     name: ${{ inputs.display_name }}

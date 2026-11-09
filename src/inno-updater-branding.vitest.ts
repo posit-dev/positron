@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, it, expect } from 'vitest';

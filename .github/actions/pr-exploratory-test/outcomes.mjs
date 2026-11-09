@@ -9,14 +9,17 @@
 // or with --api the Anthropic API and ANTHROPIC_API_KEY (CI). --previous takes
 // an earlier --out and keeps its settled rows instead of checking them again;
 // --recheck checks them all again anyway, as after a change to the checks.
+// Each row also saves the model replies its checks used, and a later run reuses
+// a reply when the model and prompt are the same.
 //   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--api] [--previous rows.jsonl] [--recheck] [--out rows.jsonl]
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, resolveTestedSha, savedPrChecks, searchTerms, settledRows } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -26,10 +29,17 @@ const MAX_DIFF_CHARS = 60000;
 const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 // PRs opened only to try the harness, whose findings no one meant to act on.
 const SKIPPED_PRS = new Set([16616]);
+// PRs closed without merging whose commits shipped in another PR, read as merged with that PR.
+const SHIPPED_VIA = new Map([[16866, 16878]]);
+// PRs read at once. Git runs synchronously, so only the GitHub and model calls overlap.
+const PR_CONCURRENCY = 6;
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
 const PREVIOUS = args.previous && !args.recheck ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 const SETTLED = settledRows(PREVIOUS);
+// Origins set by hand, keyed by run#finding, for findings from before main was replayed.
+const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
+const SAVED_REPLIES = savedReplies(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
@@ -82,9 +92,24 @@ async function ask(prompt) {
 	return (await runClaude({ prompt, model: args.model, tools: [], cwd: ROOT, timeLimitMinutes: 0, feed: () => { } })).text;
 }
 
+// The replies a finding's checks used, by `replyKey`, saved on its row for the next run.
+const usedReplies = new AsyncLocalStorage();
+
+/** `ask`, reusing a saved reply to the same prompt. A cut diff is asked again, as is a prompt whose reply was unclear. */
+async function cachedAsk(prompt, cut) {
+	const key = replyKey(args.model, prompt);
+	const reply = (cut ? undefined : SAVED_REPLIES.get(key)) ?? await ask(prompt);
+	const used = usedReplies.getStore();
+	if (used && !cut && parseCheck(reply).answer !== 'unclear') {
+		used[key] = reply;
+	}
+	return reply;
+}
+
 async function check(finding, evidence, source) {
+	const cut = isCut(evidence);
 	try {
-		return { ...parseCheck(await ask(buildCheckPrompt({ finding, ...evidence }))), source, ...(isCut(evidence) ? { cut: true } : {}) };
+		return { ...parseCheck(await cachedAsk(buildCheckPrompt({ finding, ...evidence }), cut)), source, ...(cut ? { cut: true } : {}) };
 	} catch (err) {
 		return { answer: 'unclear', reason: `model failed: ${String(err).slice(0, 200)}`, source };
 	}
@@ -214,20 +239,41 @@ async function notPlanned(numbers) {
 	return issues;
 }
 
+/** The issues the PR says it closes, from its description or its linked issues; none when they can't be read. */
+async function closingIssues(number) {
+	const [owner, name] = REPO.split('/');
+	const query = 'query($owner: String!, $name: String!, $n: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $n) { closingIssuesReferences(first: 50) { nodes { number } } } } }';
+	try {
+		const res = await fetch(`${API}/graphql`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ query, variables: { owner, name, n: number } }) });
+		const data = await res.json();
+		if (!res.ok || data.errors) {
+			throw new Error(`${res.status} ${JSON.stringify(data.errors ?? data).slice(0, 200)}`);
+		}
+		return data.data.repository.pullRequest.closingIssuesReferences.nodes.map(i => i.number);
+	} catch (err) {
+		console.error(`[outcomes] #${number} closing issues not read, so a fix that didn't hold is not detected: ${err}`);
+		return [];
+	}
+}
+
 async function prRows(number) {
-	const pr = await gh(`/repos/${REPO}/pulls/${number}`);
+	const viaNumber = SHIPPED_VIA.get(number);
+	const pr = shippedVia(await gh(`/repos/${REPO}/pulls/${number}`), viaNumber && await gh(`/repos/${REPO}/pulls/${viaNumber}`));
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
 	const preview = prPreview(pr);
-	git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
+	if (!FETCHED_ALL) {
+		git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
+	}
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
 	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
 	// A failed timeline leaves the title search, rather than skipping the PR.
-	const timeline = prState === 'open' ? [] : await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
+	const timeline = await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
 		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);
 		return [];
 	});
 	// For a change dropped before the merge.
-	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${number}/files?per_page=100`)).map(f => f.filename) : [];
+	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${viaNumber ?? number}/files?per_page=100`)).map(f => f.filename) : [];
+	const closes = await closingIssues(number);
 	const rows = [];
 	for (const comment of comments) {
 		const parsed = parseResultComment(comment.body);
@@ -246,27 +292,34 @@ async function prRows(number) {
 		for (const finding of outcomeFindings(report, stats)) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
-			if (kept && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
-				rows.push({ ...kept, prPreview: preview });
+			// A page-only report has no Origin column, so a kept row keeps the origin it was saved with.
+			const forced = ORIGIN_OVERRIDES[`${parsed.run}#${finding.n}`]?.origin;
+			const findingOrig = report.fromPage ? (forced ?? kept?.origin ?? null) : findingOrigin(forced ?? origin.get(finding.n) ?? null, finding, closes);
+			if (kept && !viaNumber && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
+				rows.push({ ...kept, origin: findingOrig, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
 				continue;
 			}
 			const paths = extractPaths(finding, FILES);
-			// Only the PR's own answer is reused; the checks for a later fix on main or an issue run every time.
+			// Only the PR's own answer is reused; the checks for a later fix on main or an issue run every time, reusing a saved reply when the prompt is unchanged.
 			const saved = prState === 'merged' ? SAVED_PR_CHECKS.get(`${parsed.run}#${finding.n}`) : undefined;
-			const inPr = saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null);
-			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline);
+			const replies = {};
+			const { inPr, later } = await usedReplies.run(replies, async () => ({
+				inPr: saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null),
+				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline),
+			}));
 			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
 			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
 			// A closed PR didn't ship whatever was tested, so it needs no tested commit.
 			const decided = tested.sha || prState === 'closed'
-				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended })
+				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended, inherited: findingOrig === 'inherited' })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
-				origin: report.fromPage ? null : origin.get(finding.n) ?? null, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
+				origin: findingOrig, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
+				...(Object.keys(replies).length ? { replies } : {}),
 			});
 			console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${decided.outcome}${saved ? ' (PR check kept from --previous)' : ''}`);
 		}
@@ -274,14 +327,23 @@ async function prRows(number) {
 	return rows;
 }
 
-const rows = [];
-for (const number of await prNumbers()) {
+const numbers = await prNumbers();
+// One fetch for every PR rather than one each; if it fails, each PR fetches its own.
+let FETCHED_ALL = false;
+try {
+	git('fetch', '-q', 'origin', 'main', ...numbers.map(n => `refs/pull/${n}/head`));
+	FETCHED_ALL = true;
+} catch (err) {
+	console.error(`[outcomes] fetching every PR at once failed, fetching each instead: ${err}`);
+}
+const rows = (await mapLimit(numbers, PR_CONCURRENCY, async number => {
 	try {
-		rows.push(...await prRows(number));
+		return await prRows(number);
 	} catch (err) {
 		console.error(`[outcomes] #${number} failed, skipped: ${err}`);
+		return [];
 	}
-}
+})).flat();
 const marked = markDuplicates(rows);
 if (args.out) {
 	writeFileSync(args.out, marked.map(r => JSON.stringify(r)).join('\n') + '\n');

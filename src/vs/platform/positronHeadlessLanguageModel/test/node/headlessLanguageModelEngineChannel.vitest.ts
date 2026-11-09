@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { EngineStreamChunk, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelListing, IProviderMapping, IProviderModuleSource } from '../../common/engine.js';
 import { HeadlessLanguageModelEngineChannel } from '../../node/headlessLanguageModelEngineChannel.js';

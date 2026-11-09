@@ -23,10 +23,8 @@ export default defineConfig({
 		restoreMocks: true,
 		// Clear vi.fn() call history between tests so shared mocks don't accumulate calls.
 		clearMocks: true,
-		// Vitest global types for IDE intellisense; scoped to Vitest, doesn't affect main tsc.
-		typecheck: {
-			tsconfig: './vitest.tsconfig.json',
-		},
+		// Vitest strips types without checking them. `npm run test:positron:check-ts`
+		// type-checks these files, and the vitest CI job runs it.
 	},
 	// The `electron` package is not installed (its typings are downloaded instead), so give the
 	// bare import something to resolve to. electron-main tests mock it with `vi.mock('electron')`.

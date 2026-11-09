@@ -45,13 +45,13 @@ inputs:
 outputs:
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
-    value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
+    value: ${{ (steps.cache-npm-core-retry.outputs.cache-hit || steps.cache-npm-core.outputs.cache-hit) == 'true' && 'true' || 'false' }}
   cache-npm-extensions-volatile-hit:
     description: "Whether npm volatile extensions cache (python, assistant, r) was restored"
-    value: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit == 'true' && 'true' || 'false' }}
+    value: ${{ (steps.cache-npm-extensions-volatile-retry.outputs.cache-hit || steps.cache-npm-extensions-volatile.outputs.cache-hit) == 'true' && 'true' || 'false' }}
   cache-npm-extensions-stable-hit:
     description: "Whether npm stable extensions cache (all except python, assistant, r) was restored"
-    value: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit == 'true' && 'true' || 'false' }}
+    value: ${{ (steps.cache-npm-extensions-stable-retry.outputs.cache-hit || steps.cache-npm-extensions-stable.outputs.cache-hit) == 'true' && 'true' || 'false' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -181,6 +181,18 @@ runs:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
+    # A large download can fail mid-way ("The server is busy"), which reads as a miss and
+    # forces a full npm install. Retry once; on a real miss this is only a quick key lookup.
+    # Each retry reuses the key its first attempt looked up, so the two can't drift apart.
+    - name: Retry npm core dependencies cache restore
+      if: ${{ inputs.restore-npm-core == 'true' && steps.cache-npm-core.outputs.cache-hit != 'true' }}
+      id: cache-npm-core-retry
+      continue-on-error: true
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-core-paths }}
+        key: ${{ steps.cache-npm-core.outputs.cache-primary-key }}
+
     - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-volatile
@@ -190,6 +202,15 @@ runs:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
         key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
 
+    - name: Retry npm volatile extensions cache restore
+      if: ${{ inputs.restore-npm-extensions == 'true' && steps.cache-npm-extensions-volatile.outputs.cache-hit != 'true' }}
+      id: cache-npm-extensions-volatile-retry
+      continue-on-error: true
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
+        key: ${{ steps.cache-npm-extensions-volatile.outputs.cache-primary-key }}
+
     - name: Restore npm stable extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-stable
@@ -198,6 +219,15 @@ runs:
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
         key: npm-extensions-stable-v7-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
+
+    - name: Retry npm stable extensions cache restore
+      if: ${{ inputs.restore-npm-extensions == 'true' && steps.cache-npm-extensions-stable.outputs.cache-hit != 'true' }}
+      id: cache-npm-extensions-stable-retry
+      continue-on-error: true
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
+        key: ${{ steps.cache-npm-extensions-stable.outputs.cache-primary-key }}
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -246,9 +276,9 @@ runs:
         }
 
         # Check each cache type for partial hits
-        check_partial "${{ steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
-        check_partial "${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}" "extensions/positron-python" "npm-extensions-volatile-partial"
-        check_partial "${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}" "extensions/positron-duckdb" "npm-extensions-stable-partial"
+        check_partial "${{ steps.cache-npm-core-retry.outputs.cache-hit || steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
+        check_partial "${{ steps.cache-npm-extensions-volatile-retry.outputs.cache-hit || steps.cache-npm-extensions-volatile.outputs.cache-hit }}" "extensions/positron-python" "npm-extensions-volatile-partial"
+        check_partial "${{ steps.cache-npm-extensions-stable-retry.outputs.cache-hit || steps.cache-npm-extensions-stable.outputs.cache-hit }}" "extensions/positron-duckdb" "npm-extensions-stable-partial"
         check_partial "${{ steps.cache-builtins.outputs.cache-hit }}" ".build/builtInExtensions" "builtins-partial"
         check_partial "${{ steps.cache-playwright.outputs.cache-hit }}" "$HOME/.cache/ms-playwright" "playwright-partial"
 
@@ -263,9 +293,9 @@ runs:
         RESTORE_PLAYWRIGHT: ${{ inputs.restore-playwright }}
 
         # cache - exact hits (from GitHub Actions)
-        CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
-        CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}
-        CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}
+        CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core-retry.outputs.cache-hit || steps.cache-npm-core.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ steps.cache-npm-extensions-volatile-retry.outputs.cache-hit || steps.cache-npm-extensions-volatile.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ steps.cache-npm-extensions-stable-retry.outputs.cache-hit || steps.cache-npm-extensions-stable.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
         CACHE_PLAYWRIGHT_HIT: ${{ steps.cache-playwright.outputs.cache-hit }}
 

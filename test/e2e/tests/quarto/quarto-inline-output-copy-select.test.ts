@@ -58,12 +58,13 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 	test('Python - Verify Ctrl+C copies editor text when inline output is enabled', async function ({ python, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto, clipboard } = app.workbench;
 
-		// Open a Quarto file and wait for the kernel to be ready
-		await openFile(join('workspaces', 'quarto_inline_output', 'text_output.qmd'));
-		await editors.waitForActiveTab('text_output.qmd');
+		// Use a file the next test doesn't open: closing a .qmd shuts its kernel down
+		// in the background, and reopening it mid-shutdown reuses the dying kernel.
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_py.qmd'));
+		await editors.waitForActiveTab('simple_py.qmd');
 		await inlineQuarto.expectKernelStatusVisible();
 
-		// Go to line 2 (the title line: title: "Text Output Test")
+		// Go to line 2 (the title line: title: "Simple Python Test")
 		await inlineQuarto.gotoLine(2);
 
 		// Select the line content using Home then Shift+End
@@ -77,7 +78,7 @@ test.describe('Quarto - Inline Output: Copy and Select', {
 		// Verify the clipboard contains the title line text
 		await expect(async () => {
 			const clipboardText = await clipboard.getClipboardText();
-			expect(clipboardText).toContain('Text Output Test');
+			expect(clipboardText).toContain('Simple Python Test');
 		}).toPass({ timeout: 5000 });
 	});
 

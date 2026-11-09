@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { errorHandler } from '../../../../../base/common/errors.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -49,9 +47,10 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Success);
-		expect(result?.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
+		if (result?.kind !== StatementRangeKind.Success) {
+			throw new Error(`expected a successful statement range, got ${JSON.stringify(result)}`);
+		}
+		expect(result.range).toEqual({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 6 });
 	});
 
 	it('returns a successful result with `code`', async () => {
@@ -68,9 +67,10 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('1 + 1', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Success);
-		expect(result?.code).toBe('1 + 1');
+		if (result?.kind !== StatementRangeKind.Success) {
+			throw new Error(`expected a successful statement range, got ${JSON.stringify(result)}`);
+		}
+		expect(result.code).toBe('1 + 1');
 	});
 
 	it('returns a syntax rejection from a provider', async () => {
@@ -87,10 +87,11 @@ describe('provideStatementRange', () => {
 		const model = disposables.add(createTextModel('x = ', 'testLang'));
 		const result = await provideStatementRange(registry, model, new Position(1, 1), CancellationToken.None);
 
-		expect(result).toBeDefined();
-		expect(result?.kind).toBe(StatementRangeKind.Rejection);
-		expect(result?.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
-		expect(result?.line).toBe(0);
+		if (result?.kind !== StatementRangeKind.Rejection) {
+			throw new Error(`expected a statement range rejection, got ${JSON.stringify(result)}`);
+		}
+		expect(result.rejectionKind).toBe(StatementRangeRejectionKind.Syntax);
+		expect(result.line).toBe(0);
 	});
 
 	it('swallows provider error and returns undefined', async () => {

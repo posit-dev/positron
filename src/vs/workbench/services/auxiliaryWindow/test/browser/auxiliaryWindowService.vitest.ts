@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { Barrier } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -42,7 +40,10 @@ describe('AuxiliaryWindow', () => {
 				onDidShowContextMenu: Event.None,
 				onDidHideContextMenu: Event.None,
 			}),
-			stubInterface<IWorkbenchLayoutService>({ activeContainer: mainWindow.document.body }),
+			stubInterface<IWorkbenchLayoutService>({
+				activeContainer: mainWindow.document.body,
+				getContainer: () => mainWindow.document.createElement('div'),
+			}),
 		));
 	}
 

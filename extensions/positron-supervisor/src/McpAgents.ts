@@ -159,6 +159,22 @@ export const MCP_AGENTS: readonly McpAgent[] = [
 		},
 	},
 	{
+		id: 'antigravity',
+		label: 'Antigravity CLI',
+		detect: { executable: 'agy' },
+		// Antigravity replaces Gemini CLI and keeps its files under ~/.gemini,
+		// but reads its MCP servers from its own file, not Gemini's
+		// settings.json. The user's file rather than the workspace's, for the
+		// same reason as Gemini.
+		install: {
+			kind: 'file',
+			configPath: () => [os.homedir(), '.gemini', 'config', 'mcp_config.json'],
+			format: 'json',
+			serversKey: 'mcpServers',
+			entry: commandAndArgs,
+		},
+	},
+	{
 		id: 'kiro',
 		label: 'Kiro',
 		// Kiro still reports the name of the Amazon Q CLI it grew out of.

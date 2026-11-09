@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as net from 'net';
 import { getListeningPortUid, isProcTcpAvailable, isProxyPortOwnershipEnforced, selectOwnerUid } from '../../node/socketOwnership.js';
 
@@ -20,8 +18,8 @@ describe.runIf(process.platform === 'linux')('socketOwnership', () => {
 			});
 
 			expect({
-				listenerUid: getListeningPortUid(port),
-				unusedPort: getListeningPortUid(0),
+				listenerUid: await getListeningPortUid(port),
+				unusedPort: await getListeningPortUid(0),
 			}).toEqual({
 				listenerUid: process.getuid!(),
 				unusedPort: undefined,
@@ -44,7 +42,7 @@ describe.runIf(process.platform === 'linux')('socketOwnership', () => {
 				server.listen(0, '127.0.0.2', () => resolve((server.address() as net.AddressInfo).port));
 			});
 
-			expect(getListeningPortUid(port)).toBeUndefined();
+			expect(await getListeningPortUid(port)).toBeUndefined();
 		} finally {
 			await new Promise<void>(resolve => server.close(() => resolve()));
 		}
@@ -68,11 +66,11 @@ describe.runIf(process.platform === 'linux')('socketOwnership', () => {
 		});
 	});
 
-	it('capability probe and enforcement gating', () => {
+	it('capability probe and enforcement gating', async () => {
 		expect({
-			available: isProcTcpAvailable(),
-			enforcedForUser: isProxyPortOwnershipEnforced(process.getuid!()),
-			enforcedForRoot: isProxyPortOwnershipEnforced(0),
+			available: await isProcTcpAvailable(),
+			enforcedForUser: await isProxyPortOwnershipEnforced(process.getuid!()),
+			enforcedForRoot: await isProxyPortOwnershipEnforced(0),
 		}).toEqual({
 			available: true,
 			enforcedForUser: process.getuid!() !== 0,

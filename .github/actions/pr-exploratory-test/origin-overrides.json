@@ -1,0 +1,202 @@
+{
+	"36480933114#1": {
+		"origin": "inherited",
+		"why": "createEnvApi.ts registerCreateEnvironmentProvider(new UvCreationProvider(), await isUvInstalled()) is unchanged at base, and base already could install uv mid-session via ensureUvInstalled in createGlobalEnvironmentFromCommand/uvPythonInstaller, so the stale ranking predates the PR's new python.ensureUvInstalled command."
+	},
+	"36480933114#2": {
+		"origin": "inherited",
+		"why": "quickInputController.ts handlePositronModal is untouched by the PR (identical at base, lines 172/854), and the tester reproduced the same first-click failure in New Folder from Git, which still uses the base PositronModalDialog."
+	},
+	"36631890541#1": {
+		"origin": "inherited",
+		"why": "Base r-process-environment.ts getRTerminalEnvironmentMutations unconditionally prepended path.dirname(binpath); the PR only adds the isROnPath skip, so the /usr/bin prepend when the selected R is not first on PATH is unchanged base behavior."
+	},
+	"36709351733#1": {
+		"origin": "introduced",
+		"why": "PR changes $selectLanguageRuntime from a free-text 'Extension-requested runtime selection' string to SessionStartReason.ExtensionApi and adds sessionStartReasonLabels.ts plus the 'Start Reason' line in consoleInstanceInfoButton.tsx; at base no start reason label was shown to the user."
+	},
+	"36756215880#1": {
+		"origin": "introduced",
+		"why": "The restore rule 'activate = firstConsole && isConsoleSession' in runtimeStartup.ts is unchanged from base, but Assistant-owned sessions (owner field, startNewAssistantSession in languageRuntimeActions.ts) do not exist at base, so an Assistant session stealing the foreground is only reachable via the PR (losing the selected user session is inherited)."
+	},
+	"36756215880#2": {
+		"origin": "introduced",
+		"why": "getSessionIconClasses' assistant-session-icon class, the owner prop in consoleTab.tsx/topActionBarSessionPicker.tsx, and assistantSessionIcon.css are all added by the PR; base has no ownership UI at all."
+	},
+	"36777189951#1": {
+		"origin": "introduced",
+		"why": "Interpreter variants (interpreterDefinitions.ts, _registerVariants and the onDidChangeConfiguration prune in languageRuntime.ts, the variant rebuild in runtimeSession.ts) are all added by the PR; base has no interpreters.definitions feature."
+	},
+	"36777189951#2": {
+		"origin": "introduced",
+		"why": "Interpreter variants (interpreters.definitions, LanguageRuntimeService._registerVariants and the unregister-on-definition-change listener) do not exist at base d39efdeb; the generic 'No language runtime with id' throw in startNewRuntimeSession is old, but the only way to reach it from a live session is the variant feature this PR adds."
+	},
+	"36920911382#1": {
+		"origin": "introduced",
+		"why": "KCApi.updateTerminalEnvironment, which writes the variant's env into the supervisor's environmentVariableCollection with applyAtProcessCreation: true, is new in the PR diff (absent at base d39efdeb); buildEnvVarActions is old but had no supervisor contributions to pick up before."
+	},
+	"36920911382#2": {
+		"origin": "introduced",
+		"why": "The one-time fold of definitionEnv into kernel.env in KCApi.createSession and the _definitionEnvBySessionId cache are both added by the PR; at base the kernel spec env never came from a user setting, so restart reusing _kernelSpec.env could not go stale."
+	},
+	"36920911382#3": {
+		"origin": "introduced",
+		"why": "The definitions loop in discoverPythonRuntimes, including the 'runtime.runtimePath !== pythonPath' traceWarn-and-skip check, is entirely added in the PR diff of manager.ts; base has no definitions handling."
+	},
+	"37074257597#1": {
+		"origin": "introduced",
+		"why": "getCodeStartReason, which checks metadata.extensionId before the attribution source, is added by the PR in positronConsoleService.ts; base passed a fixed 'User executed code in language ...' string with no extension attribution."
+	},
+	"37390337521#1": {
+		"origin": "introduced",
+		"why": "PR adds the '**' delete watcher in pythonWatcher.ts and the isParentPath removal loop in nativeAPI.ts workspaceEventHandler; at base a folder delete matched no pattern and the venv entry stayed, so dropping it from the pickers is new (the missing re-add is in unchanged code)."
+	},
+	"37682660708#1": {
+		"origin": "inherited",
+		"why": "createEnvApi.ts getRankedProviders is untouched and at base already lists the uv provider regardless of uv being installed or the setting; at base picking it without uv failed outright (isUvInstalled check in uvCreationProvider), so the row could never succeed then either."
+	},
+	"37682660708#2": {
+		"origin": "introduced",
+		"why": "pythonEnvironmentStep.tsx placeholder 'Install uv to select a Python version' is unchanged, but at base installing uv ignored python.allowUvPythonInstall so the text was accurate; the PR's ensureUvInstalled check makes install impossible with the setting off while only the callout was updated."
+	},
+	"37871635014#1": {
+		"origin": "inherited",
+		"why": "At base dynamicPlotThumbnail.tsx:55 and staticPlotThumbnail.tsx:23 already set img alt to the plot name and plotGalleryThumbnail.tsx already renders the plot-thumbnail-name label inside the same button; the PR only swaps aria-pressed for aria-current."
+	},
+	"39337645423#1": {
+		"origin": "introduced",
+		"why": "languageOrderContribution.ts, positronReorderOnlyList.ts, and positronReorderListRenderer.ts are all new files in the PR (diff-filter=A); the cross-scope enum merge and save-all-rows logic do not exist at base."
+	},
+	"39451717176#1": {
+		"origin": "inherited",
+		"why": "viewerBridge.ts at base already has press() calling pressKey() (synthetic keydown/keyup dispatchEvent only) and returning 'Pressed ...' without checking any effect; the PR's viewerBridge diff only changes the bridge cache/host-frame lookup."
+	},
+	"39461512623#1": {
+		"origin": "inherited",
+		"why": "Base runtime-manager.ts returned the pinned R as Implicit before any project check, and base runtimeStartup.ts (unchanged by the PR) skips the post-discovery Immediate start once an affiliation exists; the PR moved that branch into chooseStartupR without changing it, so the same no-start-on-first-open applied at base."
+	},
+	"39461512623#2": {
+		"origin": "inherited",
+		"why": "runtimeStartup.ts is not in the PR diff; at base 2dd190cc it already saves implicit recommendations with lastUsed/lastStarted 0 (line 1844) and skips the never-started filter when languageIds.length === 1 (line 1890), and base runtime-manager.ts already returned the pin as Implicit."
+	},
+	"39484241272#1": {
+		"origin": "introduced",
+		"why": "The run reproduced the default-settings trigger, which comes from fromRememberedAnswer, added by the PR."
+	},
+	"39488080365#1": {
+		"origin": "introduced",
+		"why": "At base PET is configured with workspace roots only (nativePythonFinder configurationOptions), so app/.venv is never discovered; the PR adds nested-env discovery without covering it in the root-only manager.ts fast path or cached-discovery path, so the half-wired feature is new (plus an unexplained auto-start race)."
+	},
+	"39488264139#1": {
+		"origin": "inherited",
+		"why": "On base the first open already auto-starts a global Python (the folder has a .py file) and saves it as the affiliation, which starts before any recommendation on reopen."
+	},
+	"39488264139#2": {
+		"origin": "introduced",
+		"why": "The save-with-lastUsed=0 and single-language keep in runtimeStartup.ts exist at base, but the no-settings trigger is new: interpreterRecommendation.ts fromRememberedAnswer (added by PR) returns an Implicit runtime on reopen, whereas base recommendedWorkspaceInterpreterPath returned nothing without settings; the PR also edited the affiliation filter to exempt only Explicit."
+	},
+	"39488264139#3": {
+		"origin": "introduced",
+		"why": "Base manager.ts recommendedWorkspaceInterpreterPath set isImmediate=true for the global defaultInterpreterPath when no folder was open; PR's startupBehaviorFor in interpreterRecommendation.ts returns Implicit whenever hasPythonSignals is false, which is always the case with no folder."
+	},
+	"39497969763#1": {
+		"origin": "inherited",
+		"why": "formatNumber in positron-duckdb extension.ts at base does Number(value) on BIGINT min/max (line 1186); the PR does not touch that file and only stops the frontend re-parsing integer strings."
+	},
+	"39629398834#2": {
+		"origin": "inherited",
+		"why": "Base _get_histogram_numpy also ran np.histogram(data, bins='fd') on the background thread with no np.errstate, which already warned on overflowing ranges; the PR's _get_numpy_bin_count adds an extra linspace warning but not the unsilenced/misrouted-warning defect."
+	},
+	"40000225535#1": {
+		"origin": "introduced",
+		"why": "On base MINIMUM_PYTHON_VERSION is 3.9.0, so the 3.9 .venv starts; the PR raises it to 3.10.0 and skips the venv silently."
+	},
+	"40000225535#2": {
+		"origin": "introduced",
+		"why": "positron_lsp.py at base declares working_directory: Optional[str] with a noqa noting cattrs can't handle '| None' on 3.9; the PR changes it to 'str | None' under 'from __future__ import annotations'."
+	},
+	"40009717164#1": {
+		"origin": "introduced",
+		"why": "On base press() never clicks, so Space activating a button is new in the PR; the no-ref press is a gap in that new behavior."
+	},
+	"40187864003#2": {
+		"origin": "introduced",
+		"why": "errorActionHandlerService.ts: at base there is no ERROR_ACTIONS_AGENT_KEY setting, _getChosenHandlerId or _updateChoices (handler was Iterable.first); the PR adds _updateChoices, which adds only getValue()'s effective id as the not-available choice."
+	},
+	"40380443779#1": {
+		"origin": "inherited",
+		"why": "Base runtime-manager.ts already built the pin as new RInstallation(defaultInterpreterPath) from the path as written, and base startRecommendedLanguageRuntimes pre-registers the recommendation, so a version-link pin already got a second runtime ID; the PR's choosePinnedR only adds symlink resolution for the current R."
+	},
+	"40380443779#2": {
+		"origin": "inherited",
+		"why": "The 'if (isDefinitionsOnlyDiscovery()) return undefined' early return at the top of recommendedWorkspaceRuntime is identical at base 6201a570, where it also blocked the pinned recommendation; the PR's definitions-aware choosePinnedR is only reached from pinnedWorkspaceRuntime and leaves that path unchanged."
+	},
+	"40382408776#1": {
+		"origin": "inherited",
+		"why": "provider.ts getRDiscoveryRootSignature (no PATH input) and the discovery cache are not touched by the PR (diff only adds picker info in makeMetadata); base getPreferredRuntime's registeredRuntimes.find fallback picks the same first-registered cached R."
+	},
+	"40382433136#1": {
+		"origin": "introduced",
+		"why": "languageRuntimeActions.ts: base rows used label: runtime.runtimeName (includes '(Pyenv)'); the PR changes runtimeRow to label: picker.label with the tool name moved to description and adds matchOnDescription = true."
+	},
+	"40382433136#2": {
+		"origin": "introduced",
+		"why": "PreferredRuntimeReason, choosePreferredRuntime (runtimeStartup.ts) and getSuggestedReasonText's 'active console' text (languageRuntimeActions.ts) do not exist at base; the PR adds the per-language ActiveConsole reason and labels it 'active console'."
+	},
+	"40395928454#1": {
+		"origin": "introduced",
+		"why": "RuntimeStartupService.checkPinnedRuntime/startPinnedCheck/_pinnedChecks, which write the pin over the affiliated runtime on every window, do not exist at base 6201a570 (no 'pinned' in runtimeStartup.ts) and are added by the PR; the cause's claim that the R pin already did this in core is wrong."
+	},
+	"40521050076#1": {
+		"origin": "introduced",
+		"why": "help.py at base has no search_help/get_help_topics and actionBars.tsx at base has only a find-in-page button; the PR adds the search box, module-only suggest() (new help_index.py) and the search?key Enter path."
+	},
+	"40521050076#2": {
+		"origin": "introduced",
+		"why": "actionBars.css at base has no .help-search/.help-search-suggestions rules; the PR adds the max-width:240px box and the left:0;right:0 suggestion list, and the untitled option buttons in HelpSearch."
+	},
+	"40521050076#3": {
+		"origin": "introduced",
+		"why": "positronHelpService.ts at base has no idleForegroundClient, SESSION_ENDED_STATES or isCurrent check; the PR adds the wait-for-idle search logic that treats post-interrupt idle as ready."
+	},
+	"40521050076#4": {
+		"origin": "introduced",
+		"why": "The trailing-.html strip in pydoc.py get_html_page exists at base, but base removed the pydoc navbar search form so no typed query reached search?key; the PR's search_help is the first path that sends user text through it."
+	},
+	"40537582208#1": {
+		"origin": "inherited",
+		"why": "help.py handle_msg at base already calls send_result(data=True) before show_help() for ShowHelpTopicRequest (lines 255-256); the PR leaves that branch unchanged."
+	},
+	"40537582208#2": {
+		"origin": "introduced",
+		"why": "help_index.py (suggest(), which offers pkg.__main__) is a new file in the PR, and the suggestion list that feeds show_help does not exist at base."
+	},
+	"40570076560#1": {
+		"origin": "inherited",
+		"why": "envCollectionActivation/service.ts is unchanged by the PR; getPromptForEnv at base already returns raw env.VIRTUAL_ENV_PROMPT for Virtual envs without adding '(' and ') '."
+	},
+	"40590479972#1": {
+		"origin": "introduced",
+		"why": "On base the Recommended label and the selected interpreter came from the same ranking; the PR's setPositronRecommendedInterpreter makes them differ."
+	},
+	"40778949472#1": {
+		"origin": "inherited",
+		"why": "At base 6a713ffe, InterpreterPathService.onDidChangeConfiguration already fires startSession: true ('Treat every fire as session intent') and manager.ts onDidChangeInterpreter starts it; the PR only rewrites the package.nls.json description to say 'next time Positron starts', so the start-on-edit is old and the PR only made the description disagree with it."
+	},
+	"40888185517#1": {
+		"origin": "inherited",
+		"why": "runApplicationInConsole in api.ts at base already previews on detectAppUrl Found without rechecking executionFinished; the PR only changes Show Console handling in api-utils.ts."
+	},
+	"41026231326#1": {
+		"origin": "inherited",
+		"why": "positronCanvasService.ts onWillDispose willShutdown check (base lines 535-552) is unchanged; the PR only alters the dev-only 10s open watchdog in windowImpl.ts, which does not affect quit ordering."
+	},
+	"41553743303#1": {
+		"origin": "introduced",
+		"why": "Main replay: main does not register the variant, so the steps can't fail there."
+	},
+	"41553743303#2": {
+		"origin": "introduced",
+		"why": "Main replay: 0 of 1 failures on main."
+	}
+}

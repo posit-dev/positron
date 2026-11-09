@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as DOM from '../../../base/browser/dom.js';
 import { mainWindow } from '../../../base/browser/window.js';
 import { IPixelRatioMonitor, PixelRatio } from '../../../base/browser/pixelRatio.js';

@@ -8,8 +8,8 @@
 # Echoes "true" iff a changed path should contribute to tag derivation. Test
 # files (co-located unit/vitest tests under a test/ dir or named *.test.* /
 # *.vitest.*) and lockfiles are excluded: a test-only or lockfile-only change
-# should not auto-select a feature suite. This is derivation-only -- the map-rot
-# guardrail excludes test/build dirs separately via positron_dir_of.
+# should not auto-select a feature suite. find_unmapped_positron_dirs also uses
+# it, in its owner-root fallback only.
 is_derivable_source() {
 	local path="$1"
 	case "$path" in
@@ -196,6 +196,47 @@ patch_is_tag_change_only() {
 			print (ok ? "true" : "false")
 		}
 	'
+}
+
+# Paths that only run or matter on Workbench, as shell globs. A test in
+# pr-tags-lib-test.sh fails if any glob stops matching a real file, so a rename
+# shows up there instead of silently turning the lane off.
+WORKBENCH_LANE_PATHS=(
+	# Workbench e2e tests and their helpers
+	'test/e2e/tests/workbench/*'
+	'test/e2e/pages/workbench/*'
+	'test/e2e/infra/workbench*'
+	# Workbench managed credentials (Snowflake, Databricks)
+	'extensions/authentication/src/managedCredentials*'
+	'extensions/authentication/src/credentials/databricks*'
+	'extensions/authentication/src/credentials/snowflake*'
+	'extensions/positron-data-driver-*/src/workbenchCredentials*'
+)
+
+# touches_workbench_lane <changed_files>
+# Echoes "true" iff any changed file matches WORKBENCH_LANE_PATHS, so
+# pr-tags-parse.sh can start the Workbench lane without the author typing
+# @:workbench. Only the e2e-workbench project runs tests/workbench/**.
+touches_workbench_lane() {
+	local changed="$1" file pattern
+	while IFS= read -r file; do
+		[[ -z "$file" ]] && continue
+		for pattern in "${WORKBENCH_LANE_PATHS[@]}"; do
+			# shellcheck disable=SC2053 # glob match on purpose
+			if [[ "$file" == $pattern ]]; then
+				echo true; return 0
+			fi
+		done
+	done <<< "$changed"
+	echo false
+}
+
+# bootstrap_extension_version <product_json> <extension_id>
+# Echoes the version of <extension_id> in product.json's bootstrapExtensions,
+# or nothing when it isn't listed or the JSON doesn't parse.
+bootstrap_extension_version() {
+	printf '%s' "$1" | jq -r --arg id "$2" \
+		'.bootstrapExtensions[]? | select(.name == $id) | .version' 2>/dev/null || true
 }
 
 # is_infra_only <changed_files>
@@ -420,7 +461,9 @@ split_valid_invalid_tags() {
 # owner_root_dir_of + a copyright-header check. Without this, a Positron-owned
 # file that doesn't follow the naming convention is invisible to this check
 # entirely -- not just unmapped, undetectable -- and stays that way until
-# someone finds it by hand (as happened with #14604).
+# someone finds it by hand (as happened with #14604). The fallback skips test
+# files (is_derivable_source): a Posit test in an upstream dir doesn't make the
+# dir Posit-owned.
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
@@ -429,6 +472,8 @@ find_unmapped_positron_dirs() {
 		[[ -z "$file" ]] && continue
 		dir="$(positron_dir_of "$file")"
 		if [[ -z "$dir" ]]; then
+			# A Posit test file doesn't make an upstream dir Posit-owned.
+			[[ "$(is_derivable_source "$file")" == "true" ]] || continue
 			dir="$(owner_root_dir_of "$file")"
 			[[ -z "$dir" ]] && continue
 			[[ "$(is_posit_owned_file "$file")" == "true" ]] || continue
@@ -441,17 +486,19 @@ find_unmapped_positron_dirs() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
 
-# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>]
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>] [<auto_csv>]
 # Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
-# code by precedence: required -> body -> files -> ark -> test-win -> test-web ->
-# test-changed -> auto. Booleans are the strings "true"/"false". Echoes
+# code by precedence: required -> body -> files -> ark -> auto list -> test-win ->
+# test-web -> test-changed -> auto. <auto_csv> holds "<tag>|<code>" pairs for
+# tags the parser added itself (ai-lib bump, Posit Assistant bump, Workbench-only
+# files); the first pair for a tag wins. Booleans are the strings "true"/"false". Echoes
 # comma-separated "<tag>|<code>" pairs in <final_csv> order; empty final list
 # echoes nothing. <test_change_csv> defaults to empty (older 6-arg callers keep
 # working; those tags just fall through to "auto"). Pure: presentation of an
 # already-decided tag set, no gh / $GITHUB_OUTPUT.
 build_tag_reasons() {
-	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}"
-	local tag code author_nl map_nl test_change_nl
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}" auto_reasons="${8:-}"
+	local tag code author_nl map_nl test_change_nl auto_code
 	local -a out=()
 	author_nl="${author//,/$'\n'}"
 	map_nl="${map//,/$'\n'}"
@@ -470,6 +517,8 @@ build_tag_reasons() {
 			# the test-win/test-web branches, so a bump wins over a coincidental
 			# tags.WIN/WEB add in the same PR.
 			code="ark"
+		elif auto_code="$(printf '%s\n' "${auto_reasons//,/$'\n'}" | awk -F'|' -v t="$tag" '$1 == t { print $2; exit }')" && [[ -n "$auto_code" ]]; then
+			code="$auto_code"
 		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
@@ -509,8 +558,11 @@ render_why_these_tags() {
 				body)     label="PR description" ;;
 				files)    label="Changed files" ;;
 				ark)      label="Ark submodule bump" ;;
+				ai-lib)   label="ai-lib submodule bump" ;;
+				assistant-bump) label="Posit Assistant version bump" ;;
 				test-win) label="New test (tags.WIN)" ;;
 				test-web) label="New test (tags.WEB)" ;;
+				workbench-files) label="Changed Workbench-only files" ;;
 				test-changed) label="Touched test file" ;;
 				*)        label="Auto-selected" ;;
 			esac

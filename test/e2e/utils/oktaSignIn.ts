@@ -8,6 +8,7 @@ import type { Protocol } from 'playwright-core/types/protocol';
 import { Logger } from '../infra/logger.js';
 import { generateTOTP } from './totp.js';
 import { isOktaLockedOut, otpRetryDelayMs } from './otpRetry.js';
+import { fillSecretValue } from './secretInput.js';
 
 // The Okta sign-in for a service account, driven on a page the caller has already pointed at a
 // provider's login (or at Okta directly).
@@ -201,7 +202,7 @@ export async function completeOktaSignIn(page: Page, options: OktaSignInOptions)
 	await expect(nextButton).toBeVisible({ timeout: 10000 });
 	await nextButton.click();
 	await expect(passwordField).toBeVisible({ timeout: 5000 });
-	await passwordField.fill(password);
+	await fillSecretValue(passwordField, password);
 	await expect(verifyButton).toBeVisible({ timeout: 10000 });
 	await verifyButton.click();
 	await page.waitForLoadState('networkidle', { timeout: 10000 });

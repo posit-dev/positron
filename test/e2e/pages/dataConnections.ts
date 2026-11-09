@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 // The focus command for the Data Connections view (gated behind `dataConnections.enabled`).
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
@@ -175,12 +176,25 @@ export class DataConnections {
 		const entries = Array.isArray(fields) ? fields : Object.entries(fields);
 		await test.step('Fill connection inputs', async () => {
 			for (const [label, value] of entries) {
-				const field = this.dialog.locator(PARAMETER_FIELD).filter({
-					has: this.code.driver.currentPage.getByText(label, { exact: true })
-				});
-				await field.locator('.parameter-input').fill(value);
+				await this.connectionInput(label).fill(value);
 			}
 		});
+	}
+
+	/**
+	 * Fills one secret field (password, API key) of the "Configure Database" dialog without putting
+	 * the value in a step title, which {@link fillConnectionInputs} would do.
+	 */
+	async fillSecretConnectionInput(label: string | RegExp, value: string): Promise<void> {
+		await test.step('Fill secret connection input', async () => {
+			await fillSecretValue(this.connectionInput(label), value);
+		});
+	}
+
+	private connectionInput(label: string | RegExp): Locator {
+		return this.dialog.locator(PARAMETER_FIELD).filter({
+			has: this.code.driver.currentPage.getByText(label, { exact: true })
+		}).locator('.parameter-input');
 	}
 
 	/**

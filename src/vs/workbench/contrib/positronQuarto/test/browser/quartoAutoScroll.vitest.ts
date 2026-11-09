@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { computeAutoScrollTop, QuartoAutoScrollLayout } from '../../browser/quartoOutputManager.js';
 
 // computeAutoScrollTop decides how far the editor must scroll to reveal an

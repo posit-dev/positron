@@ -26,12 +26,12 @@ import { MockKeybindingService } from '../../../../../platform/keybinding/test/c
 import { TestStorageService } from '../../../../../workbench/test/common/workbenchTestServices.js';
 import { IsSessionsWindowContext } from '../../../../../workbench/common/contextkeys.js';
 import { ChatContextKeys } from '../../../../../workbench/contrib/chat/common/actions/chatContextKeys.js';
-import { Menus } from '../../../../browser/menus.js';
-import { SessionIdContext } from '../../../../common/contextkeys.js';
+import { getNewSessionRepositoryConfigGroup, Menus } from '../../../../browser/menus.js';
+import { SessionActiveChatResourceContext, SessionIdContext } from '../../../../common/contextkeys.js';
 import { ISessionContext, SessionContext } from '../../../../services/sessions/browser/sessionContext.js';
 import { ISessionsPartService } from '../../../../services/sessions/browser/sessionsPartService.js';
 import { ISessionsService } from '../../../../services/sessions/browser/sessionsService.js';
-import { ISessionChangeset, ISessionChangesetOperation, ISessionFolder, ISessionGitRepository, ISessionWorkspace, SessionChangesetOperationScope, SessionChangesetOperationStatus, UNCOMMITTED_CHANGES_CHANGESET_ID } from '../../../../services/sessions/common/session.js';
+import { IChat, ISessionChangeset, ISessionChangesetOperation, ISessionFolder, ISessionGitRepository, ISessionWorkspace, SessionChangesetOperationScope, SessionChangesetOperationStatus, UNCOMMITTED_CHANGES_CHANGESET_ID } from '../../../../services/sessions/common/session.js';
 import { IActiveSession } from '../../../../services/sessions/common/sessionsManagement.js';
 import { SessionSyncChangesActionViewItem, SessionSyncChangesContribution } from '../../browser/sessionSyncChanges.js';
 import '../../../../../base/browser/ui/actionbar/actionbar.css';
@@ -42,10 +42,11 @@ suite('Session Sync Changes', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 	const commandId = 'workbench.action.sessions.syncChanges';
 
-	function createWorkspace(incomingChanges?: number, outgoingChanges?: number, upstreamBranchName = 'origin/main'): ISessionWorkspace {
+	function createWorkspace(incomingChanges?: number, outgoingChanges?: number, upstreamBranchName = 'origin/main', options?: { readonly workTreeUri?: URI; readonly isVirtualWorkspace?: boolean }): ISessionWorkspace {
 		return upcastPartial<ISessionWorkspace>({
+			isVirtualWorkspace: options?.isVirtualWorkspace,
 			folders: [upcastPartial<ISessionFolder>({
-				gitRepository: upcastPartial<ISessionGitRepository>({ incomingChanges, outgoingChanges, upstreamBranchName }),
+				gitRepository: upcastPartial<ISessionGitRepository>({ incomingChanges, outgoingChanges, upstreamBranchName, workTreeUri: options?.workTreeUri }),
 			})],
 		});
 	}
@@ -72,13 +73,20 @@ suite('Session Sync Changes', () => {
 		});
 		const changesets = observableValue<readonly ISessionChangeset[] | undefined>('changesets', [changeset]);
 		const workspace = observableValue<ISessionWorkspace | undefined>('workspace', createWorkspace(0, 2));
-		const session = upcastPartial<IActiveSession>({
-			sessionId: id,
-			resource: URI.parse(`test-session:/${id}`),
+		const worktreePending = observableValue('worktreePending', false);
+		const activeChat = upcastPartial<IChat>({
+			resource: URI.parse(`test-chat:/${id}`),
 			changesets,
 			workspace,
 		});
-		return { session, operation, operations, enabled, changeset, changesets, invocations, workspace };
+		const session = upcastPartial<IActiveSession>({
+			sessionId: id,
+			resource: URI.parse(`test-session:/${id}`),
+			workspace,
+			worktreePending,
+			activeChat: constObservable(activeChat),
+		});
+		return { session, operation, operations, enabled, changeset, changesets, invocations, workspace, worktreePending };
 	}
 
 	function setup(sessions: readonly IActiveSession[]) {
@@ -86,6 +94,7 @@ suite('Session Sync Changes', () => {
 		const activeSession = observableValue<IActiveSession | undefined>('activeSession', sessions[0]);
 		const sessionsService = new class extends mock<ISessionsService>() {
 			override readonly visibleSessions = visibleSessions;
+			override readonly visibleSessionPanes = visibleSessions;
 			override readonly activeSession = activeSession;
 		}();
 		let factory: IActionViewItemFactory | undefined;
@@ -115,6 +124,7 @@ suite('Session Sync Changes', () => {
 	function getVisibleEntries(session: IActiveSession, aiEnabled = true) {
 		const context = new Context(1, null);
 		context.setValue(SessionIdContext.key, session.sessionId);
+		context.setValue(SessionActiveChatResourceContext.key, session.activeChat.get().resource.toString());
 		context.setValue(IsSessionsWindowContext.key, true);
 		context.setValue(ChatContextKeys.enabled.key, aiEnabled);
 		return getEntries().filter(item => item.when?.evaluate(context));
@@ -131,7 +141,7 @@ suite('Session Sync Changes', () => {
 			second: getVisibleEntries(second.session).length,
 			aiDisabled: getVisibleEntries(first.session, false).length,
 		}, {
-			first: [{ id: commandId, group: 'navigation', order: 4 }],
+			first: [{ id: commandId, group: getNewSessionRepositoryConfigGroup(Number.MAX_SAFE_INTEGER, commandId), order: Number.MAX_SAFE_INTEGER }],
 			second: 0,
 			aiDisabled: 0,
 		});
@@ -150,6 +160,42 @@ suite('Session Sync Changes', () => {
 		counts.push(getEntries().length);
 
 		assert.deepStrictEqual(counts, [0, 0, 1, 0]);
+	});
+
+	test('standalone children retain independently scoped sync entries after their parent pane closes', () => {
+		const parent = createSession('parent');
+		const first = createSession('first-child');
+		const second = createSession('second-child');
+		const childPane = (session: IActiveSession): IActiveSession => ({
+			...session, sessionId: parent.session.sessionId, resource: parent.session.resource, scopedChatResource: session.activeChat.get().resource,
+		});
+		const children = [childPane(first.session), childPane(second.session)];
+		second.operations.set([{ ...second.operation, status: SessionChangesetOperationStatus.Disabled }], undefined);
+		const { visibleSessions } = setup([parent.session, ...children]);
+		const snapshot = () => [parent.session, ...children].map(session => getVisibleEntries(session).map(entry => entry.command.precondition === undefined));
+		const before = snapshot();
+		visibleSessions.set(children, undefined);
+		assert.deepStrictEqual({ before, afterParentClose: snapshot() }, {
+			before: [[true], [true], [false]], afterParentClose: [[], [true], [false]],
+		});
+	});
+
+	test('only contributes a sync action for folder sessions', () => {
+		const data = createSession('first');
+		setup([data.session]);
+		const counts = [getEntries().length];
+		data.worktreePending.set(true, undefined);
+		counts.push(getEntries().length);
+		data.worktreePending.set(false, undefined);
+		counts.push(getEntries().length);
+		data.workspace.set(createWorkspace(0, 2, 'origin/main', { workTreeUri: URI.file('/worktrees/first') }), undefined);
+		counts.push(getEntries().length);
+		data.workspace.set(createWorkspace(0, 2, 'origin/main', { isVirtualWorkspace: true }), undefined);
+		counts.push(getEntries().length);
+		data.workspace.set(createWorkspace(0, 2), undefined);
+		counts.push(getEntries().length);
+
+		assert.deepStrictEqual(counts, [1, 0, 1, 0, 0, 1]);
 	});
 
 	test('disabled sync icon matches the count label color in every theme', () => {
@@ -193,6 +239,7 @@ suite('Session Sync Changes', () => {
 		setup([data.session]);
 		const contextKeyService = store.add(new ContextKeyService(new TestConfigurationService()));
 		SessionIdContext.bindTo(contextKeyService).set(data.session.sessionId);
+		SessionActiveChatResourceContext.bindTo(contextKeyService).set(data.session.activeChat.get().resource.toString());
 		IsSessionsWindowContext.bindTo(contextKeyService).set(true);
 		ChatContextKeys.enabled.bindTo(contextKeyService).set(true);
 		const menuService = store.add(new MenuService(new class extends mock<ICommandService>() { }(), new MockKeybindingService(), store.add(new TestStorageService())));
@@ -302,6 +349,14 @@ suite('Session Sync Changes', () => {
 		data.enabled.set(false, undefined);
 		await assert.rejects(invoke(), /no longer available/);
 		data.enabled.set(true, undefined);
+		data.worktreePending.set(true, undefined);
+		await assert.rejects(invoke(), /no longer available/);
+		data.worktreePending.set(false, undefined);
+		data.workspace.set(createWorkspace(0, 2, 'origin/main', { workTreeUri: URI.file('/worktrees/first') }), undefined);
+		await assert.rejects(invoke(), /no longer available/);
+		data.workspace.set(createWorkspace(0, 2, 'origin/main', { isVirtualWorkspace: true }), undefined);
+		await assert.rejects(invoke(), /no longer available/);
+		data.workspace.set(createWorkspace(0, 2), undefined);
 		activeSession.set(undefined, undefined);
 		await assert.rejects(invoke(), /no longer available/);
 		assert.deepStrictEqual(data.invocations, []);
@@ -345,6 +400,7 @@ suite('Session Sync Changes', () => {
 		}();
 		const contextKeyService = store.add(new ContextKeyService(new TestConfigurationService()));
 		SessionIdContext.bindTo(contextKeyService).set(second.session.sessionId);
+		SessionActiveChatResourceContext.bindTo(contextKeyService).set(second.session.activeChat.get().resource.toString());
 		IsSessionsWindowContext.bindTo(contextKeyService).set(true);
 		ChatContextKeys.enabled.bindTo(contextKeyService).set(true);
 		const menuService = store.add(new MenuService(commandService, new MockKeybindingService(), store.add(new TestStorageService())));
@@ -466,7 +522,7 @@ suite('Session Sync Changes', () => {
 		]);
 	});
 
-	test('returns keyboard focus to the input when the focused action is removed', () => {
+	function assertFocusReturnsWhenActionIsRemoved(removeAction: (data: ReturnType<typeof createSession>) => void): void {
 		const data = createSession('first');
 		const action = store.add(new Action(commandId, 'Sync Changes'));
 		const widget = document.createElement('div');
@@ -487,9 +543,17 @@ suite('Session Sync Changes', () => {
 		store.add(toDisposable(() => widget.remove()));
 		item.render(container);
 		item.focus();
-		data.operations.set([], undefined);
+		removeAction(data);
 		item.dispose();
 
 		assert.deepStrictEqual({ inputFocused: document.activeElement === input, focusedSessions }, { inputFocused: true, focusedSessions: [data.session] });
+	}
+
+	test('returns keyboard focus to the input when the focused action is removed', () => {
+		assertFocusReturnsWhenActionIsRemoved(data => data.operations.set([], undefined));
+	});
+
+	test('returns keyboard focus to the input when the focused action no longer applies', () => {
+		assertFocusReturnsWhenActionIsRemoved(data => data.worktreePending.set(true, undefined));
 	});
 });

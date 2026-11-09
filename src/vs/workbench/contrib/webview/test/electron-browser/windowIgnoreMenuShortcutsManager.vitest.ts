@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-/// <reference types="vitest/globals" />
 
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
