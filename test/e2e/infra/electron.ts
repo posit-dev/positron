@@ -95,7 +95,7 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 	}
 
 	if (!codePath) {
-		args.unshift(root);
+		args.unshift(options.sourceAppRoot ?? root);
 	}
 
 	if (extraArgs) {

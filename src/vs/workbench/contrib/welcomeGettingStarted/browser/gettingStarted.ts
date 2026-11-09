@@ -35,6 +35,10 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+// Only used by the upstream agents banner, which Positron omits.
+// import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
+// --- End Positron ---
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -76,7 +80,7 @@ import { IWorkbenchThemeService } from '../../../services/themes/common/workbenc
 import { GettingStartedIndexList } from './gettingStartedList.js';
 // --- Start Positron ---
 // Upstream imports for the agents app promotion banner; not used in Positron.
-// import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
+// import { createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
 // import { IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
 // --- End Positron ---
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
@@ -252,9 +256,10 @@ export class GettingStartedPage extends EditorPane {
 		// --- End Positron ---
 		@IMarkdownRendererService private readonly markdownRendererService: IMarkdownRendererService,
 		// --- Start Positron ---
-		// Upstream injects IChatEntitlementService for the agents app promotion banner,
-		// which Positron removes (see footer block below). Drop the unused injection.
+		// Upstream injects IChatEntitlementService and IDefaultAccountService for the agents app
+		// promotion banner, which Positron removes (see footer block below). Drop the unused injections.
 		// @IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
+		// @IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
 		// --- End Positron ---
 	) {
 
@@ -1012,30 +1017,28 @@ export class GettingStartedPage extends EditorPane {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// Upstream adds an "Agents app" promotion banner here in non-stable
-		// builds. This banner promotes a VS Code-specific desktop window and is
-		// not part of the Positron product, so omit it from the Positron
-		// welcome page footer.
+		// Upstream adds an "Agents app" promotion banner here. This banner
+		// promotes a VS Code-specific desktop window and is not part of the
+		// Positron product, so omit it from the Positron welcome page footer.
 		//
 		// const footerChildren: HTMLElement[] = [];
-		// if (canShowAgentsBanner(this.chatEntitlementService)) {
-		// 	const agentsBanner = createAgentsBanner(
-		// 		{
-		// 			cssClass: 'getting-started-category.agents-banner',
-		// 			source: 'welcomePage',
-		// 		},
-		// 		this.commandService,
-		// 		this.telemetryService,
-		// 	);
-		// 	this.categoriesSlideDisposables.add(agentsBanner.disposables);
-		// 	footerChildren.push(agentsBanner.element);
-		// }
+		// const agentsBanner = createAgentsBanner(
+		// 	{
+		// 		cssClass: 'getting-started-category.agents-banner',
+		// 		source: 'welcomePage',
+		// 	},
+		// 	this.commandService,
+		// 	this.telemetryService,
+		// 	this.configurationService,
+		// 	this.chatEntitlementService,
+		// 	this.defaultAccountService,
+		// );
+		// this.categoriesSlideDisposables.add(agentsBanner.disposables);
+		// footerChildren.push(agentsBanner.element);
 		// footerChildren.push($('p.showOnStartup', {},
 		// 	showOnStartupCheckbox.domNode,
 		// 	showOnStartupLabel,
 		// ));
-		//
-		// const footer = $('.footer', {}, ...footerChildren);
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
 				showOnStartupCheckbox.domNode,

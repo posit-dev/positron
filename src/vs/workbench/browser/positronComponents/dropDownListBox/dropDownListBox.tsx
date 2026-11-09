@@ -95,10 +95,12 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
 	}, [props.entries, props.selectedIdentifier]);
 
 	/**
-	 * Gets the title to display.
+	 * Renders the title to display. Called as a function rather than mounted as a component:
+	 * a component defined inside render is a new type on every render, so React would
+	 * remount the title (replacing its DOM node) each time the list box re-renders.
 	 * @returns The title to display.
 	 */
-	const Title = () => {
+	const renderTitle = () => {
 		if (!props.createItem) {
 			if (highlightedDropDownListBoxItem) {
 				return <span>{highlightedDropDownListBoxItem.options.title}</span>;
@@ -151,7 +153,7 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
 			}}
 		>
 			<div className='title'>
-				<Title />
+				{renderTitle()}
 			</div>
 			<div aria-hidden='true' className='chevron'>
 				<div className='codicon codicon-chevron-down' />

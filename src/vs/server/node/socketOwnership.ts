@@ -12,7 +12,7 @@
 // privileges, and -- being a plain file read -- is not blocked by the seccomp/capability profiles
 // that can restrict netlink. Linux-only; callers fail open on non-Linux / when `/proc` is absent.
 
-import { readFileSync } from 'fs';
+import { promises } from 'fs';
 
 /**
  * The subset of this module's exports that `WebClientServer` depends on for its `/proxy/`
@@ -20,8 +20,8 @@ import { readFileSync } from 'fs';
  * `/proc`-reading implementations (see webClientServer.vitest.ts).
  */
 export interface ISocketOwnershipCheck {
-	getListeningPortUid(port: number): number | undefined;
-	isProxyPortOwnershipEnforced(uid: number): boolean;
+	getListeningPortUid(port: number): Promise<number | undefined>;
+	isProxyPortOwnershipEnforced(uid: number): Promise<boolean>;
 }
 
 const PROC_TCP_FILES = ['/proc/net/tcp', '/proc/net/tcp6'];
@@ -72,12 +72,12 @@ interface ListenerEntry {
 /**
  * Scan `/proc/net/tcp` and `/proc/net/tcp6` for all LISTEN sockets bound to `port`, in file order.
  */
-function collectListeners(port: number): ListenerEntry[] {
+async function collectListeners(port: number): Promise<ListenerEntry[]> {
 	const entries: ListenerEntry[] = [];
 	for (const file of PROC_TCP_FILES) {
 		let contents: string;
 		try {
-			contents = readFileSync(file, 'utf8');
+			contents = await promises.readFile(file, 'utf8');
 		} catch {
 			continue; // file absent (e.g. no IPv6) or unreadable -- try the next
 		}
@@ -136,11 +136,11 @@ export function selectOwnerUid(entries: ListenerEntry[]): number | undefined {
  * @returns the owner uid, or `undefined` if no reachable LISTEN socket for the port was found or
  *          /proc could not be read.
  */
-export function getListeningPortUid(port: number): number | undefined {
-	return selectOwnerUid(collectListeners(port));
+export async function getListeningPortUid(port: number): Promise<number | undefined> {
+	return selectOwnerUid(await collectListeners(port));
 }
 
-let procTcpAvailable: boolean | undefined;
+let procTcpAvailable: Promise<boolean> | undefined;
 
 /**
  * One-time (cached) capability probe: whether this process can read `/proc/net/tcp` and parse a
@@ -148,17 +148,17 @@ let procTcpAvailable: boolean | undefined;
  * false the runtime cannot support the ownership check at all and callers degrade to no enforcement
  * rather than break proxying.
  */
-export function isProcTcpAvailable(): boolean {
+export function isProcTcpAvailable(): Promise<boolean> {
 	if (procTcpAvailable === undefined) {
 		procTcpAvailable = probeProcTcp();
 	}
 	return procTcpAvailable;
 }
 
-function probeProcTcp(): boolean {
+async function probeProcTcp(): Promise<boolean> {
 	let contents: string;
 	try {
-		contents = readFileSync('/proc/net/tcp', 'utf8');
+		contents = await promises.readFile('/proc/net/tcp', 'utf8');
 	} catch {
 		return false;
 	}
@@ -180,6 +180,6 @@ function probeProcTcp(): boolean {
  * check adds nothing; parity with rserver's `launcher-sessions-container-run-as-root` behaviour) and
  * when the /proc capability is absent.
  */
-export function isProxyPortOwnershipEnforced(uid: number): boolean {
-	return uid !== 0 && isProcTcpAvailable();
+export async function isProxyPortOwnershipEnforced(uid: number): Promise<boolean> {
+	return uid !== 0 && await isProcTcpAvailable();
 }
