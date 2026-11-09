@@ -275,12 +275,15 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// PositronList entry contract; this list has no sections.
 	useEffect(() => {
 		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
-		// so re-anchor every selected package by id after pushing the new entries, dropping the
-		// ones that are gone. onDidUpdate is batched into a microtask, so the clear, the new
-		// entries, and the re-selection reach the selection sync effect as one update and only
-		// the final selection is pushed to the service.
-		const previouslySelectedIds = new Set(listInstance.getSelectedItems().map(p => p.id));
-		if (previouslySelectedIds.size > 0) {
+		// so re-anchor every selected package by name after pushing the new entries, dropping the
+		// ones that are gone. The name, not the id: a runtime's package id embeds the version
+		// (the kernel's is `<name>-<version>`), so an update changes it and an id match would
+		// deselect exactly the packages that were just updated. Names are unique here (the list
+		// is deduplicated by name). onDidUpdate is batched into a microtask, so the clear, the
+		// new entries, and the re-selection reach the selection sync effect as one update and
+		// only the final selection is pushed to the service.
+		const previouslySelectedNames = new Set(listInstance.getSelectedItems().map(p => p.name));
+		if (previouslySelectedNames.size > 0) {
 			listInstance.clearSelection();
 		}
 
@@ -290,8 +293,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}));
 		listInstance.setEntries(entries);
 
-		if (previouslySelectedIds.size > 0) {
-			listInstance.selectItems(p => previouslySelectedIds.has(p.id));
+		if (previouslySelectedNames.size > 0) {
+			listInstance.selectItems(p => previouslySelectedNames.has(p.name));
 		}
 	}, [listInstance, filteredPackages]);
 

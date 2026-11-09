@@ -545,6 +545,29 @@ describe('ListPackages', () => {
 		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy']));
 	});
 
+	// The kernel builds a package id as `<name>-<version>`, so updating a package changes its id.
+	// The selection has to follow the package, not its old id, or a bulk update would deselect
+	// exactly the rows it just updated.
+	it('keeps the selected packages selected when an update changes their ids', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'polars');
+
+		const versioned = (name: string, version: string): ILanguageRuntimePackage => ({ ...pkg(name, version), id: `${name}-${version}` });
+		act(() => onDidRefreshPackagesInstance.fire([
+			versioned('numpy', '1.27.0'),
+			versioned('pandas', '2.0.0'),
+			versioned('polars', '0.21.0'),
+		]));
+
+		expect(await screen.findByText('1.27.0')).toBeInTheDocument();
+		expect(listRow('numpy')).toHaveClass('selected');
+		expect(listRow('polars')).toHaveClass('selected');
+		expect(listRow('pandas')).not.toHaveClass('selected');
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy', 'polars']));
+	});
+
 	// A bulk update that changes only one of the selected packages reports a single name; that
 	// must not collapse the user's multi-selection or open a preview.
 	it('keeps a multi-selection when a bulk update changes only one package', async () => {
