@@ -201,6 +201,19 @@ describe('Positron - Connections Service', () => {
 		it('still closes ggsql comms', async () => {
 			expect(await openComm('ggsql')).toEqual({ disposed: true, code: metadataIn('ggsql').code });
 		});
+
+		// The same rule as a startup comm whose metadata never arrives.
+		it('judges a comm that names no language by its session\'s language', async () => {
+			createDataConnectionsModeService();
+			const disposeSpy = vi.spyOn(TestRuntimeClientInstance.prototype, 'dispose');
+			const openUnnamed = async (sessionLanguage: string) => {
+				const session = ctx.disposables.add(await createSessionInLanguage(sessionLanguage));
+				const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, { name: 'mtcars.sqlite' }));
+				return disposeSpy.mock.contexts.includes(client);
+			};
+
+			expect({ r: await openUnnamed('r'), test: await openUnnamed('test') }).toEqual({ r: false, test: true });
+		});
 	});
 
 	describe('session connection code', () => {
@@ -384,11 +397,21 @@ describe('Positron - Connections Service', () => {
 			it('releases a kept startup comm that closed while its metadata was pending', async () => {
 				const metadata = { name: 'mtcars.sqlite', language_id: 'r', code: 'con <- dbConnect(RSQLite::SQLite(), "mtcars.sqlite")' };
 				const session = ctx.disposables.add(await createSession());
-				const { client, reply } = await openStartupComm(session, metadata);
+				const client = await session.createClient(RuntimeClientType.Connection, metadata);
+				const requested = new DeferredPromise<void>();
+				const reply = new DeferredPromise<void>();
+				client.rpcHandler = async (): Promise<IRuntimeClientOutput<unknown>> => {
+					requested.complete();
+					await reply.p;
+					return { data: { result: metadata } };
+				};
 				const disposeSpy = vi.spyOn(client, 'dispose');
 				const { service, onDidStartRuntime } = createServiceWatchingStarts();
 
 				onDidStartRuntime.fire(session);
+				// Close only once the metadata request is in flight, so the wrapper exists and is
+				// waiting on its reply when the close fires.
+				await requested.p;
 				client.setClientState(RuntimeClientState.Closed);
 				reply.complete();
 

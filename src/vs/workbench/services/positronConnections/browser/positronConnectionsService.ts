@@ -27,6 +27,15 @@ import { RuntimeClientState } from '../../languageRuntime/common/languageRuntime
 /** How long a connection comm already open at startup has to say what it is before it is closed. */
 const STARTUP_METADATA_TIMEOUT_MS = 5000;
 
+/**
+ * Whether a connection comm is kept open rather than closed; see watchRuntimeConnections. A comm
+ * that does not say what language it is (no metadata, or metadata with no `language_id`) takes its
+ * session's language.
+ */
+function keepsConnectionComm(session: ILanguageRuntimeSession, metadata: Partial<IConnectionMetadata> | undefined): boolean {
+	return isRuntimeConnectionLanguage(metadata?.language_id ?? session.runtimeMetadata.languageId);
+}
+
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
 	readonly _serviceBrand: undefined;
@@ -176,7 +185,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 				superseded = true;
 				const metadata = message.data as Partial<IConnectionMetadata> | undefined;
 				this.setSessionConnectionCode(session.sessionId, metadata?.code);
-				if (!isRuntimeConnectionLanguage(metadata?.language_id)) {
+				if (!keepsConnectionComm(session, metadata)) {
 					client.dispose();
 				}
 			}
@@ -204,10 +213,9 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 							this.logService.error('Error while reading a runtime connection\'s metadata', e);
 							return undefined;
 						});
-					// A comm that does not say what it is takes its session's language. Ark answers
-					// only when R is idle, so a window reloaded during a long computation sees every
-					// R comm time out; closing them would disconnect the user's objects.
-					keep = isRuntimeConnectionLanguage(metadata ? metadata.language_id : session.runtimeMetadata.languageId);
+					// Ark answers only when R is idle, so a window reloaded during a long computation
+					// sees every R comm time out; closing them would disconnect the user's objects.
+					keep = keepsConnectionComm(session, metadata);
 					if (metadata && sole && !superseded) {
 						this.setSessionConnectionCode(session.sessionId, metadata.code);
 					}
