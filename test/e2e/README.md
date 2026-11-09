@@ -299,3 +299,5 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 ### Critical Tests
 
 If your test should run on all PRs, tag it with `@:critical`. Existing `@:critical` tests balance coverage and execution time (~15 min). If your test covers an untested area, consider adding it to this set. When in doubt, ask your friendly QA team.
+
+<!-- PR test dispatcher smoke, 2026-11-09; this PR is closed without merging -->
