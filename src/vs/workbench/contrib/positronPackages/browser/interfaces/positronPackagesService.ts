@@ -27,15 +27,20 @@ export interface IPositronPackagesService {
 	readonly activePackagesInstance: IPositronPackagesInstance | undefined;
 
 	/**
-	 * The currently selected package name in the packages view, if any.
+	 * The selected package name when exactly one package is selected, else undefined.
 	 */
 	readonly selectedPackage: string | undefined;
 
 	/**
-	 * Sets the currently selected package.
-	 * @param packageName The package name, or undefined to clear selection
+	 * The names of all currently selected packages in the packages view.
 	 */
-	setSelectedPackage(packageName: string | undefined): void;
+	readonly selectedPackages: readonly string[];
+
+	/**
+	 * Sets the currently selected packages.
+	 * @param names The selected package names; empty to clear the selection
+	 */
+	setSelectedPackages(names: readonly string[]): void;
 
 	/**
 	 * The current item size mode for the packages list.

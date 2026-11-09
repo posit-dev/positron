@@ -73,7 +73,7 @@ describe('ListPackages with a large library', () => {
 			// virtualization bound has to allow for.
 			itemSize: 'row',
 			onDidChangeItemSize: Event.None,
-			setSelectedPackage: vi.fn(),
+			setSelectedPackages: vi.fn(),
 		})
 		// Selecting a package fires the (fire-and-forget) 'positronPackages.openPackage'
 		// command; stub it so row selection doesn't emit unhandled rejections.

@@ -72,7 +72,7 @@ describe('ListPackages', () => {
 			onDidChangeActivePackagesInstance: Event.None,
 			itemSize: 'row',
 			onDidChangeItemSize: onDidChangeItemSize.event,
-			setSelectedPackage: vi.fn(),
+			setSelectedPackages: vi.fn(),
 		})
 		// Selecting a package fires the (fire-and-forget) 'positronPackages.openPackage'
 		// command; stub it so these flash/select tests don't emit unhandled rejections.
@@ -117,7 +117,7 @@ describe('ListPackages', () => {
 		await waitFor(() => expect(itemRow('numpy')).toHaveClass('recently-changed'));
 		expect(listRow('numpy')).toHaveClass('selected');
 		// Selecting the row also drives the service-level selection (what the detail pane reads).
-		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackage).toHaveBeenCalledWith('numpy'));
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenCalledWith(['numpy']));
 		// The untouched package is neither flashed nor selected.
 		expect(itemRow('pandas')).not.toHaveClass('recently-changed');
 		expect(listRow('pandas')).not.toHaveClass('selected');
@@ -135,9 +135,9 @@ describe('ListPackages', () => {
 		// service-level selection is set for any affected package.
 		expect(listRow('numpy')).not.toHaveClass('selected');
 		expect(listRow('pandas')).not.toHaveClass('selected');
-		const setSelectedPackage = ctx.get(IPositronPackagesService).setSelectedPackage;
-		expect(setSelectedPackage).not.toHaveBeenCalledWith('numpy');
-		expect(setSelectedPackage).not.toHaveBeenCalledWith('pandas');
+		const setSelectedPackages = ctx.get(IPositronPackagesService).setSelectedPackages;
+		expect(setSelectedPackages).not.toHaveBeenCalledWith(['numpy']);
+		expect(setSelectedPackages).not.toHaveBeenCalledWith(['pandas']);
 	});
 
 	it('does not flash or reveal a package hidden by the active filter', async () => {
@@ -403,7 +403,7 @@ describe('ListPackages vulnerability indicators', () => {
 			onDidChangeActivePackagesInstance: Event.None,
 			itemSize: 'row',
 			onDidChangeItemSize: Event.None,
-			setSelectedPackage: vi.fn(),
+			setSelectedPackages: vi.fn(),
 		})
 		.stub(ICommandService, { executeCommand: vi.fn() })
 		.build();

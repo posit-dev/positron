@@ -571,7 +571,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	useEffect(() => {
 		const pushSelection = () => {
 			const name = listInstance.getSelectedItems()[0]?.name;
-			services.positronPackagesService.setSelectedPackage(name);
+			services.positronPackagesService.setSelectedPackages(name ? [name] : []);
 		};
 		// Push once on mount in case selection already exists.
 		pushSelection();
@@ -580,7 +580,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			const name = listInstance.getSelectedItems()[0]?.name;
 			if (name !== lastName) {
 				lastName = name;
-				services.positronPackagesService.setSelectedPackage(name);
+				services.positronPackagesService.setSelectedPackages(name ? [name] : []);
 				// Open a preview (non-pinned) editor when the selected package changes.
 				// lastOpenedRef guards against reopening on list refreshes that
 				// re-select the same row without the user having changed selection.
@@ -592,7 +592,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 		return () => {
 			disposable.dispose();
-			services.positronPackagesService.setSelectedPackage(undefined);
+			services.positronPackagesService.setSelectedPackages([]);
 		};
 	}, [listInstance, services]);
 
