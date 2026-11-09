@@ -94,7 +94,7 @@ export async function signInWithDeviceFlow(
 	const result = await client.signIn();
 	if (result.status === 'AlreadySignedIn') {
 		log.info(`Language server is already signed in as ${result.user}.`);
-		vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot is already signed in as {0}.', result.user));
+		vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot Completions is already signed in as {0}.', result.user));
 		return { status: 'OK', user: result.user };
 	}
 
@@ -102,7 +102,7 @@ export async function signInWithDeviceFlow(
 	await vscode.env.clipboard.writeText(result.userCode);
 	const proceed = vscode.l10n.t('Continue in Browser');
 	const choice = await vscode.window.showInformationMessage(
-		vscode.l10n.t('Sign In to GitHub Copilot'),
+		vscode.l10n.t('Sign In to GitHub Copilot Completions'),
 		{
 			modal: true,
 			detail: vscode.l10n.t('Your one-time code is {0}. It has been copied to the clipboard. Paste it on the GitHub page that opens next.', result.userCode),

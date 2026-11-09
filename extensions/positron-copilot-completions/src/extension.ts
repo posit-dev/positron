@@ -75,7 +75,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 			vscode.languages.registerInlineCompletionItemProvider(
 				{ pattern: '**' },
 				provider,
-				{ displayName: vscode.l10n.t('GitHub Copilot') },
+				{ displayName: vscode.l10n.t('GitHub Copilot Completions') },
 			),
 		);
 	}
@@ -98,7 +98,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 		await this.update();
 		const client = this._client;
 		if (!client) {
-			vscode.window.showWarningMessage(vscode.l10n.t('GitHub Copilot suggestions are turned off, so there is nothing to sign in to.'));
+			vscode.window.showWarningMessage(vscode.l10n.t('GitHub Copilot Completions is turned off, so there is nothing to sign in to.'));
 			return;
 		}
 		try {
@@ -108,13 +108,13 @@ class CopilotCompletionsController implements vscode.Disposable {
 			}
 		} catch (err) {
 			this._log.error(`Device flow sign-in failed: ${err}`);
-			vscode.window.showErrorMessage(vscode.l10n.t('GitHub Copilot sign-in failed: {0}', String(err)));
+			vscode.window.showErrorMessage(vscode.l10n.t('GitHub Copilot Completions sign-in failed: {0}', String(err)));
 		}
 	}
 
 	private async signOut(): Promise<void> {
 		if (getSignInMethod() === 'accounts') {
-			vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot uses your GitHub account from the Accounts menu. Sign out of GitHub there.'));
+			vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot Completions uses your GitHub account from the Accounts menu. Sign out of GitHub there.'));
 			return;
 		}
 
@@ -143,7 +143,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 			if (!session) {
 				this._log.info('No GitHub session from the Accounts menu; Copilot suggestions are off.');
 				await this.stop();
-				this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use Copilot') });
+				this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions') });
 				return;
 			}
 			auth = { kind: 'accounts', credentials: { token: session.accessToken, user: session.account.label } };
@@ -180,11 +180,11 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this._log.info(`Language server auth status: ${JSON.stringify(status)}`);
 		this._needsSignIn = status.status !== 'OK';
 		if (status.status === 'OK') {
-			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot: signed in as {0}', status.user ?? '') });
+			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot Completions: signed in as {0}', status.user ?? '') });
 		} else if (status.status === 'NotAuthorized') {
-			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('GitHub account {0} does not have access to Copilot', status.user ?? '') });
+			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('GitHub account {0} does not have access to GitHub Copilot', status.user ?? '') });
 		} else {
-			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use Copilot') });
+			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions') });
 		}
 	}
 
@@ -200,7 +200,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 	}
 
 	private showStatus(status: DidChangeStatusParams): void {
-		const icon = status.busy ? '$(loading~spin)' : status.kind === StatusKind.Normal ? '$(copilot)' : '$(copilot-warning)';
+		const icon = status.busy ? '$(loading~spin)' : status.kind === StatusKind.Normal ? '$(copilot-dot)' : '$(copilot-warning)';
 		this._statusItem.text = icon;
 		this._statusItem.tooltip = status.message || vscode.l10n.t('GitHub Copilot Completions');
 		this._statusItem.command = status.kind === StatusKind.Error && (!this._client || this._needsSignIn)
