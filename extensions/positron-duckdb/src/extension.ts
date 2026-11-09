@@ -1397,7 +1397,7 @@ export class DuckDBTableView {
 		readonly uri: vscode.Uri,
 		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
-		readonly db: DuckDBInstance,
+		public db: DuckDBInstance,
 		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
@@ -1410,11 +1410,19 @@ export class DuckDBTableView {
 		this._filteredShape = this._unfilteredShape;
 	}
 
-	async onFileUpdated(newTableName: string, newSchema: Array<SchemaEntry>) {
+	/**
+	 * Point the view at a re-imported table.
+	 * @param newTableName The name of the new table.
+	 * @param newSchema The new table's schema.
+	 * @param db The instance holding the new table, which may differ from the
+	 *   current one if `dataExplorer.fileReaders` changed since the last import.
+	 */
+	async onFileUpdated(newTableName: string, newSchema: Array<SchemaEntry>, db: DuckDBInstance) {
 		if (!this.isConnected) {
 			return;
 		}
 
+		this.db = db;
 		this.tableName = newTableName;
 		this.fullSchema = newSchema;
 
@@ -2372,9 +2380,15 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		private readonly getFileReaders: () => unknown = getFileReadersSetting,
 	) {
 		// If a DuckDB worker crashes (e.g. out of memory), its in-memory tables
-		// are gone with it. Drop the cached table views so the next request for a
-		// dataset re-imports it into the freshly respawned worker.
-		this._crashListeners = [this.db, this.signedDb].map(db => db.onDidCrash(() => this._uriToTableView.clear()));
+		// are gone with it. Drop the table views backed by that worker so the next
+		// request for those datasets re-imports them into the respawned worker.
+		this._crashListeners = [this.db, this.signedDb].map(db => db.onDidCrash(() => {
+			for (const [uri, tableView] of this._uriToTableView) {
+				if (tableView.db === db) {
+					this._uriToTableView.delete(uri);
+				}
+			}
+		}));
 	}
 
 	dispose() {
@@ -2421,7 +2435,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 							const newSchema = (await createResult.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 							tableView.importOptions = importOptions;
 							tableView.availableSheets = createResult.availableSheets;
-							await tableView.onFileUpdated(newTableName, newSchema);
+							await tableView.onFileUpdated(newTableName, newSchema, createResult.db);
 						};
 
 						try {
@@ -2842,7 +2856,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			// auto-reload would reuse it and fail again.
 			tableView.importOptions = params.options;
 			tableView.availableSheets = createResult.availableSheets;
-			await tableView.onFileUpdated(newTableName, newSchema);
+			await tableView.onFileUpdated(newTableName, newSchema, createResult.db);
 			return {};
 		} catch (error) {
 			// createTableFromUri already translates xlsx failures into user-facing

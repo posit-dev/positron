@@ -90,6 +90,24 @@ describe('PositronDataImporterRegistry', () => {
 		expect(activatedEvents).toEqual([DATA_IMPORTER_ACTIVATION_EVENT]);
 	});
 
+	it('answers hasImporter from current registrations without activating extensions', () => {
+		const registry = createRegistry();
+		ctx.disposables.add(registry.registerImporter(makeImporter({ fileExtensions: ['CSV'] })));
+
+		expect([registry.hasImporter('.csv'), registry.hasImporter('xlsx')]).toEqual([true, false]);
+		expect(activatedEvents).toEqual([]);
+	});
+
+	it('fires onDidChangeImporters on registration and disposal', () => {
+		const registry = createRegistry();
+		const onChange = vi.fn();
+		ctx.disposables.add(registry.onDidChangeImporters(onChange));
+
+		registry.registerImporter(makeImporter()).dispose();
+
+		expect(onChange).toHaveBeenCalledTimes(2);
+	});
+
 	it('keeps a registered generateCode reachable through the registry', async () => {
 		const registry = createRegistry();
 		ctx.disposables.add(registry.registerImporter(makeImporter()));

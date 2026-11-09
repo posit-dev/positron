@@ -28,6 +28,8 @@ import { POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_HAS_
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
+import { isSessionVisibleFile } from '../../../services/positronDataExplorer/common/importDataFileUri.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { extname } from '../../../../base/common/resources.js';
 
 /**
@@ -263,6 +265,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		readonly _group: IEditorGroup,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronDataImporterRegistry private readonly _importerRegistry: IPositronDataImporterRegistry,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
@@ -428,12 +431,13 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					const path = uri.path.toLowerCase();
 					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => path.endsWith(ext)));
 					this._isXlsxContextKey.set(path.endsWith('.xlsx'));
-					this._hasImporterContextKey.reset();
-					this._importerRegistry.getImporters(extname(uri)).then(importers => {
-						if (this.input === input) {
-							this._hasImporterContextKey.set(importers.length > 0);
-						}
-					});
+					// Show Import Data only when clicking it would offer an importer.
+					const updateHasImporter = () => this._hasImporterContextKey.set(
+						isSessionVisibleFile(uri, this._environmentService.remoteAuthority) &&
+						this._importerRegistry.hasImporter(extname(uri))
+					);
+					updateHasImporter();
+					this._positronReactRenderer.register(this._importerRegistry.onDidChangeImporters(updateHasImporter));
 				} else {
 					this._isPlaintextContextKey.reset();
 					this._isXlsxContextKey.reset();
