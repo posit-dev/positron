@@ -438,8 +438,7 @@ async function main() {
 	const htmlPath = join(generatedDir, 'report.html');
 	await writeFile(htmlPath, html);
 
-	const screenshotBaseUrl = process.env.SCREENSHOT_BASE_URL;
-	const reportUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/report.html` : null;
+	const reportUrl = process.env.SCREENSHOT_REPORT_URL || null;
 	const summary = formatSummary(result, { reportUrl });
 	const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 	if (summaryPath) {
