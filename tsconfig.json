@@ -10,6 +10,7 @@
 		{ "path": "./extensions/positron-claude-code/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-driver-databricks/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-driver-duckdb/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-data-driver-snowflake/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-driver-sqlite/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-explorer-duckdb/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-file-transfer/tsconfig.vitest.json" },
