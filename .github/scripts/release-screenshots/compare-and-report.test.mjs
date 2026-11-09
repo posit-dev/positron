@@ -245,15 +245,15 @@ test('formatHtml: escapes HTML-unsafe characters in filenames', () => {
 	assert.match(html, /has&lt;bad&gt;\.png/);
 });
 
-// --- formatChangedRatio ---
-
 test('formatHtml: new and diff images use encoded paths relative to report.html', () => {
-	const html = formatHtml({ 'a b.png': { status: 'changed', diffName: 'a b.diff.png' } });
+	const html = formatHtml({ 'a b.png': { status: 'changed', diffName: 'a b-diff.png' } });
 	assert.deepStrictEqual(
 		[...html.matchAll(/<img loading="lazy" src="([^"]+)" alt="(new|diff)">/g)].map(m => [m[2], m[1]]),
-		[['new', './a%20b.png'], ['diff', './a%20b.diff.png']]
+		[['new', './a%20b.png'], ['diff', './a%20b-diff.png']]
 	);
 });
+
+// --- formatChangedRatio ---
 
 test('formatChangedRatio: zero renders as 0%', () => {
 	assert.equal(formatChangedRatio(0), '0%');
