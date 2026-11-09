@@ -379,6 +379,23 @@ describe('Positron - Connections Service', () => {
 				}
 			});
 
+			// The close event has already fired by the time the comm is kept, so waiting for it
+			// would hold the wrapper forever.
+			it('releases a kept startup comm that closed while its metadata was pending', async () => {
+				const metadata = { name: 'mtcars.sqlite', language_id: 'r', code: 'con <- dbConnect(RSQLite::SQLite(), "mtcars.sqlite")' };
+				const session = ctx.disposables.add(await createSession());
+				const { client, reply } = await openStartupComm(session, metadata);
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const { service, onDidStartRuntime } = createServiceWatchingStarts();
+
+				onDidStartRuntime.fire(session);
+				client.setClientState(RuntimeClientState.Closed);
+				reply.complete();
+
+				await waitUntilOk(() => expect(service.getSessionConnectionCode(session.sessionId)).toBe(metadata.code));
+				await waitUntilOk(() => expect(disposeSpy).toHaveBeenCalled());
+			});
+
 			it('keeps an R session\'s startup comm whose metadata read fails', async () => {
 				const session = ctx.disposables.add(await createSessionInLanguage('r'));
 				const client = await session.createClient(RuntimeClientType.Connection, memory);

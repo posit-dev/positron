@@ -22,6 +22,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 import { raceTimeout } from '../../../../base/common/async.js';
 import { isRuntimeConnectionLanguage } from '../common/runtimeDataConnections.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 
 /** How long a connection comm already open at startup has to say what it is before it is closed. */
 const STARTUP_METADATA_TIMEOUT_MS = 5000;
@@ -213,8 +214,13 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 				} finally {
 					if (keep) {
 						// Disposing the wrapper closes the comm too, so it is released only once the
-						// comm has closed: when the runtime closes it or the session ends.
-						Event.once(connection.onDidClose)(() => connection.dispose());
+						// comm has closed: when the runtime closes it or the session ends. A comm
+						// that closed while its metadata was pending has already fired its close.
+						if (client.clientState.get() === RuntimeClientState.Closed) {
+							connection.dispose();
+						} else {
+							Event.once(connection.onDidClose)(() => connection.dispose());
+						}
 					} else {
 						connection.dispose();
 						client.dispose();
