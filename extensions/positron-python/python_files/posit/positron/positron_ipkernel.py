@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import sys
+import time
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -284,6 +285,7 @@ class PositronShell(ZMQInteractiveShell):
         parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
         self._editor_path_added = None
+        self._cocoa_drain_deadline = 0.0
         super().__init__(*args, **kwargs)
 
     def init_events(self) -> None:
@@ -429,6 +431,11 @@ class PositronShell(ZMQInteractiveShell):
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
+        # Stop any macOS Tk event drain so the cell can enable its own GUI event loop (e.g. `%gui`).
+        # The drain only matters while idle and is restarted after the cell.
+        if self.kernel.eventloop == self._run_cocoa_slice:
+            self.kernel.eventloop = None
+
         # If an empty cell is being executed, do nothing.
         raw_cell = cast("str", info.raw_cell)
         if not raw_cell or raw_cell.isspace():
@@ -474,6 +481,58 @@ class PositronShell(ZMQInteractiveShell):
             self.kernel.variables_service.poll_variables()
         except Exception:
             logger.exception("Error polling variables")
+
+        try:
+            self._drain_macos_tk_events()
+        except Exception:
+            logger.exception("Error scheduling macOS Tk event drain")
+
+    def _drain_macos_tk_events(self) -> None:
+        """
+        Briefly run the Cocoa event loop while idle after a cell that may have used Tk on macOS.
+
+        When `root.mainloop()` returns after `root.destroy()`, macOS only removes the window once
+        the Cocoa event loop runs again, so without this the destroyed window stays on screen and
+        the app is reported as not responding.
+        See https://github.com/posit-dev/positron/issues/11457.
+
+        Only applies when no GUI event loop is active (e.g. via `%gui`), and only once Tk has
+        created the Cocoa application, so plain `import tkinter` does not start one. The loop
+        turns itself off after a short time so that idle work on the kernel's asyncio loop is
+        not held up for long.
+        """
+        if (
+            sys.platform != "darwin"
+            or "tkinter" not in sys.modules
+            or self.kernel.eventloop is not None
+        ):
+            return
+
+        import ctypes
+        import ctypes.util
+
+        appkit = ctypes.cdll.LoadLibrary(ctypes.util.find_library("AppKit"))  # type: ignore[arg-type]
+        if not ctypes.c_void_p.in_dll(appkit, "NSApp").value:
+            return
+
+        # Window close animations take ~0.3s; leave margin.
+        self._cocoa_drain_deadline = time.monotonic() + 1.0
+        self.kernel.eventloop = self._run_cocoa_slice
+
+    def _run_cocoa_slice(self, kernel: PositronIPyKernel) -> None:
+        """
+        Kernel eventloop that runs one short Cocoa slice per call until the drain deadline.
+
+        Returning after each slice lets ipykernel handle incoming messages before calling it again.
+        """
+        if time.monotonic() >= self._cocoa_drain_deadline:
+            kernel.eventloop = None
+            return
+
+        from ipykernel._eventloop_macos import mainloop
+
+        # ipykernel's `duration` annotation is int, but it takes seconds as a float.
+        mainloop(kernel._poll_interval)  # type: ignore  # noqa: SLF001
 
     def _get_editor_path(self) -> str | None:
         """

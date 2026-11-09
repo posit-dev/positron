@@ -713,3 +713,34 @@ class TestEditorDunderFile:
             shell.run_cell("pass").raise_error()
 
         assert shell.user_ns["__file__"] == "user_value"
+
+
+class TestMacosTkEventDrain:
+    """See https://github.com/posit-dev/positron/issues/11457."""
+
+    def test_import_tkinter_does_not_start_drain(self, shell: PositronShell) -> None:
+        """Importing tkinter without creating a Tk window leaves the event loop off."""
+        pytest.importorskip("tkinter")
+
+        shell.run_cell("import tkinter").raise_error()
+
+        assert shell.kernel.eventloop is None
+
+    def test_drain_stopped_before_cell(self, shell: PositronShell) -> None:
+        """The drain is turned off before a cell runs, so the cell can enable its own `%gui`."""
+        shell.kernel.eventloop = shell._run_cocoa_slice  # noqa: SLF001
+        try:
+            shell.run_cell("eventloop_during_cell = get_ipython().kernel.eventloop").raise_error()
+        finally:
+            shell.kernel.eventloop = None
+
+        assert shell.user_ns["eventloop_during_cell"] is None
+
+    def test_drain_turns_off_after_deadline(self, shell: PositronShell) -> None:
+        shell.kernel.eventloop = shell._run_cocoa_slice  # noqa: SLF001
+        shell._cocoa_drain_deadline = 0.0  # noqa: SLF001
+        try:
+            shell._run_cocoa_slice(shell.kernel)  # noqa: SLF001
+            assert shell.kernel.eventloop is None
+        finally:
+            shell.kernel.eventloop = None
