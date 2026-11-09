@@ -10,6 +10,8 @@ import { userEvent } from '@testing-library/user-event';
 // Other dependencies.
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -78,6 +80,7 @@ describe('ListPackages', () => {
 		// command; stub it so these flash/select tests don't emit unhandled rejections.
 		.stub(ICommandService, { executeCommand: vi.fn() })
 		.stub(IContextMenuService, { showContextMenu })
+		.stub(IClipboardService, { writeText: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -277,6 +280,31 @@ describe('ListPackages', () => {
 		return delegate.getActions().map(action => action.label).filter(Boolean);
 	};
 
+	// The most recently opened row menu, for tests that open more than one.
+	const lastMenuActions = () => {
+		const delegate = showContextMenu.mock.lastCall![0] as { getActions: () => IAction[] };
+		return delegate.getActions().filter(action => !!action.label);
+	};
+	const lastMenuLabels = () => lastMenuActions().map(action => action.label);
+	const lastMenuAction = (label: string) => lastMenuActions().find(action => action.label === label)!;
+	const runMenuAction = (label: string) => lastMenuAction(label).run();
+
+	// The "add to selection" click modifier: Cmd on macOS, Ctrl elsewhere (see mouseUtilities.tsx).
+	const multiSelectKey = isMacintosh ? 'Meta' : 'Control';
+	async function selectRows(user: ReturnType<typeof userEvent.setup>, first: string, ...rest: string[]) {
+		await user.click(itemRow(first) as HTMLElement);
+		await user.keyboard(`{${multiSelectKey}>}`);
+		for (const name of rest) {
+			await user.click(itemRow(name) as HTMLElement);
+		}
+		await user.keyboard(`{/${multiSelectKey}}`);
+		for (const name of [first, ...rest]) {
+			await waitFor(() => expect(listRow(name)).toHaveClass('selected'));
+		}
+	}
+	const rightClick = (user: ReturnType<typeof userEvent.setup>, name: string) =>
+		user.pointer({ keys: '[MouseRight]', target: itemRow(name) as HTMLElement });
+
 	it('opens the context menu for the selected package on Shift+F10', async () => {
 		renderList(NARROW_VIEWPORT_WIDTH);
 		expect(await screen.findByText('numpy')).toBeInTheDocument();
@@ -308,10 +336,11 @@ describe('ListPackages', () => {
 		expect(menuLabels()).toContain('Show Help');
 	});
 
-	// Arrow keys move the cursor but leave the selection behind, so the two disagree as soon as the
-	// user navigates. The menu has to act on the row the cursor is on, which is the one the user
-	// sees as current; acting on the selection would open the menu for a different package.
-	it('targets the row the cursor is on rather than a stale selection', async () => {
+	// Plain arrow keys move the cursor but leave the selection behind (the list does not make the
+	// selection follow the cursor), so the two disagree as soon as the user navigates. Like a
+	// right-click on an unselected row, the key selects the cursor row first and opens the menu for
+	// it; the menu's Update/Uninstall read the selection, so it has to be the row the user sees.
+	it('selects the cursor row and targets it when the cursor has left the selection', async () => {
 		renderList(NARROW_VIEWPORT_WIDTH);
 		expect(await screen.findByText('numpy')).toBeInTheDocument();
 		act(() => onDidChangePackages.fire(['numpy']));
@@ -324,6 +353,28 @@ describe('ListPackages', () => {
 
 		// numpy is still the selection, so a menu naming numpy means we targeted the wrong row.
 		expect(menuLabels()).toContain(`Copy 'pandas (2.0.0)'`);
+		await waitFor(() => expect(listRow('pandas')).toHaveClass('selected'));
+		expect(listRow('numpy')).not.toHaveClass('selected');
+	});
+
+	// Shift+Arrow extends the selection with the cursor, so the cursor stays inside it and the key
+	// opens the menu for the whole range.
+	it('opens the menu for a Shift+Arrow range on Shift+F10', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await user.click(itemRow('numpy') as HTMLElement);
+		await waitFor(() => expect(listRow('numpy')).toHaveClass('selected'));
+
+		// eslint-disable-next-line testing-library/prefer-user-event -- see the note on the Shift+F10 test above.
+		fireEvent.keyDown(screen.getByText('numpy'), { key: 'ArrowDown', code: 'ArrowDown', shiftKey: true });
+		await waitFor(() => expect(listRow('pandas')).toHaveClass('selected'));
+		// eslint-disable-next-line testing-library/prefer-user-event -- see the note on the Shift+F10 test above.
+		fireEvent.keyDown(screen.getByText('numpy'), { key: 'F10', code: 'F10', shiftKey: true });
+
+		expect(lastMenuLabels()).toEqual(['Copy Selected', 'Copy All', 'Update Package', 'Uninstall Package']);
+		runMenuAction('Copy Selected');
+		expect(ctx.get(IClipboardService).writeText).toHaveBeenCalledWith('numpy (1.26.0)\npandas (2.0.0)');
 	});
 
 	// Without a selected package there is no row for the menu to act on.
@@ -362,6 +413,148 @@ describe('ListPackages', () => {
 
 		const delegate = showContextMenu.mock.calls[0][0] as { getActions: () => IAction[] };
 		expect(delegate.getActions().map(action => action.label)).not.toContain('Open Website');
+	});
+
+	it('opens the preview and offers the single-package entries for one selected package', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+
+		await user.click(itemRow('numpy') as HTMLElement);
+		const commandService = ctx.get(ICommandService);
+		await waitFor(() => expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.openPackage', 'numpy', false));
+		await rightClick(user, 'numpy');
+
+		expect(lastMenuLabels()).toEqual([
+			'Show Help',
+			'Open Website',
+			`Copy 'numpy (1.26.0)'`,
+			'Copy All',
+			'Update Package',
+			'Uninstall Package',
+		]);
+		runMenuAction('Update Package');
+		expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.updateSelectedPackage');
+	});
+
+	it('pushes a Cmd/Ctrl-click multi-selection to the service without opening a preview', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await user.click(itemRow('numpy') as HTMLElement);
+		const commandService = ctx.get(ICommandService);
+		await waitFor(() => expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.openPackage', 'numpy', false));
+		vi.mocked(commandService.executeCommand).mockClear();
+
+		await selectRows(user, 'numpy', 'pandas');
+
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy', 'pandas']));
+		expect(commandService.executeCommand).not.toHaveBeenCalledWith('positronPackages.openPackage', expect.anything(), expect.anything());
+	});
+
+	it('offers only the multi-package entries when several packages are selected', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'pandas');
+
+		// Right-clicking a row inside the selection keeps the whole selection.
+		await rightClick(user, 'pandas');
+
+		expect(listRow('numpy')).toHaveClass('selected');
+		expect(listRow('pandas')).toHaveClass('selected');
+		expect(lastMenuLabels()).toEqual(['Copy Selected', 'Copy All', 'Update Package', 'Uninstall Package']);
+		runMenuAction('Copy Selected');
+		expect(ctx.get(IClipboardService).writeText).toHaveBeenCalledWith('numpy (1.26.0)\npandas (2.0.0)');
+	});
+
+	it('disables Update when no selected package is updatable', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'pandas');
+
+		await rightClick(user, 'pandas');
+
+		expect({
+			update: lastMenuAction('Update Package').enabled,
+			uninstall: lastMenuAction('Uninstall Package').enabled,
+		}).toEqual({ update: false, uninstall: true });
+	});
+
+	it('enables Update for a selection with an updatable package and runs the selection commands', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'polars');
+
+		await rightClick(user, 'polars');
+
+		expect({
+			update: lastMenuAction('Update Package').enabled,
+			uninstall: lastMenuAction('Uninstall Package').enabled,
+		}).toEqual({ update: true, uninstall: true });
+		const commandService = ctx.get(ICommandService);
+		runMenuAction('Update Package');
+		expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.updateSelectedPackage');
+		runMenuAction('Uninstall Package');
+		expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.uninstallSelectedPackage');
+	});
+
+	it('collapses the selection to an unselected row that is right-clicked', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'pandas');
+
+		await rightClick(user, 'polars');
+
+		expect(listRow('polars')).toHaveClass('selected');
+		expect(listRow('numpy')).not.toHaveClass('selected');
+		expect(listRow('pandas')).not.toHaveClass('selected');
+		expect(lastMenuLabels()).toContain(`Copy 'polars (0.20.0)'`);
+	});
+
+	it('keeps every selected package selected across a refresh that moves the rows', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'polars');
+
+		// A new package sorts ahead of the others, shifting every row index down by one.
+		act(() => onDidRefreshPackagesInstance.fire([pkg('arrow', '1.0.0'), ...installed]));
+
+		expect(await screen.findByText('arrow')).toBeInTheDocument();
+		expect(listRow('numpy')).toHaveClass('selected');
+		expect(listRow('polars')).toHaveClass('selected');
+		expect(listRow('arrow')).not.toHaveClass('selected');
+		expect(listRow('pandas')).not.toHaveClass('selected');
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy', 'polars']));
+	});
+
+	it('drops a selected package that disappears on refresh', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'polars');
+
+		act(() => onDidRefreshPackagesInstance.fire(installed.filter(p => p.name !== 'polars')));
+
+		await waitFor(() => expect(screen.queryByText('polars')).not.toBeInTheDocument());
+		expect(listRow('numpy')).toHaveClass('selected');
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy']));
+	});
+
+	it('clears a multi-selection when the filter text changes', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'pandas');
+
+		await user.type(screen.getByPlaceholderText('Filter packages'), 'p');
+
+		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith([]));
+		expect(listRow('pandas')).not.toHaveClass('selected');
 	});
 });
 
