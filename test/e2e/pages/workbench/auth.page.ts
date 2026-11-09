@@ -7,6 +7,7 @@ import { expect } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { generateTOTP } from '../../utils/totp.js';
 import { isOktaLockedOut, otpRetryDelayMs } from '../../utils/otpRetry.js';
+import { expectSecretValue, fillSecretValue } from '../../utils/secretInput.js';
 
 export class AuthPage {
 	get username() { return this.code.driver.currentPage.getByRole('textbox', { name: 'username' }); }
@@ -23,7 +24,7 @@ export class AuthPage {
 		await this.username.clear();
 		await this.username.fill(username);
 		await this.password.clear();
-		await this.password.fill(password);
+		await fillSecretValue(this.password, password);
 		await this.signInButton.click();
 	}
 
@@ -62,7 +63,7 @@ export class AuthPage {
 		//    Wait for the Okta page to settle so Angular has bound the form before we type.
 		await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => { /* not all browsers honor networkidle, fall through */ });
 		const oktaPassword = page.locator('input[type="password"]').first();
-		await this.typeIntoField(oktaPassword, serviceAccountPassword);
+		await this.typeIntoField(oktaPassword, serviceAccountPassword, { secret: true });
 		await page.getByRole('button', { name: /^Verify$/ }).click();
 
 		// 4. OTP prompt. The TOTP secret is shared across parallel shards, so a code can be
@@ -100,16 +101,23 @@ export class AuthPage {
 	/**
 	 * Robust text entry for Okta/Angular forms: wait for the field to be editable, focus it,
 	 * clear any stale value, type one keystroke at a time so the framework's input bindings fire,
-	 * then assert the value committed before the caller submits.
+	 * then assert the value committed before the caller submits. A secret is set via evaluate +
+	 * input event instead (Angular's value accessor listens to input), keeping it out of step titles.
 	 */
 	private async typeIntoField(
 		locator: ReturnType<typeof this.code.driver.currentPage.locator>,
-		value: string
+		value: string,
+		{ secret = false }: { secret?: boolean } = {}
 	): Promise<void> {
 		await expect(locator).toBeEditable({ timeout: 30000 });
 		await locator.click();
 		await locator.fill('');
-		await locator.pressSequentially(value, { delay: 30 });
-		await expect(locator).toHaveValue(value, { timeout: 5000 });
+		if (secret) {
+			await fillSecretValue(locator, value);
+			await expectSecretValue(locator, value);
+		} else {
+			await locator.pressSequentially(value, { delay: 30 });
+			await expect(locator).toHaveValue(value, { timeout: 5000 });
+		}
 	}
 }

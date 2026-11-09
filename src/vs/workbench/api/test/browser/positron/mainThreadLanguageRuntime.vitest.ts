@@ -24,7 +24,7 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessi
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY, ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
@@ -238,6 +238,9 @@ function createMainThreadLanguageRuntime(
 	disposables: Pick<DisposableStore, 'add'>,
 	runtimeSessionService: IRuntimeSessionService = stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
 	consoleExecuteCode?: IPositronConsoleService['executeCode'],
+	options: {
+		getPreferredRuntime?: IRuntimeStartupService['getPreferredRuntime'];
+	} = {},
 ) {
 	const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
@@ -253,7 +256,10 @@ function createMainThreadLanguageRuntime(
 		extHostContext,
 		stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
 		runtimeSessionService,
-		stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
+		stubInterface<IRuntimeStartupService>({
+			registerRuntimeManager: () => Disposable.None,
+			...(options.getPreferredRuntime && { getPreferredRuntime: options.getPreferredRuntime }),
+		}),
 		stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: notebookEmitter.event }),
 		stubInterface<IPositronConsoleService>({
 			initialize: vi.fn(),
@@ -382,6 +388,31 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		]);
 	});
 
+	it('attributes code run for a document as a script with its code location, ignoring caller-supplied values', async () => {
+		const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'session-1');
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+		}), executeCode);
+		const documentUri = URI.file('/test/script.R');
+
+		await mainThread.$executeCode('r', 'posit.shiny', undefined, 'x', false,
+			undefined, undefined, undefined, undefined, documentUri, undefined,
+			{ extensionId: 'example.forged', codeLocation: 'forged', note: 'kept' });
+
+		expect(executeCode.mock.calls[0][3]).toEqual({
+			source: CodeAttributionSource.Script,
+			metadata: {
+				note: 'kept',
+				extensionId: 'posit.shiny',
+				callerSessionId: undefined,
+				codeLocation: {
+					uri: documentUri,
+					range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+				},
+			},
+		});
+	});
+
 	it('attributes the console that evaluateCode starts to the calling extension', async () => {
 		const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'session-1');
 		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
@@ -407,5 +438,118 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		expect(startNewRuntimeSession.mock.calls[0][4]).toEqual(
 			{ id: SessionStartReasonId.ExtensionStartedAgentSession, requestingExtensionId: 'posit.assistant' },
 		);
+	});
+
+	describe('$executeCodeInNewSession', () => {
+		function setup(options: {
+			startNewRuntimeSession?: IRuntimeSessionService['startNewRuntimeSession'];
+			getPreferredRuntime?: IRuntimeStartupService['getPreferredRuntime'];
+		} = {}) {
+			const startNewRuntimeSession = vi.fn<IRuntimeSessionService['startNewRuntimeSession']>(options.startNewRuntimeSession ?? (async () => 'job-1'));
+			const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'job-1');
+			const callerSession = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'caller-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'r-4.5', languageId: 'r', languageName: 'R' }),
+			});
+			const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+				registerSessionManager: () => Disposable.None,
+				getSession: sessionId => sessionId === callerSession.sessionId ? callerSession : undefined,
+				startNewRuntimeSession,
+			}), executeCode, options);
+			return { mainThread, startNewRuntimeSession, executeCode };
+		}
+
+		it('starts a background session of the calling session\'s runtime and runs the code there', async () => {
+			const { mainThread, startNewRuntimeSession, executeCode } = setup();
+
+			const result = await mainThread.$executeCodeInNewSession('r', 'source("a.R")', 'a.R', 'positron.positron-supervisor', 'caller-1');
+
+			const start = startNewRuntimeSession.mock.calls[0];
+			expect({
+				result,
+				start: [start[0], start[1], start[2], start[4], start[6], start[7]],
+				runSessionId: executeCode.mock.calls[0][1],
+				runCode: executeCode.mock.calls[0][2],
+				runPreserveActiveTab: executeCode.mock.calls[0][11],
+				runActivate: executeCode.mock.calls[0][12],
+				attribution: executeCode.mock.calls[0][3],
+			}).toEqual({
+				result: 'job-1',
+				start: ['r-4.5', 'a.R', LanguageRuntimeSessionMode.Console, { id: SessionStartReasonId.CodeRequestedNewSession }, false, { owner: 'user', requireNewSession: true, takeForegroundIfEmpty: false }],
+				runSessionId: 'job-1',
+				runCode: 'source("a.R")',
+				runPreserveActiveTab: true,
+				runActivate: false,
+				attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'caller-1', [COMPLETENESS_VERIFIED_METADATA_KEY]: true } },
+			});
+		});
+
+		it('credits the calling extension in the start reason when there is no calling session', async () => {
+			const { mainThread, startNewRuntimeSession } = setup({
+				getPreferredRuntime: () => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'r-pref' }),
+			});
+
+			await mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'posit.shiny', undefined);
+
+			expect(startNewRuntimeSession.mock.calls[0][4]).toEqual(
+				{ id: SessionStartReasonId.CodeRequestedNewSession, requestingExtensionId: 'posit.shiny' },
+			);
+		});
+
+		it('falls back to the preferred runtime when there is no calling session', async () => {
+			const { mainThread, startNewRuntimeSession } = setup({
+				getPreferredRuntime: () => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'r-pref' }),
+			});
+
+			await mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', undefined);
+
+			expect(startNewRuntimeSession.mock.calls[0][0]).toBe('r-pref');
+		});
+
+		it('fails when no interpreter is available', async () => {
+			const { mainThread, startNewRuntimeSession } = setup({ getPreferredRuntime: () => undefined });
+
+			await expect(mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', undefined))
+				.rejects.toThrow('No interpreter is available for the language \'r\' to start a new session.');
+			expect(startNewRuntimeSession).not.toHaveBeenCalled();
+		});
+
+		it('propagates the rejection when the session service refuses an untrusted workspace', async () => {
+			const { mainThread, executeCode } = setup({
+				startNewRuntimeSession: async () => { throw new Error('workspace is not trusted'); },
+			});
+
+			await expect(mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', 'caller-1'))
+				.rejects.toThrow('workspace is not trusted');
+
+			expect(executeCode).not.toHaveBeenCalled();
+		});
+
+		it('fails without starting a session when the calling session is for another language', async () => {
+			const getPreferredRuntime = vi.fn<IRuntimeStartupService['getPreferredRuntime']>(() => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'py-pref' }));
+			const { mainThread, startNewRuntimeSession } = setup({ getPreferredRuntime });
+
+			await expect(mainThread.$executeCodeInNewSession('python', 'x', 'a.py', 'positron.positron-supervisor', 'caller-1'))
+				.rejects.toThrow('Could not start a new session for the language \'python\' because the calling session runs R.');
+			expect([getPreferredRuntime.mock.calls.length, startNewRuntimeSession.mock.calls.length]).toEqual([0, 0]);
+		});
+
+		it('fails without starting a session when the calling session does not exist', async () => {
+			const getPreferredRuntime = vi.fn<IRuntimeStartupService['getPreferredRuntime']>(() => stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'r-pref' }));
+			const { mainThread, startNewRuntimeSession } = setup({ getPreferredRuntime });
+
+			await expect(mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', 'gone-1'))
+				.rejects.toThrow('Could not start a new session because the calling session \'gone-1\' was not found.');
+			expect([getPreferredRuntime.mock.calls.length, startNewRuntimeSession.mock.calls.length]).toEqual([0, 0]);
+		});
+
+		it('fails without running the code when no session starts', async () => {
+			const { mainThread, executeCode } = setup({ startNewRuntimeSession: async () => '' });
+
+			await expect(mainThread.$executeCodeInNewSession('r', 'x', 'a.R', 'positron.positron-supervisor', 'caller-1'))
+				.rejects.toThrow('Could not start a new R session.');
+
+			expect(executeCode).not.toHaveBeenCalled();
+		});
 	});
 });

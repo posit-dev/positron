@@ -1059,6 +1059,51 @@ const esbuildMediaScripts: { script: string; tsconfig: string }[] = [
 	// --- End Positron ---
 ];
 
+// --- Start Positron ---
+/**
+ * The output directories of `esbuildMediaScripts` that hold only generated
+ * files, relative to `extensions/`. A media script that writes into a directory
+ * with tracked files (such as `media/`) is not in this list.
+ *
+ * Every build that packages the local extensions also runs
+ * `buildExtensionMedia` into the same output root, so the copies of these
+ * directories in the source tree are never needed. In a dev checkout they hold
+ * the output of the watch tasks. That output can be stale, and the scripts that
+ * use hashed chunk names never remove old chunks, so a local release build
+ * shipped the old and new chunks together. See posit-dev/positron#16695.
+ */
+const generatedMediaOutputDirectories = [
+	'ipynb/notebook-out',
+	'markdown-language-features/markdown-editor-out',
+	'markdown-language-features/notebook-out',
+	'markdown-math/notebook-out',
+	'mermaid-markdown-features/chat-webview-out',
+	'mermaid-markdown-features/markdown-preview-out',
+	'mermaid-markdown-features/notebook-out',
+	'notebook-renderers/renderer-out',
+];
+
+/**
+ * Removes the files in `generatedMediaOutputDirectories` from the file list of
+ * a local extension. The list must be filtered before streaming:
+ * `createSequentialFileStream` opens the next file only after something reads
+ * the current one, so a filter later in the stream would stall the build.
+ */
+function withoutGeneratedMediaFiles(extensionPath: string, fileNames: string[]): string[] {
+	const extensionName = path.basename(extensionPath);
+	const prefixes = generatedMediaOutputDirectories
+		.filter(dir => dir.startsWith(`${extensionName}/`))
+		.map(dir => `${dir.slice(extensionName.length + 1)}/`);
+	if (prefixes.length === 0) {
+		return [...fileNames];
+	}
+	return fileNames.filter(fileName => {
+		const posixFileName = fileName.split(path.sep).join('/');
+		return !prefixes.some(prefix => posixFileName.startsWith(prefix));
+	});
+}
+// --- End Positron ---
+
 export function buildExtensionMedia(isWatch: boolean, outputRoot?: string): Promise<void> {
 	const esbuildTask = esbuildExtensions('esbuilding extension media', isWatch, esbuildMediaScripts.map(({ script }) => ({
 		script: path.join(extensionsPath, script),
@@ -1131,7 +1176,7 @@ export function getBuildRootsForExtension(extensionPath: string): string[] {
  */
 function createSequentialFileStream(extensionPath: string, fileNames: string[]): Stream {
 	const stream = es.through();
-	const queue = [...fileNames];
+	const queue = withoutGeneratedMediaFiles(extensionPath, fileNames);
 	let ended = false;
 
 	const finish = () => {

@@ -88,7 +88,7 @@ jobs:
       project: "e2e-chromium"
       install_undetectable_interpreters: false
       install_license: true
-      upload_logs: true
+      upload_logs: false
       shards: 2
       matrix: '{"shard":[1,2]}'
       workers: 2

@@ -682,6 +682,8 @@ jobs:
             .github/actions
             .claude/skills/exploratory-test
             .claude/skills/drive-positron/scripts
+            test/e2e/infra
+            test/e2e/scripts
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -901,6 +903,17 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
+      # A value only the secret scan knows. The redact step strips *_KEY values
+      # first, so a hit on this one means a secret in an encoded form or a
+      # redaction that did not run.
+      - name: Plant leak canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(cat /proc/sys/kernel/random/uuid)"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # The build's caches are relative paths, so pip or npm run inside the app
       # under test would make .pip-cache/ or .npm-cache/ in the folder being
       # tested. Give the app, and the main build the explorer launches, the
@@ -929,7 +942,11 @@ jobs:
             --disable-gpu-compositing --password-store=basic)
           echo "APP_ARGS=${APP_ARGS[*]}" >> "$GITHUB_ENV"
           for attempt in 1 2 3; do
-            if LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
+            # The harness copy, not the PR's: a PR's own launch.sh may predate
+            # secret stripping. The key is the one deliberate exception, and the
+            # run-dir scan still gates the uploads.
+            if LAUNCH_JSON=$(.harness/.claude/skills/drive-positron/scripts/launch.sh \
+              --repo "$PWD" --pass-env ANTHROPIC_API_KEY \
               --source-user-data-dir /tmp/positron-seed -- "${APP_ARGS[@]}"); then
               break
             fi
@@ -1047,25 +1064,60 @@ jobs:
             fi
           done
 
-      - name: Upload run directory
+      # Copies exactly what the artifact will hold into /tmp/exploratory-upload,
+      # with the upload's own exclusions (hidden entries, the run's tmp/, and
+      # the workspace's dependency dirs), then scans that copy. The artifact is
+      # taken from the same copy, so what is scanned is what is uploaded. Runs
+      # after the redaction above. The scan reads this job's environment, so it
+      # needs the credentials still loaded. The Postgres login is a fixed test
+      # value the report shows on purpose. The scripts come from the harness
+      # checkout; tsx and yauzl resolve from the PR's node_modules.
+      - name: Stage and scan the upload set
+        id: secret-scan
         if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=/tmp/exploratory-upload
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          cd /tmp
+          # GNU tar exits 1 when a file changes while it is read (a process the agent left running);
+          # that copy is still usable, so only fail on worse.
+          copy_tree() {
+            local status
+            set +e
+            tar -cf - "$@" | tar -xf - -C "$STAGE"
+            status=("${PIPESTATUS[@]}")
+            set -e
+            [ "${status[0]}" -le 1 ] && [ "${status[1]}" -eq 0 ]
+          }
+          if [ -d exploratory-run ]; then
+            copy_tree --exclude='.*' --exclude='exploratory-run/tmp' exploratory-run
+          fi
+          if [ -d exploratory-workspace ]; then
+            copy_tree --exclude='.*' --exclude='node_modules' --exclude='__pycache__' --exclude='renv/library' \
+              exploratory-workspace
+          fi
+          for F in positron-dev-launch/*/code.log positron-dev-launch/instances.log; do
+            [ -f "$F" ] || continue
+            mkdir -p "$STAGE/$(dirname "$F")"
+            cp "$F" "$STAGE/$F"
+          done
+          cd "$GITHUB_WORKSPACE"
+          npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts "$STAGE"
+
+      - name: Upload run directory
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: exploratory-run-${{ matrix.model }}
-          # The workspace as the run left it, a fallback for a test file the
-          # agent did not save to files/. Artifact only, not the published page.
-          # Hidden entries (.venv, .git) are already left out by default.
-          # The run's tmp/ is scratch (a venv or build can run to gigabytes) and
-          # never part of the report.
-          path: |
-            /tmp/exploratory-run
-            !/tmp/exploratory-run/tmp
-            /tmp/positron-dev-launch/*/code.log
-            /tmp/positron-dev-launch/instances.log
-            /tmp/exploratory-workspace
-            !/tmp/exploratory-workspace/**/node_modules/**
-            !/tmp/exploratory-workspace/**/__pycache__/**
-            !/tmp/exploratory-workspace/**/renv/library/**
+          # The staged copy of the run directory, the launch logs and the
+          # workspace as the run left it (a fallback for a test file the agent
+          # did not save to files/; artifact only, not the published page).
+          # Hidden entries, the run's tmp/ and the workspace's dependency dirs
+          # were left out when it was staged and scanned.
+          path: /tmp/exploratory-upload
           if-no-files-found: warn
           retention-days: 3
 
