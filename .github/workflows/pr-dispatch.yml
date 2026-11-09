@@ -6,13 +6,14 @@ name: "Test: PR"
 # here: the only secret used is the bot app key, in this job, and the tests run
 # in the other repo against the PR's merge commit with no credentials.
 #
-# Fork PRs get no secrets on pull_request, so this job cannot dispatch for
-# them; it fails with a message instead of skipping, because a skipped required
-# check would count as passing. A maintainer tests a fork PR through the manual
-# lane in positron-builds and merges with an admin override.
+# pull_request_target, not pull_request: the workflow always comes from main and
+# never runs PR code, so a PR cannot edit this file to point the bot key at
+# something else. Fork PRs fail with a message instead of skipping, because a
+# skipped required check would count as passing. A maintainer tests a fork PR
+# through the manual lane in positron-builds and merges with an admin override.
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -60,12 +61,14 @@ jobs:
           # pr-lane mirrors positron-builds main; PR runs use it so their build caches
           # stay in that branch's cache scope, away from the privileged main runs.
           gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane -f "pr_number=$PR" -f "head_sha=$HEAD_SHA"
-          # The dispatch API returns no run id; find the run by its run-name.
+          # The dispatch API returns no run id; find the run by its run-name, and
+          # only among dispatches the bot itself started, so a same-named run pushed
+          # by someone else on positron-builds cannot stand in for it.
           title="positron PR #$PR at $HEAD_SHA"
           id=""
           for i in $(seq 1 24); do
-            id=$(gh run list -R posit-dev/positron-builds --workflow pr-test.yml --branch pr-lane --created ">=$since" \
-              --json databaseId,displayTitle --jq ".[] | select(.displayTitle == \"$title\") | .databaseId" | head -n 1)
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=pr-lane&created=>=$since&per_page=20" \
+              --jq ".workflow_runs[] | select(.path == \".github/workflows/pr-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
