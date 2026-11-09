@@ -25,16 +25,23 @@ function pkg(name: string, version: string, latestVersion?: string): ILanguageRu
 /**
  * Builds an instance whose backend reports `before` on the first
  * `getPackages()` and `after` on every subsequent call. Backend
- * `updatePackages` calls are recorded in `updateCalls`.
+ * `updatePackages` calls are recorded in `updateCalls`. When `metadata` is
+ * given the backend also serves it from `getPackageMetadata`, the way a real
+ * runtime reports outdated state in the Stage 2 fetch.
  */
-function makeInstance(store: DisposableStore, before: ILanguageRuntimePackage[], after: ILanguageRuntimePackage[]) {
+function makeInstance(
+	store: DisposableStore,
+	before: ILanguageRuntimePackage[],
+	after: ILanguageRuntimePackage[],
+	metadata?: Map<string, Partial<ILanguageRuntimePackage>>
+) {
 	const lists = [before, after];
 	let call = 0;
 	const updateCalls: IPackageSpec[][] = [];
 	const packageManager = stubInterface<ILanguageRuntimePackageManager>({
 		getPackages: async () => lists[Math.min(call++, lists.length - 1)],
 		updatePackages: async (packages: IPackageSpec[]) => { updateCalls.push(packages); },
-		getPackageMetadata: undefined,
+		getPackageMetadata: metadata ? async () => metadata : undefined,
 		repositoryRequest: undefined,
 	});
 	const session = stubInterface<ILanguageRuntimeSession>({
@@ -59,6 +66,31 @@ describe('PositronPackagesInstance.updateOutdatedPackages', () => {
 		const before = [pkg('dplyr', '1.1.3', '1.1.4'), pkg('ggplot2', '3.4.0')];
 		const { instance, updateCalls } = makeInstance(store, before, before);
 		await instance.refreshPackages();
+
+		await instance.updateOutdatedPackages(['dplyr', 'ggplot2']);
+
+		expect(updateCalls).toEqual([[{ name: 'dplyr', version: '1.1.4' }]]);
+	});
+
+	it('reads outdated state merged from the metadata cache, not just the raw package list', async () => {
+		// A real runtime's package list carries no outdated state. It arrives in
+		// the Stage 2 metadata fetch and lives in the instance's metadata cache.
+		const installed = [pkg('dplyr', '1.1.3'), pkg('ggplot2', '3.4.0')];
+		const metadata = new Map<string, Partial<ILanguageRuntimePackage>>([
+			['dplyr', { outdated: true, latestVersion: '1.1.4' }],
+			['ggplot2', { outdated: false }],
+		]);
+		const { instance, updateCalls } = makeInstance(store, installed, installed, metadata);
+		let refreshes = 0;
+		const stage2Done = new Promise<void>(resolve => {
+			store.add(instance.onDidRefreshPackagesInstance(() => {
+				if (++refreshes === 2) {
+					resolve();
+				}
+			}));
+		});
+		await instance.refreshPackages();
+		await stage2Done;
 
 		await instance.updateOutdatedPackages(['dplyr', 'ggplot2']);
 

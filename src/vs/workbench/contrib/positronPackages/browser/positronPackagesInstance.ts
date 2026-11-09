@@ -739,7 +739,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async updateOutdatedPackages(names: readonly string[], token?: CancellationToken): Promise<string[]> {
-		const updatable = getUpdatablePackages(this._packages, names);
+		// Use the merged `packages` view: the runtime's raw package list carries no
+		// outdated state, which lives in the metadata cache and is overlaid there.
+		const updatable = getUpdatablePackages(this.packages, names);
 		if (updatable.length === 0) {
 			return [];
 		}
