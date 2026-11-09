@@ -154,7 +154,7 @@ describe('Positron - Connections Service', () => {
 		const session = ctx.disposables.add(await createSession());
 		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
 			name: 'test-connection',
-			language_id: 'test',
+			language_id: 'ggsql',
 			code: 'hello world'
 		}));
 
@@ -198,6 +198,11 @@ describe('Positron - Connections Service', () => {
 			expect(await openComm('python')).toEqual({ disposed: false, code: metadataIn('python').code });
 		});
 
+		// Closing a comm can run disconnect() in the kernel, so only languages known to be safe are closed.
+		it('keeps a comm in a language not known to be safe to close', async () => {
+			expect(await openComm('julia')).toEqual({ disposed: false, code: metadataIn('julia').code });
+		});
+
 		it('still closes ggsql comms', async () => {
 			expect(await openComm('ggsql')).toEqual({ disposed: true, code: metadataIn('ggsql').code });
 		});
@@ -212,7 +217,8 @@ describe('Positron - Connections Service', () => {
 				return disposeSpy.mock.contexts.includes(client);
 			};
 
-			expect({ r: await openUnnamed('r'), test: await openUnnamed('test') }).toEqual({ r: false, test: true });
+			expect({ r: await openUnnamed('r'), ggsql: await openUnnamed('ggsql'), test: await openUnnamed('test') })
+				.toEqual({ r: false, ggsql: true, test: false });
 		});
 	});
 
@@ -334,7 +340,7 @@ describe('Positron - Connections Service', () => {
 			});
 
 			it('is closed even when it never answers', async () => {
-				const session = ctx.disposables.add(await createSession());
+				const session = ctx.disposables.add(await createSessionInLanguage('ggsql'));
 				const { client } = await openStartupComm(session);
 				const disposeSpy = vi.spyOn(client, 'dispose');
 				const { onDidStartRuntime } = createServiceWatchingStarts();

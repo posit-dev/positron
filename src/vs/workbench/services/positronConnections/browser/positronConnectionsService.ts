@@ -21,11 +21,17 @@ import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.j
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 import { raceTimeout } from '../../../../base/common/async.js';
-import { isRuntimeConnectionLanguage } from '../common/runtimeDataConnections.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 
-/** How long a connection comm already open at startup has to say what it is before it is closed. */
+/** How long a connection comm already open at startup has to say what it is before it is decided on. */
 const STARTUP_METADATA_TIMEOUT_MS = 5000;
+
+/**
+ * The languages whose connection comms are known to be safe to close. Positron has closed ggsql
+ * comms on arrival since Data Connections shipped, and ggsql reads the session's database from the
+ * code recorded on the way past (see getSessionConnectionCode).
+ */
+const CLOSABLE_CONNECTION_LANGUAGES: ReadonlySet<string> = new Set(['ggsql']);
 
 /**
  * Whether a connection comm is kept open rather than closed; see watchRuntimeConnections. A comm
@@ -33,7 +39,7 @@ const STARTUP_METADATA_TIMEOUT_MS = 5000;
  * session's language.
  */
 function keepsConnectionComm(session: ILanguageRuntimeSession, metadata: Partial<IConnectionMetadata> | undefined): boolean {
-	return isRuntimeConnectionLanguage(metadata?.language_id ?? session.runtimeMetadata.languageId);
+	return !CLOSABLE_CONNECTION_LANGUAGES.has(metadata?.language_id ?? session.runtimeMetadata.languageId);
 }
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
@@ -166,10 +172,11 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	 * Watches the connection comms a session opens. Each comm's code is recorded; see
 	 * getSessionConnectionCode.
 	 *
-	 * R and Python comms are kept open until the runtime closes them or the session ends. Closing
-	 * one runs the connection's disconnect() in the kernel (Ark's `.ps.connection_close`, Python's
-	 * `_close_connection`), so the object the user's code just opened would be invalid a moment
-	 * later. Every other comm (ggsql's, for one) is closed, since nothing shows it.
+	 * Only comms known to be safe to close (ggsql's; see CLOSABLE_CONNECTION_LANGUAGES) are closed.
+	 * Every other comm is kept open until the runtime closes it or the session ends, because closing
+	 * one can run the connection's disconnect() in the kernel. R and Python do: Ark through
+	 * `.ps.connection_close`, Python through `_close_connection`. The object the user's code just
+	 * opened would then be invalid a moment later.
 	 *
 	 * The listener stays for the life of the session rather than of its runtime: a restart starts a
 	 * new kernel in the same session without firing onDidStartRuntime again, and that kernel opens
@@ -246,8 +253,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	 *
 	 * A ggsql session holds one database at a time and opens a comm whenever that changes, with
 	 * `-- @connect: <uri>` as its code, so for ggsql this says which database the session is on.
-	 * Positron closes ggsql comms on arrival (R and Python ones stay open; see
-	 * watchRuntimeConnections), so the code is read on the way past: a ggsql session reconnected
+	 * Positron closes ggsql comms on arrival (others stay open; see watchRuntimeConnections), so the code is read on the way past: a ggsql session reconnected
 	 * after a reload has had its comm closed already, and reads as undefined until it connects
 	 * again.
 	 */
