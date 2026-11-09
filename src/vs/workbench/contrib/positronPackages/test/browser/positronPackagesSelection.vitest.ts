@@ -10,7 +10,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronPackagesService } from '../../browser/positronPackagesService.js';
 import { POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from '../../browser/positronPackagesContextKeys.js';
@@ -35,11 +35,11 @@ describe('PositronPackagesService selection', () => {
 		});
 		const session = stubInterface<ILanguageRuntimeSession>({
 			sessionId: 'session-1',
-			metadata: { sessionMode: LanguageRuntimeSessionMode.Console } as ILanguageRuntimeSession['metadata'],
+			metadata: stubInterface<ILanguageRuntimeSession['metadata']>({ sessionMode: LanguageRuntimeSessionMode.Console }),
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'test-runtime', languageId: 'r' }),
 			getPackageManager: () => packageManager,
 		});
-		const onWillStartSession = store.add(new Emitter<{ session: ILanguageRuntimeSession; activate: boolean }>());
+		const onWillStartSession = store.add(new Emitter<IRuntimeSessionWillStartEvent>());
 		const runtimeSessionService = stubInterface<IRuntimeSessionService>({
 			onWillStartSession: onWillStartSession.event,
 			onDidChangeForegroundSession: store.add(new Emitter<ILanguageRuntimeSession | undefined>()).event,
@@ -50,7 +50,7 @@ describe('PositronPackagesService selection', () => {
 			runtimeSessionService, new NullLogService(), contextKeyService,
 			store.add(new InMemoryStorageService()), new TestConfigurationService(),
 		));
-		onWillStartSession.fire({ session, activate: true });
+		onWillStartSession.fire({ startMode: RuntimeStartMode.Starting, activate: true, hasConsole: true, session });
 		const instance = service.activePackagesInstance!;
 		return {
 			service, instance,

@@ -22,7 +22,7 @@ describe('selected package actions', () => {
 		.withWorkbenchServices()
 		.build();
 
-	let executeCommand: ReturnType<typeof vi.fn<ICommandService['executeCommand']>>;
+	let executeCommand: ReturnType<typeof vi.fn<(commandId: string, ...args: unknown[]) => Promise<undefined>>>;
 	let updateOutdatedPackages: ReturnType<typeof vi.fn<IPositronPackagesService['updateOutdatedPackages']>>;
 	let uninstallPackages: ReturnType<typeof vi.fn<IPositronPackagesService['uninstallPackages']>>;
 	let confirm: ReturnType<typeof vi.fn<(confirmation: IConfirmation) => Promise<IConfirmationResult>>>;
@@ -42,7 +42,9 @@ describe('selected package actions', () => {
 		}));
 		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, info, prompt }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ restartSession: vi.fn() }));
-		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
+		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({
+			executeCommand: <R = unknown>(commandId: string, ...args: unknown[]): Promise<R | undefined> => executeCommand(commandId, ...args),
+		}));
 		ctx.instantiationService.stub(IDialogService, stubInterface<IDialogService>({ confirm }));
 		ctx.instantiationService.stub(IProgressService, stubInterface<IProgressService>({
 			withProgress: <R>(_options: unknown, task: (progress: IProgress<IProgressStep>) => Promise<R>, onDidCancel?: (choice?: number) => void): Promise<R> => {
@@ -55,7 +57,7 @@ describe('selected package actions', () => {
 	}
 
 	beforeEach(() => {
-		executeCommand = vi.fn<ICommandService['executeCommand']>().mockResolvedValue(undefined);
+		executeCommand = vi.fn<(commandId: string, ...args: unknown[]) => Promise<undefined>>().mockResolvedValue(undefined);
 		updateOutdatedPackages = vi.fn<IPositronPackagesService['updateOutdatedPackages']>().mockResolvedValue([]);
 		uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>().mockResolvedValue(undefined);
 		confirm = vi.fn().mockResolvedValue({ confirmed: true });

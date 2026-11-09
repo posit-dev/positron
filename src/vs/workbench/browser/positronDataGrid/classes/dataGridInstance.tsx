@@ -2764,7 +2764,8 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Selects a set of rows, replacing the current selection. Like selectRow, the cursor and
 	 * scroll position are left alone.
-	 * @param rowIndexes The row indexes. Must not be empty; use clearSelection to select nothing.
+	 * @param rowIndexes The row indexes. Must not be empty (use clearSelection to select nothing),
+	 * must be in ascending order, and must all be selectable (isRowSelectable is not checked).
 	 */
 	selectRows(rowIndexes: number[]) {
 		// Clear cell selection.
