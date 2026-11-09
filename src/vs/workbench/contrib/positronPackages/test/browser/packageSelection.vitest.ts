@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { canUninstallSelection, canUpdateSelection, getUpdatablePackages, isPackageUpdatable } from '../../browser/packageSelection.js';
+import { canUninstallSelection, canUpdateSelection, copyPackagesLabel, getUpdatablePackages, isPackageUpdatable } from '../../browser/packageSelection.js';
 
 function pkg(name: string, extra: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
 	return { id: `${name}-1`, name, displayName: name, version: '1', ...extra };
@@ -70,5 +70,11 @@ describe('packageSelection', () => {
 		])('%i -> %s', (count, expected) => {
 			expect(canUninstallSelection(count)).toBe(expected);
 		});
+	});
+});
+
+describe('multi-selection menu label', () => {
+	it('names the number of packages to copy', () => {
+		expect(copyPackagesLabel(3)).toBe('Copy 3 Packages');
 	});
 });

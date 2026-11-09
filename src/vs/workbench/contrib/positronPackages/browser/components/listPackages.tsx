@@ -37,7 +37,7 @@ import { ListEntry, PositronListInstance, PositronListItemContext } from '../../
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
-import { canUninstallSelection, canUpdateSelection, isPackageUpdatable } from '../packageSelection.js';
+import { canUninstallSelection, canUpdateSelection, copyPackagesLabel, isPackageUpdatable } from '../packageSelection.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
@@ -48,6 +48,17 @@ const positronUninstallPackage = localize(
 const positronUpdatePackage = localize(
 	'positronUpdatePackage',
 	'Update Package',
+);
+
+// Plural forms for a multi-package selection.
+const positronUninstallPackages = localize(
+	'positronUninstallPackages',
+	'Uninstall Packages',
+);
+
+const positronUpdatePackages = localize(
+	'positronUpdatePackages',
+	'Update Packages',
 );
 
 // Row heights for each item size mode.
@@ -352,6 +363,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		const formatPackage = (p: ILanguageRuntimePackage) => `${p.name} (${p.version})`;
 		const hasUpdatable = items.some(isPackageUpdatable);
+		// A single package keeps the singular labels; a multi-selection reads in the plural.
+		const isMulti = items.length > 1;
+		const updateLabel = isMulti ? positronUpdatePackages : positronUpdatePackage;
+		const uninstallLabel = isMulti ? positronUninstallPackages : positronUninstallPackage;
 
 		// Entries that only make sense for one package: help, website, and copying that package.
 		const singlePackageActions = (pkg: ILanguageRuntimePackage): IAction[] => {
@@ -394,8 +409,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		const copySelectedAction: IAction = {
 			id: 'copySelected',
-			label: localize('positronPackages.copySelectedPackages', "Copy Selected"),
-			tooltip: localize('positronPackages.copySelectedPackages', "Copy Selected"),
+			label: copyPackagesLabel(items.length),
+			tooltip: copyPackagesLabel(items.length),
 			class: undefined,
 			enabled: true,
 			run: () => services.clipboardService.writeText(items.map(formatPackage).join('\n'))
@@ -415,16 +430,16 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				new Separator(),
 				{
 					id: 'updatePackage',
-					label: positronUpdatePackage,
-					tooltip: positronUpdatePackage,
+					label: updateLabel,
+					tooltip: updateLabel,
 					class: undefined,
 					enabled: canUpdateSelection(items.length, hasUpdatable),
 					run: () => services.commandService.executeCommand('positronPackages.updateSelectedPackage')
 				},
 				{
 					id: 'uninstallPackage',
-					label: positronUninstallPackage,
-					tooltip: positronUninstallPackage,
+					label: uninstallLabel,
+					tooltip: uninstallLabel,
 					class: undefined,
 					enabled: canUninstallSelection(items.length),
 					run: () => services.commandService.executeCommand('positronPackages.uninstallSelectedPackage')

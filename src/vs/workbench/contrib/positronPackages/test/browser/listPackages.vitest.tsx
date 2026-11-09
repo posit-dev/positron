@@ -372,8 +372,8 @@ describe('ListPackages', () => {
 		// eslint-disable-next-line testing-library/prefer-user-event -- see the note on the Shift+F10 test above.
 		fireEvent.keyDown(screen.getByText('numpy'), { key: 'F10', code: 'F10', shiftKey: true });
 
-		expect(lastMenuLabels()).toEqual(['Copy Selected', 'Copy All', 'Update Package', 'Uninstall Package']);
-		runMenuAction('Copy Selected');
+		expect(lastMenuLabels()).toEqual(['Copy 2 Packages', 'Copy All', 'Update Packages', 'Uninstall Packages']);
+		runMenuAction('Copy 2 Packages');
 		expect(ctx.get(IClipboardService).writeText).toHaveBeenCalledWith('numpy (1.26.0)\npandas (2.0.0)');
 	});
 
@@ -463,8 +463,8 @@ describe('ListPackages', () => {
 
 		expect(listRow('numpy')).toHaveClass('selected');
 		expect(listRow('pandas')).toHaveClass('selected');
-		expect(lastMenuLabels()).toEqual(['Copy Selected', 'Copy All', 'Update Package', 'Uninstall Package']);
-		runMenuAction('Copy Selected');
+		expect(lastMenuLabels()).toEqual(['Copy 2 Packages', 'Copy All', 'Update Packages', 'Uninstall Packages']);
+		runMenuAction('Copy 2 Packages');
 		expect(ctx.get(IClipboardService).writeText).toHaveBeenCalledWith('numpy (1.26.0)\npandas (2.0.0)');
 	});
 
@@ -477,8 +477,8 @@ describe('ListPackages', () => {
 		await rightClick(user, 'pandas');
 
 		expect({
-			update: lastMenuAction('Update Package').enabled,
-			uninstall: lastMenuAction('Uninstall Package').enabled,
+			update: lastMenuAction('Update Packages').enabled,
+			uninstall: lastMenuAction('Uninstall Packages').enabled,
 		}).toEqual({ update: false, uninstall: true });
 	});
 
@@ -491,13 +491,13 @@ describe('ListPackages', () => {
 		await rightClick(user, 'polars');
 
 		expect({
-			update: lastMenuAction('Update Package').enabled,
-			uninstall: lastMenuAction('Uninstall Package').enabled,
+			update: lastMenuAction('Update Packages').enabled,
+			uninstall: lastMenuAction('Uninstall Packages').enabled,
 		}).toEqual({ update: true, uninstall: true });
 		const commandService = ctx.get(ICommandService);
-		runMenuAction('Update Package');
+		runMenuAction('Update Packages');
 		expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.updateSelectedPackage');
-		runMenuAction('Uninstall Package');
+		runMenuAction('Uninstall Packages');
 		expect(commandService.executeCommand).toHaveBeenCalledWith('positronPackages.uninstallSelectedPackage');
 	});
 

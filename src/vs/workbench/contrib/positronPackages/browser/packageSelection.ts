@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
@@ -34,4 +35,12 @@ export function canUpdateSelection(count: number, hasUpdatable: boolean): boolea
  */
 export function canUninstallSelection(count: number): boolean {
 	return count >= 1;
+}
+
+/**
+ * Label for copying a multi-package selection. Only used for two or more
+ * packages; a single package has its own, more specific entry.
+ */
+export function copyPackagesLabel(count: number): string {
+	return localize('positronPackages.copyNPackages', "Copy {0} Packages", count);
 }
