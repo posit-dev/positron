@@ -73,7 +73,6 @@ describe('DefaultAccountProvider Copilot access', () => {
 				default: { id: 'github', name: 'GitHub' },
 				enterprise: { id: 'github-enterprise', name: 'GitHub Enterprise' },
 				enterpriseProviderConfig: 'github.copilot.advanced.authProvider',
-				enterpriseProviderUriSetting: 'github-enterprise.uri',
 				scopes: [['read:user', 'user:email', 'repo']],
 			},
 			tokenEntitlementUrl: '',
