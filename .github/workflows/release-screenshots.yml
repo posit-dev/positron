@@ -262,7 +262,8 @@ jobs:
           POSITRON_VERSION: ${{ steps.version.outputs.version }}
         run: |
           # REPORT_URL comes from gen-report-dir, which owns the report host.
-          export SCREENSHOT_BASE_URL="${REPORT_URL%/index.html}/screenshots"
+          # Empty when the job failed before gen-report-dir ran, so the summary has no link.
+          export SCREENSHOT_BASE_URL="${REPORT_URL:+${REPORT_URL%/index.html}/screenshots}"
           DOCS_IMAGE_COMMIT_SHA=$(git -C "$RUNNER_TEMP/positron-website" rev-parse HEAD)
           DOCS_IMAGE_COMMIT_SHA="$DOCS_IMAGE_COMMIT_SHA" node .github/scripts/release-screenshots/compare-and-report.mjs \
             test/e2e/release-screenshots/output \
