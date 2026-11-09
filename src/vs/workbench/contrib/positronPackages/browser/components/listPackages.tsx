@@ -37,7 +37,7 @@ import { ListEntry, PositronListInstance, PositronListItemContext } from '../../
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
-import { canUninstallSelection, canUpdateSelection, getUpdatablePackages } from '../packageSelection.js';
+import { canUninstallSelection, canUpdateSelection, isPackageUpdatable } from '../packageSelection.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
@@ -265,9 +265,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	useEffect(() => {
 		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
 		// so re-anchor every selected package by id after pushing the new entries, dropping the
-		// ones that are gone. The selection is cleared first so the old row indexes never point
-		// at the wrong packages in between (which would push them to the service, or open a
-		// preview for one of them).
+		// ones that are gone. onDidUpdate is batched into a microtask, so the clear, the new
+		// entries, and the re-selection reach the selection sync effect as one update and only
+		// the final selection is pushed to the service.
 		const previouslySelectedIds = new Set(listInstance.getSelectedItems().map(p => p.id));
 		if (previouslySelectedIds.size > 0) {
 			listInstance.clearSelection();
@@ -306,8 +306,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		const firstIndex = Math.min(...indices);
 		void listInstance.scrollToRow(firstIndex);
 		// A single affected package (install, single update) also becomes the
-		// selection; a bulk update has no meaningful single row to select.
-		if (highlight.names.length === 1) {
+		// selection; a bulk update has no meaningful single row to select. A bulk
+		// update of a multi-selection can still report one changed package, so a
+		// multi-selection (already re-anchored by the refresh) is left alone.
+		if (highlight.names.length === 1 && listInstance.getSelectedItems().length <= 1) {
 			listInstance.selectRow(firstIndex);
 		}
 
@@ -349,8 +351,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}
 
 		const formatPackage = (p: ILanguageRuntimePackage) => `${p.name} (${p.version})`;
-		const names = items.map(p => p.name);
-		const hasUpdatable = getUpdatablePackages(items, names).length > 0;
+		const hasUpdatable = items.some(isPackageUpdatable);
 
 		// Entries that only make sense for one package: help, website, and copying that package.
 		const singlePackageActions = (pkg: ILanguageRuntimePackage): IAction[] => {

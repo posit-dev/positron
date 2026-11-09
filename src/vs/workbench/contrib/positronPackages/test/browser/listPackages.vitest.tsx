@@ -545,6 +545,24 @@ describe('ListPackages', () => {
 		await waitFor(() => expect(ctx.get(IPositronPackagesService).setSelectedPackages).toHaveBeenLastCalledWith(['numpy']));
 	});
 
+	// A bulk update that changes only one of the selected packages reports a single name; that
+	// must not collapse the user's multi-selection or open a preview.
+	it('keeps a multi-selection when a bulk update changes only one package', async () => {
+		const user = userEvent.setup();
+		renderList();
+		expect(await screen.findByText('numpy')).toBeInTheDocument();
+		await selectRows(user, 'numpy', 'pandas');
+		const commandService = ctx.get(ICommandService);
+		vi.mocked(commandService.executeCommand).mockClear();
+
+		act(() => onDidChangePackages.fire(['numpy']));
+
+		await waitFor(() => expect(itemRow('numpy')).toHaveClass('recently-changed'));
+		expect(listRow('numpy')).toHaveClass('selected');
+		expect(listRow('pandas')).toHaveClass('selected');
+		expect(commandService.executeCommand).not.toHaveBeenCalledWith('positronPackages.openPackage', expect.anything(), expect.anything());
+	});
+
 	it('clears a multi-selection when the filter text changes', async () => {
 		const user = userEvent.setup();
 		renderList();

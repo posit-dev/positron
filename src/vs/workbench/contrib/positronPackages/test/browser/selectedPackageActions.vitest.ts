@@ -152,6 +152,24 @@ describe('selected package actions', () => {
 			expect(uninstallPackages).not.toHaveBeenCalled();
 			expect(prompt).not.toHaveBeenCalled();
 		});
+
+		it('reports a failed bulk update as an error with no restart notice', async () => {
+			updateOutdatedPackages.mockRejectedValue(new Error('boom'));
+
+			await runUpdate();
+
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(prompt).not.toHaveBeenCalled();
+		});
+
+		it('reports a failed bulk uninstall as an error with no restart notice', async () => {
+			uninstallPackages.mockRejectedValue(new Error('boom'));
+
+			await runUninstall();
+
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(prompt).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('when cancelled', () => {
