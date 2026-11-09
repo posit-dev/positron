@@ -100,6 +100,17 @@ export interface IPositronPackagesService {
 	updateAllPackages(token?: CancellationToken): Promise<string[]>;
 
 	/**
+	 * Update the named packages to their latest known version, skipping any
+	 * that are not outdated.
+	 * @param names Names of the packages to update
+	 * @param token Optional cancellation token
+	 * @returns The names of the packages whose installed version actually
+	 * changed, sorted alphabetically. Empty when none were updatable or
+	 * nothing changed.
+	 */
+	updateOutdatedPackages(names: readonly string[], token?: CancellationToken): Promise<string[]>;
+
+	/**
 	 * Search for packages matching a query.
 	 * @param query Search query
 	 * @param token Optional cancellation token
