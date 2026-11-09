@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfirmation, IConfirmationResult, IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -27,6 +28,9 @@ describe('selected package actions', () => {
 	let confirm: ReturnType<typeof vi.fn<(confirmation: IConfirmation) => Promise<IConfirmationResult>>>;
 	let info: ReturnType<typeof vi.fn<INotificationService['info']>>;
 	let prompt: ReturnType<typeof vi.fn<INotificationService['prompt']>>;
+	let error: ReturnType<typeof vi.fn<INotificationService['error']>>;
+	/** When set, the progress notification's Cancel is clicked before the task runs. */
+	let cancelProgress: boolean;
 
 	function stubServices(selectedPackages: readonly string[]): void {
 		ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
@@ -36,12 +40,17 @@ describe('selected package actions', () => {
 			updateOutdatedPackages,
 			uninstallPackages,
 		}));
-		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error: vi.fn(), info, prompt }));
+		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, info, prompt }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({ restartSession: vi.fn() }));
 		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
 		ctx.instantiationService.stub(IDialogService, stubInterface<IDialogService>({ confirm }));
 		ctx.instantiationService.stub(IProgressService, stubInterface<IProgressService>({
-			withProgress: <R>(_options: unknown, task: (progress: IProgress<IProgressStep>) => Promise<R>): Promise<R> => task(Progress.None),
+			withProgress: <R>(_options: unknown, task: (progress: IProgress<IProgressStep>) => Promise<R>, onDidCancel?: (choice?: number) => void): Promise<R> => {
+				if (cancelProgress) {
+					onDidCancel?.();
+				}
+				return task(Progress.None);
+			},
 		}));
 	}
 
@@ -52,6 +61,8 @@ describe('selected package actions', () => {
 		confirm = vi.fn().mockResolvedValue({ confirmed: true });
 		info = vi.fn<INotificationService['info']>();
 		prompt = vi.fn<INotificationService['prompt']>();
+		error = vi.fn<INotificationService['error']>();
+		cancelProgress = false;
 	});
 
 	function runUpdate() {
@@ -137,6 +148,69 @@ describe('selected package actions', () => {
 			await runUninstall();
 
 			expect(uninstallPackages).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('when cancelled', () => {
+		beforeEach(() => stubServices(['dplyr', 'ggplot2']));
+
+		it('shows nothing when the bulk update rejects with a cancellation error', async () => {
+			updateOutdatedPackages.mockRejectedValue(new CancellationError());
+
+			await runUpdate();
+
+			expect(error).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+			expect(info).not.toHaveBeenCalled();
+		});
+
+		it('shows nothing when the bulk update resolves after the token was cancelled', async () => {
+			cancelProgress = true;
+			updateOutdatedPackages.mockResolvedValue(['dplyr']);
+
+			await runUpdate();
+
+			expect(error).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+			expect(info).not.toHaveBeenCalled();
+		});
+
+		it('shows nothing when the bulk update fails after the token was cancelled', async () => {
+			cancelProgress = true;
+			updateOutdatedPackages.mockRejectedValue(new Error('aborted'));
+
+			await runUpdate();
+
+			expect(error).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+		});
+
+		it('shows nothing when the bulk uninstall rejects with a cancellation error', async () => {
+			uninstallPackages.mockRejectedValue(new CancellationError());
+
+			await runUninstall();
+
+			expect(error).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+		});
+
+		it('shows no restart notice when the bulk uninstall resolves after the token was cancelled', async () => {
+			cancelProgress = true;
+
+			await runUninstall();
+
+			expect(error).not.toHaveBeenCalled();
+			expect(prompt).not.toHaveBeenCalled();
+		});
+
+		it('shows nothing when the bulk uninstall fails after the token was cancelled', async () => {
+			cancelProgress = true;
+			uninstallPackages.mockRejectedValue(new Error('aborted'));
+
+			await runUninstall();
+
+			expect(error).not.toHaveBeenCalled();
 			expect(prompt).not.toHaveBeenCalled();
 		});
 	});

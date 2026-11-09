@@ -837,6 +837,11 @@ export async function updateSelectedPackages(accessor: ServicesAccessor, names: 
 					);
 				}
 			} catch (e) {
+				if (isCancellationError(e) || cts.token.isCancellationRequested) {
+					// The user canceled the progress notification; an error
+					// toast would be wrong.
+					return;
+				}
 				notifications.error(cleanErrorMessage(e));
 			}
 		}, () => cts.cancel());
@@ -875,6 +880,9 @@ export async function uninstallSelectedPackages(accessor: ServicesAccessor, name
 		}, async () => {
 			try {
 				await service.uninstallPackages([...names], cts.token);
+				if (cts.token.isCancellationRequested) {
+					return;
+				}
 				showRestartSessionNotification(
 					notifications,
 					runtimeSessionService,
@@ -884,6 +892,11 @@ export async function uninstallSelectedPackages(accessor: ServicesAccessor, name
 					[...names]
 				);
 			} catch (e) {
+				if (isCancellationError(e) || cts.token.isCancellationRequested) {
+					// The user canceled the progress notification; an error
+					// toast would be wrong.
+					return;
+				}
 				notifications.error(cleanErrorMessage(e));
 			}
 		}, () => cts.cancel());
