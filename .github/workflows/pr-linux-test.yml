@@ -415,25 +415,30 @@ jobs:
           lsof | wc -l
         continue-on-error: true
 
-      - name: Publish Crash Reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: failure()
-        continue-on-error: true
-        with:
-          name: ${{ format('crash-dump-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
-          path: .build/crashes
-          if-no-files-found: ignore
-
-      # In order to properly symbolify above crash reports
-      # (if any), we need the compiled native modules too
-      - name: Publish Node Modules
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: failure()
-        continue-on-error: true
-        with:
-          name: ${{ format('node-modules-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
-          path: node_modules
-          if-no-files-found: ignore
+      # --- Start Positron ---
+      # Crash dumps hold raw process memory, which can include secrets, so CI
+      # does not upload them (SEC-3673). Node modules were uploaded only to
+      # symbolize those dumps.
+      # - name: Publish Crash Reports
+      #   uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      #   if: failure()
+      #   continue-on-error: true
+      #   with:
+      #     name: ${{ format('crash-dump-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
+      #     path: .build/crashes
+      #     if-no-files-found: ignore
+      #
+      # # In order to properly symbolify above crash reports
+      # # (if any), we need the compiled native modules too
+      # - name: Publish Node Modules
+      #   uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      #   if: failure()
+      #   continue-on-error: true
+      #   with:
+      #     name: ${{ format('node-modules-linux-{0}-{1}-{2}', env.VSCODE_ARCH, env.ARTIFACT_NAME, github.run_attempt) }}
+      #     path: node_modules
+      #     if-no-files-found: ignore
+      # --- End Positron ---
 
       - name: Publish Log Files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -7,6 +7,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import { test, tags } from '../../_test.setup';
 import { Logger } from '../../../infra/logger.js';
 import { installPasskey, OktaPasskeyCredentials, readPositronServiceAccountCredentials, selectPasskeyFactor } from '../../../utils/oktaSignIn.js';
+import { expectSecretValue, fillSecretValue } from '../../../utils/secretInput.js';
 
 test.use({
 	suiteId: __filename,
@@ -138,7 +139,7 @@ async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUr
 
 	const passwordField = popup.locator('input[type="password"]').first();
 	await expect(passwordField).toBeVisible({ timeout: 30_000 });
-	await typeInto(passwordField, account.password);
+	await typeInto(passwordField, account.password, { secret: true });
 	await popup.getByRole('button', { name: /^(Verify|Next|Sign in)$/ }).first().click();
 	step('after-password');
 
@@ -157,11 +158,17 @@ async function signInWithSso(popup: Page, authorizeUrl: () => string, callbackUr
 /**
  * Text entry for Okta's forms, which re-render their inputs after they appear: wait until the
  * field is editable, type one keystroke at a time so the bindings fire, and check the value stuck.
+ * A secret is set via evaluate + input event instead, keeping it out of step titles.
  */
-async function typeInto(field: Locator, value: string): Promise<void> {
+async function typeInto(field: Locator, value: string, { secret = false }: { secret?: boolean } = {}): Promise<void> {
 	await expect(field).toBeEditable({ timeout: 30_000 });
 	await field.click();
 	await field.fill('');
-	await field.pressSequentially(value, { delay: 30 });
-	await expect(field).toHaveValue(value, { timeout: 5_000 });
+	if (secret) {
+		await fillSecretValue(field, value);
+		await expectSecretValue(field, value);
+	} else {
+		await field.pressSequentially(value, { delay: 30 });
+		await expect(field).toHaveValue(value, { timeout: 5_000 });
+	}
 }
