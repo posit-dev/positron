@@ -146,7 +146,7 @@ For **each** failed e2e job from Step 1, resolve the job's `REPORT_DIR` from its
 
 ```bash
 node "$SKILL_DIR/scripts/e2e-process-s3.js" \
-  --report-url https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/ \
+  --report-url https://positron-reports.tail00da2.ts.net/<REPORT_DIR>/ \
   --output-dir /tmp/e2e-analysis-<JOB_LABEL> \
   --cleanup
 ```
