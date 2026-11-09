@@ -293,14 +293,6 @@ export class DuckDBInstance {
 	}
 
 	/**
-	 * Kill the worker, failing in-flight queries and firing `onDidCrash` as if it
-	 * had crashed. The next query respawns it.
-	 */
-	terminate(): void {
-		this._worker?.kill();
-	}
-
-	/**
 	 * Arm the idle-shutdown timer. Called when the last data explorer closes: after
 	 * {@link IDLE_SHUTDOWN_MS} with no client, the worker self-terminates to free its
 	 * native memory. A no-op if already armed, disposed, or the worker isn't running.
@@ -2659,9 +2651,11 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		const download = !status?.installed;
 		const load = this.signedDb.runQuery(download ? `INSTALL ${name} FROM ${reader.repo}; LOAD ${name};` : `LOAD ${name};`);
 
-		// Show progress if the download is slow. Cancelling kills the signed
-		// worker, which fails the download (and any other query in it).
+		// Show progress if the download is slow. Cancelling abandons the open; the
+		// download itself finishes in the background so later opens can use it.
 		let cancelled = false;
+		let cancel = () => { };
+		const cancellation = new Promise<void>(resolve => cancel = resolve);
 		const progressTimer = download ? setTimeout(() => {
 			vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
@@ -2670,18 +2664,15 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			}, (_progress, token) => {
 				token.onCancellationRequested(() => {
 					cancelled = true;
-					this.signedDb.terminate();
+					cancel();
 				});
 				return load.catch(() => { });
 			});
 		}, 1000) : undefined;
 
 		try {
-			await load;
+			await Promise.race([load, cancellation]);
 		} catch (error) {
-			if (cancelled) {
-				throw new Error(vscode.l10n.t('The download of the "{0}" DuckDB extension was cancelled.', name));
-			}
 			const detail = error instanceof Error ? error.message : String(error);
 			this.log.error(`Failed to ${download ? 'install' : 'load'} DuckDB extension "${name}" from ${reader.repo}: ${detail}`);
 			const message = download ?
@@ -2696,6 +2687,9 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			throw new Error(message);
 		} finally {
 			clearTimeout(progressTimer);
+		}
+		if (cancelled) {
+			throw new Error(vscode.l10n.t('The download of the "{0}" DuckDB extension was cancelled.', name));
 		}
 	}
 
