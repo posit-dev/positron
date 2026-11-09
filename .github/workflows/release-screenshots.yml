@@ -404,7 +404,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          REPORT_LINK="[Open full screenshot report ↗]($SCREENSHOT_REPORT_URL)"
+          REPORT_LINK="${SCREENSHOT_REPORT_URL:+[Open full screenshot report ↗]($SCREENSHOT_REPORT_URL)}"
           DOCS="$RUNNER_TEMP/positron-website"
           # Build a body that lists changed/new files from classification.json.
           BODY_LIST=$(node -e '
