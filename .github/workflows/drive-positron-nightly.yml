@@ -332,11 +332,9 @@ jobs:
           mkdir -p "$HEAL_DIR"
           echo "planted: $E2E_LEAK_CANARY_KEY" > "$HEAL_DIR/planted-leak.txt"
 
-      # The smoke fixture passes ANTHROPIC_API_KEY into the app, and the agents hold it too. The
-      # artifact and the step summary are public, and publish builds the PR body from the
-      # artifact. So copy what will be uploaded to a stage, scan the stage, and upload the same
-      # copy: an instance an agent left running cannot add to it after the scan. From the launch
-      # dirs only the logs go, not the user-data dirs, whose stores the scan cannot read.
+      # The app and agents hold ANTHROPIC_API_KEY, and the artifact and summary are public. Scan a
+      # staged copy and upload that copy, so a still-running instance cannot add to it afterwards.
+      # Launch dirs contribute only logs: the scan cannot read the user-data dirs' stores.
       - name: Stage and scan the upload set
         id: secret-scan
         if: always()
@@ -346,9 +344,8 @@ jobs:
         run: |
           set -euo pipefail
           # 0 clean, 1 secrets found, 2 the scan could not run; read by the steps below.
-          # Anything that fails before the scanner reports is a 2, not a leak.
-          result=2
-          trap 'echo "code=$result" >> "$GITHUB_OUTPUT"' EXIT
+          code=2
+          trap 'echo "code=$code" >> "$GITHUB_OUTPUT"' EXIT
           STAGE=/tmp/heal-upload
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
@@ -388,13 +385,12 @@ jobs:
           echo "$out"
           # A scanner that fails to load also exits 1; only its hit count makes that a leak.
           if [ "$code" -eq 1 ] && ! grep -qE '^[1-9][0-9]* hit\(s\)$' <<< "$out"; then code=2; fi
-          result=$code
           if [ "$PLANT_LEAK" = true ]; then
             if [ "$code" -eq 1 ] && grep -q 'planted-leak\.txt  E2E_LEAK_CANARY_KEY' <<< "$out"; then
               echo "::notice::the scan caught the planted leak; the upload is skipped"
             else
               echo "::error::plant_leak expected exit 1 with a hit on planted-leak.txt; the scan exited $code"
-              result=2
+              code=2
               exit 2
             fi
           fi
