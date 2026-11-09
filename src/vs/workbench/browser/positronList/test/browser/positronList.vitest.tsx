@@ -117,6 +117,34 @@ describe('PositronListInstance', () => {
 		expect(list.getSelectedItems()).toEqual(['Item 3']);
 	});
 
+	it('selects every item matching a predicate without moving the cursor', () => {
+		const list = newList();
+		list.setEntries([
+			{ kind: 'item', item: 'Item 1' },
+			{ kind: 'section', section: 'Section 1' },
+			{ kind: 'item', item: 'Item 2' },
+			{ kind: 'item', item: 'Item 3' },
+		]);
+		list.setCursorRow(2);
+
+		list.selectItems(item => item !== 'Item 2');
+
+		expect({
+			selected: list.getSelectedItems(),
+			cursorRow: list.cursorRowIndex,
+		}).toEqual({ selected: ['Item 1', 'Item 3'], cursorRow: 2 });
+	});
+
+	it('clears the selection when no item matches the predicate', () => {
+		const list = newList();
+		list.setEntries(flatItems(3));
+		list.selectRow(1);
+
+		list.selectItems(() => false);
+
+		expect(list.getSelectedItems()).toEqual([]);
+	});
+
 	it('exposes a maximum vertical scroll offset once a viewport size is set', async () => {
 		const list = newList();
 		list.setEntries(flatItems(200));
