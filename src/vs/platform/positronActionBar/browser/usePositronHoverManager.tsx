@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable } from '../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
+import { IHoverService } from '../../hover/browser/hover.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
@@ -17,6 +19,58 @@ import { usePositronReactServicesContext } from '../../../base/browser/positronR
  * their own. Undefined when no provider is above, in which case usePositronHoverManager creates one.
  */
 export const PositronHoverManagerContext = createContext<IHoverManager | undefined>(undefined);
+
+/**
+ * Creates the real hover manager the first time a hover is shown, which happens in an event handler
+ * after the component has committed, never during render. This lets the provider create it while
+ * rendering without leaking when React discards and retries a render (for example after a child
+ * throws).
+ */
+class LazyHoverManager implements IHoverManager, IDisposable {
+	private _hoverManager?: PositronActionBarHoverManager;
+
+	constructor(
+		private readonly _configurationService: IConfigurationService,
+		private readonly _hoverService: IHoverService
+	) { }
+
+	showHover(target: HTMLElement, content?: string | (() => string | undefined)): void {
+		this._hoverManager ??= new PositronActionBarHoverManager(
+			true,
+			this._configurationService,
+			this._hoverService
+		);
+		this._hoverManager.showHover(target, content);
+	}
+
+	hideHover(): void {
+		this._hoverManager?.hideHover();
+	}
+
+	dispose(): void {
+		this._hoverManager?.dispose();
+		this._hoverManager = undefined;
+	}
+}
+
+/**
+ * Provides one hover manager to every component below it. Must be rendered inside a
+ * PositronReactServicesContext provider.
+ */
+export const PositronHoverManagerProvider = ({ children }: { children: React.ReactNode }) => {
+	const services = usePositronReactServicesContext();
+	const [hoverManager] = useState(() => new LazyHoverManager(
+		services.configurationService,
+		services.hoverService
+	));
+	useEffect(() => () => hoverManager.dispose(), [hoverManager]);
+
+	return (
+		<PositronHoverManagerContext.Provider value={hoverManager}>
+			{children}
+		</PositronHoverManagerContext.Provider>
+	);
+};
 
 /**
  * Gets the hover manager a component should use. `Button` and similar controls only show their

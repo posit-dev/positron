@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { useContext } from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IHoverService } from '../../../hover/browser/hover.js';
 import { IHoverManager } from '../../../hover/browser/hoverManager.js';
-import { PositronHoverManagerContext, usePositronHoverManager } from '../../browser/usePositronHoverManager.js';
+import { PositronHoverManagerContext, PositronHoverManagerProvider, usePositronHoverManager } from '../../browser/usePositronHoverManager.js';
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../test/vitest/reactTestingLibrary.js';
 
@@ -87,6 +88,39 @@ describe('usePositronHoverManager', () => {
 
 	it('creates its own hover manager when neither is available', async () => {
 		rtl.render(<Probe />);
+		await userEvent.setup().hover(screen.getByRole('button', { name: 'Probe' }));
+		await waitFor(() => expect(showInstantHover).toHaveBeenCalledWith(
+			expect.objectContaining({ content: 'Probe tooltip' }),
+			false
+		));
+	});
+});
+
+describe('PositronHoverManagerProvider', () => {
+	const showInstantHover = vi.fn();
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IHoverService, { showInstantHover, hideHover: vi.fn() })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		showInstantHover.mockClear();
+	});
+
+	it('gives every component below it the same hover manager', async () => {
+		const seen: (IHoverManager | undefined)[] = [];
+		const Capture = () => {
+			seen.push(useContext(PositronHoverManagerContext));
+			return null;
+		};
+		rtl.render(<PositronHoverManagerProvider><Capture /><Capture /></PositronHoverManagerProvider>);
+		expect(seen[0]).toBeDefined();
+		expect(seen[1]).toBe(seen[0]);
+	});
+
+	it('shows tooltips through the shared manager', async () => {
+		rtl.render(<PositronHoverManagerProvider><Probe /></PositronHoverManagerProvider>);
 		await userEvent.setup().hover(screen.getByRole('button', { name: 'Probe' }));
 		await waitFor(() => expect(showInstantHover).toHaveBeenCalledWith(
 			expect.objectContaining({ content: 'Probe tooltip' }),
