@@ -302,6 +302,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		this._logService.debug(`[QuartoKernelManager] Adopting existing session for ${documentUri.toString()}`);
 
+		// Stop listening to a tracked session that this one replaces, such as
+		// an exited session.
+		const previous = this._documentKernels.get(documentUri);
+		if (previous && previous.session !== session) {
+			previous.disposables.dispose();
+		}
+
 		// Create tracking info for this session
 		const info: DocumentKernelInfo = {
 			session: session,
@@ -1021,7 +1028,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 			info.session = session;
 
-			// Set up session event listeners
+			// Drop the listeners of a session this one replaces, such as an
+			// exited session.
+			info.disposables.clear();
 			this._setupSessionListeners(documentUri, session, info);
 
 			// Wait for session to be ready

@@ -13,7 +13,7 @@ import { InMemoryStorageService, StorageScope } from '../../../../../platform/st
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService, IStartNewRuntimeSessionOptions, IUpdateNotebookSessionUriOptions, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ActiveRuntimeSession } from '../../../../services/runtimeSession/common/activeRuntimeSession.js';
 import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
@@ -511,6 +511,31 @@ describe('QuartoKernelManager', () => {
 			startedRuntimeIds: [],
 			uriUpdates: [{ oldUri: oldUri.toString(), newUri: newUri.toString(), quartoNotebookUri: 'quarto-cells:Untitled-2.qmd.ipynb' }],
 		});
+	});
+
+	it('stops listening to an exited session when it starts a new kernel for the document', async () => {
+		const oldSessionEnd = disposables.add(new Emitter<ILanguageRuntimeExit>());
+		let oldSessionState = RuntimeState.Idle;
+		announcedSessions.set('session-0', stubInterface<ILanguageRuntimeSession>({
+			sessionId: 'session-0',
+			runtimeMetadata: pythonRuntime1,
+			metadata: stubInterface<ILanguageRuntimeSession['metadata']>({ notebookUri: docUri, sessionMode: LanguageRuntimeSessionMode.Notebook }),
+			getRuntimeState: () => oldSessionState,
+			onDidChangeRuntimeState: Event.None,
+			onDidCompleteStartup: Event.None,
+			onDidEncounterStartupFailure: Event.None,
+			onDidEndSession: oldSessionEnd.event,
+			async shutdown(_reason: RuntimeExitReason) { /* no-op */ },
+		}));
+		await kernelManager.ensureKernelForDocument(docUri);
+		oldSessionState = RuntimeState.Exited;
+
+		const second = await kernelManager.ensureKernelForDocument(docUri);
+		// A late end event from the old session must not clear the new kernel.
+		oldSessionEnd.fire(stubInterface<ILanguageRuntimeExit>({}));
+
+		expect({ secondId: second?.sessionId, trackedId: kernelManager.getSessionForDocument(docUri)?.sessionId })
+			.toEqual({ secondId: 'session-1', trackedId: 'session-1' });
 	});
 
 	describe('untitled sessions that belong to another document', () => {
