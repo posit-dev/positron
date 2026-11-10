@@ -66,7 +66,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		// Stop propagation.
 		e.stopPropagation();
 
-		// If the left mouse button was pressed, show the context menu.
+		// If the right mouse button was pressed, show the context menu.
 		if (e.button === 2) {
 			// Build the context menu entries.
 			const entries: CustomContextMenuEntry[] = [
