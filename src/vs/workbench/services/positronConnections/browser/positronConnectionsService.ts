@@ -21,9 +21,26 @@ import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.j
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 import { raceTimeout } from '../../../../base/common/async.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 
-/** How long a connection comm already open at startup has to say what it is before it is closed. */
+/** How long a connection comm already open at startup has to say what it is before it is decided on. */
 const STARTUP_METADATA_TIMEOUT_MS = 5000;
+
+/**
+ * The languages whose connection comms are known to be safe to close. Positron has closed ggsql
+ * comms on arrival since Data Connections shipped, and ggsql reads the session's database from the
+ * code recorded on the way past (see getSessionConnectionCode).
+ */
+const CLOSABLE_CONNECTION_LANGUAGES: ReadonlySet<string> = new Set(['ggsql']);
+
+/**
+ * Whether a connection comm is kept open rather than closed; see watchRuntimeConnections. A comm
+ * that does not say what language it is (no metadata, or metadata with no `language_id`) takes its
+ * session's language.
+ */
+function keepsConnectionComm(session: ILanguageRuntimeSession, metadata: Partial<IConnectionMetadata> | undefined): boolean {
+	return !CLOSABLE_CONNECTION_LANGUAGES.has(metadata?.language_id ?? session.runtimeMetadata.languageId);
+}
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -43,7 +60,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	// The code behind the connection comm each session opened most recently, keyed by session id.
 	// See getSessionConnectionCode.
 	private readonly sessionConnectionCode = new Map<string, string>();
-	private readonly closeConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
+	private readonly watchConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
 	public readonly driverManager: PositronConnectionsDriverManager;
 
 	constructor(
@@ -59,14 +76,14 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 
 		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
 
-		// With the Data Connections feature on, the Connections pane is not registered, so there is
-		// nowhere to show runtime connections. The setting requires a reload, so it is read once.
+		// With the Data Connections feature on, the Connections pane is not registered, so runtime
+		// connections are only watched, not shown. The setting requires a reload, so it is read once.
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
-				this.closeRuntimeConnections(session);
+				this.watchRuntimeConnections(session);
 			}));
 			this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
-				this.closeConnectionsListeners.deleteAndDispose(sessionId);
+				this.watchConnectionsListeners.deleteAndDispose(sessionId);
 			}));
 			return;
 		}
@@ -152,14 +169,20 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	}
 
 	/**
-	 * Closes the connection comms a session opens, which would otherwise stay open until the session
-	 * ends. R opens one for every odbc or DBI connection.
+	 * Watches the connection comms a session opens. Each comm's code is recorded; see
+	 * getSessionConnectionCode.
 	 *
-	 * Each comm's code is recorded first; see getSessionConnectionCode. The listener stays for the
-	 * life of the session rather than of its runtime: a restart starts a new kernel in the same
-	 * session without firing onDidStartRuntime again, and that kernel opens comms of its own.
+	 * Only comms known to be safe to close (ggsql's; see CLOSABLE_CONNECTION_LANGUAGES) are closed.
+	 * Every other comm is kept open until the runtime closes it or the session ends, because closing
+	 * one can run the connection's disconnect() in the kernel. R and Python do: Ark through
+	 * `.ps.connection_close`, Python through `_close_connection`. The object the user's code just
+	 * opened would then be invalid a moment later.
+	 *
+	 * The listener stays for the life of the session rather than of its runtime: a restart starts a
+	 * new kernel in the same session without firing onDidStartRuntime again, and that kernel opens
+	 * comms of its own.
 	 */
-	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
+	private async watchRuntimeConnections(session: ILanguageRuntimeSession) {
 		// Whether a comm has opened, or the session has ended, since the comms already open were
 		// listed. Either is newer than anything those comms report, which then must not replace it.
 		let superseded = false;
@@ -167,8 +190,11 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		store.add(session.onDidCreateClientInstance(({ message, client }) => {
 			if (client.getClientType() === RuntimeClientType.Connection) {
 				superseded = true;
-				this.setSessionConnectionCode(session.sessionId, (message.data as Partial<IConnectionMetadata> | undefined)?.code);
-				client.dispose();
+				const metadata = message.data as Partial<IConnectionMetadata> | undefined;
+				this.setSessionConnectionCode(session.sessionId, metadata?.code);
+				if (!keepsConnectionComm(session, metadata)) {
+					client.dispose();
+				}
 			}
 		}));
 		store.add(session.onDidEndSession(() => {
@@ -176,7 +202,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 			// Whatever the runtime was connected to went with it.
 			this.setSessionConnectionCode(session.sessionId, undefined);
 		}));
-		this.closeConnectionsListeners.set(session.sessionId, store);
+		this.watchConnectionsListeners.set(session.sessionId, store);
 
 		try {
 			const clients = await session.listClients(RuntimeClientType.Connection);
@@ -186,19 +212,38 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 			const sole = clients.length === 1;
 			await Promise.all(clients.map(async client => {
 				const connection = new ConnectionsClientInstance(client);
+				let keep = false;
 				try {
-					// Bounded, so a comm that never answers is still closed.
-					const metadata = await raceTimeout(connection.getMetadata(), STARTUP_METADATA_TIMEOUT_MS);
+					// Bounded, so a comm that never answers is still decided on.
+					const metadata = await raceTimeout(connection.getMetadata(), STARTUP_METADATA_TIMEOUT_MS)
+						.catch(e => {
+							this.logService.error('Error while reading a runtime connection\'s metadata', e);
+							return undefined;
+						});
+					// Ark answers only when R is idle, so a window reloaded during a long computation
+					// sees every R comm time out; closing them would disconnect the user's objects.
+					keep = keepsConnectionComm(session, metadata);
 					if (metadata && sole && !superseded) {
 						this.setSessionConnectionCode(session.sessionId, metadata.code);
 					}
 				} finally {
-					connection.dispose();
-					client.dispose();
+					if (keep) {
+						// Disposing the wrapper closes the comm too, so it is released only once the
+						// comm has closed: when the runtime closes it or the session ends. A comm
+						// that closed while its metadata was pending has already fired its close.
+						if (client.clientState.get() === RuntimeClientState.Closed) {
+							connection.dispose();
+						} else {
+							Event.once(connection.onDidClose)(() => connection.dispose());
+						}
+					} else {
+						connection.dispose();
+						client.dispose();
+					}
 				}
 			}));
 		} catch (e) {
-			this.logService.error('Error while closing runtime connections', e);
+			this.logService.error('Error while watching runtime connections', e);
 		}
 	}
 
@@ -208,9 +253,9 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	 *
 	 * A ggsql session holds one database at a time and opens a comm whenever that changes, with
 	 * `-- @connect: <uri>` as its code, so for ggsql this says which database the session is on.
-	 * Positron closes these comms on arrival, so the code is read on the way past: a session
-	 * reconnected after a reload has had its comm closed already, and reads as undefined until it
-	 * connects again.
+	 * Positron closes ggsql comms on arrival (others stay open; see watchRuntimeConnections), so the code is read on the way past: a ggsql session reconnected
+	 * after a reload has had its comm closed already, and reads as undefined until it connects
+	 * again.
 	 */
 	getSessionConnectionCode(sessionId: string): string | undefined {
 		return this.sessionConnectionCode.get(sessionId);
