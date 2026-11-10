@@ -378,13 +378,14 @@ function artifactAccessNote(artifactRunUrl) {
 }
 
 /**
- * Turns the builds run's outcome into the comment state. A cancelled run or a job
- * timeout wins, then a missing result (failed), a failed scan, an outdated branch,
- * and last the agent's own outcome. `reportUrl` comes back only for a state that shows a report.
+ * Turns the builds run's outcome into the comment state. A job timeout wins,
+ * then a cancelled run, a missing result (failed), a failed scan, an outdated
+ * branch, and last the agent's own outcome. A timed-out job leaves the run
+ * cancelled too, and must not read as "Cancelled". `reportUrl` comes back only for a state that shows a report.
  */
 export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, result, reportUrl }) {
-	if (runConclusion === 'cancelled') { return { state: 'cancelled', reportUrl: '' }; }
 	if (timedOutModels?.has(model)) { return { state: 'job-timeout', reportUrl: '' }; }
+	if (runConclusion === 'cancelled') { return { state: 'cancelled', reportUrl: '' }; }
 	if (!result) { return { state: 'failed', reportUrl: '' }; }
 	if (result.scan === 'failed') { return { state: 'scan-failed', reportUrl: '' }; }
 	if (result.outdated) { return { state: 'outdated', reportUrl: '' }; }

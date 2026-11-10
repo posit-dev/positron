@@ -610,9 +610,10 @@ test('exploreRepo prefers EXPLORE_REPO over GITHUB_REPOSITORY', () => {
 	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron', EXPLORE_REPO: '' }), 'posit-dev/positron');
 });
 
-test('resolveDispatchOutcome follows the order: cancelled, job timeout, missing result, scan, outdated, outcome', () => {
+test('resolveDispatchOutcome follows the order: job timeout, cancelled, missing result, scan, outdated, outcome', () => {
 	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
 	const base = { runConclusion: 'success', timedOutModels: new Set(), result, reportUrl: 'https://r/x' };
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled' }), { state: 'cancelled', reportUrl: '' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
 	// Another model's timeout must not hide this model's finished report.
