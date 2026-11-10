@@ -749,9 +749,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			<div className='packages-filter-container'>
 				<ActionBarFilter
 					ref={filterRef}
-					hoverManager={hoverManager}
 					showClearAlways
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
+					hoverManager={hoverManager}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
 					onFilterButtonPressed={showFilterMenu}
