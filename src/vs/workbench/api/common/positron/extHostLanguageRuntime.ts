@@ -2011,7 +2011,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	/**
 	 * Cancels an execution. Removes it from the console queue if it has not
-	 * started; otherwise, interrupts the session.
+	 * started; interrupts the session if it is running.
 	 */
 	private async cancelExecution(executionId: string, o: ExecutionObserver): Promise<void> {
 		const sessionId = o.sessionId;
@@ -2026,7 +2026,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			return;
 		}
 
-		if (o.state !== 'completed') {
+		if (o.state === 'running') {
 			await this.interruptSession(sessionId);
 		}
 	}

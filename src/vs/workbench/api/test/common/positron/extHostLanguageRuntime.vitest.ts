@@ -672,14 +672,15 @@ describe('ExtHostLanguageRuntime', () => {
 			expect(proxy.$cancelPendingExecution).toHaveBeenCalledWith('test-session', executionId());
 		});
 
-		it('interrupts the session when the code has already left the queue', async () => {
+		it('does not interrupt the session when pending code is not in the queue', async () => {
 			proxy.$cancelPendingExecution = vi.fn(async () => false);
 			void execute();
 			await executeCode.complete('test-session');
 
 			tokenSource.cancel();
 
-			await vi.waitFor(() => expect(proxy.$interruptSession).toHaveBeenCalledWith('test-session'));
+			await vi.waitFor(() => expect(proxy.$cancelPendingExecution).toHaveBeenCalled());
+			expect(proxy.$interruptSession).not.toHaveBeenCalled();
 		});
 
 		it('interrupts the session when cancelled while running', async () => {
