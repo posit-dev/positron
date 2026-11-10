@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { agentCliAdd, agentCliCommand, agentCliRemoves, staleAgentDirectory } from '../McpAgentConfig';
+import { agentCliAdds, agentCliCommand, agentCliRemoves, cliEntryOutdated } from '../McpAgentConfig';
 import { McpCliInstall, McpLaunch, findMcpAgent } from '../McpAgents';
 
 /** The command line that starts the bridge. */
@@ -54,34 +54,37 @@ suite('agentCliCommand', () => {
 	});
 });
 
-suite('agentCliRemoves and agentCliAdd', () => {
-	test('write from the uppercase drive, clearing the lowercase entry an earlier build left', () => {
-		// A terminal starts Claude Code in C:\, and it keys entries by that exact text.
+suite('agentCliRemoves and agentCliAdds', () => {
+	test('write under both drive letter cases on Windows', () => {
+		// Claude Code keys entries by its working directory's exact text, which
+		// is C:\ from a terminal but c:\ from cmd's `cd c:\` or a folder's fsPath.
 		const install = cliInstall('claude-code');
+		const directories = (runs: { directory: string }[]) => runs.map(run => run.directory);
 		assert.deepStrictEqual(
 			{
-				removes: agentCliRemoves(install, {}, 'c:\\proj', 'win32').map(run => run.directory),
-				add: agentCliAdd(install, LAUNCH, 'c:\\proj', 'win32').directory,
+				removes: directories(agentCliRemoves(install, {}, 'c:\\proj', 'win32')),
+				adds: directories(agentCliAdds(install, LAUNCH, 'c:\\proj', 'win32')),
 			},
-			{ removes: ['c:\\proj', 'C:\\proj'], add: 'C:\\proj' });
+			{
+				removes: ['c:\\proj', 'C:\\proj'],
+				adds: ['c:\\proj', 'C:\\proj'],
+			});
 	});
 });
 
-suite('staleAgentDirectory', () => {
-	test('moves an entry written before directories were recorded only on Windows', () => {
+suite('cliEntryOutdated', () => {
+	test('rewrites an entry written before directories were recorded only on Windows', () => {
 		// Elsewhere the entry is already where it belongs, so it is not
 		// written again: a user who removed it does not get it back.
 		assert.deepStrictEqual(
 			{
-				windows: staleAgentDirectory({}, 'c:\\proj', 'win32'),
-				macos: staleAgentDirectory({}, '/Users/me/proj', 'darwin'),
+				windows: cliEntryOutdated({}, 'c:\\proj', 'win32'),
+				macos: cliEntryOutdated({}, '/Users/me/proj', 'darwin'),
 			},
-			{ windows: 'c:\\proj', macos: undefined });
+			{ windows: true, macos: false });
 	});
 
-	test('moves it only once', () => {
-		assert.strictEqual(
-			staleAgentDirectory({ directory: 'C:\\proj' }, 'c:\\proj', 'win32'),
-			undefined);
+	test('rewrites it only once', () => {
+		assert.strictEqual(cliEntryOutdated({ directory: 'c:\\proj' }, 'c:\\proj', 'win32'), false);
 	});
 });

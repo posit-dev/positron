@@ -57,7 +57,7 @@ interface ConfiguredAgent {
 	/** The command line the entry was written with, if one was recorded. */
 	launch?: McpLaunch;
 
-	/** The directory a CLI wrote the entry from; see {@link staleAgentDirectory}. */
+	/** The folder a CLI wrote the entry for; see {@link cliEntryOutdated}. */
 	directory?: string;
 }
 
@@ -69,7 +69,7 @@ interface InstallResult {
 	/** The file Positron wrote, when it wrote one rather than running a CLI. */
 	file?: vscode.Uri;
 
-	/** The directory the CLI ran in, when the entry was written by one. */
+	/** The folder's `fsPath`, when a CLI wrote the entry. */
 	directory?: string;
 }
 
@@ -222,15 +222,15 @@ async function refreshConfiguredAgents(
 		if (!agent) {
 			continue;
 		}
-		let moved = false;
+		let outdated = false;
 		if (agent.install.kind === 'cli') {
 			// A CLI that is gone took its configuration with it.
 			if (!folder || !installExecutable(agent)) {
 				continue;
 			}
-			moved = staleAgentDirectory(record, folder.fsPath) !== undefined;
+			outdated = cliEntryOutdated(record, folder.fsPath);
 		}
-		if (sameLaunch(record.launch, launch) && !moved) {
+		if (sameLaunch(record.launch, launch) && !outdated) {
 			continue;
 		}
 		let result: InstallResult;
@@ -243,9 +243,7 @@ async function refreshConfiguredAgents(
 		record.launch = launch;
 		record.directory = result.directory;
 		changed = true;
-		log(moved
-			? `Moved ${agent.label}'s MCP entry to ${result.directory}`
-			: `Updated ${agent.label}'s MCP entry to start ${launch.command}`);
+		log(`Updated ${agent.label}'s MCP entry in ${result.description} to start ${launch.command}`);
 	}
 	if (changed) {
 		await saveConfiguredAgents(context, records);
@@ -320,46 +318,47 @@ export function agentCliCommand(
 }
 
 /**
- * The directory to run an agent CLI in for a workspace folder.
+ * The spellings of a workspace folder an agent CLI may be started in.
  *
- * Claude Code keys an entry by the exact text of its working directory. A
- * folder's `fsPath` has a lowercase drive letter, but terminals start in an
- * uppercase one, so a lowercase entry is never found (#17217).
+ * Claude Code keys an entry by the exact text of its working directory, and
+ * on Windows that keeps whichever drive letter case the process was started
+ * with: terminals use `C:\`, while `cd c:\` in cmd and anything started from a
+ * folder's `fsPath` use `c:\` (#17217). So the entry is written under both.
  *
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
  */
-function agentCliDirectory(
+function agentCliDirectories(
 	folderPath: string,
 	platform: NodeJS.Platform = os.platform(),
-): string {
-	if (platform === 'win32' && /^[a-z]:/.test(folderPath)) {
-		return folderPath[0].toUpperCase() + folderPath.slice(1);
+): string[] {
+	if (platform !== 'win32' || !/^[a-zA-Z]:/.test(folderPath)) {
+		return [folderPath];
 	}
-	return folderPath;
+	const rest = folderPath.slice(1);
+	return [folderPath[0].toLowerCase() + rest, folderPath[0].toUpperCase() + rest];
 }
 
 /**
- * Where Positron wrote a CLI harness's entry before, when that is not where it
- * belongs now.
+ * Whether a CLI harness's entry is not everywhere it belongs, so it should be
+ * written again.
  *
- * A record with no directory comes from a build that wrote from the folder's
- * `fsPath` unchanged.
+ * A record with no directory comes from a build that wrote the entry only
+ * under the folder's `fsPath`. A recorded directory differs when the first
+ * folder changed.
  *
- * @param recorded What was recorded for the harness, if anything was.
+ * @param recorded What was recorded for the harness.
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
  */
-export function staleAgentDirectory(
-	recorded: { readonly directory?: string } | undefined,
+export function cliEntryOutdated(
+	recorded: { readonly directory?: string },
 	folderPath: string,
 	platform: NodeJS.Platform = os.platform(),
-): string | undefined {
-	if (!recorded) {
-		return undefined;
-	}
-	const previous = recorded.directory ?? folderPath;
-	return previous === agentCliDirectory(folderPath, platform) ? undefined : previous;
+): boolean {
+	return recorded.directory === undefined
+		? agentCliDirectories(folderPath, platform).length > 1
+		: recorded.directory !== folderPath;
 }
 
 /** One run of a harness's CLI. */
@@ -372,7 +371,7 @@ export interface AgentCliRun {
 
 /**
  * The runs that take Positron's entry out of a CLI harness's configuration,
- * wherever it may be.
+ * including from a folder it was written for before.
  *
  * @param install The harness's CLI install.
  * @param recorded What was recorded for the harness, if anything was.
@@ -385,26 +384,29 @@ export function agentCliRemoves(
 	folderPath: string,
 	platform: NodeJS.Platform = os.platform(),
 ): AgentCliRun[] {
-	const stale = staleAgentDirectory(recorded, folderPath, platform);
-	return [...(stale ? [stale] : []), agentCliDirectory(folderPath, platform)]
-		.map(directory => ({ args: install.remove, directory }));
+	const previous = recorded?.directory;
+	return [
+		...(previous && previous !== folderPath ? agentCliDirectories(previous, platform) : []),
+		...agentCliDirectories(folderPath, platform),
+	].map(directory => ({ args: install.remove, directory }));
 }
 
 /**
- * The run that writes Positron's entry into a CLI harness's configuration.
+ * The runs that write Positron's entry into a CLI harness's configuration.
  *
  * @param install The harness's CLI install.
  * @param launch The command line that starts the bridge.
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
  */
-export function agentCliAdd(
+export function agentCliAdds(
 	install: McpCliInstall,
 	launch: McpLaunch,
 	folderPath: string,
 	platform: NodeJS.Platform = os.platform(),
-): AgentCliRun {
-	return { args: install.add(launch), directory: agentCliDirectory(folderPath, platform) };
+): AgentCliRun[] {
+	return agentCliDirectories(folderPath, platform)
+		.map(directory => ({ args: install.add(launch), directory }));
 }
 
 /**
@@ -505,10 +507,11 @@ async function installViaCli(
 	// already there, and one written by an older Positron may be wrong rather
 	// than merely present.
 	await removeViaCli(executable, agentCliRemoves(install, record, folder.fsPath));
-	const add = agentCliAdd(install, launch, folder.fsPath);
-	await runAgentCli(executable, add);
+	for (const add of agentCliAdds(install, launch, folder.fsPath)) {
+		await runAgentCli(executable, add);
+	}
 
-	return { description: vscode.workspace.asRelativePath(folder), directory: add.directory };
+	return { description: vscode.workspace.asRelativePath(folder), directory: folder.fsPath };
 }
 
 /** Run each of the removes from {@link agentCliRemoves}. */
