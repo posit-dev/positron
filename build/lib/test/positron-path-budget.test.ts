@@ -101,6 +101,17 @@ suite('positron-path-budget', () => {
 			].map(isPruned), [true, false]);
 		});
 
+		test('prunes the Copilot language server agent SDK, keeps the server', () => {
+			assert.deepStrictEqual([
+				'node_modules/@github/copilot-language-server/dist/node_modules/zod/v4/index.js',
+				'node_modules/@github/copilot-language-server/dist/node_modules/@github/copilot-sdk/package.json',
+				'node_modules/@github/copilot-language-server/dist/policy-templates/win32/IDEGitHubCopilot.admx',
+				'node_modules/@github/copilot-language-server/dist/main.js',
+				'node_modules/@github/copilot-language-server/dist/compiled/darwin/arm64/keytar.node',
+				'node_modules/@github/copilot-language-server/dist/tree-sitter-python.wasm',
+			].map(isPruned), [true, true, true, false, false, false]);
+		});
+
 		test('prunes a dotfile, which a default glob would skip', () => {
 			assert.strictEqual(isPruned('node_modules/pkg/.internal/index.d.ts'), true);
 		});

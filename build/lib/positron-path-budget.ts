@@ -157,6 +157,14 @@ const EXTENSION_NODE_MODULES_EXCLUDES = [
 	// no linux-arm64 prebuilt). Its .deps files bake in the absolute build
 	// path, which is the longest path in the tree.
 	'node_modules/**/build-tmp-napi-v*/**',
+	// The Copilot language server's own node_modules (`@github/copilot-sdk`,
+	// `zod`, `vscode-jsonrpc`: about 260 files). Only `importSdk()` in
+	// dist/main.js loads them, for the Copilot CLI agent, and that path also
+	// needs the `@github/copilot` platform binary, which the package does not
+	// carry. Completions and next edit suggestions never reach it. The policy
+	// templates are admin install files that nothing loads.
+	'node_modules/@github/copilot-language-server/dist/node_modules/**',
+	'node_modules/@github/copilot-language-server/dist/policy-templates/**',
 ];
 
 /**
