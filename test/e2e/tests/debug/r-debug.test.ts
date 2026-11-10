@@ -515,7 +515,9 @@ async function verifyCallStack(app: Application) {
 
 async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {
 	await test.step(`Verify variable in console: ${name}`, async () => {
-		await app.workbench.console.typeToConsole(name, true);
+		// Typing opens the suggest widget, which swallows Enter; pasting does not.
+		await app.workbench.console.pasteCodeToConsole(name);
+		await app.workbench.console.sendEnterKey();
 		await expect(app.code.driver.currentPage.getByText(expectedText)).toBeVisible({ timeout: 30000 });
 	});
 }
