@@ -113,7 +113,7 @@ async function main() {
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
 		runUrl: buildRunUrl(process.env),
 		scanUrl: process.env.SCAN_URL || '',
-		artifactRunUrl: process.env.BUILDS_RUN_ID ? buildRunUrl(process.env) : '',
+		buildsRun: Boolean(process.env.BUILDS_RUN_ID),
 		headSha: process.env.HEAD_SHA || '',
 		reason: process.env.DECLINE_REASON || '',
 		focus: process.env.FOCUS || '',

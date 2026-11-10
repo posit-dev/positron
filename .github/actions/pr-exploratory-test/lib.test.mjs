@@ -610,12 +610,12 @@ test('exploreRepo prefers EXPLORE_REPO over GITHUB_REPOSITORY', () => {
 	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron', EXPLORE_REPO: '' }), 'posit-dev/positron');
 });
 
-test('resolveDispatchOutcome follows the order: job timeout, cancelled, missing result, scan, outdated, outcome', () => {
+test('resolveDispatchOutcome follows the order: published report, job timeout, cancelled, missing result, scan, outdated, outcome', () => {
 	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
 	const base = { runConclusion: 'success', timedOutModels: new Set(), result, reportUrl: 'https://r/x' };
-	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
-	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled' }), { state: 'cancelled', reportUrl: '' });
-	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled' }), { state: 'cancelled', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
 	// Another model's timeout must not hide this model's finished report.
 	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['opus']), model: 'sonnet' }), { state: 'complete', reportUrl: 'https://r/x' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, result: null }), { state: 'failed', reportUrl: '' });
@@ -624,6 +624,16 @@ test('resolveDispatchOutcome follows the order: job timeout, cancelled, missing 
 	assert.deepEqual(resolveDispatchOutcome(base), { state: 'complete', reportUrl: 'https://r/x' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '' }), { state: 'complete', reportUrl: '' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: '', result: { ...result, outcome: 'no-report' } }), { state: 'no-report', reportUrl: '' });
+});
+
+test('resolveDispatchOutcome keeps a published complete report over a later timeout or cancel', () => {
+	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
+	const base = { model: 'm', result, reportUrl: 'https://r/x' };
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'complete', reportUrl: 'https://r/x' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set() }), { state: 'complete', reportUrl: 'https://r/x' });
+	// No published report: the timeout still wins.
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { ...result, outcome: 'partial' }, runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'job-timeout', reportUrl: '' });
 });
 
 test('renderPrComment on a job timeout names the 90-minute limit', () => {
@@ -648,7 +658,9 @@ test('renderPrComment outdated falls back to the shared reason constant', () => 
 	assert.match(renderPrComment({ state: 'outdated', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), new RegExp(`Not run: ${OUTDATED_HELPERS_REASON.replace(/[.]/g, '\\.')}`));
 });
 
-test('the artifact text names the positron-builds run when given', () => {
+test('the artifact text names the positron-builds run once', () => {
 	const url = 'https://github.com/posit-dev/positron-builds/actions/runs/2';
-	assert.match(renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA, artifactRunUrl: url }), /positron-builds run\]\(.*runs\/2\); only posit-dev org members can open it/);
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: url, headSha: SHA, buildsRun: true });
+	assert.match(body, /positron-builds run\]\(.*runs\/2\); only posit-dev org members can open it/);
+	assert.equal(body.split(url).length - 1, 1);
 });

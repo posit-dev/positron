@@ -372,18 +372,23 @@ export function renderStepSummary(report, baseUrl, demoted = []) {
 /** The exact reason the helpers check gives; the comment shows it when no `reason` is passed. */
 export const OUTDATED_HELPERS_REASON = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
 
-/** Where the artifact lives when the run happened in positron-builds, which only org members can open. */
-function artifactAccessNote(artifactRunUrl) {
-	return artifactRunUrl ? ` It is in the [positron-builds run](${artifactRunUrl}); only posit-dev org members can open it.` : '';
+/** Points at the run artifact; a positron-builds run says only org members can open it. */
+function artifactLine(runUrl, buildsRun) {
+	return buildsRun
+		? `The report and its screenshots are in the workflow artifact of the [positron-builds run](${runUrl}); only posit-dev org members can open it.`
+		: `The report and its screenshots are in the workflow artifact. [View run \u2192](${runUrl})`;
 }
 
 /**
- * Turns the builds run's outcome into the comment state. A job timeout wins,
- * then a cancelled run, a missing result (failed), a failed scan, an outdated
- * branch, and last the agent's own outcome. A timed-out job leaves the run
- * cancelled too, and must not read as "Cancelled". `reportUrl` comes back only for a state that shows a report.
+ * Turns the builds run's outcome into the comment state. A published complete
+ * report wins, then a job timeout, a cancelled run, a missing result (failed),
+ * a failed scan, an outdated branch, and last the agent's own outcome. A
+ * timed-out job leaves the run cancelled too, and must not read as "Cancelled".
+ * `reportUrl` comes back only for a state that shows a report.
  */
 export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, result, reportUrl }) {
+	// A later failure or cancel must not hide a report that was published.
+	if (reportUrl && result?.scan === 'passed' && !result.outdated && result.outcome === 'complete') { return { state: 'complete', reportUrl }; }
 	if (timedOutModels?.has(model)) { return { state: 'job-timeout', reportUrl: '' }; }
 	if (runConclusion === 'cancelled') { return { state: 'cancelled', reportUrl: '' }; }
 	if (!result) { return { state: 'failed', reportUrl: '' }; }
@@ -484,7 +489,7 @@ function autoRunNote(hasReport) {
  * never ran (the build failed first). `failure` is failedStep's answer for that
  * last case, so the comment names the step that broke and links its log.
  */
-export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null, scanUrl = '', artifactRunUrl = '' }) {
+export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null, scanUrl = '', buildsRun = false }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
@@ -511,7 +516,7 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 		const lines = [tallyFindings(report, demoted)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
-		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact.${artifactAccessNote(artifactRunUrl)} ${run}`);
+		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : artifactLine(runUrl, buildsRun));
 		return comment(lines, true);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'

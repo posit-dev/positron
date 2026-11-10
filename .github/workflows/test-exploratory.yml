@@ -156,7 +156,7 @@ jobs:
       - name: Refuse runs off main
         if: github.ref != 'refs/heads/main'
         run: |
-          echo "::error::Exploratory runs start only from main. To test a harness change, run explore-pr.yml by hand in positron-builds with harness_ref set to your branch."
+          echo "::error::Exploratory runs start only from main. To test a harness change, run explore-pr.yml by hand in positron-builds, from a throwaway branch cut from its main, with harness_ref set to your branch."
           exit 1
 
       - name: Mint org-scoped App token
@@ -807,10 +807,18 @@ jobs:
 
       - name: Wait for the explore run (third hour)
         if: steps.wait2.outputs.code == '124'
+        id: wait3
         env:
           GH_TOKEN: ${{ steps.token3.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
-        run: bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300 || true
+        run: |
+          set +e
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" -eq 124 ] && echo "::warning::Still running after 165 minutes; cancelling it."
+          exit 0
 
       # Fresh, for everything after the wait: cancel, read, download, clean up.
       - name: Mint a token to finish with
@@ -826,11 +834,13 @@ jobs:
           permission-contents: write
 
       # Cancelling this run would otherwise leave the explore job running there,
-      # as would a dispatch whose run the lookup never found.
+      # as would a dispatch whose run the lookup never found, or a run that
+      # outlasted every wait.
       - name: Cancel the explore run
         if: >-
           ${{ always() && ((cancelled() && steps.dispatch.outputs.run_id != '') ||
-          (steps.dispatch.outputs.dispatched == 'true' && steps.dispatch.outputs.run_id == '')) }}
+          (steps.dispatch.outputs.dispatched == 'true' && steps.dispatch.outputs.run_id == '') ||
+          steps.wait3.outputs.code == '124') }}
         env:
           GH_TOKEN: ${{ steps.final-token.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
