@@ -16,12 +16,20 @@ import {
 	signInToGitHub,
 	signInWithDeviceFlow,
 } from './auth.js';
-import { AuthStatus, COPILOT_DOCUMENT_SELECTOR, CopilotLanguageClient, CopilotServerAuth, DidChangeStatusParams, StatusKind } from './client.js';
+import { AuthStatus, COPILOT_DOCUMENT_SELECTOR, CopilotLanguageClient, CopilotQuota, CopilotServerAuth, DidChangeStatusParams, StatusKind } from './client.js';
 import { AIExclusions, CopilotSuggestionsGate } from './gate.js';
+import { CopilotInlineCompletionProvider } from './provider.js';
+import { createStatusTooltip, mergeQuota } from './quota.js';
 
 /** Internal: runs a command from the server's `didChangeStatus` on the server. */
 const RUN_SERVER_COMMAND = 'copilotCompletions.runServerCommand';
-import { CopilotInlineCompletionProvider } from './provider.js';
+
+/**
+ * How long a fetched quota stays fresh. Refocusing the window after this
+ * fetches it again, since the server pushes quota changes only on token
+ * refresh and after chat requests, not after completions.
+ */
+const QUOTA_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * Starts the Copilot language server only while suggestions are allowed.
@@ -52,6 +60,12 @@ class CopilotCompletionsController implements vscode.Disposable {
 	 * updates don't replace it; only a new auth status does.
 	 */
 	private _signInPrompt: string | undefined;
+	/** The last server status shown, kept to redraw the status bar when the quota changes. */
+	private _status: DidChangeStatusParams | undefined;
+	/** The signed-in user's plan and quotas, once known. */
+	private _quota: CopilotQuota | undefined;
+	/** When the quota was last fetched, in ms since the epoch. */
+	private _quotaFetchedAt = 0;
 	/** Serializes start/stop so overlapping events can't race. */
 	private _updating = Promise.resolve();
 	/** Set once shutting down; no update may start a server after this. */
@@ -83,6 +97,11 @@ class CopilotCompletionsController implements vscode.Disposable {
 			vscode.commands.registerCommand('copilotCompletions.restart', () => this.update(true)),
 			vscode.commands.registerCommand('copilotCompletions.showLog', () => this._log.show()),
 			vscode.commands.registerCommand(RUN_SERVER_COMMAND, (command: Command) => this.runServerCommand(command)),
+			vscode.window.onDidChangeWindowState(state => {
+				if (state.focused && Date.now() - this._quotaFetchedAt > QUOTA_REFRESH_INTERVAL_MS) {
+					void this.refreshQuota();
+				}
+			}),
 		);
 
 		const provider = new CopilotInlineCompletionProvider(() => this._client, this._gate, this._exclusions, this._log);
@@ -172,6 +191,24 @@ class CopilotCompletionsController implements vscode.Disposable {
 		}
 	}
 
+	/** Fetch the quota for the status bar tooltip, if signed in. */
+	private async refreshQuota(): Promise<void> {
+		const client = this._client;
+		if (!client || this._signInPrompt) {
+			return;
+		}
+		this._quotaFetchedAt = Date.now();
+		try {
+			const quota = await client.checkQuota();
+			if (this._client === client) {
+				this._quota = quota;
+				this.renderStatus();
+			}
+		} catch (err) {
+			this._log.warn(`Failed to fetch the Copilot quota: ${err}`);
+		}
+	}
+
 	private async doUpdate(forceRestart: boolean): Promise<void> {
 		if (this._disposed) {
 			return;
@@ -219,6 +256,12 @@ class CopilotCompletionsController implements vscode.Disposable {
 				this.showStatus(status);
 			}
 		});
+		client.onDidChangeQuota(quota => {
+			if (this._client === client) {
+				this._quota = mergeQuota(this._quota, quota);
+				this.renderStatus();
+			}
+		});
 		const started = Date.now();
 		let authStatus: AuthStatus | undefined;
 		try {
@@ -236,6 +279,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this._authKey = authKey;
 		if (auth.kind === 'accounts') {
 			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot Completions: signed in as {0}', auth.credentials.user) });
+			void this.refreshQuota();
 		} else if (authStatus) {
 			this.applyAuthStatus(authStatus);
 		}
@@ -247,7 +291,11 @@ class CopilotCompletionsController implements vscode.Disposable {
 		if (status.status === 'OK') {
 			this._signInPrompt = undefined;
 			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot Completions: signed in as {0}', status.user ?? '') });
-		} else if (status.status === 'NotAuthorized') {
+			void this.refreshQuota();
+			return;
+		}
+		this._quota = undefined;
+		if (status.status === 'NotAuthorized') {
 			this.promptSignIn(vscode.l10n.t('GitHub account {0} does not have access to GitHub Copilot', status.user ?? ''));
 		} else {
 			this.promptSignIn(vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions'));
@@ -264,6 +312,8 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this._client = undefined;
 		this._authKey = undefined;
 		this._signInPrompt = undefined;
+		this._status = undefined;
+		this._quota = undefined;
 		if (client) {
 			await CopilotCompletionsController.stopClient(client);
 		}
@@ -275,6 +325,15 @@ class CopilotCompletionsController implements vscode.Disposable {
 	}
 
 	private showStatus(status: DidChangeStatusParams): void {
+		this._status = status;
+		this.renderStatus();
+	}
+
+	private renderStatus(): void {
+		const status = this._status;
+		if (!status) {
+			return;
+		}
 		if (this._signInPrompt) {
 			// Server updates may still show progress, but must not hide the
 			// way to sign in.
@@ -283,7 +342,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 			this._statusItem.command = 'copilotCompletions.signIn';
 		} else {
 			this._statusItem.text = status.busy ? '$(loading~spin)' : status.kind === StatusKind.Normal ? '$(copilot-dot)' : '$(copilot-warning)';
-			this._statusItem.tooltip = status.message || vscode.l10n.t('GitHub Copilot Completions');
+			this._statusItem.tooltip = createStatusTooltip(status.message || vscode.l10n.t('GitHub Copilot Completions'), this._quota);
 			// Prefer the server's own action (e.g. "Learn More" on a quota error).
 			this._statusItem.command = status.command
 				? { command: RUN_SERVER_COMMAND, title: status.command.title, arguments: [status.command] }

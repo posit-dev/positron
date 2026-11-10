@@ -101,6 +101,109 @@ const CheckStatusRequest = new RequestType<{ options?: { localChecksOnly?: boole
 const SignInRequest = new RequestType<{}, SignInResult, void>('signIn');
 const SignOutRequest = new RequestType<{}, AuthStatus, void>('signOut');
 
+/** A quota bucket in the `checkQuota` result. */
+interface CheckQuotaSnapshot {
+	percentRemaining: number;
+	unlimited: boolean;
+	overagePermitted: boolean;
+	/** Only sent with token-based billing. */
+	entitlement?: number;
+	/** Only sent with token-based billing. */
+	creditsUsed?: number;
+}
+
+/** Result of `checkQuota`, which fetches the user's quota from GitHub. */
+interface CheckQuotaResult {
+	chat?: CheckQuotaSnapshot;
+	completions?: CheckQuotaSnapshot;
+	premiumInteractions?: CheckQuotaSnapshot;
+	resetDate?: string;
+	copilotPlan?: string;
+	tokenBasedBillingEnabled?: boolean;
+}
+
+/** A quota bucket in the `copilot/quotaChange` notification. */
+interface QuotaChangeSnapshot {
+	/** The entitlement; negative when unlimited. */
+	quota: number;
+	used: number;
+	percentRemaining: number;
+	overageEnabled: boolean;
+	creditsUsed?: number;
+	resetDate: string;
+	unlimited: boolean;
+}
+
+/**
+ * Sent when the server sees new quota data: with the user info on each
+ * Copilot token refresh, and from the headers of chat responses (not of
+ * completion responses).
+ */
+interface QuotaChangeParams {
+	chat?: QuotaChangeSnapshot;
+	completions?: QuotaChangeSnapshot;
+	premium_interactions?: QuotaChangeSnapshot;
+	copilotPlan?: string;
+}
+
+const CheckQuotaRequest = new RequestType<{}, CheckQuotaResult, void>('checkQuota');
+const QuotaChangeNotification = new NotificationType<QuotaChangeParams>('copilot/quotaChange');
+
+/** One quota bucket, normalized from `checkQuota` or `copilot/quotaChange`. */
+export interface QuotaSnapshot {
+	unlimited: boolean;
+	percentRemaining: number;
+	/** The included amount, when the server reports one. */
+	entitlement?: number;
+	/** How much of the entitlement is used (credits with token-based billing). */
+	used?: number;
+	/** Whether paid usage beyond the entitlement is allowed. */
+	overageEnabled: boolean;
+}
+
+/** The user's Copilot plan and quotas. Fields the server didn't report are undefined. */
+export interface CopilotQuota {
+	/** The plan id, such as `free`, `individual` or `business`. */
+	plan?: string;
+	tokenBasedBilling?: boolean;
+	resetDate?: string;
+	chat?: QuotaSnapshot;
+	completions?: QuotaSnapshot;
+	premiumInteractions?: QuotaSnapshot;
+}
+
+function positiveOrUndefined(value: number | undefined): number | undefined {
+	return value !== undefined && value > 0 ? value : undefined;
+}
+
+function fromCheckQuotaSnapshot(snapshot: CheckQuotaSnapshot | undefined): QuotaSnapshot | undefined {
+	if (!snapshot) {
+		return undefined;
+	}
+	const entitlement = positiveOrUndefined(snapshot.entitlement);
+	return {
+		unlimited: snapshot.unlimited,
+		percentRemaining: snapshot.percentRemaining,
+		entitlement,
+		used: snapshot.creditsUsed ?? (entitlement !== undefined ? entitlement * (1 - snapshot.percentRemaining / 100) : undefined),
+		overageEnabled: snapshot.overagePermitted,
+	};
+}
+
+function fromQuotaChangeSnapshot(snapshot: QuotaChangeSnapshot | undefined): QuotaSnapshot | undefined {
+	if (!snapshot) {
+		return undefined;
+	}
+	const entitlement = positiveOrUndefined(snapshot.quota);
+	return {
+		unlimited: snapshot.unlimited,
+		percentRemaining: snapshot.percentRemaining,
+		entitlement,
+		used: snapshot.creditsUsed ?? (entitlement !== undefined ? snapshot.used : undefined),
+		overageEnabled: snapshot.overageEnabled,
+	};
+}
+
 //#endregion
 
 /**
@@ -163,6 +266,13 @@ export class CopilotLanguageClient implements vscode.Disposable {
 
 	private readonly _onDidChangeStatus = new vscode.EventEmitter<DidChangeStatusParams>();
 	readonly onDidChangeStatus = this._onDidChangeStatus.event;
+
+	private readonly _onDidChangeQuota = new vscode.EventEmitter<CopilotQuota>();
+	/**
+	 * Quota pushed by the server. It doesn't say whether token-based billing
+	 * is on, and may leave out buckets or the reset date.
+	 */
+	readonly onDidChangeQuota = this._onDidChangeQuota.event;
 
 	/**
 	 * Text documents vscode-languageclient has open, by URI, and whether each
@@ -238,12 +348,22 @@ export class CopilotLanguageClient implements vscode.Disposable {
 			serverOptions,
 			clientOptions,
 		);
-		this._disposables.push(this.client, this._onDidChangeStatus);
+		this._disposables.push(this.client, this._onDidChangeStatus, this._onDidChangeQuota);
 
 		this._disposables.push(
 			this.client.onNotification(DidChangeStatusNotification, params => {
 				this._log.debug(`didChangeStatus: ${JSON.stringify(params)}`);
 				this._onDidChangeStatus.fire(params);
+			}),
+			this.client.onNotification(QuotaChangeNotification, params => {
+				this._log.debug(`copilot/quotaChange: ${JSON.stringify(params)}`);
+				this._onDidChangeQuota.fire({
+					plan: params.copilotPlan,
+					resetDate: params.premium_interactions?.resetDate || params.completions?.resetDate || params.chat?.resetDate || undefined,
+					chat: fromQuotaChangeSnapshot(params.chat),
+					completions: fromQuotaChangeSnapshot(params.completions),
+					premiumInteractions: fromQuotaChangeSnapshot(params.premium_interactions),
+				});
 			}),
 			vscode.window.onDidChangeActiveTextEditor(editor => this.sendDidFocus(editor)),
 			this._exclusions.onDidChange(() => this.applyExclusions().catch(err => {
@@ -284,6 +404,20 @@ export class CopilotLanguageClient implements vscode.Disposable {
 	/** The server's current sign-in state. */
 	checkStatus(): Promise<AuthStatus> {
 		return this.client.sendRequest(CheckStatusRequest, { options: { localChecksOnly: false } });
+	}
+
+	/** Fetch the signed-in user's current plan and quotas from GitHub. */
+	async checkQuota(): Promise<CopilotQuota> {
+		const result = await this.client.sendRequest(CheckQuotaRequest, {});
+		this._log.debug(`checkQuota: ${JSON.stringify(result)}`);
+		return {
+			plan: result.copilotPlan,
+			tokenBasedBilling: result.tokenBasedBillingEnabled,
+			resetDate: result.resetDate || undefined,
+			chat: fromCheckQuotaSnapshot(result.chat),
+			completions: fromCheckQuotaSnapshot(result.completions),
+			premiumInteractions: fromCheckQuotaSnapshot(result.premiumInteractions),
+		};
 	}
 
 	/** Start the server's device flow, or report the account already signed in. */
