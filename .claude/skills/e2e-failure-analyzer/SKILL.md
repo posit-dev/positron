@@ -27,7 +27,7 @@ Scripts live alongside this skill in `scripts/`. Use the base directory path sho
 
 - **`e2e-gather-run-info.js`** - Gathers all run metadata, failed jobs, artifacts, non-e2e job log excerpts, and commit info in one call. Replaces multiple `gh api` invocations.
 - **`e2e-process-project.js`** - **Path A.** Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
-- **`e2e-process-s3.js`** - **Path B.** Processes a CloudFront-hosted Playwright HTML report end-to-end: fetches `index.html`, decodes the embedded base64 `report.zip`, downloads trace + error-context attachments from S3, parses traces, and extracts screencast frames. Produces the same JSON shape as `e2e-process-project.js` so the downstream analyzer treats both paths identically.
+- **`e2e-process-s3.js`** - **Path B.** Processes a Playwright HTML report from the tailnet report server end-to-end: fetches `index.html`, decodes the embedded base64 `report.zip`, downloads trace + error-context attachments from S3, parses traces, and extracts screencast frames. Produces the same JSON shape as `e2e-process-project.js` so the downstream analyzer treats both paths identically.
 
 ### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
@@ -76,7 +76,7 @@ Use `projects` to determine what to process:
 
 The two repos have different data access patterns:
 - **`posit-dev/positron`**: Uses sharded blob reports uploaded as GitHub artifacts. Requires downloading and merging.
-- **`posit-dev/positron-builds`**: Non-sharded single-job runs. HTML reports uploaded to S3 at CloudFront. No blob report artifacts.
+- **`posit-dev/positron-builds`**: Non-sharded single-job runs. HTML reports uploaded to S3 and served by the tailnet report server. No blob report artifacts.
 
 ---
 
@@ -146,12 +146,12 @@ For **each** failed e2e job from Step 1, resolve the job's `REPORT_DIR` from its
 
 ```bash
 node "$SKILL_DIR/scripts/e2e-process-s3.js" \
-  --report-url https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/ \
+  --report-url https://positron-reports.tail00da2.ts.net/<REPORT_DIR>/ \
   --output-dir /tmp/e2e-analysis-<JOB_LABEL> \
   --cleanup
 ```
 
-For interactive / ad-hoc use, you can call the script directly with any CloudFront-hosted Playwright HTML report URL -- no run ID required.
+For interactive / ad-hoc use, you can call the script directly with any Playwright HTML report URL on the report server -- no run ID required, but you must be on the tailnet.
 
 Output JSON is identical to Path A's `e2e-process-project.js` (see the field list above), so the same screenshot-reading and analysis flow applies. The `blob` field is the report directory name (last path segment of the S3 URL) rather than a zip filename, since Path B has no blob zips.
 

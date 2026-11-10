@@ -32,7 +32,7 @@ inputs:
     required: false
     default: ""
   tailscale-oauth-client-id:
-    description: "Tailscale OAuth client ID. connect.posit.it (the e2e-test-insights API) is reachable only from the tailnet, so the history query and Slack post need this to join it. Leave empty to skip joining."
+    description: "Tailscale OAuth client ID. The report server (s3 data source) and connect.posit.it (the e2e-test-insights API) are reachable only from the tailnet, so report downloads, the history query and the Slack post need this to join it. Leave empty to skip joining."
     required: false
     default: ""
   tailscale-oauth-secret:
@@ -129,6 +129,31 @@ runs:
           echo "::endgroup::"
         done
 
+    # The report server and connect.posit.it are reachable only from the
+    # tailnet. Join just before the first call that needs it (the s3-path
+    # report downloads, else the history query), not at the start of the job:
+    # joining early has caused flakes in other workflows. Best-effort: without
+    # the tailnet the analysis still runs, just without reports or history.
+    # Mirrors .github/actions/join-tailnet, which this action can't use:
+    # positron-builds runs it from its positron submodule, where that local
+    # path would not resolve.
+    - name: Tailscale
+      id: tailscale
+      if: ${{ (inputs.data-source == 's3' || inputs.e2e-insights-api-key != '') && inputs.tailscale-oauth-client-id != '' }}
+      continue-on-error: true
+      uses: tailscale/github-action@v4
+      with:
+        oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
+        oauth-secret: ${{ inputs.tailscale-oauth-secret }}
+        tags: tag:positron-gha
+        timeout: 30s
+        retry: 3
+
+    - name: Warn on failed tailnet join
+      if: ${{ steps.tailscale.outcome == 'failure' }}
+      shell: bash
+      run: echo "::warning::Could not join the tailnet, so report downloads and calls to connect.posit.it will fail."
+
     - name: Process each failed e2e job (s3 path)
       if: ${{ inputs.data-source == 's3' }}
       shell: bash
@@ -139,7 +164,7 @@ runs:
         WORK_DIR="${{ steps.prep.outputs.work_dir }}"
         RUN_INFO="$WORK_DIR/run-info.json"
         REPO=$(jq -r '.repo' "$RUN_INFO")
-        CDN_BASE="https://d38p2avprg8il3.cloudfront.net"
+        CDN_BASE="https://positron-reports.tail00da2.ts.net"
 
         # Stream {id, name} pairs as tab-separated records so job names with
         # spaces or slashes don't break the loop.
@@ -218,31 +243,6 @@ runs:
             }
           echo "::endgroup::"
         done <<< "$E2E_JOBS"
-
-    # connect.posit.it is reachable only from the tailnet. Join it just before
-    # the first Connect call (the history query below; the Slack post after it
-    # uses the same host), not earlier: joining at the start of a job has caused
-    # flakes in other workflows. Best-effort, like both of those calls: without
-    # the tailnet the analysis still runs, just without history.
-    # Mirrors .github/actions/join-tailnet, which this action can't use:
-    # positron-builds runs it from its positron submodule, where that local
-    # path would not resolve.
-    - name: Tailscale
-      id: tailscale
-      if: ${{ inputs.e2e-insights-api-key != '' && inputs.tailscale-oauth-client-id != '' }}
-      continue-on-error: true
-      uses: tailscale/github-action@v4
-      with:
-        oauth-client-id: ${{ inputs.tailscale-oauth-client-id }}
-        oauth-secret: ${{ inputs.tailscale-oauth-secret }}
-        tags: tag:positron-gha
-        timeout: 30s
-        retry: 3
-
-    - name: Warn on failed tailnet join
-      if: ${{ steps.tailscale.outcome == 'failure' }}
-      shell: bash
-      run: echo "::warning::Could not join the tailnet, so the history query and Slack post to connect.posit.it will fail."
 
     - name: Query historical test health
       if: ${{ inputs.e2e-insights-api-key != '' }}

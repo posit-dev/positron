@@ -56,15 +56,15 @@ test('renderCostFooter degrades gracefully with no result message', () => {
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
+		buildShotsBaseUrl('https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
+		buildShotsBaseUrl('https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
