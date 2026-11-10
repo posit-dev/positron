@@ -515,9 +515,7 @@ async function verifyCallStack(app: Application) {
 
 async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {
 	await test.step(`Verify variable in console: ${name}`, async () => {
-		await app.workbench.console.focus();
-		await app.code.driver.currentPage.keyboard.type(name);
-		await app.code.driver.currentPage.keyboard.press('Enter');
+		await app.workbench.console.typeToConsole(name, true);
 		await expect(app.code.driver.currentPage.getByText(expectedText)).toBeVisible({ timeout: 30000 });
 	});
 }
