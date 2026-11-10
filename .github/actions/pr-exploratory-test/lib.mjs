@@ -357,14 +357,14 @@ function tallyFindings(report, demoted = []) {
  * The job's step summary: a signpost with the verdict and a link to the run's page.
  * Without `baseUrl` (a local run or failed upload) it says where the report is instead of linking dead.
  */
-export function renderStepSummary(report, baseUrl, demoted = [], artifactRunUrl = '') {
+export function renderStepSummary(report, baseUrl, demoted = []) {
 	const tally = tallyFindings(report, demoted);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
 		lines.push(`\u{1F50D} [Exploratory Test Report](${baseUrl}/index.html)`);
 	} else {
-		lines.push(`The report and its screenshots are in the workflow artifact.${artifactAccessNote(artifactRunUrl)}`);
+		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
 	return `${lines.join('\n')}\n`;
 }

@@ -761,7 +761,7 @@ jobs:
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
           set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 > /dev/null
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -787,7 +787,7 @@ jobs:
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
           set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 > /dev/null
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -810,7 +810,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token3.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
-        run: timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 > /dev/null || true
+        run: bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300 || true
 
       # Fresh, for everything after the wait: cancel, read, download, clean up.
       - name: Mint a token to finish with

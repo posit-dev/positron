@@ -650,6 +650,5 @@ test('renderPrComment outdated falls back to the shared reason constant', () => 
 
 test('the artifact text names the positron-builds run when given', () => {
 	const url = 'https://github.com/posit-dev/positron-builds/actions/runs/2';
-	assert.match(renderStepSummary(SUMMARY, '', [], url), /positron-builds run\]\(.*runs\/2\); only posit-dev org members can open it/);
 	assert.match(renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA, artifactRunUrl: url }), /positron-builds run\]\(.*runs\/2\); only posit-dev org members can open it/);
 });
