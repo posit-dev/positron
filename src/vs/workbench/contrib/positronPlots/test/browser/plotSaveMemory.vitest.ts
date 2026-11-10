@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../../base/common/uri.js';
-import { IFileService } from '../../../../../platform/files/common/files.js';
 import { EphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
-import { PlotSaveMemory } from '../../browser/plotSaveMemory.js';
+import { PlotSaveMemory, PlotSaveMemoryFileService } from '../../browser/plotSaveMemory.js';
 
 describe('PlotSaveMemory', () => {
 	const fallback = URI.file('/workspace');
@@ -15,12 +14,21 @@ describe('PlotSaveMemory', () => {
 
 	let ephemeralState: EphemeralStateService;
 	let existing: Set<string>;
-	let fileService: Pick<IFileService, 'exists'>;
+	let files: Set<string>;
+	let fileService: PlotSaveMemoryFileService;
 
 	beforeEach(() => {
 		ephemeralState = new EphemeralStateService();
 		existing = new Set([figures.toString()]);
-		fileService = { exists: async (uri: URI) => existing.has(uri.toString()) };
+		files = new Set();
+		fileService = {
+			stat: async (uri: URI) => {
+				if (!existing.has(uri.toString())) {
+					throw new Error('not found');
+				}
+				return { isDirectory: !files.has(uri.toString()) };
+			},
+		};
 	});
 
 	const memoryFor = (workspaceId: string) => new PlotSaveMemory(ephemeralState, fileService, workspaceId);
@@ -52,6 +60,13 @@ describe('PlotSaveMemory', () => {
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Png);
 		existing.delete(figures.toString());
+		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
+	});
+
+	it('falls back when the saved folder has been replaced by a file', async () => {
+		const memory = memoryFor('ws1');
+		await memory.remember(figures, PlotRenderFormat.Png);
+		files.add(figures.toString());
 		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
 	});
 

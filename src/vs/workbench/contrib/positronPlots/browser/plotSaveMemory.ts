@@ -5,8 +5,9 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
 import { PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
+
+export type PlotSaveMemoryFileService = { stat(uri: URI): Promise<{ isDirectory: boolean }> };
 
 interface SavedPlotLocation {
 	directory: string;
@@ -22,18 +23,18 @@ export class PlotSaveMemory {
 
 	constructor(
 		private readonly _ephemeralState: Pick<IEphemeralStateService, 'getItem' | 'setItem'>,
-		private readonly _fileService: Pick<IFileService, 'exists'>,
+		private readonly _fileService: PlotSaveMemoryFileService,
 		workspaceId: string,
 	) {
 		this._key = `positron.plots.lastSaveLocation.${workspaceId}`;
 	}
 
-	/** The last folder saved to, or the fallback if there is none or it no longer exists. */
+	/** The last folder saved to, or the fallback if there is none or it is no longer a folder. */
 	async getDirectory(fallback: URI): Promise<URI> {
 		const saved = await this._read();
 		if (saved) {
 			const directory = URI.parse(saved.directory);
-			if (await this._fileService.exists(directory)) {
+			if (await this._isDirectory(directory)) {
 				return directory;
 			}
 		}
@@ -57,6 +58,14 @@ export class PlotSaveMemory {
 			return await this._ephemeralState.getItem<SavedPlotLocation>(this._key);
 		} catch {
 			return undefined;
+		}
+	}
+
+	private async _isDirectory(uri: URI): Promise<boolean> {
+		try {
+			return (await this._fileService.stat(uri)).isDirectory;
+		} catch {
+			return false;
 		}
 	}
 }
