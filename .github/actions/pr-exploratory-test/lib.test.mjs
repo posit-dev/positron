@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, exploreRepo, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -602,4 +602,10 @@ test('takeStepSummary keeps the job summary for the run and hides it from the ag
 	assert.equal(takeStepSummary(env), '/runner/summary.md');
 	assert.deepEqual(env, { PATH: '/bin' }, 'a test an agent runs (Vitest\'s GitHub reporter) cannot write to the job summary');
 	assert.equal(takeStepSummary({}), undefined);
+});
+
+test('exploreRepo prefers EXPLORE_REPO over GITHUB_REPOSITORY', () => {
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron-builds', EXPLORE_REPO: 'posit-dev/positron' }), 'posit-dev/positron');
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron' }), 'posit-dev/positron');
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron', EXPLORE_REPO: '' }), 'posit-dev/positron');
 });

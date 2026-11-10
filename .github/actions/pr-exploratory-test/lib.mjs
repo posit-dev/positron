@@ -296,6 +296,11 @@ export function renderPrBody(body, max = PR_BODY_MAX) {
 	].join('\n');
 }
 
+/** The repo the run is about: EXPLORE_REPO when set (run hosted elsewhere), else this repo. */
+export function exploreRepo(env) {
+	return env.EXPLORE_REPO || env.GITHUB_REPOSITORY;
+}
+
 /**
  * The run's target line, in announce's summary: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none, and
