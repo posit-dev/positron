@@ -20,10 +20,9 @@ import { FontConfigurationManager } from '../../../../browser/fontConfigurationM
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsConfiguration.js';
 import { nodeReloadKey } from '../classes/dataConnectionNodeKey.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
 import { DataConnectionNodeDetailsEditorInput } from './dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -309,7 +308,7 @@ interface DataConnectionNodeDetailsPageProps {
  * node again in the tree updates the open tab in place (keeping the selected tab).
  */
 export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetailsPageProps) => {
-	const { configurationService, hoverService, notificationService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
+	const { configurationService, notificationService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
 
 	// Shows a node in the Data Connections pane, given its path below the connection. The pane is
@@ -368,12 +367,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 
 	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
 	// takes the user there: it opens no details, and the tree takes focus.
-	const [hoverManager, setHoverManager] = useState<IHoverManager | undefined>(undefined);
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(true, configurationService, hoverService)));
-		return () => disposableStore.dispose();
-	}, [configurationService, hoverService]);
+	const hoverManager = usePositronActionBarHoverManager();
 	const actions: IDataConnectionNodeDetailsActions = {
 		hoverManager,
 		revealInTree: treePath => reveal(

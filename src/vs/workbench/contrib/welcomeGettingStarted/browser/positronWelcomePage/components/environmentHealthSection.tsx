@@ -7,7 +7,7 @@
 import './environmentHealthSection.css';
 
 // React.
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
@@ -15,9 +15,7 @@ import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { useEventState } from '../../../../../../base/browser/ui/react/useEventState.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
-import { PositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { usePositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
 import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthService } from '../environmentHealthService.js';
@@ -55,18 +53,8 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	const allPassing = enabledLanguages.every(language =>
 		language.state.kind === 'result' && language.state.result.items.every(item => item.status === 'pass'));
 
-	// Built the way the console tab list builds its hovers, so this one follows the
-	// workbench's hover delay and styling rather than being a title attribute.
-	const [hoverManager, setHoverManager] = useState<IHoverManager>();
-	useEffect(() => {
-		const disposables = new DisposableStore();
-		setHoverManager(disposables.add(new PositronActionBarHoverManager(
-			true,
-			services.configurationService,
-			services.hoverService
-		)));
-		return () => disposables.dispose();
-	}, [services.configurationService, services.hoverService]);
+	// Follows the workbench's hover delay and styling rather than being a title attribute.
+	const hoverManager = usePositronActionBarHoverManager();
 
 	// The busy indicator is not a live region -- a screen reader reads it only if
 	// the user navigates onto it -- so starting a run would otherwise be silent.
