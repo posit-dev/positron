@@ -128,7 +128,7 @@ suite('pickerInfo', () => {
         assert.strictEqual(pickerGroupOf(pyenvVirtualenv, context, false), PythonPickerGroup.Global);
     });
 
-    test('createPythonPickerInfo orders rows by tool, then supported before unsupported', () => {
+    test('createPythonPickerInfo orders rows by environment type, then supported before unsupported', () => {
         const info = (interpreter: PythonEnvironment, runtimeSource: EnvironmentType, supported: boolean) =>
             createPythonPickerInfo({
                 interpreter,
@@ -148,7 +148,7 @@ suite('pickerInfo', () => {
         ];
         assert.deepEqual(
             rows.sort((a, b) => a.rowOrder! - b.rowOrder!).map((row) => row.label),
-            ['conda', 'Homebrew', 'uv', 'Python 3.12.0', 'pyenv'],
+            ['uv', 'conda', 'Python 3.12.0', 'Homebrew', 'pyenv'],
         );
     });
 
@@ -194,28 +194,28 @@ suite('pickerInfo', () => {
                 {
                     group: 'Project environments',
                     groupOrder: 0,
-                    rowOrder: 12,
+                    rowOrder: 10,
                     label: 'uv: myproject',
                     description: 'Python 3.12.4',
                 },
                 {
                     group: 'Externally managed',
                     groupOrder: 3,
-                    rowOrder: 4,
+                    rowOrder: 160,
                     label: 'Homebrew',
                     description: 'Python 3.13.2',
                 },
                 {
                     group: 'Global environments',
                     groupOrder: 1,
-                    rowOrder: 28,
+                    rowOrder: 280,
                     label: 'pyenv',
                     description: 'Python 3.13.1 \u00B7 not supported',
                 },
                 {
                     group: 'Global environments',
                     groupOrder: 1,
-                    rowOrder: 35,
+                    rowOrder: 330,
                     label: 'Python 3.8.10',
                     description: 'not supported',
                 },

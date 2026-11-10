@@ -13,7 +13,7 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { isBaseCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { getEnvironmentTypeRank, isBaseCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { NativePythonEnvironmentKind } from '../pythonEnvironments/base/locators/common/nativePythonUtils';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import { isPyenvVirtualenv, isUvBase, isWorkspaceEnv, RankingContext } from './interpreterRanking';
@@ -116,11 +116,6 @@ const INSTALLER_NAMES: ReadonlyMap<NativePythonEnvironmentKind, string> = new Ma
     [NativePythonEnvironmentKind.MacPythonOrg, 'python.org'],
 ]);
 
-/** Every known tool name, alphabetical; a row's rank here orders it within its group. */
-const TOOL_ORDER: readonly string[] = [...new Set([...TOOL_NAMES.values(), ...INSTALLER_NAMES.values()])].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: 'base' }),
-);
-
 /** The tool that made or manages the interpreter, e.g. `uv` or `Homebrew`, if known. */
 function pythonToolName(
     interpreter: PythonEnvironment,
@@ -160,9 +155,12 @@ export function createPythonPickerInfo(args: {
     return {
         group: groupHeader(group),
         groupOrder: GROUP_ORDER.indexOf(group === PythonPickerGroup.Base ? PythonPickerGroup.Global : group),
-        // Rows sort by tool, with no tool last, then by version (newest first).
-        // Unsupported rows follow all supported ones, in the same order.
-        rowOrder: (tool ? TOOL_ORDER.indexOf(tool) : TOOL_ORDER.length) + (supported ? 0 : TOOL_ORDER.length + 1),
+        // Rows sort by environment type, in the same priority order used to pick a
+        // recommended interpreter (uv first, system Pythons last), then by version
+        // (newest first). Unsupported rows follow all supported ones, in the same order.
+        rowOrder:
+            getEnvironmentTypeRank(isUvBase(interpreter, context) ? EnvironmentType.Uv : runtimeSource) +
+            (supported ? 0 : getEnvironmentTypeRank(EnvironmentType.Unknown)),
         label: toolAndName || version,
         description: description || undefined,
     };
