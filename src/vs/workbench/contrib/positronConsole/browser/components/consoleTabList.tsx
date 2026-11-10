@@ -14,9 +14,7 @@ import { ConsoleTab } from './consoleTab.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
-import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
 
 // ConsoleTabListProps interface.
 interface ConsoleTabListProps {
@@ -31,20 +29,10 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 
 	const tabListRef = useRef<HTMLDivElement>(null);
 
-	// One hover manager for the whole strip, mirroring how the action bar sets
-	// its own up in usePositronActionBarState. Sharing it across the tabs is
-	// what makes moving from one tab to the next show the next name instantly
-	// instead of waiting out the hover delay again.
-	const [hoverManager, setHoverManager] = useState<IHoverManager>();
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(
-			true,
-			services.configurationService,
-			services.hoverService
-		)));
-		return () => disposableStore.dispose();
-	}, [services.configurationService, services.hoverService]);
+	// One hover manager for the whole strip. Sharing it across the tabs is what
+	// makes moving from one tab to the next show the next name instantly instead
+	// of waiting out the hover delay again.
+	const hoverManager = usePositronActionBarHoverManager();
 
 	// The sessions whose tab has no room left for its name. Names are hidden on
 	// every tab as soon as one of them runs out of room, so that the list
