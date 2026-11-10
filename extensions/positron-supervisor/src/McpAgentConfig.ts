@@ -57,11 +57,7 @@ interface ConfiguredAgent {
 	/** The command line the entry was written with, if one was recorded. */
 	launch?: McpLaunch;
 
-	/**
-	 * The directory a CLI-installed entry was written from, which the CLI keys
-	 * it by. Missing from records written by released builds, which wrote from
-	 * the folder's `fsPath`; see {@link staleAgentDirectory}.
-	 */
+	/** The directory a CLI wrote the entry from; see {@link staleAgentDirectory}. */
 	directory?: string;
 }
 
@@ -206,8 +202,8 @@ async function autoConfigureClaudeCode(
 }
 
 /**
- * Rewrite the entries written with another command line, or, for a harness
- * configured through its CLI, from another directory.
+ * Rewrite the entries written with another command line or, for a CLI
+ * harness, from another directory.
  *
  * @param context The extension context, which remembers what we configure.
  * @param launch The command line that starts the bridge.
@@ -228,8 +224,7 @@ async function refreshConfiguredAgents(
 		}
 		let moved = false;
 		if (agent.install.kind === 'cli') {
-			// A CLI that is gone took its configuration with it, and one with
-			// no folder to run in has nothing to update.
+			// A CLI that is gone took its configuration with it.
 			if (!folder || !installExecutable(agent)) {
 				continue;
 			}
@@ -327,15 +322,12 @@ export function agentCliCommand(
 /**
  * The directory to run an agent CLI in for a workspace folder.
  *
- * Claude Code keys an entry by the exact text of its working directory, and
- * Windows keeps whatever drive letter casing a process is started with. A
- * folder's `fsPath` has a lowercase drive letter, but a terminal -- Positron's
- * included -- starts in an uppercase one, which is where the user runs the
- * agent, so the entry is written from there (#17217).
+ * Claude Code keys an entry by the exact text of its working directory. A
+ * folder's `fsPath` has a lowercase drive letter, but terminals start in an
+ * uppercase one, so a lowercase entry is never found (#17217).
  *
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
- * @returns The directory to run in.
  */
 export function agentCliDirectory(
 	folderPath: string,
@@ -349,16 +341,14 @@ export function agentCliDirectory(
 
 /**
  * Where Positron wrote a CLI harness's entry before, when that is not where it
- * belongs now, so the old entry can be taken away.
+ * belongs now.
  *
- * Released builds recorded no directory and wrote from the folder's `fsPath`
- * as it was, which differs from {@link agentCliDirectory} only in a Windows
- * drive letter. A recorded directory differs when the first folder changed.
+ * A record with no directory comes from a build that wrote from the folder's
+ * `fsPath` unchanged.
  *
  * @param recorded What was recorded for the harness, if anything was.
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
- * @returns The old directory, or undefined when there is no entry elsewhere.
  */
 export function staleAgentDirectory(
 	recorded: { readonly directory?: string } | undefined,
@@ -468,8 +458,7 @@ async function installViaCli(
 
 	// Remove any entry of ours first: the CLI refuses to add a server that is
 	// already there, and one written by an older Positron may be wrong rather
-	// than merely present. One written from another directory is removed too,
-	// so it is moved rather than copied.
+	// than merely present.
 	const directory = agentCliDirectory(folder.fsPath);
 	await removeViaCli(executable, install, ownDirectories(record, folder));
 	await runAgentCli(executable, install.add(launch), directory);
@@ -477,25 +466,13 @@ async function installViaCli(
 	return { description: vscode.workspace.asRelativePath(folder), directory };
 }
 
-/**
- * The directories Positron's entry for a CLI harness may be in: where it
- * belongs, and where an earlier configuration left it, if that is elsewhere.
- *
- * @param record What was recorded for the harness, if anything was.
- * @param folder The workspace folder.
- */
+/** Where Positron's entry for a CLI harness may be: where it belongs, and anywhere it was left before. */
 function ownDirectories(record: ConfiguredAgent | undefined, folder: vscode.Uri): string[] {
 	const stale = staleAgentDirectory(record, folder.fsPath);
 	return [...(stale ? [stale] : []), agentCliDirectory(folder.fsPath)];
 }
 
-/**
- * Take Positron's entry out of a CLI's configuration in each directory.
- *
- * @param executable The full path to the CLI.
- * @param install The harness's CLI install.
- * @param directories The directories, from {@link ownDirectories}.
- */
+/** Take Positron's entry out of a CLI's configuration in each directory. */
 async function removeViaCli(
 	executable: string,
 	install: McpCliInstall,
@@ -505,9 +482,7 @@ async function removeViaCli(
 		try {
 			await runAgentCli(executable, install.remove, directory);
 		} catch {
-			// The CLI reports an entry that is not there as a failure, which
-			// is the common case, and it is the only authority on a
-			// configuration it owns, so there is nothing to tell apart.
+			// The CLI fails when there is no entry to remove, the common case.
 		}
 	}
 }

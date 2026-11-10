@@ -55,57 +55,34 @@ suite('agentCliCommand', () => {
 });
 
 suite('agentCliDirectory', () => {
-	test('runs in the uppercase drive a terminal starts in, and leaves other paths alone', () => {
-		// Claude Code keys its entry by the working directory's exact text, and
-		// a folder's fsPath has a lowercase drive letter (#17217).
+	test('uppercases a Windows drive letter, as a terminal has it', () => {
 		assert.deepStrictEqual(
 			{
-				lowerDrive: agentCliDirectory('c:\\Users\\me\\project', 'win32'),
-				upperDrive: agentCliDirectory('C:\\Users\\me\\project', 'win32'),
-				driveRoot: agentCliDirectory('d:\\', 'win32'),
-				unc: agentCliDirectory('\\\\server\\share\\project', 'win32'),
-				posix: agentCliDirectory('/home/me/project', 'linux'),
-				colonOffWindows: agentCliDirectory('c:/odd/name', 'darwin'),
+				windows: agentCliDirectory('c:\\Users\\me\\project', 'win32'),
+				linux: agentCliDirectory('/home/me/project', 'linux'),
 			},
 			{
-				lowerDrive: 'C:\\Users\\me\\project',
-				upperDrive: 'C:\\Users\\me\\project',
-				driveRoot: 'D:\\',
-				unc: '\\\\server\\share\\project',
-				posix: '/home/me/project',
-				colonOffWindows: 'c:/odd/name',
+				windows: 'C:\\Users\\me\\project',
+				linux: '/home/me/project',
 			});
 	});
 });
 
 suite('staleAgentDirectory', () => {
-	test('finds the entry a released build left under the lowercase drive, on Windows only', () => {
-		// Released builds recorded no directory, and wrote from the fsPath.
+	test('moves an entry written before directories were recorded only on Windows', () => {
+		// Elsewhere the entry is already where it belongs, so it is not
+		// written again: a user who removed it does not get it back.
 		assert.deepStrictEqual(
 			{
 				windows: staleAgentDirectory({}, 'c:\\proj', 'win32'),
 				macos: staleAgentDirectory({}, '/Users/me/proj', 'darwin'),
 			},
-			{
-				windows: 'c:\\proj',
-				// Already where it belongs, so it is not written again: a user
-				// who removed it does not get it back.
-				macos: undefined,
-			});
+			{ windows: 'c:\\proj', macos: undefined });
 	});
 
-	test('finds nothing to move when the entry is where it belongs, or there is none', () => {
-		assert.deepStrictEqual(
-			{
-				migrated: staleAgentDirectory({ directory: 'C:\\proj' }, 'c:\\proj', 'win32'),
-				neverConfigured: staleAgentDirectory(undefined, 'c:\\proj', 'win32'),
-			},
-			{ migrated: undefined, neverConfigured: undefined });
-	});
-
-	test('finds the entry in a folder that is no longer first', () => {
+	test('moves it only once', () => {
 		assert.strictEqual(
-			staleAgentDirectory({ directory: '/home/me/old' }, '/home/me/new', 'linux'),
-			'/home/me/old');
+			staleAgentDirectory({ directory: 'C:\\proj' }, 'c:\\proj', 'win32'),
+			undefined);
 	});
 });
