@@ -162,23 +162,20 @@ suite('pickerInfo', () => {
                 {
                     group: 'Project environments',
                     groupOrder: 0,
-                    rowOrder: 0,
                     label: 'Python 3.12.4',
                     description: 'uv: myproject',
                 },
                 {
                     group: 'Externally managed',
                     groupOrder: 3,
-                    rowOrder: 0,
                     label: 'Python 3.13.2',
                     description: 'Homebrew',
                 },
                 {
-                    group: 'Global environments',
-                    groupOrder: 2,
-                    rowOrder: 1,
+                    group: 'Unsupported',
+                    groupOrder: 4,
                     label: 'Python 3.13.1',
-                    description: 'pyenv \u00B7 not supported',
+                    description: 'pyenv',
                 },
             ],
         );

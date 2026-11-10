@@ -6,8 +6,9 @@
 /**
  * How the interpreter picker groups and labels Python runtimes.
  *
- * Groups depend on where an interpreter lives, never on settings or shell state:
- * cached runtime metadata is shared across workspace folders.
+ * Unsupported Python versions share one group. Other groups depend on where an
+ * interpreter lives, never on settings or shell state: cached runtime metadata is
+ * shared across workspace folders.
  */
 
 // eslint-disable-next-line import/no-unresolved
@@ -24,6 +25,7 @@ export enum PythonPickerGroup {
     Global = 'Global environments',
     Base = 'Base interpreters',
     ExternallyManaged = 'Externally managed',
+    Unsupported = 'Unsupported',
 }
 
 /** The localized header text for a picker group. */
@@ -38,6 +40,8 @@ function groupHeader(group: PythonPickerGroup): string {
             return vscode.l10n.t('Global environments');
         case PythonPickerGroup.ExternallyManaged:
             return vscode.l10n.t('Externally managed');
+        case PythonPickerGroup.Unsupported:
+            return vscode.l10n.t('Unsupported');
     }
 }
 
@@ -46,6 +50,7 @@ const GROUP_ORDER: readonly PythonPickerGroup[] = [
     PythonPickerGroup.Global,
     PythonPickerGroup.Base,
     PythonPickerGroup.ExternallyManaged,
+    PythonPickerGroup.Unsupported,
 ];
 
 /** The `groupOrder` of the project environments group; stable regardless of localization. */
@@ -142,16 +147,12 @@ export function createPythonPickerInfo(args: {
     externallyManaged: boolean;
 }): positron.RuntimePickerInfo {
     const { interpreter, runtimeSource, pythonVersion, supported, context, externallyManaged } = args;
-    const group = pickerGroupOf(interpreter, context, externallyManaged);
+    const group = supported ? pickerGroupOf(interpreter, context, externallyManaged) : PythonPickerGroup.Unsupported;
     const envName = args.envName === pythonVersion ? '' : args.envName;
-    const toolAndName = [pythonToolName(interpreter, runtimeSource, context), envName].filter(Boolean).join(': ');
-    const description = [toolAndName, supported ? undefined : vscode.l10n.t('not supported')]
-        .filter(Boolean)
-        .join(' \u00B7 ');
+    const description = [pythonToolName(interpreter, runtimeSource, context), envName].filter(Boolean).join(': ');
     return {
         group: groupHeader(group),
         groupOrder: GROUP_ORDER.indexOf(group),
-        rowOrder: supported ? 0 : 1,
         label: `Python ${pythonVersion}`,
         description: description || undefined,
     };
