@@ -5,6 +5,8 @@
 
 import { observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { ITextModel } from '../../../../../editor/common/model.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
@@ -30,6 +32,9 @@ describe('PositronEditReviewService', () => {
 	const show = vi.fn<IChatEditingSession['show']>();
 	const entryState = observableValue<ModifiedFileEntryState>('entryState', ModifiedFileEntryState.Modified);
 	const entries = observableValue<readonly IModifiedFileEntry[]>('entries', []);
+	const changesCount = observableValue<number>('changesCount', 2);
+	const original = URI.from({ scheme: 'chat-editing-text-model', path: '/workspace/analysis.R' });
+	let baseline = 'x <- 1\n';
 	const startEditingSession = vi.fn();
 	const acceptResponseProgress = vi.fn();
 	const complete = vi.fn();
@@ -39,6 +44,9 @@ describe('PositronEditReviewService', () => {
 	const ctx = createLightTestContainer()
 		.stub(IChatService, { startNewLocalSession })
 		.stub(INotebookService, { hasSupportedNotebooks: (resource: URI) => resource.path.endsWith('.ipynb') })
+		.stub(IModelService, {
+			getModel: (resource: URI) => resource.toString() === original.toString() ? stubInterface<ITextModel>({ getValue: () => baseline }) : null,
+		})
 		.build();
 
 	beforeEach(() => {
@@ -47,6 +55,8 @@ describe('PositronEditReviewService', () => {
 		stopExternalEdits.mockResolvedValue([]);
 		entries.set([], undefined);
 		entryState.set(ModifiedFileEntryState.Modified, undefined);
+		changesCount.set(2, undefined);
+		baseline = 'x <- 1\n';
 		const model = stubInterface<ChatModel>({
 			startEditingSession,
 			editingSession: stubInterface<IChatEditingSession>({ startExternalEdits, stopExternalEdits, accept, reject, show, entries }),
@@ -116,19 +126,23 @@ describe('PositronEditReviewService', () => {
 		expect(complete).toHaveBeenCalledTimes(1);
 	});
 
-	it('reports each edited file and how its edits were settled', () => {
+	it('reports each edited file, each change kept or undone, and how its edits were settled', () => {
 		const session = createSession();
 		const onDidChangeEntries = vi.fn();
 		ctx.disposables.add(session.onDidChangeEntries(onDidChangeEntries));
 
-		entries.set([stubInterface<IModifiedFileEntry>({ modifiedURI: file, state: entryState })], undefined);
+		entries.set([stubInterface<IModifiedFileEntry>({ modifiedURI: file, originalURI: original, state: entryState, changesCount })], undefined);
+		// Keeping one of two changes moves it into the baseline.
+		baseline = 'x <- 2\n';
+		changesCount.set(1, undefined);
 		entryState.set(ModifiedFileEntryState.Rejected, undefined);
 		entryState.set(ModifiedFileEntryState.Accepted, undefined);
 
 		expect(onDidChangeEntries.mock.calls.map(([changed]) => changed)).toEqual([
-			[{ uri: file, state: 'pending' }],
-			[{ uri: file, state: 'undone' }],
-			[{ uri: file, state: 'kept' }],
+			[{ uri: file, state: 'pending', baseline: 'x <- 1\n' }],
+			[{ uri: file, state: 'pending', baseline: 'x <- 2\n' }],
+			[{ uri: file, state: 'undone', baseline: undefined }],
+			[{ uri: file, state: 'kept', baseline: undefined }],
 		]);
 	});
 

@@ -10,6 +10,7 @@ import { autorun } from '../../../../base/common/observable.js';
 import { assertType } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IChatProgress, IChatService } from '../../chat/common/chatService/chatService.js';
@@ -44,6 +45,7 @@ class PositronEditReviewSession extends Disposable implements IPositronEditRevie
 	constructor(
 		chatService: IChatService,
 		private readonly _notebookService: INotebookService,
+		modelService: IModelService,
 	) {
 		super();
 		const modelReference = this._register(chatService.startNewLocalSession(ChatAgentLocation.EditorInline));
@@ -52,8 +54,17 @@ class PositronEditReviewSession extends Disposable implements IPositronEditRevie
 		this._model.startEditingSession(true);
 		assertType(this._model.editingSession);
 		this._editingSession = this._model.editingSession;
+		// Fires as each change is kept or undone, since that changes the number of changes.
 		this._register(autorun(reader => this._onDidChangeEntries.fire(
-			this._editingSession.entries.read(reader).map(entry => ({ uri: entry.modifiedURI, state: entryStates[entry.state.read(reader)] }))
+			this._editingSession.entries.read(reader).map(entry => {
+				const state = entryStates[entry.state.read(reader)];
+				entry.changesCount.read(reader);
+				return {
+					uri: entry.modifiedURI,
+					state,
+					baseline: state === 'pending' ? modelService.getModel(entry.originalURI)?.getValue() : undefined,
+				};
+			})
 		)));
 	}
 
@@ -129,13 +140,14 @@ export class PositronEditReviewService implements IPositronEditReviewService {
 		@IChatService private readonly _chatService: IChatService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IModelService private readonly _modelService: IModelService,
 	) { }
 
 	createSession(): IPositronEditReviewSession {
 		if (this._configurationService.getValue<boolean>(AI_ENABLED_KEY) !== true) {
 			throw new Error('AI features are disabled');
 		}
-		return new PositronEditReviewSession(this._chatService, this._notebookService);
+		return new PositronEditReviewSession(this._chatService, this._notebookService, this._modelService);
 	}
 }
 

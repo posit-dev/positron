@@ -41,7 +41,7 @@ declare module 'positron' {
 			/** The files edited in this session, and whether their edits are settled. */
 			readonly entries: readonly EditReviewEntry[];
 
-			/** Fires when a file is edited, or its edits are kept or undone. */
+			/** Fires when a file is edited, or any of its changes are kept or undone. */
 			readonly onDidChangeEntries: vscode.Event<readonly EditReviewEntry[]>;
 
 			/** Keep the pending edits to `resources`, or to every file when omitted. */
@@ -59,6 +59,11 @@ declare module 'positron' {
 			readonly uri: vscode.Uri;
 			/** Whether the file's edits await review, or how the user last settled them. */
 			readonly state: 'pending' | 'kept' | 'undone';
+			/**
+			 * While edits are pending, the file's text with the changes kept so
+			 * far and none of the pending ones.
+			 */
+			readonly baseline?: string;
 		}
 	}
 }

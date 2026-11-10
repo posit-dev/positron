@@ -30,7 +30,7 @@ class ExtHostEditReviewSession implements positron.ai.EditReviewSession {
 	}
 
 	acceptEntries(entries: extHostProtocol.IEditReviewEntryDto[]): void {
-		this.entries = entries.map(entry => ({ uri: URI.revive(entry.uri), state: entry.state }));
+		this.entries = entries.map(entry => ({ uri: URI.revive(entry.uri), state: entry.state, baseline: entry.baseline }));
 		this._onDidChangeEntries.fire(this.entries);
 	}
 

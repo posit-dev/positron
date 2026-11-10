@@ -25,6 +25,8 @@ export interface IPositronEditReviewService {
 export interface IPositronEditReviewEntry {
 	readonly uri: URI;
 	readonly state: 'pending' | 'kept' | 'undone';
+	/** While edits are pending, the file's text with the changes kept so far and none of the pending ones. */
+	readonly baseline?: string;
 }
 
 /**
@@ -42,7 +44,7 @@ export interface IPositronEditReviewSession extends IDisposable {
 	/** End a group of edits begun with {@link startEdits}. */
 	stopEdits(operationId: number): Promise<void>;
 
-	/** Fires with the files edited in this session when one is edited, kept or undone. */
+	/** Fires with the files edited in this session when one is edited, or any of its changes are kept or undone. */
 	readonly onDidChangeEntries: Event<readonly IPositronEditReviewEntry[]>;
 
 	/** Keep the pending edits to `resources`, or to every file when omitted. */
