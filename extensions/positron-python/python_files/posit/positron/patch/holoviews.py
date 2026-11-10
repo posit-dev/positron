@@ -3,14 +3,16 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import base64
 import logging
 
+from ..session_mode import SessionMode
 from ..ui import UiService
 
 logger = logging.getLogger(__name__)
 
 
-def set_holoviews_extension(ui_service: UiService) -> None:
+def set_holoviews_extension(ui_service: UiService, session_mode: SessionMode) -> None:
     """
     Patch holoviews to use a custom notebook extension.
 
@@ -20,6 +22,7 @@ def set_holoviews_extension(ui_service: UiService) -> None:
 
     Args:
         ui_service (UiService): The UI service to use for notifications.
+        session_mode (SessionMode): The mode that the kernel application was started in.
     """
     try:
         import holoviews
@@ -80,3 +83,42 @@ def set_holoviews_extension(ui_service: UiService) -> None:
                 "Run each line separately if plots don't appear.",
                 e,
             )
+
+        if session_mode != SessionMode.NOTEBOOK:
+            _patch_static_image_components()
+
+
+def _patch_static_image_components() -> None:
+    """
+    Display static HoloViews plots (e.g. the matplotlib backend) as images in the console.
+
+    HoloViews renders static plots as an HTML `<img>` fragment, which the console shows inline
+    instead of in the Plots pane. Emit an image MIME bundle instead so that the plot is shown in the
+    Plots pane like any other static plot.
+    """
+    try:
+        from holoviews.plotting import Plot, Renderer
+        from holoviews.plotting.renderer import MIME_TYPES
+        from panel.viewable import Viewable
+
+        original_components = Renderer.components
+
+        def patched_components(self, obj, fmt=None, comm=True, **kwargs):  # noqa: FBT002
+            if isinstance(obj, Plot):
+                plot = obj
+            else:
+                plot, fmt = self._validate(obj, fmt)
+
+            mime_type = MIME_TYPES.get(fmt) if fmt else None
+            if isinstance(plot, Viewable) or mime_type not in ("image/png", "image/svg+xml"):
+                return original_components(self, plot, fmt, comm, **kwargs)
+
+            data = self._figure_data(plot, fmt, **kwargs)
+            if isinstance(data, bytes):
+                data = base64.b64encode(data).decode("ascii")
+            return {mime_type: data}, {}
+
+        Renderer.components = patched_components
+    except Exception as e:
+        # If patching fails, static plots are still shown, just inline in the console
+        logger.warning("Could not patch holoviews to show static plots in the Plots pane: %s", e)
