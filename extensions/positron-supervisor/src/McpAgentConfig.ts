@@ -71,6 +71,9 @@ interface InstallResult {
 
 	/** The folder's `fsPath`, when a CLI wrote the entry. */
 	directory?: string;
+
+	/** Why the CLI could not write the entry under every spelling, when it wrote it under some. */
+	partialFailure?: string;
 }
 
 /**
@@ -112,6 +115,10 @@ export async function configureAgent(
 		return;
 	}
 	await recordConfiguredAgent(context, agent, launch, result.directory);
+	if (result.partialFailure) {
+		await vscode.window.showErrorMessage(result.partialFailure);
+		return;
+	}
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -198,7 +205,15 @@ async function autoConfigureClaudeCode(
 		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
 		return;
 	}
+	logPartialFailure(agent, result, log);
 	await recordConfiguredAgent(context, agent, launch, result.directory);
+}
+
+/** Logs that a CLI wrote an entry under only some spellings of the folder. */
+function logPartialFailure(agent: McpAgent, result: InstallResult, log: (message: string) => void): void {
+	if (result.partialFailure) {
+		log(`Could not write ${agent.label}'s MCP entry under every drive letter case: ${result.partialFailure}`);
+	}
 }
 
 /**
@@ -222,15 +237,13 @@ async function refreshConfiguredAgents(
 		if (!agent) {
 			continue;
 		}
-		let outdated = false;
-		if (agent.install.kind === 'cli') {
-			// A CLI that is gone took its configuration with it.
-			if (!folder || !installExecutable(agent)) {
-				continue;
-			}
-			outdated = cliEntryOutdated(record, folder.fsPath);
+		const isCli = agent.install.kind === 'cli';
+		const launchChanged = !sameLaunch(record.launch, launch);
+		if (!launchChanged && !(isCli && folder && cliEntryOutdated(record, folder.fsPath))) {
+			continue;
 		}
-		if (sameLaunch(record.launch, launch) && !outdated) {
+		// A CLI that is gone took its configuration with it.
+		if (isCli && (!folder || !installExecutable(agent))) {
 			continue;
 		}
 		let result: InstallResult;
@@ -243,7 +256,10 @@ async function refreshConfiguredAgents(
 		record.launch = launch;
 		record.directory = result.directory;
 		changed = true;
-		log(`Updated ${agent.label}'s MCP entry in ${result.description} to start ${launch.command}`);
+		log(launchChanged
+			? `Updated ${agent.label}'s MCP entry in ${result.description} to start ${launch.command}`
+			: `Rewrote ${agent.label}'s MCP entry for ${result.description}, which was missing a drive letter case or written for another folder`);
+		logPartialFailure(agent, result, log);
 	}
 	if (changed) {
 		await saveConfiguredAgents(context, records);
@@ -507,11 +523,27 @@ async function installViaCli(
 	// already there, and one written by an older Positron may be wrong rather
 	// than merely present.
 	await removeViaCli(executable, agentCliRemoves(install, record, folder.fsPath));
-	for (const add of agentCliAdds(install, launch, folder.fsPath)) {
-		await runAgentCli(executable, add);
+
+	// Try every spelling even when one fails, so an entry that was written is
+	// recorded and can be removed again.
+	const adds = agentCliAdds(install, launch, folder.fsPath);
+	const failures: unknown[] = [];
+	for (const add of adds) {
+		try {
+			await runAgentCli(executable, add);
+		} catch (err) {
+			failures.push(err);
+		}
+	}
+	if (failures.length === adds.length) {
+		throw failures[0];
 	}
 
-	return { description: vscode.workspace.asRelativePath(folder), directory: folder.fsPath };
+	return {
+		description: vscode.workspace.asRelativePath(folder),
+		directory: folder.fsPath,
+		partialFailure: failures.length ? summarizeError(failures[0]) : undefined,
+	};
 }
 
 /** Run each of the removes from {@link agentCliRemoves}. */
