@@ -382,9 +382,9 @@ function artifactAccessNote(artifactRunUrl) {
  * timeout wins, then a missing result (failed), a failed scan, an outdated branch,
  * and last the agent's own outcome. `reportUrl` comes back only for a state that shows a report.
  */
-export function resolveDispatchOutcome({ runConclusion, timedOutModels, result, reportUrl }) {
+export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, result, reportUrl }) {
 	if (runConclusion === 'cancelled') { return { state: 'cancelled', reportUrl: '' }; }
-	if (timedOutModels?.size > 0) { return { state: 'job-timeout', reportUrl: '' }; }
+	if (timedOutModels?.has(model)) { return { state: 'job-timeout', reportUrl: '' }; }
 	if (!result) { return { state: 'failed', reportUrl: '' }; }
 	if (result.scan === 'failed') { return { state: 'scan-failed', reportUrl: '' }; }
 	if (result.outdated) { return { state: 'outdated', reportUrl: '' }; }

@@ -614,7 +614,9 @@ test('resolveDispatchOutcome follows the order: cancelled, job timeout, missing 
 	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
 	const base = { runConclusion: 'success', timedOutModels: new Set(), result, reportUrl: 'https://r/x' };
 	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled' }), { state: 'cancelled', reportUrl: '' });
-	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['m']) }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
+	// Another model's timeout must not hide this model's finished report.
+	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['opus']), model: 'sonnet' }), { state: 'complete', reportUrl: 'https://r/x' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, result: null }), { state: 'failed', reportUrl: '' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { model: 'm', scan: 'failed' } }), { state: 'scan-failed', reportUrl: '' });
 	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { ...result, outdated: true } }), { state: 'outdated', reportUrl: '' });
