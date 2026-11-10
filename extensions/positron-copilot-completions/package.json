@@ -16,8 +16,7 @@
 		"workspace"
 	],
 	"activationEvents": [
-		"onAiEnabled",
-		"onStartupFinished"
+		"onAiEnabled"
 	],
 	"main": "./out/extension.js",
 	"enabledApiProposals": [

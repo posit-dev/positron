@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { createHash } from 'crypto';
 import * as vscode from 'vscode';
+import { Command } from 'vscode-languageclient/node';
 import {
 	CONFIG_DIRECTORY_KEY,
 	findGitHubSession,
@@ -14,8 +16,11 @@ import {
 	signInToGitHub,
 	signInWithDeviceFlow,
 } from './auth.js';
-import { AuthStatus, CopilotLanguageClient, CopilotServerAuth, DidChangeStatusParams, StatusKind } from './client.js';
-import { CopilotSuggestionsGate } from './gate.js';
+import { AuthStatus, COPILOT_DOCUMENT_SELECTOR, CopilotLanguageClient, CopilotServerAuth, DidChangeStatusParams, StatusKind } from './client.js';
+import { AIExclusions, CopilotSuggestionsGate } from './gate.js';
+
+/** Internal: runs a command from the server's `didChangeStatus` on the server. */
+const RUN_SERVER_COMMAND = 'copilotCompletions.runServerCommand';
 import { CopilotInlineCompletionProvider } from './provider.js';
 
 /**
@@ -29,18 +34,28 @@ import { CopilotInlineCompletionProvider } from './provider.js';
 class CopilotCompletionsController implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 	private readonly _gate: CopilotSuggestionsGate;
+	private readonly _exclusions = new AIExclusions();
 	private readonly _statusItem: vscode.StatusBarItem;
 
+	/** The running client; set only once it has started successfully. */
 	private _client: CopilotLanguageClient | undefined;
 	/**
 	 * Identifies the auth the running client was started with (sign-in
-	 * method plus session id or config directory); a change means a restart.
+	 * method plus session and token, or config directory); a change means a
+	 * restart.
 	 */
 	private _authKey: string | undefined;
-	/** Whether the running client still needs the user to sign in. */
-	private _needsSignIn = false;
+	/**
+	 * Set while the user has to sign in before suggestions work (no Accounts
+	 * session, or the language server reports it is signed out): the message
+	 * the status bar shows, linked to the sign-in command. Server status
+	 * updates don't replace it; only a new auth status does.
+	 */
+	private _signInPrompt: string | undefined;
 	/** Serializes start/stop so overlapping events can't race. */
 	private _updating = Promise.resolve();
+	/** Set once shutting down; no update may start a server after this. */
+	private _disposed = false;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -49,7 +64,7 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this._gate = new CopilotSuggestionsGate(_log);
 		this._statusItem = vscode.window.createStatusBarItem('copilotCompletions.status', vscode.StatusBarAlignment.Right, 100);
 		this._statusItem.name = vscode.l10n.t('GitHub Copilot Completions');
-		this._disposables.push(this._gate, this._statusItem);
+		this._disposables.push(this._gate, this._exclusions, this._statusItem);
 
 		this._disposables.push(
 			this._gate.onDidChange(() => this.update()),
@@ -67,13 +82,14 @@ class CopilotCompletionsController implements vscode.Disposable {
 			vscode.commands.registerCommand('copilotCompletions.signOut', () => this.signOut()),
 			vscode.commands.registerCommand('copilotCompletions.restart', () => this.update(true)),
 			vscode.commands.registerCommand('copilotCompletions.showLog', () => this._log.show()),
+			vscode.commands.registerCommand(RUN_SERVER_COMMAND, (command: Command) => this.runServerCommand(command)),
 		);
 
-		const provider = new CopilotInlineCompletionProvider(() => this._client, this._gate, this._log);
+		const provider = new CopilotInlineCompletionProvider(() => this._client, this._gate, this._exclusions, this._log);
 		this._disposables.push(
 			provider,
 			vscode.languages.registerInlineCompletionItemProvider(
-				{ pattern: '**' },
+				COPILOT_DOCUMENT_SELECTOR,
 				provider,
 				{ displayName: vscode.l10n.t('GitHub Copilot Completions') },
 			),
@@ -82,9 +98,25 @@ class CopilotCompletionsController implements vscode.Disposable {
 
 	/** Reconcile the running server with the gate and the configured auth. */
 	update(forceRestart = false): Promise<void> {
+		if (this._disposed) {
+			return this._updating;
+		}
 		this._updating = this._updating.then(() => this.doUpdate(forceRestart)).catch(err => {
 			this._log.error(`Failed to update the Copilot language server: ${err}`);
+			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('GitHub Copilot Completions failed to start. Select to show the log.') });
 		});
+		return this._updating;
+	}
+
+	/**
+	 * Stop the server for good. Waits for an in-flight update first, so a
+	 * server it is starting is stopped too rather than left running.
+	 */
+	shutdown(): Promise<void> {
+		if (!this._disposed) {
+			this._disposed = true;
+			this._updating = this._updating.then(() => this.stop());
+		}
 		return this._updating;
 	}
 
@@ -128,7 +160,22 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this.applyAuthStatus(status);
 	}
 
+	private async runServerCommand(command: Command): Promise<void> {
+		const client = this._client;
+		if (!client) {
+			return;
+		}
+		try {
+			await client.executeCommand(command);
+		} catch (err) {
+			this._log.error(`Server command ${command.command} failed: ${err}`);
+		}
+	}
+
 	private async doUpdate(forceRestart: boolean): Promise<void> {
+		if (this._disposed) {
+			return;
+		}
 		if (!this._gate.allowed) {
 			this._log.info('Copilot suggestions are not allowed (ai.enabled off or Copilot provider disabled).');
 			await this.stop();
@@ -143,11 +190,15 @@ class CopilotCompletionsController implements vscode.Disposable {
 			if (!session) {
 				this._log.info('No GitHub session from the Accounts menu; Copilot suggestions are off.');
 				await this.stop();
-				this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions') });
+				this.promptSignIn(vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions'));
 				return;
 			}
 			auth = { kind: 'accounts', credentials: { token: session.accessToken, user: session.account.label } };
-			authKey = `accounts:${session.id}`;
+			// A refreshed token can keep the session id, and the server reads
+			// the token only at startup, so the token itself is part of the
+			// key. Hash it so the raw token isn't kept around twice.
+			const tokenHash = createHash('sha256').update(session.accessToken).digest('hex');
+			authKey = `accounts:${session.id}:${tokenHash}`;
 		} else {
 			const configDirectory = getConfigDirectory(this._log);
 			auth = { kind: 'languageServer', configDirectory };
@@ -162,64 +213,101 @@ class CopilotCompletionsController implements vscode.Disposable {
 		this._log.info(auth.kind === 'accounts'
 			? `Starting the Copilot language server as GitHub user ${auth.credentials.user}.`
 			: `Starting the Copilot language server with its own sign-in (config directory: ${auth.configDirectory ?? 'default'}).`);
-		const client = new CopilotLanguageClient(this._context, auth, this._log);
-		client.onDidChangeStatus(status => this.showStatus(status));
+		const client = new CopilotLanguageClient(this._context, auth, this._exclusions, this._log);
+		client.onDidChangeStatus(status => {
+			if (this._client === client) {
+				this.showStatus(status);
+			}
+		});
+		const started = Date.now();
+		let authStatus: AuthStatus | undefined;
+		try {
+			await client.start();
+			if (auth.kind === 'languageServer') {
+				authStatus = await client.checkStatus();
+			}
+		} catch (err) {
+			// Leave _client and _authKey unset so the next update retries.
+			await CopilotCompletionsController.stopClient(client);
+			throw err;
+		}
+		this._log.info(`Copilot language server started in ${Date.now() - started}ms.`);
 		this._client = client;
 		this._authKey = authKey;
-		const started = Date.now();
-		await client.start();
-		this._log.info(`Copilot language server started in ${Date.now() - started}ms.`);
-
-		if (auth.kind === 'languageServer') {
-			this.applyAuthStatus(await client.checkStatus());
+		if (auth.kind === 'accounts') {
+			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot Completions: signed in as {0}', auth.credentials.user) });
+		} else if (authStatus) {
+			this.applyAuthStatus(authStatus);
 		}
 	}
 
 	/** Reflect the language server's own sign-in state in the status bar. */
 	private applyAuthStatus(status: AuthStatus): void {
 		this._log.info(`Language server auth status: ${JSON.stringify(status)}`);
-		this._needsSignIn = status.status !== 'OK';
 		if (status.status === 'OK') {
+			this._signInPrompt = undefined;
 			this.showStatus({ busy: false, kind: StatusKind.Normal, message: vscode.l10n.t('GitHub Copilot Completions: signed in as {0}', status.user ?? '') });
 		} else if (status.status === 'NotAuthorized') {
-			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('GitHub account {0} does not have access to GitHub Copilot', status.user ?? '') });
+			this.promptSignIn(vscode.l10n.t('GitHub account {0} does not have access to GitHub Copilot', status.user ?? ''));
 		} else {
-			this.showStatus({ busy: false, kind: StatusKind.Error, message: vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions') });
+			this.promptSignIn(vscode.l10n.t('Sign in to GitHub to use GitHub Copilot Completions'));
 		}
+	}
+
+	private promptSignIn(message: string): void {
+		this._signInPrompt = message;
+		this.showStatus({ busy: false, kind: StatusKind.Error });
 	}
 
 	private async stop(): Promise<void> {
 		const client = this._client;
 		this._client = undefined;
 		this._authKey = undefined;
-		this._needsSignIn = false;
+		this._signInPrompt = undefined;
 		if (client) {
-			await client.client.stop().catch(() => undefined);
-			client.dispose();
+			await CopilotCompletionsController.stopClient(client);
 		}
 	}
 
+	private static async stopClient(client: CopilotLanguageClient): Promise<void> {
+		await client.client.stop().catch(() => undefined);
+		client.dispose();
+	}
+
 	private showStatus(status: DidChangeStatusParams): void {
-		const icon = status.busy ? '$(loading~spin)' : status.kind === StatusKind.Normal ? '$(copilot-dot)' : '$(copilot-warning)';
-		this._statusItem.text = icon;
-		this._statusItem.tooltip = status.message || vscode.l10n.t('GitHub Copilot Completions');
-		this._statusItem.command = status.kind === StatusKind.Error && (!this._client || this._needsSignIn)
-			? 'copilotCompletions.signIn'
-			: 'copilotCompletions.showLog';
+		if (this._signInPrompt) {
+			// Server updates may still show progress, but must not hide the
+			// way to sign in.
+			this._statusItem.text = status.busy ? '$(loading~spin)' : '$(copilot-warning)';
+			this._statusItem.tooltip = this._signInPrompt;
+			this._statusItem.command = 'copilotCompletions.signIn';
+		} else {
+			this._statusItem.text = status.busy ? '$(loading~spin)' : status.kind === StatusKind.Normal ? '$(copilot-dot)' : '$(copilot-warning)';
+			this._statusItem.tooltip = status.message || vscode.l10n.t('GitHub Copilot Completions');
+			// Prefer the server's own action (e.g. "Learn More" on a quota error).
+			this._statusItem.command = status.command
+				? { command: RUN_SERVER_COMMAND, title: status.command.title, arguments: [status.command] }
+				: 'copilotCompletions.showLog';
+		}
 		this._statusItem.show();
 	}
 
 	dispose(): void {
-		void this.stop();
+		void this.shutdown();
 		this._disposables.forEach(d => d.dispose());
 	}
 }
 
+let controller: CopilotCompletionsController | undefined;
+
 export function activate(context: vscode.ExtensionContext): void {
 	const log = vscode.window.createOutputChannel('GitHub Copilot Completions', { log: true });
-	const controller = new CopilotCompletionsController(context, log);
+	controller = new CopilotCompletionsController(context, log);
 	context.subscriptions.push(log, controller);
 	void controller.update();
 }
 
-export function deactivate(): void { }
+export function deactivate(): Promise<void> | undefined {
+	// Return the stop so the extension host waits for the server to exit.
+	return controller?.shutdown();
+}

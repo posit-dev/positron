@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { CopilotLanguageClient, SuggestItem, SuggestReason } from './client.js';
-import { CopilotSuggestionsGate, isExcludedFromAI } from './gate.js';
+import { AIExclusions, CopilotSuggestionsGate } from './gate.js';
 
 /** How long the cursor must rest before asking for a next edit there. */
 const CARET_MOVE_DELAY_MS = 300;
@@ -34,20 +34,35 @@ export class CopilotInlineCompletionProvider implements vscode.InlineCompletionI
 	readonly onDidChange = this._onDidChange.event;
 
 	private _caretMoveTimer: ReturnType<typeof setTimeout> | undefined;
+	/** The document and version seen at the last selection change. */
+	private _lastSelection: { document: vscode.TextDocument; version: number } | undefined;
 
 	constructor(
 		private readonly _getClient: () => CopilotLanguageClient | undefined,
 		private readonly _gate: CopilotSuggestionsGate,
+		private readonly _exclusions: AIExclusions,
 		private readonly _log: vscode.LogOutputChannel,
 	) {
 		this._disposables.push(
 			this._onDidChange,
 			vscode.window.onDidChangeTextEditorSelection(e => {
-				// Typing also moves the selection but reports no kind; only
-				// deliberate moves (keyboard navigation, mouse clicks) count.
-				if (e.kind === vscode.TextEditorSelectionChangeKind.Keyboard || e.kind === vscode.TextEditorSelectionChangeKind.Mouse) {
-					clearTimeout(this._caretMoveTimer);
+				// Typing moves the selection too, and reports the `Keyboard`
+				// kind just like arrow keys do. Tell them apart by the document
+				// version: an edit bumps it, a caret move doesn't. Typing gets
+				// its own 'typing' request from the editor.
+				const document = e.textEditor.document;
+				const edited = this._lastSelection?.document === document && this._lastSelection.version !== document.version;
+				this._lastSelection = { document, version: document.version };
+				clearTimeout(this._caretMoveTimer);
+				if (!edited && (e.kind === vscode.TextEditorSelectionChangeKind.Keyboard || e.kind === vscode.TextEditorSelectionChangeKind.Mouse)) {
 					this._caretMoveTimer = setTimeout(() => this.trigger('caretMove'), CARET_MOVE_DELAY_MS);
+				}
+			}),
+			// Should the selection change arrive before the edit, cancel the
+			// caret move it scheduled once the edit lands.
+			vscode.workspace.onDidChangeTextDocument(e => {
+				if (e.contentChanges.length > 0 && e.document === vscode.window.activeTextEditor?.document) {
+					clearTimeout(this._caretMoveTimer);
 				}
 			}),
 		);
@@ -65,7 +80,8 @@ export class CopilotInlineCompletionProvider implements vscode.InlineCompletionI
 		token: vscode.CancellationToken,
 	): Promise<vscode.InlineCompletionList | undefined> {
 		const copilot = this._getClient();
-		if (!copilot?.client.isRunning() || !this._gate.allowed || isExcludedFromAI(document.uri)) {
+		// Only ask about documents the server has open; it knows no others.
+		if (!copilot?.client.isRunning() || !this._gate.allowed || this._exclusions.isExcluded(document.uri) || !copilot.isSynced(document)) {
 			return undefined;
 		}
 

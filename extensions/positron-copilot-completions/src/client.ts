@@ -10,6 +10,7 @@ import {
 	Command,
 	DidChangeTextDocumentNotification,
 	DidChangeTextDocumentParams,
+	DidCloseNotebookDocumentNotification,
 	DidCloseTextDocumentNotification,
 	DidOpenTextDocumentNotification,
 	ExecuteCommandRequest,
@@ -22,7 +23,7 @@ import {
 	ServerOptions,
 	TransportKind,
 } from 'vscode-languageclient/node';
-import { isExcludedFromAI } from './gate.js';
+import { AIExclusions } from './gate.js';
 
 //#region Protocol
 
@@ -102,6 +103,26 @@ const SignOutRequest = new RequestType<{}, AuthStatus, void>('signOut');
 
 //#endregion
 
+/**
+ * The documents the client syncs to the server. Inline completions are only
+ * requested for these, since the server knows no other documents.
+ */
+export const COPILOT_DOCUMENT_SELECTOR: { scheme: string }[] = [
+	{ scheme: 'file' },
+	{ scheme: 'untitled' },
+	{ scheme: 'vscode-notebook-cell' },
+	{ scheme: 'vscode-remote' },
+];
+
+/**
+ * How far a notebook tracked by vscode-languageclient is synced to the server:
+ * - `full`: the notebook and its cells were opened.
+ * - `cells`: only the cells were opened, because the notebook stopped being
+ *   excluded after it was opened.
+ * - `withheld`: excluded from AI, so nothing was sent.
+ */
+type NotebookSyncState = 'full' | 'cells' | 'withheld';
+
 /** Identity of the GitHub account the server should use. */
 export interface CopilotCredentials {
 	token: string;
@@ -143,9 +164,20 @@ export class CopilotLanguageClient implements vscode.Disposable {
 	private readonly _onDidChangeStatus = new vscode.EventEmitter<DidChangeStatusParams>();
 	readonly onDidChangeStatus = this._onDidChangeStatus.event;
 
+	/**
+	 * Text documents vscode-languageclient has open, by URI, and whether each
+	 * was sent to the server (false while excluded from AI).
+	 */
+	private readonly _textDocuments = new Map<string, { document: vscode.TextDocument; sent: boolean }>();
+	/** Notebooks vscode-languageclient has open, by URI. */
+	private readonly _notebooks = new Map<string, { notebook: vscode.NotebookDocument; state: NotebookSyncState }>();
+	/** URIs of the notebook cells open on the server. */
+	private readonly _sentCells = new Set<string>();
+
 	constructor(
 		context: vscode.ExtensionContext,
 		auth: CopilotServerAuth,
+		private readonly _exclusions: AIExclusions,
 		private readonly _log: vscode.LogOutputChannel,
 	) {
 		const serverModule = context.asAbsolutePath(
@@ -167,12 +199,7 @@ export class CopilotLanguageClient implements vscode.Disposable {
 
 		const packageJSON = context.extension.packageJSON;
 		const clientOptions: LanguageClientOptions = {
-			documentSelector: [
-				{ scheme: 'file' },
-				{ scheme: 'untitled' },
-				{ scheme: 'vscode-notebook-cell' },
-				{ scheme: 'vscode-remote' },
-			],
+			documentSelector: COPILOT_DOCUMENT_SELECTOR,
 			outputChannel: _log,
 			initializationOptions: {
 				editorInfo: { name: 'Positron', version: positron.version },
@@ -185,10 +212,22 @@ export class CopilotLanguageClient implements vscode.Disposable {
 				configurationSection: ['http', 'github-enterprise', 'telemetry'],
 			},
 			middleware: {
-				// Keep files matched by `aiExcludes` off the server entirely.
-				didOpen: (document, next) => isExcludedFromAI(document.uri) ? Promise.resolve() : next(document),
-				didChange: (event, next) => isExcludedFromAI(event.document.uri) ? Promise.resolve() : next(event),
-				didClose: (document, next) => isExcludedFromAI(document.uri) ? Promise.resolve() : next(document),
+				// Keep files matched by `aiExcludes` off the server entirely. Track
+				// what was sent so a change to the exclusions can open or close
+				// exactly the documents whose state flipped.
+				didOpen: (document, next) => {
+					const sent = !this._exclusions.isExcluded(document.uri);
+					this._textDocuments.set(document.uri.toString(), { document, sent });
+					return sent ? next(document) : Promise.resolve();
+				},
+				didChange: (event, next) =>
+					this._textDocuments.get(event.document.uri.toString())?.sent ? next(event) : Promise.resolve(),
+				didClose: (document, next) => {
+					const key = document.uri.toString();
+					const sent = this._textDocuments.get(key)?.sent;
+					this._textDocuments.delete(key);
+					return sent ? next(document) : Promise.resolve();
+				},
 				notebooks: this.createNotebookMiddleware(),
 			},
 		};
@@ -207,12 +246,21 @@ export class CopilotLanguageClient implements vscode.Disposable {
 				this._onDidChangeStatus.fire(params);
 			}),
 			vscode.window.onDidChangeActiveTextEditor(editor => this.sendDidFocus(editor)),
+			this._exclusions.onDidChange(() => this.applyExclusions().catch(err => {
+				this._log.error(`Failed to apply changed AI exclusions: ${err}`);
+			})),
 		);
 	}
 
 	async start(): Promise<void> {
 		await this.client.start();
 		this.sendDidFocus(vscode.window.activeTextEditor);
+	}
+
+	/** Whether the server has this document (or notebook cell) open. */
+	isSynced(document: vscode.TextDocument): boolean {
+		const key = document.uri.toString();
+		return this._textDocuments.get(key)?.sent === true || this._sentCells.has(key);
 	}
 
 	/** Ask for a ghost-text completion or a next edit at the given position. */
@@ -249,6 +297,11 @@ export class CopilotLanguageClient implements vscode.Disposable {
 	 * authorized the device, or rejects when the code expires.
 	 */
 	finishSignIn(command: Command): Promise<AuthStatus> {
+		return this.executeCommand(command);
+	}
+
+	/** Run a command the server handed out, such as one in `didChangeStatus`. */
+	executeCommand<T>(command: Command): Promise<T> {
 		return this.client.sendRequest(ExecuteCommandRequest.type, {
 			command: command.command,
 			arguments: command.arguments,
@@ -282,10 +335,74 @@ export class CopilotLanguageClient implements vscode.Disposable {
 			return;
 		}
 		const document = editor?.document;
-		const params = document && !isExcludedFromAI(document.uri)
+		const params = document && this.isSynced(document)
 			? { textDocument: { uri: this.client.code2ProtocolConverter.asUri(document.uri) } }
 			: {};
 		void this.client.sendNotification(DidFocusNotification, params);
+	}
+
+	/**
+	 * Bring the server in line with changed exclusions: close what is now
+	 * excluded and open what no longer is. Only documents vscode-languageclient
+	 * tracks are touched, so their later changes keep flowing to the server.
+	 */
+	private async applyExclusions(): Promise<void> {
+		if (!this.client.isRunning()) {
+			return;
+		}
+		const c2p = this.client.code2ProtocolConverter;
+		for (const entry of this._textDocuments.values()) {
+			const excluded = this._exclusions.isExcluded(entry.document.uri);
+			if (entry.sent === !excluded) {
+				continue;
+			}
+			entry.sent = !excluded;
+			this._log.debug(`${excluded ? 'Closing newly excluded' : 'Opening newly included'} ${entry.document.uri.toString()}`);
+			await (excluded
+				? this.client.sendNotification(DidCloseTextDocumentNotification.type, c2p.asCloseTextDocumentParams(entry.document))
+				: this.client.sendNotification(DidOpenTextDocumentNotification.type, c2p.asOpenTextDocumentParams(entry.document)));
+		}
+		for (const entry of this._notebooks.values()) {
+			const excluded = this._exclusions.isExcluded(entry.notebook.uri);
+			if (excluded === (entry.state === 'withheld')) {
+				continue;
+			}
+			this._log.debug(`${excluded ? 'Closing newly excluded' : 'Opening newly included'} ${entry.notebook.uri.toString()}`);
+			if (excluded) {
+				const wasFull = entry.state === 'full';
+				entry.state = 'withheld';
+				const cells = entry.notebook.getCells().map(cell => cell.document);
+				await this.closeCells(cells);
+				if (wasFull) {
+					await this.client.sendNotification(DidCloseNotebookDocumentNotification.type, {
+						notebookDocument: { uri: c2p.asUri(entry.notebook.uri) },
+						cellTextDocuments: cells.map(document => ({ uri: c2p.asUri(document.uri) })),
+					});
+				}
+			} else {
+				// Opening the notebook itself would need its full structure; the
+				// server only uses the cells' text documents (see below).
+				entry.state = 'cells';
+				await this.openCells(entry.notebook.getCells().map(cell => cell.document));
+			}
+		}
+	}
+
+	private async openCells(documents: readonly vscode.TextDocument[]): Promise<void> {
+		const c2p = this.client.code2ProtocolConverter;
+		for (const document of documents) {
+			this._sentCells.add(document.uri.toString());
+			await this.client.sendNotification(DidOpenTextDocumentNotification.type, c2p.asOpenTextDocumentParams(document));
+		}
+	}
+
+	private async closeCells(documents: readonly vscode.TextDocument[]): Promise<void> {
+		const c2p = this.client.code2ProtocolConverter;
+		for (const document of documents) {
+			if (this._sentCells.delete(document.uri.toString())) {
+				await this.client.sendNotification(DidCloseTextDocumentNotification.type, c2p.asCloseTextDocumentParams(document));
+			}
+		}
 	}
 
 	private createNotebookMiddleware(): NotebookDocumentMiddleware['notebooks'] {
@@ -295,47 +412,49 @@ export class CopilotLanguageClient implements vscode.Disposable {
 		// documents those reference, causing "document not found" errors
 		// (https://github.com/posit-dev/positron/issues/8061). Send
 		// textDocument/did* for each affected cell as well.
-		const client = () => this.client;
 		return {
-			async didOpen(notebookDocument, cells, next) {
-				if (isExcludedFromAI(notebookDocument.uri)) {
+			didOpen: async (notebookDocument, cells, next) => {
+				const excluded = this._exclusions.isExcluded(notebookDocument.uri);
+				this._notebooks.set(notebookDocument.uri.toString(), { notebook: notebookDocument, state: excluded ? 'withheld' : 'full' });
+				if (excluded) {
 					return;
 				}
-				for (const cell of cells) {
-					await client().sendNotification(DidOpenTextDocumentNotification.type,
-						client().code2ProtocolConverter.asOpenTextDocumentParams(cell.document));
-				}
+				await this.openCells(cells.map(cell => cell.document));
 				return next(notebookDocument, cells);
 			},
-			async didChange(event, next) {
-				if (isExcludedFromAI(event.notebook.uri)) {
+			didChange: async (event, next) => {
+				const state = this._notebooks.get(event.notebook.uri.toString())?.state;
+				if (!state || state === 'withheld') {
 					return;
 				}
-				const c2p = client().code2ProtocolConverter;
-				for (const cell of event.cells?.structure?.didOpen ?? []) {
-					await client().sendNotification(DidOpenTextDocumentNotification.type, c2p.asOpenTextDocumentParams(cell.document));
-				}
-				for (const cell of event.cells?.structure?.didClose ?? []) {
-					await client().sendNotification(DidCloseTextDocumentNotification.type, c2p.asCloseTextDocumentParams(cell.document));
-				}
+				await this.openCells((event.cells?.structure?.didOpen ?? []).map(cell => cell.document));
+				await this.closeCells((event.cells?.structure?.didClose ?? []).map(cell => cell.document));
+				const c2p = this.client.code2ProtocolConverter;
 				for (const change of event.cells?.textContent ?? []) {
+					if (!this._sentCells.has(change.document.uri.toString())) {
+						continue;
+					}
 					const params: DidChangeTextDocumentParams = {
 						textDocument: c2p.asVersionedTextDocumentIdentifier(change.document),
 						contentChanges: change.contentChanges.map(c => ({ range: c2p.asRange(c.range), text: c.text })),
 					};
-					await client().sendNotification(DidChangeTextDocumentNotification.type, params);
+					await this.client.sendNotification(DidChangeTextDocumentNotification.type, params);
 				}
-				return next(event);
+				if (state === 'full') {
+					return next(event);
+				}
 			},
-			async didClose(notebookDocument, cells, next) {
-				if (isExcludedFromAI(notebookDocument.uri)) {
+			didClose: async (notebookDocument, cells, next) => {
+				const key = notebookDocument.uri.toString();
+				const state = this._notebooks.get(key)?.state;
+				this._notebooks.delete(key);
+				if (!state || state === 'withheld') {
 					return;
 				}
-				for (const cell of cells) {
-					await client().sendNotification(DidCloseTextDocumentNotification.type,
-						client().code2ProtocolConverter.asCloseTextDocumentParams(cell.document));
+				await this.closeCells(cells.map(cell => cell.document));
+				if (state === 'full') {
+					return next(notebookDocument, cells);
 				}
-				return next(notebookDocument, cells);
 			},
 		};
 	}

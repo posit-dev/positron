@@ -284,7 +284,13 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 	// Extensions built with esbuild can still externalize runtime dependencies.
 	// Ensure those externals are included in the packaged built-in extension.
 	const packagedDependenciesByExtension: Record<string, string[]> = {
-		'git': ['@vscode/fs-copyfile']
+		'git': ['@vscode/fs-copyfile'],
+		// --- Start Positron ---
+		// The extension forks the language server from node_modules at
+		// runtime, so the package (and its native crypt32*.node and
+		// dist/compiled/**/*.node files) must ship next to the bundle.
+		'positron-copilot-completions': ['@github/copilot-language-server'],
+		// --- End Positron ---
 	};
 	const packagedDependencies = packagedDependenciesByExtension[extensionName] ?? [];
 
