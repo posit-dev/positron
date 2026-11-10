@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { hasExplicitValue, matchesSensitiveKey, PAYLOAD_SENSITIVE_KEYS, redactSensitiveProperties, REPORT_SENSITIVE_KEYS } from '../../common/settingsInspection.js';
 
 describe('matchesSensitiveKey', () => {

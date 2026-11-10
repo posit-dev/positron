@@ -112,6 +112,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// per runtime due to the nature of the session key.
 	private readonly _startingSessionsBySessionMapKey = new Map<string, DeferredPromise<string>>();
 
+	// Start promises of `requireNewSession` starts, which other requests never join.
+	private readonly _privateStarts = new WeakSet<DeferredPromise<string>>();
+
 	// A map of sessions currently shutting down to promises that resolve when the session
 	// has shut down. This is keyed by the session ID.
 	private readonly _shuttingDownRuntimesBySessionId = new Map<string, Promise<void>>();
@@ -783,13 +786,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// session to be coalesced.
+		// session to be coalesced. Private starts are not joined.
 		const sessionMapKey = getSessionMapKey(sessionMode, runtimeId, notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p;
-		}
+		return this.joinOrStart(sessionMapKey, !!options?.requireNewSession, () =>
+			this.doStartNewRuntimeSession(
+				runtimeId, sessionName, sessionMode, notebookUri, startReason, startMode, activate, options));
+	}
 
+	/**
+	 * Starts a new runtime session when `joinOrStart` finds nothing to join.
+	 * Must stay synchronous until `doCreateRuntimeSession` registers the start.
+	 */
+	private async doStartNewRuntimeSession(
+		runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined,
+		startReason: IRuntimeSessionStartReason,
+		startMode: RuntimeStartMode,
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		// Get the runtime. Throw an error, if it could not be found.
 		const languageRuntime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!languageRuntime) {
@@ -805,7 +821,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If the workspace is not trusted, defer starting the runtime until the
 		// workspace is trusted.
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-			if (sessionMode === LanguageRuntimeSessionMode.Console) {
+			if (options?.requireNewSession) {
+				// A deferred start would later open an empty console.
+				throw new Error(localize(
+					'positron.startNewRuntimeSession.untrusted',
+					"Could not start a new {0} session because the workspace is not trusted.",
+					languageRuntime.languageName));
+			} else if (sessionMode === LanguageRuntimeSessionMode.Console) {
 				return this.autoStartRuntime(languageRuntime, startReason, activate);
 			} else {
 				throw new Error(`Cannot start a ${sessionMode} session in an untrusted workspace.`);
@@ -1378,13 +1400,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to restart.
 	 */
 	private async doRestartRuntime(session: ILanguageRuntimeSession): Promise<void> {
-		// If there is already a runtime starting for the session, return its promise.
+		// If this session is already restarting, the start in flight is that
+		// restart, so share its outcome. Any other start in flight (such as
+		// another console of the runtime) does not restart this session, so
+		// wait for it and check again. Keep this synchronous from the last
+		// check to the registration below.
 		const sessionMapKey = getSessionMapKey(
 			session.metadata.sessionMode, session.runtimeMetadata.runtimeId, session.metadata.notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			await startingRuntimePromise.p;
-			return;
+		let inFlight = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		while (inFlight && !inFlight.isSettled) {
+			if (this._restartingSessionIds.has(session.sessionId)) {
+				await inFlight.p;
+				return;
+			}
+			await inFlight.p.catch(() => { });
+			inFlight = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		}
 
 		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
@@ -1860,6 +1890,36 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	//#region Private Methods
 
 	/**
+	 * Joins the start in flight for a session map key, or calls `start` when
+	 * there is none to join. Private (`requireNewSession`) starts are never
+	 * joined; with `requireNewSession`, no start is joined. In both cases this
+	 * waits for the start to settle and checks again.
+	 *
+	 * `start` must register its start before its first await, so that
+	 * concurrent waiters are serialized rather than coalesced.
+	 *
+	 * @param sessionMapKey The session map key of the session to start.
+	 * @param requireNewSession Whether the caller needs a session of its own.
+	 * @param start Starts the session when there is no start to join.
+	 * @returns A promise that resolves with the session ID.
+	 */
+	private async joinOrStart(
+		sessionMapKey: string,
+		requireNewSession: boolean,
+		start: () => Promise<string>): Promise<string> {
+		let inFlight = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		while (inFlight && !inFlight.isSettled &&
+			(requireNewSession || this._privateStarts.has(inFlight))) {
+			await inFlight.p.catch(() => { });
+			inFlight = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		}
+		if (inFlight && !inFlight.isSettled) {
+			return inFlight.p;
+		}
+		return start();
+	}
+
+	/**
 	 * Automatically starts a runtime. Does not perform any checks to see if
 	 * auto-start is enabled or trust is granted; call autoStartRuntime()
 	 * instead if you need those checks.
@@ -1880,12 +1940,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// session to be coalesced.
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
-			getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri));
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p;
-		}
+		// session to be coalesced. Private starts are not joined.
+		return this.joinOrStart(getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri), false, () =>
+			this.doAutoStartRuntimeUnjoined(metadata, startReason, activate));
+	}
+
+	/**
+	 * Automatically starts a console when `joinOrStart` finds nothing to join.
+	 * Must stay synchronous until the start is registered.
+	 */
+	private async doAutoStartRuntimeUnjoined(
+		metadata: ILanguageRuntimeMetadata,
+		startReason: IRuntimeSessionStartReason,
+		activate: boolean): Promise<string> {
+		const sessionMode = LanguageRuntimeSessionMode.Console;
+		const notebookUri = undefined;
 
 		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri,
 			describeSessionStartReasonForLog(startReason, metadata, notebookUri));
@@ -2052,6 +2121,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!startPromise || startPromise.isSettled) {
 			startPromise = new DeferredPromise<string>();
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+			if (options?.requireNewSession) {
+				this._privateStarts.add(startPromise);
+			}
 
 			// It's possible that startPromise is never awaited, so we log any errors here
 			// at the debug level since we still expect the error to be handled/logged elsewhere.
@@ -2115,7 +2187,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session, sessionManager, startMode, createConsole, activate);
+			await this.doStartRuntimeSession(session, sessionManager, startMode, createConsole, activate, options?.takeForegroundIfEmpty ?? true);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);

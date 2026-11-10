@@ -30,6 +30,9 @@
   "src/vs/workbench/contrib/positronSession/": ["@:sessions"],
 
   "src/vs/workbench/services/chat/": ["@:assistant"],
+  "src/vs/workbench/contrib/chat/": ["@:assistant"],
+  "src/vs/workbench/services/auxiliaryWindow/": [],
+  "src/vs/platform/native/": [],
   "src/vs/workbench/services/accounts/": ["@:assistant"],
   "src/vs/workbench/services/languageRuntime/": ["@:console", "@:interpreter"],
   "src/vs/workbench/services/runtimeSession/": ["@:sessions", "@:console", "@:interpreter"],
@@ -181,6 +184,7 @@
   "src/vs/workbench/browser/utils/createFolder.ts": ["@:new-folder-flow"],
   "src/vs/workbench/browser/utils/newFolderParentPath.ts": ["@:new-folder-flow"],
   "src/vs/workbench/common/positron/": [],
+  "src/vs/workbench/contrib/chat/": ["@:assistant"],
   "src/vs/workbench/contrib/extensions/": [],
   "src/vs/workbench/contrib/extensions/browser/positronCompatibleVersion.ts": ["@:extensions"],
   "src/vs/workbench/contrib/extensions/common/positronCustomGalleryProbe.ts": ["@:extensions"],

@@ -47,7 +47,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       enable_diagnostic_logging:
         required: false
         description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
@@ -103,8 +103,8 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e-postgres-test
           POSTGRES_DB: postgres
 
     env:
@@ -115,8 +115,8 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
       AWS_S3_BUCKET: positron-test-reports
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -234,7 +234,7 @@ jobs:
           eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ (success() || failure()) && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -242,7 +242,7 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Results File
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-rocky-json-results
@@ -250,9 +250,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-rocky-logs
           path: test-logs
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // eslint-disable-next-line local/code-import-patterns -- pure-function test for SortableCellList helpers; mirrors the dnd-kit type import in sortableCellListLogic.ts.
 import type { ClientRect } from '@dnd-kit/core';
 import { assertDefined } from '../../../../../base/common/types.js';

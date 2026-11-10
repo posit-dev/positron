@@ -815,6 +815,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
 	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
 	 *   session. Ignored when `focus` is true.
+	 * @param activate Whether to activate the console that runs the code (open the Console view,
+	 *   make the console active, and make its session the foreground session). Defaults to true.
+	 *   When false, `focus` is ignored and `sessionId` is required.
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
@@ -828,15 +831,27 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		executionId?: string,
 		_documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		preserveActiveTab?: boolean): Promise<string> {
+		preserveActiveTab?: boolean,
+		activate?: boolean): Promise<string> {
+		// Without a session ID, the code would go to the active console or a new one.
+		if (activate === false && !sessionId) {
+			throw new Error('Cannot execute code without activating the console unless a session ID is provided.');
+		}
+		const shouldActivate = activate !== false;
+		focus = focus && shouldActivate;
+
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
 		preserveActiveTab = preserveActiveTab && !focus;
 		if (preserveActiveTab) {
 			executionId ??= generateUuid();
-			await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
-		} else {
-			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
+		if (shouldActivate) {
+			if (preserveActiveTab) {
+				await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
+			} else {
+				await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+			}
 		}
 
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
@@ -887,9 +902,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}
 
-		// No session provided and the active console instance is not for the
-		// desired language, so look for *any* existing console instance for the
-		// desired language.
+		// Prefer the foreground or last active console for the language, so a
+		// background console that was never active (such as a job) is skipped.
+		if (!positronConsoleInstance) {
+			const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+			if (consoleSession && consoleSession.getRuntimeState() !== RuntimeState.Exited) {
+				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(consoleSession.sessionId);
+				sessionId = positronConsoleInstance?.sessionId;
+			}
+		}
+
+		// Last resort: look for *any* existing console instance for the desired
+		// language.
 		if (!positronConsoleInstance) {
 			const allInstances = Array.from(this._positronConsoleInstancesBySessionId.values());
 			// Sort the array by most recently used (MRU) so that we prefer the
@@ -941,7 +965,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Activate the Positron console instance, unless the caller asked to leave the user's
 		// active console alone.
-		if (positronConsoleInstance !== this._activePositronConsoleInstance &&
+		if (shouldActivate && positronConsoleInstance !== this._activePositronConsoleInstance &&
 			(!preserveActiveTab || !this._activePositronConsoleInstance)) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 

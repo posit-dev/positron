@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { SessionLessStaticRouteInputs, shouldUseSessionLessStaticRoute } from '../../node/positronStaticRoute.js';
 
 const base: SessionLessStaticRouteInputs = {

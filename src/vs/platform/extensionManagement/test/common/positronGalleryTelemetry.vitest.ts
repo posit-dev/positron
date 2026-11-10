@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { appendPositronGalleryParams, formatPositronVersion, isP3MGalleryUrl, PositronCheckTrigger, PositronSessionType } from '../../common/positronGalleryTelemetry.js';
 
 /** Path to the platform module as resolved from this test file. */

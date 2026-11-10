@@ -46,6 +46,7 @@ interface ChannelCommand {
 	description: string;
 	args: ChannelCommandArg[];
 	returns?: string;
+	read_only: boolean;
 }
 
 /**
@@ -58,6 +59,8 @@ interface CommandRequest {
 	command_id: string;
 	args: unknown[];
 	agent: { name?: string; version?: string };
+	/** Whether the request came from `run_privileged_positron_command`. */
+	privileged: boolean;
 }
 
 /**
@@ -300,6 +303,7 @@ export class McpFrontendChannel implements vscode.Disposable {
 					schema: arg.schema,
 				})),
 				returns: command.returns,
+				read_only: command.readOnly ?? false,
 			}));
 		} catch (err) {
 			this._log(`Failed to read the agent command catalog: ${summarizeError(err)}`);
@@ -348,8 +352,24 @@ export class McpFrontendChannel implements vscode.Disposable {
 				return;
 			}
 			// A command that is not in the catalog is left for the call below
-			// to report.
+			// to report, but only to the privileged tool: it cannot be vouched
+			// for as read-only.
 			const command = (await this.readCatalog()).find(c => c.id === request.command_id);
+			const readOnly = command?.read_only ?? false;
+			if (readOnly === request.privileged) {
+				const message = readOnly ?
+					`'${request.command_id}' only reads or shows state; run it with run_positron_command` :
+					`'${request.command_id}' can change state; run it with run_privileged_positron_command`;
+				this._log(`MCP command '${request.command_id}' for ${agent} was refused: ${message}`);
+				this.send({
+					kind: 'command_reply',
+					id: request.id,
+					ok: false,
+					reason: 'wrong-tool',
+					message,
+				});
+				return;
+			}
 			const invalid = command && checkCommandArgs(command.args, request.args);
 			if (invalid) {
 				this._log(`MCP command '${request.command_id}' for ${agent} was refused: ${invalid}`);

@@ -152,6 +152,12 @@ export enum SessionStartReasonId {
 	 */
 	AiChatCodeExecutedWithoutSession = 'aiChatCodeExecutedWithoutSession',
 
+	/**
+	 * Code was sent to run in a new background console, such as by
+	 * rstudioapi::jobRunScript().
+	 */
+	CodeRequestedNewSession = 'codeRequestedNewSession',
+
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
 
@@ -237,6 +243,20 @@ export interface IStartNewRuntimeSessionOptions {
 	 * `user`.
 	 */
 	readonly owner?: RuntimeSessionOwner;
+
+	/**
+	 * When true, a console start gets a session of its own: it waits for any
+	 * start of the runtime in flight instead of joining it, other requests
+	 * never join it, and it rejects in an untrusted workspace instead of
+	 * deferring. No effect for notebook sessions. Defaults to false.
+	 */
+	readonly requireNewSession?: boolean;
+
+	/**
+	 * Whether a console session that is not activated still becomes the
+	 * foreground session when there is none. Defaults to true.
+	 */
+	readonly takeForegroundIfEmpty?: boolean;
 }
 
 export interface IUpdateNotebookSessionUriOptions {

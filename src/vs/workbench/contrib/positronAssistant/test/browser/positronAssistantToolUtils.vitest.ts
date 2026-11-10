@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { VariablesClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeVariablesClient.js';
 import { PositronVariablesComm, Variable, VariableList } from '../../../../services/languageRuntime/common/positronVariablesComm.js';

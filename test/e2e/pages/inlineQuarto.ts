@@ -568,4 +568,36 @@ export class InlineQuarto {
 			await expect(this.toolbarCancelButton).toBeVisible({ timeout });
 		});
 	}
+
+	/**
+	 * Expect the center pixel of an inline image output to have the given RGB
+	 * color (each channel within `tolerance`). Polls until the image has
+	 * loaded and the color matches, so a plot that is replaced by a later
+	 * update is checked against its final picture.
+	 */
+	async expectImageCenterColor(rgb: [number, number, number], { index = 0, tolerance = 10, timeout = 30000 }: { index?: number; tolerance?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect inline image ${index} center color to be rgb(${rgb.join(', ')})`, async () => {
+			const image = this.imageOutput.nth(index);
+			await expect.poll(async () => {
+				const color = await image.evaluate((img: HTMLImageElement) => {
+					if (!img.complete || img.naturalWidth === 0) {
+						return undefined;
+					}
+					const canvas = document.createElement('canvas');
+					canvas.width = img.naturalWidth;
+					canvas.height = img.naturalHeight;
+					const context = canvas.getContext('2d');
+					if (!context) {
+						return undefined;
+					}
+					context.drawImage(img, 0, 0);
+					const [r, g, b] = context.getImageData(Math.floor(img.naturalWidth / 2), Math.floor(img.naturalHeight / 2), 1, 1).data;
+					return [r, g, b];
+				});
+				return color !== undefined && color.every((channel, i) => Math.abs(channel - rgb[i]) <= tolerance)
+					? 'match'
+					: `rgb(${color?.join(', ') ?? 'not loaded'})`;
+			}, { timeout }).toBe('match');
+		});
+	}
 }

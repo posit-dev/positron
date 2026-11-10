@@ -123,11 +123,15 @@ export function newCheckFailures(before: Map<string, 'PASS' | 'FAIL'>, after: Ma
 
 export type AddedCase = { name: string; helper: string };
 
-/** The cases a `-U0` smoke.ts diff adds and the helper each runs; null when the diff does anything else. */
+/**
+ * The cases a `-U0` smoke.ts diff adds and the helper each runs; null when the diff does anything
+ * else. A comment or a new check helper (`const x = (o: Out) => ...`) is not a change to what
+ * judges the fix.
+ */
 export function addedCases(diff: string): AddedCase[] | null {
 	const out: AddedCase[] = [];
 	for (const l of diff.split('\n')) {
-		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*(\/\/.*)?$/.test(l)) { continue; }
+		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*(\/\/.*|\/\*\*.*\*\/)?$/.test(l) || /^\+const \w+ = \(o: Out\) => /.test(l)) { continue; }
 		const m = l.match(/^\+\t+\{ name: '((?:[^'\\]|\\.)+)',.*\brun: (?:\(\) => )?\['([a-z-]+\.sh)'/);
 		if (!m) { return null; }
 		out.push({ name: m[1].replace(/\\(.)/g, '$1'), helper: m[2] });

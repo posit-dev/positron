@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { licenseMarkerScript } from '../../common/positronAcademicLicenseService.js';
 
 describe('licenseMarkerScript', () => {

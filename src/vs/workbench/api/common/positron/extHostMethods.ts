@@ -195,6 +195,20 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						callerSessionId);
 					break;
 				}
+				case UiFrontendRequest.ExecuteCodeInNewSession: {
+					if (!params ||
+						typeof params.language_id !== 'string' ||
+						typeof params.code !== 'string' ||
+						typeof params.session_name !== 'string') {
+						return newInvalidParamsError(method);
+					}
+					result = await this.runtime.executeCodeInNewSession(params.language_id,
+						params.code,
+						params.session_name,
+						extensionId,
+						callerSessionId);
+					break;
+				}
 				case UiFrontendRequest.EvaluateWhenClause: {
 					if (!params || !Object.keys(params).includes('when_clause')) {
 						return newInvalidParamsError(method);

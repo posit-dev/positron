@@ -7,13 +7,11 @@ import { test, expect, tags } from '../_test.setup';
 import { connectToRemoteHost, sshKeyscan, waitForRemoteReconnect } from './connect';
 
 test.use({
-	suiteId: __filename,
-	// Launch the client with the auto-sign-in env var unset so Anthropic starts
-	// disconnected and the test genuinely drives the provider manager's connect flow instead
-	// of finding the provider already signed in. This does not starve the test of a
-	// key: the provider manager types `ANTHROPIC_KEY`, which the lane loads separately (see
+	// appEnv keeps ANTHROPIC_API_KEY out of the client, so Anthropic starts disconnected and
+	// the test drives the provider manager's connect flow. The provider manager types
+	// `ANTHROPIC_KEY`, which the lane loads separately (see
 	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
-	extraEnv: { ANTHROPIC_API_KEY: undefined },
+	suiteId: __filename,
 });
 
 // Only the remote-ssh tag: the lane that runs this suite is the one that

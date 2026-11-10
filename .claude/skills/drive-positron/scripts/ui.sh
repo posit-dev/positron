@@ -95,7 +95,13 @@
 # A name matches the whole accessible name, case aside, the name without a
 # trailing keybinding, or the name before a comma and more (a Breakpoints row
 # "dbg.R 7, Unverified Breakpoint" by "dbg.R 7", the label the view shows).
-# When nothing matches, the error carries the view's tree.
+# It also matches a name the tree says twice: an activity bar tab with a
+# badge reads "Explorer (Ctrl+Shift+E) - 1 unsaved file" twice once it has been
+# selected or deselected, and that text once finds it. When nothing matches, the error carries the view's
+# tree.
+#
+# While the editor area is hidden (a maximized panel), anything in "editor"
+# fails with an error that says so and names the editors open in it.
 #
 # Stdout: one JSON line. Exit code: 0 on success, 1 when the target is not
 # there or the action did not take, 2 on a usage error.

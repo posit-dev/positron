@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -75,7 +73,6 @@ describe('DefaultAccountProvider Copilot access', () => {
 				default: { id: 'github', name: 'GitHub' },
 				enterprise: { id: 'github-enterprise', name: 'GitHub Enterprise' },
 				enterpriseProviderConfig: 'github.copilot.advanced.authProvider',
-				enterpriseProviderUriSetting: 'github-enterprise.uri',
 				scopes: [['read:user', 'user:email', 'repo']],
 			},
 			tokenEntitlementUrl: '',

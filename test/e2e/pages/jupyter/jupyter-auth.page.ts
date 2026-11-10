@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../../infra/code';
+import { fillSecretValue } from '../../utils/secretInput.js';
 
 /**
  * Jupyter authentication page
@@ -29,7 +30,7 @@ export class JupyterAuthPage {
 
 		// Fill in credentials
 		await page.fill('#username_input', 'admin');
-		await page.fill('#password_input', password);
+		await fillSecretValue(page.locator('#password_input'), password);
 
 		// Submit login form
 		await page.click('#login_submit');

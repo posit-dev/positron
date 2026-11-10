@@ -5,6 +5,7 @@
 
 import { join } from 'path';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 import { provisionTestFiles, prepareTestEnv, defaultWorkspacePath } from '../infra/test-runner';
 
 const ROOT_PATH = process.cwd();
@@ -12,6 +13,8 @@ const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 const WORKSPACE_PATH = defaultWorkspacePath();
 
 async function globalSetup() {
+	// Planted so the CI secret scan can prove nothing leaks; appEnv strips it from the app env.
+	process.env.E2E_LEAK_CANARY_KEY ??= 'canary-' + randomUUID();
 	fs.rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });
 	prepareTestEnv(ROOT_PATH, LOGS_ROOT_PATH);
 	if (process.env.SKIP_CLONE !== 'true') {

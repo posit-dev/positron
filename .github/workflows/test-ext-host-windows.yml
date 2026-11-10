@@ -101,8 +101,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ext-host-win-logs
-          path: |
-            .build/logs
-            .build/crashes
+          # Crash dumps are not uploaded: they hold raw process memory.
+          path: .build/logs
           if-no-files-found: ignore
           retention-days: 7

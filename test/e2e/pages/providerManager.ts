@@ -10,7 +10,6 @@ import { QuickAccess } from './quickaccess.js';
 import {
 	ModelProvider,
 	LoginModelProviderOptions,
-	fillSecretValue,
 	getProviderAuthType,
 	providerRequiresBaseUrl,
 	getProviderBaseUrlEnvVarName,
@@ -19,6 +18,7 @@ import {
 	getProviderEnvVarName,
 	completeOAuthDeviceCodeLoginWithCode,
 } from './modelProviderShared.js';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 

@@ -14,7 +14,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata, pickerFolderUri } from './runtime';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
-import { buildRankingContext, RankingContext } from './interpreterRanking';
+import { buildRankingContext, isOtherProjectEnv, RankingContext } from './interpreterRanking';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -70,9 +70,14 @@ export async function* pythonRuntimeDiscoverer(
                     );
                     continue;
                 }
+                const pickerContext = await pickerContextOf(interpreter);
+                if (isOtherProjectEnv(interpreter, pickerContext)) {
+                    traceInfo(`pythonRuntimeDiscoverer: skipping another folder's project env: ${interpreter.path}`);
+                    continue;
+                }
                 // Not the recommendation, so the default `Explicit`.
                 const runtime = await createPythonRuntimeMetadata(interpreter, serviceContainer, undefined, {
-                    pickerContext: await pickerContextOf(interpreter),
+                    pickerContext,
                 });
                 traceInfo(
                     `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,

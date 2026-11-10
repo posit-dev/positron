@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { MenuId } from '../../../actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../contextkey/common/contextkey.js';
 import { PositronActionBarWidgetRegistryImpl, IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
@@ -14,14 +12,14 @@ import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 describe('PositronActionBarWidgetRegistry', () => {
 	let registry: PositronActionBarWidgetRegistryImpl;
 	let contextKeyService: IContextKeyService;
-	let contextMatchesRulesStub: ReturnType<typeof vi.fn>;
+	let contextMatchesRulesStub: ReturnType<typeof vi.fn<IContextKeyService['contextMatchesRules']>>;
 
 	beforeEach(() => {
 		// Create a fresh registry instance for each test to ensure isolation
 		registry = new PositronActionBarWidgetRegistryImpl();
 
 		// Create a mock context key service
-		contextMatchesRulesStub = vi.fn().mockReturnValue(true);
+		contextMatchesRulesStub = vi.fn<IContextKeyService['contextMatchesRules']>().mockReturnValue(true);
 		contextKeyService = stubInterface<IContextKeyService>({
 			contextMatchesRules: contextMatchesRulesStub
 		});

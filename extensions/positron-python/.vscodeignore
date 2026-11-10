@@ -91,3 +91,13 @@ python-env-tools/.cargo/**
 
 python-env-tools/**/*.md
 pythonExtensionApi/**
+
+# --- Start Positron ---
+# Webpack writes the bundle to dist/. In a dev checkout, out/ holds tsc and test
+# output, and the caches below hold tool output. A local release build shipped
+# them. See https://github.com/posit-dev/positron/issues/16695.
+out/**
+**/*.stats.json
+**/.pytest_cache/**
+**/.ruff_cache/**
+# --- End Positron ---

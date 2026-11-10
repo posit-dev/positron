@@ -211,6 +211,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _shellIntegrationInjectionInfo: ShellIntegrationInjectionFailureReason | undefined;
 	get shellIntegrationInjectionFailureReason(): ShellIntegrationInjectionFailureReason | undefined { return this._shellIntegrationInjectionInfo; }
 	private _lineDataEventAddon: LineDataEventAddon | undefined;
+	private _lineDataEventAddonLoaded = false;
 	private readonly _scopedContextKeyService: IContextKeyService;
 	private _resizeDebouncer?: TerminalResizeDebouncer;
 
@@ -373,7 +374,13 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	readonly onDidChangeVisibility = this._onDidChangeVisibility.event;
 
 	private readonly _onLineData = this._register(new Emitter<string>({
-		onDidAddFirstListener: async () => (this.xterm ?? await this._xtermReadyPromise)?.raw.loadAddon(this._lineDataEventAddon!)
+		onDidAddFirstListener: async () => {
+			const xterm = this.xterm ?? await this._xtermReadyPromise;
+			if (xterm && this._lineDataEventAddon && !this._lineDataEventAddonLoaded) {
+				xterm.raw.loadAddon(this._lineDataEventAddon);
+				this._lineDataEventAddonLoaded = true;
+			}
+		}
 	}));
 	readonly onLineData = this._onLineData.event;
 
@@ -1063,6 +1070,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	detachFromElement(): void {
 		this._wrapperElement.remove();
 		this._container = undefined;
+		this._dndObserver.clear();
 	}
 
 	attachToElement(container: HTMLElement): void {
@@ -1087,7 +1095,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this.xterm?.refresh();
 
 		setTimeout(() => {
-			if (this._store.isDisposed) {
+			if (this._store.isDisposed || this._container !== container) {
 				return;
 			}
 			this._initDragAndDrop(container);
@@ -1329,7 +1337,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this._wrapperElement.xterm = undefined;
 		}
 		if (this._horizontalScrollbar) {
-			this._horizontalScrollbar.dispose();
+			this._store.delete(this._horizontalScrollbar);
 			this._horizontalScrollbar = undefined;
 		}
 
@@ -1624,14 +1632,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		if (this.isDisposed) {
 			return;
 		}
-		const trusted = this._isRemoteResolverTerminal || await this._trust();
-		// Allow remote terminals in a remote workspace to be created when trust is denied, but
-		// still block local terminals (those without a remoteAuthority) even when the workspace is remote.
-		const isRemoteTerminal = !!this.remoteAuthority;
-		if (!trusted && !(isRemoteTerminal && this._workbenchEnvironmentService.remoteAuthority)) {
-			this._onProcessExit({ message: nls.localize('workspaceNotTrustedCreateTerminal', "Cannot launch a terminal process in an untrusted workspace") });
+		if (!await this._ensureWorkspaceTrustedForProcess()) {
 			return;
-		} else if (this._workspaceContextService.getWorkspace().folders.length === 0 && this._cwd && this._userHome && normalizeDriveLetter(this._cwd) !== normalizeDriveLetter(this._userHome)) {
+		}
+		if (this._workspaceContextService.getWorkspace().folders.length === 0 && this._cwd && this._userHome && normalizeDriveLetter(this._cwd) !== normalizeDriveLetter(this._userHome)) {
 			// something strange is going on if cwd is not userHome in an empty workspace
 			this._onProcessExit({
 				message: nls.localize('workspaceEmptyCreateTerminalCwd', "Cannot launch a terminal process in an empty workspace with cwd {0} different from userHome {1}", this._cwd, this._userHome)
@@ -1891,6 +1895,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	}
 
 	async reuseTerminal(shell: IShellLaunchConfig, reset: boolean = false): Promise<void> {
+		// Relaunching reaches the process manager directly, so re-check workspace trust here to
+		// ensure the reuse path cannot bypass the gate enforced on initial process creation.
+		if (!await this._ensureWorkspaceTrustedForProcess()) {
+			return;
+		}
+
 		// Unsubscribe any key listener we may have.
 		this._pressAnyKeyToCloseListener?.dispose();
 		this._pressAnyKeyToCloseListener = undefined;
@@ -1977,6 +1987,22 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this._agentShellTypeFromSequence = undefined;
 		}
 		this.setShellType(shellType);
+	}
+
+	/**
+	 * Ensures the workspace is trusted before a process is (re)launched. When trust is denied the
+	 * terminal is marked as exited and `false` is returned, signalling the caller not to launch a
+	 * process. Remote terminals in a remote workspace are still permitted when trust is denied, to
+	 * match initial creation behavior; local terminals are always blocked.
+	 */
+	private async _ensureWorkspaceTrustedForProcess(): Promise<boolean> {
+		const trusted = this._isRemoteResolverTerminal || await this._trust();
+		const isRemoteTerminal = !!this.remoteAuthority;
+		if (!trusted && !(isRemoteTerminal && this._workbenchEnvironmentService.remoteAuthority)) {
+			this._onProcessExit({ message: nls.localize('workspaceNotTrustedCreateTerminal', "Cannot launch a terminal process in an untrusted workspace") });
+			return false;
+		}
+		return true;
 	}
 
 	private async _trust(): Promise<boolean> {
@@ -2152,6 +2178,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 
 	private _updateTitleProperties(title: string | undefined, eventSource: TitleEventSource): string {
 		if (title === undefined) {
+			if (eventSource === TitleEventSource.Api) {
+				this._staticTitle = undefined;
+				this._titleSource = TitleEventSource.Process;
+				this._messageTitleDisposable.value = this.xterm?.raw.onTitleChange(e => this._onTitleChange(e));
+			}
 			return this._processName;
 		}
 		switch (eventSource) {
@@ -2321,7 +2352,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			return;
 		}
 		this._horizontalScrollbar.getDomNode().remove();
-		this._horizontalScrollbar.dispose();
+		this._store.delete(this._horizontalScrollbar);
 		this._horizontalScrollbar = undefined;
 		this._wrapperElement.remove();
 		this._wrapperElement.classList.remove('fixed-dims');

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Event } from '../../../../../base/common/event.js';
 import { timeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -17,6 +15,10 @@ import { MainThreadDataExplorer } from '../../../browser/positron/mainThreadData
 import { ExtHostDataExplorerShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronDataImporterRegistry } from '../../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { BackendState, DataExplorerBackendRequest, SupportedFeatures, SupportStatus } from '../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { IDataExplorerRpcDto } from '../../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
@@ -66,6 +68,10 @@ describe('Data Explorer RPC transport routing', () => {
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService())
 		.stub(IExtensionService, extensionService)
+		// Routing never touches importers, editors, or data connections; empty stubs throw if it does.
+		.stub(IPositronDataImporterRegistry, stubInterface<IPositronDataImporterRegistry>({}))
+		.stub(IEditorService, stubInterface<IEditorService>({}))
+		.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({}))
 		.stub(IRuntimeSessionService, {
 			activeSessions: [],
 			onWillStartSession: Event.None,
@@ -82,6 +88,7 @@ describe('Data Explorer RPC transport routing', () => {
 		// PositronDataExplorerInstance reads the singleton in its constructor.
 		PositronReactServices.services = ctx.reactServices;
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronDataExplorerService));
+		ctx.instantiationService.stub(IPositronDataExplorerService, service);
 	});
 
 	/** A minimal backend state, enough for the grid instances the open path spins up. */
@@ -121,7 +128,7 @@ describe('Data Explorer RPC transport routing', () => {
 		const extHostContext = stubInterface<IExtHostContext>({
 			getProxy: (<T>() => proxy as T) as IExtHostContext['getProxy'],
 		});
-		const mainThread = ctx.disposables.add(new MainThreadDataExplorer(extHostContext, service));
+		const mainThread = ctx.disposables.add(ctx.instantiationService.createInstance(MainThreadDataExplorer, extHostContext));
 		for (const providerId of providers) {
 			hostsByProvider.set(providerId, { mainThread, deferRegistration, supportsRefresh });
 		}

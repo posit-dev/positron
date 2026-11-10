@@ -198,11 +198,18 @@ export class QuickInput {
 			// focus contention (something steals focus from the picker), leaving it
 			// open. Re-click the row until the picker closes rather than waiting out
 			// a single click; re-accepting the same row is idempotent.
+			//
+			// Wait for the close before deciding to re-click: an accepted picker
+			// stays visible for its close animation, and a re-click aimed at that
+			// fading row retries "element is not visible" with no timeout of its
+			// own, outliving this loop. Bound the re-click for the same reason.
 			await expect(async () => {
-				if (await input.isVisible()) {
-					await row.click();
+				try {
+					await expect(input).not.toBeVisible({ timeout: 2000 });
+				} catch (error) {
+					await row.click({ timeout: 2000 }).catch(() => { });
+					throw error;
 				}
-				await expect(input).not.toBeVisible({ timeout: 2000 });
 			}).toPass({ timeout: 15000 });
 		}
 	}

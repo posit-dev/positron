@@ -236,7 +236,8 @@ export function mainBuildBrief(build, { repo, base, appArgs = '' }) {
 		`- Version ${build.version}, built from main at \`${build.commit}\`${build.pubDate ? ` (published ${build.pubDate})` : ''}. The base of this change is \`${base}\`; the daily is main as of its build, not the base.`,
 		`- Binary: \`${build.binary}\``,
 		appArgs
-			? `- Launch: \`${LAUNCH} --app ${build.binary} -- ${appArgs}\`, with the same launcher flags (before the \`--\`) as your PR instance.`
+			// The PR launch passes the Assistant key through launch.sh's secret stripping; do the same here.
+			? `- Launch: \`${LAUNCH} --app ${build.binary} --pass-env ANTHROPIC_API_KEY -- ${appArgs}\`, with the same launcher flags (before the \`--\`) as your PR instance.`
 			: `- Launch: \`${LAUNCH} --app ${build.binary}\`, followed by the same launcher flags and app arguments as your PR instance.`,
 		`- Whether main has a \`needs\` ID: \`git -C ${repo} grep -q <id> ${build.commit} -- src extensions\` (exit 0: main has it; exit 1: main lacks it; any other exit: the lookup failed, so record \`couldNotRun\`).`,
 	].join('\n');

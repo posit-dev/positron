@@ -108,6 +108,11 @@ test('addedCases: an added comment line is not a change to smoke', () => {
 	assert.deepEqual(addedCases('@@ -1,0 +1 @@\n+\t// only a comment'), []);
 });
 
+test('addedCases: a new check helper with its doc comment is not a change to smoke', () => {
+	assert.deepEqual(addedCases("@@ -1,0 +1,3 @@\n+/** Says the editor area is hidden. */\n+const editorAreaHidden = (o: Out) => includes(o.json!.error, 'hidden');\n+\t{ name: 'x', run: ['ui.sh', 'read'], fail: true, check: editorAreaHidden },"), [{ name: 'x', helper: 'ui.sh' }]);
+	assert.equal(addedCases('@@ -1,0 +1 @@\n+const includes = (what: unknown, needle: string) => undefined;'), null);
+});
+
 test('addedCases: an escaped quote in the name is kept', () => {
 	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh can\\'t find it', run: ['ui.sh', 'x'], fail: true },"), [{ name: "ui.sh can't find it", helper: 'ui.sh' }]);
 	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh a\\\\b', run: ['ui.sh', 'x'] },"), [{ name: 'ui.sh a\\b', helper: 'ui.sh' }]);
