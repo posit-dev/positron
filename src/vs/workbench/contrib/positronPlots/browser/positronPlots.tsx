@@ -142,7 +142,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		// Set the initial zoom level for the current plot.
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(services.positronPlotsService.onDidSelectPlot(plotId => {
+		const syncZoomWithSelectedPlot = () => {
 			const currentPlot = services.positronPlotsService.selectedPlotId;
 
 			if (currentPlot) {
@@ -156,7 +156,14 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 					setZoom(ZoomLevel.Fit);
 				}
 			}
-		}));
+		};
+
+		// A plot may already be selected when the pane mounts (e.g. the first plot
+		// is selected before the pane is shown), in which case no selection event
+		// will fire for it.
+		syncZoomWithSelectedPlot();
+
+		disposableStore.add(services.positronPlotsService.onDidSelectPlot(syncZoomWithSelectedPlot));
 
 		return () => {
 			// Dispose of the disposable store to clean up event handlers.
