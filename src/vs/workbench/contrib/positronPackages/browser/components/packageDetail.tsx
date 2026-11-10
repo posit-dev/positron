@@ -24,7 +24,7 @@ import { IPositronPackagesService } from '../interfaces/positronPackagesService.
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
-import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
+import { usePositronHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronHoverManager.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
 
 export interface PackageDetailProps {
@@ -162,7 +162,7 @@ const VulnerabilityRow = (props: { vulnerability: IPackageVulnerability }) => {
  */
 export const PackageDetail = (props: PackageDetailProps) => {
 	const services = usePositronReactServicesContext();
-	const hoverManager = usePositronActionBarHoverManager();
+	const hoverManager = usePositronHoverManager();
 	const { packagesService, sessionId, packageName } = props;
 
 	// Bump on any relevant service/instance event to recompute from the service.
