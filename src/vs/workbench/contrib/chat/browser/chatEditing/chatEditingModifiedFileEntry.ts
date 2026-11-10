@@ -416,6 +416,11 @@ export abstract class AbstractChatEditingModifiedFileEntry extends Disposable im
 	 */
 	startExternalEdit(): void {
 		this._isExternalEditInProgress = true;
+		// --- Start Positron ---
+		// External edits never pass through acceptAgentEdits, which is what
+		// returns a kept or undone entry to review.
+		this._stateObs.set(ModifiedFileEntryState.Modified, undefined);
+		// --- End Positron ---
 	}
 
 	/**
