@@ -329,7 +329,7 @@ export function agentCliCommand(
  * @param folderPath The folder's `fsPath`.
  * @param platform The platform, which only matters on Windows.
  */
-export function agentCliDirectory(
+function agentCliDirectory(
 	folderPath: string,
 	platform: NodeJS.Platform = os.platform(),
 ): string {
@@ -360,6 +360,51 @@ export function staleAgentDirectory(
 	}
 	const previous = recorded.directory ?? folderPath;
 	return previous === agentCliDirectory(folderPath, platform) ? undefined : previous;
+}
+
+/** One run of a harness's CLI. */
+export interface AgentCliRun {
+	readonly args: readonly string[];
+
+	/** The working directory, which the CLI keys its configuration by. */
+	readonly directory: string;
+}
+
+/**
+ * The runs that take Positron's entry out of a CLI harness's configuration,
+ * wherever it may be.
+ *
+ * @param install The harness's CLI install.
+ * @param recorded What was recorded for the harness, if anything was.
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+export function agentCliRemoves(
+	install: McpCliInstall,
+	recorded: { readonly directory?: string } | undefined,
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): AgentCliRun[] {
+	const stale = staleAgentDirectory(recorded, folderPath, platform);
+	return [...(stale ? [stale] : []), agentCliDirectory(folderPath, platform)]
+		.map(directory => ({ args: install.remove, directory }));
+}
+
+/**
+ * The run that writes Positron's entry into a CLI harness's configuration.
+ *
+ * @param install The harness's CLI install.
+ * @param launch The command line that starts the bridge.
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+export function agentCliAdd(
+	install: McpCliInstall,
+	launch: McpLaunch,
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): AgentCliRun {
+	return { args: install.add(launch), directory: agentCliDirectory(folderPath, platform) };
 }
 
 /**
@@ -459,28 +504,18 @@ async function installViaCli(
 	// Remove any entry of ours first: the CLI refuses to add a server that is
 	// already there, and one written by an older Positron may be wrong rather
 	// than merely present.
-	const directory = agentCliDirectory(folder.fsPath);
-	await removeViaCli(executable, install, ownDirectories(record, folder));
-	await runAgentCli(executable, install.add(launch), directory);
+	await removeViaCli(executable, agentCliRemoves(install, record, folder.fsPath));
+	const add = agentCliAdd(install, launch, folder.fsPath);
+	await runAgentCli(executable, add);
 
-	return { description: vscode.workspace.asRelativePath(folder), directory };
+	return { description: vscode.workspace.asRelativePath(folder), directory: add.directory };
 }
 
-/** Where Positron's entry for a CLI harness may be: where it belongs, and anywhere it was left before. */
-function ownDirectories(record: ConfiguredAgent | undefined, folder: vscode.Uri): string[] {
-	const stale = staleAgentDirectory(record, folder.fsPath);
-	return [...(stale ? [stale] : []), agentCliDirectory(folder.fsPath)];
-}
-
-/** Take Positron's entry out of a CLI's configuration in each directory. */
-async function removeViaCli(
-	executable: string,
-	install: McpCliInstall,
-	directories: readonly string[],
-): Promise<void> {
-	for (const directory of directories) {
+/** Run each of the removes from {@link agentCliRemoves}. */
+async function removeViaCli(executable: string, removes: readonly AgentCliRun[]): Promise<void> {
+	for (const remove of removes) {
 		try {
-			await runAgentCli(executable, install.remove, directory);
+			await runAgentCli(executable, remove);
 		} catch {
 			// The CLI fails when there is no entry to remove, the common case.
 		}
@@ -526,7 +561,7 @@ async function uninstallAgent(agent: McpAgent, record: ConfiguredAgent): Promise
 			// The CLI is gone, and with it the configuration it kept.
 			return;
 		}
-		await removeViaCli(executable, agent.install, ownDirectories(record, folder));
+		await removeViaCli(executable, agentCliRemoves(agent.install, record, folder.fsPath));
 		return;
 	}
 
@@ -542,20 +577,14 @@ async function uninstallAgent(agent: McpAgent, record: ConfiguredAgent): Promise
 }
 
 /**
- * Run a harness's CLI in a workspace folder.
+ * Run a harness's CLI.
  *
  * @param executable The full path to the CLI.
- * @param args The arguments to pass to it.
- * @param directory The directory to run in, which is what the CLI keys its
- *  configuration by.
+ * @param run The arguments, and the directory to run in.
  */
-async function runAgentCli(
-	executable: string,
-	args: readonly string[],
-	directory: string,
-): Promise<void> {
-	const command = agentCliCommand(executable, args);
-	await execFileAsync(command.command, command.args, { cwd: directory });
+async function runAgentCli(executable: string, run: AgentCliRun): Promise<void> {
+	const command = agentCliCommand(executable, run.args);
+	await execFileAsync(command.command, command.args, { cwd: run.directory });
 }
 
 /** The harness's CLI, when its row installs through one and it is on the path. */

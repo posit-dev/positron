@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { agentCliCommand, agentCliDirectory, staleAgentDirectory } from '../McpAgentConfig';
+import { agentCliAdd, agentCliCommand, agentCliRemoves, staleAgentDirectory } from '../McpAgentConfig';
 import { McpCliInstall, McpLaunch, findMcpAgent } from '../McpAgents';
 
 /** The command line that starts the bridge. */
@@ -54,17 +54,16 @@ suite('agentCliCommand', () => {
 	});
 });
 
-suite('agentCliDirectory', () => {
-	test('uppercases a Windows drive letter, as a terminal has it', () => {
+suite('agentCliRemoves and agentCliAdd', () => {
+	test('write from the uppercase drive, clearing the lowercase entry an earlier build left', () => {
+		// A terminal starts Claude Code in C:\, and it keys entries by that exact text.
+		const install = cliInstall('claude-code');
 		assert.deepStrictEqual(
 			{
-				windows: agentCliDirectory('c:\\Users\\me\\project', 'win32'),
-				linux: agentCliDirectory('/home/me/project', 'linux'),
+				removes: agentCliRemoves(install, {}, 'c:\\proj', 'win32').map(run => run.directory),
+				add: agentCliAdd(install, LAUNCH, 'c:\\proj', 'win32').directory,
 			},
-			{
-				windows: 'C:\\Users\\me\\project',
-				linux: '/home/me/project',
-			});
+			{ removes: ['c:\\proj', 'C:\\proj'], add: 'C:\\proj' });
 	});
 });
 
