@@ -919,6 +919,8 @@ jobs:
           MODEL: ${{ needs.resolve.outputs.model }}
           RUN_CONCLUSION: ${{ job.status == 'cancelled' && 'cancelled' || steps.run.outputs.conclusion }}
           TIMED_OUT: ${{ steps.run.outputs.timed_out }}
+          BUILDS_RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          BUILDS_RUN_ATTEMPT: ${{ steps.run.outputs.attempt }}
         run: node .harness/.github/actions/pr-exploratory-test/dispatch-result.ts
 
       - name: Delete the run branch

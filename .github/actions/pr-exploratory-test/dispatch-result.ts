@@ -34,16 +34,27 @@ function readFile(path) {
 	}
 }
 
-/** The state and report URL per model, and the scan job URL for each model whose scan failed. */
-export function collectResults({ dir, models, runConclusion, timedOutModels, jobs }) {
+const REPORT_HOST = 'https://positron-reports.tail00da2.ts.net';
+
+/** The one report URL the builds run's publish job can write for a model, or '' without a run id and attempt. */
+export function expectedReportUrl(runId, runAttempt, model) {
+	if (!/^\d+$/.test(String(runId ?? '')) || !/^\d+$/.test(String(runAttempt ?? ''))) { return ''; }
+	return `${REPORT_HOST}/exploratory-report-${runId}-${runAttempt}-${model}-ubuntu-x64/`;
+}
+
+/**
+ * The state and report URL per model, and the scan job URL for each model whose scan failed.
+ * A report URL counts only when it is the one this run publishes to: PR code can upload artifacts.
+ */
+export function collectResults({ dir, models, runConclusion, timedOutModels, jobs, runId, runAttempt }) {
 	const results = {};
 	const scanUrls = {};
 	for (const model of models) {
 		const raw = parseJson(readFile(join(dir, `explore-result-${model}.json`)));
 		const result = raw && typeof raw === 'object' && raw.model === model ? raw : null;
 		const urlFile = parseJson(readFile(join(dir, `explore-report-url-${model}.json`)));
-		const url = urlFile?.model === model ? urlFile.reportUrl : '';
-		const reportUrl = typeof url === 'string' && /^https:\/\/\S+$/.test(url) ? url : '';
+		const expected = expectedReportUrl(runId, runAttempt, model);
+		const reportUrl = expected && urlFile?.model === model && urlFile.reportUrl === expected ? expected : '';
 		results[model] = resolveDispatchOutcome({ model, runConclusion, timedOutModels, result, reportUrl });
 		if (results[model].state === 'scan-failed') {
 			const job = (Array.isArray(jobs) ? jobs : []).find(j => j?.name === `scan (${model})`);
@@ -62,6 +73,8 @@ function main() {
 		runConclusion: env.RUN_CONCLUSION || '',
 		timedOutModels: new Set(Array.isArray(timedOut) ? timedOut : []),
 		jobs: parseJson(readFile(env.JOBS_FILE || ''), []),
+		runId: env.BUILDS_RUN_ID,
+		runAttempt: env.BUILDS_RUN_ATTEMPT,
 	});
 	console.log(JSON.stringify({ results, scanUrls }, null, 2));
 	if (env.GITHUB_OUTPUT) {

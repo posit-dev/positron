@@ -8,9 +8,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectResults, modelsFor, parseJson } from './dispatch-result.ts';
+import { collectResults, expectedReportUrl, modelsFor, parseJson } from './dispatch-result.ts';
 
-const REPORT = 'https://reports.example.com/exploratory-report-1-1-opus-ubuntu-x64/';
+const REPORT = 'https://positron-reports.tail00da2.ts.net/exploratory-report-7-2-opus-ubuntu-x64/';
 
 function dirWith(files) {
 	const dir = mkdtempSync(join(tmpdir(), 'dispatch-result-'));
@@ -21,7 +21,7 @@ function dirWith(files) {
 }
 
 function collect(dir, overrides = {}) {
-	return collectResults({ dir, models: ['opus', 'sonnet'], runConclusion: 'success', timedOutModels: new Set(), jobs: [], ...overrides });
+	return collectResults({ dir, models: ['opus', 'sonnet'], runConclusion: 'success', timedOutModels: new Set(), jobs: [], runId: '7', runAttempt: '2', ...overrides });
 }
 
 test('modelsFor maps resolve\'s model to the matrix list', () => {
@@ -60,12 +60,27 @@ test('a failed scan links its scan job', () => {
 	});
 });
 
-test('a report URL that is not https is dropped', () => {
-	const dir = dirWith({
+test('a report URL other than the one this run publishes to is dropped', () => {
+	const urls = [
+		'javascript:alert(1)',
+		'https://evil.example.com/exploratory-report-7-2-opus-ubuntu-x64/',
+		'https://positron-reports.tail00da2.ts.net/exploratory-report-6-1-opus-ubuntu-x64/',
+		`${REPORT}../other/`,
+	];
+	const states = urls.map(reportUrl => collect(dirWith({
 		'explore-result-opus.json': { model: 'opus', outcome: 'partial', outdated: false, scan: 'passed' },
-		'explore-report-url-opus.json': { model: 'opus', reportUrl: 'javascript:alert(1)' },
-	});
-	assert.deepEqual(collect(dir, { models: ['opus'] }).results.opus, { state: 'partial', reportUrl: '' });
+		'explore-report-url-opus.json': { model: 'opus', reportUrl },
+	}), { models: ['opus'] }).results.opus);
+	assert.deepEqual(states, urls.map(() => ({ state: 'partial', reportUrl: '' })));
+});
+
+test('expectedReportUrl needs a numeric run id and attempt', () => {
+	assert.deepEqual([
+		expectedReportUrl('7', '2', 'sonnet'),
+		expectedReportUrl('', '2', 'opus'),
+		expectedReportUrl('7', undefined, 'opus'),
+		expectedReportUrl('7/../x', '1', 'opus'),
+	], ['https://positron-reports.tail00da2.ts.net/exploratory-report-7-2-sonnet-ubuntu-x64/', '', '', '']);
 });
 
 test('timed-out models and a cancelled run override the result files', () => {
