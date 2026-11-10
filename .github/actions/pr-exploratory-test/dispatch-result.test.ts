@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectResults, modelsFor, parseJson } from './dispatch-result.mjs';
+import { collectResults, modelsFor, parseJson } from './dispatch-result.ts';
 
 const REPORT = 'https://reports.example.com/exploratory-report-1-1-opus-ubuntu-x64/';
 

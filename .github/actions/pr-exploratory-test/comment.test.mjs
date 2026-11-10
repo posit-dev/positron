@@ -60,18 +60,21 @@ function fakeJobs(runs) {
 const failedJob = { name: 'explore', conclusion: 'failure', html_url: 'https://github.com/x/y/actions/runs/2/job/9', steps: [{ name: 'Build', number: 4, conclusion: 'failure' }] };
 const env = { GH_TOKEN: 'g', GITHUB_REPOSITORY: 'posit-dev/positron', GITHUB_RUN_ID: '1', GITHUB_SERVER_URL: 'https://github.com' };
 
-test('findFailure finds a step that failed only in the builds run and tags its repo', async () => {
-	const gh = fakeJobs({ 1: [], 2: [failedJob] });
+const ownJob = { ...failedJob, name: 'dispatch', steps: [{ name: 'Report the explore run', number: 9, conclusion: 'failure' }] };
+
+test('findFailure prefers the builds step when both runs failed and tags its repo', async () => {
+	const gh = fakeJobs({ 1: [ownJob], 2: [failedJob] });
 	const failure = await findFailure({ ...env, BUILDS_RUN_ID: '2', BUILDS_RUN_ATTEMPT: '3', BUILDS_TOKEN: 'b' }, gh.fetchImpl);
 	assert.deepEqual(failure, { job: 'explore', step: 'Build', url: `${failedJob.html_url}#step:4:1`, repo: 'positron-builds' });
-	assert.match(gh.urls[1], /\/repos\/posit-dev\/positron-builds\/actions\/runs\/2\/attempts\/3\/jobs/);
+	assert.equal(gh.urls.length, 1);
+	assert.match(gh.urls[0], /\/repos\/posit-dev\/positron-builds\/actions\/runs\/2\/attempts\/3\/jobs/);
 });
 
-test('findFailure prefers the positron run and leaves repo unset', async () => {
-	const gh = fakeJobs({ 1: [failedJob], 2: [failedJob] });
+test('findFailure falls back to the positron step when the builds run has none, and leaves repo unset', async () => {
+	const gh = fakeJobs({ 1: [ownJob], 2: [] });
 	const failure = await findFailure({ ...env, BUILDS_RUN_ID: '2' }, gh.fetchImpl);
-	assert.equal(failure.repo, undefined);
-	assert.equal(gh.urls.length, 1);
+	assert.deepEqual(failure, { job: 'dispatch', step: 'Report the explore run', url: `${failedJob.html_url}#step:9:1` });
+	assert.equal(gh.urls.length, 2);
 });
 
 test('findFailure without BUILDS_RUN_ID only reads the positron run', async () => {

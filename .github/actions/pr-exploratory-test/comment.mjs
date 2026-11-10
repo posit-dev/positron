@@ -75,26 +75,31 @@ export function buildRunUrl(env) {
 		: `${server}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
 }
 
-/** The failed step in this run, else in the builds run when one was dispatched (tagged with its repo). */
+/**
+ * The failed step in the builds run when one was dispatched (tagged with its
+ * repo), else in this run. Builds first: the dispatch job here fails whenever
+ * the builds run did, so this run's own step would always win.
+ */
 export async function findFailure(env, fetchImpl) {
-	const own = await findFailedStep({
+	if (env.BUILDS_RUN_ID) {
+		const builds = await findFailedStep({
+			fetchImpl,
+			token: env.BUILDS_TOKEN,
+			repo: BUILDS_REPO,
+			runId: env.BUILDS_RUN_ID,
+			attempt: env.BUILDS_RUN_ATTEMPT || '1',
+		});
+		if (builds) {
+			return { ...builds, repo: 'positron-builds' };
+		}
+	}
+	return findFailedStep({
 		fetchImpl,
 		token: env.GH_TOKEN,
 		repo: env.GITHUB_REPOSITORY,
 		runId: env.GITHUB_RUN_ID,
 		attempt: env.GITHUB_RUN_ATTEMPT || '1',
 	});
-	if (own || !env.BUILDS_RUN_ID) {
-		return own;
-	}
-	const builds = await findFailedStep({
-		fetchImpl,
-		token: env.BUILDS_TOKEN,
-		repo: BUILDS_REPO,
-		runId: env.BUILDS_RUN_ID,
-		attempt: env.BUILDS_RUN_ATTEMPT || '1',
-	});
-	return builds && { ...builds, repo: 'positron-builds' };
 }
 
 async function main() {

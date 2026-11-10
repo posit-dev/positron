@@ -639,17 +639,23 @@ jobs:
           ref: ${{ github.sha }}
           path: .harness
           sparse-checkout: |
+            /.nvmrc
             .github/actions/pr-exploratory-test
             .claude/skills/exploratory-test/renderer
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # dispatch-result.ts needs a Node that runs TypeScript.
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .harness/.nvmrc
+
       # lib.mjs reads the renderer's shared text helpers, which need marked.
       - name: Install renderer dependencies
         run: npm ci --prefix .harness/.claude/skills/exploratory-test/renderer --ignore-scripts --no-audit --no-fund
 
-      - name: Mint a token for positron-builds
-        id: token
+      - name: Mint a token for the sweep and the branch
+        id: setup-token
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
@@ -664,7 +670,7 @@ jobs:
       - name: Remove finished runs' branches
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_TOKEN: ${{ steps.setup-token.outputs.token }}
           REPO_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
@@ -691,12 +697,23 @@ jobs:
       - name: Cut the run branch
         id: cut
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_TOKEN: ${{ steps.setup-token.outputs.token }}
         run: |
           set -euo pipefail
           main_sha=$(gh api repos/posit-dev/positron-builds/git/ref/heads/main --jq '.object.sha')
           gh api repos/posit-dev/positron-builds/git/refs -f "ref=refs/heads/$LANE" -f "sha=$main_sha" > /dev/null
           echo "Cut $LANE at $main_sha"
+
+      # Minted here so the first wait part has its full hour.
+      - name: Mint a token for the dispatch and the first wait
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
 
       - name: Dispatch the explore run
         id: dispatch
@@ -716,6 +733,7 @@ jobs:
             -f "focus=$FOCUS" -f "time_limit=$TIME_LIMIT" -f "main_replay=$MAIN_REPLAY" -f "harness_sha=$HARNESS_SHA")
           if [ -n "$PR" ]; then args+=(-f "pr_number=$PR"); else args+=(-f "branch=$REF"); fi
           gh workflow run explore-pr.yml -R posit-dev/positron-builds --ref "$LANE" "${args[@]}"
+          echo "dispatched=true" >> "$GITHUB_OUTPUT"
           # The dispatch API returns no run id; find the run by its run-name, and
           # only among dispatches the bot itself started.
           id=""
@@ -807,16 +825,30 @@ jobs:
           permission-actions: write
           permission-contents: write
 
-      # Cancelling this run would otherwise leave the explore job running there.
+      # Cancelling this run would otherwise leave the explore job running there,
+      # as would a dispatch whose run the lookup never found.
       - name: Cancel the explore run
-        if: cancelled() && steps.dispatch.outputs.run_id != ''
+        if: >-
+          ${{ always() && ((cancelled() && steps.dispatch.outputs.run_id != '') ||
+          (steps.dispatch.outputs.dispatched == 'true' && steps.dispatch.outputs.run_id == '')) }}
         env:
           GH_TOKEN: ${{ steps.final-token.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
-        run: gh run cancel "$RUN_ID" -R posit-dev/positron-builds || echo "::warning::Could not cancel the explore run."
+        run: |
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-pr.yml/runs?event=workflow_dispatch&branch=$LANE" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"explore $POSITRON_RUN \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" \
+              | head -n 1) || RUN_ID=""
+          fi
+          if [ -z "$RUN_ID" ]; then
+            echo "::warning::Found no explore run to cancel."
+            exit 0
+          fi
+          gh run cancel "$RUN_ID" -R posit-dev/positron-builds || echo "::warning::Could not cancel explore run $RUN_ID."
 
-      # A job that hits its time limit ends cancelled, with an annotation that
-      # says so; that tells it apart from a cancelled run.
+      # A model timed out when its explore job did not succeed and ran for the
+      # whole job limit. The bot has no Checks access, so the timeout
+      # annotation cannot be read; the job's own times can.
       - name: Read the explore run
         id: run
         if: always() && steps.dispatch.outputs.run_id != ''
@@ -824,6 +856,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.final-token.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          # Must match the explore job's timeout-minutes in positron-builds' explore-pr.yml.
+          EXPLORE_TIMEOUT_MINUTES: 90
         run: |
           set -euo pipefail
           run=$(gh api "repos/posit-dev/positron-builds/actions/runs/$RUN_ID")
@@ -831,15 +865,12 @@ jobs:
           echo "attempt=$(jq -r '.run_attempt' <<<"$run")" >> "$GITHUB_OUTPUT"
           JOBS="$RUNNER_TEMP/builds-jobs.json"
           gh api --paginate "repos/posit-dev/positron-builds/actions/runs/$RUN_ID/jobs?per_page=100" \
-            --jq '.jobs[] | {id, name, conclusion, html_url}' | jq -s . > "$JOBS"
-          timed_out='[]'
-          while IFS=$'\t' read -r job model; do
-            msgs=$(gh api "repos/posit-dev/positron-builds/check-runs/$job/annotations" --jq '.[].message') || msgs=""
-            if grep -q "exceeded the maximum execution time" <<<"$msgs"; then
-              timed_out=$(jq -c --arg m "$model" '. + [$m]' <<<"$timed_out")
-            fi
-          done < <(jq -r '.[] | select(.conclusion == "cancelled")
-            | (.name | capture("^explore \\((?<m>[a-z]+)\\)$").m) as $m | "\(.id)\t\($m)"' "$JOBS")
+            --jq '.jobs[] | {id, name, conclusion, html_url, started_at, completed_at}' | jq -s . > "$JOBS"
+          timed_out=$(jq -c --argjson limit "$((EXPLORE_TIMEOUT_MINUTES * 60))" '[.[]
+            | select(.conclusion != null and .conclusion != "success" and .conclusion != "skipped"
+              and .started_at != null and .completed_at != null)
+            | select((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601) >= $limit)
+            | .name | capture("^explore \\((?<m>[a-z]+)\\)$").m]' "$JOBS")
           echo "timed_out=$timed_out" >> "$GITHUB_OUTPUT"
 
       # A missing file means that model failed, so the download never stops the job.
@@ -876,7 +907,7 @@ jobs:
           MODEL: ${{ needs.resolve.outputs.model }}
           RUN_CONCLUSION: ${{ job.status == 'cancelled' && 'cancelled' || steps.run.outputs.conclusion }}
           TIMED_OUT: ${{ steps.run.outputs.timed_out }}
-        run: node .harness/.github/actions/pr-exploratory-test/dispatch-result.mjs
+        run: node .harness/.github/actions/pr-exploratory-test/dispatch-result.ts
 
       - name: Delete the run branch
         if: always() && steps.cut.outcome == 'success'
