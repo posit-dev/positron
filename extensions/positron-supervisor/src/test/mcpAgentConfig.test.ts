@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { agentCliCommand } from '../McpAgentConfig';
+import { agentCliCommand, agentCliDirectories } from '../McpAgentConfig';
 import { McpCliInstall, McpLaunch, findMcpAgent } from '../McpAgents';
 
 /** The command line that starts the bridge. */
@@ -51,5 +51,29 @@ suite('agentCliCommand', () => {
 		assert.deepStrictEqual(
 			{ command, first: args.slice(0, 2) },
 			{ command: 'cmd.exe', first: ['/c', 'C:\\bin\\claude.CMD'] });
+	});
+});
+
+suite('agentCliDirectories', () => {
+	test('writes from the uppercase drive a terminal starts in, and clears the lowercase one', () => {
+		// Claude Code keys its entry by the working directory's exact text, and
+		// a folder's fsPath has a lowercase drive letter (#17217).
+		assert.deepStrictEqual(
+			agentCliDirectories('c:\\Users\\me\\project', 'win32'),
+			['C:\\Users\\me\\project', 'c:\\Users\\me\\project']);
+	});
+
+	test('leaves a path with no drive letter alone', () => {
+		assert.deepStrictEqual(
+			{
+				unc: agentCliDirectories('\\\\server\\share\\project', 'win32'),
+				posix: agentCliDirectories('/home/me/project', 'linux'),
+				colonOffWindows: agentCliDirectories('c:/odd/name', 'darwin'),
+			},
+			{
+				unc: ['\\\\server\\share\\project'],
+				posix: ['/home/me/project'],
+				colonOffWindows: ['c:/odd/name'],
+			});
 	});
 });

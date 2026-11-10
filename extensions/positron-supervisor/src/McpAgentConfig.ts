@@ -56,6 +56,13 @@ interface ConfiguredAgent {
 
 	/** The command line the entry was written with, if one was recorded. */
 	launch?: McpLaunch;
+
+	/**
+	 * The directory a CLI-installed entry was written from, which the CLI keys
+	 * it by. Missing from records written before Positron settled on a
+	 * spelling, so those entries are written again.
+	 */
+	directory?: string;
 }
 
 /** Where an installed entry landed, for the message that says so. */
@@ -65,6 +72,9 @@ interface InstallResult {
 
 	/** The file Positron wrote, when it wrote one rather than running a CLI. */
 	file?: vscode.Uri;
+
+	/** The directory the CLI ran in, when the entry was written by one. */
+	directory?: string;
 }
 
 /**
@@ -104,7 +114,7 @@ export async function configureAgent(
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	await recordConfiguredAgent(context, agent, launch, result.directory);
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -183,18 +193,20 @@ async function autoConfigureClaudeCode(
 		return;
 	}
 
+	let result: InstallResult;
 	try {
-		const { description } = await installAgent(agent, launch);
-		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);
+		result = await installAgent(agent, launch);
+		log(`Configured ${agent.label} to use Positron's MCP server in ${result.description}`);
 	} catch (err) {
 		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	await recordConfiguredAgent(context, agent, launch, result.directory);
 }
 
 /**
- * Rewrite the entries written with another command line.
+ * Rewrite the entries written with another command line, or, for a harness
+ * configured through its CLI, from another directory.
  *
  * @param context The extension context, which remembers what we configure.
  * @param launch The command line that starts the bridge.
@@ -206,21 +218,31 @@ async function refreshConfiguredAgents(
 	log: (message: string) => void,
 ): Promise<void> {
 	const records = loadConfiguredAgents(context);
+	const directory = cliDirectory();
 	let changed = false;
 	for (const record of records) {
 		const agent = findMcpAgent(record.id);
-		if (!agent || sameLaunch(record.launch, launch)) {
+		if (!agent) {
 			continue;
 		}
+		// Released builds wrote Claude Code's entry from a directory spelled
+		// differently from the one Claude Code looks it up by (#17217), so an
+		// entry with no directory, or another one, is written again.
+		const sameDirectory = agent.install.kind !== 'cli' || record.directory === directory;
+		if (sameLaunch(record.launch, launch) && sameDirectory) {
+			continue;
+		}
+		let result: InstallResult;
 		try {
-			await installAgent(agent, launch);
+			result = await installAgent(agent, launch);
 		} catch (err) {
 			log(`Could not update ${agent.label}'s MCP entry: ${summarizeError(err)}`);
 			continue;
 		}
 		record.launch = launch;
+		record.directory = result.directory;
 		changed = true;
-		log(`Updated ${agent.label}'s MCP entry to start ${launch.command}`);
+		log(`Updated ${agent.label}'s MCP entry in ${result.description} to start ${launch.command}`);
 	}
 	if (changed) {
 		await saveConfiguredAgents(context, records);
@@ -292,6 +314,35 @@ export function agentCliCommand(
 		return { command: 'cmd.exe', args: ['/c', executable, ...args] };
 	}
 	return { command: executable, args: [...args] };
+}
+
+/**
+ * The spellings of a workspace folder to run an agent CLI in, the one to write
+ * from first.
+ *
+ * Claude Code keys an entry by the exact text of its working directory, and
+ * Windows keeps whatever drive letter casing a process is started with. A
+ * folder's `fsPath` has a lowercase drive letter, but a terminal -- Positron's
+ * included -- starts in an uppercase one, which is where the user runs the
+ * agent. So the entry is written from the uppercase spelling, and the
+ * lowercase one, which released builds wrote from, is only cleared.
+ *
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ * @returns The directory to write from, then any others to clear.
+ */
+export function agentCliDirectories(
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): string[] {
+	const drive = /^(?<letter>[a-zA-Z]):/.exec(folderPath)?.groups!.letter;
+	if (platform !== 'win32' || !drive) {
+		return [folderPath];
+	}
+	const rest = folderPath.slice(1);
+	const upper = drive.toUpperCase() + rest;
+	const lower = drive.toLowerCase() + rest;
+	return [upper, lower];
 }
 
 /**
@@ -384,15 +435,38 @@ async function installViaCli(
 
 	// Remove any entry of ours first: the CLI refuses to add a server that is
 	// already there, and one written by an older Positron may be wrong rather
-	// than merely present.
-	try {
-		await runAgentCli(executable, install.remove, folder);
-	} catch {
-		// There was nothing of ours to remove, which is the common case.
-	}
-	await runAgentCli(executable, install.add(launch), folder);
+	// than merely present, or written under another spelling of the folder.
+	const [directory] = await removeViaCli(executable, install, folder);
+	await runAgentCli(executable, install.add(launch), directory);
 
-	return { description: vscode.workspace.asRelativePath(folder) };
+	return { description: vscode.workspace.asRelativePath(folder), directory };
+}
+
+/**
+ * Take Positron's entry out of a CLI's configuration under every spelling of
+ * the workspace folder.
+ *
+ * @param executable The full path to the CLI.
+ * @param install The harness's CLI install.
+ * @param folder The workspace folder.
+ * @returns The spellings, from {@link agentCliDirectories}.
+ */
+async function removeViaCli(
+	executable: string,
+	install: McpCliInstall,
+	folder: vscode.Uri,
+): Promise<string[]> {
+	const directories = agentCliDirectories(folder.fsPath);
+	for (const directory of directories) {
+		try {
+			await runAgentCli(executable, install.remove, directory);
+		} catch {
+			// The CLI reports an entry that is not there as a failure, which
+			// is the common case, and it is the only authority on a
+			// configuration it owns, so there is nothing to tell apart.
+		}
+	}
+	return directories;
 }
 
 /** Add the entry by editing the harness's configuration file. */
@@ -433,13 +507,7 @@ async function uninstallAgent(agent: McpAgent): Promise<void> {
 			// The CLI is gone, and with it the configuration it kept.
 			return;
 		}
-		try {
-			await runAgentCli(executable, agent.install.remove, folder);
-		} catch {
-			// The CLI reports an entry that is not there as a failure, and it
-			// is the only authority on a configuration it owns, so there is
-			// nothing to tell apart and nothing left to try.
-		}
+		await removeViaCli(executable, agent.install, folder);
 		return;
 	}
 
@@ -459,16 +527,16 @@ async function uninstallAgent(agent: McpAgent): Promise<void> {
  *
  * @param executable The full path to the CLI.
  * @param args The arguments to pass to it.
- * @param folder The directory to run in, which is what the CLI keys its
- *  configuration by.
+ * @param directory The directory to run in, which is what the CLI keys its
+ *  configuration by, from {@link agentCliDirectories}.
  */
 async function runAgentCli(
 	executable: string,
 	args: readonly string[],
-	folder: vscode.Uri,
+	directory: string,
 ): Promise<void> {
 	const command = agentCliCommand(executable, args);
-	await execFileAsync(command.command, command.args, { cwd: folder.fsPath });
+	await execFileAsync(command.command, command.args, { cwd: directory });
 }
 
 /** The harness's CLI, when its row installs through one and it is on the path. */
@@ -519,14 +587,16 @@ function saveConfiguredAgents(
  * @param context The extension context.
  * @param agent The harness that was configured.
  * @param launch The command line its entry was written with.
+ * @param directory The directory a CLI wrote its entry from, if one did.
  */
 function recordConfiguredAgent(
 	context: vscode.ExtensionContext,
 	agent: McpAgent,
 	launch: McpLaunch,
+	directory: string | undefined,
 ): Thenable<void> {
 	const records = loadConfiguredAgents(context).filter(record => record.id !== agent.id);
-	records.push({ id: agent.id, launch });
+	records.push({ id: agent.id, launch, directory });
 	return saveConfiguredAgents(context, records);
 }
 
@@ -549,6 +619,16 @@ function agentConfigUri(install: McpFileInstall): vscode.Uri {
 function fileWorkspaceFolder(): vscode.Uri | undefined {
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	return folder?.uri.scheme === 'file' ? folder.uri : undefined;
+}
+
+/**
+ * The directory an agent CLI writes its entry from in this workspace.
+ *
+ * @returns The directory, or undefined when there is no folder to run in.
+ */
+function cliDirectory(): string | undefined {
+	const folder = fileWorkspaceFolder();
+	return folder ? agentCliDirectories(folder.fsPath)[0] : undefined;
 }
 
 /**
