@@ -12,9 +12,19 @@ test.use({
 
 test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS, tags.PYTHON] }, () => {
 
-	test.afterAll(async function ({ cleanup }) {
+	test.afterEach(async function ({ app, hotKeys, sessions, cleanup }) {
+		const foregroundSessionId = await sessions.getForegroundSessionId();
+		// Close the notebook and wait for its pending save (files.autoSave in the web lanes
+		// keeps the dirty working copy alive past the close) so the restore is the last write.
+		await hotKeys.closeAllEditors();
+		await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled();
 		// Running the cells writes execution counts and outputs back to the notebook.
 		await cleanup.restoreFiles([join('workspaces', 'matplotlib', 'interact.ipynb')]);
+		// Reopening the notebook while its session is still shutting down binds to that
+		// session and the kernel never becomes idle (#16129); matters for repeated runs.
+		if (foregroundSessionId?.includes('-notebook-')) {
+			await sessions.expectSessionToBeGone(foregroundSessionId);
+		}
 	});
 
 	test('Python - Matplotlib Interact Test', {

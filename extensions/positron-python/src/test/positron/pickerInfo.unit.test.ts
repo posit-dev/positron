@@ -128,7 +128,7 @@ suite('pickerInfo', () => {
         assert.strictEqual(pickerGroupOf(pyenvVirtualenv, context, false), PythonPickerGroup.Global);
     });
 
-    test('createPythonPickerInfo orders rows by environment type, then supported before unsupported', () => {
+    test('createPythonPickerInfo orders rows by environment type', () => {
         const info = (interpreter: PythonEnvironment, runtimeSource: EnvironmentType, supported: boolean) =>
             createPythonPickerInfo({
                 interpreter,
@@ -142,13 +142,13 @@ suite('pickerInfo', () => {
         const rows = [
             info(env(p('/usr/bin/python3'), EnvironmentType.System, '3.12.0'), EnvironmentType.System, true),
             info(projectVenv, EnvironmentType.Uv, true),
-            info(pyenv, EnvironmentType.Pyenv, false),
+            info(pyenv, EnvironmentType.Pyenv, true),
             info(homebrew, EnvironmentType.System, true),
             info(condaNamed, EnvironmentType.Conda, true),
         ];
         assert.deepEqual(
             rows.sort((a, b) => a.rowOrder! - b.rowOrder!).map((row) => row.label),
-            ['uv', 'conda', 'Python 3.12.0', 'Homebrew', 'pyenv'],
+            ['uv', 'conda', 'pyenv', 'Python 3.12.0', 'Homebrew'],
         );
     });
 
@@ -206,18 +206,18 @@ suite('pickerInfo', () => {
                     description: 'Python 3.13.2',
                 },
                 {
-                    group: 'Global environments',
-                    groupOrder: 1,
-                    rowOrder: 280,
+                    group: 'Unsupported',
+                    groupOrder: 4,
+                    rowOrder: 110,
                     label: 'pyenv',
-                    description: 'Python 3.13.1 \u00B7 not supported',
+                    description: 'Python 3.13.1',
                 },
                 {
-                    group: 'Global environments',
-                    groupOrder: 1,
-                    rowOrder: 330,
+                    group: 'Unsupported',
+                    groupOrder: 4,
+                    rowOrder: 160,
                     label: 'Python 3.8.10',
-                    description: 'not supported',
+                    description: undefined,
                 },
             ],
         );

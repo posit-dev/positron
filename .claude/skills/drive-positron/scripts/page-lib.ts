@@ -75,7 +75,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			if (!name) { return { loc: page.locator('body'), name: 'page' }; }
 			const key = name.toLowerCase();
 			if (special[key]) {
-				return (await special[key].count()) ? { loc: special[key], name: key } : { error: `no ${key} is open` };
+				return (await special[key].count()) ? { loc: special[key], name: key } : { error: (key === 'editor' && await lib.editorAreaHidden()) || `no ${key} is open` };
 			}
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			// Match the heading's text too: the Explorer's folder heading is labelled "Explorer Section: ws".
@@ -121,14 +121,18 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return lines.length > max ? lines.slice(0, max).join('\n') + `\n... ${lines.length - max} more lines` : lines.join('\n');
 		},
 		/**
-		 * Tries the exact name, then with a "(keys)" suffix, then before a comma, then (partial)
-		 * any name containing it. Icon glyphs at either end are ignored.
+		 * Tries the exact name, then the name said more than once, then with a "(keys)"
+		 * suffix, then before a comma, then (partial) any name containing it. Icon glyphs
+		 * at either end are ignored. A name is said twice when the element's own
+		 * aria-label is empty and the name comes from children that each carry it
+		 * (an activity bar tab with a badge, selected or not, once VS Code's
+		 * CompositeBarActionViewItem.updateChecked has run).
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const lead = '^[\\s\\uE000-\\uF8FF]*';
 			const tail = '[\\s\\uE000-\\uF8FF]*$';
-			const tries = [new RegExp(`${lead}${esc}${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
+			const tries = [new RegExp(`${lead}${esc}${tail}`, 'i'), new RegExp(`${lead}${esc}(?:\\s+${esc})+${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
 			for (const re of tries) {
 				const all = scope.getByRole(role as Parameters<typeof page.getByRole>[0], { name: re });
 				if (await all.count()) { return all; }
@@ -217,11 +221,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1".
 		 * Words are matched in the row as shownAs writes it, so words copied from "shown" match.
+		 * Also matches without the picker's " \u00B7 reason" suffix, as a session's name reads.
 		 */
 		hasWords: (text: string) => {
 			const words = text.split(/\s+/).filter(Boolean)
 				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
-			return (r: { label: string; description: string }) => words.every(x => x.test(lib.shownAs(r)));
+			return (r: { label: string; description: string }) => [r.description, r.description.split(/ \xB7 /)[0]]
+				.some(description => words.every(x => x.test(lib.shownAs({ label: r.label, description }))));
 		},
 		/**
 		 * The one row matching exact (label, or "label (description)") or words; nth picks among several.
@@ -463,8 +469,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
 			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
 			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
-			// Undo lib.byRole's regex to get the plain name back.
-			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
+			// Undo lib.byRole's regex to get the plain name back, dropping its repeated-name group.
+			const name = (role?.[2] ?? '').replace(/\(\?:\\s\+.*\)\+(?=\[|\$)/, '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
 			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
 			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';
 			const why = /intercepts pointer events/.test(msg) ? 'something drawn on top of it took the click'
@@ -548,6 +554,21 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { ok: true as const, tab, dirty: dom.dirty, focused: dom.focused, line, column: Number(m[2]), ...(m[3] ? { selected: Number(m[3]) } : {}), text: dom.lines[line] ?? null, ...(lines ? { lines } : {}), ...('input' in dom ? { input: dom.input } : {}), ...(dom.debug.topFrameLine || dom.debug.focusedFrameLine ? { debug: dom.debug } : {}) };
 		},
 
+		/**
+		 * Null while the editor area is on screen; else a sentence saying it is hidden and
+		 * naming the editors open in it. A maximized panel or secondary side bar, or Toggle
+		 * Editor Area Visibility, hides the area with display: none (upstream layout.ts,
+		 * setEditorHidden), and its groups and tabs stay in the page.
+		 */
+		editorAreaHidden: () => page.evaluate(({ part, group, label }) => {
+			const area = document.querySelector(part.editor);
+			if (!area || area.getClientRects().length) { return null; }
+			const tabs = [...document.querySelectorAll(`${group.group} [role=tab]`)].map(t => {
+				const title = (t.querySelector(label.name)?.textContent ?? '').replace(/\s+/g, ' ').trim() || (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '');
+				return title + (t.closest(group.active) && t.getAttribute('aria-selected') === 'true' ? ' (active)' : '');
+			});
+			return `the editor area is hidden (the panel or secondary side bar is maximized, or the area is toggled off), so no editor is on screen; ${tabs.length ? `open in it: ${tabs.join(', ')}` : 'no editor is open in it'}. Restore the area, then run this again`;
+		}, { part: s.part, group: s.editorGroup, label: s.label }),
 		/** Refocuses the active editor without moving its cursor. */
 		focusEditor: async () => {
 			const ed = page.locator(`${s.editorGroup.active} ${s.monaco.editor}`).filter({ visible: true }).first();

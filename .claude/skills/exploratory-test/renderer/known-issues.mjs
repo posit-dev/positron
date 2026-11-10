@@ -18,6 +18,10 @@
 //     it searches unauthenticated, which allows 10 searches a minute. A rate
 //     limit is waited out and retried; a search that still fails exits 1, so
 //     it cannot pass for no matches.
+//   node known-issues.mjs --view <number> [--repo posit-dev/positron]
+//     prints an issue or PR with its state, body and comments. The explorer
+//     has no `gh` login in CI, so this is how it reads one; it works without
+//     a token, like --search.
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -217,7 +221,7 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
  *   the `held` and `failed` rows; `partly` holds their numbers.
  * - `fixFailed`, `cameBack`: finding number to the fixes it shows did not
  *   hold, or the closed issues it shows came back.
- * - `known`: finding number to its KNOWN matches, less its own issues.
+ * - `known`: finding number to its KNOWN matches, less its own issues and fixes that held.
  * - `similar`: finding number to the open linked issues among those matches,
  *   for findings with no issue of their own.
  * - `knownFixes`: `{ n, issue }` matches on a fix or a closed linked issue,
@@ -277,14 +281,18 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 		}
 	}
 	// A finding never matches its own issue, and one that looks like an open
-	// linked issue stands for it, so that issue is not listed again.
+	// linked issue stands for it, so that issue is not listed again. A fix the
+	// run showed holding is not shown as a finding's match: the finding is
+	// another bug, and listing it would read as if the fix did not hold.
 	const known = new Map();
 	const similar = new Map();
 	const knownFixes = [];
+	const fixHeld = n => held.has(n) && !failedRows.has(n);
 	for (const [f, numbers] of knownMatches) {
 		const own = new Set([...(fixFailed.get(f) ?? []), ...(cameBack.get(f) ?? [])].map(i => i.number));
 		const rest = numbers.filter(n => !own.has(n));
-		if (rest.length) { known.set(f, rest); }
+		const shown = rest.filter(n => !fixHeld(n));
+		if (shown.length) { known.set(f, shown); }
 		const open = [];
 		for (const n of rest) {
 			const issue = byNumber.get(n);
@@ -493,10 +501,43 @@ export function formatSearch(items) {
 		: 'no matches';
 }
 
+/** An issue or PR and its comments as plain text, the body and comments fenced as data written by anyone. */
+export function formatView(issue, comments) {
+	const kind = issue.pull_request ? 'PR' : 'issue';
+	const state = issue.state !== 'closed' ? 'open' : issue.pull_request?.merged_at ? 'merged' : issue.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
+	const quoted = (who, text) => `--- ${who} ---\n${String(text ?? '').trim() || '(empty)'}`;
+	return [
+		`#${issue.number} (${kind}, ${state}): ${JSON.stringify(issue.title ?? '')}`,
+		quoted(`body by ${issue.user?.login ?? 'unknown'}`, issue.body),
+		...comments.map(c => quoted(`comment by ${c.user?.login ?? 'unknown'}, ${String(c.created_at ?? '').slice(0, 10)}`, c.body)),
+	].join('\n\n');
+}
+
+/** An issue or PR and up to 100 of its comments. Waits out a rate limit; throws on a failed request. */
+export async function viewIssue(number, repo = DEFAULT_REPO, { auth = token() } = {}) {
+	const issue = await github(`/repos/${repo}/issues/${number}`, auth);
+	const comments = issue.comments ? await github(`/repos/${repo}/issues/${number}/comments?per_page=100`, auth) : [];
+	return formatView(issue, comments);
+}
+
 async function main() {
-	const { values } = parseArgs({ options: { pr: { type: 'string' }, repo: { type: 'string' }, out: { type: 'string' }, search: { type: 'string' } } });
+	const { values } = parseArgs({ options: { pr: { type: 'string' }, repo: { type: 'string' }, out: { type: 'string' }, search: { type: 'string' }, view: { type: 'string' } } });
 	const pr = Number(values.pr);
 	const repo = values.repo || DEFAULT_REPO;
+	if (values.view !== undefined) {
+		const n = Number(String(values.view).replace(/^#/, ''));
+		if (!Number.isInteger(n) || n <= 0) {
+			console.error('usage: known-issues.mjs --view <number> [--repo <owner/name>]');
+			process.exit(2);
+		}
+		try {
+			console.log(await viewIssue(n, repo));
+		} catch (err) {
+			console.error(`known-issues: could not read #${n}: ${err.message}`);
+			process.exit(1);
+		}
+		return;
+	}
 	if (values.search !== undefined) {
 		try {
 			console.log(formatSearch(await searchIssues(values.search, repo)));
@@ -507,7 +548,7 @@ async function main() {
 		return;
 	}
 	if (!values.out || !Number.isInteger(pr) || pr <= 0) {
-		console.error('usage: known-issues.mjs --pr <number> --out <file> [--repo <owner/name>]\n       known-issues.mjs --search "<terms>" [--repo <owner/name>]');
+		console.error('usage: known-issues.mjs --pr <number> --out <file> [--repo <owner/name>]\n       known-issues.mjs --search "<terms>" [--repo <owner/name>]\n       known-issues.mjs --view <number> [--repo <owner/name>]');
 		process.exit(2);
 	}
 	let data;

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { screen } from '@testing-library/react';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { CellOutputCollapseButton } from '../../../browser/notebookCells/CellOutputCollapseButton.js';
@@ -19,13 +17,13 @@ describe('CellOutputCollapseButton', () => {
 	const rtl = setupRTLRenderer();
 
 	let outputIsCollapsed: ISettableObservable<boolean>;
-	let selectStub: ReturnType<typeof vi.fn>;
-	let toggleStub: ReturnType<typeof vi.fn>;
+	let selectStub: ReturnType<typeof vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>>;
+	let toggleStub: ReturnType<typeof vi.fn<PositronNotebookCodeCell['toggleOutputCollapse']>>;
 
 	beforeEach(() => {
 		outputIsCollapsed = observableValue('outputIsCollapsed', false);
-		selectStub = vi.fn();
-		toggleStub = vi.fn();
+		selectStub = vi.fn<IPositronNotebookInstance['selectionStateMachine']['selectCell']>();
+		toggleStub = vi.fn<PositronNotebookCodeCell['toggleOutputCollapse']>();
 	});
 
 	function renderButton() {

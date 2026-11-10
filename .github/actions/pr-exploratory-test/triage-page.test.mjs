@@ -96,7 +96,7 @@ test('each issue row shows where it stands and for how long', () => {
 	assert.match(t, /10 days in Future/);
 	assert.match(t, /filed 3 days ago/);
 	assert.match(t, /closed Oct 10/);
-	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ report/);
+	assert.match(t, /#7 ~ plots ~ filed Aug 1 ~ matched ~ finding /);
 	assert.doesNotMatch(t, /#1 ~ plots ~ filed Oct 1 ~ matched/);
 });
 
@@ -104,12 +104,11 @@ test('the breakdown counts issues filed from the report apart from matched ones'
 	assert.match(text(section(view().body, 'kind')), /Linked by Filed from the report 6 Matched to its finding 1/);
 });
 
-test('the page has the shared top row and footer, and the counting panel says which issues count', () => {
+test('the page has the shared top row and footer', () => {
 	const html = renderTriagePage({ rows }, { now: new Date(`${TODAY}T12:00:00Z`) });
 	assert.match(html, /<nav[^>]*class="switch"[\s\S]*aria-current="page"[^>]*>Triage outcomes/);
 	assert.match(html, /<footer>Updated /);
-	assert.match(text(html), /issues filed by hand that the PR outcomes page matched to a finding and that mention its PR/);
-	assert.doesNotMatch(text(html), /left out/);
+	assert.doesNotMatch(text(html), /Counted: issues labelled/);
 });
 
 test('the browser renders the same view as the server', () => {
@@ -118,4 +117,25 @@ test('the browser renders the same view as the server', () => {
 	for (const [range, filter] of [[ALL, {}], [ALL, { area: 'ui' }], [resolveRange('7d', [], TODAY), { issue: 6 }]]) {
 		assert.deepEqual(JSON.parse(JSON.stringify(ctx.renderView(rows, { now: TODAY, range, filter }))), view(filter, range));
 	}
+});
+
+test('each outcome in All issues lists newest first by the date on the right: closed, moved to Future, or filed', () => {
+	const list = [
+		row(1, 'completed', { filed: '2026-10-08', closed: '2026-10-09' }),
+		row(2, 'completed', { filed: '2026-10-01', closed: '2026-10-14' }),
+		row(3, 'future', { filed: '2026-10-09', futureSince: '2026-10-10' }),
+		row(4, 'future', { filed: '2026-10-02', futureSince: '2026-10-12' }),
+		row(5, 'awaiting', { filed: '2026-10-03' }),
+		row(6, 'awaiting', { filed: '2026-10-11' }),
+	];
+	const v = renderView(list, { now: TODAY, range: resolveRange('all', list.map(r => r.filed).sort(), TODAY), filter: {} });
+	const order = [...v.body.matchAll(/<div class="issue" id="i(\d+)"/g)].map(m => Number(m[1]));
+	const pos = n => order.indexOf(n);
+	assert.ok(pos(2) < pos(1) && pos(4) < pos(3) && pos(6) < pos(5), `order was ${order}`);
+});
+
+test('an issue row links to its finding in the report, not to the report as well', () => {
+	const v = view({ issue: 1 });
+	assert.match(v.body, /<a href="https:\/\/x\/r\/index.html#f1">finding<\/a>/);
+	assert.doesNotMatch(v.body, />report<\/a>/);
 });

@@ -1,0 +1,140 @@
+name: "Test: PR"
+
+# Positron's tests run in the private repo posit-dev/positron-builds. This job
+# dispatches that repo's pr-test.yml for the PR, waits for it, and reports its
+# conclusion as this PR's `required-tests` check. Secrets never reach PR code
+# here: the only secret used is the bot app key, in this job, and the tests run
+# in the other repo against the PR's merge commit with no credentials.
+#
+# pull_request_target, not pull_request: the workflow always comes from main and
+# never runs PR code, so a PR cannot edit this file to point the bot key at
+# something else. Fork PRs fail with a message instead of skipping, because a
+# skipped required check would count as passing. A maintainer tests a fork PR
+# through the manual lane in positron-builds and merges with an admin override.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-test-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  required-tests:
+    name: required-tests
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Refuse fork PRs
+        if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        shell: bash
+        run: |
+          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
+          exit 1
+
+      - name: Mint a token for positron-builds
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+
+      - name: Dispatch the test run
+        id: dispatch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # pr-lane mirrors positron-builds main; PR runs use it so their build caches
+          # stay in that branch's cache scope, away from the privileged main runs.
+          gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane -f "pr_number=$PR" -f "head_sha=$HEAD_SHA"
+          # The dispatch API returns no run id; find the run by its run-name, and
+          # only among dispatches the bot itself started, so a same-named run pushed
+          # by someone else on positron-builds cannot stand in for it.
+          title="positron PR #$PR at $HEAD_SHA"
+          id=""
+          for i in $(seq 1 24); do
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=pr-lane&created=>=$since&per_page=20" \
+              --jq ".workflow_runs[] | select(.path == \".github/workflows/pr-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            if [ -n "$id" ]; then break; fi
+            sleep 5
+          done
+          if [ -z "$id" ]; then
+            echo "::error::Dispatched pr-test.yml but could not find its run within two minutes."
+            exit 1
+          fi
+          url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
+          echo "run_id=$id" >> "$GITHUB_OUTPUT"
+          echo "Tests are running at $url"
+          echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      # App tokens live for an hour. Wait in two halves with a fresh token for
+      # the second, so a long run is still reported rather than lost.
+      - name: Wait for the test run (first hour)
+        id: wait1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          set +e
+          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" -eq 124 ] && echo "Still running after 55 minutes; waiting with a fresh token."
+          exit 0
+
+      - name: Mint a second token
+        if: ${{ steps.wait1.outputs.code == '124' }}
+        id: token2
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
+      - name: Wait for the test run (second hour)
+        if: ${{ steps.wait1.outputs.code == '124' }}
+        id: wait2
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token2.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          set +e
+          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Report the result
+        shell: bash
+        env:
+          CODE1: ${{ steps.wait1.outputs.code }}
+          CODE2: ${{ steps.wait2.outputs.code }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          code="${CODE2:-$CODE1}"
+          url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"
+          case "$code" in
+            0) echo "Tests passed: $url" ;;
+            124) echo "::error::Tests still running after two hours: $url"; exit 1 ;;
+            *) echo "::error::Tests failed or were cancelled: $url"; exit 1 ;;
+          esac

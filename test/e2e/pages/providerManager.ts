@@ -10,7 +10,6 @@ import { QuickAccess } from './quickaccess.js';
 import {
 	ModelProvider,
 	LoginModelProviderOptions,
-	fillSecretValue,
 	getProviderAuthType,
 	providerRequiresBaseUrl,
 	getProviderBaseUrlEnvVarName,
@@ -19,6 +18,7 @@ import {
 	getProviderEnvVarName,
 	completeOAuthDeviceCodeLoginWithCode,
 } from './modelProviderShared.js';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
@@ -206,7 +206,10 @@ export class ProviderManager {
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
 				await expect(card).toContainText('Connected', { timeout });
-				await expect(card).toContainText(`Managed by ${managedBy}`);
+				// Posit Assistant names the button "Managed, <provider>" and describes it with the host note.
+				const managed = card.getByRole('button', { name: /^Managed\b/ });
+				await expect(managed).toBeDisabled();
+				await expect(managed).toHaveAccessibleDescription(new RegExp(`Managed by ${managedBy}`));
 				await expect(card.locator('[data-testid^="provider-action-"]')).toHaveCount(0);
 			} finally {
 				await this.close();

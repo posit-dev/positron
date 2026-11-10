@@ -91,8 +91,8 @@ test.describe('Data Connections - Redshift', {
 			'Port': port,
 			'Database': database,
 			'User': user,
-			'Password': password,
 		});
+		await dataConnections.fillSecretConnectionInput('Password', password);
 
 		await dataConnections.save();
 		await dataConnections.expectConnectionInTree(connectionName);

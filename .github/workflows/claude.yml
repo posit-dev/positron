@@ -208,7 +208,7 @@ jobs:
       - name: Run Claude Code Action
         id: claude
         if: steps.ack.outputs.duplicate != 'true'
-        uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
+        uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
         with:
           anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ steps.generate-token.outputs.token }}
@@ -373,7 +373,7 @@ jobs:
           extension: 'true'
 
       - name: Run Claude Code Action
-        uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
+        uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
         with:
           anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
           github_token: ${{ steps.generate-token.outputs.token }}
@@ -448,6 +448,13 @@ jobs:
             are existing tests and update them or put new tests alongside the old ones. Choose the
             test level from the table in CLAUDE.md, and use the author-vitest-tests skill when you
             write new Vitest tests.
+            After a bug fix, search with `git grep` for sibling code paths that have the same bug,
+            for example other backends, handlers, or data types that share the pattern. Fix each one
+            in this PR, or name it in the PR body and say why you left it out.
+            Before you create the PR, read the PR body and release note against the final diff.
+            Remove each claim that the diff does not support. When you push to an existing PR
+            instead, do not edit its body. If your commit makes a claim in it wrong, say which
+            claim in your comment.
             Before each commit, run `npm run precommit -- <changed files>`.
             In the PR body, list each command that you ran and its result. Say which tests could
             not run here and that CI runs them on the PR. Never write that a test passed or failed

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import base64
 import io
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import matplotlib
 import pytest
@@ -35,6 +35,8 @@ from ..utils import run_with_metadata
 from .conftest import active_backend
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from positron.positron_ipkernel import PositronShell
 
 # The `from`-import form IPython's own docs recommend, which binds whatever

@@ -15,7 +15,7 @@ import re
 import sys
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Container, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
@@ -54,6 +54,8 @@ from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Container
+
     from ipykernel.comm.manager import CommManager
     from ipykernel.control import ControlThread
 

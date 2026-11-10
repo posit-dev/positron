@@ -17,7 +17,7 @@ Edge cases:
 
 - Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && npm run build-check`
 
-**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
+**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts`. It checks each config listed in the root `tsconfig.json` (`vitest.tsconfig.json` for `src/`, a `tsconfig.vitest.json` for `test/e2e` and each extension with Vitest files) and completes in seconds. CI runs it in the `vitest` job, so a type error in a test fails the PR. The editor uses the same configs, so the Problems pane matches. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
 ### Reproducing CI Failures Locally (Posit-internal)
 
@@ -72,6 +72,7 @@ Positron has three test categories:
 | Service or class that needs DI services | Vitest | `src/vs/**` | **Builder** <br> `createTestContainer()` | `.vitest.ts` |
 | React component, props only | Vitest | `src/vs/**` | **RTL prop-driven** <br> `setupRTLRenderer()` | `.vitest.tsx` |
 | React component using services | Vitest | `src/vs/**` | **RTL service-context** <br> `withReactServices()` | `.vitest.tsx` |
+| Static HTML/CSS resource (webview template, theme-class selectors) | Vitest | `src/vs/**` | **Plain test** <br> read the file, check its markup or CSS rules | `.vitest.ts` |
 | Existing upstream VS Code test (rare) | Mocha (Electron/Node/Browser) | `src/vs/**/test/` | **Match existing** <br> `Mocha suite()/test()` | `.test.ts` / `.integrationTest.ts` |
 | Code needing activated extensions or workspace APIs | Mocha (ext host) | `extensions/<name>/` | **vscode API** <br> `import * as vscode` | `.test.ts` |
 | User-visible workflows across multiple systems | Playwright | `test/e2e/` | **Page Object Model** <br> `app.workbench.*` | `.test.ts` |

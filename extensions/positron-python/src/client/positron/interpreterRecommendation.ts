@@ -146,10 +146,11 @@ interface NamedInterpreters {
  * discovery there is no timeout: a resolve that is slow but succeeds must not let a
  * lower tier win, so the answer never depends on timing.
  *
- * In `definitionsOnly` mode the path is kept as written, since Positron matches
- * definitions on the exact path. Otherwise the interpreter keeps the path PET resolved,
- * which is the path discovery registers, so the runtime ID matches the discovered
- * runtime; `defaultInterpreterPath` in the returned context is updated to match.
+ * In `definitionsOnly` mode the definition's path is kept as written, since the
+ * runtime ID depends on the path. Otherwise the interpreter keeps the path PET
+ * resolved, which is the path discovery registers, so the runtime ID matches the
+ * discovered runtime; `defaultInterpreterPath` in the returned context is updated
+ * to match.
  */
 async function resolveNamedInterpreters(
     interpreterService: IInterpreterService,

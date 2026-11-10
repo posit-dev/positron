@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedExcludePaths, getInterpreterDefinitionPaths, interpreterDefinitionPathFor, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -306,7 +306,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// If no R binaries are found, log to output and end discovery.
 	if (rAll.length === 0) {
 		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
-		printInterpreterSettingsInfo();
+		await printInterpreterSettingsInfo();
 		return;
 	}
 
@@ -368,14 +368,18 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 /**
  * Yields metadata for R binaries named in `interpreters.definitions` that
  * discovery did not find. Positron hides these and shows only the variants
- * created from the definitions. The binary path is used as given (not
- * resolved through symlinks) so it matches the definition's path exactly.
+ * created from the definitions. The binary path is not resolved through
+ * symlinks, so it still matches the definition's path.
  *
  * @param discoveredPaths Runtime paths already yielded by discovery.
  */
 export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	// Discovery lists paths normalized, and a definition may be written
+	// another way, so compare in the definitions' own spelling.
+	const discoveredDefinitions = new Set([...discoveredPaths]
+		.map(discovered => interpreterDefinitionPathFor(discovered)));
 	for (const binpath of getInterpreterDefinitionPaths()) {
-		if (discoveredPaths.has(binpath)) {
+		if (discoveredDefinitions.has(binpath)) {
 			continue;
 		}
 		if (!fs.existsSync(binpath)) {
@@ -398,8 +402,8 @@ export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<stri
  *
  * Pixi runtimes are never cached, so on a warm start, when Positron serves R
  * from its discovery cache and skips `rRuntimeDiscoverer()`, this is the only
- * way they are found. Runtime IDs depend only on the binary path and version,
- * so a runtime found by both this and full discovery is registered once.
+ * way they are found. Pixi runtime IDs depend only on the binary path and
+ * version, so a runtime found by both this and full discovery is registered once.
  */
 export async function* rPixiRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	const binaries = deduplicateRBinaries(await discoverPixiBinaries());
@@ -823,10 +827,15 @@ export async function makeMetadata(
 
 	const rVersion = rInst.version;
 
-	// Create a stable ID for the runtime based on the interpreter path and version.
+	// Create a stable ID for the runtime based on the interpreter path and
+	// version, and the module environment, since one R can be used with or
+	// without modules.
 	const digest = crypto.createHash('sha256');
 	digest.update(rInst.binpath);
 	digest.update(rVersion);
+	if (rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		digest.update(rInst.packagerMetadata.environmentName);
+	}
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
 	// Save the R home path, binary path and Rscript path as extra data.

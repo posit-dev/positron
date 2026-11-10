@@ -282,7 +282,7 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
  * Bump when the startup flags of discovered runtimes change, so cached runtimes
  * from an older build are rediscovered once.
  */
-export const DISCOVERY_POLICY_VERSION = 2;
+export const DISCOVERY_POLICY_VERSION = 3;
 
 /**
  * Digest of every Python setting that gates discovery but doesn't move an

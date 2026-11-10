@@ -7,7 +7,7 @@ import { Disposable, DisposableMap, DisposableStore } from '../../../../base/com
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
-import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronConnectionsService.js';
+import { IPositronConnectionsService, ISessionConnectionCodeChangeEvent, POSITRON_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronConnectionsService.js';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from './positronConnectionsInstance.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -20,6 +20,27 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
+import { raceTimeout } from '../../../../base/common/async.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+
+/** How long a connection comm already open at startup has to say what it is before it is decided on. */
+const STARTUP_METADATA_TIMEOUT_MS = 5000;
+
+/**
+ * The languages whose connection comms are known to be safe to close. Positron has closed ggsql
+ * comms on arrival since Data Connections shipped, and ggsql reads the session's database from the
+ * code recorded on the way past (see getSessionConnectionCode).
+ */
+const CLOSABLE_CONNECTION_LANGUAGES: ReadonlySet<string> = new Set(['ggsql']);
+
+/**
+ * Whether a connection comm is kept open rather than closed; see watchRuntimeConnections. A comm
+ * that does not say what language it is (no metadata, or metadata with no `language_id`) takes its
+ * session's language.
+ */
+function keepsConnectionComm(session: ILanguageRuntimeSession, metadata: Partial<IConnectionMetadata> | undefined): boolean {
+	return !CLOSABLE_CONNECTION_LANGUAGES.has(metadata?.language_id ?? session.runtimeMetadata.languageId);
+}
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -31,8 +52,15 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	public onDidFocusEmitter = this._register(new Emitter<string>);
 	public onDidFocus = this.onDidFocusEmitter.event;
 
+	private readonly onDidChangeSessionConnectionCodeEmitter = this._register(new Emitter<ISessionConnectionCodeChangeEvent>);
+	readonly onDidChangeSessionConnectionCode = this.onDidChangeSessionConnectionCodeEmitter.event;
+
 	private readonly connections: IPositronConnectionInstance[] = [];
-	private readonly closeConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
+
+	// The code behind the connection comm each session opened most recently, keyed by session id.
+	// See getSessionConnectionCode.
+	private readonly sessionConnectionCode = new Map<string, string>();
+	private readonly watchConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
 	public readonly driverManager: PositronConnectionsDriverManager;
 
 	constructor(
@@ -48,11 +76,14 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 
 		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
 
-		// With the Data Connections feature on, the Connections pane is not registered, so there is
-		// nowhere to show runtime connections. The setting requires a reload, so it is read once.
+		// With the Data Connections feature on, the Connections pane is not registered, so runtime
+		// connections are only watched, not shown. The setting requires a reload, so it is read once.
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
-				this.closeRuntimeConnections(session);
+				this.watchRuntimeConnections(session);
+			}));
+			this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
+				this.watchConnectionsListeners.deleteAndDispose(sessionId);
 			}));
 			return;
 		}
@@ -138,27 +169,108 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	}
 
 	/**
-	 * Closes the connection comms a session opens, which would otherwise stay open until the session
-	 * ends. R opens one for every odbc or DBI connection.
+	 * Watches the connection comms a session opens. Each comm's code is recorded; see
+	 * getSessionConnectionCode.
+	 *
+	 * Only comms known to be safe to close (ggsql's; see CLOSABLE_CONNECTION_LANGUAGES) are closed.
+	 * Every other comm is kept open until the runtime closes it or the session ends, because closing
+	 * one can run the connection's disconnect() in the kernel. R and Python do: Ark through
+	 * `.ps.connection_close`, Python through `_close_connection`. The object the user's code just
+	 * opened would then be invalid a moment later.
+	 *
+	 * The listener stays for the life of the session rather than of its runtime: a restart starts a
+	 * new kernel in the same session without firing onDidStartRuntime again, and that kernel opens
+	 * comms of its own.
 	 */
-	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
+	private async watchRuntimeConnections(session: ILanguageRuntimeSession) {
+		// Whether a comm has opened, or the session has ended, since the comms already open were
+		// listed. Either is newer than anything those comms report, which then must not replace it.
+		let superseded = false;
 		const store = new DisposableStore();
-		store.add(session.onDidCreateClientInstance(({ client }) => {
+		store.add(session.onDidCreateClientInstance(({ message, client }) => {
 			if (client.getClientType() === RuntimeClientType.Connection) {
-				client.dispose();
+				superseded = true;
+				const metadata = message.data as Partial<IConnectionMetadata> | undefined;
+				this.setSessionConnectionCode(session.sessionId, metadata?.code);
+				if (!keepsConnectionComm(session, metadata)) {
+					client.dispose();
+				}
 			}
 		}));
 		store.add(session.onDidEndSession(() => {
-			this.closeConnectionsListeners.deleteAndDispose(session.sessionId);
+			superseded = true;
+			// Whatever the runtime was connected to went with it.
+			this.setSessionConnectionCode(session.sessionId, undefined);
 		}));
-		this.closeConnectionsListeners.set(session.sessionId, store);
+		this.watchConnectionsListeners.set(session.sessionId, store);
 
 		try {
 			const clients = await session.listClients(RuntimeClientType.Connection);
-			clients.forEach(client => client.dispose());
+			// With several open, nothing says which the session opened last, so none of them says
+			// where it is. Left unknown rather than guessed: a wrong code would have a SQL file's
+			// statement run in a session on another database.
+			const sole = clients.length === 1;
+			await Promise.all(clients.map(async client => {
+				const connection = new ConnectionsClientInstance(client);
+				let keep = false;
+				try {
+					// Bounded, so a comm that never answers is still decided on.
+					const metadata = await raceTimeout(connection.getMetadata(), STARTUP_METADATA_TIMEOUT_MS)
+						.catch(e => {
+							this.logService.error('Error while reading a runtime connection\'s metadata', e);
+							return undefined;
+						});
+					// Ark answers only when R is idle, so a window reloaded during a long computation
+					// sees every R comm time out; closing them would disconnect the user's objects.
+					keep = keepsConnectionComm(session, metadata);
+					if (metadata && sole && !superseded) {
+						this.setSessionConnectionCode(session.sessionId, metadata.code);
+					}
+				} finally {
+					if (keep) {
+						// Disposing the wrapper closes the comm too, so it is released only once the
+						// comm has closed: when the runtime closes it or the session ends. A comm
+						// that closed while its metadata was pending has already fired its close.
+						if (client.clientState.get() === RuntimeClientState.Closed) {
+							connection.dispose();
+						} else {
+							Event.once(connection.onDidClose)(() => connection.dispose());
+						}
+					} else {
+						connection.dispose();
+						client.dispose();
+					}
+				}
+			}));
 		} catch (e) {
-			this.logService.error('Error while closing runtime connections', e);
+			this.logService.error('Error while watching runtime connections', e);
 		}
+	}
+
+	/**
+	 * The code behind the connection comm a session opened most recently, or undefined if it has
+	 * opened none since Positron started watching it.
+	 *
+	 * A ggsql session holds one database at a time and opens a comm whenever that changes, with
+	 * `-- @connect: <uri>` as its code, so for ggsql this says which database the session is on.
+	 * Positron closes ggsql comms on arrival (others stay open; see watchRuntimeConnections), so the code is read on the way past: a ggsql session reconnected
+	 * after a reload has had its comm closed already, and reads as undefined until it connects
+	 * again.
+	 */
+	getSessionConnectionCode(sessionId: string): string | undefined {
+		return this.sessionConnectionCode.get(sessionId);
+	}
+
+	private setSessionConnectionCode(sessionId: string, code: string | undefined) {
+		if (this.sessionConnectionCode.get(sessionId) === code) {
+			return;
+		}
+		if (code === undefined) {
+			this.sessionConnectionCode.delete(sessionId);
+		} else {
+			this.sessionConnectionCode.set(sessionId, code);
+		}
+		this.onDidChangeSessionConnectionCodeEmitter.fire({ sessionId, code });
 	}
 
 	attachRuntime(session: ILanguageRuntimeSession) {

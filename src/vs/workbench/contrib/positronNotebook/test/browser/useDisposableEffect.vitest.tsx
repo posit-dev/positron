@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { useDisposableEffect } from '../../browser/useDisposableEffect.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';

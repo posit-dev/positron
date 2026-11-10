@@ -7,7 +7,7 @@ NumPy and Polars to handle cases where one or the other may not be available.
 
 import math
 import warnings
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import polars as pl
@@ -36,7 +36,7 @@ def _calculate_fd_binwidth(data, data_range: float, n: int) -> float:
         return _calculate_sqrt_fallback_binwidth(data_range, n)
 
 
-def _convert_object_series_to_float(data: "pl.Series") -> "Optional[pl.Series]":
+def _convert_object_series_to_float(data: "pl.Series") -> "pl.Series | None":
     """Convert object dtype Series to Float64, returning None if conversion fails."""
     import polars as pl
 
@@ -167,7 +167,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
 
 def _get_histogram_polars(
     data: "pl.Series", num_bins: int, method: str = "fd"
-) -> Tuple[list, list]:
+) -> tuple[list, list]:
     """
     Compute histogram using Polars operations instead of NumPy.
 
@@ -356,7 +356,7 @@ def _get_histogram_polars(
 
         # Create the final bin_counts array with zeros for unobserved bins
         bin_counts = [0] * (len(bin_edges) - 1)
-        for bin_idx, count in zip(observed_bins, observed_counts):
+        for bin_idx, count in zip(observed_bins, observed_counts, strict=False):
             if 0 <= bin_idx < len(bin_counts):  # Safety check
                 bin_counts[bin_idx] = count
 

@@ -348,9 +348,37 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Relies on extension positron.positron-r
 	 */
 	private async _runRTasks() {
-		// no-op for now, since we haven't defined any pre-runtime startup R tasks
+		if (this.pendingInitTasks.has(NewFolderTask.CreateDotHere)) {
+			await this._createDotHere();
+		}
+
 		// Complete the R task
 		this._removePendingInitTask(NewFolderTask.R);
+	}
+
+	/**
+	 * Creates an empty `.here` file, as `here::set_here()` does,
+	 * to mark the folder as a project root for packages such as here, usethis,
+	 * and rprojroot.
+	 */
+	private async _createDotHere() {
+		if (!this._newFolderConfig) {
+			return;
+		}
+
+		const folderRoot = URI.from({
+			scheme: this._newFolderConfig.folderScheme,
+			authority: this._newFolderConfig.folderAuthority,
+			path: this._newFolderConfig.folderPath
+		});
+
+		await this._fileService.createFile(joinPath(folderRoot, '.here'))
+			.catch((error) => {
+				const errorMessage = localize('positronNewFolderService.dotHereError', 'Error creating .here {0}', error.message);
+				this._notificationService.error(errorMessage);
+			});
+
+		this._removePendingInitTask(NewFolderTask.CreateDotHere);
 	}
 
 	private async _runPostInitTasks() {
@@ -878,6 +906,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				break;
 			case FolderTemplate.RProject:
 				tasks.add(NewFolderTask.R);
+				if (!this._newFolderConfig.initGitRepo && !this._newFolderConfig.useRenv) {
+					tasks.add(NewFolderTask.CreateDotHere);
+				}
 				break;
 			case FolderTemplate.EmptyProject:
 				// Empty project doesn't have any language-specific tasks

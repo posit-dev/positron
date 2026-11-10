@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { CAN_CREATE_FOLDER_IN_COMMAND } from './positron-file-transfer/src/canCreateFolder';

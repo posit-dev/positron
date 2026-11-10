@@ -5,7 +5,6 @@
 
 import os
 import sqlite3
-from typing import Tuple
 
 import pytest
 import sqlalchemy
@@ -227,7 +226,7 @@ def _make_msg(method, params, comm_id):
 @pytest.fixture(scope="function")
 def connections_comm(
     connections_service: ConnectionsService, con
-) -> Tuple[ConnectionsService, DummyComm]:
+) -> tuple[ConnectionsService, DummyComm]:
     comm_id = connections_service.register_connection(con)
 
     dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
@@ -244,7 +243,7 @@ class TestSQLiteConnectionsService:
         assert comm_id in connections_service.comms
 
     @pytest.mark.parametrize("path", [[], [{"kind": "schema", "name": "main"}]])
-    def test_contains_data(self, connections_comm: Tuple[ConnectionsService, DummyComm], path):
+    def test_contains_data(self, connections_comm: tuple[ConnectionsService, DummyComm], path):
         _, comm = connections_comm
 
         msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm.comm_id)
@@ -260,7 +259,7 @@ class TestSQLiteConnectionsService:
             ([{"kind": "schema", "name": "main"}], ""),
         ],
     )
-    def test_get_icon(self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected):
+    def test_get_icon(self, connections_comm: tuple[ConnectionsService, DummyComm], path, expected):
         _, comm = connections_comm
 
         msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm.comm_id)
@@ -276,7 +275,7 @@ class TestSQLiteConnectionsService:
         ],
     )
     def test_list_objects(
-        self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected
+        self, connections_comm: tuple[ConnectionsService, DummyComm], path, expected
     ):
         _, comm = connections_comm
 
@@ -287,7 +286,7 @@ class TestSQLiteConnectionsService:
         assert len(result) == 1
         assert result == expected
 
-    def test_list_fields(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
+    def test_list_fields(self, connections_comm: tuple[ConnectionsService, DummyComm]):
         _, comm = connections_comm
 
         msg = _make_msg(
@@ -304,7 +303,7 @@ class TestSQLiteConnectionsService:
         assert result[1] == {"name": "year", "dtype": "INTEGER"}
         assert result[2] == {"name": "score", "dtype": "NUMERIC"}
 
-    def test_preview_object(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
+    def test_preview_object(self, connections_comm: tuple[ConnectionsService, DummyComm]):
         service, comm = connections_comm
 
         msg = _make_msg(

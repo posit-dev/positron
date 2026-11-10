@@ -4,7 +4,8 @@
 #
 
 import json
-from typing import TYPE_CHECKING, Any, Dict, Hashable, cast
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any, cast
 
 from .inspectors import INSPECTOR_CLASSES, PositronInspector, get_inspector
 
@@ -30,7 +31,7 @@ def encode_access_key(key: Any) -> str:
 # Since access keys are serialized to JSON, we can't use get_inspector to find the inspector
 # corresponding to a serialized access key. We instead use the key's type's qualname, but need this
 # dict to map known and supported qualnames to keys that are accepted by get_inspector.
-_ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY: Dict[str, str] = {
+_ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY: dict[str, str] = {
     "int": "number",
     "float": "number",
     "complex": "number",
@@ -68,10 +69,10 @@ def decode_access_key(access_key: str) -> Any:
         # See https://github.com/posit-dev/positron/issues/8052.
         return access_key
 
-    return access_key_from_json(cast("Dict[str, JsonData]", json_data))
+    return access_key_from_json(cast("dict[str, JsonData]", json_data))
 
 
-def access_key_from_json(json_data: "Dict[str, JsonData]") -> Any:
+def access_key_from_json(json_data: "dict[str, JsonData]") -> Any:
     # Get the inspector for this type.
     # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
     type_name = cast("str", json_data["type"])

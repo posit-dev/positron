@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -298,10 +296,12 @@ describe('DataConnectionNodeDetailsPage', () => {
 		});
 
 		it('links each tab to its panel whatever its title, spaces included', () => {
-			renderPage({ sections: [], tabs: [
-				{ title: 'Sample Data', sections: [{ kind: 'code', code: 'SELECT 1' }] },
-				{ title: 'Definition', sections: [{ kind: 'code', code: 'CREATE' }] },
-			] });
+			renderPage({
+				sections: [], tabs: [
+					{ title: 'Sample Data', sections: [{ kind: 'code', code: 'SELECT 1' }] },
+					{ title: 'Definition', sections: [{ kind: 'code', code: 'CREATE' }] },
+				]
+			});
 
 			// A title spliced into an id would give aria-controls two bogus ids here, and the panel no
 			// name; named by the tab that controls it, the panel is found.

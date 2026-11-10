@@ -12,13 +12,23 @@ import { Logger, measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
 import { PlaywrightDriver } from './playwrightDriver';
 // --- Start Positron ---
+import { teardown } from './processes';
 import { extensionHostInspectPayloadEntry } from '../utils/memory/gc.js';
 import { laneFromEnv } from '../utils/memory/lanes.js';
+import { appEnv } from './appEnv';
 // --- End Positron ---
 
 const root = join(__dirname, '..', '..', '..');
 
-let port = 9000;
+// --- Start Positron ---
+// Each parallel worker owns its own port range, so workers don't all start at 9000 and pay an
+// EADDRINUSE retry. Each launch starts one port past the last one, since a restarted app's old
+// server may not have released its port yet.
+// let port = 9000;
+const maxLaunchAttempts = 10;
+const basePort = 9000 + Number(process.env.TEST_PARALLEL_INDEX ?? 0) * maxLaunchAttempts;
+let nextPortOffset = 0;
+// --- End Positron ---
 
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
 
@@ -49,17 +59,28 @@ async function launchServer(options: LaunchOptions) {
 
 	await measureAndLog(() => fs.promises.mkdir(agentFolder, { recursive: true }), `mkdirp(${agentFolder})`, logger);
 
+	// --- Start Positron ---
+	// const env = {
+	// 	VSCODE_REMOTE_SERVER_PATH: codeServerPath,
+	// 	...process.env,
+	// };
 	const env = {
 		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
-		...process.env,
+		...appEnv(process.env),
 	};
+	// --- End Positron ---
 
-	const maxRetries = 10;
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
-	for (let attempts = 0; attempts < maxRetries; attempts++) {
-		const currentPort = port++;
+	// --- Start Positron ---
+	// const maxRetries = 10;
+	// for (let attempts = 0; attempts < maxRetries; attempts++) {
+	// 	const currentPort = port++;
+	for (let attempts = 0; attempts < maxLaunchAttempts; attempts++) {
+		const portOffset = (nextPortOffset + attempts) % maxLaunchAttempts;
+		const currentPort = basePort + portOffset;
+		// --- End Positron ---
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
@@ -75,11 +96,20 @@ async function launchServer(options: LaunchOptions) {
 			);
 
 			logger.log(`Server started successfully on port ${currentPort}`);
+			// --- Start Positron ---
+			nextPortOffset = (portOffset + 1) % maxLaunchAttempts;
+			// --- End Positron ---
 			break; // Exit loop on success
 		} catch (error) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
 				logger.log(`Port ${currentPort} is already in use. Retrying...`);
-				serverProcess?.kill();
+				// --- Start Positron ---
+				// The server stays up after EADDRINUSE and runs under a shell wrapper, so kill the whole tree.
+				// serverProcess?.kill();
+				if (serverProcess) {
+					await teardown(serverProcess, logger);
+				}
+				// --- End Positron ---
 			} else {
 				throw error; // Rethrow non-port-related errors
 			}

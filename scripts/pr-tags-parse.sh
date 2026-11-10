@@ -154,6 +154,7 @@ MAP_TAGS=""
 ARK_INJECTED="false"
 ADDED_WIN="false"
 ADDED_WEB="false"
+AUTO_TAG_REASONS=""
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
@@ -226,15 +227,50 @@ else
 		WEB_LANE=true
 	fi
 
+	# An ai-lib bump changes the provider and credential code AI features use.
+	# The Workbench assistant tests run Posit Assistant's own copy of ai-lib, so
+	# this doesn't start the Workbench lane.
+	if echo "$CHANGED_FILES" | grep -qxF "ai-lib"; then
+		echo "ai-lib submodule changed. Injecting @:assistant."
+		TAGS="$(union_csv_tags "$TAGS" "@:assistant")"
+		AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:assistant|ai-lib")"
+	fi
+
+	# A Posit Assistant version bump in product.json runs the assistant tests,
+	# including the Workbench ones. Compare against the merge base so a bump
+	# that landed on main since the branch was cut doesn't count.
+	if echo "$CHANGED_FILES" | grep -qxF "product.json"; then
+		read -r BASE_SHA HEAD_SHA <<< "$(gh api repos/${REPO}/pulls/${PR_NUMBER} \
+			--header "Authorization: token $GITHUB_TOKEN" \
+			--jq '"\(.base.sha) \(.head.sha)"' || true)"
+		MERGE_BASE_SHA="$(gh api "repos/${REPO}/compare/${BASE_SHA}...${HEAD_SHA}" \
+			--header "Authorization: token $GITHUB_TOKEN" \
+			--jq '.merge_base_commit.sha' || true)"
+		if [[ -n "$MERGE_BASE_SHA" && -n "$HEAD_SHA" ]]; then
+			OLD_ASSISTANT="$(bootstrap_extension_version "$(gh api "repos/${REPO}/contents/product.json?ref=${MERGE_BASE_SHA}" \
+				--header "Authorization: token $GITHUB_TOKEN" --header "Accept: application/vnd.github.raw" || true)" posit.assistant)"
+			NEW_ASSISTANT="$(bootstrap_extension_version "$(gh api "repos/${REPO}/contents/product.json?ref=${HEAD_SHA}" \
+				--header "Authorization: token $GITHUB_TOKEN" --header "Accept: application/vnd.github.raw" || true)" posit.assistant)"
+			if [[ "$OLD_ASSISTANT" != "$NEW_ASSISTANT" ]]; then
+				echo "Posit Assistant changed (${OLD_ASSISTANT:-none} -> ${NEW_ASSISTANT:-none}). Injecting @:assistant and @:workbench."
+				TAGS="$(union_csv_tags "$TAGS" "@:assistant,@:workbench")"
+				AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:assistant|assistant-bump,@:workbench|assistant-bump")"
+				echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+			fi
+		else
+			echo "Warning: could not resolve the PR's merge base; skipping the Posit Assistant bump check."
+		fi
+	fi
+
 	# Resolve the path to the map (this script lives in scripts/).
 	SCRIPT_DIR="$(dirname "$0")"
 	MAP_FILE="$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json"
 
 	# Auto-inject feature tags derived from the PR's changed files, unless the
-	# author opted out with @:no-auto-tags -- which now suppresses every
-	# derivation source uniformly (including the WIN/WEB scan below, which used
-	# to run unconditionally): authors need one total escape hatch to override
-	# auto-tagging at any time, not one exception carved out of it. Additive
+	# author opted out with @:no-auto-tags -- which suppresses every
+	# file-derived source uniformly (including the WIN/WEB scan below, which used
+	# to run unconditionally). The Ark, ai-lib, and Posit Assistant bump checks
+	# above still run, since a dependency bump always needs its tests. Additive
 	# only -- never removes tags the author specified.
 	TEST_CHANGE_TAGS=""
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
@@ -256,6 +292,8 @@ else
 		# guarantee they actually run, without over-selecting sibling
 		# suites. See derive-test-change-tags.mjs and the design doc.
 		DERIVE_TEST_CHANGE_SCRIPT="$SCRIPT_DIR/derive-test-change-tags.mjs"
+		# Changed files minus comment- and tag-only test edits (worked out below).
+		EFFECTIVE_CHANGED_FILES="$CHANGED_FILES"
 		if [[ -n "$CHANGED_FILES" && -f "$DERIVE_TEST_CHANGE_SCRIPT" ]]; then
 			# Drop touched e2e test files whose change doesn't alter what the
 			# test does, so they don't need a derived feature tag:
@@ -285,8 +323,11 @@ else
 			# Drop the skipped files from the changed-files list fed to the
 			# deriver. exclude_paths handles the all-skipped case (empty output,
 			# exit 0) so this stays safe under set -e.
+			EFFECTIVE_CHANGED_FILES="$(exclude_paths "$CHANGED_FILES" "$SKIPPED_TEST_FILES")"
 			CHANGED_FILES_FILE="$(mktemp)"
-			exclude_paths "$CHANGED_FILES" "$SKIPPED_TEST_FILES" > "$CHANGED_FILES_FILE"
+			if [[ -n "$EFFECTIVE_CHANGED_FILES" ]]; then
+				printf '%s\n' "$EFFECTIVE_CHANGED_FILES" > "$CHANGED_FILES_FILE"
+			fi
 			# Assignment is the `if` condition (not piped through `paste`) so a
 			# non-zero node exit is visible here -- under `set -e` with no
 			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed
@@ -322,6 +363,15 @@ else
 				echo "Derived tags from changed e2e test files: $TEST_CHANGE_TAGS"
 				TAGS="$(union_csv_tags "$TAGS" "$TEST_CHANGE_TAGS")"
 			fi
+		fi
+
+		# Start the Workbench lane when the PR changes Workbench-only files (e2e tests
+		# or source), since no other lane covers them. Comment- and tag-only test edits don't count.
+		if [[ "$(touches_workbench_lane "$EFFECTIVE_CHANGED_FILES")" == "true" ]]; then
+			echo "PR changes Workbench-only files. Enabling Workbench tests."
+			echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+			TAGS="$(union_csv_tags "$TAGS" "@:workbench")"
+			AUTO_TAG_REASONS="$(union_csv_tags "$AUTO_TAG_REASONS" "@:workbench|workbench-files")"
 		fi
 
 		# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
@@ -442,7 +492,7 @@ echo "lane_summary=$LANE_SUMMARY" >> "$GITHUB_OUTPUT"
 if [[ -z "$TAGS" ]]; then
 	TAG_REASONS="@:all|body"
 else
-	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS")"
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS" "$AUTO_TAG_REASONS")"
 fi
 echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 

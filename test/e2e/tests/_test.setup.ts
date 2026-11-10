@@ -21,6 +21,7 @@ import {
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { defaultWorkspacePath } from '../infra/test-runner';
+import { isArtifactEnabled } from '../infra/artifactSwitches.js';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -61,10 +62,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// `test.use({ enablePositAIProvider: true })`.
 	enablePositAIProvider: [false, { scope: 'worker', option: true }],
 
-	// Extra environment variables merged onto the launched app's env. Set a value
-	// to `undefined` to UNSET a variable for the app (e.g. scrubbing provider auth
-	// vars so a modal starts disconnected). Opt in with
-	// `test.use({ extraEnv: { ANTHROPIC_API_KEY: undefined } })`.
+	// Extra environment variables merged onto the launched app's env, after appEnv
+	// has removed secrets. Set a value to `undefined` to UNSET a variable for the
+	// app. Opt in with `test.use({ extraEnv: { POSITRON_FOO: undefined } })`.
 	extraEnv: [{}, { scope: 'worker', option: true }],
 
 	// Extra user settings written before the app starts, so no window reload is
@@ -214,7 +214,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			// It is written under logsPath, which `renameTempLogsDir` (below) renames,
 			// so remember the basename and attach it from renamedLogsPath in afterAll.
 			try {
-				if (shouldUseCustomTracing(workerInfo.project)) {
+				if (isArtifactEnabled('E2E_TRACES') && shouldUseCustomTracing(workerInfo.project)) {
 					await app.stopTracing('app-start-failure', true, join(logsPath, APP_START_FAILURE_TRACE));
 					appFixtureTracePath = APP_START_FAILURE_TRACE;
 				}

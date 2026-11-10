@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationData, IConfigurationModel, IConfigurationOverrides, IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
@@ -272,7 +270,7 @@ describe('getConfiguredSettings', () => {
 			redactedCount: 1,
 			settings: [{
 				key: 'some.extension.apiKey',
-				value: '<redacted>',
+				value: '<masked>',
 				registered: false,
 				scope: undefined,
 				effectiveSource: 'userLocal',
@@ -470,15 +468,15 @@ describe('getConfiguredSettings', () => {
 			settings: [
 				{
 					key: 'testSettings.apiKey',
-					value: '<redacted>',
+					value: '<masked>',
 					// Two sources, so sources is carried -- and, since this entry is
 					// redacted, both entries in it must be the placeholder too, never
 					// the real value reintroduced.
-					sources: { userLocal: '<redacted>', workspace: '<redacted>' },
+					sources: { userLocal: '<masked>', workspace: '<masked>' },
 				},
 				{
 					key: 'testSettings.credentials',
-					value: '<redacted>',
+					value: '<masked>',
 					// One source: sources is left out by the compact-form rule. A
 					// redacted single-source entry must say nothing beyond the
 					// placeholder already in value, so this omission must hold even
@@ -558,7 +556,7 @@ describe('getConfiguredSettings', () => {
 		const result = getConfiguredSettings(ctx.instantiationService);
 
 		expect({ value: result.settings[0].value, redactedCount: result.redactedCount }).toEqual({
-			value: '<redacted>',
+			value: '<masked>',
 			redactedCount: 1,
 		});
 	});
@@ -579,10 +577,10 @@ describe('getConfiguredSettings', () => {
 			sources: result.settings[0].sources,
 			redactedCount: result.redactedCount,
 		}).toEqual({
-			value: { GITHUB_TOKEN: '<redacted>' },
+			value: { GITHUB_TOKEN: '<masked>' },
 			sources: {
-				userLocal: { PATH: '/usr/local/bin', GITHUB_TOKEN: '<redacted>' },
-				workspace: { GITHUB_TOKEN: '<redacted>' },
+				userLocal: { PATH: '/usr/local/bin', GITHUB_TOKEN: '<masked>' },
+				workspace: { GITHUB_TOKEN: '<masked>' },
 			},
 			redactedCount: 1,
 		});
@@ -893,7 +891,7 @@ describe('findSettings', () => {
 
 		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.envMap']).settings;
 
-		expect(setting.value).toEqual({ PATH: '/usr/local/bin', GITHUB_TOKEN: '<redacted>' });
+		expect(setting.value).toEqual({ PATH: '/usr/local/bin', GITHUB_TOKEN: '<masked>' });
 	});
 
 	it('redacts a credential-shaped key\'s value, but never its shipped default', () => {
@@ -902,7 +900,7 @@ describe('findSettings', () => {
 		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.apiKey']).settings;
 
 		expect({ value: setting.value, default: setting.default }).toEqual({
-			value: '<redacted>',
+			value: '<masked>',
 			// The registry fills in a type-derived default ('' for a string) when
 			// none is declared. Shipped configuration, not user data, so it is
 			// reported as-is rather than redacted.

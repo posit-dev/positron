@@ -175,6 +175,9 @@ export interface IPositronConsoleService {
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
 	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
 	 *   session. Ignored when `focus` is true.
+	 * @param activate Whether to activate the console that runs the code (open the Console view,
+	 *   make the console active, and make its session the foreground session). Defaults to true.
+	 *   When false, `focus` is ignored and `sessionId` is required.
 	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,
@@ -188,7 +191,8 @@ export interface IPositronConsoleService {
 		executionId?: string,
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		preserveActiveTab?: boolean): Promise<string>;
+		preserveActiveTab?: boolean,
+		activate?: boolean): Promise<string>;
 
 	/**
 	 * Whether an execution was started with `preserveActiveTab`, so views it

@@ -96,6 +96,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$completeLanguageRuntimeDiscoveryForLanguage(languageId: string): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string, preserveActiveTab?: boolean): Promise<string>;
+	$executeCodeInNewSession(languageId: string, code: string, sessionName: string, extensionId: string, callerSessionId: string | undefined): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
@@ -162,6 +163,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
 	$markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]>;
+	$getLanguagesDeferringToFirstDefinition(): Promise<string[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$pinnedWorkspaceRuntime(extensionId: string, languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
@@ -390,6 +392,13 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * disabled.
 	 */
 	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions, token: CancellationToken): Promise<IDataConnectionSchemaWalk | undefined>;
+
+	/**
+	 * The code behind the connection comm a runtime session opened most recently -- for a ggsql
+	 * session, the `-- @connect: <uri>` line for the database it is on. Resolves to `undefined`
+	 * when none has been seen. Rejects when the Data Connections feature is off.
+	 */
+	$getSessionConnectionCode(sessionId: string): Promise<string | undefined>;
 }
 
 /**
@@ -406,6 +415,9 @@ export interface ExtHostDataConnectionsShape {
 	 * fewer thing for the two sides to keep in step than a diff would be.
 	 */
 	$onDidChangeDataConnections(): void;
+
+	/** Called by the main thread when a session's connection code changes; see $getSessionConnectionCode. */
+	$onDidChangeSessionConnectionCode(sessionId: string, code: string | undefined): void;
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;

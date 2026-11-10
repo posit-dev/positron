@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import { traceError, traceInfo, traceVerbose, traceWarn } from '../logging';
 import { getConfiguration, getWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 import {
@@ -114,19 +116,21 @@ function getOverrideInterpreters(): string[] {
 }
 
 /**
- * Gets the Python interpreter paths named by entries in the `interpreters.definitions` setting.
- * Paths must be absolute; other entries are ignored.
+ * Gets the Python interpreter paths named by entries in the `interpreters.definitions` setting,
+ * as Positron reads them: valid entries with an absolute path, each interpreter once.
  * @returns List of Python interpreter paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
-    const definitions = getConfiguration('interpreters')?.get<unknown>('definitions');
-    if (!Array.isArray(definitions)) {
-        return [];
-    }
-    const paths = definitions
-        .filter((d) => d?.language === 'python' && typeof d.path === 'string' && path.isAbsolute(d.path))
-        .map((d) => d.path as string);
-    return Array.from(new Set(paths));
+    return positron.runtime.getInterpreterDefinitionPaths('python');
+}
+
+/**
+ * The `interpreters.definitions` path that names the interpreter at `pythonPath`, in the
+ * definition's own spelling, or undefined. Runtime IDs depend on the path, so use this
+ * spelling to create the same runtime that the definition creates.
+ */
+export function findInterpreterDefinitionPath(pythonPath: string): string | undefined {
+    return positron.runtime.findInterpreterDefinitionPath('python', pythonPath);
 }
 
 /**

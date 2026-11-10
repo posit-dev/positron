@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as fs from 'fs';
 import * as os from 'os';
 import type { HeadlessCatalogChange, HeadlessProviderData, HeadlessProviders } from 'ai-provider-bridge/headless';
@@ -60,11 +58,13 @@ describe('AiProviderCatalog', () => {
 		fs.writeFileSync(configPath, JSON.stringify({ version: 1, providers }));
 	}
 
+	// The first catalog load imports the compiled-in provider module cold, which can take longer
+	// than the default timeout when the whole suite is running (seen on Windows).
 	it('resolves the baseline catalog when no file exists (default enabled)', async () => {
 		const providers = await createCatalog(join(dir, 'providers.json')).getCatalog();
 		expect(providers.length).toBeGreaterThan(0);
 		expect(providers.every(p => p.enabled)).toBe(true);
-	});
+	}, 10_000);
 
 	it('reads enablement, base URL and customized connection fields from the file', async () => {
 		const configPath = join(dir, 'providers.json');

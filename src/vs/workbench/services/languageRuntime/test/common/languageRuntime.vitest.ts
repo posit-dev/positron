@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { raceTimeout } from '../../../../../base/common/async.js';
+import { isWindows } from '../../../../../base/common/platform.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -120,7 +119,8 @@ describe('Positron - LanguageRuntimeService', () => {
 			runtimeDisposable.dispose();
 		});
 
-		it('enriches runtimeDisplayPath via tildify on registration', async () => {
+		// tildify leaves paths alone on Windows, so there is nothing to observe there.
+		it.skipIf(isWindows)('enriches runtimeDisplayPath via tildify on registration', async () => {
 			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
 
 			// The constructor starts a userHome() promise; let the microtask run
@@ -243,6 +243,20 @@ describe('Positron - LanguageRuntimeService', () => {
 			service.registerRuntime(makeTestMetadata({ runtimeId: 'r-other', languageId: 'r', runtimePath: '/opt/R/4.3.0/bin/R' }));
 
 			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['R 4.4.3 (XX libs)']);
+		});
+
+		it('registers the variant of a Windows runtime whose definition uses forward slashes, also when discovery is limited to definitions', async () => {
+			const windows = makeTestMetadata({ runtimeId: 'r-windows', languageId: 'r', runtimePath: 'C:\\Program Files\\R\\R-4.4.1\\bin\\x64\\R.exe', runtimeName: 'R 4.4.1' });
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [{ ...definition, path: 'C:/Program Files/R/R-4.4.1/bin/x64/R.exe' }]);
+			const names = [];
+			for (const discovery of ['auto', 'definitionsOnly']) {
+				await configurationService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, discovery);
+				const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+				service.registerRuntime(windows);
+				names.push(service.registeredRuntimes.map(m => m.runtimeName));
+			}
+
+			expect(names).toEqual([['R 4.4.1', 'R 4.4.3 (XX libs)'], ['R 4.4.3 (XX libs)']]);
 		});
 
 		it('re-derives variants of a definition-only runtime when the setting changes', async () => {

@@ -71,7 +71,8 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	/**
 	 * Whether only a pinned R can be returned. True when `interpreters.discovery`
 	 * is `definitionsOnly` for R, since the search can find Rs outside the
-	 * definitions.
+	 * definitions, and when an environment module is pinned, so a module that
+	 * fails to load doesn't start an R without it.
 	 */
 	readonly pinOnly: boolean;
 	/** Whether the open folder has R files, or is empty and you use RStudio. */
@@ -81,6 +82,15 @@ export interface RStartupInputs<T extends RStartupCandidate> {
 	fullSearchTriggers(current: T | undefined): RFullSearchTriggers;
 	/** Every R the full search finds, usable or not, or undefined if the search ran out of time. */
 	fullSearch(): Promise<T[] | undefined>;
+}
+
+/**
+ * Whether a `positron.r.interpreters.default` value names an environment
+ * module rather than a path: it isn't absolute, and doesn't start with `~`,
+ * `.`, a variable such as `${workspaceFolder}`, or a Windows drive letter.
+ */
+export function isModuleName(value: string): boolean {
+	return !path.isAbsolute(value) && !/^([~.$\\]|[A-Za-z]:[\\/])/.test(value);
 }
 
 /**
@@ -164,8 +174,8 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
 	readonly definitionsOnly: boolean;
 	/** The pinned path, already resolved, or undefined if the setting isn't set. */
 	readonly pinnedPath: string | undefined;
-	/** Whether a path is an R entry in `interpreters.definitions`. */
-	isDefined(path: string): boolean;
+	/** The R `interpreters.definitions` path that names `path`, in its own spelling, or undefined. */
+	definedPath(path: string): string | undefined;
 	exists(path: string): boolean;
 	/** The current R's path, with symlinks followed, or undefined if there is none. */
 	currentRPath(): Promise<string | undefined>;
@@ -183,16 +193,20 @@ export interface PinnedRInputs<T extends { readonly usable: boolean }, P> extend
  */
 export async function choosePinnedR<T extends { readonly usable: boolean }, P>(inputs: PinnedRInputs<T, P>): Promise<T | undefined> {
 	const pinnedPath = inputs.pinnedPath;
-	if (!pinnedPath || !inputs.exists(pinnedPath) ||
-		(inputs.definitionsOnly && !inputs.isDefined(pinnedPath))) {
+	if (!pinnedPath || !inputs.exists(pinnedPath)) {
+		return undefined;
+	}
+	const definedPath = inputs.definitionsOnly ? inputs.definedPath(pinnedPath) : undefined;
+	if (inputs.definitionsOnly && !definedPath) {
 		return undefined;
 	}
 	const currentPath = await inputs.currentRPath();
-	// Build from the path discovery lists. Definitions match on the exact
-	// path, so a defined pin keeps its own.
-	const { binpath, current, condaOrPixi } = inputs.definitionsOnly ?
+	// A defined pin takes the definition's spelling, not its symlink target,
+	// so it is the same R (same ID) that the definition creates. Otherwise,
+	// build from the path discovery lists.
+	const { binpath, current, condaOrPixi } = definedPath ?
 		{
-			binpath: pinnedPath,
+			binpath: definedPath,
 			current: currentPath !== undefined && inputs.isSameFile(currentPath, pinnedPath),
 			condaOrPixi: inputs.packagerMetadataForPath(pinnedPath),
 		} :

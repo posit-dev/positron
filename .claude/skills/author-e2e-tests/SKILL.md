@@ -20,6 +20,12 @@ A good e2e test:
 - remains deterministic -- no reliance on fixed waits, execution order, or leftover state
 - isolates the single regression it protects, so a failure points at one cause
 
+## Before You Start: Is E2E the Right Level?
+
+Check the "Where should I put my test?" table in `CLAUDE.md` first.
+If what would break can be checked without a running app (a CSS selector, a pure function, a component's props), write a Vitest test instead and tell the dev why.
+Signs you're about to over-reach: the test switches settings or themes several times to check a static file, or asserts on computed styles rather than a user workflow.
+
 ## When to Use This Skill
 
 Load this skill when:

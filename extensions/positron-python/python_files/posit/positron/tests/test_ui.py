@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -58,15 +58,15 @@ def ui_comm(ui_service: UiService) -> DummyComm:
     return ui_comm
 
 
-def working_directory_event() -> Dict[str, Any]:
+def working_directory_event() -> dict[str, Any]:
     return json_rpc_notification("working_directory", {"directory": str(alias_home(Path.cwd()))})
 
 
-def show_url_event(url: str) -> Dict[str, Any]:
+def show_url_event(url: str) -> dict[str, Any]:
     return json_rpc_notification(UiFrontendEvent.ShowUrl, {"url": url, "source": None})
 
 
-def show_html_file_event(path: str, *, destination: str) -> Dict[str, Any]:
+def show_html_file_event(path: str, *, destination: str) -> dict[str, Any]:
     return json_rpc_notification(
         "show_html_file", {"path": path, "destination": destination, "height": 0, "title": ""}
     )
@@ -248,7 +248,7 @@ def test_get_missing_imports_invalid_params() -> None:
 class _StubMetadata:
     """Minimal `Distribution.metadata` stand-in (only the accessors we use)."""
 
-    def __init__(self, headers: Dict[str, Any]) -> None:
+    def __init__(self, headers: dict[str, Any]) -> None:
         self._headers = headers
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -306,7 +306,7 @@ class _StubDist:
         "none",
     ],
 )
-def test_best_package_url(headers: Dict[str, Any], expected_url: Any) -> None:
+def test_best_package_url(headers: dict[str, Any], expected_url: Any) -> None:
     """Rank homepage > repository > docs > other.
 
     The legacy `Home-page` header acts as a homepage fallback.
@@ -623,7 +623,7 @@ def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
         "none",
     ],
 )
-def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
+def test_best_license(headers: dict[str, Any], expected: Any) -> None:
     """_best_license prefers SPDX, then a one-line License, then a classifier."""
     from positron.ui import _best_license
 
@@ -658,7 +658,7 @@ def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
         "none",
     ],
 )
-def test_best_author(headers: Dict[str, Any], expected: Any) -> None:
+def test_best_author(headers: dict[str, Any], expected: Any) -> None:
     """_best_author prefers plain-name fields and strips email addresses."""
     from positron.ui import _best_author
 

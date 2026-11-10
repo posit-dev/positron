@@ -42,7 +42,8 @@ RUN dnf install -y \
     perl-Module-Build \
     perl-CPAN \
     pkgconfig \
-    python39 \
+    python3.11 \
+    python3.11-pip \
     rpm-build \
     rpm-sign \
     unixODBC-devel \
@@ -50,7 +51,7 @@ RUN dnf install -y \
     xorg-x11-server-Xvfb \
     xz
 
-RUN alternatives --set python3 /usr/bin/python3.9 && \
+RUN alternatives --set python3 /usr/bin/python3.11 && \
     python3 --version && \
     python3 -m pip install --upgrade pip
 

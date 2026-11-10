@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import type * as vscode from 'vscode';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ParticipantID } from '../../../../contrib/positronAssistant/common/positronAssistantParticipants.js';

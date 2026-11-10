@@ -7,7 +7,8 @@ import datetime
 import inspect
 import sys
 import types
-from typing import Any, Callable, Iterable, Optional, Tuple
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -66,8 +67,8 @@ def verify_inspector(
     check_deepcopy: bool = True,
     supports_deepcopy: bool = True,
     mutable: bool = False,
-    mutate: Optional[Callable[[Any], None]] = None,
-    comparison_cost: Optional[int] = None,
+    mutate: Callable[[Any], None] | None = None,
+    comparison_cost: int | None = None,
 ) -> None:
     # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
 
@@ -134,7 +135,7 @@ class HelperClass:
     def fn_one_arg(self, x: str) -> str:
         return f"One arg {x}"
 
-    def fn_two_args(self, x: int, y: int) -> Tuple[int, int]:
+    def fn_two_args(self, x: int, y: int) -> tuple[int, int]:
         return (x, y)
 
     @property
@@ -1097,7 +1098,7 @@ def test_truncated_display_value(value, snapshot, monkeypatch) -> None:
     [
         pytest.param(lambda: map(int, ["1", "2", "3"]), id="map"),
         pytest.param(lambda: filter(None, [1, 2, 3]), id="filter"),
-        pytest.param(lambda: zip([1, 2], [3, 4]), id="zip"),
+        pytest.param(lambda: zip([1, 2], [3, 4], strict=True), id="zip"),
         pytest.param(lambda: (x for x in [1, 2, 3]), id="generator"),
     ],
 )

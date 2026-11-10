@@ -62,6 +62,8 @@ interface Case {
 	name: string;
 	/** The .sh and its arguments, without --session; a function to use what earlier cases found. */
 	run: string[] | (() => string[]);
+	/** Sets up the state the case needs, before `run`; returns what went wrong, which fails the case without running it. */
+	before?: () => string | undefined;
 	stdin?: string;
 	/** A failure case: it must exit non-zero with ok:false and an error (or a message on stderr). */
 	fail?: boolean;
@@ -85,6 +87,10 @@ const includes = (what: unknown, needle: string) => flat(what).includes(needle) 
 /** The run's action log, where every action and reading leaves a line. */
 const logged = (needle: string) => { const f = join(root, 'actions.log'); return includes(existsSync(f) ? readFileSync(f, 'utf8').split('\n').slice(-20) : '', needle); };
 const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => !(j && k in j)); return miss.length ? `missing keys: ${miss.join(', ')}` : undefined; };
+/** Started a session of the interpreter that found.copied names. */
+const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
+/** Says the editor area is hidden and names analysis.R open in it, the active tab. */
+const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
 const cases: Case[] = [
 	// ---- Palette, sessions, consoles
@@ -153,7 +159,9 @@ const cases: Case[] = [
 			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
 		},
 	},
-	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: o => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`) },
+	{ name: 'start-session --name copied whole from a "shown" row starts it', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: startedCopied },
+	// Now running, so its picker row reads "(... \u00B7 running)": the same --name still starts it.
+	{ name: 'start-session --name of a running interpreter starts another', run: () => ['start-session.sh', '--language', 'python', '--name', found.copied, '--new'], check: startedCopied },
 
 	// ---- Editor and breakpoints
 	{ name: 'open-file analysis.R', quick: true, run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
@@ -174,6 +182,11 @@ const cases: Case[] = [
 	{ name: 'editor insert with a trailing newline', run: ['editor.sh', 'insert', '3', 'smoke_y <- 2\n'], check: o => o.json!.at !== '3-3' && `at ${o.json!.at}` },
 	{ name: 'editor read the inserted lines', run: ['editor.sh', 'read', '1:4'], check: o => (o.json!.lines?.['2'] !== 'smoke_x <- 1' || o.json!.lines?.['3'] !== 'smoke_y <- 2' || !String(o.json!.lines?.['4']).startsWith('values <-')) && `lines ${JSON.stringify(o.json!.lines)}` },
 	{ name: 'editor insert without text', run: ['editor.sh', 'insert', '2'], fail: true },
+	// A deselected activity bar tab with a badge has an empty aria-label, so its name is its icon's and badge's labels: the same text twice.
+	{ name: 'palette-run Show Explorer with analysis.R unsaved', run: ['palette-run.sh', 'View: Show Explorer'] },
+	{ name: 'palette-run Show Search deselects the badged Explorer tab', run: ['palette-run.sh', 'View: Show Search'] },
+	{ name: 'ui click tab E --partial lists the deselected badged tab by name', run: ['ui.sh', 'click', 'tab', 'E', '--partial'], fail: true, check: o => includes(o.json!.matches, ') - 1 unsaved file') },
+	{ name: 'ui click a deselected activity bar tab by its badge name', run: () => ['ui.sh', 'click', 'tab', `Explorer (${process.platform === 'darwin' ? '\u21E7\u2318E' : 'Ctrl+Shift+E'}) - 1 unsaved file`], check: o => includes(o.json!.did, ') - 1 unsaved file') },
 	{ name: 'palette-run Revert File', run: ['palette-run.sh', 'File: Revert File'] },
 	// Language features in R, from Ark: completions, the hover, Go to Definition.
 	{ name: 'editor suggest R', run: ['editor.sh', 'suggest', '--at', '7:13'], retry: 3, retryOn: /no completion list|message/, check: o => includes(o.json!.rows, 'sum, {base}, Function') || (o.json!.closed !== true && 'the list is still open') || logged('editor.sh -s=net1: suggest at analysis.R 7:13 ->') },
@@ -433,6 +446,8 @@ const cases: Case[] = [
 	{ name: 'open-file analysis.R again, before the editor area is hidden', run: ['open-file.sh', 'analysis.R'], check: o => o.json!.activeTab !== 'analysis.R' && `active tab ${o.json!.activeTab}` },
 	{ name: 'palette-run Toggle Maximized Panel', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel editors, editor area hidden', run: ['panel.sh', 'editors'], check: o => (o.json!.editorArea !== 'hidden' && 'editorArea is not hidden') || includes(o.json!.groups, '"title":"analysis.R"') },
+	{ name: 'ui read editor, editor area hidden', run: ['ui.sh', 'read', 'editor'], fail: true, check: editorAreaHidden },
+	{ name: 'de-read, editor area hidden', run: ['de-read.sh'], fail: true, check: editorAreaHidden },
 	{ name: 'palette-run Toggle Maximized Panel back', run: ['palette-run.sh', 'View: Toggle Maximized Panel'] },
 	{ name: 'panel layout', run: ['panel.sh', 'layout'], check: o => keys(o.json, 'window', 'sidebar', 'secondary', 'panel', 'editor') || logged('panel.sh -s=net1: read layout: window 1600x1000') },
 	// Dragged below its minimum, a part closes: "hidden", not null.
@@ -440,6 +455,8 @@ const cases: Case[] = [
 	{ name: 'panel resize sidebar 0', run: ['panel.sh', 'resize', 'sidebar', '0'], check: o => o.json!.now !== 'hidden' && `now ${o.json!.now}` },
 	{ name: 'panel delete-session python', run: () => ['panel.sh', 'delete-session', found.py], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	{ name: 'console-read deleted session', run: () => ['console-read.sh', '--name', found.py], fail: true },
+	// With one session the console draws no tabs: start-session still names the session it started.
+	{ name: 'start-session r with no other session open names it', before: closeAllSessions, run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => (o.json!.started !== true && 'not started') || (!String(o.json!.session ?? '').startsWith(`R ${found.rName.split(' ')[0]}`) && `session ${JSON.stringify(o.json!.session)}`) },
 
 	// ---- Settings
 	{ name: 'settings set workspace', quick: true, run: ['settings.sh', 'set', 'smoke.number', '42'], check: o => (o.json!.value !== 42 && `value ${JSON.stringify(o.json!.value)}`) || includes(readFileSync(join(ws, '.vscode/settings.json'), 'utf8'), '"smoke.number": 42') },
@@ -514,6 +531,14 @@ const groups: Group<Case>[] = [
 /** Starts a helper in the background, for a case that watches what it does. */
 function background(args: string[]): void {
 	spawn('bash', [join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], { cwd: repo, stdio: 'ignore', detached: true, env: { ...process.env, DRIVE_POSITRON_LOG: join(root, 'actions.log') } }).unref();
+}
+
+/** A case's `before`: deletes every open console session with panel.sh, for a case that starts from none. */
+function closeAllSessions(): string | undefined {
+	const list = () => (sh([join(scripts, 'panel.sh'), '--session', SESSION, 'sessions']).json?.sessions ?? []) as { id: string }[];
+	for (const s of list()) { sh([join(scripts, 'panel.sh'), '--session', SESSION, 'delete-session', s.id]); }
+	const left = list().length;
+	return left ? `${left} sessions still open after closing them all` : undefined;
 }
 
 // ---- Running ---------------------------------------------------------------------
@@ -621,11 +646,12 @@ try {
 		const args = typeof c.run === 'function' ? c.run() : c.run;
 		current.args = args;
 		const t0 = current.t0;
-		let o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
-		let problem = judge(c, o);
+		const unready = c.before?.();
+		let o: Out = unready ? { code: -1, json: null, text: '', stderr: '' } : sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
+		let problem = unready ? `before: ${unready}` : judge(c, o);
 		let tries = 1;
 		// Something still on its way.
-		for (; problem && c.retry && c.retryOn?.test(problem) && tries <= c.retry; tries++) {
+		for (; problem && !unready && c.retry && c.retryOn?.test(problem) && tries <= c.retry; tries++) {
 			spawnSync('sleep', ['3']);
 			o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
 			problem = judge(c, o);

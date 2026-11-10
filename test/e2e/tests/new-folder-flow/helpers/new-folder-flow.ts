@@ -60,6 +60,19 @@ export async function verifyRenvFilesArePresent(app: Application,) {
 	});
 }
 
+export async function verifyDotHereIsPresent(app: Application) {
+	await test.step('Verify .here file is present', async () => {
+		await app.workbench.explorer.verifyExplorerFilesExist(['.here']);
+	});
+}
+
+export async function verifyDotHereIsAbsent(app: Application) {
+	await test.step('Verify .here file is absent', async () => {
+		const files = app.code.driver.currentPage.locator('.monaco-list > .monaco-scrollable-element');
+		await expect(files.getByText('.here', { exact: true })).toHaveCount(0);
+	});
+}
+
 export async function handleRenvInstallModal(app: Application, action: 'install' | 'cancel') {
 	await test.step(`Handle Renv modal: ${action}`, async () => {
 		await app.workbench.modals.installRenvModal(action);

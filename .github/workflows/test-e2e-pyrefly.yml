@@ -111,9 +111,13 @@ jobs:
           ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp test/e2e/tests/quarto/quarto-outline.test.ts --project=e2e-electron --workers=1
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ (success() || failure()) && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan

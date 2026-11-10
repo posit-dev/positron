@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
@@ -19,6 +17,7 @@ import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** Minimal stub for IPositronNotebookInstance */
 function stubNotebookInstance(id: string, uri = URI.file('/workspace/notebook.ipynb')): IPositronNotebookInstance {
@@ -87,6 +86,7 @@ describe('PositronWebviewPreloadService - addNotebookOutput rawHtml', () => {
 			ipyWidgetsService,
 			commandService,
 			editorService,
+			stubInterface<IInstantiationService>({}),
 		));
 
 		service.attachNotebookInstance(notebookInstance);
@@ -195,6 +195,9 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 			ipyWidgetsService,
 			commandService,
 			editorService,
+			stubInterface<IInstantiationService>({
+				createInstance: vi.fn().mockReturnValue({ pick: vi.fn().mockResolvedValue({ override: 'test.pdfEditor' }) }),
+			}),
 		));
 
 		service.attachNotebookInstance(notebookInstance);
@@ -213,7 +216,8 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 
 		const webview = await (result as Extract<NotebookPreloadOutputResults, { preloadMessageType: 'display' }>).webview;
 		expect(webview.id).toBe('pdf-out-1');
-		expect(commandService.executeCommand).toHaveBeenCalledWith('positron.pdfServer.getViewerUrl', '/workspace/report.pdf');
+		// The path is joined from the notebook's fsPath, so it carries backslashes on Windows.
+		expect(commandService.executeCommand).toHaveBeenCalledWith('positron.pdfServer.getViewerUrl', URI.file('/workspace/report.pdf').fsPath);
 	});
 
 	it('caches the PDF webview on repeated calls for the same output', async () => {
@@ -257,11 +261,10 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 			}
 		});
 
-		expect(editorService.openEditor).toHaveBeenCalledWith(
-			expect.objectContaining({
-				resource: URI.file('/workspace/report.pdf'),
-			})
-		);
+		await vi.waitFor(() => expect(editorService.openEditor).toHaveBeenCalledWith({
+			resource: URI.file('/workspace/report.pdf'),
+			options: { override: 'test.pdfEditor' },
+		}));
 	});
 
 	it('calls unregisterPdf on notebook disposal', async () => {

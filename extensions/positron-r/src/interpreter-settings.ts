@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
 import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variables';
+import { isModuleName } from './startup-choice';
+import { modulesAvailable } from './provider-module';
 
 /**
  * Replaces `${workspaceFolder}` in a path from an R interpreter setting with the first
@@ -89,34 +92,20 @@ export function userRBinaries(): string[] {
 }
 
 /**
- * R binaries named by entries in the `interpreters.definitions` setting.
- * Paths must be absolute; other entries are ignored.
+ * R binaries named by entries in the `interpreters.definitions` setting, as
+ * Positron reads them: valid entries with an absolute path, each R once.
  * @returns List of R binary paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
-	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
-	if (!Array.isArray(definitions)) {
-		return [];
-	}
-	const paths = definitions
-		.filter(d => d?.language === 'r' && typeof d.path === 'string' && path.isAbsolute(d.path))
-		.map(d => d.path as string);
-	return Array.from(new Set(paths));
+	return positron.runtime.getInterpreterDefinitionPaths('r');
 }
 
 /**
- * Labels of the R entries in the `interpreters.definitions` setting, in the
- * order they are listed.
- * @returns List of R interpreter definition labels.
+ * The `interpreters.definitions` path that names the R binary at `binpath`, in
+ * the definition's own spelling, or undefined.
  */
-export function getInterpreterDefinitionLabels(): string[] {
-	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
-	if (!Array.isArray(definitions)) {
-		return [];
-	}
-	return definitions
-		.filter(d => d?.language === 'r' && typeof d.label === 'string')
-		.map(d => d.label as string);
+export function interpreterDefinitionPathFor(binpath: string): string | undefined {
+	return positron.runtime.findInterpreterDefinitionPath('r', binpath);
 }
 
 /**
@@ -194,21 +183,35 @@ export function isExcludedInstallation(binpath: string): boolean | undefined {
 }
 
 /**
- * Get the default R interpreter path specified in Positron settings.
- * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
- * @returns The default R interpreter path specified in the settings, or undefined if not set.
+ * The R that `positron.r.interpreters.default` names: the path to an R binary,
+ * or an environment module (see `isModuleName`) when environment modules are
+ * available.
  */
-export function getDefaultInterpreterPath(): string | undefined {
+export type DefaultInterpreter =
+	{ readonly kind: 'path'; readonly path: string } |
+	{ readonly kind: 'module'; readonly module: string };
+
+/**
+ * Get the default R interpreter specified in Positron settings.
+ * For a path, replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
+ * @returns The default R interpreter specified in the settings, or undefined if not set.
+ */
+export async function getDefaultInterpreter(): Promise<DefaultInterpreter | undefined> {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const setting = config.get<string>('interpreters.default');
+	const setting = config.get<string>('interpreters.default')?.trim();
 	if (!setting) {
 		return undefined;
 	}
-	const defaultInterpreterPath = resolveSettingPath(setting, 'Default R interpreter path');
-	if (defaultInterpreterPath) {
-		LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
+	if (isModuleName(setting) && await modulesAvailable()) {
+		LOGGER.info(`Default R environment module specified in 'positron.r.interpreters.default': ${setting}`);
+		return { kind: 'module', module: setting };
 	}
-	return defaultInterpreterPath;
+	const defaultInterpreterPath = resolveSettingPath(setting, 'Default R interpreter path');
+	if (!defaultInterpreterPath) {
+		return undefined;
+	}
+	LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
+	return { kind: 'path', path: defaultInterpreterPath };
 }
 
 /**
@@ -225,10 +228,10 @@ export function getResolvedExcludePaths(): string[] {
 /**
  * Print the R interpreter settings info to the log.
  */
-export function printInterpreterSettingsInfo(): void {
+export async function printInterpreterSettingsInfo(): Promise<void> {
 	const interpreterSettingsInfo = {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		'interpreters.default': getDefaultInterpreterPath(),
+		'interpreters.default': await getDefaultInterpreter(),
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		'interpreters.override': getInterpreterOverridePaths(),
 		// eslint-disable-next-line @typescript-eslint/naming-convention

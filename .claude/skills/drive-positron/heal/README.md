@@ -16,7 +16,8 @@
 5. `finder.ts`: one agent session reproduces the top leads and writes findings. It runs only when
    there are leads, so it goes quiet as the helpers stop failing real runs. Exploring one area
    (`areas.json`) as well is opt-in (the `explore` input of a manual run), for a new helper; a
-   finding from it may fix a helper but not add a flag or command
+   finding from it may fix a helper but not add a flag or command. With no area, a finding without
+   a lead is thrown away: a bug no real run hit is not worth a PR
 6. `fix-loop.ts`: one fixer session per finding (at most 5). A fix that changes a helper must add a
    smoke case; a read-only reviewer (`reviewer.md`, Sonnet) checks the diff and may send it back
    to the fixer once. A fix to lines that earlier commits keep patching (`git log -L`, 3 or more

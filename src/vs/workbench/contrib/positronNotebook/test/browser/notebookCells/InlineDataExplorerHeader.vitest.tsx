@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
@@ -20,7 +18,7 @@ import { InlineDataExplorerHeader } from '../../../browser/notebookCells/InlineD
 import type { IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
 
 /** Minimal MenuItemAction stub for rendering and click dispatch. */
-function mockAction(id: string, label: string, iconId: string, run: (...args: unknown[]) => Promise<unknown> = () => Promise.resolve()): MenuItemAction {
+function mockAction(id: string, label: string, iconId: string, run: MenuItemAction['run'] = () => Promise.resolve()): MenuItemAction {
 	const action = stubInterface<MenuItemAction>({
 		id,
 		label,
@@ -134,7 +132,7 @@ describe('InlineDataExplorerHeader', () => {
 
 	it('invokes action.run with the provided context on click', async () => {
 		const user = userEvent.setup();
-		const run = vi.fn().mockResolvedValue(undefined);
+		const run = vi.fn<MenuItemAction['run']>().mockResolvedValue(undefined);
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file', run)]]];
 		const actionContext = buildActionContext();
 		renderHeader(actionContext, mockContextKeyService);

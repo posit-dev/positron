@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // webClientServer.ts computes APP_ROOT at module load via FileAccess.asFileUri(''), which
 // requires globalThis._VSCODE_FILE_ROOT. That's normally set by a bootstrap entry point (see
 // agentHostServerMain.ts), which this plain Vitest run doesn't go through -- set it ourselves,
@@ -39,6 +37,7 @@ import { NoneServerConnectionToken } from '../../node/serverConnectionToken.js';
 import { createNlsUrl, createScriptNonce, createWorkbenchContentSecurityPolicy, isSafeBasePath, renderWorkbenchTemplate, WebClientServer } from '../../node/webClientServer.js';
 import { ISocketOwnershipCheck } from '../../node/socketOwnership.js';
 import { IPositronAcademicLicenseService } from '../../../platform/positronLicense/common/positronAcademicLicenseService.js';
+import { DeferredPromise } from '../../../base/common/async.js';
 
 afterAll(() => {
 	if (originalEnv.RS_SERVER_URL === undefined) {
@@ -280,11 +279,15 @@ async function requestPath(webClientServer: WebClientServer, pathname: string): 
 }
 
 describe('WebClientServer /proxy/ port ownership gate', () => {
+	// `process.getuid` does not exist on Windows, so a spy cannot be installed there: swap the
+	// function in by hand and put the original back afterwards.
+	const originalGetuid = process.getuid;
 	beforeEach(() => {
-		vi.spyOn(process, 'getuid').mockReturnValue(ourUid);
+		process.getuid = () => ourUid;
 	});
 
 	afterEach(() => {
+		process.getuid = originalGetuid;
 		vi.restoreAllMocks();
 	});
 
@@ -293,7 +296,7 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 		it('serves the sessionless static callback through the callback handler', async () => {
 			const webClientServer = createWebClientServer({
 				getListeningPortUid: vi.fn(),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(false),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(false),
 			});
 			const callbackFile = URI.file(`${process.cwd()}/src/vs/code/browser/workbench/callback.html`);
 			vi.spyOn(FileAccess, 'asFileUri').mockReturnValue(callbackFile);
@@ -315,8 +318,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 		it('rejects with 403 when the port is owned by another uid, and logs a warning', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
-				getListeningPortUid: vi.fn().mockReturnValue(foreignUid),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+				getListeningPortUid: vi.fn().mockResolvedValue(foreignUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 			};
 			const logService = new NullLogService();
 			const warn = vi.spyOn(logService, 'warn');
@@ -347,8 +350,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 		it('proxies through to the backend when the port is owned by our uid', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
-				getListeningPortUid: vi.fn().mockReturnValue(ourUid),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+				getListeningPortUid: vi.fn().mockResolvedValue(ourUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 			};
 			const webClientServer = createWebClientServer(ownershipCheck);
 
@@ -381,7 +384,7 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 		it('fails open (does not block) when ownership enforcement is unavailable, and logs once', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
 				getListeningPortUid: vi.fn(),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(false),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(false),
 			};
 			const logService = new NullLogService();
 			const warn = vi.spyOn(logService, 'warn');
@@ -421,8 +424,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 		for (const disableValue of ['0', 'false']) {
 			it(`proxies through without consulting ownership when disabled via --www-proxy-localhost-verify-port-owner=${disableValue}`, async () => {
 				const ownershipCheck: ISocketOwnershipCheck = {
-					getListeningPortUid: vi.fn().mockReturnValue(foreignUid),
-					isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+					getListeningPortUid: vi.fn().mockResolvedValue(foreignUid),
+					isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 				};
 				const webClientServer = createWebClientServer(ownershipCheck, new NullLogService(), { 'www-proxy-localhost-verify-port-owner': disableValue });
 
@@ -485,8 +488,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 		it('destroys the socket when the port is owned by another uid, without reaching the proxy', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
-				getListeningPortUid: vi.fn().mockReturnValue(foreignUid),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+				getListeningPortUid: vi.fn().mockResolvedValue(foreignUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 			};
 			const webClientServer = createWebClientServer(ownershipCheck);
 			const { server, socket } = await connectedSocketPair();
@@ -502,8 +505,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 		it('preserves the query string when proxying a websocket upgrade', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
-				getListeningPortUid: vi.fn().mockReturnValue(ourUid),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+				getListeningPortUid: vi.fn().mockResolvedValue(ourUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 			};
 			const webClientServer = createWebClientServer(ownershipCheck);
 
@@ -540,8 +543,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 		it('does not destroy the socket when the port is owned by our uid', async () => {
 			const ownershipCheck: ISocketOwnershipCheck = {
-				getListeningPortUid: vi.fn().mockReturnValue(ourUid),
-				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(true),
+				getListeningPortUid: vi.fn().mockResolvedValue(ourUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockResolvedValue(true),
 			};
 			const webClientServer = createWebClientServer(ownershipCheck);
 			const { server, socket } = await connectedSocketPair();
@@ -549,6 +552,40 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 			try {
 				await webClientServer.handleUpgrade(fakeUpgradeRequest('/proxy/9999/'), socket, Buffer.alloc(0), '/proxy/9999/');
 				expect(socket.destroyed).toBe(false);
+			} finally {
+				socket.destroy();
+				server.close();
+			}
+		});
+
+		it('survives a socket error while the ownership check is in flight', async () => {
+			// Hold the ownership check open so the test controls the async gap before _proxyServer.ws().
+			const enforced = new DeferredPromise<boolean>();
+			const ownershipCheck: ISocketOwnershipCheck = {
+				getListeningPortUid: vi.fn().mockResolvedValue(foreignUid),
+				isProxyPortOwnershipEnforced: vi.fn().mockReturnValue(enforced.p),
+			};
+			const webClientServer = createWebClientServer(ownershipCheck);
+			const { server, socket } = await connectedSocketPair();
+			// Node strips its own 'error' listener before emitting 'upgrade'; mirror that by removing the
+			// one connectedSocketPair() leaves behind, otherwise it would absorb the error below.
+			socket.removeAllListeners('error');
+
+			try {
+				const upgrade = webClientServer.handleUpgrade(fakeUpgradeRequest('/proxy/9999/'), socket, Buffer.alloc(0), '/proxy/9999/');
+
+				// With no 'error' listener, emit() throws synchronously -- in production that is an uncaught exception.
+				let emitError: string | undefined;
+				try {
+					socket.emit('error', new Error('ECONNRESET'));
+				} catch (error) {
+					emitError = error.message;
+				}
+
+				enforced.complete(true);
+				await upgrade;
+
+				expect({ emitError, destroyed: socket.destroyed }).toEqual({ emitError: undefined, destroyed: true });
 			} finally {
 				socket.destroy();
 				server.close();

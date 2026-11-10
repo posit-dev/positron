@@ -743,7 +743,7 @@ def _verify_inspect(
 ) -> None:
     assert len(children) == len(expected_children)
 
-    for child, expected_child in zip(children, expected_children):
+    for child, expected_child in zip(children, expected_children, strict=True):
         # Check the inspected variable; children are checked separately below.
         expected_child = expected_child.copy()
         expected_child_children = expected_child.pop("children")

@@ -1272,6 +1272,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return { extensionId: m.extension.identifier, ...runtime };
 	}
 
+	/**
+	 * The languages whose runtime manager sets `defersToFirstDefinition`.
+	 */
+	public async $getLanguagesDeferringToFirstDefinition(): Promise<string[]> {
+		return [...new Set(this._runtimeManagers
+			.filter(m => m.manager.defersToFirstDefinition === true)
+			.map(m => m.languageId))];
+	}
+
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[], afterDiscovery?: boolean): Promise<ILanguageRuntimeRecommendation[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
@@ -1846,6 +1855,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<void> {
 		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete,
 			undefined, undefined, undefined, undefined, undefined, undefined, callerSessionId);
+	}
+
+	/**
+	 * Start a new background console session of the caller's runtime and queue
+	 * code in it. Resolves with the new session's ID once the code is queued.
+	 *
+	 * `callerSessionId` identifies the kernel session that sent the request, if
+	 * any; the new session uses that session's runtime.
+	 */
+	public executeCodeInNewSession(languageId: string, code: string, sessionName: string, extensionId: string, callerSessionId?: string): Promise<string> {
+		return this._proxy.$executeCodeInNewSession(languageId, code, sessionName, extensionId, callerSessionId);
 	}
 
 	/**
