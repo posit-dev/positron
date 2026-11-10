@@ -408,7 +408,7 @@ describe('PositronConsoleService', () => {
 			expect(executeSpy.mock.calls[0][0]).toBe('b');
 		});
 
-		it('clears incomplete code waiting in the input', async () => {
+		it('detaches incomplete code waiting in the input without clearing it', async () => {
 			const { session, instance, run } = await startBusy();
 			vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Incomplete);
 			await run('f(', 'exec-a');
@@ -417,8 +417,8 @@ describe('PositronConsoleService', () => {
 			session.setRuntimeState(RuntimeState.Idle);
 			await vi.waitFor(() => expect(pending).toEqual(['f(']));
 
-			expect(instance.cancelPendingExecution('exec-a')).toBe(true);
-			expect(pending).toEqual(['f(', undefined]);
+			expect([instance.cancelPendingExecution('exec-a'), instance.cancelPendingExecution('exec-a')]).toEqual([true, false]);
+			expect(pending).toEqual(['f(']);
 		});
 	});
 });

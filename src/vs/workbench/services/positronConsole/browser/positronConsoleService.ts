@@ -2233,11 +2233,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			this._pendingCodeQueue = this._pendingCodeQueue.filter(item => item.executionId !== executionId);
 			this.updatePendingInputItem();
 			this._onDidChangeRuntimeItemsEmitter.fire();
-		} else if (!this._currentSubmission && Array.from(this._pendingExecutionIds.values()).includes(executionId)) {
-			// The code is incomplete and waiting in the input editor.
-			this.setPendingCode();
 		} else {
-			return false;
+			// Incomplete code waiting in the input editor belongs to the user
+			// now; leave the input alone and just detach the execution ID.
+			const code = this._currentSubmission ? undefined :
+				Array.from(this._pendingExecutionIds).find(([, id]) => id === executionId)?.[0];
+			if (code === undefined) {
+				return false;
+			}
+			this._pendingExecutionIds.delete(code);
 		}
 
 		this._externalExecutionIds.delete(executionId);
