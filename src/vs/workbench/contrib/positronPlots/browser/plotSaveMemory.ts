@@ -30,7 +30,7 @@ export class PlotSaveMemory {
 
 	/** The last folder saved to, or the fallback if there is none or it no longer exists. */
 	async getDirectory(fallback: URI): Promise<URI> {
-		const saved = await this._ephemeralState.getItem<SavedPlotLocation>(this._key);
+		const saved = await this._read();
 		if (saved) {
 			const directory = URI.parse(saved.directory);
 			if (await this._fileService.exists(directory)) {
@@ -41,8 +41,7 @@ export class PlotSaveMemory {
 	}
 
 	async getFormat(): Promise<PlotRenderFormat | undefined> {
-		const saved = await this._ephemeralState.getItem<SavedPlotLocation>(this._key);
-		return saved?.format;
+		return (await this._read())?.format;
 	}
 
 	/** Records a successful save. Omit the format to keep the previous one. */
@@ -50,5 +49,14 @@ export class PlotSaveMemory {
 		format ??= await this.getFormat();
 		const saved: SavedPlotLocation = { directory: directory.toString(), format };
 		await this._ephemeralState.setItem(this._key, saved);
+	}
+
+	// A failed read must not block the save, e.g. web with no remote connection.
+	private async _read(): Promise<SavedPlotLocation | undefined> {
+		try {
+			return await this._ephemeralState.getItem<SavedPlotLocation>(this._key);
+		} catch {
+			return undefined;
+		}
 	}
 }

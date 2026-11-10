@@ -55,6 +55,13 @@ describe('PlotSaveMemory', () => {
 		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
 	});
 
+	it('uses the defaults when the saved state cannot be read', async () => {
+		const failing = { getItem: async () => { throw new Error('no remote connection'); }, setItem: async () => { } };
+		const memory = new PlotSaveMemory(failing, fileService, 'ws1');
+		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
+		expect(await memory.getFormat()).toBeUndefined();
+	});
+
 	it('keeps each workspace separate', async () => {
 		await memoryFor('ws1').remember(figures, PlotRenderFormat.Pdf);
 
