@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,4 +25,14 @@
 	padding-left: 5px;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.current-working-directory-label:focus {
+	outline: none !important;
+}
+
+.current-working-directory-label:focus-visible {
+	border-radius: 4px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+	outline-offset: -1px;
 }
