@@ -6,15 +6,6 @@
 import * as vscode from 'vscode';
 import { CopilotQuota, QuotaSnapshot } from './client.js';
 
-/** Product names of the plan ids the server reports. Unknown ids are shown as is. */
-const PLAN_NAMES: Record<string, string> = {
-	free: 'Copilot Free',
-	individual: 'Copilot Pro',
-	individual_pro: 'Copilot Pro+',
-	business: 'Copilot Business',
-	enterprise: 'Copilot Enterprise',
-};
-
 /**
  * Combine a pushed quota update with what is already known. A push may leave
  * out buckets, the reset date, and whether token-based billing is on, so
@@ -32,8 +23,8 @@ export function mergeQuota(previous: CopilotQuota | undefined, next: CopilotQuot
 }
 
 /**
- * The status bar tooltip: the status message, followed by the plan and the
- * quotas that apply to it, if known.
+ * The status bar tooltip: the status message, followed by the quotas that
+ * apply to the user's plan, if known.
  */
 export function createStatusTooltip(message: string, quota: CopilotQuota | undefined): string | vscode.MarkdownString {
 	if (!quota) {
@@ -52,23 +43,17 @@ export function createStatusTooltip(message: string, quota: CopilotQuota | undef
 			[quota.tokenBasedBilling ? vscode.l10n.t('AI credits') : vscode.l10n.t('Premium requests'), quota.premiumInteractions],
 		];
 	const shown = buckets.filter((entry): entry is [string, QuotaSnapshot] => entry[1] !== undefined);
-	if (!quota.plan && shown.length === 0) {
+	if (shown.length === 0) {
 		return message;
 	}
 
 	const tooltip = new vscode.MarkdownString();
 	tooltip.appendText(message);
-	if (quota.plan) {
-		tooltip.appendMarkdown('\n\n');
-		tooltip.appendText(vscode.l10n.t('Plan: {0}', PLAN_NAMES[quota.plan] ?? quota.plan));
-	}
-	if (shown.length > 0) {
-		tooltip.appendMarkdown('\n\n');
-		for (const [label, snapshot] of shown) {
-			tooltip.appendMarkdown('- ');
-			tooltip.appendText(describeSnapshot(label, snapshot));
-			tooltip.appendMarkdown('\n');
-		}
+	tooltip.appendMarkdown('\n\n');
+	for (const [label, snapshot] of shown) {
+		tooltip.appendMarkdown('- ');
+		tooltip.appendText(describeSnapshot(label, snapshot));
+		tooltip.appendMarkdown('\n');
 	}
 	const resetDate = quota.resetDate && shown.some(([, snapshot]) => !snapshot.unlimited)
 		? formatDate(quota.resetDate)
