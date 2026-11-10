@@ -866,7 +866,8 @@ jobs:
           JOBS="$RUNNER_TEMP/builds-jobs.json"
           gh api --paginate "repos/posit-dev/positron-builds/actions/runs/$RUN_ID/jobs?per_page=100" \
             --jq '.jobs[] | {id, name, conclusion, html_url, started_at, completed_at}' | jq -s . > "$JOBS"
-          timed_out=$(jq -c --argjson limit "$((EXPLORE_TIMEOUT_MINUTES * 60))" '[.[]
+          # A minute of slack: the reported times can land just under the limit.
+          timed_out=$(jq -c --argjson limit "$((EXPLORE_TIMEOUT_MINUTES * 60 - 60))" '[.[]
             | select(.conclusion != null and .conclusion != "success" and .conclusion != "skipped"
               and .started_at != null and .completed_at != null)
             | select((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601) >= $limit)
