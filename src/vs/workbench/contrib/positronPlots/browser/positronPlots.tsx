@@ -72,14 +72,14 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	};
 
 	// Hooks.
-	const [width, setWidth] = useState(props.reactComponentContainer.width);
-	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [width, setWidth] = useState(() => props.reactComponentContainer.width);
+	const [height, setHeight] = useState(() => props.reactComponentContainer.height);
 	const [posX, setPosX] = useState(0);
 	const [posY, setPosY] = useState(0);
-	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
-	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
-	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
-	const [displayLocation, setDisplayLocation] = useState(services.positronPlotsService.displayLocation);
+	const [visible, setVisible] = useState(() => props.reactComponentContainer.containerVisible);
+	const [showHistory, setShowHistory] = useState(() => computeHistoryVisibility(services.positronPlotsService.historyPolicy));
+	const [darkFilterMode, setDarkFilterMode] = useState(() => services.positronPlotsService.darkFilterMode);
+	const [displayLocation, setDisplayLocation] = useState(() => services.positronPlotsService.displayLocation);
 	const [selectedPlotId, setSelectedPlotId] = useState(() => services.positronPlotsService.selectedPlotId);
 	const [zoom, setZoom] = useState(ZoomLevel.Fit);
 
