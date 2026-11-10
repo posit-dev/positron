@@ -23,7 +23,6 @@ import { createRequire } from 'node:module';
 import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PNG } from 'pngjs';
 
 /**
  * Credentials CI holds under names the suffix rule misses. Widening the rule to
@@ -228,6 +227,8 @@ export function boxesToPaint(lines, secrets) {
 
 /** A PNG with each box, padded by `pad` pixels, filled solid black. */
 export function paintBoxes(png, boxes, pad = 3) {
+	// Loaded here, not at the top: redact.sh runs --names before any npm install.
+	const { PNG } = createRequire(import.meta.url)('pngjs');
 	const image = PNG.sync.read(png);
 	for (const { x0, y0, x1, y1 } of boxes) {
 		for (let y = Math.max(0, y0 - pad); y < Math.min(image.height, y1 + pad); y++) {
