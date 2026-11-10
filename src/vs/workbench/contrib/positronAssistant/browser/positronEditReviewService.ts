@@ -126,9 +126,12 @@ class PositronEditReviewSession extends Disposable implements IPositronEditRevie
 	}
 
 	override dispose(): void {
-		// End the edits in progress first; each holds a lock on its files.
+		// End the edits in progress first; each holds a lock on its files. Then
+		// keep what is pending, so that no edits outlive their session.
 		const stopping = Array.from(this._operations.keys(), operationId => this.stopEdits(operationId));
-		Promise.allSettled(stopping).then(() => super.dispose());
+		Promise.allSettled(stopping)
+			.then(() => this._editingSession.accept())
+			.finally(() => super.dispose());
 	}
 }
 

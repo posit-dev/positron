@@ -114,7 +114,7 @@ describe('PositronEditReviewService', () => {
 		expect(stopExternalEdits).not.toHaveBeenCalled();
 	});
 
-	it('ends the edits in progress before releasing the chat model when disposed', async () => {
+	it('ends the edits in progress and keeps pending edits before releasing the chat model when disposed', async () => {
 		const session = createSession();
 		const operationId = await session.startEdits([file]);
 
@@ -124,6 +124,8 @@ describe('PositronEditReviewService', () => {
 
 		expect(stopExternalEdits).toHaveBeenCalledWith(expect.anything(), operationId);
 		expect(complete).toHaveBeenCalledTimes(1);
+		expect(accept).toHaveBeenCalledWith();
+		expect(stopExternalEdits.mock.invocationCallOrder[0]).toBeLessThan(accept.mock.invocationCallOrder[0]);
 	});
 
 	it('reports each edited file, each change kept or undone, and how its edits were settled', () => {

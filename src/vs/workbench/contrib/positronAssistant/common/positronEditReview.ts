@@ -31,7 +31,7 @@ export interface IPositronEditReviewEntry {
 
 /**
  * A set of file edits under review. Disposing it ends any edits still in
- * progress; edits still pending stay reviewable until the user settles them.
+ * progress and keeps the edits still pending.
  */
 export interface IPositronEditReviewSession extends IDisposable {
 	/**

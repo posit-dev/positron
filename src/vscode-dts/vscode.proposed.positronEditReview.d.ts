@@ -19,9 +19,8 @@ declare module 'positron' {
 		export function createEditReviewSession(): EditReviewSession;
 
 		/**
-		 * A set of file edits under review. Disposing the session leaves the
-		 * files as they are; edits still pending stay reviewable until the user
-		 * keeps or undoes them.
+		 * A set of file edits under review. Disposing the session keeps the
+		 * edits still pending; the files stay as they are.
 		 */
 		export interface EditReviewSession extends vscode.Disposable {
 			/**
