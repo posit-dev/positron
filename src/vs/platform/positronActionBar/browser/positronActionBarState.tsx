@@ -31,7 +31,7 @@ export interface CommandAction {
 export interface PositronActionBarState {
 	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
-	hoverManager: IHoverManager;
+	hoverManager: IHoverManager | undefined;
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 	focusableComponents: Set<HTMLElement>;
@@ -111,8 +111,7 @@ export const usePositronActionBarState = (): PositronActionBarState => {
 	return {
 		appendCommandAction,
 		isCommandEnabled,
-		// Undefined until the hook's first effect runs, as before.
-		hoverManager: hoverManager!,
+		hoverManager,
 		menuShowing,
 		setMenuShowing,
 		focusableComponents
