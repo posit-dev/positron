@@ -1202,8 +1202,9 @@ export interface IRuntimeSessionService {
 	 *  restart, if any.
 	 * @returns `true` if the session was restarted (or a restart already
 	 *  in progress completed), `false` if the restart was declined by
-	 *  the user. Rejects if the session is not found or not in a
-	 *  restartable state.
+	 *  the user or, for an exited notebook session, skipped because
+	 *  another session now owns the notebook. Rejects if the session is
+	 *  not found or not in a restartable state.
 	 */
 	restartSession(sessionId: string, source: string, interrupt?: boolean, requestingExtensionId?: string): Promise<boolean>;
 

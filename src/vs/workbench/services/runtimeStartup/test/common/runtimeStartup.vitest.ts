@@ -5,6 +5,7 @@
 
 import { Barrier, DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
@@ -32,13 +33,14 @@ import {
 	LanguageRuntimeSessionMode,
 	LanguageRuntimeStartupBehavior,
 	LanguageStartupBehavior,
+	RuntimeExitReason,
 	RuntimeStartupPhase,
 	RuntimeState,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionStateEvent, INotebookLanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
@@ -1503,6 +1505,63 @@ describe('RuntimeStartupService - reconnect after a reload', () => {
 			expect(saved.filter(session => session.isLastActiveConsole).map(session => session.metadata.sessionId))
 				.toEqual([focusedLast.sessionId]);
 		});
+	});
+});
+
+describe('RuntimeStartupService - restart after a crash', () => {
+	const notifications = new TestNotificationService();
+	const ctx = startupTestContainer()
+		.stub(INotificationService, notifications)
+		.stub(IRuntimeDiscoveryCache, createTestCache())
+		.build();
+
+	/**
+	 * Starts a session, crashes it while restartOnCrash is on, and returns
+	 * the message of the crash notification.
+	 *
+	 * @param sessionMode The mode of the session that crashes.
+	 * @param restarted What `restartSession` returns for the crashed session.
+	 * @param notebookTakenOver Whether another session owns the notebook after the crash.
+	 */
+	async function crashNotice(sessionMode: LanguageRuntimeSessionMode, restarted: boolean, notebookTakenOver = false) {
+		(ctx.get(IConfigurationService) as TestConfigurationService)
+			.setUserConfiguration('interpreters.restartOnCrash', true);
+		const svc = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			sessionMode,
+			notebookUri: sessionMode === LanguageRuntimeSessionMode.Notebook ? URI.file('/crash/notebook.ipynb') : undefined,
+		});
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		vi.spyOn(runtimeSessionService, 'restartSession').mockResolvedValue(restarted);
+		if (notebookTakenOver) {
+			vi.spyOn(runtimeSessionService, 'getNotebookSessionForNotebookUri')
+				.mockReturnValue(stubInterface<INotebookLanguageRuntimeSession>({ sessionId: 'other-session' }));
+		}
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Complete;
+		const prompt = vi.spyOn(notifications, 'prompt');
+
+		session.endSession({ reason: RuntimeExitReason.Error, exit_code: 1 });
+
+		await vi.waitFor(() => expect(prompt).toHaveBeenCalled());
+		return prompt.mock.calls[0][1];
+	}
+
+	it('says a restarted session was restarted', async () => {
+		expect(await crashNotice(LanguageRuntimeSessionMode.Console, true)).toContain('and was automatically restarted');
+	});
+
+	it('says a console that was not restarted was not restarted', async () => {
+		expect(await crashNotice(LanguageRuntimeSessionMode.Console, false)).toContain('and was not automatically restarted');
+	});
+
+	it('says a notebook session that was not restarted was not restarted when no other session took over', async () => {
+		expect(await crashNotice(LanguageRuntimeSessionMode.Notebook, false)).toContain('and was not automatically restarted');
+	});
+
+	it('says another session runs for the notebook when one took over', async () => {
+		expect(await crashNotice(LanguageRuntimeSessionMode.Notebook, false, true)).toContain('another session now runs for its notebook');
 	});
 });
 

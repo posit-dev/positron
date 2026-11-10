@@ -758,7 +758,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		if (info?.session) {
 			const sessionId = info.session.sessionId;
 			this._logService.debug(`[QuartoKernelManager] Restarting kernel for ${documentUri.toString()}`);
-			await this._runtimeSessionService.restartSession(sessionId, 'Quarto kernel restart');
+			const restarted = await this._runtimeSessionService.restartSession(sessionId, 'Quarto kernel restart');
+			if (!restarted) {
+				// The session did not restart: either the user declined to
+				// interrupt it, or another session took over the document's
+				// notebook while it was exited. Use whichever session is usable.
+				return this.ensureKernelForDocument(documentUri, token);
+			}
 			return info.session;
 		}
 

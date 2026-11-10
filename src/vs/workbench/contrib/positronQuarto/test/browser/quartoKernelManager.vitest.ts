@@ -77,6 +77,7 @@ describe('QuartoKernelManager', () => {
 	let sessionStateEmitter: Emitter<RuntimeState>;
 	let announceStart: boolean;
 	let announcedSessions: Map<string, ILanguageRuntimeSession>;
+	let restartResult: boolean;
 
 	// Mutable state for mocks that tests can override
 	let primaryLanguage: string;
@@ -113,6 +114,7 @@ describe('QuartoKernelManager', () => {
 		sessionStateEmitter = disposables.add(new Emitter());
 		announceStart = false;
 		announcedSessions = new Map();
+		restartResult = true;
 		primaryLanguage = 'python';
 		registeredRuntimes = [pythonRuntime1, pythonRuntime2, rRuntime1];
 
@@ -161,6 +163,7 @@ describe('QuartoKernelManager', () => {
 			getNotebookSessionForNotebookUri(uri: URI) { return notebookSessions.get(uri.toString()); },
 			getActiveSessions() { return activeSessions; },
 			async shutdownNotebookSession(uri: URI) { shutdownUris.push(uri); },
+			async restartSession() { return restartResult; },
 			onDidStartRuntime: startRuntimeEmitter.event,
 		});
 
@@ -536,6 +539,41 @@ describe('QuartoKernelManager', () => {
 
 		expect({ secondId: second?.sessionId, trackedId: kernelManager.getSessionForDocument(docUri)?.sessionId })
 			.toEqual({ secondId: 'session-1', trackedId: 'session-1' });
+	});
+
+	describe('restarting a kernel that the session service does not restart', () => {
+		it('returns the session that owns the document when its kernel restart is skipped', async () => {
+			await kernelManager.ensureKernelForDocument(docUri);
+			const startsBefore = startedRuntimeIds.length;
+			sessionState = RuntimeState.Exited;
+			notebookSessions.set(docUri.toString(), stubInterface<INotebookLanguageRuntimeSession>({
+				sessionId: 'running',
+				metadata: stubInterface<INotebookLanguageRuntimeSession['metadata']>({ notebookUri: docUri, sessionMode: LanguageRuntimeSessionMode.Notebook }),
+				runtimeMetadata: pythonRuntime1,
+				getRuntimeState: () => RuntimeState.Idle,
+				onDidChangeRuntimeState: Event.None,
+				onDidEndSession: Event.None,
+				async shutdown(_reason: RuntimeExitReason) { /* no-op */ },
+			}));
+			restartResult = false;
+
+			const returned = await kernelManager.restartKernelForDocument(docUri);
+
+			expect({ returnedSessionId: returned?.sessionId, newStarts: startedRuntimeIds.length - startsBefore })
+				.toEqual({ returnedSessionId: 'running', newStarts: 0 });
+		});
+
+		it('returns the busy session when the user declines to interrupt it for a restart', async () => {
+			const tracked = await kernelManager.ensureKernelForDocument(docUri);
+			const startsBefore = startedRuntimeIds.length;
+			sessionState = RuntimeState.Busy;
+			restartResult = false;
+
+			const returned = await kernelManager.restartKernelForDocument(docUri);
+
+			expect({ returnedSessionId: returned?.sessionId, newStarts: startedRuntimeIds.length - startsBefore })
+				.toEqual({ returnedSessionId: tracked?.sessionId, newStarts: 0 });
+		});
 	});
 
 	describe('untitled sessions that belong to another document', () => {
