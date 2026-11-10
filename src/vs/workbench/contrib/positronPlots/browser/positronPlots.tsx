@@ -80,6 +80,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
 	const [displayLocation, setDisplayLocation] = useState(services.positronPlotsService.displayLocation);
+	const [selectedPlotId, setSelectedPlotId] = useState(() => services.positronPlotsService.selectedPlotId);
 	const [zoom, setZoom] = useState(ZoomLevel.Fit);
 
 	// Add IReactComponentContainer event handlers.
@@ -138,38 +139,30 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		return () => disposableStore.dispose();
 	}, [computeHistoryVisibility, services.positronPlotsService, props.reactComponentContainer]);
 
+	// Track the selected plot.
 	useEffect(() => {
-		// Set the initial zoom level for the current plot.
 		const disposableStore = new DisposableStore();
-
-		const syncZoomWithSelectedPlot = () => {
-			const currentPlot = services.positronPlotsService.selectedPlotId;
-
-			if (currentPlot) {
-				const plot = services.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlot);
-				if (isZoomablePlotClient(plot)) {
-					disposableStore.add(plot.onDidChangeZoomLevel((zoomLevel) => {
-						setZoom(zoomLevel);
-					}));
-					setZoom(plot.zoomLevel);
-				} else {
-					setZoom(ZoomLevel.Fit);
-				}
-			}
-		};
-
-		// A plot may already be selected when the pane mounts (e.g. the first plot
-		// is selected before the pane is shown), in which case no selection event
-		// will fire for it.
-		syncZoomWithSelectedPlot();
-
-		disposableStore.add(services.positronPlotsService.onDidSelectPlot(syncZoomWithSelectedPlot));
-
-		return () => {
-			// Dispose of the disposable store to clean up event handlers.
-			disposableStore.dispose();
-		}
+		const syncSelectedPlotId = () => setSelectedPlotId(services.positronPlotsService.selectedPlotId);
+		disposableStore.add(services.positronPlotsService.onDidSelectPlot(syncSelectedPlotId));
+		disposableStore.add(services.positronPlotsService.onDidRemovePlot(syncSelectedPlotId));
+		disposableStore.add(services.positronPlotsService.onDidReplacePlots(syncSelectedPlotId));
+		return () => disposableStore.dispose();
 	}, [services.positronPlotsService]);
+
+	// Keep the zoom level in sync with the selected plot.
+	useEffect(() => {
+		const plot = selectedPlotId
+			? services.positronPlotsService.positronPlotInstances.find(plot => plot.id === selectedPlotId)
+			: undefined;
+		if (!plot || !isZoomablePlotClient(plot)) {
+			setZoom(ZoomLevel.Fit);
+			return;
+		}
+
+		setZoom(plot.zoomLevel);
+		const listener = plot.onDidChangeZoomLevel(setZoom);
+		return () => listener.dispose();
+	}, [services.positronPlotsService, selectedPlotId]);
 
 	// Render.
 	return (
