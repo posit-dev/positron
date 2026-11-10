@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
+import { DeferredPromise } from '../../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { mock } from '../../../../../base/test/common/mock.js';
@@ -11,7 +14,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IActiveRuntimeSessionMetadataDto, IMainPositronContext, MainThreadLanguageRuntimeShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { ExtHostLanguageRuntime, ExtHostRuntimeSessionProxy } from '../../../common/positron/extHostLanguageRuntime.js';
@@ -621,6 +624,76 @@ describe('ExtHostLanguageRuntime', () => {
 			const { handle } = await createAttachedSession(runtime);
 
 			expect(() => runtime.$updateNotebookUriLanguageRuntime(handle, URI.file('/home/u/a.qmd'), undefined)).not.toThrow();
+			await runtime.$disposeLanguageRuntime(handle);
+		});
+	});
+
+	describe('executeCode cancellation', () => {
+		let tokenSource: CancellationTokenSource;
+		let executeCode: DeferredPromise<string>;
+
+		beforeEach(() => {
+			tokenSource = new CancellationTokenSource();
+			executeCode = new DeferredPromise<string>();
+			proxy.$executeCode = vi.fn(() => executeCode.p);
+			proxy.$cancelPendingExecution = vi.fn(async () => true);
+			proxy.$interruptSession = vi.fn(async () => { });
+		});
+
+		afterEach(() => tokenSource.dispose());
+
+		function execute(): Promise<Record<string, unknown>> {
+			return runtime.executeCode('r', '1 + 1', extensionId, false, false, undefined, undefined, { token: tokenSource.token });
+		}
+
+		function executionId(): string {
+			return vi.mocked(proxy.$executeCode).mock.calls[0][8]!;
+		}
+
+		it('removes queued code and rejects when cancelled while pending', async () => {
+			const result = execute();
+			await executeCode.complete('test-session');
+
+			tokenSource.cancel();
+
+			await expect(result).rejects.toThrow(CancellationError);
+			expect(proxy.$cancelPendingExecution).toHaveBeenCalledWith('test-session', executionId());
+			expect(proxy.$interruptSession).not.toHaveBeenCalled();
+		});
+
+		it('cancels once the session is known when cancelled before it', async () => {
+			const result = execute();
+
+			tokenSource.cancel();
+			expect(proxy.$cancelPendingExecution).not.toHaveBeenCalled();
+			await executeCode.complete('test-session');
+
+			await expect(result).rejects.toThrow(CancellationError);
+			expect(proxy.$cancelPendingExecution).toHaveBeenCalledWith('test-session', executionId());
+		});
+
+		it('interrupts the session when the code has already left the queue', async () => {
+			proxy.$cancelPendingExecution = vi.fn(async () => false);
+			void execute();
+			await executeCode.complete('test-session');
+
+			tokenSource.cancel();
+
+			await vi.waitFor(() => expect(proxy.$interruptSession).toHaveBeenCalledWith('test-session'));
+		});
+
+		it('interrupts the session when cancelled while running', async () => {
+			const { session, handle } = await createAttachedSession(runtime);
+			void execute();
+			await executeCode.complete('test-session');
+			session.messageEmitter.fire(Object.assign(
+				buildMessage(LanguageRuntimeMessageType.State as unknown as positron.LanguageRuntimeMessageType, { parent_id: executionId() }),
+				{ state: RuntimeOnlineState.Busy }));
+
+			tokenSource.cancel();
+
+			await vi.waitFor(() => expect(proxy.$interruptSession).toHaveBeenCalledWith('test-session'));
+			expect(proxy.$cancelPendingExecution).not.toHaveBeenCalled();
 			await runtime.$disposeLanguageRuntime(handle);
 		});
 	});

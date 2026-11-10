@@ -20,6 +20,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -1793,6 +1794,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const executionObserver = new ExecutionObserver(observer);
 		this._executionObservers.set(executionId, executionObserver);
 
+		// Cancel the execution if requested. Cancellation before the session is
+		// known is handled once `$executeCode` resolves.
+		const token = observer?.token;
+		if (token) {
+			executionObserver.store.add(token.onCancellationRequested(() =>
+				this.cancelExecution(executionId, executionObserver).catch(err =>
+					this._logService.error(`Failed to cancel execution ${executionId}: ${err}`))));
+		}
+
 		// Begin the code execution. This returns a promise that resolves to the
 		// session ID of the session assigned (or created) to run the code.
 		//
@@ -1804,32 +1814,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
-
-					// If a cancellation token was provided, then add a cancellation
-					// request handler so we can interrupt the session if requested
-					if (!observer?.token) {
-						return;
-					}
-					const token = observer.token;
-					executionObserver.store.add(
-						token.onCancellationRequested(async () => {
-							// We can't interrupt the code if it hasn't started yet.
-							//
-							// CONSIDER: We could handle this by reaching
-							// back into the main thread and asking it to
-							// cancel the execution request that has not yet
-							// been dispatched
-							if (executionObserver.state === 'pending') {
-								this._logService.warn(
-									`Cannot interrupt execution of ${code}: ` +
-									`it has not yet started.`);
-							}
-
-							// If the code is running, interrupt the session
-							if (executionObserver.state === 'running') {
-								await this.interruptSession(sessionId);
-							}
-						}));
+					return token?.isCancellationRequested ? this.cancelExecution(executionId, executionObserver) : undefined;
 				}).catch((err) => {
 					// Propagate the error to the observer
 					executionObserver.promise.error(err);
@@ -2022,6 +2007,28 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	public getConsoleHistory(sessionId: string, numberOfEntries?: number): Promise<extHostProtocol.ISerializedConsoleHistoryEntry[]> {
 		return this._proxy.$getConsoleHistory(sessionId, numberOfEntries);
+	}
+
+	/**
+	 * Cancels an execution. Removes it from the console queue if it has not
+	 * started; otherwise, interrupts the session.
+	 */
+	private async cancelExecution(executionId: string, o: ExecutionObserver): Promise<void> {
+		const sessionId = o.sessionId;
+		if (!sessionId || o.promise.isSettled) {
+			return;
+		}
+
+		if (o.state === 'pending' && await this._proxy.$cancelPendingExecution(sessionId, executionId)) {
+			o.onFailed(new CancellationError());
+			o.dispose();
+			this._executionObservers.delete(executionId);
+			return;
+		}
+
+		if (o.state !== 'completed') {
+			await this.interruptSession(sessionId);
+		}
 	}
 
 	/**

@@ -2224,6 +2224,29 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Removes a queued execution before it is sent to the runtime.
+	 * @param executionId The execution ID.
+	 * @returns Whether the execution was removed.
+	 */
+	cancelPendingExecution(executionId: string): boolean {
+		if (this._pendingCodeQueue.some(item => item.executionId === executionId)) {
+			this._pendingCodeQueue = this._pendingCodeQueue.filter(item => item.executionId !== executionId);
+			this.updatePendingInputItem();
+			this._onDidChangeRuntimeItemsEmitter.fire();
+		} else if (!this._currentSubmission && Array.from(this._pendingExecutionIds.values()).includes(executionId)) {
+			// The code is incomplete and waiting in the input editor.
+			this.setPendingCode();
+		} else {
+			return false;
+		}
+
+		this._externalExecutionIds.delete(executionId);
+		this._externalExecutionLabels.delete(executionId);
+		this._pendingPreserveActiveTabExecutionIds.delete(executionId);
+		return true;
+	}
+
+	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
 	 * @param attribution Attribution naming the origin of the code.
@@ -4099,47 +4122,36 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			return;
 		}
 
-		// If there is a pending input runtime item, we need to recreate it with the concatenated code
-		// of all interactive items.
+		this.updatePendingInputItem();
+	}
+
+	/**
+	 * Recreates the pending input runtime item from the non-silent code in the queue.
+	 */
+	private updatePendingInputItem() {
 		if (this._runtimeItemPendingInput) {
-			// Remove the old pending input runtime item.
 			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
 			if (index > -1) {
 				this._runtimeItems.splice(index, 1);
 			}
-
-			// Concatenate only the interactive code fragments from the queue.
-			const interactiveCode = this._pendingCodeQueue
-				.filter(item => item.mode === RuntimeCodeExecutionMode.Interactive)
-				.map(item => item.code)
-				.join('\n');
-
-			// Create a new pending input runtime item with the concatenated interactive code.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session?.dynState.inputPrompt ?? '',
-				attribution,
-				executionId,
-				interactiveCode,
-				mode
-			);
-
-			// Add it back to the runtime items.
-			this.addRuntimeItem(this._runtimeItemPendingInput);
-		} else {
-			// Create the pending input runtime item for the first interactive code fragment.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session?.dynState.inputPrompt ?? '',
-				attribution,
-				executionId,
-				code,
-				mode
-			);
-
-			// Add the pending input runtime item.
-			this.addRuntimeItem(this._runtimeItemPendingInput);
+			this._runtimeItemPendingInput = undefined;
 		}
+
+		const visibleItems = this._pendingCodeQueue.filter(item => item.mode !== RuntimeCodeExecutionMode.Silent);
+		const lastItem = visibleItems.at(-1);
+		if (!lastItem) {
+			return;
+		}
+
+		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+			generateUuid(),
+			this._session?.dynState.inputPrompt ?? '',
+			lastItem.attribution,
+			lastItem.executionId,
+			visibleItems.map(item => item.code).join('\n'),
+			lastItem.mode
+		);
+		this.addRuntimeItem(this._runtimeItemPendingInput);
 	}
 
 	/**
@@ -4440,6 +4452,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// If we have been interrupted, then `clearPendingInput()` has cleared the queue.
 		if (this._pendingInputState === 'Interrupted') {
 			return;
+		}
+
+		// If the item was cancelled during the check, process the next one instead.
+		if (this._pendingCodeQueue[0] !== pendingItem) {
+			return this.processPendingInputImpl();
 		}
 
 		// If the code fragment is not complete, wait for more input.
