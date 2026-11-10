@@ -27,7 +27,10 @@ import { ACTIVE_GROUP, IEditorService } from '../../../../services/editor/common
 import { MultiDiffEditor } from '../../../multiDiffEditor/browser/multiDiffEditor.js';
 import { IDocumentDiffItemWithMultiDiffEditorItem, MultiDiffEditorInput } from '../../../multiDiffEditor/browser/multiDiffEditorInput.js';
 import { NOTEBOOK_CELL_LIST_FOCUSED, NOTEBOOK_EDITOR_FOCUSED } from '../../../notebook/common/notebookContextKeys.js';
-import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+// --- Start Positron ---
+// import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
+// --- End Positron ---
 import { IChatEditReviewSession, IChatEditingService, IModifiedFileEntry, IModifiedFileEntryChangeHunk, IModifiedFileEntryEditorIntegration, ModifiedFileEntryState, parseChatMultiDiffUri, CHAT_EDITING_MULTI_DIFF_SOURCE_RESOLVER_SCHEME } from '../../common/editing/chatEditingService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
 import { ctxCursorInChangeRange, ctxHasEditorModification, ctxHasRequestInProgress, ctxIsCurrentlyBeingModified, ctxIsGlobalEditingSession, ctxReviewModeEnabled } from './chatEditingEditorContextKeys.js';
@@ -46,11 +49,13 @@ abstract class ChatEditingEditorAction extends Action2 {
 
 	constructor(desc: Readonly<IAction2Options>) {
 		// --- Start Positron ---
-		// Hide all subclasses when AI features are disabled.
-		const aiDisabledGuard = ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true);
+		// Disable all subclasses when AI features are disabled. Gated on the main
+		// AI switch rather than chat's own, so that edits made without the chat
+		// view (e.g. by Posit Assistant) can be reviewed.
+		const aiEnabledGuard = ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`);
 		const precondition = desc.precondition
-			? ContextKeyExpr.and(desc.precondition, aiDisabledGuard)
-			: aiDisabledGuard;
+			? ContextKeyExpr.and(desc.precondition, aiEnabledGuard)
+			: aiEnabledGuard;
 		// --- End Positron ---
 		super({
 			category: CHAT_CATEGORY,
@@ -98,7 +103,11 @@ abstract class NavigateAction extends ChatEditingEditorAction {
 				? localize2('next', 'Go to Next Chat Edit')
 				: localize2('prev', 'Go to Previous Chat Edit'),
 			icon: next ? Codicon.arrowDown : Codicon.arrowUp,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ctxHasEditorModification),
+			// --- Start Positron ---
+			// Edits can be made without a default chat participant (e.g. by Posit Assistant).
+			// precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ctxHasEditorModification),
+			precondition: ctxHasEditorModification,
+			// --- End Positron ---
 			keybinding: {
 				primary: next
 					? KeyMod.Alt | KeyCode.F5

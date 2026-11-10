@@ -118,6 +118,7 @@ import './positron/mainThreadDataConnections.js';
 import './positron/mainThreadDataExplorer.js';
 import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
+import './positron/mainThreadEditReview.js';
 import './positron/mainThreadPlotsService.js';
 import './positron/mainThreadNotebookFeatures.js';
 import './positron/mainThreadPositronEphemeralStorage.js';
