@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Pure helpers for deciding whether a PR or push changes only docs or tooling,
-# so test-pull-request.yml and main-dispatch.yml can skip their test jobs. On PRs,
-# the required-tests gate counts a skipped job as passing.
+# so test-pull-request.yml can skip its test jobs and main-dispatch.yml can tell
+# the positron-builds merge lane to skip ext-host and e2e. On PRs, the
+# required-tests gate counts a skipped job as passing.
 # No `gh`, no $GITHUB_OUTPUT side effects: everything is string-in / string-out
 # so it can be unit-tested without network or GitHub Actions context.
 # Source this file; do not execute it.
@@ -41,6 +42,19 @@ ci_reachable_paths() {
 			queue+=("$callee")
 		done < <(grep -hoE 'uses:[[:space:]]*["'\'']?\./\.github/(workflows|actions)/[^"'\''[:space:]@]+' "${files[@]}" |
 			sed -E 's#^uses:[[:space:]]*["'\'']?\./##; s#^(\.github/actions/[^/]+).*#\1#')
+	done
+}
+
+# local_action_dirs <repo_root>
+# Echoes .github/actions/<name> for every local action. Push mode counts them
+# all as reachable: positron-builds runs them from the pushed commit, and no
+# `uses:` in this repo shows which.
+local_action_dirs() {
+	local dir
+	for dir in "$1"/.github/actions/*/; do
+		[[ -d "$dir" ]] || continue
+		dir="${dir%/}"
+		echo ".github/actions/${dir##*/}"
 	done
 }
 

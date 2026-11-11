@@ -101,6 +101,14 @@ for action in setup-build-env setup-test-env download-binaries; do
 		"$(printf '%s\n' "$REAL_REACH" | grep -qxF ".github/actions/$action" && echo true || echo false)"
 done
 
+# positron-builds runs these actions from the pushed commit, so push mode must
+# count them as reachable even though no workflow here uses them.
+ACTION_DIRS="$(local_action_dirs "$HERE/../..")"
+for action in restore-build-caches download-binaries save-build-caches gen-report-dir upload-report-to-s3; do
+	assert_eq "local actions include $action" true \
+		"$(printf '%s\n' "$ACTION_DIRS" | grep -qxF ".github/actions/$action" && echo true || echo false)"
+done
+
 # --- is_docs_only_path ------------------------------------------------------------
 
 REACHABLE=$'.github/workflows/test-pull-request.yml\n.github/workflows/test-unit.yml\n.github/actions/restore-build-caches\n.github/actions/some-action'

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Decide whether a pull request, or a push, changes only docs or tooling, and
-# write docs_only=true|false to $GITHUB_OUTPUT. test-pull-request.yml and
-# main-dispatch.yml skip their test jobs when it is true. See
+# write docs_only=true|false to $GITHUB_OUTPUT. test-pull-request.yml skips its
+# test jobs when it is true; main-dispatch.yml passes it to the positron-builds
+# merge lane, which then skips ext-host and e2e. See
 # scripts/lib/pr-docs-only-lib.sh for the allowlist.
 #
 # With PR_NUMBER, the changed files come from the pull request. With
@@ -81,7 +82,7 @@ if [[ -n "${PR_NUMBER:-}" ]]; then
 	CI_WORKFLOW="${CI_WORKFLOW:-.github/workflows/test-pull-request.yml}"
 	CHANGED=$(pr_changed_files) || emit false
 elif [[ -n "${BEFORE_SHA:-}" ]]; then
-	# No default: the PR workflow's list would miss merge-only workflows.
+	# No default: the push root is the dispatch workflow, not the PR workflow.
 	if [[ -z "${CI_WORKFLOW:-}" ]]; then
 		echo "CI_WORKFLOW is not set; running the tests."
 		emit false
@@ -93,6 +94,9 @@ else
 fi
 
 REACHABLE=$(ci_reachable_paths "$ROOT" "$CI_WORKFLOW")
+if [[ -z "${PR_NUMBER:-}" ]]; then
+	REACHABLE+=$'\n'"$(local_action_dirs "$ROOT")"
+fi
 
 echo "Workflows and actions $CI_WORKFLOW uses (never docs-only):"
 printf '%s\n' "$REACHABLE" | sed 's/^/  /'
