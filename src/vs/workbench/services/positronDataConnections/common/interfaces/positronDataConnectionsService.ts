@@ -113,6 +113,10 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	// honors a request the same way whether it was already listening or has just been built.
 	onDidRequestRevealConnection: Event<void>;
 
+	// Fires with a profile id when that connection's contents changed and the pane should re-fetch
+	// what it has loaded for it. See requestRefresh.
+	readonly onDidRequestRefresh: Event<string>;
+
 	/**
 	 * Asks the Data Connections pane to show a connection: select it, and open it so its contents
 	 * can be browsed. Called by anything outside the pane that has just put the user's attention on
@@ -132,6 +136,15 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param options Where in the connection to go, and whether to open that node's details.
 	 */
 	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void;
+
+	/**
+	 * Asks the Data Connections pane to re-fetch what it has loaded for a connection, because the
+	 * connection's contents changed: an R or Python session reports an update after a change such
+	 * as DBI::dbWriteTable. A row with nothing loaded ignores the request, since its next expand
+	 * fetches fresh anyway.
+	 * @param profileId The id of the profile whose contents changed.
+	 */
+	requestRefresh(profileId: string): void;
 
 	/**
 	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree
@@ -363,6 +376,9 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * Data Explorers, otherwise once the last one is closed. Lets a caller give up its own use of a
 	 * connection without cutting off the Data Explorers still reading from it. No-op if the profile
 	 * has no live connection. Cancel a pending close with {@link cancelDisconnectWhenUnused}.
+	 *
+	 * No-op for a runtime connection (one an R or Python session opened): closing its comm runs the
+	 * user's disconnect() in the session, so it closes only on an explicit {@link disconnect}.
 	 * @param profileId The data connection profile id.
 	 */
 	disconnectWhenUnused(profileId: string): void;
