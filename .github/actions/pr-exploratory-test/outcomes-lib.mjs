@@ -202,6 +202,11 @@ export function settledRows(rows) {
 	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
 }
 
+/** The previous rows for a PR, or for one run on it, without duplicate marks; kept as they were when the report can't be read. */
+export function priorRows(rows, pr, run) {
+	return rows.filter(r => r.pr === pr && (run === undefined || r.run === run)).map(({ dupOf, dupMaybe, ...r }) => r);
+}
+
 /** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. One read from a cut diff is asked again. */
 export function savedPrChecks(rows) {
 	return new Map(rows.filter(r => r.prCheck?.answer === 'no' && !r.prCheck.cut).map(r => [`${r.run}#${r.finding}`, r.prCheck]));
