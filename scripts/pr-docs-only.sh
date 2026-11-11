@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Decide whether a pull request, or a push, changes only docs or tooling, and
 # write docs_only=true|false to $GITHUB_OUTPUT. test-pull-request.yml and
-# test-merge.yml skip their test jobs when it is true. See
+# main-dispatch.yml skip their test jobs when it is true. See
 # scripts/lib/pr-docs-only-lib.sh for the allowlist.
 #
 # With PR_NUMBER, the changed files come from the pull request. With

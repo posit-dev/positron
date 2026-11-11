@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pure helpers for deciding whether a PR or push changes only docs or tooling,
-# so test-pull-request.yml and test-merge.yml can skip their test jobs. On PRs,
+# so test-pull-request.yml and main-dispatch.yml can skip their test jobs. On PRs,
 # the required-tests gate counts a skipped job as passing.
 # No `gh`, no $GITHUB_OUTPUT side effects: everything is string-in / string-out
 # so it can be unit-tested without network or GitHub Actions context.
