@@ -44,8 +44,10 @@ is_docs_only_path() {
 		.github/*.md)
 			[[ "$path" == */*/* ]] || { echo true; return 0; } ;;
 		# The tests run from positron-builds' own workflows, never from a
-		# workflow here. Scripts, JSON maps, and the like under
-		# .github/workflows/ are not matched here and so still run.
+		# workflow here. This includes pr-dispatch.yml and main-dispatch.yml:
+		# a PR can't exercise either one, so it merges with no test run.
+		# Scripts, JSON maps, and the like under .github/workflows/ are not
+		# matched here and so still run.
 		.github/workflows/*.yml|.github/workflows/*.yaml)
 			[[ "$path" == */*/*/* ]] && echo false || echo true
 			return 0 ;;

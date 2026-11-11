@@ -60,7 +60,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       # A PR that changes only docs or tooling skips the dispatch, and
-      # required-tests passes. Fails open: an error means "not docs-only".
+      # required-tests passes. Any error runs the tests.
       - name: Check for a docs-only change
         id: docs-only
         continue-on-error: true
