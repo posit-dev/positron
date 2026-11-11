@@ -877,6 +877,21 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			expect(getPackages).toHaveBeenCalled();
 		});
 
+		it('resolves a package whose environment copy was installed since the last refresh', async () => {
+			// Listed as bundled only, which leaves it out of the outdated fetch.
+			// An older environment copy installed from a terminal since then
+			// makes it a package with a version to resolve.
+			getPackages.mockResolvedValue([{ ...pkg('tornado', '6.5.7'), bundled: true }]);
+			const instance = makeInstance();
+			await instance.refreshPackages();
+			getPackages.mockResolvedValue([{ ...pkg('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }]);
+			getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+				['tornado', { outdated: true, latestVersion: '6.5.10' }],
+			]));
+
+			expect(await instance.resolveLatestVersion('tornado', CancellationToken.None)).toBe('6.5.10');
+		});
+
 		it('matches the package name case-insensitively', async () => {
 			getPackages.mockResolvedValue([pkg('PyYAML', '6.0.1')]);
 			getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([

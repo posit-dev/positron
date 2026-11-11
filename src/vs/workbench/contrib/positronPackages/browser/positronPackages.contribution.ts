@@ -617,11 +617,18 @@ export class UninstallPackageAction extends Action2 {
 			if (argPackage) {
 				// Don't ask to confirm an uninstall that will be rejected. The
 				// instance's guard stays the authority; this only saves the prompt.
-				const listed = service.activePackagesInstance?.packages
-					.find((pkg) => pkg.name.toLowerCase() === argPackage.toLowerCase());
+				// The listed state can be stale (an environment copy installed
+				// from a terminal since the last refresh), so a bundled-only
+				// package is checked again against a fresh list before rejecting.
+				const find = (packages: readonly ILanguageRuntimePackage[]) =>
+					packages.find((pkg) => pkg.name.toLowerCase() === argPackage.toLowerCase());
+				const listed = find(service.activePackagesInstance?.packages ?? []);
 				if (listed && isBundledOnly(listed)) {
-					notifications.error(bundledUninstallMessage([listed.name], service.activeSession?.runtimeMetadata.languageId ?? ''));
-					return;
+					const fresh = find(await service.refreshPackages(cts.token));
+					if (fresh && isBundledOnly(fresh)) {
+						notifications.error(bundledUninstallMessage([fresh.name], service.activeSession?.runtimeMetadata.languageId ?? ''));
+						return;
+					}
 				}
 				const res = await dialogService.confirm({
 					message: nls.localize('positronPackages.confirmUninstallPackage', "Are you sure you want to uninstall the package '{0}'?", argPackage)

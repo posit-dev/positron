@@ -967,12 +967,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 
 		// A metadata entry is only recorded for a package whose installed version
-		// is known, so the installed list has to be populated first. It usually
-		// already is, but a caller that never opened the pane (an agent) can get
-		// here first.
-		if (this._packages.length === 0) {
-			this._packages = await packageManager.getPackages(effectiveToken);
-		}
+		// is known, so the installed list has to be loaded first: a caller that
+		// never opened the pane (an agent) can get here before any refresh. It
+		// is reloaded even when it is populated, because whether a package is
+		// asked about at all depends on it: one listed as bundled only is left
+		// out, and an environment copy installed since the last refresh changes
+		// that.
+		this._packages = await packageManager.getPackages(effectiveToken);
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 
 		// Force the fetch rather than trusting the freshness window: "the latest
 		// version" has to be answered against the repositories as they are now,

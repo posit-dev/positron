@@ -326,28 +326,59 @@ describe('packages install and update commands', () => {
 	});
 
 	describe('UninstallPackageAction', () => {
-		it('reports a bundled-only package as blocked without asking to confirm or uninstalling', async () => {
-			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true }];
-			const uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>();
-			const confirm = vi.fn<IDialogService['confirm']>().mockResolvedValue({ confirmed: true });
+		let uninstallPackages: ReturnType<typeof vi.fn<IPositronPackagesService['uninstallPackages']>>;
+		let confirm: ReturnType<typeof vi.fn<IDialogService['confirm']>>;
+
+		/**
+		 * Wires the uninstall command's services. `cached` is the list the pane
+		 * last showed; `fresh` is what a refresh reports now.
+		 */
+		function stubUninstall(cached: ILanguageRuntimePackage[], fresh: ILanguageRuntimePackage[]): void {
+			uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>().mockResolvedValue(undefined);
+			confirm = vi.fn<IDialogService['confirm']>().mockResolvedValue({ confirmed: true });
 			ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
 				activeSession: stubInterface<ILanguageRuntimeSession>({
 					sessionId: 'session-1',
 					runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
 				}),
 				uninstallPackages,
+				refreshPackages: vi.fn().mockResolvedValue(fresh),
 				get activePackagesInstance(): IPositronPackagesInstance {
-					return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });
+					return stubInterface<IPositronPackagesInstance>({ packages: cached });
 				},
 			}));
 			ctx.instantiationService.stub(IDialogService, stubInterface<IDialogService>({ confirm }));
+		}
 
+		async function runUninstall(name: string) {
 			const action = new UninstallPackageAction();
-			await ctx.instantiationService.invokeFunction(accessor => action.run(accessor, 'tornado'));
+			return ctx.instantiationService.invokeFunction(accessor => action.run(accessor, name));
+		}
+
+		it('reports a bundled-only package as blocked without asking to confirm or uninstalling', async () => {
+			const tornado = { ...installedPackage('tornado', '6.5.7'), bundled: true };
+			stubUninstall([tornado], [tornado]);
+
+			await runUninstall('tornado');
 
 			expect(error).toHaveBeenCalledWith(expect.stringMatching(/^tornado is bundled with Positron/));
 			expect(confirm).not.toHaveBeenCalled();
 			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('uninstalls a package that was bundled only when listed but now has an environment copy', async () => {
+			// An environment copy was installed from a terminal since the pane
+			// last refreshed, so the cached list is out of date.
+			stubUninstall(
+				[{ ...installedPackage('tornado', '6.5.7'), bundled: true }],
+				[{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }],
+			);
+
+			await runUninstall('tornado');
+
+			expect(error).not.toHaveBeenCalled();
+			expect(confirm).toHaveBeenCalled();
+			expect(uninstallPackages).toHaveBeenCalledWith(['tornado'], expect.anything());
 		});
 	});
 
