@@ -19,8 +19,6 @@ export type Deps = {
 	runId: string;
 	headSha: string;
 	runUrl: string;
-	/** The required-tests run's Summary page, which holds each lane's details at the end. */
-	summaryUrl: string | null;
 	listJobs: (runId: string) => Promise<Job[]>;
 	getRun: (runId: string) => Promise<{ status: string; conclusion: string | null }>;
 	setStatus: (sha: string, lane: string, out: LaneOutput, url: string) => Promise<void>;
@@ -50,7 +48,7 @@ export async function publish(deps: Deps, state: State, lane: string, out: LaneO
 
 /** Closes every lane that is still open, linking to the builds run. */
 export async function closeOpen(deps: Deps, state: State, reason: 'unreadable' | 'timed_out' | 'cancelled'): Promise<void> {
-	const out = renderUnreadable(deps.runUrl, reason);
+	const out = renderUnreadable(reason);
 	for (const [lane, status] of Object.entries(state.statuses)) {
 		if (!status.closed) {
 			await publish(deps, state, lane, out, deps.runUrl);
@@ -93,13 +91,11 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 	if (!/^\d+$/.test(runId)) {
 		throw new Error('RUN_ID must be all digits');
 	}
-	const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: ownRun } = env;
 	let warned = false;
 	return {
 		runId,
 		headSha: need('HEAD_SHA'),
 		runUrl: `https://github.com/posit-dev/positron-builds/actions/runs/${runId}`,
-		summaryUrl: server && repo && ownRun ? `${server}/${repo}/actions/runs/${ownRun}` : null,
 		listJobs: id => listJobs(builds, id),
 		getRun: id => getRun(builds, id),
 		setStatus: async (sha, lane, out, url) => {

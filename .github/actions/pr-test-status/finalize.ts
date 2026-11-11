@@ -71,23 +71,23 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 	} catch (e) {
 		console.log(`Could not read the run: ${(e as Error).message}`);
 		await closeOpen(deps, state, 'unreadable');
-		return renderRequiredSummary([], deps.runUrl);
+		return renderRequiredSummary([]);
 	}
 	// final also runs after the poll gave up early, so the run may still be going.
 	const runCompleted = await deps.getRun(deps.runId).then(r => r.status === 'completed', () => false);
 	const artifacts = readArtifacts(resultsDir);
 	const lanes = groupLanes(jobs, runCompleted).map(lane => ({
 		lane,
-		out: renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null),
+		out: renderLane(lane, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null),
 	}));
 	// Second pass retries any write that failed.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const { lane, out } of lanes) {
-			await publish(deps, state, lane.name, out, deps.summaryUrl ?? laneUrl(lane, deps.runUrl));
+			await publish(deps, state, lane.name, out, laneUrl(lane, deps.runUrl));
 		}
 	}
 	await closeOpen(deps, state, 'unreadable');
-	return lanes.map(({ lane, out }) => renderSection(lane.name, out)).join('\n') + '\n' + renderRequiredSummary(jobs, deps.runUrl);
+	return lanes.map(({ lane, out }) => renderSection(lane.name, out)).join('\n') + '\n' + renderRequiredSummary(jobs);
 }
 
 async function main(): Promise<void> {

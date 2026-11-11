@@ -19,13 +19,12 @@ const job = (name: string, conclusion: string | null): Job => ({
 	id: 1, name, status: conclusion ? 'completed' : 'in_progress', conclusion, html_url: 'https://example.test/job/1',
 });
 
-const SUMMARY = 'https://github.com/posit-dev/positron/actions/runs/42';
 type Write = { name: string; out: LaneOutput; url: string };
 
 function fake(jobs: Job[] | Error, runStatus = 'completed'): { deps: Deps; writes: Write[] } {
 	const f = { writes: [] as Write[], deps: null as unknown as Deps };
 	f.deps = {
-		runId: '9', headSha: 'abc', runUrl: RUN, summaryUrl: SUMMARY,
+		runId: '9', headSha: 'abc', runUrl: RUN,
 		listJobs: async () => {
 			if (jobs instanceof Error) {
 				throw jobs;
@@ -68,9 +67,9 @@ test('final links each lane to the run summary, which holds a section per lane',
 	const f = fake([job('unit / vitest-1', 'success')]);
 	const state: State = { statuses: {}, readErrors: 0 };
 	const summary = await finalize(f.deps, state, 'final', dir);
-	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['unit / vitest', '5 passed', SUMMARY]]);
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['unit / vitest', '5 passed', 'https://example.test/job/1']]);
 	assert.match(summary ?? '', /^## `unit \/ vitest`: 5 passed\n\n## Vitest Test Report/);
-	assert.match(summary ?? '', /Full run and artifacts/);
+	assert.match(summary ?? '', /re-run required-tests/);
 });
 
 test('final does not pass a lane closed as unreadable while the run is still going', async () => {
@@ -81,19 +80,12 @@ test('final does not pass a lane closed as unreadable while the run is still goi
 	assert.deepStrictEqual(f.writes, []);
 });
 
-test('final links to the lane itself when the summary page is unknown', async () => {
-	const f = fake([job('unit / vitest-1', 'success')]);
-	f.deps.summaryUrl = null;
-	await finalize(f.deps, { statuses: {}, readErrors: 0 }, 'final', tmp());
-	assert.deepStrictEqual(f.writes.map(w => w.url), ['https://example.test/job/1']);
-});
-
 test('final closes every open lane as unreadable when jobs cannot be read', async () => {
 	const f = fake(new Error('down'));
 	const state: State = { statuses: { a: open(), b: open() }, readErrors: 0 };
 	const summary = await finalize(f.deps, state, 'final', tmp());
 	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['a', 'Could not read the test run', RUN], ['b', 'Could not read the test run', RUN]]);
-	assert.match(summary ?? '', /Full run and artifacts/);
+	assert.match(summary ?? '', /re-run required-tests/);
 });
 
 test('final closes a lane that is in the state but absent from the final jobs', async () => {

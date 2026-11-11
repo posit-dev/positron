@@ -33,7 +33,7 @@ export async function pollOnce(deps: Deps, state: State): Promise<{ done: boolea
 	}
 	state.readErrors = 0;
 	for (const lane of groupLanes(jobs, run.status === 'completed')) {
-		await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, null, null), laneUrl(lane, deps.runUrl));
+		await publish(deps, state, lane.name, renderLane(lane, null, null), laneUrl(lane, deps.runUrl));
 	}
 	return run.status === 'completed' ? { done: true, conclusion: run.conclusion } : { done: false, conclusion: null };
 }

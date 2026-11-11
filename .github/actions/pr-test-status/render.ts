@@ -23,7 +23,6 @@ const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g,
 const byFile = (a: FailedTest, b: FailedTest): number => a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
 /** A code span for a name: backticks and line breaks removed, `(unnamed)` if nothing is left. */
 const code = (s: string): string => `\`${sanitizeName(s) || '(unnamed)'}\``;
-const runLink = (runUrl: string): string => `[Full run and artifacts](${runUrl})`;
 
 function failedJobs(lane: Lane): Job[] {
 	return lane.jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
@@ -152,10 +151,10 @@ function laneBody(lane: Lane, results: Results | null, shownCount: number): { bo
 	return { body, total: entries.length };
 }
 
-function laneSummary(lane: Lane, runUrl: string, results: Results | null, cache: CacheEntry[] | null): string {
+function laneSummary(lane: Lane, results: Results | null, cache: CacheEntry[] | null): string {
 	const tail = (more: number): string => {
 		const note = more > 0 ? `\n_${more} more not shown. See the full run._\n` : '';
-		return `${note}${cache ? cacheDetails(cache) : ''}\n${runLink(runUrl)}\n`;
+		return `${note}${cache ? cacheDetails(cache) : ''}`;
 	};
 	const total = laneBody(lane, results, Infinity).total;
 	// Binary search for the most entries that fit under the cap.
@@ -183,12 +182,12 @@ export function laneUrl(lane: Lane, runUrl: string): string {
 
 /** Renders one lane's section of the required-tests run summary. */
 export function renderSection(name: string, out: LaneOutput): string {
-	return `## ${code(name)}: ${out.title}\n\n${out.summary}\n`;
+	return out.summary ? `## ${code(name)}: ${out.title}\n\n${out.summary}\n` : `## ${code(name)}: ${out.title}\n`;
 }
 
 /** Renders one lane's result. */
-export function renderLane(lane: Lane, runUrl: string, results: Results | null, cache: CacheEntry[] | null): LaneOutput {
-	const summary = laneSummary(lane, runUrl, results, cache);
+export function renderLane(lane: Lane, results: Results | null, cache: CacheEntry[] | null): LaneOutput {
+	const summary = laneSummary(lane, results, cache);
 	if (lane.state === 'in_progress') {
 		return { status: 'in_progress', title: 'Running', summary };
 	}
@@ -204,20 +203,19 @@ export function renderLane(lane: Lane, runUrl: string, results: Results | null, 
 }
 
 /** Renders the result for a lane whose results could not be used. */
-export function renderUnreadable(runUrl: string, reason: 'unreadable' | 'timed_out' | 'cancelled'): LaneOutput {
-	const link = `\n${runLink(runUrl)}\n`;
+export function renderUnreadable(reason: 'unreadable' | 'timed_out' | 'cancelled'): LaneOutput {
 	switch (reason) {
 		case 'timed_out':
-			return { status: 'completed', conclusion: 'timed_out', title: 'Timed out', summary: `The tests were still running after two hours.\n${link}` };
+			return { status: 'completed', conclusion: 'timed_out', title: 'Timed out', summary: `The tests were still running after two hours.\n` };
 		case 'cancelled':
-			return { status: 'completed', conclusion: 'cancelled', title: 'Cancelled', summary: `The test run was cancelled.\n${link}` };
+			return { status: 'completed', conclusion: 'cancelled', title: 'Cancelled', summary: `The test run was cancelled.\n` };
 		default:
-			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: `The test results could not be read.\n${link}` };
+			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: `The test results could not be read.\n` };
 	}
 }
 
 /** Renders the `required-tests` job step summary. */
-export function renderRequiredSummary(jobs: Job[], runUrl: string): string {
+export function renderRequiredSummary(jobs: Job[]): string {
 	let out = '';
 	const resolve = jobs.find(j => j.name.startsWith('resolve') && !j.name.includes(' / '));
 	if (resolve?.conclusion === 'failure') {
@@ -229,7 +227,6 @@ export function renderRequiredSummary(jobs: Job[], runUrl: string): string {
 			}
 		}
 	}
-	out += `${runLink(runUrl)}\n\n`;
 	out += 'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.\n';
 	return out;
 }

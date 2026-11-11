@@ -29,7 +29,7 @@ function fake(reads: Fake['reads']): Fake {
 	let i = 0;
 	const current = () => f.reads[Math.min(i, f.reads.length - 1)];
 	f.deps = {
-		runId: '9', headSha: 'abc', runUrl: RUN, summaryUrl: null,
+		runId: '9', headSha: 'abc', runUrl: RUN,
 		listJobs: async () => current().jobs,
 		getRun: async () => {
 			const r = current().run;

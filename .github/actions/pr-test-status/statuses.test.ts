@@ -26,8 +26,3 @@ test('depsFromEnv needs BUILDS_TOKEN to read, but not for cancel or timeout', ()
 	assert.strictEqual(depsFromEnv({ ...base, MODE: 'timeout' }).runId, '9');
 });
 
-test('depsFromEnv links final statuses to this run\'s Summary page when it can', () => {
-	const base = { RUN_ID: '9', HEAD_SHA: 'abc', BUILDS_TOKEN: 't' };
-	assert.strictEqual(depsFromEnv({ ...base, GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'posit-dev/positron', GITHUB_RUN_ID: '42' }).summaryUrl, 'https://github.com/posit-dev/positron/actions/runs/42');
-	assert.strictEqual(depsFromEnv(base).summaryUrl, null);
-});
