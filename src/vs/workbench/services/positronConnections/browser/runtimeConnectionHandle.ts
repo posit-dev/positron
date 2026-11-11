@@ -21,6 +21,14 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	/** The contract path of every node handed out, keyed by node handle. */
 	private readonly _nodePaths = new Map<number, ObjectSchema[]>();
 
+	/**
+	 * Node handles that a `retainNodes` walk holds: the walk's top level and everything fetched
+	 * beneath it. A plain top-level fetch (the pane refreshing) frees every other handle but keeps
+	 * these, so a walk that is between two levels when the pane refreshes can still use them.
+	 * Freed by releaseNodes().
+	 */
+	private readonly _retained = new Set<number>();
+
 	private _nextNodeHandle = 1;
 
 	private _closed = false;
@@ -44,7 +52,10 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 		this._register(this._client.onDidClose(() => this.markClosed()));
 	}
 
-	/** Runtime connections cannot be edited through the pane, so this is always false. */
+	/**
+	 * Always false. The session's connection object is not limited to reads, so code run against
+	 * it can write.
+	 */
 	async isReadOnly(): Promise<boolean> {
 		return false;
 	}
@@ -55,15 +66,24 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	 */
 	async getChildren(options?: { retainNodes?: boolean }): Promise<IDataConnectionNodeDTO[]> {
 		if (!options?.retainNodes) {
-			this._nodePaths.clear();
+			for (const nodeHandle of this._nodePaths.keys()) {
+				if (!this._retained.has(nodeHandle)) {
+					this._nodePaths.delete(nodeHandle);
+				}
+			}
 		}
-		return this._toNodes([], await this._client.listObjects([]), false);
+		const nodes = await this._toNodes([], await this._client.listObjects([]), false);
+		if (options?.retainNodes) {
+			this._retain(nodes);
+		}
+		return nodes;
 	}
 
 	/** Frees node handles collected by a `retainNodes` walk. */
 	releaseNodes(nodeHandles: readonly number[]): void {
 		for (const nodeHandle of nodeHandles) {
 			this._nodePaths.delete(nodeHandle);
+			this._retained.delete(nodeHandle);
 		}
 	}
 
@@ -91,11 +111,13 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	/** Lists a node's fields when it contains data, and its child objects otherwise. */
 	async nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]> {
 		const path = this._getNodePath(nodeHandle);
-		if (await this._client.containsData(path)) {
-			const fields = await this._client.listFields(path);
-			return this._toNodes(path, fields.map(field => ({ name: field.name, kind: 'field', dtype: field.dtype })), true);
+		const nodes = await this._client.containsData(path)
+			? await this._toNodes(path, (await this._client.listFields(path)).map(field => ({ name: field.name, kind: 'field', dtype: field.dtype })), true)
+			: await this._toNodes(path, await this._client.listObjects(path), false);
+		if (this._retained.has(nodeHandle)) {
+			this._retain(nodes);
 		}
-		return this._toNodes(path, await this._client.listObjects(path), false);
+		return nodes;
 	}
 
 	/**
@@ -123,6 +145,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	 */
 	release(): void {
 		this._nodePaths.clear();
+		this._retained.clear();
 	}
 
 	/**
@@ -136,6 +159,13 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 		}
 		this._closed = true;
 		this._onDidClose.fire();
+	}
+
+	/** Marks node handles as held by a `retainNodes` walk; see {@link _retained}. */
+	private _retain(nodes: readonly IDataConnectionNodeDTO[]): void {
+		for (const node of nodes) {
+			this._retained.add(node.nodeHandle);
+		}
 	}
 
 	private _getNodePath(nodeHandle: number): ObjectSchema[] {
@@ -153,7 +183,8 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	): Promise<IDataConnectionNodeDTO[]> {
 		return Promise.all(items.map(async item => {
 			const path = [...parentPath, { name: item.name, kind: item.kind }];
-			const containsData = await this._client.containsData(path);
+			// A field never contains data, so skip asking the runtime about it.
+			const containsData = !isField && await this._client.containsData(path);
 			const nodeHandle = this._nextNodeHandle++;
 			this._nodePaths.set(nodeHandle, path);
 			const node: IDataConnectionNodeDTO = {

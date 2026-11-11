@@ -100,6 +100,34 @@ describe('Positron - Runtime Connection Handle', () => {
 		]);
 	});
 
+	it('does not ask whether a field contains data', async () => {
+		objects[''] = [{ name: 'mtcars', kind: 'table' }];
+		dataPaths.add('mtcars');
+
+		const [table] = await handle.getChildren();
+		requests = [];
+		await handle.nodeGetChildren(table.nodeHandle);
+
+		expect(requests.map(request => request.method)).toEqual(['contains_data', 'list_fields']);
+	});
+
+	it('keeps a retained walk usable across a plain refresh', async () => {
+		objects[''] = [{ name: 'main', kind: 'schema' }];
+		objects.main = [{ name: 'other', kind: 'schema' }];
+
+		const [walkSchema] = await handle.getChildren({ retainNodes: true });
+		const [walkChild] = await handle.nodeGetChildren(walkSchema.nodeHandle);
+		const [paneSchema] = await handle.getChildren();
+		await handle.getChildren();
+
+		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).resolves.toEqual([]);
+		await expect(handle.nodeGetChildren(paneSchema.nodeHandle)).rejects.toThrow('Unknown node handle');
+
+		handle.releaseNodes([walkSchema.nodeHandle, walkChild.nodeHandle]);
+		await handle.getChildren();
+		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).rejects.toThrow('Unknown node handle');
+	});
+
 	it('keeps unknown kinds in the request path', async () => {
 		objects[''] = [{ name: 'bq', kind: 'dataset' }];
 
