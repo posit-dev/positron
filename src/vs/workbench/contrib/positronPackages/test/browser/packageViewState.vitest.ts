@@ -25,6 +25,7 @@ describe('derivePackageViewState', () => {
 				  ],
 				  "actionsEnabled": true,
 				  "installState": "current",
+				  "latest": false,
 				  "showNotActiveHint": false,
 				}
 			`);
@@ -63,6 +64,50 @@ describe('derivePackageViewState', () => {
 		expect(state.actions).toEqual(['website']);
 		expect(state.actionsEnabled).toBe(false);
 		expect(state.showNotActiveHint).toBe(false);
+	});
+
+	it('installed + reported current: latest', () => {
+		const state = derivePackageViewState(pkg({ outdated: false }), { installed: true, sessionAlive: true, isActive: true });
+		expect(state.latest).toBe(true);
+	});
+
+	it('bundled only: bundled state, no update or uninstall, never latest', () => {
+		const state = derivePackageViewState(
+			pkg({ bundled: true, outdated: false, latestVersion: '1.1.2' }),
+			{ installed: true, sessionAlive: true, isActive: true });
+		expect({ installState: state.installState, actions: state.actions, latest: state.latest }).toEqual({
+			installState: 'bundled',
+			actions: ['website', 'help'],
+			latest: false,
+		});
+	});
+
+	it('bundled only + outdated: still no update action', () => {
+		const state = derivePackageViewState(
+			pkg({ bundled: true, outdated: true, latestVersion: '1.2.0' }),
+			{ installed: true, sessionAlive: true, isActive: true });
+		expect(state.actions).toEqual(['website', 'help']);
+	});
+
+	it('bundled + in env + outdated: bundled state with update and uninstall for the env copy', () => {
+		const state = derivePackageViewState(
+			pkg({ bundled: true, environmentVersion: '1.0.0', outdated: true, latestVersion: '1.1.4' }),
+			{ installed: true, sessionAlive: true, isActive: true });
+		expect({ installState: state.installState, actions: state.actions, latest: state.latest }).toEqual({
+			installState: 'bundled',
+			actions: ['update', 'uninstall', 'website', 'help'],
+			latest: false,
+		});
+	});
+
+	it('bundled + in env + current: uninstall, and the env copy is latest', () => {
+		const state = derivePackageViewState(
+			pkg({ bundled: true, environmentVersion: '1.1.2', outdated: false }),
+			{ installed: true, sessionAlive: true, isActive: true });
+		expect({ actions: state.actions, latest: state.latest }).toEqual({
+			actions: ['uninstall', 'website', 'help'],
+			latest: true,
+		});
 	});
 
 	it('session ended with no last-known package: no actions', () => {
