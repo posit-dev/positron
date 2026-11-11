@@ -167,6 +167,22 @@ export interface IAllPackagesCommandPackage {
 
 	/** The package's primary external URL (homepage, falling back to repository). */
 	url?: string;
+
+	/**
+	 * Whether the copy the session imports ships with Positron (for example
+	 * Python's bundled ipykernel dependencies) rather than being installed in
+	 * the user's environment. A package only Positron provides cannot be
+	 * uninstalled.
+	 */
+	bundled?: boolean;
+
+	/**
+	 * For a bundled package, the version also installed in the user's
+	 * environment, which the bundled copy shadows. `outdated` and
+	 * `latestVersion` describe this copy, and installs, updates, and uninstalls
+	 * act on it.
+	 */
+	environmentVersion?: string;
 }
 
 /**
@@ -208,6 +224,22 @@ export interface IPackageCommandPackage {
 
 	/** One-line title/summary, richer than `description`, from the detail lookup. */
 	title?: string;
+
+	/**
+	 * Whether the copy the session imports ships with Positron (for example
+	 * Python's bundled ipykernel dependencies) rather than being installed in
+	 * the user's environment. A package only Positron provides cannot be
+	 * uninstalled.
+	 */
+	bundled?: boolean;
+
+	/**
+	 * For a bundled package, the version also installed in the user's
+	 * environment, which the bundled copy shadows. `outdated` and
+	 * `latestVersion` describe this copy, and installs, updates, and uninstalls
+	 * act on it.
+	 */
+	environmentVersion?: string;
 
 	/**
 	 * Known security advisories affecting *this* installed version, worst-scored
@@ -402,6 +434,8 @@ function describeListPackage(pkg: ILanguageRuntimePackage): IAllPackagesCommandP
 		// treat '' as a special case.
 		description: pkg.description ? truncateDescription(pkg.description) : undefined,
 		url: pkg.url,
+		bundled: pkg.bundled,
+		environmentVersion: pkg.environmentVersion,
 	};
 }
 
@@ -425,6 +459,8 @@ function describePackage(pkg: ILanguageRuntimePackage, includeVulnerabilities: b
 		sourceRepository: pkg.sourceRepository,
 		publishedDate: pkg.publishedDate,
 		title: pkg.title,
+		bundled: pkg.bundled,
+		environmentVersion: pkg.environmentVersion,
 		// Unlike the fields above, an empty array is kept rather than normalized
 		// away: it is the all-clear, and collapsing it to undefined would report
 		// "checked, nothing found" as "not checked".

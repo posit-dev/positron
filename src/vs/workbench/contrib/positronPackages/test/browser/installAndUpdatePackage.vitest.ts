@@ -5,6 +5,7 @@
 
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProgress, IProgressService, IProgressStep, Progress } from '../../../../../platform/progress/common/progress.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -26,7 +27,7 @@ vi.mock('../../browser/positronPackagesQuickPick.js', () => ({
 	uninstallPackage: vi.fn(),
 }));
 
-const { InstallPackageAction, UpdatePackageAction } = await import('../../browser/positronPackages.contribution.js');
+const { InstallPackageAction, UninstallPackageAction, UpdatePackageAction } = await import('../../browser/positronPackages.contribution.js');
 
 describe('packages install and update commands', () => {
 	const ctx = createTestContainer()
@@ -227,6 +228,22 @@ describe('packages install and update commands', () => {
 			expect(prompt).toHaveBeenCalled();
 		});
 
+		it('reports the environment copy it installed when a bundled copy shadows it', async () => {
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }];
+
+			const result = await runInstall('tornado', 'latest');
+
+			expect(result).toEqual({ installed: true, name: 'tornado', version: '6.4.0' });
+		});
+
+		it('does not suggest a restart when the console keeps importing the bundled copy', async () => {
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }];
+
+			await runInstall('tornado', '6.4.0');
+
+			expect(prompt).not.toHaveBeenCalled();
+		});
+
 		it('does not suggest a restart when there is no active session', async () => {
 			stubServices(undefined);
 
@@ -299,6 +316,29 @@ describe('packages install and update commands', () => {
 			const result = await runInstall();
 
 			expect(result).toEqual({ installed: false, name: 'tibble', version: '3.2.1', message: 'boom' });
+		});
+	});
+
+	describe('UninstallPackageAction', () => {
+		it('reports a bundled-only package as blocked without asking to confirm or uninstalling', async () => {
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true }];
+			const uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>();
+			const confirm = vi.fn<IDialogService['confirm']>().mockResolvedValue({ confirmed: true });
+			ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
+				activeSession: stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }),
+				uninstallPackages,
+				get activePackagesInstance(): IPositronPackagesInstance {
+					return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });
+				},
+			}));
+			ctx.instantiationService.stub(IDialogService, stubInterface<IDialogService>({ confirm }));
+
+			const action = new UninstallPackageAction();
+			await ctx.instantiationService.invokeFunction(accessor => action.run(accessor, 'tornado'));
+
+			expect(error).toHaveBeenCalledWith(expect.stringMatching(/^tornado is bundled with Positron/));
+			expect(confirm).not.toHaveBeenCalled();
+			expect(uninstallPackages).not.toHaveBeenCalled();
 		});
 	});
 
