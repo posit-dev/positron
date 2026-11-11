@@ -200,25 +200,11 @@ jobs:
           export RESULTS_DIR="$RUNNER_TEMP/results"
           node .github/actions/pr-test-status/finalize.ts
 
-      # finalize reads the builds run, so it needs a token even to close checks.
-      - name: Mint a token to close checks on cancel
-        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
-        id: token4
-        continue-on-error: true
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: positron-builds
-          permission-actions: read
-
       - name: On cancel
-        if: ${{ cancelled() && steps.token4.outputs.token != '' }}
+        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
         continue-on-error: true
         shell: bash
         env:
-          BUILDS_TOKEN: ${{ steps.token4.outputs.token }}
           CHECKS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           MODE: cancel

@@ -29,9 +29,12 @@ function failedJobs(lane: Lane): Job[] {
 	return lane.jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
 }
 
+/** A shard job's name ends in `-<digits>`; `-scan-<digits>` jobs are not shards. */
+const SHARD_JOB = /(?<!-scan)-(?<n>\d+)$/;
+
 /** Log links for a test: its shard's job if known, else every failed job of the lane. */
 function logLinks(lane: Lane, shard: number | null): string {
-	const own = shard === null ? undefined : lane.jobs.find(j => j.name.endsWith(`-${shard}`));
+	const own = shard === null ? undefined : lane.jobs.find(j => SHARD_JOB.exec(j.name)?.groups?.n === String(shard));
 	const jobs = own ? [own] : failedJobs(lane);
 	return jobs.map(j => `[log](${j.html_url})`).join(' ');
 }
@@ -81,8 +84,8 @@ function vitestFailures(lane: Lane, shown: { test: FailedTest; flaky: boolean }[
 	}
 	const items = failed.map(t => {
 		const title = sanitizeName(t.title);
-		const name = title === '' || title === t.file ? t.file : `${t.file} > ${title}`;
-		return `- ${code(name)} - ${logLinks(lane, t.shard)}`;
+		const name = title === '' || title === t.file ? code(t.file) : `${code(t.file)} > ${code(title)}`;
+		return `- ${name} - ${logLinks(lane, t.shard)}`;
 	});
 	return `\n### Failed\n\n${items.join('\n')}\n`;
 }
@@ -106,7 +109,7 @@ function e2eDetails(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): 
 	const failedFiles = [...files].filter(([, ts]) => ts.some(t => !t.flaky));
 	const flakyFiles = [...files].filter(([, ts]) => ts.every(t => t.flaky));
 	const block = ([file, ts]: [string, { test: FailedTest; flaky: boolean }[]], icon: string): string => {
-		const items = ts.map(t => `- ${code(t.test.title)} - ${logLinks(lane, t.test.shard)}`).join('\n');
+		const items = ts.map(t => `- ${code(t.test.title)}${t.flaky && icon === '\u{274C}' ? ' (flaky)' : ''} - ${logLinks(lane, t.test.shard)}`).join('\n');
 		return `<details><summary>${icon} <code>${escapeHtml(sanitizeName(file) || '(unnamed)')}</code></summary>\n\n${items}\n</details>\n`;
 	};
 	const blocks = [...failedFiles.map(f => block(f, '\u{274C}')), ...flakyFiles.map(f => block(f, '\u{26A0}\u{FE0F}'))];
@@ -199,7 +202,7 @@ export function renderUnreadable(runUrl: string, reason: 'unreadable' | 'timed_o
 		case 'cancelled':
 			return { status: 'completed', conclusion: 'cancelled', title: 'Cancelled', summary: `The test run was cancelled.\n${link}` };
 		default:
-			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: `The test run finished, but its results could not be read.\n${link}` };
+			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: `The test results could not be read.\n${link}` };
 	}
 }
 

@@ -5,7 +5,7 @@
 
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './poll.ts';
+import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './checks.ts';
 import { groupLanes, type Job } from './lanes.ts';
 import { renderLane, renderRequiredSummary } from './render.ts';
 import { parseCache, parsePlaywright, parseVitest, type CacheEntry, type Results } from './results.ts';
@@ -78,6 +78,10 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 	for (let pass = 0; pass < 2; pass++) {
 		for (const lane of lanes) {
 			const out = renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null);
+			// Never reopen a check that is already closed.
+			if (out.status === 'in_progress' && state.checks[lane.name]?.closed) {
+				continue;
+			}
 			await publish(deps, state, lane.name, out);
 		}
 	}

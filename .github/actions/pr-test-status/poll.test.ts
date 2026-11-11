@@ -7,10 +7,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Job } from './lanes.ts';
 import type { CheckOutput } from './render.ts';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { loadState, pollOnce, saveState, type Deps, type State } from './poll.ts';
+import type { Deps, State } from './checks.ts';
+import { pollOnce } from './poll.ts';
 
 const RUN = 'https://github.com/posit-dev/positron-builds/actions/runs/9';
 
@@ -131,12 +129,4 @@ test('a failed write leaves the state unchanged and retries on the next poll', a
 	fail = false;
 	await pollOnce(f.deps, state);
 	assert.strictEqual(state.checks['unit / vitest'].id, 101);
-});
-
-test('state round-trips through the file', () => {
-	const file = join(mkdtempSync(join(tmpdir(), 'pr-test-status-')), 'state.json');
-	const state: State = { readErrors: 2, checks: { a: { id: 5, closed: false, out: { status: 'in_progress', title: 'Running', summary: 's' } } } };
-	saveState(file, state);
-	assert.deepStrictEqual(loadState(file), state);
-	assert.deepStrictEqual(loadState(file + '.missing'), { checks: {}, readErrors: 0 });
 });

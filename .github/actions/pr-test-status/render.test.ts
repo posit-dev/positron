@@ -60,7 +60,7 @@ test('failed vitest', () => {
 		'- **Test Results**: \u{274C} **1 failure** \u{B7} \u{2705} **10 passes** \u{B7} 11 total',
 		'- **Other**: 2 skips \u{B7} 2 total',
 		'', '### Failed', '',
-		`- \`src/a.vitest.ts > suite > it breaks\` - [log](${j.html_url})`,
+		`- \`src/a.vitest.ts\` > \`suite > it breaks\` - [log](${j.html_url})`,
 		'', `[Full run and artifacts](${RUN})`, '',
 	].join('\n'));
 });
@@ -142,6 +142,7 @@ test('unreadable, timed out, cancelled', () => {
 	assert.strictEqual(renderUnreadable(RUN, 'timed_out').conclusion, 'timed_out');
 	const c = renderUnreadable(RUN, 'cancelled');
 	assert.deepStrictEqual([c.title, c.conclusion], ['Cancelled', 'cancelled']);
+	assert.ok(renderUnreadable(RUN, 'unreadable').summary.startsWith('The test results could not be read.'));
 });
 
 test('renderRequiredSummary resolve failure', () => {
@@ -180,4 +181,32 @@ test('vitest flaky tests are not listed under Failed', () => {
 	assert.ok(!out.summary.includes('### Failed'));
 	const f = results({ failed: 1, failures: [{ file: 'src/a.vitest.ts', title: '`', shard: null }] });
 	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), RUN, f, null).summary.includes('- `src/a.vitest.ts` - '));
+});
+
+test('a long file path and a long title are both fully shown', () => {
+	const file = `${'d'.repeat(55)}/${'e'.repeat(54)}.vitest.ts`;
+	const title = 't'.repeat(100);
+	const r = results({ failed: 1, failures: [{ file, title, shard: null }] });
+	const out = renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), RUN, r, null);
+	assert.ok(out.summary.includes(`- \`${file}\` > \`${title}\` - `));
+});
+
+test('the log link matches a shard job, not a scan job, whatever the order', () => {
+	const scan = job('e2e / e2e-electron-ubuntu-scan-1', 'failure', { html_url: 'https://example.test/scan' });
+	const shard = job('e2e / e2e-electron-ubuntu-1', 'failure', { html_url: 'https://example.test/shard' });
+	const r = results({ kind: 'playwright', failed: 1, failures: [{ file: 'a.test.ts', title: 'one', shard: 1 }] });
+	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [scan, shard]), RUN, r, null);
+	assert.ok(out.summary.includes('- `one` - [log](https://example.test/shard)\n'));
+});
+
+test('a flaky test under a failed file is marked flaky', () => {
+	const j = job('e2e / e2e-electron-ubuntu-1', 'failure');
+	const r = results({
+		kind: 'playwright', failed: 1, flaky: 1,
+		failures: [{ file: 'a.test.ts', title: 'broken', shard: 1 }],
+		flakyTests: [{ file: 'a.test.ts', title: 'wobbly', shard: 1 }],
+	});
+	const out = renderLane(lane('e2e', 'failure', [j]), RUN, r, null);
+	assert.ok(out.summary.includes(`- \`wobbly\` (flaky) - [log](${j.html_url})`));
+	assert.ok(out.summary.includes(`- \`broken\` - [log](${j.html_url})`));
 });

@@ -10,7 +10,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { finalize, parseMode, readArtifacts } from './finalize.ts';
 import type { Job } from './lanes.ts';
-import { parseDeadline, type Deps, type State } from './poll.ts';
+import type { Deps, State } from './checks.ts';
+import { parseDeadline } from './poll.ts';
 import type { CheckOutput } from './render.ts';
 
 const RUN = 'https://github.com/posit-dev/positron-builds/actions/runs/9';
@@ -87,6 +88,16 @@ test('final closes a lane that is in the state but absent from the final jobs', 
 	await finalize(f.deps, state, 'final', tmp());
 	assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.conclusion]), [[7, 'neutral']]);
 	assert.strictEqual(state.checks['e2e / gone'].closed, true);
+});
+
+test('final never reopens a closed check for a lane that is running again', async () => {
+	const f = fake([job('unit / vitest-1', null)]);
+	const closed = { id: 5, closed: true, out: { status: 'completed', conclusion: 'success', title: '5 passed', summary: 'x' } as CheckOutput };
+	const state: State = { checks: { 'unit / vitest': closed }, readErrors: 0 };
+	await finalize(f.deps, state, 'final', tmp());
+	assert.deepStrictEqual(f.updated, []);
+	assert.deepStrictEqual(f.created, []);
+	assert.strictEqual(state.checks['unit / vitest'].closed, true);
 });
 
 test('final retries a failed write once', async () => {
