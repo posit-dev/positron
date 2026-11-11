@@ -58,15 +58,18 @@ test.describe('Snowflake Connection', {
 	});
 });
 
+// The password never lands in a session variable: the Variables pane would send its
+// value over the comm, which the supervisor logs in full at the e2e log level.
 const connectionCode = (passwordPath: string) => `import snowflake.connector
-with open(${JSON.stringify(passwordPath)}) as f:
-	_snowflake_password = f.read().strip()
-con = snowflake.connector.connect(
-	account='${account}',
-	user='${user}',
-	password=_snowflake_password,
-	warehouse="DEFAULT_WH"
-)
-del _snowflake_password
+def _snowflake_connect(path):
+	with open(path) as f:
+		return snowflake.connector.connect(
+			account='${account}',
+			user='${user}',
+			password=f.read().strip(),
+			warehouse="DEFAULT_WH"
+		)
+con = _snowflake_connect(${JSON.stringify(passwordPath)})
+del _snowflake_connect
 
 %connection_show con`;
