@@ -1,0 +1,113 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import type { Job } from './lanes.ts';
+import type { CheckOutput } from './render.ts';
+import { pollOnce, type Deps, type State } from './poll.ts';
+
+const RUN = 'https://github.com/posit-dev/positron-builds/actions/runs/9';
+
+const job = (name: string, status: Job['status'], conclusion: string | null = null): Job => ({
+	id: 1, name, status, conclusion, html_url: 'https://example.test/job/1',
+});
+
+type Fake = { deps: Deps; created: { name: string; out: CheckOutput }[]; updated: { id: number; out: CheckOutput }[]; reads: { jobs: Job[]; run: { status: string; conclusion: string | null } | Error }[] };
+
+/** Fakes that serve the queued reads in order (the last one repeats). */
+function fake(reads: Fake['reads']): Fake {
+	const f: Fake = { created: [], updated: [], reads, deps: null as unknown as Deps };
+	let i = 0;
+	const current = () => f.reads[Math.min(i, f.reads.length - 1)];
+	f.deps = {
+		runId: '9', headSha: 'abc', runUrl: RUN,
+		listJobs: async () => current().jobs,
+		getRun: async () => {
+			const r = current().run;
+			i++;
+			if (r instanceof Error) {
+				throw r;
+			}
+			return r;
+		},
+		createCheck: async (_sha, name, out) => {
+			f.created.push({ name, out });
+			return 100 + f.created.length;
+		},
+		updateCheck: async (id, out) => {
+			f.updated.push({ id, out });
+		},
+	};
+	return f;
+}
+
+const fresh = (): State => ({ checks: {}, readErrors: 0 });
+const running = { status: 'in_progress', conclusion: null };
+
+test('creates a check the first time a lane appears', async () => {
+	const f = fake([{ jobs: [job('unit / vitest', 'in_progress')], run: running }]);
+	const state = fresh();
+	const res = await pollOnce(f.deps, state);
+	assert.deepStrictEqual(res, { done: false, conclusion: null });
+	assert.deepStrictEqual(f.created.map(c => [c.name, c.out.status, c.out.title]), [['unit / vitest', 'in_progress', 'Running']]);
+	assert.strictEqual(state.checks['unit / vitest'].id, 101);
+	assert.strictEqual(state.checks['unit / vitest'].closed, false);
+});
+
+test('does not update when the rendered output is unchanged', async () => {
+	const f = fake([{ jobs: [job('unit / vitest', 'in_progress')], run: running }]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	await pollOnce(f.deps, state);
+	assert.strictEqual(f.created.length, 1);
+	assert.strictEqual(f.updated.length, 0);
+});
+
+test('updates when a lane completes', async () => {
+	const f = fake([
+		{ jobs: [job('unit / vitest', 'in_progress')], run: running },
+		{ jobs: [job('unit / vitest', 'completed', 'success')], run: running },
+	]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	await pollOnce(f.deps, state);
+	assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.conclusion]), [[101, 'success']]);
+	assert.strictEqual(state.checks['unit / vitest'].closed, true);
+});
+
+test('returns done when the run completes', async () => {
+	const f = fake([{ jobs: [job('unit / vitest', 'completed', 'failure')], run: { status: 'completed', conclusion: 'failure' } }]);
+	const res = await pollOnce(f.deps, fresh());
+	assert.deepStrictEqual(res, { done: true, conclusion: 'failure' });
+	assert.strictEqual(f.created[0].out.conclusion, 'failure');
+});
+
+test('three read errors in a row close open checks as unreadable and return conclusion failure', async () => {
+	const f = fake([
+		{ jobs: [job('unit / vitest', 'in_progress')], run: running },
+		{ jobs: [], run: new Error('boom') },
+	]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	assert.deepStrictEqual(await pollOnce(f.deps, state), { done: false, conclusion: null });
+	assert.deepStrictEqual(await pollOnce(f.deps, state), { done: false, conclusion: null });
+	assert.deepStrictEqual(await pollOnce(f.deps, state), { done: true, conclusion: 'failure' });
+	assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.conclusion, u.out.title]), [[101, 'neutral', 'Could not read the test run']]);
+	assert.strictEqual(state.checks['unit / vitest'].closed, true);
+});
+
+test('one read error then success keeps going', async () => {
+	const f = fake([
+		{ jobs: [], run: new Error('boom') },
+		{ jobs: [job('unit / vitest', 'in_progress')], run: running },
+	]);
+	const state = fresh();
+	assert.deepStrictEqual(await pollOnce(f.deps, state), { done: false, conclusion: null });
+	assert.strictEqual(state.readErrors, 1);
+	assert.deepStrictEqual(await pollOnce(f.deps, state), { done: false, conclusion: null });
+	assert.strictEqual(state.readErrors, 0);
+	assert.strictEqual(f.created.length, 1);
+});
