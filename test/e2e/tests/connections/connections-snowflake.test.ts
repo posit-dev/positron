@@ -14,9 +14,9 @@ test.use({
 	enableDataConnections: false,
 });
 
-const account = process.env.SNOWFLAKE_ACCOUNT || 'testaccount';
-const user = process.env.SNOWFLAKE_USER || 'testuser';
-const password = process.env.SNOWFLAKE_PASSWORD || 'testpassword';
+const account = process.env.SNOWFLAKE_ACCOUNT;
+const user = process.env.SNOWFLAKE_USER;
+const password = process.env.SNOWFLAKE_PASSWORD;
 
 // Holds the password file Python reads, so the password is never typed into the console.
 let passwordDir: string | undefined;
@@ -32,6 +32,8 @@ test.describe('Snowflake Connection', {
 	});
 
 	test('Python - Can establish a Snowflake connection', { tag: [tags.PYTHON] }, async function ({ python, packages, app }) {
+		test.skip(!account || !user || !password,
+			'Snowflake connection needs SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER and SNOWFLAKE_PASSWORD');
 
 		await packages.manage('snowflake', 'install');
 
