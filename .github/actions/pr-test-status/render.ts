@@ -91,7 +91,7 @@ function laneSummary(lane: Lane, results: Results | null, cache: CacheEntry[] | 
 	return laneBody(lane, results, total).body + tail(0);
 }
 
-/** Where a running lane links: its job's log if it has one job, else the whole builds run. */
+/** Where a lane links: its job's log if it has one job, else the whole builds run. */
 export function laneUrl(lane: Lane, runUrl: string): string {
 	return lane.jobs.length === 1 ? lane.jobs[0].html_url : runUrl;
 }
@@ -146,15 +146,15 @@ export function renderLane(lane: Lane, results: Results | null, cache: CacheEntr
 	return { status: 'completed', conclusion: 'failure', title, summary };
 }
 
-/** Renders the result for a lane whose results could not be used. */
+/** Renders the status for an open lane closed without a result. Only the title is shown. */
 export function renderUnreadable(reason: 'unreadable' | 'timed_out' | 'cancelled'): LaneOutput {
 	switch (reason) {
 		case 'timed_out':
-			return { status: 'completed', conclusion: 'timed_out', title: 'Timed out', summary: `The tests were still running after two hours.\n` };
+			return { status: 'completed', conclusion: 'timed_out', title: 'Timed out', summary: '' };
 		case 'cancelled':
-			return { status: 'completed', conclusion: 'cancelled', title: 'Cancelled', summary: `The test run was cancelled.\n` };
+			return { status: 'completed', conclusion: 'cancelled', title: 'Cancelled', summary: '' };
 		default:
-			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: `The test results could not be read.\n` };
+			return { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: '' };
 	}
 }
 

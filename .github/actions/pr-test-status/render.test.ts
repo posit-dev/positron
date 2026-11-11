@@ -19,7 +19,7 @@ const job = (name: string, conclusion: string | null, extra: Partial<Job> = {}):
 const lane = (name: string, state: Lane['state'], jobs: Job[]): Lane => ({ name, state, jobs });
 
 const results = (over: Partial<Results>): Results => ({
-	kind: 'vitest', passed: 0, failed: 0, skipped: 0, flaky: 0, expectedFailures: 0, files: null, failures: [], flakyTests: [], ...over,
+	passed: 0, failed: 0, failures: [], flakyTests: [], ...over,
 });
 
 test('in progress', () => {
@@ -56,7 +56,7 @@ test('failed e2e links the shard job, or every failed job without a shard; flaky
 	const j2 = job('e2e / e2e-electron-ubuntu-2', 'failure');
 	const j3 = job('e2e / e2e-electron-ubuntu-3', 'success');
 	const r = results({
-		kind: 'playwright', passed: 7, failed: 2, flaky: 1,
+		passed: 7, failed: 2,
 		failures: [
 			{ file: 'b.test.ts', title: 'does <b>', shard: 2 },
 			{ file: 'a.test.ts', title: 'one', shard: null },
@@ -83,7 +83,7 @@ test('vscode with cache', () => {
 test('summary over 60000 chars is cut', () => {
 	const j = job('e2e / e2e-electron-ubuntu-1', 'failure');
 	const failures = Array.from({ length: 400 }, (_, i) => ({ file: `f${String(i).padStart(3, '0')}.test.ts`, title: 'x'.repeat(150), shard: 1 }));
-	const out = renderLane(lane('e2e', 'failure', [j]), results({ kind: 'playwright', failed: 400, failures }), null);
+	const out = renderLane(lane('e2e', 'failure', [j]), results({ failed: 400, failures }), null);
 	assert.ok(out.summary.length <= 60000);
 	assert.ok(out.summary.endsWith('See the full run._\n'));
 	assert.ok(out.summary.includes('f000.test.ts'));
@@ -190,7 +190,7 @@ test('a long file path and a long title are both fully shown', () => {
 test('the log link matches a shard job, not a scan job, whatever the order', () => {
 	const scan = job('e2e / e2e-electron-ubuntu-scan-1', 'failure', { html_url: 'https://example.test/scan' });
 	const shard = job('e2e / e2e-electron-ubuntu-1', 'failure', { html_url: 'https://example.test/shard' });
-	const r = results({ kind: 'playwright', failed: 1, failures: [{ file: 'a.test.ts', title: 'one', shard: 1 }] });
+	const r = results({ failed: 1, failures: [{ file: 'a.test.ts', title: 'one', shard: 1 }] });
 	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [scan, shard]), r, null);
 	assert.strictEqual(out.summary, '- `a.test.ts` > `one` - [log](https://example.test/shard)\n');
 });

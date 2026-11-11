@@ -55,8 +55,8 @@ test('readArtifacts maps folders to lanes and a missing file to null', () => {
 	const a = readArtifacts(dir);
 	assert.deepStrictEqual([...a.results.keys()].sort(), ['e2e / e2e-electron-ubuntu', 'e2e / e2e-windows', 'unit / vitest']);
 	assert.strictEqual(a.results.get('e2e / e2e-windows'), null);
-	assert.strictEqual(a.results.get('unit / vitest')?.kind, 'vitest');
-	assert.strictEqual(a.results.get('e2e / e2e-electron-ubuntu')?.kind, 'playwright');
+	assert.strictEqual(a.results.get('unit / vitest')?.passed, 5);
+	assert.strictEqual(a.results.get('e2e / e2e-electron-ubuntu')?.passed, 2);
 	assert.deepStrictEqual(a.cache.get('unit / vscode'), [{ name: 'npm-core', hit: true }]);
 });
 

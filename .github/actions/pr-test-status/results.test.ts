@@ -19,13 +19,8 @@ test('sanitizeName', () => {
 test('parsePlaywright reads the fixture', () => {
 	const r = parsePlaywright(fixture('playwright-results.json'));
 	assert.deepStrictEqual(r, {
-		kind: 'playwright',
 		passed: 2,
 		failed: 1,
-		skipped: 1,
-		flaky: 1,
-		expectedFailures: 0,
-		files: null,
 		failures: [{
 			file: 'tests/console/console-input.test.ts',
 			title: 'Console Input > Python - Can get input string via console',
@@ -46,13 +41,8 @@ test('parsePlaywright returns null on bad input', () => {
 test('parseVitest reads the fixture', () => {
 	const r = parseVitest(fixture('vitest-results.json'));
 	assert.deepStrictEqual(r, {
-		kind: 'vitest',
 		passed: 1,
 		failed: 1,
-		skipped: 1,
-		flaky: 0,
-		expectedFailures: 0,
-		files: { passed: 2, failed: 1, total: 3 },
 		failures: [{
 			file: 'src/vs/workbench/contrib/positronPlots/test/browser/plotUtils.vitest.ts',
 			title: 'isNavigableSourceUri > is not navigable for notebook cell URIs',
@@ -68,11 +58,10 @@ test('parseVitest returns null on bad input', () => {
 
 test('counts that are not integers become 0', () => {
 	const r = parseVitest(JSON.stringify({
-		numPassedTests: -3, numFailedTests: 1.5, numPendingTests: '7', numPassedTestSuites: null,
-		numFailedTestSuites: 1e999, numTotalTestSuites: 4, testResults: [],
+		numPassedTests: -3, numFailedTests: 1.5, testResults: [],
 	}));
-	assert.deepStrictEqual(r?.files, { passed: 0, failed: 0, total: 4 });
-	assert.deepStrictEqual([r?.passed, r?.failed, r?.skipped], [0, 0, 0]);
+	assert.deepStrictEqual([r?.passed, r?.failed], [0, 0]);
+	assert.strictEqual(parseVitest(JSON.stringify({ numPassedTests: 4, numFailedTests: 1e999, testResults: [] }))?.passed, 4);
 });
 
 test('parseCache keeps only known names with boolean hit', () => {

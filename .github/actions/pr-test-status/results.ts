@@ -8,13 +8,8 @@ export type FailedTest = { file: string; title: string; shard: number | null };
 
 /** Parsed counts and failing tests for one test lane. */
 export type Results = {
-	kind: 'playwright' | 'vitest';
 	passed: number;
 	failed: number;
-	skipped: number;
-	flaky: number;
-	expectedFailures: number;
-	files: { passed: number; failed: number; total: number } | null;
 	failures: FailedTest[];
 	flakyTests: FailedTest[];
 };
@@ -108,17 +103,7 @@ function parsePlaywrightUnsafe(raw: string): Results | null {
 			walkPlaywright(suite, [], out);
 		}
 	}
-	const stats = data.stats;
-	return {
-		kind: 'playwright',
-		passed: count(stats.expected),
-		failed: count(stats.unexpected),
-		skipped: count(stats.skipped),
-		flaky: count(stats.flaky),
-		expectedFailures: 0,
-		files: null,
-		...out,
-	};
+	return { passed: count(data.stats.expected), failed: count(data.stats.unexpected), ...out };
 }
 
 /** Cuts a path down to start at its first src, extensions, or test directory (later ones are nested test folders). */
@@ -166,21 +151,7 @@ function parseVitestUnsafe(raw: string): Results | null {
 			}
 		}
 	}
-	return {
-		kind: 'vitest',
-		passed: count(data.numPassedTests),
-		failed: count(data.numFailedTests),
-		skipped: count(data.numPendingTests),
-		flaky: 0,
-		expectedFailures: 0,
-		files: {
-			passed: count(data.numPassedTestSuites),
-			failed: count(data.numFailedTestSuites),
-			total: count(data.numTotalTestSuites),
-		},
-		failures,
-		flakyTests: [],
-	};
+	return { passed: count(data.numPassedTests), failed: count(data.numFailedTests), failures, flakyTests: [] };
 }
 
 /** Parses the cache-hit list, keeping only known names with a boolean `hit`. */
