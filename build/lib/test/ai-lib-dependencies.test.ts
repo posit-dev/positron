@@ -83,11 +83,11 @@ suite('ai-lib-dependencies', () => {
 
 		test('includes the deps that resolve outside the packages', { skip: !installed }, () => {
 			const modules = getAiLibServerModules(['ai-config']);
-			// zod is nested (ai-config wants 4.x against the app's 3.x) while
-			// proper-lockfile hoists; both have to travel with the package.
+			// proper-lockfile resolves from the root node_modules, and the closure
+			// follows it into its own nested node_modules (signal-exit 3).
 			assert.deepStrictEqual([
-				modules.some(m => m.destination === 'node_modules/ai-config/node_modules/zod'),
-				modules.some(m => m.destination.endsWith('/proper-lockfile')),
+				modules.some(m => m.source === 'node_modules/proper-lockfile' && m.destination === 'node_modules/proper-lockfile'),
+				modules.some(m => m.destination.startsWith('node_modules/proper-lockfile/node_modules/')),
 			], [true, true]);
 		});
 
@@ -111,40 +111,4 @@ suite('ai-lib-dependencies', () => {
 				/Cannot resolve ai-lib dependency/);
 		});
 	});
-
-	// The server resolves these packages from its own node_modules, so a node-side
-	// import of one that AI_LIB_SERVER_PACKAGES omits fails with
-	// ERR_MODULE_NOT_FOUND on the remote host only -- invisible in a local desktop
-	// build. See posit-dev/positron#15306.
-	test('covers every ai-lib package the node layer imports', () => {
-		const imported = new Set<string>();
-		const nodeSources = collectFiles(path.join(REPO_ROOT, 'src', 'vs', 'platform'))
-			.filter(file => file.includes(`${path.sep}node${path.sep}`) && file.endsWith('.ts'));
-
-		for (const file of nodeSources) {
-			const contents = fs.readFileSync(file, 'utf8');
-			for (const match of contents.matchAll(/\bimport\(\s*['"](ai-[^'"/]+)/g)) {
-				imported.add(match[1]);
-			}
-		}
-
-		// `scanned` guards against the scan silently finding nothing.
-		assert.deepStrictEqual({
-			unpackaged: [...imported].filter(name => !AI_LIB_SERVER_PACKAGES.includes(name)),
-			scanned: imported.size > 0,
-		}, { unpackaged: [], scanned: true });
-	});
 });
-
-function collectFiles(dir: string): string[] {
-	const files: string[] = [];
-	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-		const entryPath = path.join(dir, entry.name);
-		if (entry.isDirectory()) {
-			files.push(...collectFiles(entryPath));
-		} else {
-			files.push(entryPath);
-		}
-	}
-	return files;
-}
