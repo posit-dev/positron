@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as DOM from '../../browser/dom.js';
 import { CodeWindow, ensureCodeWindow, mainWindow } from '../../browser/window.js';
 import { PositronReactServices } from '../../browser/positronReactServices.js';

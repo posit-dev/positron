@@ -30,13 +30,14 @@ test.describe('Postgres DB Connection', {
 			'Database Name': dbName,
 			'Host': 'postgres',
 			'User': user,
-			'Password': password,
 		});
+		await app.workbench.connections.fillSecretConnectionsInput('Password', password);
 
 		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: '%connection_show conn' })).toBeVisible();
 		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: dbName })).toBeVisible();
 		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("username=\\"${user}\\"")`)).toBeVisible();
-		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password=\\"${password}\\"")`)).toBeVisible();
+		// Only check the argument is there: a locator built from the value would put it in a step title.
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'password=' })).toBeVisible();
 
 		await app.workbench.connections.connect();
 
@@ -98,13 +99,13 @@ test.describe('Postgres DB Connection', {
 			'Database Name': dbName,
 			'Host': 'postgres',
 			'User': user,
-			'Password': password,
 		});
+		await app.workbench.connections.fillSecretConnectionsInput('Password', password);
 
 		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'con <- connection_open' })).toBeVisible();
 		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: dbName })).toBeVisible();
 		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("user = \\"${user}\\"")`)).toBeVisible();
-		await expect(app.code.driver.currentPage.locator(`${viewLine}:has-text("password = \\"${password}\\"")`)).toBeVisible();
+		await expect(app.code.driver.currentPage.locator(viewLine, { hasText: 'password = ' })).toBeVisible();
 
 		await app.workbench.connections.connect();
 

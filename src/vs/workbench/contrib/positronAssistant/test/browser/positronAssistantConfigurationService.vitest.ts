@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Emitter } from '../../../../../base/common/event.js';
 import { PositronAssistantConfigurationService } from '../../browser/positronAssistantService.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';

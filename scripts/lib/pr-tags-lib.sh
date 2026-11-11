@@ -8,8 +8,8 @@
 # Echoes "true" iff a changed path should contribute to tag derivation. Test
 # files (co-located unit/vitest tests under a test/ dir or named *.test.* /
 # *.vitest.*) and lockfiles are excluded: a test-only or lockfile-only change
-# should not auto-select a feature suite. This is derivation-only -- the map-rot
-# guardrail excludes test/build dirs separately via positron_dir_of.
+# should not auto-select a feature suite. find_unmapped_positron_dirs also uses
+# it, in its owner-root fallback only.
 is_derivable_source() {
 	local path="$1"
 	case "$path" in
@@ -461,7 +461,9 @@ split_valid_invalid_tags() {
 # owner_root_dir_of + a copyright-header check. Without this, a Positron-owned
 # file that doesn't follow the naming convention is invisible to this check
 # entirely -- not just unmapped, undetectable -- and stays that way until
-# someone finds it by hand (as happened with #14604).
+# someone finds it by hand (as happened with #14604). The fallback skips test
+# files (is_derivable_source): a Posit test in an upstream dir doesn't make the
+# dir Posit-owned.
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
@@ -470,6 +472,8 @@ find_unmapped_positron_dirs() {
 		[[ -z "$file" ]] && continue
 		dir="$(positron_dir_of "$file")"
 		if [[ -z "$dir" ]]; then
+			# A Posit test file doesn't make an upstream dir Posit-owned.
+			[[ "$(is_derivable_source "$file")" == "true" ]] || continue
 			dir="$(owner_root_dir_of "$file")"
 			[[ -z "$dir" ]] && continue
 			[[ "$(is_posit_owned_file "$file")" == "true" ]] || continue

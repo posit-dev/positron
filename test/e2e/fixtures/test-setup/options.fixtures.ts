@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
 import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser, StorageFile } from '../../infra';
+import { isArtifactEnabled } from '../../infra/artifactSwitches.js';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 import { shouldUseCustomTracing } from './reporting.fixtures.js';
@@ -74,7 +75,7 @@ export function OptionsFixture() {
 			web: !!browser,
 			headless: project.headless,
 			browser,
-			tracing: true,
+			tracing: isArtifactEnabled('E2E_TRACES'),
 			customTracing: shouldUseCustomTracing(workerInfo.project),
 			snapshots: resolveTraceSnapshots(snapshots),
 			quality: Quality.Dev,

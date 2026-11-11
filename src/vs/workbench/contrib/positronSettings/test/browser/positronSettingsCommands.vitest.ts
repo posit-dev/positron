@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationData, IConfigurationModel, IConfigurationOverrides, IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';

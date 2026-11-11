@@ -3,15 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
-import { CellExecutionState, ExecutionOutputEvent, ICellFragmentProgress, ICellOutput } from '../../common/quartoExecutionTypes.js';
+import { CellExecutionState, DEFAULT_EXECUTION_CONFIG, ExecutionOutputEvent, ICellFragmentProgress, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
@@ -1205,6 +1203,222 @@ describe('QuartoExecutionManager', () => {
 			expect(outputsReceived.length, 'Should receive two outputs (stream + execute_result)').toBe(2);
 			expect(outputsReceived[1].items[0].mime).toBe('text/plain');
 			expect(outputsReceived[1].items[0].data).toBe('5');
+		});
+	});
+
+	describe('Display Updates', () => {
+		const PNG_A = 'iVBORw0KGgoAAAA';
+		const PNG_B = 'iVBORw0KGgoBBBB';
+		const PNG_C = 'iVBORw0KGgoCCCC';
+		const documentUri = URI.file('/display-updates.qmd');
+
+		let received: ExecutionOutputEvent[];
+		let updated: ExecutionOutputEvent[];
+
+		beforeEach(async () => {
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			received = [];
+			updated = [];
+			ctx.disposables.add(executionManager.onDidReceiveOutput(event => received.push(event)));
+			ctx.disposables.add(executionManager.onDidUpdateOutput(event => updated.push(event)));
+		});
+
+		function pythonCell(id: string, index = 0): QuartoCodeCell {
+			return {
+				id,
+				index,
+				language: 'python',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: id,
+			};
+		}
+
+		/** Runs one single-fragment cell, sending messages through `drive` before going idle. */
+		async function runCell(cell: QuartoCodeCell, drive: (executionId: string) => void): Promise<void> {
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+			drive(executionId);
+			mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
+			mockSession.setRuntimeState(RuntimeState.Ready);
+			await executionPromise;
+		}
+
+		it('replaces the display output that has the same output_id', async () => {
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({
+					parent_id: executionId,
+					output_id: 'plot-1',
+					data: { 'image/png': PNG_A },
+					outputMetadata: { 'image/png': { width: 504, height: 504 } },
+				});
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_B } });
+			});
+
+			expect(received).toHaveLength(1);
+			expect(updated).toEqual([{
+				cellId: 'cell-a',
+				documentUri,
+				output: {
+					outputId: received[0].output.outputId,
+					items: [{ mime: 'image/png', data: PNG_B }],
+					webviewMetadata: undefined,
+					outputMetadata: { 'image/png': { width: 504, height: 504 } },
+				},
+			}]);
+		});
+
+		it('applies an update from a later statement in the same chunk (#15544)', async () => {
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, true);
+			const cell: QuartoCodeCell = {
+				id: 'cell-r',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'cell-r',
+			};
+			const documentLines = ['```{r}', 'plot(1:10)', 'points(5, 5)', '```'];
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell], documentLines, 'r'));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+				{ language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' },
+				{
+					provideInputBoundaries() {
+						return [
+							{ range: { start: 0, end: 1 }, kind: 'complete' },
+							{ range: { start: 1, end: 2 }, kind: 'complete' },
+						];
+					}
+				}));
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			const firstId = await mockKernelManager.waitForExecution();
+			mockSession.receiveOutputMessage({ parent_id: firstId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+			mockSession.receiveStateMessage({ parent_id: firstId, state: RuntimeOnlineState.Idle });
+			mockSession.setRuntimeState(RuntimeState.Ready);
+
+			const secondId = await mockKernelManager.waitForExecution();
+			mockSession.receiveUpdateOutputMessage({ parent_id: secondId, output_id: 'plot-1', data: { 'image/png': PNG_B } });
+			mockSession.receiveStateMessage({ parent_id: secondId, state: RuntimeOnlineState.Idle });
+			mockSession.setRuntimeState(RuntimeState.Ready);
+
+			await executionPromise;
+
+			expect(received).toHaveLength(1);
+			expect(updated.map(e => [e.output.outputId, e.output.items[0].data]))
+				.toEqual([[received[0].output.outputId, PNG_B]]);
+		});
+
+		it('shows an update for a display from an earlier chunk as new output in the current chunk', async () => {
+			await runCell(pythonCell('cell-a', 0), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+			});
+			await runCell(pythonCell('cell-b', 1), executionId => {
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_B } });
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_C } });
+			});
+
+			expect(received.map(e => [e.cellId, e.output.items[0].data]))
+				.toEqual([['cell-a', PNG_A], ['cell-b', PNG_B]]);
+			expect(updated.map(e => [e.cellId, e.output.outputId, e.output.items[0].data]))
+				.toEqual([['cell-b', received[1].output.outputId, PNG_C]]);
+		});
+
+		it('uses the update metadata for an orphan update, and keeps it on later updates without metadata', async () => {
+			await runCell(pythonCell('cell-a', 0), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+			});
+			await runCell(pythonCell('cell-b', 1), executionId => {
+				mockSession.receiveUpdateOutputMessage({
+					parent_id: executionId,
+					output_id: 'plot-1',
+					data: { 'image/png': PNG_B },
+					outputMetadata: { 'image/png': { width: 400, height: 300 } },
+				});
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_C } });
+			});
+
+			expect(received[1].output.outputMetadata).toEqual({ 'image/png': { width: 400, height: 300 } });
+			expect(updated[0].output.outputMetadata).toEqual({ 'image/png': { width: 400, height: 300 } });
+		});
+
+		it('ignores updates whose parent_id is another execution', async () => {
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+				mockSession.receiveUpdateOutputMessage({ parent_id: 'someone-else', output_id: 'plot-1', data: { 'image/png': PNG_B } });
+			});
+
+			expect(received).toHaveLength(1);
+			expect(updated).toHaveLength(0);
+		});
+
+		it('keeps the old output when an update would exceed the output size limit', async () => {
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+				mockSession.receiveUpdateOutputMessage({
+					parent_id: executionId,
+					output_id: 'plot-1',
+					data: { 'image/png': 'x'.repeat(DEFAULT_EXECUTION_CONFIG.maxOutputSize + 1) },
+				});
+			});
+
+			expect(updated).toHaveLength(0);
+			expect(received).toHaveLength(1);
+		});
+
+		it('adds one truncation notice when updates follow a truncated display', async () => {
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({
+					parent_id: executionId,
+					output_id: 'plot-1',
+					data: { 'image/png': 'x'.repeat(DEFAULT_EXECUTION_CONFIG.maxOutputSize + 1) },
+				});
+				for (const data of [PNG_A, PNG_B, PNG_C]) {
+					mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': data } });
+				}
+			});
+
+			expect(received.map(e => e.output.items[0].data))
+				.toEqual(['[Output truncated due to size limit]']);
+			expect(updated).toHaveLength(0);
+		});
+
+		it('drops output after truncation even when a smaller update replaces a display', async () => {
+			const bigPng = 'x'.repeat(DEFAULT_EXECUTION_CONFIG.maxOutputSize - 10);
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': bigPng } });
+				mockSession.receiveOutputMessage({ parent_id: executionId, data: { 'text/plain': 'too much text' } });
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'plot-1', data: { 'image/png': PNG_A } });
+				mockSession.receiveOutputMessage({ parent_id: executionId, data: { 'text/plain': 'after the notice' } });
+			});
+
+			expect(received.map(e => e.output.items[0].data))
+				.toEqual([bigPng, '[Output truncated due to size limit]']);
+			expect(updated.map(e => e.output.items[0].data)).toEqual([PNG_A]);
+		});
+
+		it('applies a Python display handle update (text/html)', async () => {
+			await runCell(pythonCell('cell-a'), executionId => {
+				mockSession.receiveOutputMessage({ parent_id: executionId, output_id: 'disp-1', data: { 'text/html': '<b>0%</b>' } });
+				mockSession.receiveUpdateOutputMessage({ parent_id: executionId, output_id: 'disp-1', data: { 'text/html': '<b>100%</b>' } });
+			});
+
+			expect(received).toHaveLength(1);
+			expect(updated.map(e => [e.output.outputId, e.output.items]))
+				.toEqual([[received[0].output.outputId, [{ mime: 'text/html', data: '<b>100%</b>' }]]]);
 		});
 	});
 

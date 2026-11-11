@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';

@@ -69,7 +69,7 @@ export class TestTeardown {
 			// Callers build paths with path.join, but git pathspecs want forward slashes.
 			const pathspec = files.map(file => `"${file.replace(/\\/g, '/')}"`).join(' ');
 			// --staged as well as --worktree, so a spec that staged a change (scm) leaves nothing behind.
-			this._git(`restore --source=${baseline} --staged --worktree -- ${pathspec}`);
+			await this._gitRetryingIndexLock(`restore --source=${baseline} --staged --worktree -- ${pathspec}`);
 			// A spec that commits (scm) leaves the branch ahead of the baseline; rewind it
 			// without touching any file, so the restore above is what git status reports.
 			this._git(`reset --soft ${baseline}`);
@@ -147,5 +147,19 @@ export class TestTeardown {
 
 	private _git(args: string): string {
 		return execSync(`git ${args}`, { cwd: this._workspacePathOrFolder }).toString();
+	}
+
+	/** The git extension can still hold index.lock (a commit or status refresh) when teardown runs. */
+	private async _gitRetryingIndexLock(args: string, attempts = 5): Promise<string> {
+		for (let attempt = 1; ; attempt++) {
+			try {
+				return this._git(args);
+			} catch (error) {
+				if (attempt >= attempts || !/index\.lock/.test(String(error))) {
+					throw error;
+				}
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+		}
 	}
 }

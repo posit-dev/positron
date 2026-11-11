@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { Event, Emitter } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -78,6 +76,7 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 		})
 		.stub(IQuartoExecutionManager, {
 			onDidReceiveOutput: Event.None,
+			onDidUpdateOutput: Event.None,
 			onDidChangeExecutionState: Event.None,
 			onWillExecute: Event.None,
 		})

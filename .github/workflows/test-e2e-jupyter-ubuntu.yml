@@ -22,7 +22,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       commit:
         description: "Commit SHA to test"
         required: false
@@ -47,8 +47,8 @@ jobs:
 
     env:
       POSITRON_BUILD_NUMBER: 0
-      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: e2e-postgres-test
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
       HOME: /home/runner
@@ -172,7 +172,7 @@ jobs:
           npx playwright test --project e2e-jupyter --retries=1 --workers=1
 
       - name: Upload HTML report to S3
-        if: always()
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -180,13 +180,17 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-jupyter-ubuntu-logs
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
       - name: Stop Docker containers
         if: always()

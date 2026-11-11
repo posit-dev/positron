@@ -109,7 +109,8 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
 	['positron-python', 3_850], // about 3,100; about 3,500 on win32-x64
 	['positron-pdf-server', 450], // 407
 	['node_modules', 345], // about 312, with the shared DuckDB runtime (#14265)
-	['markdown-language-features', 190], // 167
+	['markdown-language-features', 365], // 322 (1.143 merge: code-split markdown editor webview)
+	['mermaid-markdown-features', 275], // 240 (1.143 merge: code-split Mermaid webviews)
 	['theme-modern-icons', 140], // 121
 ]);
 

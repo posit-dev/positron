@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Selection } from '../../../../../editor/common/core/selection.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IEditorPropertiesChangeData } from '../../../common/extHost.protocol.js';

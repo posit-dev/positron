@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { URI } from '../../../../../base/common/uri.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';

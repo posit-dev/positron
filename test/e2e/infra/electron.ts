@@ -11,6 +11,9 @@ import type { LaunchOptions } from './code';
 import path = require('path');
 import { promisify } from 'util';
 import { ncp } from 'ncp';
+// --- Start Positron ---
+import { appEnv } from './appEnv';
+// --- End Positron ---
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -22,7 +25,10 @@ export interface IElectronConfiguration {
 
 export async function resolveElectronConfiguration(options: LaunchOptions): Promise<IElectronConfiguration> {
 	const { codePath, workspacePath, extensionsPath, userDataDir, remote, logger, logsPath, crashesPath, extraArgs, extraEnv } = options;
-	const env = { ...process.env };
+	// --- Start Positron ---
+	// const env = { ...process.env };
+	const env = appEnv(process.env);
+	// --- End Positron ---
 
 	const args: string[] = [
 		'--skip-release-notes',
@@ -89,7 +95,7 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 	}
 
 	if (!codePath) {
-		args.unshift(root);
+		args.unshift(options.sourceAppRoot ?? root);
 	}
 
 	if (extraArgs) {

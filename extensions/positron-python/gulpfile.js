@@ -300,7 +300,21 @@ async function pipInstall(args) {
     ]);
 }
 
+/**
+ * Removes a `pip install --target` directory before a fresh install. pip does
+ * not remove the files of an old version from a target directory, or a
+ * directory that the task no longer installs to. In a dev checkout these
+ * accumulate, and a local release build ships them.
+ * See https://github.com/posit-dev/positron/issues/16695.
+ * @param {string} target - The target directory, relative to this file.
+ */
+async function cleanPipTarget(target) {
+    fancyLog('Removing old bundled packages from:', ansiColors.cyan(target));
+    await del([target], { cwd: __dirname });
+}
+
 async function installPythonScriptRequirements() {
+    await cleanPipTarget('python_files/lib/python');
     await pipInstall(['--target', './python_files/lib/python', '--implementation', 'py', '-r', './requirements.txt']);
 }
 
@@ -321,6 +335,8 @@ async function bundleIPykernel() {
         { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },
     ];
 
+    await cleanPipTarget('python_files/lib/ipykernel');
+
     // Pure Python 3 requirements (same for all architectures).
     await pipInstall([
         '--target',
@@ -336,6 +352,7 @@ async function bundleIPykernel() {
     ]);
 
     await removeJedi();
+    await removeUnusedDebugpyBinaries();
 
     // On macOS, different packages have different wheel availability:
     // - cp3-requirements (psutil, tornado): Only have arch-specific abi3 wheels (no universal2)
@@ -579,6 +596,30 @@ async function removeJedi() {
     const py3Path = path.join(__dirname, 'python_files/lib/ipykernel/py3');
     fancyLog('Removing jedi and parso from:', ansiColors.cyan(py3Path));
     await del(['jedi', 'jedi-*.dist-info', 'parso', 'parso-*.dist-info'], { cwd: py3Path });
+}
+
+/**
+ * debugpy installs as one pure-Python wheel, but the wheel carries the
+ * attach-to-process binaries for Windows, Linux, and macOS. Remove the binaries
+ * for the other platforms. Also remove the Windows debug symbols (`.pdb`) and the
+ * Cython modules that are built only for Python 3.9, which Positron no longer
+ * supports.
+ * See https://github.com/posit-dev/positron/issues/16025.
+ */
+async function removeUnusedDebugpyBinaries() {
+    const pydevdPath = path.join(__dirname, 'python_files/lib/ipykernel/py3/debugpy/_vendored/pydevd');
+    const patterns = ['pydevd_attach_to_process/*.pdb', '**/*.cp39-*.pyd'];
+    if (platform !== 'win32') {
+        patterns.push('pydevd_attach_to_process/*.dll', 'pydevd_attach_to_process/*.exe');
+    }
+    if (platform !== 'linux') {
+        patterns.push('pydevd_attach_to_process/*.so');
+    }
+    if (platform !== 'darwin') {
+        patterns.push('pydevd_attach_to_process/*.dylib');
+    }
+    fancyLog('Removing debugpy binaries for other platforms from:', ansiColors.cyan(pydevdPath));
+    await del(patterns, { cwd: pydevdPath });
 }
 // --- End Positron ---
 

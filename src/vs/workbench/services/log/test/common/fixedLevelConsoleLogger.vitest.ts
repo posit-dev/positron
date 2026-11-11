@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ConsoleLogger, LogLevel, MultiplexLogger } from '../../../../../platform/log/common/log.js';
 import { FixedLevelConsoleLogger, shouldPinConsoleEcho } from '../../common/fixedLevelConsoleLogger.js';
 

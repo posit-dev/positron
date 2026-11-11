@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Event } from '../../../../../base/common/event.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_EXPERIMENTAL_KEY } from '../../common/positronNotebookConfig.js';

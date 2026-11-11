@@ -22,6 +22,10 @@ on:
         description: "After the leads, explore one area of the helpers (off on a scheduled run)"
         type: boolean
         default: false
+      plant_leak:
+        description: "Write the leak canary into the night's output, to check the secret scan blocks the upload"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -171,6 +175,16 @@ jobs:
           echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
           echo "RUNNER=$PWD/session-cli.mjs" >> "$GITHUB_ENV"
 
+      # The upload scan fails closed without a canary. launch.sh strips *_KEY names, so the app
+      # never gets it; a hit means an agent leaked its environment or the stripping did not run.
+      - name: Plant the leak canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(node -e 'console.log(crypto.randomUUID())')"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # Before smoke: the app needs a chat model to show an error's Fix and Explain, which smoke clicks.
       - name: Load the Anthropic key
         uses: 1password/load-secrets-action@v5
@@ -296,7 +310,8 @@ jobs:
           fi
           exit "$code"
 
-      - name: Step summary
+      # Written to a file, not the public run page, until the scan below passes.
+      - name: Write the step summary
         if: always()
         shell: bash
         env:
@@ -307,7 +322,94 @@ jobs:
         run: |
           args=(--dir "$HEAL_DIR" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
           [ "$SMOKE_RED" = true ] && args+=(--smoke-red)
-          node .claude/skills/drive-positron/heal/report.ts "${args[@]}" summary >> "$GITHUB_STEP_SUMMARY" || true
+          node .claude/skills/drive-positron/heal/report.ts "${args[@]}" summary > "$RUNNER_TEMP/summary.md" || true
+
+      # A negative check of the gate: the scan below must fail and the upload must not run.
+      - name: Plant a leak (manual check)
+        if: always() && inputs.plant_leak
+        shell: bash
+        run: |
+          mkdir -p "$HEAL_DIR"
+          echo "planted: $E2E_LEAK_CANARY_KEY" > "$HEAL_DIR/planted-leak.txt"
+
+      # The app and agents hold ANTHROPIC_API_KEY, and the artifact and summary are public. Scan a
+      # staged copy and upload that copy, so a still-running instance cannot add to it afterwards.
+      # Launch dirs contribute only logs: the scan cannot read the user-data dirs' stores.
+      - name: Stage and scan the upload set
+        id: secret-scan
+        if: always()
+        shell: bash
+        env:
+          PLANT_LEAK: ${{ inputs.plant_leak || false }}
+        run: |
+          set -euo pipefail
+          # 0 clean, 1 secrets found, 2 the scan could not run; read by the steps below.
+          code=2
+          trap 'echo "code=$code" >> "$GITHUB_OUTPUT"' EXIT
+          STAGE=/tmp/heal-upload
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          # GNU tar exits 1 when a file changes while it is read; that copy is still usable.
+          copy_tree() {
+            local status
+            set +e
+            tar -cf - "$@" | tar -xf - -C "$STAGE"
+            status=("${PIPESTATUS[@]}")
+            set -e
+            [ "${status[0]}" -le 1 ] && [ "${status[1]}" -eq 0 ]
+          }
+          cd "$(dirname "$HEAL_DIR")"
+          heal=$(basename "$HEAL_DIR")
+          if [ -d "$heal" ]; then copy_tree --exclude="$heal/recent" "$heal"; fi
+          cd /tmp
+          for d in positron-dev-launch/*/logs; do
+            if [ -d "$d" ]; then copy_tree "$d"; fi
+          done
+          for f in positron-dev-launch/*/code.log positron-dev-launch/instances.log; do
+            [ -f "$f" ] || continue
+            mkdir -p "$STAGE/$(dirname "$f")"
+            cp "$f" "$STAGE/$f"
+          done
+          cd "$GITHUB_WORKSPACE"
+          # Set up git is skipped on a red night; git refuses a root-owned checkout without this.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scanner=(test/e2e/scripts/scan-for-secrets.ts test/e2e/infra)
+          if ! git diff --quiet "$GITHUB_SHA" -- "${scanner[@]}" \
+            || [ -n "$(git status --porcelain --untracked-files=all -- "${scanner[@]}")" ]; then
+            echo "::error::the secret scanner changed during the run; refusing to trust it"; exit 2
+          fi
+          set +e
+          out=$(npx --no-install tsx test/e2e/scripts/scan-for-secrets.ts "$STAGE" "$RUNNER_TEMP/summary.md" 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          # A scanner that fails to load also exits 1; only its hit count makes that a leak.
+          if [ "$code" -eq 1 ] && ! grep -qE '^[1-9][0-9]* hit\(s\)$' <<< "$out"; then code=2; fi
+          if [ "$PLANT_LEAK" = true ]; then
+            if [ "$code" -eq 1 ] && grep -q 'planted-leak\.txt  E2E_LEAK_CANARY_KEY' <<< "$out"; then
+              echo "::notice::the scan caught the planted leak; the upload is skipped"
+            else
+              echo "::error::plant_leak expected exit 1 with a hit on planted-leak.txt; the scan exited $code"
+              code=2
+              exit 2
+            fi
+          fi
+          exit "$code"
+
+      - name: Step summary
+        if: always()
+        shell: bash
+        env:
+          SCAN: ${{ steps.secret-scan.outcome }}
+          CODE: ${{ steps.secret-scan.outputs.code }}
+        run: |
+          if [ "$SCAN" = success ]; then
+            cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          elif [ "$CODE" = 1 ]; then
+            echo "Summary withheld: the secret scan found a secret in the night's output, so nothing was uploaded." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Summary withheld: the secret scan could not run (exit ${CODE:-none}), so nothing was uploaded." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Name the failed step
         id: failed
@@ -336,14 +438,12 @@ jobs:
           echo "step=${step:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Upload the night
-        if: always()
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: drive-positron-heal
-          path: |
-            /tmp/heal/
-            !/tmp/heal/recent/
-            /tmp/positron-dev-launch/
+          # The copy the scan above read.
+          path: /tmp/heal-upload/
           if-no-files-found: ignore
 
   publish:
@@ -383,7 +483,7 @@ jobs:
         id: has
         shell: bash
         run: |
-          # The artifact is rooted at /tmp or at /tmp/heal, depending on what was uploaded.
+          # The artifact is rooted at the stage, or at its heal dir when nothing else was staged.
           state=$(find /tmp/night -maxdepth 2 -name state.json -not -path '*/positron-dev-launch/*' | head -n 1)
           if [ -z "$state" ]; then echo "no state.json in the artifact"; exit 0; fi
           dir=$(dirname "$state")

@@ -102,6 +102,23 @@ wLI1cjS6OIGq+tJ32cyvi3U+AwUnQ33+TsG1Si5g9txge8L7eGyfBUc3EL+tgo5p
 vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
+// Second development key, issued 2026-11-09 while the first is retired (SEC-3673).
+// Release builds replace every key block here with the product key.
+const PublicKey2026 = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwI0ERDTlRd+tXj2n2Py4
+siKYrl2JDNBsiS8uNvaSPAcg+pIWb8GBctAtM+wv2XpnwX0ptuANhsAjqOrd2ZDh
+qrmDdC7LKv/xnNsVjgS8O1mwDFlWmqPXg/0MVO3BDagiJ3wG1cP+zRsVQZDqGugv
+ZThxnFoleghADmquZC+dtvra23jMEyM6phTZ7nU0DVSv2aonBd8T4PDOSRawMujZ
+hyl46E+ircnfKUJySrzwaKIoi9gM95wDrfOrktqPquZIlraNZWdrfYs7VMTlmDm1
+xH43lgIBT1r9iINtKdaG7Az70bY2B/bJZ1vDeCqByX2999KvZAjaMoEZk8GjknMR
+9A+rYmWseO4HaUXC1wRtZOp7TaMoNWOfx0EqKWmFzobYVMtixtFHOgf6fLEW6H0K
+lYmhKyWLnnZyVQCH/nPCgNSoYb0fnfXkLAcgZBgLOGhYc2gn7MtUFKcQek2TNqM3
+hznLOJ72oVQXHAnROllCpGIxfhdkKyksu8rup4q2TLwIUBubcl1lW/DRMU9ES7h6
+8H4HzOIUHmxFq3HRU9Bwx5+nYiTZ1pSOQZrpw77ypJQPj2nf2YWdXT5ZlqSUvqwG
++DqVM7citAUfeoA2BmLgI+SsWRE+MZKkGjLOInBHZN37Q8spFwcUUkQbBe4cPVKY
+GTHWCEHUc5hBIk8fq2aW/28CAwEAAQ==
+-----END PUBLIC KEY-----`;
+
 /**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
@@ -281,7 +298,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 	}
 
 	// Try each supplied public key; accept the license if any key verifies.
-	const keysToTry = publicKeys ?? [PublicKey];
+	const keysToTry = publicKeys ?? [PublicKey, PublicKey2026];
 	const signature = Buffer.from(licenseKey.signature, 'base64');
 	let signatureValid = false;
 	for (const keyPem of keysToTry) {

@@ -68,6 +68,9 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.CodeExecutedWithoutSession]: args => args.requestingExtensionName ?
 		localize2('positron.sessionStartReason.codeExecutedWithoutSessionByExtension', "The {0} extension ran code with no {1} console open", args.requestingExtensionName, args.languageName) :
 		localize2('positron.sessionStartReason.codeExecutedWithoutSession', "Code was run with no {0} console open", args.languageName),
+	[SessionStartReasonId.CodeRequestedNewSession]: args => args.requestingExtensionName ?
+		localize2('positron.sessionStartReason.codeRequestedNewSessionByExtension', "The {0} extension sent code to run in a new background console", args.requestingExtensionName) :
+		localize2('positron.sessionStartReason.codeRequestedNewSession', "Code was sent to run in a new background console"),
 	[SessionStartReasonId.UserRanCodeWithoutSession]: args => localize2('positron.sessionStartReason.userRanCodeWithoutSession', "You ran code with no {0} console open", args.languageName),
 	[SessionStartReasonId.AiChatCodeExecutedWithoutSession]: args => localize2('positron.sessionStartReason.aiChatCodeExecutedWithoutSession', "Code from AI chat was run with no {0} console open", args.languageName),
 	[SessionStartReasonId.RestartUninitializedSession]: args => args.requestingExtensionName ?
