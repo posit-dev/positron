@@ -225,9 +225,9 @@ export class DataConnections {
 
 	/**
 	 * Asserts that a connection profile is present in the tree.
-	 * @param connectionName The connection name shown in the tree.
+	 * @param connectionName The connection name shown in the tree, or a pattern for the entry's text.
 	 */
-	async expectConnectionInTree(connectionName: string): Promise<void> {
+	async expectConnectionInTree(connectionName: string | RegExp): Promise<void> {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
 		).toBeVisible({ timeout: this.actionTimeout });
@@ -266,6 +266,36 @@ export class DataConnections {
 
 			await expect(this.connectWithDialog).toBeVisible();
 		});
+	}
+
+	/**
+	 * Selects an item from a connection entry's Actions menu, e.g. 'Refresh' or 'Disconnect'.
+	 * @param connectionName The connection name shown in the tree.
+	 * @param menuItem The menu item's title.
+	 */
+	async selectConnectionMenuItem(connectionName: string, menuItem: string): Promise<void> {
+		await test.step(`Select ${menuItem} on connection: ${connectionName}`, async () => {
+			const page = this.code.driver.currentPage;
+			const row = this.connectionEntries.filter({ hasText: connectionName });
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.getByRole('button', { name: 'Actions' }).click();
+
+			const menu = page.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: page.locator('.title', { hasText: new RegExp(`^${menuItem}$`) })
+			}).click();
+			await expect(menu).toBeHidden();
+		});
+	}
+
+	/**
+	 * Asserts that no connection entry with the given name is in the tree.
+	 * @param connectionName The connection name shown in the tree.
+	 */
+	async expectConnectionAbsent(connectionName: string): Promise<void> {
+		await expect(this.connectionEntries.filter({ hasText: connectionName })).toHaveCount(0);
 	}
 
 	/**
