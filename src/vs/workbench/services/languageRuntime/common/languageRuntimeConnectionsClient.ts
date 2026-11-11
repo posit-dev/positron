@@ -55,4 +55,13 @@ export class ConnectionsClientInstance extends Disposable {
 	get onDidFocus() {
 		return this._positronConnectionsComm.onDidFocus;
 	}
+
+	get onDidUpdate() {
+		return this._positronConnectionsComm.onDidUpdate;
+	}
+
+	/** The state of the underlying comm. Closed once the comm is gone. */
+	get clientState() {
+		return this._positronConnectionsComm.clientState;
+	}
 }
