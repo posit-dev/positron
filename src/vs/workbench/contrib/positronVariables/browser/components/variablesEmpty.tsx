@@ -19,7 +19,7 @@ interface VariablesEmptyProps {
  * Localized strings.
  */
 const title = localize('positron.noVariablesCreated', 'No variables have been created.');
-const titleFilter = localize('positron.noVariables.filter', 'No variables match the current filter.');
+const titleFilter = localize('positron.noVariables.filter', 'No variables match the filter.');
 
 /**
  * VariablesEmpty component.
