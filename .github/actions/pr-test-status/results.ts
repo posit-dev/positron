@@ -37,9 +37,12 @@ function count(v: unknown): number {
 	return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : 0;
 }
 
-/** Makes an untrusted test name safe to show in a code span: no backticks or line breaks, at most 150 chars. */
+/** Makes an untrusted test name safe to show in a code span: no backticks, control characters or line breaks, at most 150 code points. */
 export function sanitizeName(raw: unknown): string {
-	return typeof raw === 'string' ? raw.replace(/[`\r\n]/g, '').slice(0, 150) : '';
+	// Cut by code points so a surrogate pair is never split.
+	return typeof raw === 'string'
+		? Array.from(raw.replace(/[`\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, '')).slice(0, 150).join('')
+		: '';
 }
 
 function parseJson(raw: string): unknown {
@@ -50,7 +53,12 @@ function parseJson(raw: string): unknown {
 	}
 }
 
-function walkPlaywright(suite: Obj, parents: string[], out: { failures: FailedTest[]; flakyTests: FailedTest[] }): void {
+const MAX_DEPTH = 50;
+
+function walkPlaywright(suite: Obj, parents: string[], out: { failures: FailedTest[]; flakyTests: FailedTest[] }, depth = 0): void {
+	if (depth > MAX_DEPTH) {
+		return;
+	}
 	const title = typeof suite.title === 'string' ? suite.title : '';
 	// The file-level suite is titled with the file path, which is already in `file`.
 	const here = title && title !== suite.file ? [...parents, title] : parents;
@@ -67,7 +75,7 @@ function walkPlaywright(suite: Obj, parents: string[], out: { failures: FailedTe
 				.filter((s): s is number => typeof s === 'number' && Number.isSafeInteger(s) && s >= 0);
 			const entry: FailedTest = {
 				file: sanitizeName(spec.file),
-				title: sanitizeName([...here, spec.title].join(' > ')),
+				title: sanitizeName([...here, typeof spec.title === 'string' ? spec.title : ''].join(' > ')),
 				shard: shards.length > 0 ? shards[0] : null,
 			};
 			(test.status === 'unexpected' ? out.failures : out.flakyTests).push(entry);
@@ -75,13 +83,21 @@ function walkPlaywright(suite: Obj, parents: string[], out: { failures: FailedTe
 	}
 	for (const child of arr(suite.suites)) {
 		if (isObj(child)) {
-			walkPlaywright(child, here, out);
+			walkPlaywright(child, here, out, depth + 1);
 		}
 	}
 }
 
 /** Parses a merged Playwright JSON report, or returns null if it is not one. */
 export function parsePlaywright(raw: string): Results | null {
+	try {
+		return parsePlaywrightUnsafe(raw);
+	} catch {
+		return null;
+	}
+}
+
+function parsePlaywrightUnsafe(raw: string): Results | null {
 	const data = parseJson(raw);
 	if (!isObj(data) || !Array.isArray(data.suites) || !isObj(data.stats)) {
 		return null;
@@ -117,6 +133,14 @@ function relativeFile(name: unknown): string {
 
 /** Parses a Vitest JSON reporter file, or returns null if it is not one. */
 export function parseVitest(raw: string): Results | null {
+	try {
+		return parseVitestUnsafe(raw);
+	} catch {
+		return null;
+	}
+}
+
+function parseVitestUnsafe(raw: string): Results | null {
 	const data = parseJson(raw);
 	if (!isObj(data) || !Array.isArray(data.testResults)) {
 		return null;
@@ -126,11 +150,17 @@ export function parseVitest(raw: string): Results | null {
 		if (!isObj(result)) {
 			continue;
 		}
-		for (const a of arr(result.assertionResults)) {
+		const assertions = arr(result.assertionResults);
+		// A file that failed to load has no assertions; name the file so it is not lost.
+		if (result.status === 'failed' && assertions.length === 0) {
+			const file = relativeFile(result.name);
+			failures.push({ file, title: file, shard: null });
+		}
+		for (const a of assertions) {
 			if (isObj(a) && a.status === 'failed') {
 				failures.push({
 					file: relativeFile(result.name),
-					title: sanitizeName([...arr(a.ancestorTitles), a.title].join(' > ')),
+					title: sanitizeName([...arr(a.ancestorTitles).filter((t): t is string => typeof t === 'string'), typeof a.title === 'string' ? a.title : ''].join(' > ')),
 					shard: null,
 				});
 			}
