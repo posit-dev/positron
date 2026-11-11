@@ -150,12 +150,12 @@ export function bundledUninstallMessage(names: readonly string[]): string {
 	return names.length === 1
 		? localize(
 			'positron.packages.uninstallBundled',
-			"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and restart the session.",
+			"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
 			names[0],
 		)
 		: localize(
 			'positron.packages.uninstallBundledMany',
-			"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and restart the session.",
+			"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
 			names.join(', '),
 		);
 }

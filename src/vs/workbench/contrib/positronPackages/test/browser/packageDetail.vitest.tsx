@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -404,7 +404,8 @@ describe('PackageDetail while detail fetch is pending', () => {
 });
 
 describe('PackageDetail for bundled packages', () => {
-	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const executeCommand = vi.fn();
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function tornado(overrides: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
@@ -430,12 +431,25 @@ describe('PackageDetail for bundled packages', () => {
 		expect(screen.getByText('Bundled with Positron')).toBeInTheDocument();
 		// Rendered as plain text, so Markdown backticks would show literally.
 		expect(screen.getByText(/ships with Positron and can't be uninstalled from the Packages pane/)).not.toHaveTextContent('`');
+		// A restart keeps the session's bundled import path; only a new session
+		// picks up the setting change.
+		expect(screen.getByText(/ships with Positron/)).toHaveTextContent(/start a new Python session\.$/);
+		expect(screen.getByText('python.useBundledIpykernel', { selector: 'code' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /uninstall/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /update/i })).not.toBeInTheDocument();
 		// The version is the bundled copy's, never "(latest)": outdated state
 		// describes the environment, which has no copy.
 		expect(await screen.findByText('6.5.7, bundled')).toBeInTheDocument();
 		expect(screen.queryByText(/\(latest\)/)).not.toBeInTheDocument();
+	});
+
+	it('opens the bundled ipykernel setting from the explanation', async () => {
+		renderPackage(tornado());
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('button', { name: 'Open the python.useBundledIpykernel setting' }));
+
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'python.useBundledIpykernel');
 	});
 
 	it('explains that the console imports the bundled copy when the environment also has one', async () => {
@@ -478,5 +492,8 @@ describe('PackageDetail for bundled packages', () => {
 		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
 
 		expect(screen.getByText(/A fix for the bundled copy comes with a Positron update/)).not.toHaveTextContent('`');
+		const advisoryNote = screen.getByText(/A fix for the bundled copy/);
+		expect(advisoryNote).toHaveTextContent(/start a new Python session\.$/);
+		expect(within(advisoryNote).getByText('python.useBundledIpykernel', { selector: 'code' })).toBeInTheDocument();
 	});
 });

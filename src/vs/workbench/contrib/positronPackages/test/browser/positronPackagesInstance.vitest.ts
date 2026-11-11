@@ -692,7 +692,7 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			const instance = makeInstance();
 			await instance.refreshPackages();
 
-			await expect(instance.uninstallPackages(['Tornado'], CancellationToken.None)).rejects.toThrow(/tornado/);
+			await expect(instance.uninstallPackages(['Tornado'], CancellationToken.None)).rejects.toThrow(/tornado .*start a new Python session\.$/);
 			expect(uninstallPackages).not.toHaveBeenCalled();
 		});
 
@@ -706,6 +706,9 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			expect((error as Error).message).toMatch(/^six, tornado are bundled with Positron/);
 			// Shown as plain text in a notification, so Markdown would show literally.
 			expect((error as Error).message).not.toContain('`');
+			// A restart keeps the session's bundled import path; only a new
+			// session picks up the setting change.
+			expect((error as Error).message).toMatch(/start a new Python session\.$/);
 		});
 
 		it('rejects a bundled-only package even when the list was never loaded', async () => {

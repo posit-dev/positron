@@ -69,6 +69,31 @@ function formatFetchedDate(fetchedAt: number): string {
  * prominent value. Renders nothing if there is no value. The Overview is hidden
  * until the detail fetch resolves, so this never sees a pending value.
  */
+/** The setting that turns off Python's bundled ipykernel. */
+const BUNDLED_IPYKERNEL_SETTING = 'python.useBundledIpykernel';
+
+/**
+ * Renders a localized message whose {0} placeholder is the bundled ipykernel
+ * setting, with the setting name in code font as a link that opens the setting.
+ * @param message The localized message, with its {0} placeholder left unformatted.
+ * @returns The rendered message.
+ */
+const MessageWithBundledSetting = ({ message }: { message: string }) => {
+	const services = usePositronReactServicesContext();
+	const [before, after] = message.split('{0}');
+	return <>
+		{before}
+		<Button
+			ariaLabel={localize('positron.packages.detail.openSetting', "Open the {0} setting", BUNDLED_IPYKERNEL_SETTING)}
+			className='package-detail-setting-link'
+			onPressed={() => services.commandService.executeCommand('workbench.action.openSettings', BUNDLED_IPYKERNEL_SETTING)}
+		>
+			<code>{BUNDLED_IPYKERNEL_SETTING}</code>
+		</Button>
+		{after}
+	</>;
+};
+
 const Stat = (props: { label: string; value: string | number | undefined }) => {
 	const hasValue = props.value !== undefined && props.value !== '';
 	if (!hasValue) {
@@ -385,10 +410,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	const bundledNote = !livePkg?.bundled
 		? undefined
 		: livePkg.environmentVersion === undefined
-			? localize(
+			? <MessageWithBundledSetting message={localize(
 				'positron.packages.detail.bundledOnly',
-				"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and restart the session."
-			)
+				"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+			)} />
 			: localize(
 				'positron.packages.detail.bundledShadowed',
 				"Your environment has {0}, but the console imports the bundled {1}. Update and Uninstall act on the environment copy.",
@@ -463,10 +488,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				{sortedVulnerabilities.length > 0 && livePkg?.bundled &&
 					<div className='package-detail-security-bundled'>
 						{isBundledOnly(livePkg)
-							? localize(
+							? <MessageWithBundledSetting message={localize(
 								'positron.packages.detail.bundledAdvisory',
-								"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and restart the session."
-							)
+								"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+							)} />
 							: localize(
 								'positron.packages.detail.bundledShadowedAdvisory',
 								"These advisories are for the bundled {0} the console imports. Updating the environment copy does not fix them; a fix comes with a Positron update.",
