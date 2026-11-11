@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './statuses.ts';
 import { groupLanes, type Job } from './lanes.ts';
-import { laneUrl, renderLane, renderRequiredSummary, renderSection } from './render.ts';
+import { laneUrl, renderLane, renderLanes, renderRequiredSummary } from './render.ts';
 import { parseCache, parsePlaywright, parseVitest, type CacheEntry, type Results } from './results.ts';
 
 /** Parsed artifacts by lane name. */
@@ -57,8 +57,8 @@ export function parseMode(raw: string | undefined): Mode {
 /**
  * Writes each lane's final status, or closes open lanes for cancel and
  * timeout. Whatever is still open at the end is closed as unreadable, so no
- * lane stays pending. Returns the step summary text, with a section per lane
- * that the final statuses link to, or null.
+ * lane stays pending. Returns the step summary text (the lane table and
+ * details), or null.
  */
 export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir: string): Promise<string | null> {
 	if (mode === 'timeout' || mode === 'cancel') {
@@ -87,7 +87,7 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		}
 	}
 	await closeOpen(deps, state, 'unreadable');
-	return lanes.map(({ lane, out }) => renderSection(lane.name, out)).join('\n') + '\n' + renderRequiredSummary(jobs);
+	return (lanes.length > 0 ? renderLanes(lanes, deps.runUrl) + '\n' : '') + renderRequiredSummary(jobs);
 }
 
 async function main(): Promise<void> {

@@ -60,7 +60,7 @@ test('readArtifacts maps folders to lanes and a missing file to null', () => {
 	assert.deepStrictEqual(a.cache.get('unit / vscode'), [{ name: 'npm-core', hit: true }]);
 });
 
-test('final links each lane to the run summary, which holds a section per lane', async () => {
+test('final links each lane into the builds run and returns the lane table', async () => {
 	const dir = tmp();
 	mkdirSync(join(dir, 'vitest-results'));
 	writeFileSync(join(dir, 'vitest-results', 'results.json'), JSON.stringify({ numPassedTests: 5, numFailedTests: 0, testResults: [] }));
@@ -68,7 +68,7 @@ test('final links each lane to the run summary, which holds a section per lane',
 	const state: State = { statuses: {}, readErrors: 0 };
 	const summary = await finalize(f.deps, state, 'final', dir);
 	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['unit / vitest', '5 passed', 'https://example.test/job/1']]);
-	assert.match(summary ?? '', /^## `unit \/ vitest`: 5 passed\n\n## Vitest Test Report/);
+	assert.match(summary ?? '', /^\| \| Lane \| Result \|\n\|---\|---\|---\|\n\| \u{2705} \| `unit \/ vitest` \| 5 passed \|\n/u);
 	assert.match(summary ?? '', /re-run required-tests/);
 });
 

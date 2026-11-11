@@ -7,8 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Job, Lane } from './lanes.ts';
 import type { Results } from './results.ts';
-import { renderLane, renderRequiredSummary, renderUnreadable } from './render.ts';
+import { renderLane, renderLanes, renderRequiredSummary, renderUnreadable } from './render.ts';
 
+const RUN = 'https://github.com/o/r/actions/runs/9';
+const RERUN = '<sub>To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.</sub>';
 
 const job = (name: string, conclusion: string | null, extra: Partial<Job> = {}): Job => ({
 	id: 1, name, status: conclusion ? 'completed' : 'in_progress', conclusion, html_url: `https://github.com/o/r/actions/runs/9/job/${name.length}${name.slice(-1)}`, ...extra,
@@ -25,51 +27,36 @@ test('in progress', () => {
 	assert.deepStrictEqual(out, { status: 'in_progress', title: 'Running', summary: '' });
 });
 
-test('passed with results', () => {
-	const l = lane('unit', 'success', [job('unit / run-1', 'success')]);
-	const out = renderLane(l, results({ passed: 612, files: { passed: 3, failed: 0, total: 3 } }), null);
-	assert.strictEqual(out.title, '612 passed');
-	assert.strictEqual(out.conclusion, 'success');
-	assert.strictEqual(out.summary, [
-		'## Vitest Test Report', '', '### Summary', '',
-		'- **Test Files**: \u{2705} **3 passes** \u{B7} 3 total',
-		'- **Test Results**: \u{2705} **612 passes** \u{B7} 612 total',
-		'',
-	].join('\n'));
+test('passed with results has no details', () => {
+	const out = renderLane(lane('unit', 'success', [job('unit / run-1', 'success')]), results({ passed: 612 }), null);
+	assert.deepStrictEqual([out.title, out.conclusion, out.summary], ['612 passed', 'success', '']);
 });
 
 test('passed without results', () => {
 	const out = renderLane(lane('unit', 'success', [job('unit / run-1', 'success')]), null, null);
-	assert.strictEqual(out.title, 'Passed');
-	assert.strictEqual(out.summary, '');
+	assert.deepStrictEqual([out.title, out.summary], ['Passed', '']);
 });
 
-test('failed vitest', () => {
+test('failed without results has no details; the table links the log', () => {
+	const j = job('unit / run-1', 'failure', { steps: [{ name: 'Run tests', conclusion: 'failure' }] });
+	const out = renderLane(lane('unit', 'failure', [j]), null, null);
+	assert.deepStrictEqual([out.title, out.summary], ['Failed', '']);
+});
+
+test('failed vitest lists each failed test with its log', () => {
 	const j = job('unit / run-1', 'failure');
-	const r = results({
-		passed: 10, failed: 1, skipped: 2, files: { passed: 1, failed: 1, total: 2 },
-		failures: [{ file: 'src/a.vitest.ts', title: 'suite > it breaks', shard: null }],
-	});
+	const r = results({ passed: 10, failed: 1, failures: [{ file: 'src/a.vitest.ts', title: 'suite > it breaks', shard: null }] });
 	const out = renderLane(lane('unit', 'failure', [j]), r, null);
 	assert.strictEqual(out.title, '1 test failed');
-	assert.strictEqual(out.conclusion, 'failure');
-	assert.strictEqual(out.summary, [
-		'## Vitest Test Report', '', '### Summary', '',
-		'- **Test Files**: \u{274C} **1 failure** \u{B7} \u{2705} **1 pass** \u{B7} 2 total',
-		'- **Test Results**: \u{274C} **1 failure** \u{B7} \u{2705} **10 passes** \u{B7} 11 total',
-		'- **Other**: 2 skips \u{B7} 2 total',
-		'', '### Failed', '',
-		`- \`src/a.vitest.ts\` > \`suite > it breaks\` - [log](${j.html_url})`,
-		'',
-	].join('\n'));
+	assert.strictEqual(out.summary, `- \`src/a.vitest.ts\` > \`suite > it breaks\` - [log](${j.html_url})\n`);
 });
 
-test('failed e2e links the shard job, or every failed job without a shard', () => {
+test('failed e2e links the shard job, or every failed job without a shard; flaky tests come last', () => {
 	const j1 = job('e2e / e2e-electron-ubuntu-1', 'failure');
 	const j2 = job('e2e / e2e-electron-ubuntu-2', 'failure');
 	const j3 = job('e2e / e2e-electron-ubuntu-3', 'success');
 	const r = results({
-		kind: 'playwright', passed: 7, failed: 2, flaky: 1, skipped: 1,
+		kind: 'playwright', passed: 7, failed: 2, flaky: 1,
 		failures: [
 			{ file: 'b.test.ts', title: 'does <b>', shard: 2 },
 			{ file: 'a.test.ts', title: 'one', shard: null },
@@ -79,50 +66,18 @@ test('failed e2e links the shard job, or every failed job without a shard', () =
 	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [j1, j2, j3]), r, null);
 	assert.strictEqual(out.title, '2 tests failed');
 	assert.strictEqual(out.summary, [
-		'\u{1F9EA} Total: 11 | \u{2705} Pass: 7 | \u{274C} Fail: 2 | \u{26A0}\u{FE0F} Flaky: 1 | \u{23ED}\u{FE0F} Skipped: 1',
-		'',
-		'<details><summary>\u{274C} <code>a.test.ts</code></summary>', '',
-		`- \`one\` - [log](${j1.html_url}) [log](${j2.html_url})`,
-		'</details>', '',
-		'<details><summary>\u{274C} <code>b.test.ts</code></summary>', '',
-		`- \`does <b>\` - [log](${j2.html_url})`,
-		'</details>', '',
-		'<details><summary>\u{26A0}\u{FE0F} <code>c.test.ts</code></summary>', '',
-		`- \`wobbly\` - [log](${j1.html_url})`,
-		'</details>',
-		'',
-	].join('\n'));
-});
-
-test('file names are escaped inside summary html', () => {
-	const j = job('e2e / e2e-electron-ubuntu-1', 'failure');
-	const r = results({ kind: 'playwright', failed: 1, failures: [{ file: 'a<img>&.ts', title: 't', shard: 1 }] });
-	const out = renderLane(lane('e2e', 'failure', [j]), r, null);
-	assert.ok(out.summary.includes('<code>a&lt;img&gt;&amp;.ts</code>'));
-});
-
-test('failed without results', () => {
-	const j = job('unit / run-1', 'failure', { steps: [{ name: 'Install', conclusion: 'success' }, { name: 'Run tests', conclusion: 'failure' }] });
-	const out = renderLane(lane('unit', 'failure', [j, job('unit / run-2', 'success')]), null, null);
-	assert.strictEqual(out.title, 'Failed');
-	assert.strictEqual(out.summary, [
-		'', '### Failed jobs', '',
-		`- \`unit / run-1\`: \`Run tests\` - [log](${j.html_url})`,
+		`- \`a.test.ts\` > \`one\` - [log](${j1.html_url}) [log](${j2.html_url})`,
+		`- \`b.test.ts\` > \`does <b>\` - [log](${j2.html_url})`,
+		`- \u{26A0}\u{FE0F} \`c.test.ts\` > \`wobbly\` (flaky) - [log](${j1.html_url})`,
 		'',
 	].join('\n'));
 });
 
 test('vscode with cache', () => {
 	const out = renderLane(lane('unit / vscode', 'success', [job('unit / vscode-1', 'success')]), null, [
-		{ name: 'npm-core', hit: true }, { name: 'npm-ext-volatile', hit: false }, { name: 'npm-ext-stable', hit: true },
-		{ name: 'builtins', hit: true }, { name: 'playwright', hit: false },
+		{ name: 'npm-core', hit: true }, { name: 'playwright', hit: false },
 	]);
-	assert.strictEqual(out.summary, [
-		'', '<details><summary>Cache</summary>', '',
-		'- `npm-core` \u{2705} hit', '- `npm-ext-volatile` \u{274C} miss', '- `npm-ext-stable` \u{2705} hit',
-		'- `builtins` \u{2705} hit', '- `playwright` \u{274C} miss',
-		'</details>', '',
-	].join('\n'));
+	assert.strictEqual(out.summary, ['', '**Cache**', '', '- `npm-core` \u{2705} hit', '- `playwright` \u{274C} miss', ''].join('\n'));
 });
 
 test('summary over 60000 chars is cut', () => {
@@ -130,7 +85,6 @@ test('summary over 60000 chars is cut', () => {
 	const failures = Array.from({ length: 400 }, (_, i) => ({ file: `f${String(i).padStart(3, '0')}.test.ts`, title: 'x'.repeat(150), shard: 1 }));
 	const out = renderLane(lane('e2e', 'failure', [j]), results({ kind: 'playwright', failed: 400, failures }), null);
 	assert.ok(out.summary.length <= 60000);
-	assert.ok(/\n_\d+ more not shown\. See the full run\._\n/.test(out.summary));
 	assert.ok(out.summary.endsWith('See the full run._\n'));
 	assert.ok(out.summary.includes('f000.test.ts'));
 });
@@ -141,7 +95,49 @@ test('unreadable, timed out, cancelled', () => {
 	assert.strictEqual(renderUnreadable('timed_out').conclusion, 'timed_out');
 	const c = renderUnreadable('cancelled');
 	assert.deepStrictEqual([c.title, c.conclusion], ['Cancelled', 'cancelled']);
-	assert.ok(renderUnreadable('unreadable').summary.startsWith('The test results could not be read.'));
+});
+
+test('renderLanes: a table with failures first, then a folded section for each lane with details', () => {
+	const vitest = job('unit / vitest', 'failure');
+	const e2e = [job('e2e / e2e-electron-ubuntu-1', 'success'), job('e2e / e2e-electron-ubuntu-2', 'success')];
+	const vitestLane = lane('unit / vitest', 'failure', [vitest]);
+	const out = renderLanes([
+		{ lane: lane('e2e / e2e-electron-ubuntu', 'success', e2e), out: renderLane(lane('e2e / e2e-electron-ubuntu', 'success', e2e), null, null) },
+		{ lane: lane('unit / vscode', 'success', [job('unit / vscode', 'success')]), out: renderLane(lane('unit / vscode', 'success', []), null, [{ name: 'npm-core', hit: true }]) },
+		{ lane: vitestLane, out: renderLane(vitestLane, results({ failed: 1, failures: [{ file: 'a.vitest.ts', title: 'breaks', shard: null }] }), null) },
+		{ lane: lane('e2e / e2e-windows', 'failure', e2e), out: renderLane(lane('e2e / e2e-windows', 'failure', e2e), null, null) },
+	], RUN);
+	assert.strictEqual(out, [
+		'| | Lane | Result |',
+		'|---|---|---|',
+		`| \u{274C} | \`e2e / e2e-windows\` | Failed - [run](${RUN}) |`,
+		`| \u{274C} | \`unit / vitest\` | 1 test failed - [log](${vitest.html_url}) |`,
+		'| \u{2705} | `e2e / e2e-electron-ubuntu` | Passed |',
+		'| \u{2705} | `unit / vscode` | Passed |',
+		'',
+		'<details><summary>\u{274C} <code>unit / vitest</code>: 1 test failed</summary>',
+		'',
+		`- \`a.vitest.ts\` > \`breaks\` - [log](${vitest.html_url})`,
+		'',
+		'</details>',
+		'',
+		'<details><summary>\u{2705} <code>unit / vscode</code>: Passed</summary>',
+		'',
+		'',
+		'**Cache**',
+		'',
+		'- `npm-core` \u{2705} hit',
+		'',
+		'</details>',
+		'',
+	].join('\n'));
+});
+
+test('renderLanes escapes names in the table and in html', () => {
+	const l = lane('a|b<c>', 'success', [job('x', 'success')]);
+	const out = renderLanes([{ lane: l, out: { status: 'completed', conclusion: 'success', title: 'Passed', summary: 'x\n' } }], RUN);
+	assert.ok(out.includes('| `a\\|b<c>` |'));
+	assert.ok(out.includes('<code>a|b&lt;c&gt;</code>'));
 });
 
 test('renderRequiredSummary resolve failure', () => {
@@ -149,36 +145,26 @@ test('renderRequiredSummary resolve failure', () => {
 	assert.strictEqual(renderRequiredSummary([j]), [
 		`Could not prepare the PR for testing: \`Wait for the merge commit\` - [log](${j.html_url})`, '',
 		'The PR may have conflicts with its base, or GitHub had not finished preparing its merge commit.', '',
-		'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.', '',
+		RERUN, '',
 	].join('\n'));
 });
 
 test('renderRequiredSummary normal run', () => {
-	assert.strictEqual(renderRequiredSummary([job('resolve PR 17', 'success'), job('unit / run-1', 'success')]), [
-		'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.', '',
-	].join('\n'));
+	assert.strictEqual(renderRequiredSummary([job('resolve PR 17', 'success'), job('unit / run-1', 'success')]), RERUN + '\n');
 });
 
 test('names are sanitized into code spans; empty names become (unnamed)', () => {
-	const j = job('unit / run`1', 'failure', { steps: [{ name: 'Run `evil` tests', conclusion: 'failure' }] });
-	const out = renderLane(lane('unit', 'failure', [j]), null, null);
-	assert.strictEqual(out.summary, [
-		'', '### Failed jobs', '',
-		`- \`unit / run1\`: \`Run evil tests\` - [log](${j.html_url})`,
-		'',
-	].join('\n'));
+	const r = results({ failed: 1, failures: [{ file: 'a`.ts', title: 'Run `evil` tests', shard: null }] });
+	const j = job('unit / run-1', 'failure');
+	assert.ok(renderLane(lane('unit', 'failure', [j]), r, null).summary.startsWith('- `a.ts` > `Run evil tests` - '));
 	const empty = job('resolve PR 17', 'failure', { steps: [{ name: '```', conclusion: 'failure' }] });
 	assert.strictEqual(renderRequiredSummary([empty]).split('\n')[0],
 		`Could not prepare the PR for testing: \`(unnamed)\` - [log](${empty.html_url})`);
 });
 
-test('vitest flaky tests are not listed under Failed', () => {
-	const j = job('unit / run-1', 'success');
-	const r = results({ passed: 1, flakyTests: [{ file: 'src/a.vitest.ts', title: '', shard: null }] });
-	const out = renderLane(lane('unit', 'success', [j]), r, null);
-	assert.ok(!out.summary.includes('### Failed'));
+test('a test whose title is empty or the file shows the file only', () => {
 	const f = results({ failed: 1, failures: [{ file: 'src/a.vitest.ts', title: '`', shard: null }] });
-	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), f, null).summary.includes('- `src/a.vitest.ts` - '));
+	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), f, null).summary.startsWith('- `src/a.vitest.ts` - '));
 });
 
 test('a long file path and a long title are both fully shown', () => {
@@ -194,17 +180,5 @@ test('the log link matches a shard job, not a scan job, whatever the order', () 
 	const shard = job('e2e / e2e-electron-ubuntu-1', 'failure', { html_url: 'https://example.test/shard' });
 	const r = results({ kind: 'playwright', failed: 1, failures: [{ file: 'a.test.ts', title: 'one', shard: 1 }] });
 	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [scan, shard]), r, null);
-	assert.ok(out.summary.includes('- `one` - [log](https://example.test/shard)\n'));
-});
-
-test('a flaky test under a failed file is marked flaky', () => {
-	const j = job('e2e / e2e-electron-ubuntu-1', 'failure');
-	const r = results({
-		kind: 'playwright', failed: 1, flaky: 1,
-		failures: [{ file: 'a.test.ts', title: 'broken', shard: 1 }],
-		flakyTests: [{ file: 'a.test.ts', title: 'wobbly', shard: 1 }],
-	});
-	const out = renderLane(lane('e2e', 'failure', [j]), r, null);
-	assert.ok(out.summary.includes(`- \`wobbly\` (flaky) - [log](${j.html_url})`));
-	assert.ok(out.summary.includes(`- \`broken\` - [log](${j.html_url})`));
+	assert.strictEqual(out.summary, '- `a.test.ts` > `one` - [log](https://example.test/shard)\n');
 });

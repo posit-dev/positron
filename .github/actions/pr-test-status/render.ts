@@ -16,13 +16,14 @@ export type LaneOutput = {
 
 // Keeps one lane's details well under the 1 MiB step summary cap.
 const MAX_SUMMARY = 60000;
-const SEP = ' \u{B7} ';
 
 const noun = (n: number, one: string, many: string): string => n === 1 ? one : many;
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const byFile = (a: FailedTest, b: FailedTest): number => a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
 /** A code span for a name: backticks and line breaks removed, `(unnamed)` if nothing is left. */
 const code = (s: string): string => `\`${sanitizeName(s) || '(unnamed)'}\``;
+
+const escapeCell = (s: string): string => s.replace(/\|/g, '\\|');
 
 function failedJobs(lane: Lane): Job[] {
 	return lane.jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
@@ -38,123 +39,36 @@ function logLinks(lane: Lane, shard: number | null): string {
 	return jobs.map(j => `[log](${j.html_url})`).join(' ');
 }
 
-/** Same layout as Vitest's built-in github-actions reporter. */
-function vitestStats(r: Results): string {
-	const files: string[] = [];
-	const tests: string[] = [];
-	const other: string[] = [];
-	if (r.files) {
-		if (r.files.failed > 0) {
-			files.push(`\u{274C} **${r.files.failed} ${noun(r.files.failed, 'failure', 'failures')}**`);
-		}
-		if (r.files.passed > 0) {
-			files.push(`\u{2705} **${r.files.passed} ${noun(r.files.passed, 'pass', 'passes')}**`);
-		}
-		files.push(`${r.files.failed + r.files.passed} total`);
-	}
-	if (r.failed > 0) {
-		tests.push(`\u{274C} **${r.failed} ${noun(r.failed, 'failure', 'failures')}**`);
-	}
-	if (r.passed > 0) {
-		tests.push(`\u{2705} **${r.passed} ${noun(r.passed, 'pass', 'passes')}**`);
-	}
-	if (r.expectedFailures > 0) {
-		tests.push(`\u{1F535} **${r.expectedFailures} expected ${noun(r.expectedFailures, 'failure', 'failures')}**`);
-	}
-	tests.push(`${r.failed + r.passed + r.expectedFailures} total`);
-	if (r.skipped > 0) {
-		other.push(`${r.skipped} ${noun(r.skipped, 'skip', 'skips')}`, `${r.skipped} total`);
-	}
-	let out = '## Vitest Test Report\n\n### Summary\n\n';
-	if (r.files) {
-		out += `- **Test Files**: ${files.join(SEP)}\n`;
-	}
-	out += `- **Test Results**: ${tests.join(SEP)}\n`;
-	if (other.length > 0) {
-		out += `- **Other**: ${other.join(SEP)}\n`;
-	}
-	return out;
-}
-
-function vitestFailures(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): string {
-	const failed = shown.filter(s => !s.flaky).map(s => s.test);
-	if (failed.length === 0) {
-		return '';
-	}
-	const items = failed.map(t => {
-		const title = sanitizeName(t.title);
-		const name = title === '' || title === t.file ? code(t.file) : `${code(t.file)} > ${code(title)}`;
-		return `- ${name} - ${logLinks(lane, t.shard)}`;
+/** One line per test: file and title, a flaky marker, and its log links. */
+function testList(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): string {
+	const items = shown.map(({ test, flaky }) => {
+		const title = sanitizeName(test.title);
+		const name = title === '' || title === test.file ? code(test.file) : `${code(test.file)} > ${code(title)}`;
+		return `- ${flaky ? '\u{26A0}\u{FE0F} ' : ''}${name}${flaky ? ' (flaky)' : ''} - ${logLinks(lane, test.shard)}`;
 	});
-	return `\n### Failed\n\n${items.join('\n')}\n`;
+	return items.length > 0 ? items.join('\n') + '\n' : '';
 }
 
-function e2eHeader(r: Results): string {
-	let out = `\u{1F9EA} Total: ${r.passed + r.failed + r.flaky + r.skipped} | \u{2705} Pass: ${r.passed} | \u{274C} Fail: ${r.failed}`;
-	if (r.flaky > 0) {
-		out += ` | \u{26A0}\u{FE0F} Flaky: ${r.flaky}`;
-	}
-	if (r.skipped > 0) {
-		out += ` | \u{23ED}\u{FE0F} Skipped: ${r.skipped}`;
-	}
-	return out + '\n';
-}
-
-function e2eDetails(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): string {
-	const files = new Map<string, { test: FailedTest; flaky: boolean }[]>();
-	for (const s of shown) {
-		files.set(s.test.file, [...(files.get(s.test.file) ?? []), s]);
-	}
-	const failedFiles = [...files].filter(([, ts]) => ts.some(t => !t.flaky));
-	const flakyFiles = [...files].filter(([, ts]) => ts.every(t => t.flaky));
-	const block = ([file, ts]: [string, { test: FailedTest; flaky: boolean }[]], icon: string): string => {
-		const items = ts.map(t => `- ${code(t.test.title)}${t.flaky && icon === '\u{274C}' ? ' (flaky)' : ''} - ${logLinks(lane, t.test.shard)}`).join('\n');
-		return `<details><summary>${icon} <code>${escapeHtml(sanitizeName(file) || '(unnamed)')}</code></summary>\n\n${items}\n</details>\n`;
-	};
-	const blocks = [...failedFiles.map(f => block(f, '\u{274C}')), ...flakyFiles.map(f => block(f, '\u{26A0}\u{FE0F}'))];
-	return blocks.length > 0 ? '\n' + blocks.join('\n') : '';
-}
-
-/** Failed jobs and their failed steps, for lanes with no readable results. */
-function failedJobList(lane: Lane): string {
-	const items = failedJobs(lane).map(j => {
-		const steps = (j.steps ?? []).filter(s => s.conclusion === 'failure').map(s => code(s.name));
-		return `- ${code(j.name)}${steps.length > 0 ? ': ' + steps.join(', ') : ''} - [log](${j.html_url})`;
-	});
-	return items.length > 0 ? `\n### Failed jobs\n\n${items.join('\n')}\n` : '';
-}
-
-function cacheDetails(cache: CacheEntry[]): string {
+function cacheList(cache: CacheEntry[]): string {
 	const items = cache.map(c => `- ${code(c.name)} ${c.hit ? '\u{2705} hit' : '\u{274C} miss'}`).join('\n');
-	return `\n<details><summary>Cache</summary>\n\n${items}\n</details>\n`;
+	return `\n**Cache**\n\n${items}\n`;
 }
 
 function laneBody(lane: Lane, results: Results | null, shownCount: number): { body: string; total: number } {
-	const failing = lane.state === 'failure';
 	if (!results) {
-		return { body: failing ? failedJobList(lane) : '', total: 0 };
+		return { body: '', total: 0 };
 	}
 	const entries = [
 		...[...results.failures].sort(byFile).map(test => ({ test, flaky: false })),
 		...[...results.flakyTests].sort(byFile).map(test => ({ test, flaky: true })),
 	];
-	const shown = entries.slice(0, shownCount);
-	let body: string;
-	if (results.kind === 'vitest') {
-		body = vitestStats(results) + vitestFailures(lane, shown);
-	} else {
-		body = e2eHeader(results) + e2eDetails(lane, shown);
-	}
-	if (failing && results.failures.length === 0) {
-		body += failedJobList(lane);
-	}
-	return { body, total: entries.length };
+	return { body: testList(lane, entries.slice(0, shownCount)), total: entries.length };
 }
 
 function laneSummary(lane: Lane, results: Results | null, cache: CacheEntry[] | null): string {
 	const tail = (more: number): string => {
 		const note = more > 0 ? `\n_${more} more not shown. See the full run._\n` : '';
-		return `${note}${cache ? cacheDetails(cache) : ''}`;
+		return `${note}${cache ? cacheList(cache) : ''}`;
 	};
 	const total = laneBody(lane, results, Infinity).total;
 	// Binary search for the most entries that fit under the cap.
@@ -180,9 +94,25 @@ export function laneUrl(lane: Lane, runUrl: string): string {
 	return lane.jobs.length === 1 ? lane.jobs[0].html_url : runUrl;
 }
 
-/** Renders one lane's section of the required-tests run summary. */
-export function renderSection(name: string, out: LaneOutput): string {
-	return out.summary ? `## ${code(name)}: ${out.title}\n\n${out.summary}\n` : `## ${code(name)}: ${out.title}\n`;
+const ICON: Record<NonNullable<LaneOutput['conclusion']>, string> = {
+	failure: '\u{274C}', timed_out: '\u{26A0}\u{FE0F}', neutral: '\u{26A0}\u{FE0F}', cancelled: '\u{26AA}', success: '\u{2705}',
+};
+const RANK = ['failure', 'timed_out', 'neutral', 'cancelled', undefined, 'success'];
+const icon = (out: LaneOutput): string => out.conclusion ? ICON[out.conclusion] : '\u{23F3}';
+
+/**
+ * Renders the lanes for the required-tests run summary: a table with a row per
+ * lane, failures first, then a folded section for each lane with details.
+ */
+export function renderLanes(lanes: { lane: Lane; out: LaneOutput }[], runUrl: string): string {
+	const sorted = [...lanes].sort((a, b) => RANK.indexOf(a.out.conclusion) - RANK.indexOf(b.out.conclusion) || (a.lane.name < b.lane.name ? -1 : 1));
+	const rows = sorted.map(({ lane, out }) => {
+		const link = out.conclusion === 'success' ? '' : ` - [${lane.jobs.length === 1 ? 'log' : 'run'}](${laneUrl(lane, runUrl)})`;
+		return `| ${icon(out)} | ${escapeCell(code(lane.name))} | ${out.title}${link} |`;
+	});
+	const sections = sorted.filter(({ out }) => out.summary !== '').map(({ lane, out }) =>
+		`<details><summary>${icon(out)} <code>${escapeHtml(sanitizeName(lane.name) || '(unnamed)')}</code>: ${out.title}</summary>\n\n${out.summary}\n</details>\n`);
+	return ['| | Lane | Result |', '|---|---|---|', ...rows].join('\n') + '\n\n' + sections.join('\n');
 }
 
 /** Renders one lane's result. */
@@ -227,6 +157,6 @@ export function renderRequiredSummary(jobs: Job[]): string {
 			}
 		}
 	}
-	out += 'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.\n';
+	out += '<sub>To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.</sub>\n';
 	return out;
 }

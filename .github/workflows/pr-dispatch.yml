@@ -86,7 +86,7 @@ jobs:
           url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
           echo "run_id=$id" >> "$GITHUB_OUTPUT"
           echo "Tests are running at $url"
-          echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tests for \`${HEAD_SHA:0:10}\` ran in [positron-builds]($url)." >> "$GITHUB_STEP_SUMMARY"
 
       # The poll and finalize scripts come from the base branch commit this
       # workflow runs at, never from the PR. Node comes from .nvmrc because the
