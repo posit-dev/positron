@@ -220,7 +220,8 @@ describe('EditorActionBarFactory "Move into new window" button', () => {
 			</PositronActionBarContextProvider>
 		);
 
-		await userEvent.click(screen.getByRole('button', { name: 'Move into new window' }));
+		const user = userEvent.setup();
+		await user.click(screen.getByRole('button', { name: 'Move into new window' }));
 
 		expect(executeCommand).toHaveBeenCalledWith('workbench.action.moveEditorToNewWindow', { groupId: 7, editorIndex: 2 });
 	});

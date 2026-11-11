@@ -428,8 +428,9 @@ export function getAuxiliaryWindowOptionsForEditors(editors: readonly EditorInpu
 			bounds: { width: 900, height: 700 }
 		};
 	}
-	// Webview tabs report `mainThreadWebview-<view type>` as their editor id.
-	if (editors.some(editor => editor.editorId === `mainThreadWebview-${ASSISTANT_WEBVIEW_VIEW_TYPE}`)) {
+	// Webview tabs report `mainThreadWebview-<view type>` as their editor id. Only when every
+	// moved editor is an Assistant tab: the compact window has no tabs to reach any others.
+	if (editors.length > 0 && editors.every(editor => editor.editorId === `mainThreadWebview-${ASSISTANT_WEBVIEW_VIEW_TYPE}`)) {
 		return dedicatedWindowOptions(sourceWindow);
 	}
 	return undefined;

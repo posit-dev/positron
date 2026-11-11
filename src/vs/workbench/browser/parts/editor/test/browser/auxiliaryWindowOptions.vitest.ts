@@ -25,6 +25,11 @@ describe('getAuxiliaryWindowOptionsForEditors', () => {
 		});
 	});
 
+	it('keeps a normal window when an Assistant tab moves together with other editors', () => {
+		// A compact window has no tabs, so the other editors would be hard to reach.
+		expect(getAuxiliaryWindowOptionsForEditors([editorOfType('mainThreadWebview-posit-assistant'), editorOfType('test.R')], sourceWindow)).toBeUndefined();
+	});
+
 	it('keeps a normal window for other webviews, including Canvas', () => {
 		expect(getAuxiliaryWindowOptionsForEditors([editorOfType('mainThreadWebview-posit-assistant.canvas')], sourceWindow)).toBeUndefined();
 		expect(getAuxiliaryWindowOptionsForEditors([editorOfType('mainThreadWebview-markdown.preview')], sourceWindow)).toBeUndefined();
