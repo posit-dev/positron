@@ -218,12 +218,21 @@ jobs:
         env:
           CODE1: ${{ steps.wait1.outputs.code }}
           CODE2: ${{ steps.wait2.outputs.code }}
+          CONCLUSION1: ${{ steps.wait1.outputs.conclusion }}
+          CONCLUSION2: ${{ steps.wait2.outputs.conclusion }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
           code="${CODE2:-$CODE1}"
+          conclusion="${CONCLUSION2:-$CONCLUSION1}"
           url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"
           case "$code" in
             0) echo "Tests passed: $url" ;;
             124) echo "::error::Tests still running after two hours: $url"; exit 1 ;;
-            *) echo "::error::Tests failed or were cancelled: $url"; exit 1 ;;
+            *)
+              if [ "$conclusion" = "cancelled" ]; then
+                echo "::error::The positron-builds run was cancelled, probably by a newer run for this PR. Push again or re-run this job to test: $url"
+              else
+                echo "::error::Tests failed or were cancelled: $url"
+              fi
+              exit 1 ;;
           esac

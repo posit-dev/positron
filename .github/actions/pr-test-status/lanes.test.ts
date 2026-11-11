@@ -79,3 +79,26 @@ test('skipped jobs inside a run lane do not fail it', () => {
 test('resolve job is not a lane', () => {
 	assert.deepStrictEqual(groupLanes([job('resolve PR 123', 'completed', 'success')]), []);
 });
+
+test('lane with all jobs done stays in progress while the run is going', () => {
+	const jobs = [
+		job('e2e / e2e-electron-ubuntu-1', 'completed', 'success'),
+		job('ext-host / ext-host', 'completed', 'success'),
+	];
+	assert.deepStrictEqual(groupLanes(jobs, false).map(l => l.state), ['in_progress', 'in_progress']);
+	assert.deepStrictEqual(groupLanes(jobs, true).map(l => l.state), ['success', 'success']);
+	assert.strictEqual(groupLanes([job('unit / vitest', 'completed', 'failure')], false)[0].state, 'failure');
+});
+
+test('jobs with unexpanded template names are ignored', () => {
+	const names = [
+		'e2e / ${{ (inputs.display_name || \'e2e-linux\') }}-scan-${{ matrix.shard }}',
+		'e2e / ${{ (inputs.display_name || \'e2e-linux\') }}-publish',
+		'e2e / inputs.display_name || \'e2e-linux\'',
+	];
+	assert.deepStrictEqual(names.map(laneName), [null, null, null]);
+	const real = ['resolve PR 17258', 'unit / vscode', 'ext-host / ext-host', 'ext-host / ext-host-logs-scan', 'e2e / e2e-electron-ubuntu-1', 'unit / vitest'];
+	assert.deepStrictEqual(groupLanes([...names, ...real].map(n => job(n, 'queued'))).map(l => l.name), [
+		'e2e / e2e-electron-ubuntu', 'ext-host', 'unit / vitest', 'unit / vscode',
+	]);
+});

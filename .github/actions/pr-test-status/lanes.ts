@@ -20,15 +20,18 @@ export type Lane = {
 	state: 'in_progress' | 'success' | 'failure' | 'cancelled';
 };
 
+/** Jobs that never started keep their raw template text instead of an expanded name. */
+const UNEXPANDED = /\$\{\{|inputs\.| \|\| /;
+
 const SUFFIX = /-(?:publish|scan-\d+|logs-scan|\d+)$/;
 
 /**
  * Maps a job name like `e2e / e2e-electron-ubuntu-3` to its lane name, or
- * null for a job that is not part of a lane (no ` / `).
+ * null for a job that is not part of a lane (no ` / `, or an unexpanded template name).
  */
 export function laneName(jobName: string): string | null {
 	const at = jobName.indexOf(' / ');
-	if (at < 0) {
+	if (at < 0 || UNEXPANDED.test(jobName)) {
 		return null;
 	}
 	const left = jobName.slice(0, at);
@@ -36,12 +39,17 @@ export function laneName(jobName: string): string | null {
 	return stripped === left ? left : `${left} / ${stripped}`;
 }
 
-function laneState(jobs: Job[]): Lane['state'] {
+function laneState(jobs: Job[], runCompleted: boolean): Lane['state'] {
 	if (jobs.some(j => j.status !== 'completed')) {
 		return 'in_progress';
 	}
 	if (jobs.some(j => j.conclusion === 'failure' || j.conclusion === 'timed_out')) {
 		return 'failure';
+	}
+	// Jobs that wait on others are not listed until they start, so while the
+	// run is going a lane with no failure may still gain jobs.
+	if (!runCompleted) {
+		return 'in_progress';
 	}
 	if (jobs.some(j => j.conclusion === 'cancelled')) {
 		return 'cancelled';
@@ -50,7 +58,7 @@ function laneState(jobs: Job[]): Lane['state'] {
 }
 
 /** Groups jobs into lanes sorted by name; lanes where every job was skipped are dropped. */
-export function groupLanes(jobs: Job[]): Lane[] {
+export function groupLanes(jobs: Job[], runCompleted = true): Lane[] {
 	const byName = new Map<string, Job[]>();
 	for (const job of jobs) {
 		const name = laneName(job.name);
@@ -62,5 +70,5 @@ export function groupLanes(jobs: Job[]): Lane[] {
 	return [...byName.entries()]
 		.filter(([, laneJobs]) => !laneJobs.every(j => j.conclusion === 'skipped'))
 		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-		.map(([name, laneJobs]) => ({ name, jobs: laneJobs, state: laneState(laneJobs) }));
+		.map(([name, laneJobs]) => ({ name, jobs: laneJobs, state: laneState(laneJobs, runCompleted) }));
 }

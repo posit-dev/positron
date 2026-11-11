@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Job } from './lanes.ts';
 import type { CheckOutput } from './render.ts';
@@ -70,7 +74,7 @@ test('does not update when the rendered output is unchanged', async () => {
 test('updates when a lane completes', async () => {
 	const f = fake([
 		{ jobs: [job('unit / vitest', 'in_progress')], run: running },
-		{ jobs: [job('unit / vitest', 'completed', 'success')], run: running },
+		{ jobs: [job('unit / vitest', 'completed', 'success')], run: { status: 'completed', conclusion: 'success' } },
 	]);
 	const state = fresh();
 	await pollOnce(f.deps, state);
@@ -129,4 +133,38 @@ test('a failed write leaves the state unchanged and retries on the next poll', a
 	fail = false;
 	await pollOnce(f.deps, state);
 	assert.strictEqual(state.checks['unit / vitest'].id, 101);
+});
+
+test('a lane whose jobs are all done stays running while the run is going', async () => {
+	const f = fake([{ jobs: [job('e2e / e2e-electron-ubuntu-1', 'completed', 'success')], run: running }]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	assert.deepStrictEqual(f.created.map(c => [c.out.status, c.out.title]), [['in_progress', 'Running']]);
+	assert.strictEqual(state.checks['e2e / e2e-electron-ubuntu'].closed, false);
+});
+
+test('a failed lane still shows failure while the run is going', async () => {
+	const f = fake([{ jobs: [job('e2e / e2e-electron-ubuntu-1', 'completed', 'failure')], run: running }]);
+	await pollOnce(f.deps, fresh());
+	assert.strictEqual(f.created[0].out.conclusion, 'failure');
+});
+
+test('unexpanded template job names never create a check', async () => {
+	const f = fake([{
+		jobs: [
+			job('e2e / ${{ (inputs.display_name || \'e2e-linux\') }}-publish', 'completed', 'skipped'),
+			job('e2e / inputs.display_name || \'e2e-linux\'', 'queued'),
+			job('unit / vitest', 'in_progress'),
+		],
+		run: running,
+	}]);
+	await pollOnce(f.deps, fresh());
+	assert.deepStrictEqual(f.created.map(c => c.name), ['unit / vitest']);
+});
+
+test('poll.ts writes code and conclusion to GITHUB_OUTPUT', () => {
+	const out = join(mkdtempSync(join(tmpdir(), 'poll-')), 'output');
+	// No RUN_ID: the poll crashes right away, which is code 1 with no conclusion.
+	spawnSync(process.execPath, [join(import.meta.dirname, 'poll.ts')], { env: { PATH: process.env.PATH, GITHUB_OUTPUT: out } });
+	assert.strictEqual(readFileSync(out, 'utf8'), 'code=1\nconclusion=\n');
 });

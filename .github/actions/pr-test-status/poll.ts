@@ -32,7 +32,7 @@ export async function pollOnce(deps: Deps, state: State): Promise<{ done: boolea
 		return { done: false, conclusion: null };
 	}
 	state.readErrors = 0;
-	for (const lane of groupLanes(jobs)) {
+	for (const lane of groupLanes(jobs, run.status === 'completed')) {
 		await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, null, null));
 	}
 	return run.status === 'completed' ? { done: true, conclusion: run.conclusion } : { done: false, conclusion: null };
@@ -47,15 +47,16 @@ export function parseDeadline(raw: string | undefined): number {
 	return n;
 }
 
-function writeCode(code: number): void {
+function writeCode(code: number, conclusion: string): void {
 	if (process.env.GITHUB_OUTPUT) {
-		appendFileSync(process.env.GITHUB_OUTPUT, `code=${code}\n`);
+		appendFileSync(process.env.GITHUB_OUTPUT, `code=${code}\nconclusion=${conclusion}\n`);
 	}
 }
 
 async function main(): Promise<void> {
 	// Any crash counts as a failed read of the run: code 1.
 	let code = 1;
+	let conclusion = '';
 	try {
 		const deps = depsFromEnv(process.env);
 		const stateFile = process.env.STATE_FILE ?? 'pr-test-status-state.json';
@@ -67,6 +68,7 @@ async function main(): Promise<void> {
 			saveState(stateFile, state);
 			if (res.done) {
 				code = res.conclusion === 'success' ? 0 : 1;
+				conclusion = res.conclusion ?? '';
 				break;
 			}
 			if (Date.now() >= deadline) {
@@ -78,7 +80,7 @@ async function main(): Promise<void> {
 		code = 1;
 		console.log(`Polling stopped: ${(e as Error).message}`);
 	}
-	writeCode(code);
+	writeCode(code, conclusion);
 }
 
 if (import.meta.main) {
