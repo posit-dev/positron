@@ -8,7 +8,7 @@ import './packageDetail.css';
 import '../packageVulnerabilities.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { URI } from '../../../../../base/common/uri.js';
@@ -21,7 +21,7 @@ import { usePositronConfiguration } from '../../../../../base/browser/positronRe
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimePackage, IPackageVulnerability, isBundledOnly } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../interfaces/positronPackagesService.js';
-import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
+import { BUNDLED_IPYKERNEL_SETTING, IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
@@ -64,9 +64,6 @@ function formatFetchedDate(fetchedAt: number): string {
 	return `${fetched.getFullYear()}-${month}-${day}`;
 }
 
-/** The setting that turns off Python's bundled ipykernel. */
-const BUNDLED_IPYKERNEL_SETTING = 'python.useBundledIpykernel';
-
 /**
  * Renders a localized message whose {0} placeholder is the bundled ipykernel
  * setting, with the setting name in code font as a link that opens the setting.
@@ -88,6 +85,51 @@ const MessageWithBundledSetting = ({ message }: { message: string }) => {
 		{after}
 	</>;
 };
+
+/**
+ * Explains how a bundled package differs from an ordinary one: in the header,
+ * why its actions are limited; in the Security tab, why updating the
+ * environment's copy does not fix advisories on the copy the console imports.
+ * Only Python bundles packages today, so only a Python session gets advice on
+ * using the environment's own copy.
+ * @param pkg The package.
+ * @param languageId The session's language.
+ * @param place Where the explanation is shown.
+ * @returns The explanation, or undefined for a package that is not bundled.
+ */
+function bundledExplanation(pkg: ILanguageRuntimePackage, languageId: string, place: 'header' | 'advisories'): ReactNode {
+	if (!pkg.bundled) {
+		return undefined;
+	}
+	if (!isBundledOnly(pkg)) {
+		return place === 'header'
+			? localize(
+				'positron.packages.detail.bundledShadowed',
+				"Your environment has {0}, but the console imports the bundled {1}. Update and Uninstall act on the environment copy.",
+				pkg.environmentVersion,
+				pkg.version
+			)
+			: localize(
+				'positron.packages.detail.bundledShadowedAdvisory',
+				"These advisories are for the bundled {0} the console imports. Updating the environment copy does not fix them; a fix comes with a Positron update.",
+				pkg.version
+			);
+	}
+	if (languageId !== 'python') {
+		return place === 'header'
+			? localize('positron.packages.detail.bundledOnlyGeneric', "This package ships with Positron and can't be uninstalled from the Packages pane.")
+			: localize('positron.packages.detail.bundledAdvisoryGeneric', "A fix for the bundled copy comes with a Positron update.");
+	}
+	return <MessageWithBundledSetting message={place === 'header'
+		? localize(
+			'positron.packages.detail.bundledOnly',
+			"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+		)
+		: localize(
+			'positron.packages.detail.bundledAdvisory',
+			"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+		)} />;
+}
 
 /**
  * A single stat in the Overview's top stat strip: an uppercase label above a
@@ -407,23 +449,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 		: undefined;
 
 	// Why a bundled package's actions differ from an ordinary one's.
-	const bundledNote = !livePkg?.bundled
-		? undefined
-		: livePkg.environmentVersion === undefined
-			// Only Python bundles packages today, so only Python gets advice on
-			// using the environment's own copy.
-			? (props.languageId === 'python'
-				? <MessageWithBundledSetting message={localize(
-					'positron.packages.detail.bundledOnly',
-					"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
-				)} />
-				: localize('positron.packages.detail.bundledOnlyGeneric', "This package ships with Positron and can't be uninstalled from the Packages pane."))
-			: localize(
-				'positron.packages.detail.bundledShadowed',
-				"Your environment has {0}, but the console imports the bundled {1}. Update and Uninstall act on the environment copy.",
-				livePkg.environmentVersion,
-				livePkg.version
-			);
+	const bundledNote = livePkg && bundledExplanation(livePkg, props.languageId, 'header');
 
 	// Hold the Overview back until the detail fetch resolves, then render it all
 	// at once. Half-rendering it with the list entry and filling in detail-only
@@ -491,18 +517,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				}
 				{sortedVulnerabilities.length > 0 && livePkg?.bundled &&
 					<div className='package-detail-security-bundled'>
-						{isBundledOnly(livePkg)
-							? (props.languageId === 'python'
-								? <MessageWithBundledSetting message={localize(
-									'positron.packages.detail.bundledAdvisory',
-									"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
-								)} />
-								: localize('positron.packages.detail.bundledAdvisoryGeneric', "A fix for the bundled copy comes with a Positron update."))
-							: localize(
-								'positron.packages.detail.bundledShadowedAdvisory',
-								"These advisories are for the bundled {0} the console imports. Updating the environment copy does not fix them; a fix comes with a Positron update.",
-								livePkg.version
-							)}
+						{bundledExplanation(livePkg, props.languageId, 'advisories')}
 					</div>
 				}
 				{sortedVulnerabilities.length > 0 && vulnerabilitySource &&

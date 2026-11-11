@@ -141,6 +141,9 @@ export const PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS = 15_000;
  */
 export const PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS = 2_000;
 
+/** The setting that turns off Python's bundled ipykernel. */
+export const BUNDLED_IPYKERNEL_SETTING = 'python.useBundledIpykernel';
+
 /**
  * The message for an uninstall that is rejected because only Positron's
  * bundle provides the named packages. Only Python bundles packages today, so
@@ -154,13 +157,15 @@ export function bundledUninstallMessage(names: readonly string[], languageId: st
 		return names.length === 1
 			? localize(
 				'positron.packages.uninstallBundled',
-				"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
+				"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {1} setting, install ipykernel in the environment, and start a new Python session.",
 				list,
+				BUNDLED_IPYKERNEL_SETTING,
 			)
 			: localize(
 				'positron.packages.uninstallBundledMany',
-				"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
+				"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the {1} setting, install ipykernel in the environment, and start a new Python session.",
 				list,
+				BUNDLED_IPYKERNEL_SETTING,
 			);
 	}
 	return names.length === 1

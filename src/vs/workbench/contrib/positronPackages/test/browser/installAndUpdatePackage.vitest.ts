@@ -366,6 +366,17 @@ describe('packages install and update commands', () => {
 			expect(uninstallPackages).not.toHaveBeenCalled();
 		});
 
+		it('checks a fresh list before asking to confirm when the pane has never loaded one', async () => {
+			// Nothing has loaded the list yet, so the cached list says nothing
+			// about the package.
+			stubUninstall([], [{ ...installedPackage('tornado', '6.5.7'), bundled: true }]);
+
+			await runUninstall('tornado');
+
+			expect(error).toHaveBeenCalledWith(expect.stringMatching(/^tornado is bundled with Positron/));
+			expect(confirm).not.toHaveBeenCalled();
+		});
+
 		it('uninstalls a package that was bundled only when listed but now has an environment copy', async () => {
 			// An environment copy was installed from a terminal since the pane
 			// last refreshed, so the cached list is out of date.

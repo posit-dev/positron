@@ -617,13 +617,14 @@ export class UninstallPackageAction extends Action2 {
 			if (argPackage) {
 				// Don't ask to confirm an uninstall that will be rejected. The
 				// instance's guard stays the authority; this only saves the prompt.
-				// The listed state can be stale (an environment copy installed
-				// from a terminal since the last refresh), so a bundled-only
-				// package is checked again against a fresh list before rejecting.
+				// The list is checked fresh when nothing has loaded it yet, or when
+				// it lists the package as bundled only: an environment copy may
+				// have been installed from a terminal since the last refresh.
 				const find = (packages: readonly ILanguageRuntimePackage[]) =>
 					packages.find((pkg) => pkg.name.toLowerCase() === argPackage.toLowerCase());
-				const listed = find(service.activePackagesInstance?.packages ?? []);
-				if (listed && isBundledOnly(listed)) {
+				const cached = service.activePackagesInstance?.packages ?? [];
+				const listed = find(cached);
+				if (cached.length === 0 || (listed && isBundledOnly(listed))) {
 					const fresh = find(await service.refreshPackages(cts.token));
 					if (fresh && isBundledOnly(fresh)) {
 						notifications.error(bundledUninstallMessage([fresh.name], service.activeSession?.runtimeMetadata.languageId ?? ''));
