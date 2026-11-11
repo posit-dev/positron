@@ -87,7 +87,12 @@ export function AttachLogsToReportFixture() {
 
 		await use();
 
-		if (!isArtifactEnabled('E2E_ATTACH_LOGS') || !suiteId) { return; }
+		if (!suiteId) { return; }
+
+		// CI leaves attachments off and uploads test-logs as they are, so scrub either way.
+		await scrubDirectory(logsPath, secretValues(process.env));
+
+		if (!isArtifactEnabled('E2E_ATTACH_LOGS')) { return; }
 
 		// For e2e-workbench, pull logs from Docker container
 		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
@@ -150,7 +155,6 @@ export function AttachCrashDumpsToReportFixture() {
  * Attach logs from the local filesystem (non-Docker projects)
  */
 async function attachLocalLogsToReport(logsPath: string, testInfo: playwright.TestInfo): Promise<void> {
-	await scrubDirectory(logsPath, secretValues(process.env));
 	const zipPath = path.join(logsPath, 'logs.zip');
 	const output = fs.createWriteStream(zipPath);
 	const archive = archiver('zip', { zlib: { level: 9 } });
