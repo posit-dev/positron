@@ -4,8 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { ASSISTANT_WEBVIEW_VIEW_TYPE } from '../../../common/positronAssistantIdentity.js';
 import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
+
+/**
+ * Webview view type of a Posit Assistant chat tab. Cross-repo contract: the Assistant registers
+ * its panel under this name, so renaming it on either side silently gives Assistant tabs a normal
+ * window again.
+ */
+const ASSISTANT_WEBVIEW_VIEW_TYPE = 'posit-assistant';
 
 /**
  * The single definition of the "dedicated window" look: native OS title bar,
