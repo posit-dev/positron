@@ -143,21 +143,29 @@ export const PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS = 2_000;
 
 /**
  * The message for an uninstall that is rejected because only Positron's
- * bundle provides the named packages.
+ * bundle provides the named packages. Only Python bundles packages today, so
+ * only a Python session gets advice on using the environment's own copy.
  * @param names The bundled-only package names, as the package list spells them.
+ * @param languageId The session's language.
  */
-export function bundledUninstallMessage(names: readonly string[]): string {
+export function bundledUninstallMessage(names: readonly string[], languageId: string): string {
+	const list = names.join(', ');
+	if (languageId === 'python') {
+		return names.length === 1
+			? localize(
+				'positron.packages.uninstallBundled',
+				"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
+				list,
+			)
+			: localize(
+				'positron.packages.uninstallBundledMany',
+				"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
+				list,
+			);
+	}
 	return names.length === 1
-		? localize(
-			'positron.packages.uninstallBundled',
-			"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
-			names[0],
-		)
-		: localize(
-			'positron.packages.uninstallBundledMany',
-			"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the python.useBundledIpykernel setting, install ipykernel in the environment, and start a new Python session.",
-			names.join(', '),
-		);
+		? localize('positron.packages.uninstallBundledGeneric', "{0} is bundled with Positron and can't be uninstalled from the Packages pane.", list)
+		: localize('positron.packages.uninstallBundledGenericMany', "{0} are bundled with Positron and can't be uninstalled from the Packages pane.", list);
 }
 
 export interface IPositronPackagesInstance {
@@ -482,7 +490,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._packages = await packageManager.getPackages(token);
 		this._onDidRefreshPackagesInstance.fire(this.packages);
 
-		// Stage 2: Fetch metadata asynchronously (don't block). Refetch every
+		this._startMetadataStage(packageManager, forceMetadata);
+	}
+
+	/**
+	 * Stage 2 of a refresh: fetch metadata for the current package list
+	 * asynchronously, without blocking the caller.
+	 */
+	private _startMetadataStage(
+		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
+		forceMetadata: boolean = false,
+	): void {
+		// Fetch metadata asynchronously (don't block). Refetch every
 		// package when `forceMetadata` is set (a user-initiated refresh, which
 		// must be authoritative even inside the freshness window) or when the
 		// persisted entry has aged past its freshness window (so a new upstream
@@ -784,13 +803,17 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		if (this._packages.length > 0 && bundledOnlyNames().length === 0) {
 			return;
 		}
-		// The normal two-stage refresh, so the fresh list also gets its
-		// metadata (and supersedes any fetch in flight) when the uninstall is
-		// then rejected.
-		await this._refreshPackagesInternal(packageManager, token);
+		// Only the list is needed to decide. When the uninstall goes ahead,
+		// the refresh after it fetches metadata, so fetching it here would be
+		// wasted.
+		this._packages = await packageManager.getPackages(token);
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 		const blocked = bundledOnlyNames();
 		if (blocked.length > 0) {
-			throw new Error(bundledUninstallMessage(blocked));
+			// The uninstall stops here, so this is the refresh: fetch the fresh
+			// list's metadata (superseding any fetch in flight).
+			this._startMetadataStage(packageManager);
+			throw new Error(bundledUninstallMessage(blocked, this._session.runtimeMetadata.languageId));
 		}
 	}
 

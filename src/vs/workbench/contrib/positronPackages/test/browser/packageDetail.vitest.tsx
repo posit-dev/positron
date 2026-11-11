@@ -443,6 +443,24 @@ describe('PackageDetail for bundled packages', () => {
 		expect(screen.queryByText(/\(latest\)/)).not.toBeInTheDocument();
 	});
 
+	it('gives no Python advice for a bundled package in another language', async () => {
+		const instance = makeInstance([tornado({ vulnerabilities: [{ id: 'CVE-2025-0001', osvId: 'GHSA-xxxx-yyyy-zzzz', score: 7.5, scoreVersion: 'v3' }] })]);
+		const packagesService = stubInterface<IPositronPackagesService>({
+			getInstances: () => [instance],
+			activePackagesInstance: instance,
+			onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+			onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+		});
+		rtl.render(
+			<PackageDetail languageId='r' packageName='tornado' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+
+		expect(screen.getByText('This package ships with Positron and can\'t be uninstalled from the Packages pane.')).toBeInTheDocument();
+		await userEvent.setup().click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+		expect(screen.getByText('A fix for the bundled copy comes with a Positron update.')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /useBundledIpykernel/ })).not.toBeInTheDocument();
+	});
+
 	it('opens the bundled ipykernel setting from the explanation', async () => {
 		renderPackage(tornado());
 		const user = userEvent.setup();

@@ -64,11 +64,6 @@ function formatFetchedDate(fetchedAt: number): string {
 	return `${fetched.getFullYear()}-${month}-${day}`;
 }
 
-/**
- * A single stat in the Overview's top stat strip: an uppercase label above a
- * prominent value. Renders nothing if there is no value. The Overview is hidden
- * until the detail fetch resolves, so this never sees a pending value.
- */
 /** The setting that turns off Python's bundled ipykernel. */
 const BUNDLED_IPYKERNEL_SETTING = 'python.useBundledIpykernel';
 
@@ -94,6 +89,11 @@ const MessageWithBundledSetting = ({ message }: { message: string }) => {
 	</>;
 };
 
+/**
+ * A single stat in the Overview's top stat strip: an uppercase label above a
+ * prominent value. Renders nothing if there is no value. The Overview is hidden
+ * until the detail fetch resolves, so this never sees a pending value.
+ */
 const Stat = (props: { label: string; value: string | number | undefined }) => {
 	const hasValue = props.value !== undefined && props.value !== '';
 	if (!hasValue) {
@@ -410,10 +410,14 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	const bundledNote = !livePkg?.bundled
 		? undefined
 		: livePkg.environmentVersion === undefined
-			? <MessageWithBundledSetting message={localize(
-				'positron.packages.detail.bundledOnly',
-				"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
-			)} />
+			// Only Python bundles packages today, so only Python gets advice on
+			// using the environment's own copy.
+			? (props.languageId === 'python'
+				? <MessageWithBundledSetting message={localize(
+					'positron.packages.detail.bundledOnly',
+					"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+				)} />
+				: localize('positron.packages.detail.bundledOnlyGeneric', "This package ships with Positron and can't be uninstalled from the Packages pane."))
 			: localize(
 				'positron.packages.detail.bundledShadowed',
 				"Your environment has {0}, but the console imports the bundled {1}. Update and Uninstall act on the environment copy.",
@@ -488,10 +492,12 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				{sortedVulnerabilities.length > 0 && livePkg?.bundled &&
 					<div className='package-detail-security-bundled'>
 						{isBundledOnly(livePkg)
-							? <MessageWithBundledSetting message={localize(
-								'positron.packages.detail.bundledAdvisory',
-								"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
-							)} />
+							? (props.languageId === 'python'
+								? <MessageWithBundledSetting message={localize(
+									'positron.packages.detail.bundledAdvisory',
+									"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+								)} />
+								: localize('positron.packages.detail.bundledAdvisoryGeneric', "A fix for the bundled copy comes with a Positron update."))
 							: localize(
 								'positron.packages.detail.bundledShadowedAdvisory',
 								"These advisories are for the bundled {0} the console imports. Updating the environment copy does not fix them; a fix comes with a Positron update.",

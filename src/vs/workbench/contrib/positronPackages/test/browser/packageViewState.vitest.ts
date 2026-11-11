@@ -71,12 +71,12 @@ describe('derivePackageViewState', () => {
 		expect(state.latest).toBe(true);
 	});
 
-	it('bundled only: bundled state, no update or uninstall, never latest', () => {
+	it('bundled only: no update or uninstall, never latest', () => {
 		const state = derivePackageViewState(
 			pkg({ bundled: true, outdated: false, latestVersion: '1.1.2' }),
 			{ installed: true, sessionAlive: true, isActive: true });
 		expect({ installState: state.installState, actions: state.actions, latest: state.latest }).toEqual({
-			installState: 'bundled',
+			installState: 'current',
 			actions: ['website', 'help'],
 			latest: false,
 		});
@@ -89,12 +89,12 @@ describe('derivePackageViewState', () => {
 		expect(state.actions).toEqual(['website', 'help']);
 	});
 
-	it('bundled + in env + outdated: bundled state with update and uninstall for the env copy', () => {
+	it('bundled + in env + outdated: outdated, with update and uninstall for the env copy', () => {
 		const state = derivePackageViewState(
 			pkg({ bundled: true, environmentVersion: '1.0.0', outdated: true, latestVersion: '1.1.4' }),
 			{ installed: true, sessionAlive: true, isActive: true });
 		expect({ installState: state.installState, actions: state.actions, latest: state.latest }).toEqual({
-			installState: 'bundled',
+			installState: 'outdated',
 			actions: ['update', 'uninstall', 'website', 'help'],
 			latest: false,
 		});

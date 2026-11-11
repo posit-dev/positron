@@ -10,6 +10,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IProgress, IProgressService, IProgressStep, Progress } from '../../../../../platform/progress/common/progress.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
@@ -40,6 +41,7 @@ describe('packages install and update commands', () => {
 	let resolveLatestVersion: ReturnType<typeof vi.fn<IPositronPackagesService['resolveLatestVersion']>>;
 	let error: ReturnType<typeof vi.fn<INotificationService['error']>>;
 	let prompt: ReturnType<typeof vi.fn<INotificationService['prompt']>>;
+	let info: ReturnType<typeof vi.fn<INotificationService['info']>>;
 
 	/**
 	 * What the session reports as installed. An unversioned install reads the
@@ -71,7 +73,7 @@ describe('packages install and update commands', () => {
 				return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });
 			},
 		}));
-		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, prompt }));
+		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, prompt, info }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			restartSession: vi.fn(),
 		}));
@@ -108,6 +110,7 @@ describe('packages install and update commands', () => {
 		installedPackages = [installedPackage('dplyr', '1.9')];
 		error = vi.fn<INotificationService['error']>();
 		prompt = vi.fn<INotificationService['prompt']>();
+		info = vi.fn<INotificationService['info']>();
 		installPackageMock.mockReset().mockResolvedValue(undefined);
 		updatePackageMock.mockReset().mockResolvedValue(undefined);
 		stubServices(stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }));
@@ -236,12 +239,15 @@ describe('packages install and update commands', () => {
 			expect(result).toEqual({ installed: true, name: 'tornado', version: '6.4.0' });
 		});
 
-		it('does not suggest a restart when the console keeps importing the bundled copy', async () => {
+		it('says the console keeps importing the bundled copy instead of suggesting a restart', async () => {
 			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }];
 
 			await runInstall('tornado', '6.4.0');
 
+			// A restart would not change what the console imports, so the user
+			// is told why the install has no effect in the console.
 			expect(prompt).not.toHaveBeenCalled();
+			expect(info).toHaveBeenCalledWith('Package "tornado" was installed in your environment. The console still imports the copy bundled with Positron.');
 		});
 
 		it('does not suggest a restart when there is no active session', async () => {
@@ -325,7 +331,10 @@ describe('packages install and update commands', () => {
 			const uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>();
 			const confirm = vi.fn<IDialogService['confirm']>().mockResolvedValue({ confirmed: true });
 			ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
-				activeSession: stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }),
+				activeSession: stubInterface<ILanguageRuntimeSession>({
+					sessionId: 'session-1',
+					runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
+				}),
 				uninstallPackages,
 				get activePackagesInstance(): IPositronPackagesInstance {
 					return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });

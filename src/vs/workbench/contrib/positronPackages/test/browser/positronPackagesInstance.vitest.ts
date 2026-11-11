@@ -16,7 +16,7 @@ import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/lan
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from '../../browser/packageMetadataCache.js';
 import { IPackageVulnerabilityResult, PackageVulnerabilityLookup } from '../../browser/packageVulnerabilityLookup.js';
-import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
+import { bundledUninstallMessage, PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const RUNTIME_ID = 'py-3.11';
@@ -711,6 +711,12 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			expect((error as Error).message).toMatch(/start a new Python session\.$/);
 		});
 
+		it('gives Python advice only for a Python session', () => {
+			expect(bundledUninstallMessage(['tornado'], 'python')).toContain('python.useBundledIpykernel');
+			expect(bundledUninstallMessage(['tornado'], 'r')).toBe('tornado is bundled with Positron and can\'t be uninstalled from the Packages pane.');
+			expect(bundledUninstallMessage(['a', 'b'], 'r')).toBe('a, b are bundled with Positron and can\'t be uninstalled from the Packages pane.');
+		});
+
 		it('rejects a bundled-only package even when the list was never loaded', async () => {
 			getPackages.mockResolvedValue([bundledOnly('tornado', '6.5.7')]);
 			const uninstallPackages = vi.fn(async () => undefined);
@@ -720,6 +726,17 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 			await expect(instance.uninstallPackages(['tornado'], CancellationToken.None)).rejects.toThrow(/tornado/);
 			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('loads the list for the guard without a metadata fetch the uninstall refresh would supersede', async () => {
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			const instance = makeInstance();
+
+			await instance.uninstallPackages(['numpy'], CancellationToken.None);
+			await new Promise(resolve => setTimeout(resolve, 20));
+
+			// Only the refresh after the uninstall fetches metadata.
+			expect(getPackageMetadata).toHaveBeenCalledTimes(1);
 		});
 
 		it('fetches metadata for the list the recheck loads, even when the uninstall is blocked', async () => {

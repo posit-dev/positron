@@ -6,7 +6,7 @@
 import { ILanguageRuntimePackage, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /** The install/lifecycle state a package detail editor can be in. */
-export type PackageInstallState = 'current' | 'outdated' | 'bundled' | 'not-installed' | 'session-ended';
+export type PackageInstallState = 'current' | 'outdated' | 'not-installed' | 'session-ended';
 
 /** A button/affordance the detail header can show. */
 export type PackageAction = 'update' | 'uninstall' | 'install' | 'help' | 'website';
@@ -66,12 +66,12 @@ export function derivePackageViewState(
 	// Only Positron's bundle provides the package: there is no environment
 	// copy to update or uninstall, and outdated state does not apply.
 	if (pkg && isBundledOnly(pkg)) {
-		return { installState: 'bundled', actionsEnabled, actions: [...website, 'help'], showNotActiveHint, latest: false };
+		return { installState: 'current', actionsEnabled, actions: [...website, 'help'], showNotActiveHint, latest: false };
 	}
 	// For a bundled package the environment also has, outdated state and the
 	// actions describe the environment's copy.
 	const latest = pkg?.outdated === false;
 	const updateActions: PackageAction[] = pkg?.outdated ? ['update', 'uninstall'] : ['uninstall'];
-	const installState: PackageInstallState = pkg?.bundled ? 'bundled' : pkg?.outdated ? 'outdated' : 'current';
+	const installState: PackageInstallState = pkg?.outdated ? 'outdated' : 'current';
 	return { installState, actionsEnabled, actions: [...updateActions, ...website, 'help'], showNotActiveHint, latest };
 }

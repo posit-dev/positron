@@ -280,7 +280,23 @@ async function resolveLatestForUpdate(
 }
 
 /**
+ * Formats package names for a notification: each one quoted, at most three
+ * shown, and a count of the rest.
+ * @param packageNames The package names.
+ */
+function formatPackageList(packageNames: string[]): string {
+	const visiblePackages = packageNames.slice(0, 3).map(name => `"${name}"`);
+	if (packageNames.length > 3) {
+		const remainingCount = packageNames.length - 3;
+		visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
+	}
+	return visiblePackages.join(', ');
+}
+
+/**
  * Shows a notification suggesting the user restart their session after a package operation.
+ * A bundled package gets a note instead: a restart doesn't change what the console imports
+ * for it, because the bundled copy still comes first on the import path.
  *
  * @param notifications The notification service
  * @param runtimeSessionService The runtime session service
@@ -302,38 +318,44 @@ function showRestartSessionNotification(
 		return;
 	}
 
-	// A restart doesn't change what the console imports for a bundled
-	// package: the bundled copy still comes first on the import path. The list
-	// was refreshed before this runs, so it describes the result.
+	// The list was refreshed before this runs, so it describes the result.
 	const installed = packagesService.activePackagesInstance?.packages ?? [];
-	const affectedNames = packageNames.filter((name) =>
-		!installed.some((pkg) => pkg.bundled && pkg.name.toLowerCase() === name.toLowerCase()));
-	if (affectedNames.length === 0) {
+	const isBundled = (name: string) =>
+		installed.some((pkg) => pkg.bundled && pkg.name.toLowerCase() === name.toLowerCase());
+	const bundledNames = packageNames.filter(isBundled);
+	const restartNames = packageNames.filter((name) => !isBundled(name));
+
+	if (bundledNames.length > 0) {
+		notifications.info(bundledNames.length === 1
+			? nls.localize(
+				'positronPackages.bundledOperationSingular',
+				'Package {0} was {1} in your environment. The console still imports the copy bundled with Positron.',
+				formatPackageList(bundledNames),
+				operation
+			)
+			: nls.localize(
+				'positronPackages.bundledOperationPlural',
+				'Packages {0} were {1} in your environment. The console still imports the copies bundled with Positron.',
+				formatPackageList(bundledNames),
+				operation
+			));
+	}
+
+	if (restartNames.length === 0) {
 		return;
 	}
 
-	const packageList = affectedNames.length === 1
-		? `"${affectedNames[0]}"`
-		: (() => {
-			const visiblePackages = affectedNames.slice(0, 3).map(name => `"${name}"`);
-			if (affectedNames.length > 3) {
-				const remainingCount = affectedNames.length - 3;
-				visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
-			}
-			return visiblePackages.join(', ');
-		})();
-
-	const message = affectedNames.length === 1
+	const message = restartNames.length === 1
 		? nls.localize(
 			'positronPackages.restartSessionSingular',
 			'Package {0} was {1}. A session restart may be required for changes to take effect.',
-			packageList,
+			formatPackageList(restartNames),
 			operation
 		)
 		: nls.localize(
 			'positronPackages.restartSessionPlural',
 			'Packages {0} were {1}. A session restart may be required for changes to take effect.',
-			packageList,
+			formatPackageList(restartNames),
 			operation
 		);
 
@@ -598,7 +620,7 @@ export class UninstallPackageAction extends Action2 {
 				const listed = service.activePackagesInstance?.packages
 					.find((pkg) => pkg.name.toLowerCase() === argPackage.toLowerCase());
 				if (listed && isBundledOnly(listed)) {
-					notifications.error(bundledUninstallMessage([listed.name]));
+					notifications.error(bundledUninstallMessage([listed.name], service.activeSession?.runtimeMetadata.languageId ?? ''));
 					return;
 				}
 				const res = await dialogService.confirm({
