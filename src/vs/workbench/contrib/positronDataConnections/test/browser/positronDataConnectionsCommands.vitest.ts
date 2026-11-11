@@ -1080,7 +1080,7 @@ describe('runtime rows', () => {
 		expect(result).toEqual([{
 			profileId: 'discovered:runtime-r:s1:c1',
 			connected: true,
-			summary: 'name=warehouse | driver=runtime-r | mechanism=live | discovered=true | description=R 4.5.1 - db.example.com | languages= | parameters=connectionId=s1:c1',
+			summary: 'name=warehouse | driver=runtime-r | mechanism=live | discovered=true | description=R 4.5.1 \u00B7 db.example.com | languages= | parameters=connectionId=s1:c1',
 		}]);
 	});
 
