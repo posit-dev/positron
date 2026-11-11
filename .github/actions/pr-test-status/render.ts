@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { Job, Lane } from './lanes.ts';
-import type { CacheEntry, FailedTest, Results } from './results.ts';
+import { sanitizeName, type CacheEntry, type FailedTest, type Results } from './results.ts';
 
 /** The content of a check run: status, conclusion, and its page. */
 export type CheckOutput = {
@@ -21,6 +21,8 @@ const SEP = ' \u{B7} ';
 const noun = (n: number, one: string, many: string): string => n === 1 ? one : many;
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const byFile = (a: FailedTest, b: FailedTest): number => a.file < b.file ? -1 : a.file > b.file ? 1 : 0;
+/** A code span for a name: backticks and line breaks removed, `(unnamed)` if nothing is left. */
+const code = (s: string): string => `\`${sanitizeName(s) || '(unnamed)'}\``;
 const runLink = (runUrl: string): string => `[Full run and artifacts](${runUrl})`;
 
 function failedJobs(lane: Lane): Job[] {
@@ -72,13 +74,15 @@ function vitestStats(r: Results): string {
 	return out;
 }
 
-function vitestFailures(lane: Lane, shown: FailedTest[]): string {
-	if (shown.length === 0) {
+function vitestFailures(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): string {
+	const failed = shown.filter(s => !s.flaky).map(s => s.test);
+	if (failed.length === 0) {
 		return '';
 	}
-	const items = shown.map(t => {
-		const name = t.title === t.file ? t.file : `${t.file} > ${t.title}`;
-		return `- \`${name}\` - ${logLinks(lane, t.shard)}`;
+	const items = failed.map(t => {
+		const title = sanitizeName(t.title);
+		const name = title === '' || title === t.file ? t.file : `${t.file} > ${title}`;
+		return `- ${code(name)} - ${logLinks(lane, t.shard)}`;
 	});
 	return `\n### Failed\n\n${items.join('\n')}\n`;
 }
@@ -102,8 +106,8 @@ function e2eDetails(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): 
 	const failedFiles = [...files].filter(([, ts]) => ts.some(t => !t.flaky));
 	const flakyFiles = [...files].filter(([, ts]) => ts.every(t => t.flaky));
 	const block = ([file, ts]: [string, { test: FailedTest; flaky: boolean }[]], icon: string): string => {
-		const items = ts.map(t => `- \`${t.test.title}\` - ${logLinks(lane, t.test.shard)}`).join('\n');
-		return `<details><summary>${icon} <code>${escapeHtml(file)}</code></summary>\n\n${items}\n</details>\n`;
+		const items = ts.map(t => `- ${code(t.test.title)} - ${logLinks(lane, t.test.shard)}`).join('\n');
+		return `<details><summary>${icon} <code>${escapeHtml(sanitizeName(file) || '(unnamed)')}</code></summary>\n\n${items}\n</details>\n`;
 	};
 	const blocks = [...failedFiles.map(f => block(f, '\u{274C}')), ...flakyFiles.map(f => block(f, '\u{26A0}\u{FE0F}'))];
 	return blocks.length > 0 ? '\n' + blocks.join('\n') : '';
@@ -112,14 +116,14 @@ function e2eDetails(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): 
 /** Failed jobs and their failed steps, for lanes with no readable results. */
 function failedJobList(lane: Lane): string {
 	const items = failedJobs(lane).map(j => {
-		const steps = (j.steps ?? []).filter(s => s.conclusion === 'failure').map(s => `\`${s.name}\``);
-		return `- ${j.name}${steps.length > 0 ? ': ' + steps.join(', ') : ''} - [log](${j.html_url})`;
+		const steps = (j.steps ?? []).filter(s => s.conclusion === 'failure').map(s => code(s.name));
+		return `- ${code(j.name)}${steps.length > 0 ? ': ' + steps.join(', ') : ''} - [log](${j.html_url})`;
 	});
 	return items.length > 0 ? `\n### Failed jobs\n\n${items.join('\n')}\n` : '';
 }
 
 function cacheDetails(cache: CacheEntry[]): string {
-	const items = cache.map(c => `- ${c.name} ${c.hit ? '\u{2705} hit' : '\u{274C} miss'}`).join('\n');
+	const items = cache.map(c => `- ${code(c.name)} ${c.hit ? '\u{2705} hit' : '\u{274C} miss'}`).join('\n');
 	return `\n<details><summary>Cache</summary>\n\n${items}\n</details>\n`;
 }
 
@@ -135,7 +139,7 @@ function laneBody(lane: Lane, results: Results | null, shownCount: number): { bo
 	const shown = entries.slice(0, shownCount);
 	let body: string;
 	if (results.kind === 'vitest') {
-		body = vitestStats(results) + vitestFailures(lane, shown.map(s => s.test));
+		body = vitestStats(results) + vitestFailures(lane, shown);
 	} else {
 		body = e2eHeader(results) + e2eDetails(lane, shown);
 	}
@@ -206,7 +210,7 @@ export function renderRequiredSummary(jobs: Job[], runUrl: string): string {
 	if (resolve?.conclusion === 'failure') {
 		const step = (resolve.steps ?? []).find(s => s.conclusion === 'failure');
 		if (step) {
-			out += `Could not prepare the PR for testing: \`${step.name}\` - [log](${resolve.html_url})\n\n`;
+			out += `Could not prepare the PR for testing: ${code(step.name)} - [log](${resolve.html_url})\n\n`;
 		}
 	}
 	out += `${runLink(runUrl)}\n\n`;

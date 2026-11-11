@@ -108,7 +108,7 @@ test('failed without results', () => {
 	assert.strictEqual(out.title, 'Failed');
 	assert.strictEqual(out.summary, [
 		'', '### Failed jobs', '',
-		`- unit / run-1: \`Run tests\` - [log](${j.html_url})`,
+		`- \`unit / run-1\`: \`Run tests\` - [log](${j.html_url})`,
 		'', `[Full run and artifacts](${RUN})`, '',
 	].join('\n'));
 });
@@ -120,8 +120,8 @@ test('vscode with cache', () => {
 	]);
 	assert.strictEqual(out.summary, [
 		'', '<details><summary>Cache</summary>', '',
-		'- npm-core \u{2705} hit', '- npm-ext-volatile \u{274C} miss', '- npm-ext-stable \u{2705} hit',
-		'- builtins \u{2705} hit', '- playwright \u{274C} miss',
+		'- `npm-core` \u{2705} hit', '- `npm-ext-volatile` \u{274C} miss', '- `npm-ext-stable` \u{2705} hit',
+		'- `builtins` \u{2705} hit', '- `playwright` \u{274C} miss',
 		'</details>', '', `[Full run and artifacts](${RUN})`, '',
 	].join('\n'));
 });
@@ -158,4 +158,26 @@ test('renderRequiredSummary normal run', () => {
 		`[Full run and artifacts](${RUN})`, '',
 		'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.', '',
 	].join('\n'));
+});
+
+test('names are sanitized into code spans; empty names become (unnamed)', () => {
+	const j = job('unit / run`1', 'failure', { steps: [{ name: 'Run `evil` tests', conclusion: 'failure' }] });
+	const out = renderLane(lane('unit', 'failure', [j]), RUN, null, null);
+	assert.strictEqual(out.summary, [
+		'', '### Failed jobs', '',
+		`- \`unit / run1\`: \`Run evil tests\` - [log](${j.html_url})`,
+		'', `[Full run and artifacts](${RUN})`, '',
+	].join('\n'));
+	const empty = job('resolve PR 17', 'failure', { steps: [{ name: '```', conclusion: 'failure' }] });
+	assert.strictEqual(renderRequiredSummary([empty], RUN).split('\n')[0],
+		`Could not prepare the PR for testing: \`(unnamed)\` - [log](${empty.html_url})`);
+});
+
+test('vitest flaky tests are not listed under Failed', () => {
+	const j = job('unit / run-1', 'success');
+	const r = results({ passed: 1, flakyTests: [{ file: 'src/a.vitest.ts', title: '', shard: null }] });
+	const out = renderLane(lane('unit', 'success', [j]), RUN, r, null);
+	assert.ok(!out.summary.includes('### Failed'));
+	const f = results({ failed: 1, failures: [{ file: 'src/a.vitest.ts', title: '`', shard: null }] });
+	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), RUN, f, null).summary.includes('- `src/a.vitest.ts` - '));
 });
