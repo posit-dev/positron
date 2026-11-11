@@ -48,8 +48,8 @@ test.describe('Data Connections - Runtime Connections', {
 
 		await test.step('Browse to the fields of mtcars', async () => {
 			await dataConnections.expandConnection(rConnectionName);
-			// The connections package nests tables under a catalog and a schema.
-			await dataConnections.expandNode(rConnectionName);
+			// The connections package nests tables under a catalog named after the connection, which
+			// the pane skips, and then a schema.
 			await dataConnections.expandNode('Default');
 			await dataConnections.expandNode('mtcars');
 			await dataConnections.expectNodeVisible('mpg');

@@ -53,7 +53,7 @@ describe('Positron - Runtime Connection Handle', () => {
 		};
 		client = new ConnectionsClientInstance(testClient);
 		onDidDisconnect = vi.fn<() => void>();
-		handle = disposables.add(new RuntimeConnectionHandle(-1, client, onDidDisconnect));
+		handle = disposables.add(new RuntimeConnectionHandle(-1, client, onDidDisconnect, 'SQLiteConnection'));
 	});
 
 	afterEach(() => {
@@ -142,6 +142,35 @@ describe('Positron - Runtime Connection Handle', () => {
 			['main', true],
 			['other', true],
 		]);
+	});
+
+	// The connections package reports one stand-in catalog named after the connection.
+	it('skips a lone top-level container with the connection\'s name', async () => {
+		objects[''] = [{ name: 'SQLiteConnection', kind: 'catalog' }];
+		objects.SQLiteConnection = [{ name: 'main', kind: 'schema' }];
+		objects['SQLiteConnection/main'] = [{ name: 'mtcars', kind: 'table' }];
+
+		const [schema] = await handle.getChildren();
+		expect(schema.name).toBe('main');
+		await handle.nodeGetChildren(schema.nodeHandle);
+
+		const listRequests = requests.filter(request => request.method === 'list_objects');
+		expect(listRequests[listRequests.length - 1].params.path).toEqual([
+			{ name: 'SQLiteConnection', kind: 'catalog' },
+			{ name: 'main', kind: 'schema' },
+		]);
+	});
+
+	it.each([
+		['a lone container with another name', [{ name: 'hive', kind: 'catalog' }], ['hive']],
+		['a same-name container with siblings', [{ name: 'SQLiteConnection', kind: 'catalog' }, { name: 'other', kind: 'catalog' }], ['SQLiteConnection', 'other']],
+		['a lone same-name table', [{ name: 'SQLiteConnection', kind: 'table' }], ['SQLiteConnection']],
+	])('keeps %s at the top level', async (_label, topLevel, expected) => {
+		objects[''] = topLevel;
+
+		const nodes = await handle.getChildren();
+
+		expect(nodes.map(node => node.name)).toEqual(expected);
 	});
 
 	it('keeps unknown kinds in the request path', async () => {

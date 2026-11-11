@@ -146,7 +146,7 @@ export class RuntimeDataConnectionDriver extends Disposable implements IDataConn
 		}
 		let handle = this._handles.get(connectionId);
 		if (!handle) {
-			handle = new RuntimeConnectionHandle(nextRuntimeConnectionHandle(), entry.client, () => this._remove(connectionId));
+			handle = new RuntimeConnectionHandle(nextRuntimeConnectionHandle(), entry.client, () => this._remove(connectionId), entry.metadata.name);
 			this._handles.set(connectionId, handle);
 			this._stores.get(connectionId)?.add(handle);
 		}

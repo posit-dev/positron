@@ -12,6 +12,18 @@ import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionLineageRe
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { toDataConnectionNodeKind } from '../common/runtimeDataConnections.js';
 
+/** Whether a contract kind names a container, a level that holds objects rather than data. */
+function isContainerKind(contractKind: string): boolean {
+	switch (toDataConnectionNodeKind(contractKind)) {
+		case DataConnectionNodeKind.Table:
+		case DataConnectionNodeKind.View:
+		case DataConnectionNodeKind.Field:
+			return false;
+		default:
+			return true;
+	}
+}
+
 /**
  * Wraps one live runtime connection comm (the RStudio connections contract over a
  * `positron.connection` comm) as a data connection handle, so the Data Connections pane can
@@ -42,11 +54,13 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	 * @param handle The handle number, from nextRuntimeConnectionHandle().
 	 * @param _client The connection comm client. Not disposed by this class except in disconnect().
 	 * @param _onDidDisconnect Called when disconnect() closes the comm.
+	 * @param _connectionName The connection's name, as its row shows it.
 	 */
 	constructor(
 		readonly handle: number,
 		private readonly _client: ConnectionsClientInstance,
 		private readonly _onDidDisconnect: () => void,
+		private readonly _connectionName: string,
 	) {
 		super();
 		this._register(this._client.onDidClose(() => this.markClosed()));
@@ -63,6 +77,11 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	/**
 	 * Fetches the connection's top-level objects. Unless `retainNodes` is set, this frees every
 	 * node handle handed out before it.
+	 *
+	 * A lone top-level container with the connection's own name is skipped, and its children are
+	 * returned in its place. The `connections` package reports one such stand-in catalog for every
+	 * connection, so without this the tree repeats the row's name one level down. Requests below
+	 * it still include it in their path.
 	 */
 	async getChildren(options?: { retainNodes?: boolean }): Promise<IDataConnectionNodeDTO[]> {
 		if (!options?.retainNodes) {
@@ -72,7 +91,11 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 				}
 			}
 		}
-		const nodes = await this._toNodes([], await this._client.listObjects([]), false);
+		const topLevel = await this._client.listObjects([]);
+		const lone = topLevel.length === 1 ? topLevel[0] : undefined;
+		const nodes = lone && lone.name === this._connectionName && isContainerKind(lone.kind)
+			? await this._childrenOf([{ name: lone.name, kind: lone.kind }])
+			: await this._toNodes([], topLevel, false);
 		if (options?.retainNodes) {
 			this._retain(nodes);
 		}
@@ -110,10 +133,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 
 	/** Lists a node's fields when it contains data, and its child objects otherwise. */
 	async nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]> {
-		const path = this._getNodePath(nodeHandle);
-		const nodes = await this._client.containsData(path)
-			? await this._toNodes(path, (await this._client.listFields(path)).map(field => ({ name: field.name, kind: 'field', dtype: field.dtype })), true)
-			: await this._toNodes(path, await this._client.listObjects(path), false);
+		const nodes = await this._childrenOf(this._getNodePath(nodeHandle));
 		if (this._retained.has(nodeHandle)) {
 			this._retain(nodes);
 		}
@@ -159,6 +179,15 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 		}
 		this._closed = true;
 		this._onDidClose.fire();
+	}
+
+	/** Lists the fields of a path that contains data, and its child objects otherwise. */
+	private async _childrenOf(path: ObjectSchema[]): Promise<IDataConnectionNodeDTO[]> {
+		if (await this._client.containsData(path)) {
+			const fields = await this._client.listFields(path);
+			return this._toNodes(path, fields.map(field => ({ name: field.name, kind: 'field', dtype: field.dtype })), true);
+		}
+		return this._toNodes(path, await this._client.listObjects(path), false);
 	}
 
 	/** Marks node handles as held by a `retainNodes` walk; see {@link _retained}. */
