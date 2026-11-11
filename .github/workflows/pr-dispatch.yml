@@ -29,6 +29,11 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
+    # checks: write is for the per-lane test checks on the PR head commit,
+    # written with this job's own token (the bot app has no checks permission).
+    permissions:
+      contents: read
+      checks: write
     env:
       PR: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -38,6 +43,7 @@ jobs:
         shell: bash
         run: |
           echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
+          echo "Tests do not run for PRs from forks, so there are no test checks." >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       - name: Mint a token for positron-builds
@@ -81,22 +87,48 @@ jobs:
           echo "Tests are running at $url"
           echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      # App tokens live for an hour. Wait in two halves with a fresh token for
-      # the second, so a long run is still reported rather than lost.
+      # The poll and finalize scripts come from main, never from the PR. Node
+      # comes from .nvmrc because the runner's default may lack type stripping.
+      - name: Check out the test status scripts from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: |
+            /.github/actions/pr-test-status
+            /.nvmrc
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # App tokens live for an hour. Wait in two halves, each with a freshly
+      # minted read-only token, so a long run is still reported rather than lost.
+      - name: Mint a token to wait with
+        id: token1
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
       - name: Wait for the test run (first hour)
         id: wait1
         shell: bash
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
+          BUILDS_TOKEN: ${{ steps.token1.outputs.token }}
+          CHECKS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DEADLINE_SECONDS: "3300"
         run: |
-          set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
-          code=$?
-          set -e
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          [ "$code" -eq 124 ] && echo "Still running after 55 minutes; waiting with a fresh token."
-          exit 0
+          mkdir -p "$RUNNER_TEMP/pr-test-status"
+          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
+          node .github/actions/pr-test-status/poll.ts
+          # poll.ts writes the code output itself.
 
       - name: Mint a second token
         if: ${{ steps.wait1.outputs.code == '124' }}
@@ -114,15 +146,85 @@ jobs:
         id: wait2
         shell: bash
         env:
-          GH_TOKEN: ${{ steps.token2.outputs.token }}
+          BUILDS_TOKEN: ${{ steps.token2.outputs.token }}
+          CHECKS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DEADLINE_SECONDS: "3300"
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr-test-status"
+          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
+          node .github/actions/pr-test-status/poll.ts
+
+      # Everything below is best effort: it never changes the required-tests result.
+      - name: Mint a token to download results
+        if: ${{ !cancelled() && steps.dispatch.outputs.run_id != '' }}
+        id: token3
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
+      - name: Download test results
+        if: ${{ !cancelled() && steps.token3.outputs.token != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token3.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
-          set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
-          code=$?
-          set -e
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          exit 0
+          gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RUNNER_TEMP/results" || true
+
+      - name: Write the final checks
+        if: ${{ !cancelled() && steps.token3.outputs.token != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          BUILDS_TOKEN: ${{ steps.token3.outputs.token }}
+          CHECKS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          CODE1: ${{ steps.wait1.outputs.code }}
+          CODE2: ${{ steps.wait2.outputs.code }}
+        run: |
+          code="${CODE2:-$CODE1}"
+          if [ "$code" = "124" ]; then
+            export MODE=timeout
+          else
+            export MODE=final
+          fi
+          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
+          export RESULTS_DIR="$RUNNER_TEMP/results"
+          node .github/actions/pr-test-status/finalize.ts
+
+      # finalize reads the builds run, so it needs a token even to close checks.
+      - name: Mint a token to close checks on cancel
+        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
+        id: token4
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
+      - name: On cancel
+        if: ${{ cancelled() && steps.token4.outputs.token != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          BUILDS_TOKEN: ${{ steps.token4.outputs.token }}
+          CHECKS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          MODE: cancel
+        run: |
+          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
+          export RESULTS_DIR="$RUNNER_TEMP/results"
+          node .github/actions/pr-test-status/finalize.ts
 
       - name: Report the result
         shell: bash
