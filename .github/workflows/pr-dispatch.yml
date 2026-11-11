@@ -85,6 +85,8 @@ jobs:
 
       - name: Mint a token for positron-builds
         id: token
+        # A docs-only PR needs the token only for the best-effort cancel.
+        continue-on-error: ${{ steps.docs-only.outputs.docs_only == 'true' }}
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}

@@ -34,6 +34,11 @@ is_docs_only_path() {
 		# Copilot customizations and GitHub community files.
 		.github/ISSUE_TEMPLATE/*|.github/instructions/*|.github/prompts/*|.github/agents/*|.github/skills/*|.github/learnings/*)
 			echo true; return 0 ;;
+		# Local actions: positron-builds' workflows call them from the checkout,
+		# and nothing here tracks which ones, so a change to any of them runs,
+		# markdown included.
+		.github/actions/*)
+			echo false; return 0 ;;
 		# `*` in a case pattern also matches `/`, so the nested checks below keep
 		# these two rules to files directly in their directory.
 		.github/*.md)
@@ -44,10 +49,6 @@ is_docs_only_path() {
 		.github/workflows/*.yml|.github/workflows/*.yaml)
 			[[ "$path" == */*/*/* ]] && echo false || echo true
 			return 0 ;;
-		# Local actions: positron-builds' workflows call them from the checkout,
-		# and nothing here tracks which ones, so a change to any of them runs.
-		.github/actions/*)
-			echo false; return 0 ;;
 		# Top-level markdown (README, CONTRIBUTING, ...).
 		*/*) ;;
 		*.md) echo true; return 0 ;;

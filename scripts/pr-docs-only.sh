@@ -32,6 +32,16 @@ emit() {
 # Echoes the PR's changed files, including a rename's previous name, or fails.
 pr_changed_files() {
 	local repo="${GITHUB_REPOSITORY:?}" pr expected head files actual
+	# A rename lists only its new name in `filename`, so include the old name too:
+	# moving a source file into docs/ is not a docs-only change.
+	if ! files=$(gh api "repos/${repo}/pulls/${PR_NUMBER}/files" --paginate \
+		--jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
+		echo "Could not fetch the changed files; running the tests." >&2
+		return 1
+	fi
+
+	# Read the head after the file list: if the head moved while the list was
+	# fetched, it no longer matches HEAD_SHA here.
 	if ! pr=$(gh api "repos/${repo}/pulls/${PR_NUMBER}" --jq '"\(.changed_files) \(.head.sha)"'); then
 		echo "Could not fetch the pull request; running the tests." >&2
 		return 1
@@ -42,14 +52,6 @@ pr_changed_files() {
 	# being judged, the list doesn't describe it.
 	if [[ -n "${HEAD_SHA:-}" && "$head" != "$HEAD_SHA" ]]; then
 		echo "The PR head is $head, not $HEAD_SHA; running the tests." >&2
-		return 1
-	fi
-
-	# A rename lists only its new name in `filename`, so include the old name too:
-	# moving a source file into docs/ is not a docs-only change.
-	if ! files=$(gh api "repos/${repo}/pulls/${PR_NUMBER}/files" --paginate \
-		--jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
-		echo "Could not fetch the changed files; running the tests." >&2
 		return 1
 	fi
 

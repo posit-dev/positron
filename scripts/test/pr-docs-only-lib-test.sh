@@ -55,6 +55,7 @@ check .github/workflows/check-clean-git-state.sh false
 check .github/workflows/sub/nested.yml false
 check .github/actions/restore-build-caches/action.yml false
 check .github/actions/some-action/prompt.md false
+check .github/actions/some-action/CLAUDE.md false
 check .github/actions/some-action/lib/helper.mjs false
 check .github/actions/shared.mjs false
 check .github/actions/pr-exploratory-test/outcomes.mjs false
