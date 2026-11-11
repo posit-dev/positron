@@ -53,8 +53,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
-            /.github/actions/
-            /.github/workflows/
+            /.github/actions/pr-test-status
             /scripts/pr-docs-only.sh
             /scripts/lib/pr-docs-only-lib.sh
             /.nvmrc
@@ -69,24 +68,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          # The disabled PR workflow still reaches every positron action the
-          # positron-builds test workflows use.
-          CI_WORKFLOW: .github/workflows/test-pull-request.yml
         run: bash scripts/pr-docs-only.sh
 
       - name: Set up Node
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
 
       - name: Set paths for the status scripts
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         shell: bash
         run: |
           echo "STATE_FILE=$RUNNER_TEMP/pr-test-status/state.json" >> "$GITHUB_ENV"
           echo "RESULTS_DIR=$RUNNER_TEMP/results" >> "$GITHUB_ENV"
 
       - name: Mint a token for positron-builds
-        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: token
         uses: actions/create-github-app-token@v3
         with:
@@ -95,6 +92,23 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: positron-builds
           permission-actions: write
+
+      # No dispatch means no new run in the pr-test-<PR> concurrency group to
+      # cancel the one from an earlier push, so cancel it here. Best effort.
+      - name: Cancel earlier test runs for this PR
+        if: ${{ steps.docs-only.outputs.docs_only == 'true' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&per_page=50" \
+            --jq ".workflow_runs[] | select(.status != \"completed\" and (.display_title | startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" |
+            while read -r id; do
+              echo "Cancelling https://github.com/posit-dev/positron-builds/actions/runs/$id"
+              gh run cancel "$id" -R posit-dev/positron-builds || true
+            done
 
       - name: Dispatch the test run
         if: ${{ steps.docs-only.outputs.docs_only != 'true' }}

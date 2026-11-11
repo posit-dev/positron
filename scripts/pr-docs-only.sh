@@ -9,15 +9,11 @@
 # push). Each push is judged on its own changes: an earlier push's red run
 # doesn't make a later docs-only push run the tests.
 #
-# CI_WORKFLOW is the workflow whose test jobs would be skipped; the workflows
-# and actions it uses are never docs-only. Push mode requires it.
-#
 # Any error (no PR number or push range, API or git failure, truncated file
 # list) yields false, so the tests run.
 #
 # Usage: bash scripts/pr-docs-only.sh
-# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER or BEFORE_SHA, CI_WORKFLOW
-#      (default .github/workflows/test-pull-request.yml), GITHUB_OUTPUT
+# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER or BEFORE_SHA, GITHUB_OUTPUT
 
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -78,34 +74,18 @@ push_changed_files() {
 }
 
 if [[ -n "${PR_NUMBER:-}" ]]; then
-	CI_WORKFLOW="${CI_WORKFLOW:-.github/workflows/test-pull-request.yml}"
 	CHANGED=$(pr_changed_files) || emit false
 elif [[ -n "${BEFORE_SHA:-}" ]]; then
-	# No default: the PR workflow's list would miss merge-only workflows.
-	if [[ -z "${CI_WORKFLOW:-}" ]]; then
-		echo "CI_WORKFLOW is not set; running the tests."
-		emit false
-	fi
 	CHANGED=$(push_changed_files) || emit false
 else
 	echo "Not a pull request or a push; running the tests."
 	emit false
 fi
 
-# A missing root would reach nothing and make every workflow and action docs-only.
-if [[ ! -f "$ROOT/$CI_WORKFLOW" ]]; then
-	echo "$CI_WORKFLOW does not exist; running the tests."
-	emit false
-fi
-
-REACHABLE=$(ci_reachable_paths "$ROOT" "$CI_WORKFLOW")
-
-echo "Workflows and actions $CI_WORKFLOW uses (never docs-only):"
-printf '%s\n' "$REACHABLE" | sed 's/^/  /'
 echo "Changed files:"
 while IFS= read -r path; do
 	[[ -z "$path" ]] && continue
-	echo "  [docs-only=$(is_docs_only_path "$path" "$REACHABLE")] $path"
+	echo "  [docs-only=$(is_docs_only_path "$path")] $path"
 done <<< "$CHANGED"
 
-emit "$(all_docs_only "$REACHABLE" <<< "$CHANGED")"
+emit "$(all_docs_only <<< "$CHANGED")"

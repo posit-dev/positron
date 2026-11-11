@@ -42,9 +42,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           BEFORE_SHA: ${{ github.event.before }}
-          # The disabled PR workflow still reaches every positron action the
-          # positron-builds test workflows use; this file reaches none.
-          CI_WORKFLOW: .github/workflows/test-pull-request.yml
 
       - name: Mint a token for positron-builds
         id: token
