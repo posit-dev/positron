@@ -147,24 +147,15 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 		expect(result).toBeUndefined();
 	});
 
-	describe('connection variables', () => {
-		beforeEach(() => {
-			variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'conn', kind: 'connection' })])];
-		});
+	// Viewing a connection variable opens its connection comm, which the Connections pane or, with
+	// Data Connections on, the Data Connections pane shows as a row.
+	it.each([true, false])('offers the action for a connection variable when dataConnections.enabled is %s', async enabled => {
+		dataConnectionsEnabled = enabled;
+		variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'conn', kind: 'connection' })])];
 
-		it('offers nothing when Data Connections replaces the Connections pane', async () => {
-			const result = await provide(makeModel({ word: 'conn' }));
+		const result = await provide(makeModel({ word: 'conn' }));
 
-			expect(result).toBeUndefined();
-		});
-
-		it('offers the action when the Connections pane is in use', async () => {
-			dataConnectionsEnabled = false;
-
-			const result = await provide(makeModel({ word: 'conn' }));
-
-			expect(result?.actions).toHaveLength(1);
-		});
+		expect(result?.actions).toHaveLength(1);
 	});
 
 	it('offers nothing when the request is scoped to an unrelated kind', async () => {

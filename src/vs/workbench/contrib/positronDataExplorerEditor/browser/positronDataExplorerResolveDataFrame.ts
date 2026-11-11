@@ -117,7 +117,7 @@ export async function resolveDataFrameAtPosition(
 	services: IDataFrameResolutionServices,
 	options: IDataFrameResolutionOptions,
 ): Promise<DataFrameResolution> {
-	const { configurationService, languageService, runtimeSessionService, variablesService, viewsService } = services;
+	const { languageService, runtimeSessionService, variablesService, viewsService } = services;
 
 	const word = model.getWordAtPosition(position);
 	if (!word) {
@@ -194,7 +194,7 @@ export async function resolveDataFrameAtPosition(
 		// claiming the variable doesn't exist.
 		return { kind: 'not-found', symbol, languageName, timedOut };
 	}
-	if (!canViewVariableItem(item, configurationService)) {
+	if (!canViewVariableItem(item)) {
 		return { kind: 'not-viewable', symbol };
 	}
 
