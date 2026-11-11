@@ -13,6 +13,7 @@ import { createLightTestContainer } from '../../../../test/vitest/lightTestConta
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
+import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
@@ -320,6 +321,19 @@ describe('Positron - Connections Service', () => {
 				}).toEqual({ disposed: 1, connects: 1, connected: false });
 			});
 
+			// Disconnect disposes the wrapper, and the comm's close must still reach the service's
+			// release listener, which disposes the wrapper a second time as it lets it go.
+			it('releases the wrapper when the user disconnects', async () => {
+				const { client, profileId } = await openConnectedRow('r');
+				// The real client reports Closed while it is disposed; the test client does not.
+				ctx.disposables.add(client.onDidDispose(() => client.setClientState(RuntimeClientState.Closed)));
+				const wrapperDispose = vi.spyOn(ConnectionsClientInstance.prototype, 'dispose');
+
+				await dataConnections().disconnect(profileId);
+
+				expect(wrapperDispose).toHaveBeenCalledTimes(2);
+			});
+
 			// A comm that opens between subscribing and listing arrives on both paths.
 			it('a comm seen on both paths makes one row', async () => {
 				const session = ctx.disposables.add(await createSession());
@@ -355,6 +369,43 @@ describe('Positron - Connections Service', () => {
 					instances: dataConnections().getInstances().map(instance => instance.profileId),
 					disposed: disposeSpy.mock.calls.length,
 				}).toEqual({ rows: [profileId], instances: [profileId], disposed: 0 });
+			});
+
+			// The startup path is waiting on metadata when the same comm arrives as new, so the
+			// driver keeps the new path's wrapper. The startup wrapper must still be released.
+			it('releases the startup wrapper of a comm that also arrived as new', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const client = ctx.disposables.add(new TestRuntimeClientInstance('connection-1', RuntimeClientType.Connection));
+				client.setClientState(RuntimeClientState.Connected);
+				session.receiveClientCreatedMessage(client, { data: metadataIn('r') });
+				const metadataAnswered = new DeferredPromise<void>();
+				const metadataAsked = new DeferredPromise<void>();
+				client.rpcHandler = async () => {
+					metadataAsked.complete();
+					await metadataAnswered.p;
+					return { data: { result: metadataIn('r') } };
+				};
+				const onDidStartRuntime = ctx.disposables.add(new Emitter<ILanguageRuntimeSession>());
+				const instantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+					[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })],
+					[IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+						onDidStartRuntime: onDidStartRuntime.event,
+						onDidDeleteRuntimeSession: Event.None,
+					})],
+				)));
+				ctx.disposables.add(instantiationService.createInstance(PositronConnectionsService));
+				const wrapperDispose = vi.spyOn(ConnectionsClientInstance.prototype, 'dispose');
+
+				onDidStartRuntime.fire(session);
+				await metadataAsked.p;
+				session.receiveClientCreatedMessage(client, { data: metadataIn('r') });
+				metadataAnswered.complete();
+				await new Promise(resolve => setTimeout(resolve, 20));
+				expect(wrapperDispose).not.toHaveBeenCalled();
+
+				client.setClientState(RuntimeClientState.Closed);
+
+				expect(wrapperDispose).toHaveBeenCalledTimes(2);
 			});
 
 			it('removes the row when the session ends', async () => {

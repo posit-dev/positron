@@ -423,14 +423,12 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 					}
 				} finally {
 					if (keep) {
-						if (this.runtimeDriverHolds(session.sessionId, client.getClientId())) {
-							// The comm arrived on the other path while its metadata was pending. This
-							// wrapper is left as it is: disposing it would close the comm, and it holds
-							// nothing beyond its own comm emitters.
-						} else {
+						// If the comm arrived on the other path while its metadata was pending, the
+						// driver holds that path's wrapper, and this one is only released.
+						if (!this.runtimeDriverHolds(session.sessionId, client.getClientId())) {
 							this.addRuntimeConnection(session, connection, metadata);
-							this.releaseWhenClosed(connection);
 						}
+						this.releaseWhenClosed(connection);
 					} else {
 						connection.dispose();
 						client.dispose();
