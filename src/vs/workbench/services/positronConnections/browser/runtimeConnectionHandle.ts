@@ -178,7 +178,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 
 	private async _toNodes(
 		parentPath: ObjectSchema[],
-		items: { name: string; kind: string; dtype?: string }[],
+		items: { name: string; kind: string; dtype?: string; has_children?: boolean }[],
 		isField: boolean,
 	): Promise<IDataConnectionNodeDTO[]> {
 		return Promise.all(items.map(async item => {
@@ -191,7 +191,9 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 				nodeHandle,
 				name: item.name,
 				kind: isField ? DataConnectionNodeKind.Field : toDataConnectionNodeKind(item.kind),
-				hasGetChildren: !isField && item.kind.toLowerCase() !== 'field',
+				// The contract's has_children is optional; when it is absent, anything but a field
+				// may have children.
+				hasGetChildren: !isField && (item.has_children ?? item.kind.toLowerCase() !== 'field'),
 				hasPreview: containsData,
 				hasDetails: false,
 			};

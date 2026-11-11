@@ -128,6 +128,22 @@ describe('Positron - Runtime Connection Handle', () => {
 		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).rejects.toThrow('Unknown node handle');
 	});
 
+	it('honors an explicit has_children and defaults it only when absent', async () => {
+		objects[''] = [
+			{ name: 'files', kind: 'volume', has_children: false },
+			{ name: 'main', kind: 'schema', has_children: true },
+			{ name: 'other', kind: 'schema' },
+		];
+
+		const nodes = await handle.getChildren();
+
+		expect(nodes.map(node => [node.name, node.hasGetChildren])).toEqual([
+			['files', false],
+			['main', true],
+			['other', true],
+		]);
+	});
+
 	it('keeps unknown kinds in the request path', async () => {
 		objects[''] = [{ name: 'bq', kind: 'dataset' }];
 
