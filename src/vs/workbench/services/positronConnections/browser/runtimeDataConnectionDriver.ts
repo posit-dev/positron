@@ -170,7 +170,8 @@ export class RuntimeDataConnectionDriver extends Disposable implements IDataConn
 			id: connectionId,
 			name: entry.metadata.name,
 			description: entry.metadata.host
-				? `${entry.sessionName} - ${entry.metadata.host}`
+				// The same middle dot the row puts between the name and this description.
+				? `${entry.sessionName} \u00B7 ${entry.metadata.host}`
 				: entry.sessionName,
 			mechanismId: RUNTIME_CONNECTION_MECHANISM_ID,
 			parameterValues: { [RUNTIME_CONNECTION_ID_PARAMETER]: connectionId },

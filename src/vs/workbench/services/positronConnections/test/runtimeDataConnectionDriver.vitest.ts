@@ -51,14 +51,14 @@ describe('Positron - Runtime Data Connection Driver', () => {
 		driver.addConnection(makeEntry('s2', 'c3', 'R 4.4.0'));
 
 		expect((await driver.discoverConnections()).map(({ id, description }) => ({ id, description }))).toEqual([
-			{ id: 's1:c1', description: 'R 4.5.1 - localhost' },
-			{ id: 's1:c2', description: 'R 4.5.1 - localhost' },
+			{ id: 's1:c1', description: 'R 4.5.1 \u00B7 localhost' },
+			{ id: 's1:c2', description: 'R 4.5.1 \u00B7 localhost' },
 			{ id: 's2:c3', description: 'R 4.4.0' },
 		]);
 		expect((await driver.discoverConnections())[0]).toEqual({
 			id: 's1:c1',
 			name: 'mtcars db',
-			description: 'R 4.5.1 - localhost',
+			description: 'R 4.5.1 \u00B7 localhost',
 			mechanismId: 'live',
 			parameterValues: { connectionId: 's1:c1' },
 		});

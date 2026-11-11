@@ -76,7 +76,7 @@ const runtimeProfile: IDataConnectionProfile = {
 	driverMetadata: { ...profile.driverMetadata, id: 'runtime-r', name: 'R Session' },
 	connectionName: 'mtcars.sqlite',
 	mechanismId: 'live',
-	description: 'R 4.5.1 - localhost',
+	description: 'R 4.5.1 \u00B7 localhost',
 	discovered: true,
 };
 
@@ -206,7 +206,7 @@ describe('DataConnectionEntryRow', () => {
 		expect(screen.queryByText('Detected')).not.toBeInTheDocument();
 		expect(screen.queryByLabelText(DISCOVERED_LABEL)).not.toBeInTheDocument();
 		// The session name and host still say which session the connection belongs to.
-		expect(screen.getByText('R 4.5.1 - localhost', { exact: false })).toBeInTheDocument();
+		expect(screen.getByText('R 4.5.1 \u00B7 localhost', { exact: false })).toBeInTheDocument();
 	});
 
 	it('hides the actions hover when a right-click opens the menu', async () => {
