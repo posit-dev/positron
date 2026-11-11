@@ -13,7 +13,8 @@
 # list) yields false, so the tests run.
 #
 # Usage: bash scripts/pr-docs-only.sh
-# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER or BEFORE_SHA, GITHUB_OUTPUT
+# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER (optionally HEAD_SHA) or
+#      BEFORE_SHA, GITHUB_OUTPUT
 
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -30,9 +31,17 @@ emit() {
 
 # Echoes the PR's changed files, including a rename's previous name, or fails.
 pr_changed_files() {
-	local repo="${GITHUB_REPOSITORY:?}" expected files actual
-	if ! expected=$(gh api "repos/${repo}/pulls/${PR_NUMBER}" --jq '.changed_files'); then
+	local repo="${GITHUB_REPOSITORY:?}" pr expected head files actual
+	if ! pr=$(gh api "repos/${repo}/pulls/${PR_NUMBER}" --jq '"\(.changed_files) \(.head.sha)"'); then
 		echo "Could not fetch the pull request; running the tests." >&2
+		return 1
+	fi
+	read -r expected head <<< "$pr"
+
+	# The file list is for the PR's current head; if that moved past the commit
+	# being judged, the list doesn't describe it.
+	if [[ -n "${HEAD_SHA:-}" && "$head" != "$HEAD_SHA" ]]; then
+		echo "The PR head is $head, not $HEAD_SHA; running the tests." >&2
 		return 1
 	fi
 

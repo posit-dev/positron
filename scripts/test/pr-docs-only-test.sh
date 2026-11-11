@@ -24,7 +24,7 @@ assert_eq() {
 }
 
 # The stub gh prints FAKE_PR_FILES (tsv of filename and previous name) for the
-# files API and FAKE_PR_COUNT for the PR itself, or fails when FAKE_GH_FAIL is set.
+# files API and FAKE_PR_COUNT and FAKE_PR_HEAD (default abc) for the PR itself, or fails when FAKE_GH_FAIL is set.
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/gh" <<'SH'
 #!/usr/bin/env bash
@@ -32,7 +32,7 @@ cat > "$TMP/bin/gh" <<'SH'
 if [[ "$*" == */files* ]]; then
 	printf '%b\n' "$FAKE_PR_FILES"
 else
-	echo "$FAKE_PR_COUNT"
+	echo "$FAKE_PR_COUNT ${FAKE_PR_HEAD:-abc}"
 fi
 SH
 chmod +x "$TMP/bin/gh"
@@ -125,5 +125,7 @@ assert_eq "PR: workflow -> true" true "$(pr 1 '.github/workflows/some.yml\t')"
 assert_eq "PR: action -> false" false "$(pr 1 '.github/actions/a/action.yml\t')"
 assert_eq "PR: truncated file list -> false" false "$(pr 3 'README.md\t\nNOTES.md\t')"
 assert_eq "PR: API failure -> false" false "$(pr 1 'README.md\t' FAKE_GH_FAIL=1)"
+assert_eq "PR: head matches HEAD_SHA -> true" true "$(pr 1 'README.md\t' HEAD_SHA=abc)"
+assert_eq "PR: head moved past HEAD_SHA -> false" false "$(pr 1 'README.md\t' HEAD_SHA=def)"
 
 exit "$fail"

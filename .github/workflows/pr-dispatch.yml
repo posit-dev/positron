@@ -55,7 +55,7 @@ jobs:
           sparse-checkout: |
             /.github/actions/pr-test-status
             /scripts/pr-docs-only.sh
-            /scripts/lib/pr-docs-only-lib.sh
+            /scripts/lib/
             /.nvmrc
           sparse-checkout-cone-mode: false
 
@@ -103,8 +103,10 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
-          gh api "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&per_page=50" \
-            --jq ".workflow_runs[] | select(.status != \"completed\" and (.display_title | startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" |
+          for state in queued in_progress waiting pending; do
+            gh api --paginate "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&status=$state&per_page=100" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
+          done | sort -u |
             while read -r id; do
               echo "Cancelling https://github.com/posit-dev/positron-builds/actions/runs/$id"
               gh run cancel "$id" -R posit-dev/positron-builds || true
@@ -144,7 +146,7 @@ jobs:
 
       # App tokens live for an hour, so wait in two halves with a fresh token each.
       - name: Mint a token to wait with
-        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
+        if: ${{ steps.dispatch.outputs.run_id != '' }}
         id: token1
         uses: actions/create-github-app-token@v3
         with:
@@ -155,7 +157,7 @@ jobs:
           permission-actions: read
 
       - name: Wait for the test run (first hour)
-        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
+        if: ${{ steps.dispatch.outputs.run_id != '' }}
         id: wait1
         shell: bash
         env:
