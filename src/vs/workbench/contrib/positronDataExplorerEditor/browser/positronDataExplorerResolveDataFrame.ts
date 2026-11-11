@@ -8,7 +8,6 @@ import { raceTimeout } from '../../../../base/common/async.js';
 import { IPosition } from '../../../../editor/common/core/position.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { POSITRON_VARIABLES_VIEW_ID } from '../../positronVariables/browser/positronVariables.contribution.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -53,7 +52,6 @@ const waitForVariables = async (
  * a code action provider can call {@link resolveDataFrameAtPosition}.
  */
 export interface IDataFrameResolutionServices {
-	readonly configurationService: IConfigurationService;
 	readonly languageService: ILanguageService;
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly variablesService: IPositronVariablesService;
