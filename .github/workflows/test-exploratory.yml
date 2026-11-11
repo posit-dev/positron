@@ -94,9 +94,8 @@ on:
   issue_comment:
     types: [created]
 
-# id-token is granted only to publish, the one job that assumes an AWS role.
-# Every other job reads untrusted input, and an OIDC token there could assume
-# the report bucket's role.
+# No job here takes id-token: the S3 upload happens in positron-builds, and
+# every job here reads untrusted input.
 permissions:
   contents: read
   packages: read
@@ -152,6 +151,14 @@ jobs:
       # run, focus or off: whether worthiness runs, and if not, why.
       worthiness: ${{ steps.comment.outputs.worthiness || steps.dispatch.outputs.worthiness }}
     steps:
+      # dispatch hands this ref's SHA to positron-builds as the harness, which
+      # must be main's.
+      - name: Refuse runs off main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Exploratory runs start only from main. To test a harness change, run explore-pr.yml by hand in positron-builds, from a throwaway branch cut from its main, with harness_ref set to your branch."
+          exit 1
+
       - name: Mint org-scoped App token
         id: app-token
         if: github.event_name == 'issue_comment'
@@ -595,622 +602,347 @@ jobs:
           github-token: ${{ github.token }}
           head-sha: ${{ needs.resolve.outputs.sha }}
 
-  explore:
-    name: explore (${{ matrix.model }})
+  # Runs the exploration in posit-dev/positron-builds (explore-pr.yml), which
+  # builds and runs the PR's code, scans the output and publishes the report.
+  # This job holds no secret but the bot key: it cuts a branch for the run,
+  # dispatches it, waits, and turns its result files into one state per model.
+  dispatch:
+    name: dispatch
     needs: [resolve, worthiness]
     # always(): worthiness is skipped when its check is off or a focus is named,
     # and a skipped need would otherwise skip this job. Only an explicit ok=true
-    # from resolve runs it, so a failed or cancelled resolve runs nothing.
+    # from resolve runs it, so a failed or cancelled resolve runs nothing. Only
+    # main may hand its harness SHA to positron-builds.
     if: >-
       ${{ always() && needs.resolve.outputs.ok == 'true' &&
-      needs.worthiness.outputs.testable != 'false' }}
-    # No concurrency group: two /explore comments on one head, each with its
-    # own focus, are meant to run side by side.
-    # Read-only on purpose: this job runs PR code and an agent with a shell, and
-    # GITHUB_TOKEN is in their environment. announce and report do the writing, and
-    # publish does the S3 upload, so no id-token either.
+      needs.worthiness.outputs.testable != 'false' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
+      # To tell which positron runs a leftover explore-run branch belongs to.
+      actions: read
       contents: read
-      packages: read
     outputs:
-      outcome: ${{ steps.explore.outputs.outcome }}
-      outdated: ${{ steps.helpers.outputs.reason }}
-    strategy:
-      # One model failing should not cancel the other; a partial comparison is
-      # still worth reading.
-      fail-fast: false
-      matrix:
-        # Every branch is a literal. Building the JSON with format() put a
-        # dispatch input inside the document it was about to parse, which only
-        # held because `type: choice` happens to constrain the value.
-        # resolve names it opus, sonnet or both; a comment always runs opus.
-        model: ${{ needs.resolve.outputs.model == 'both' && fromJSON('["opus","sonnet"]')
-          || needs.resolve.outputs.model == 'sonnet' && fromJSON('["sonnet"]')
-          || fromJSON('["opus"]') }}
-    timeout-minutes: 90
-    runs-on: ubuntu-latest-amd64-8-core
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1
-      options: --user 0:0 --init
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
-    # The e2e lane's database, reachable from the container at host "postgres".
-    # Its login is a fixed test value, not the e2e secret: the database lives
-    # only for this job, and Positron's connection form shows the password
-    # unmasked, so it ends up in screenshots redaction cannot reach.
-    services:
-      postgres:
-        image: ghcr.io/posit-dev/positron-postgres:24.22.1-py3.14.7-r4.6.1
-        credentials:
-          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
-        env:
-          # Match E2E_POSTGRES_USER / E2E_POSTGRES_PASSWORD in the job env below.
-          POSTGRES_USER: e2e
-          POSTGRES_PASSWORD: exploratory-test
-          POSTGRES_DB: postgres
+      run_id: ${{ steps.dispatch.outputs.run_id }}
+      run_attempt: ${{ steps.run.outputs.attempt }}
+      results: ${{ steps.collect.outputs.results }}
+      scan_urls: ${{ steps.collect.outputs.scan_urls }}
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      POSITRON_BUILD_NUMBER: 0
+      POSITRON_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+      LANE: explore-run/${{ github.run_id }}-${{ github.run_attempt }}
       # on or off: whether findings are replayed on main's latest daily build.
       MAIN_REPLAY: ${{ ((github.event_name == 'workflow_dispatch' && !inputs.main_replay) || vars.EXPLORE_MAIN_REPLAY == 'off') && 'off' || 'on' }}
-      HOME: /root
-      R_LIBS_SITE: /usr/local/lib/R/site-library
-      R_LIBS_USER: /usr/local/lib/R/site-library
-      # reticulate 1.47 cannot run on Python 3.14 (rstudio/reticulate#1930); bind the 3.13
-      RETICULATE_PYTHON: /root/.pyenv/versions/3.13.0/bin/python
-      E2E_POSTGRES_USER: e2e
-      E2E_POSTGRES_PASSWORD: exploratory-test
     steps:
-      # The SHA resolve pinned, so a push after the gate is
-      # not tested.
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.resolve.outputs.sha }}
-          fetch-depth: 0
-          submodules: recursive
-          persist-credentials: false
-
-      # The tooling comes from the dispatching ref, as in the worthiness job.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           path: .harness
           sparse-checkout: |
-            .github/actions
-            .claude/skills/exploratory-test
-            .claude/skills/drive-positron/scripts
-            test/e2e/infra
-            test/e2e/scripts
+            /.nvmrc
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-test/renderer
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      # A build of main for the explorer to replay each finding on, which
-      # decides the finding's Origin. One download, run in the background while
-      # the PR builds: a process a step starts lives until the job ends. Main
-      # daily ready below picks it up; a failure only means no Origins.
-      - name: Download main daily (background)
-        if: env.MAIN_REPLAY == 'on'
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/positron-main"
-          nohup node .harness/.claude/skills/exploratory-test/renderer/main-build.mjs fetch \
-            --out "$RUNNER_TEMP/positron-main" --platform deb/x86_64 \
-            > "$RUNNER_TEMP/positron-main.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/positron-main.pid"
+      # dispatch-result.ts needs a Node that runs TypeScript.
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .harness/.nvmrc
 
-      # The explorer's instructions come from the harness, the helpers from the
-      # branch under test. A branch older than the helper rewrite lacks the
-      # helpers they name, so stop before the build with what to do about it.
-      - name: Check the branch has the current helpers
-        id: helpers
-        shell: bash
-        run: |
-          if [[ ! -f .claude/skills/drive-positron/scripts/dp.ts ]]; then
-            # The result comment shows this reason, so the author need not open the run.
-            REASON="this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again."
-            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
-            echo "::error::${REASON^}"
-            exit 1
-          fi
+      # lib.mjs reads the renderer's shared text helpers, which need marked.
+      - name: Install renderer dependencies
+        run: npm ci --prefix .harness/.claude/skills/exploratory-test/renderer --ignore-scripts --no-audit --no-fund
 
-      - name: Resolve diff base
-        id: base
-        shell: bash
+      - name: Mint a token for the sweep and the branch
+        id: setup-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+          permission-contents: write
+
+      # A run whose cleanup failed leaves its branch behind; remove those whose
+      # positron run has finished.
+      - name: Remove finished runs' branches
+        continue-on-error: true
         env:
-          # The PR's own target, so a PR into a release branch is not diffed
-          # against everything main has gained since the branch was cut.
-          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
+          GH_TOKEN: ${{ steps.setup-token.outputs.token }}
+          REPO_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          refs=$(gh api --paginate "repos/posit-dev/positron-builds/git/matching-refs/heads/explore-run/" --jq '.[].ref') || {
+            echo "::warning::Could not list explore-run branches."
+            exit 0
+          }
+          for ref in $refs; do
+            name=${ref#refs/heads/}
+            run=${name#explore-run/}
+            [[ "$run" =~ ^[0-9]+-[0-9]+$ ]] || continue
+            status=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run%%-*}" --jq '.status' 2>/dev/null) || continue
+            if [ "$status" = "completed" ]; then
+              if gh api -X DELETE "repos/posit-dev/positron-builds/git/refs/heads/$name" > /dev/null; then
+                echo "Removed $name"
+              else
+                echo "::warning::Could not remove $name."
+              fi
+            fi
+          done
+
+      # positron-builds runs a bot dispatch only from its own branch cut from
+      # main, so a cache one run saves is never restored by another.
+      - name: Cut the run branch
+        id: cut
+        env:
+          GH_TOKEN: ${{ steps.setup-token.outputs.token }}
         run: |
           set -euo pipefail
-          # fetch-depth: 0 fetched all branches, so origin/$BASE_REF is present.
-          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
-            echo "::error::Base branch '$BASE_REF' not found on origin"
+          main_sha=$(gh api repos/posit-dev/positron-builds/git/ref/heads/main --jq '.object.sha')
+          gh api repos/posit-dev/positron-builds/git/refs -f "ref=refs/heads/$LANE" -f "sha=$main_sha" > /dev/null
+          echo "Cut $LANE at $main_sha"
+
+      # Minted here so the first wait part has its full hour.
+      - name: Mint a token for the dispatch and the first wait
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+
+      - name: Dispatch the explore run
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          REF: ${{ needs.resolve.outputs.ref }}
+          PR: ${{ needs.resolve.outputs.pr_number }}
+          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
+          MODEL: ${{ needs.resolve.outputs.model }}
+          FOCUS: ${{ needs.resolve.outputs.focus }}
+          TIME_LIMIT: ${{ needs.resolve.outputs.time_limit }}
+          HARNESS_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          args=(-f "positron_run=$POSITRON_RUN" -f "sha=$SHA" -f "base=$BASE_REF" -f "model=$MODEL"
+            -f "focus=$FOCUS" -f "time_limit=$TIME_LIMIT" -f "main_replay=$MAIN_REPLAY" -f "harness_sha=$HARNESS_SHA")
+          if [ -n "$PR" ]; then args+=(-f "pr_number=$PR"); else args+=(-f "branch=$REF"); fi
+          gh workflow run explore-pr.yml -R posit-dev/positron-builds --ref "$LANE" "${args[@]}"
+          echo "dispatched=true" >> "$GITHUB_OUTPUT"
+          # The dispatch API returns no run id; find the run by its run-name, and
+          # only among dispatches the bot itself started.
+          id=""
+          for _ in $(seq 1 24); do
+            id=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-pr.yml/runs?event=workflow_dispatch&branch=$LANE" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"explore $POSITRON_RUN \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            if [ -n "$id" ]; then break; fi
+            sleep 5
+          done
+          if [ -z "$id" ]; then
+            echo "::error::Dispatched explore-pr.yml but could not find its run within two minutes."
             exit 1
           fi
-          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
-          echo "base=$BASE" >> "$GITHUB_OUTPUT"
-          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
-          echo "Diff base: $BASE (origin/$BASE_REF)"
+          url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
+          echo "run_id=$id" >> "$GITHUB_OUTPUT"
+          echo "Exploring at $url"
+          echo "Exploratory run in positron-builds: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      # Issues the PR fixes or that mention it, for the explorer's brief. Fetched
-      # before the build so the lookup is done by the time the agent starts.
-      # Best effort: any failure writes an empty list and the run goes on.
-      - name: Fetch issues linked to the PR
-        id: known
-        if: needs.resolve.outputs.pr_number != ''
-        continue-on-error: true
-        shell: bash
+      # App tokens live for an hour. Wait in parts with a fresh token for each,
+      # so a long run is still reported rather than lost.
+      - name: Wait for the explore run (first hour)
+        id: wait1
         env:
-          PR: ${{ needs.resolve.outputs.pr_number }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
-          RENDERER=.harness/.claude/skills/exploratory-test/renderer
-          # Explore installs these later, but known-issues.mjs imports them now.
-          npm --prefix "$RENDERER" ci --no-audit --no-fund
-          OUT="$RUNNER_TEMP/known-issues.json"
-          node "$RENDERER/known-issues.mjs" --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
-          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          set +e
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" -eq 124 ] && echo "Still running after 55 minutes; waiting with a fresh token."
+          exit 0
 
-      - name: Restore caches
-        id: restore-caches
-        uses: ./.harness/.github/actions/restore-build-caches
+      - name: Mint a second token
+        if: steps.wait1.outputs.code == '124'
+        id: token2
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
 
-      - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
-        uses: nick-fields/retry@v4
+      - name: Wait for the explore run (second hour)
+        if: steps.wait1.outputs.code == '124'
+        id: wait2
         env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-          POSITRON_PARALLEL_INSTALL: '0'
-          POSITRON_NPM_CONCURRENCY: '10'
-          NPM_CONFIG_AUDIT: 'false'
-          NPM_CONFIG_FUND: 'false'
-          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
-          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
-          DOCKER_CONFIG: /tmp/.docker
-          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
-        with:
-          timeout_minutes: 30
-          max_attempts: 3
-          retry_wait_seconds: 5
-          shell: bash
-          command: bash scripts/install-npm-parallel.sh
-
-      - name: Download binaries (Ark, Kallichore)
-        uses: ./.harness/.github/actions/download-binaries
-        with:
-          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
-                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
-
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
-
-      - name: Compile Positron and Download Electron
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
-
-      - name: Prelaunch
-        run: npm run prelaunch
-
-      # Waits for the download started before the build, which has usually
-      # finished by now. Without a main build the run goes on, and no finding
-      # gets an Origin.
-      - name: Main daily ready
-        if: env.MAIN_REPLAY == 'on'
-        continue-on-error: true
-        shell: bash
+          GH_TOKEN: ${{ steps.token2.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
-          DIR="$RUNNER_TEMP/positron-main"
-          PID=$(cat "$RUNNER_TEMP/positron-main.pid" 2>/dev/null || true)
-          for _ in $(seq 1 300); do
-            if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then break; fi
-            sleep 1
-          done
-          if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
-            kill "$PID" || true
+          set +e
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" -eq 124 ] && echo "Still running after 110 minutes; waiting with a fresh token."
+          exit 0
+
+      - name: Mint a third token
+        if: steps.wait2.outputs.code == '124'
+        id: token3
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
+      - name: Wait for the explore run (third hour)
+        if: steps.wait2.outputs.code == '124'
+        id: wait3
+        env:
+          GH_TOKEN: ${{ steps.token3.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          set +e
+          bash .harness/.github/actions/pr-exploratory-test/wait-run.sh "$RUN_ID" 3300
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" -eq 124 ] && echo "::warning::Still running after 165 minutes; cancelling it."
+          exit 0
+
+      # Fresh, for everything after the wait: cancel, read, download, clean up.
+      - name: Mint a token to finish with
+        if: always() && steps.cut.outcome == 'success'
+        id: final-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+          permission-contents: write
+
+      # Cancelling this run would otherwise leave the explore job running there,
+      # as would a dispatch whose run the lookup never found, a wait that gave
+      # up (code 2), or a run that outlasted every wait.
+      - name: Cancel the explore run
+        if: >-
+          ${{ always() && ((cancelled() && steps.dispatch.outputs.run_id != '') ||
+          (steps.dispatch.outputs.dispatched == 'true' && steps.dispatch.outputs.run_id == '') ||
+          steps.wait1.outputs.code == '2' || steps.wait2.outputs.code == '2' ||
+          steps.wait3.outputs.code == '2' || steps.wait3.outputs.code == '124') }}
+        env:
+          GH_TOKEN: ${{ steps.final-token.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-pr.yml/runs?event=workflow_dispatch&branch=$LANE" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"explore $POSITRON_RUN \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" \
+              | head -n 1) || RUN_ID=""
           fi
-          if [[ ! -f "$DIR/main-build.json" ]]; then
-            echo "::warning::No main build, so no finding gets an Origin: $(tail -n 5 "$RUNNER_TEMP/positron-main.log" 2>/dev/null | tr '\n' ' ')"
+          if [ -z "$RUN_ID" ]; then
+            echo "::warning::Found no explore run to cancel."
             exit 0
           fi
-          # The verifier's drift check diffs the fix files between main's commit and the base.
-          COMMIT=$(node -p 'require(process.argv[1]).commit' "$DIR/main-build.json")
-          if ! git cat-file -e "$COMMIT^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$COMMIT" || echo "::warning::Could not fetch main at $COMMIT; findings whose fix files cannot be compared will be Unknown"
-          fi
-          echo "MAIN_BUILD=$DIR/main-build.json" >> "$GITHUB_ENV"
-          echo "Main build: $(cat "$DIR/main-build.json")"
+          gh run cancel "$RUN_ID" -R posit-dev/positron-builds || echo "::warning::Could not cancel explore run $RUN_ID."
 
-      - name: Set permissions on SUID sandbox helper
-        run: |
-          ELECTRON_ROOT=.build/electron
-          sudo chown root $ELECTRON_ROOT/chrome-sandbox
-          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
-          stat $ELECTRON_ROOT/chrome-sandbox
-
-      # No setup-test-env: nothing here runs the e2e suite, and its QA AWS role
-      # would sit in the agent's environment for no use. The S3 upload assumes
-      # its own role after the agent has finished.
-
-      - name: Install jq and lsof
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Not in the container image. launch.sh output parsing below needs
-          # jq, and so do monaco-paste.sh, quickpick-enum.sh, and the snapshot
-          # recipe the agent follows from the drive-positron skill. stop.sh
-          # needs lsof to find the instance on a CDP port.
-          sudo apt-get update && sudo apt-get install -y jq lsof
-          jq --version
-
-      - name: Setup Xvfb
-        uses: ./.harness/.github/actions/setup-xvfb
-
-      - name: Alter AppArmor restrictions
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Write seed profile and scratch workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/positron-seed/User
-          # window.dialogStyle defaults to native, and a native message box is a
-          # separate OS window: invisible to CDP screenshots and unclickable by
-          # the driver, so the extension host waits on it forever. A run hit that
-          # and filed the stuck button as a major product defect. launch.sh sets
-          # this too, but only on branches carrying that change, so pin it here
-          # where the harness controls it.
-          printf '{ "window.dialogStyle": "custom", "files.simpleDialog.enable": true }\n' \
-            > /tmp/positron-seed/User/settings.json
-          mkdir -p /tmp/exploratory-workspace
-          echo "# scratch" > /tmp/exploratory-workspace/README.md
-
-      - name: Check compiled output exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
-          echo "out/ present, $(find out -name '*.js' | wc -l) js files"
-
-      # publish re-derives the same directory from these inputs, so change
-      # them in both places.
-      - name: Allocate report dir
-        uses: ./.harness/.github/actions/gen-report-dir
-        with:
-          prefix: exploratory-report
-          identifier: ${{ matrix.model }}
-          arch: x64
-          skip-summary: "true"
-
-      - name: Allocate run directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
-          echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
-          mkdir -p /tmp/exploratory-run/shots
-
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
+      # A model timed out when its explore job did not succeed and ran for the
+      # whole job limit. The bot has no Checks access, so the timeout
+      # annotation cannot be read; the job's own times can.
+      - name: Read the explore run
+        id: run
+        if: always() && steps.dispatch.outputs.run_id != ''
+        continue-on-error: true
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
-      # A value only the secret scan knows. The redact step strips *_KEY values
-      # first, so a hit on this one means a secret in an encoded form or a
-      # redaction that did not run.
-      - name: Plant leak canary
-        shell: bash
+          GH_TOKEN: ${{ steps.final-token.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          # Must match the explore job's timeout-minutes in positron-builds' explore-pr.yml.
+          EXPLORE_TIMEOUT_MINUTES: 90
         run: |
           set -euo pipefail
-          CANARY="canary-$(cat /proc/sys/kernel/random/uuid)"
-          echo "::add-mask::$CANARY"
-          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+          run=$(gh api "repos/posit-dev/positron-builds/actions/runs/$RUN_ID")
+          echo "conclusion=$(jq -r '.conclusion // ""' <<<"$run")" >> "$GITHUB_OUTPUT"
+          echo "attempt=$(jq -r '.run_attempt' <<<"$run")" >> "$GITHUB_OUTPUT"
+          JOBS="$RUNNER_TEMP/builds-jobs.json"
+          gh api --paginate "repos/posit-dev/positron-builds/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | {id, name, conclusion, html_url, started_at, completed_at}' | jq -s . > "$JOBS"
+          # A minute of slack: the reported times can land just under the limit.
+          timed_out=$(jq -c --argjson limit "$((EXPLORE_TIMEOUT_MINUTES * 60 - 60))" '[.[]
+            | select(.conclusion != null and .conclusion != "success" and .conclusion != "skipped"
+              and .started_at != null and .completed_at != null)
+            | select((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601) >= $limit)
+            | .name | capture("^explore \\((?<m>[a-z]+)\\)$").m]' "$JOBS")
+          echo "timed_out=$timed_out" >> "$GITHUB_OUTPUT"
 
-      # The build's caches are relative paths, so pip or npm run inside the app
-      # under test would make .pip-cache/ or .npm-cache/ in the folder being
-      # tested. Give the app, and the main build the explorer launches, the
-      # locations a user's machine has. This job only restores the caches.
-      - name: Use default package caches
-        shell: bash
-        run: |
-          echo "PIP_CACHE_DIR=$HOME/.cache/pip" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_CACHE=$HOME/.npm" >> "$GITHUB_ENV"
-
-      - name: Launch Positron
-        shell: bash
-        env:
-          # Assistant reads provider keys from the environment, so the app
-          # starts signed in and the explorer can exercise it.
-          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
-        run: |
-          set -euo pipefail
-          # Electron occasionally segfaults at startup inside fontconfig, before
-          # any Positron code runs, and hangs until launch.sh times out. Each
-          # attempt gets a fresh profile and ports, so a retry is clean once the
-          # hung instance is killed.
-          # The explorer's brief gives these to the main build's launch too.
-          APP_ARGS=(--folder-uri file:///tmp/exploratory-workspace --log debug --no-sandbox
-            --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader
-            --disable-gpu-compositing --password-store=basic)
-          echo "APP_ARGS=${APP_ARGS[*]}" >> "$GITHUB_ENV"
-          for attempt in 1 2 3; do
-            # The harness copy, not the PR's: a PR's own launch.sh may predate
-            # secret stripping. The key is the one deliberate exception, and the
-            # run-dir scan still gates the uploads.
-            if LAUNCH_JSON=$(.harness/.claude/skills/drive-positron/scripts/launch.sh \
-              --repo "$PWD" --pass-env ANTHROPIC_API_KEY \
-              --source-user-data-dir /tmp/positron-seed -- "${APP_ARGS[@]}"); then
-              break
-            fi
-            if [[ "$attempt" == 3 ]]; then
-              echo "Positron failed to launch after $attempt attempts"; exit 1
-            fi
-            echo "::warning::Positron launch attempt $attempt failed; retrying"
-            # launch.sh leaves a failed instance running. Nothing else in this
-            # container runs the app, so match it by binary path.
-            pkill -KILL -f "$PWD/.build/electron/" || true
-            sleep 2
-          done
-          echo "$LAUNCH_JSON"
-          CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)
-          test -n "$CDP_PORT" && test "$CDP_PORT" != "null" || {
-            echo "cdpPort missing from launch.sh output"; exit 1;
-          }
-          echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
-
-      # Loaded after the launch, so the app starts signed in to Anthropic only
-      # and the explorer signs in to anything else itself. The same items the
-      # e2e lane uses; the redact step below lists every one of them.
-      - name: Load test credentials
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          OPENAI_KEY: "op://Positron/OpenAI/credential"
-          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
-          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
-          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
-
-      - name: Export database credentials
-        shell: bash
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
-          DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
-        run: |
-          set -euo pipefail
-          for NAME in SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
-            echo "$NAME=${!NAME}" >> "$GITHUB_ENV"
-          done
-
-      - name: Attach Playwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx @playwright/cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
-          npx @playwright/cli -s=positron resize 1600 1100
-          TITLE=$(npx @playwright/cli -s=positron eval '(() => document.title)()')
-          echo "document.title = $TITLE"
-          test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
-          npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
-          test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
-
-      - name: Explore
-        id: explore
-        uses: ./.harness/.github/actions/pr-exploratory-test
-        with:
-          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
-          work-dir: ${{ env.EXPLORE_DIR }}
-          cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ needs.resolve.outputs.ref }}
-          base-sha: ${{ steps.base.outputs.base }}
-          base-ref: ${{ steps.base.outputs.ref }}
-          head-sha: ${{ steps.base.outputs.head }}
-          report-base-url: ${{ env.REPORT_BASE_URL }}
-          model: ${{ matrix.model }}
-          focus: ${{ needs.resolve.outputs.focus }}
-          time-limit: ${{ needs.resolve.outputs.time_limit }}
-          # The PR link in the summary and the report header. No PR, no link.
-          pr-number: ${{ needs.resolve.outputs.pr_number }}
-          known-issues: ${{ steps.known.outputs.file }}
-
-      # The app and the agent both hold these, and everything below is
-      # published: the run directory to a public CDN, the rest as an artifact.
-      # The names come from scan-shots.mjs, as a local publish's do: every
-      # variable ending in KEY, TOKEN, SECRET, PASSWORD or PAT, and the ones it
-      # lists by name. A credential added to this job later needs either a name
-      # like that or a line in its OTHER_NAMES. The Postgres login is a fixed
-      # test value, and redacting "exploratory-test" would mangle the report.
-      - name: Redact secrets from run output
-        if: always()
-        shell: bash
-        run: |
-          # The uploads run even if this step fails, so a file that cannot be
-          # redacted is removed rather than left in place.
-          env -u E2E_POSTGRES_PASSWORD bash .harness/.claude/skills/exploratory-test/renderer/redact.sh --remove \
-            /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace
-
-      # The explorer blurs a key before it takes a screenshot. This reads each
-      # one, paints over any secret still showing, and removes a shot it cannot
-      # clean, as a text file that cannot be redacted is. The Postgres login
-      # is a fixed test value the connection form shows on purpose, so it is
-      # left out. A scan that cannot run removes every screenshot rather than
-      # publish ones nobody checked.
-      - name: Paint secrets out of screenshots
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          RENDERER=.harness/.claude/skills/exploratory-test/renderer
-          # Explore installs these; a job that failed before it did has not.
-          [ -d "$RENDERER/node_modules/tesseract.js" ] || npm --prefix "$RENDERER" ci --no-audit --no-fund
-          for DIR in /tmp/exploratory-run /tmp/exploratory-workspace; do
-            [ -d "$DIR" ] || continue
-            if ! env -u E2E_POSTGRES_PASSWORD node "$RENDERER/scan-shots.mjs" "$DIR" --remove; then
-              echo "::warning::The screenshot scan did not run on $DIR; removing every screenshot in it."
-              find "$DIR" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -delete
-            fi
-          done
-
-      # Copies exactly what the artifact will hold into /tmp/exploratory-upload,
-      # with the upload's own exclusions (hidden entries, the run's tmp/, and
-      # the workspace's dependency dirs), then scans that copy. The artifact is
-      # taken from the same copy, so what is scanned is what is uploaded. Runs
-      # after the redaction above. The scan reads this job's environment, so it
-      # needs the credentials still loaded. The Postgres login is a fixed test
-      # value the report shows on purpose. The scripts come from the harness
-      # checkout; tsx and yauzl resolve from the PR's node_modules.
-      - name: Stage and scan the upload set
-        id: secret-scan
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          STAGE=/tmp/exploratory-upload
-          rm -rf "$STAGE"
-          mkdir -p "$STAGE"
-          cd /tmp
-          # GNU tar exits 1 when a file changes while it is read (a process the agent left running);
-          # that copy is still usable, so only fail on worse.
-          copy_tree() {
-            local status
-            set +e
-            tar -cf - "$@" | tar -xf - -C "$STAGE"
-            status=("${PIPESTATUS[@]}")
-            set -e
-            [ "${status[0]}" -le 1 ] && [ "${status[1]}" -eq 0 ]
-          }
-          if [ -d exploratory-run ]; then
-            copy_tree --exclude='.*' --exclude='exploratory-run/tmp' exploratory-run
-          fi
-          if [ -d exploratory-workspace ]; then
-            copy_tree --exclude='.*' --exclude='node_modules' --exclude='__pycache__' --exclude='renv/library' \
-              exploratory-workspace
-          fi
-          for F in positron-dev-launch/*/code.log positron-dev-launch/instances.log; do
-            [ -f "$F" ] || continue
-            mkdir -p "$STAGE/$(dirname "$F")"
-            cp "$F" "$STAGE/$F"
-          done
-          cd "$GITHUB_WORKSPACE"
-          npx tsx .harness/test/e2e/scripts/scan-for-secrets.ts "$STAGE"
-
-      - name: Upload run directory
-        if: always() && steps.secret-scan.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: exploratory-run-${{ matrix.model }}
-          # The staged copy of the run directory, the launch logs and the
-          # workspace as the run left it (a fallback for a test file the agent
-          # did not save to files/; artifact only, not the published page).
-          # Hidden entries, the run's tmp/ and the workspace's dependency dirs
-          # were left out when it was staged and scanned.
-          path: /tmp/exploratory-upload
-          if-no-files-found: warn
-          retention-days: 3
-
-  # Uploads each model's run directory to the public CDN. A job of its own so
-  # the AWS role, and the id-token that assumes it, never share a runner with
-  # the PR's code or the agent. It reads only the artifact explore left, which
-  # was redacted before upload.
-  publish:
-    name: publish (${{ matrix.model }})
-    needs: [resolve, explore]
-    if: always() && needs.explore.result != 'skipped'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    outputs:
-      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.url.outputs.report_base_url || '' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Mirrors explore's matrix; keep the two in step.
-        model: ${{ needs.resolve.outputs.model == 'both' && fromJSON('["opus","sonnet"]')
-          || needs.resolve.outputs.model == 'sonnet' && fromJSON('["sonnet"]')
-          || fromJSON('["opus"]') }}
-    steps:
-      - name: Check out the harness
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          path: .harness
-          sparse-checkout: |
-            .github/actions
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-
-      - name: Download run directory
-        id: download
+      # A missing file means that model failed, so the download never stops the job.
+      - name: Download the result files
+        if: always() && steps.dispatch.outputs.run_id != ''
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-${{ matrix.model }}
-          path: /tmp/run-artifact
+          repository: posit-dev/positron-builds
+          run-id: ${{ steps.dispatch.outputs.run_id }}
+          github-token: ${{ steps.final-token.outputs.token }}
+          pattern: explore-result-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/explore-results
 
-      # The same inputs as explore's, so the same directory the report and
-      # step summary already link to.
-      - name: Allocate report dir
-        uses: ./.harness/.github/actions/gen-report-dir
-        with:
-          prefix: exploratory-report
-          identifier: ${{ matrix.model }}
-          arch: x64
-          skip-summary: "true"
-
-      - name: Record report URL
-        id: url
-        shell: bash
-        run: echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
-
-      # The artifact nests the run dir when code.log or the workspace was
-      # uploaded too, and puts it at the root when neither was.
-      - name: Stage publishable run directory
-        if: steps.download.outcome == 'success'
-        shell: bash
-        run: |
-          set -euo pipefail
-          SRC=/tmp/run-artifact
-          [ -d "$SRC/exploratory-run" ] && SRC="$SRC/exploratory-run"
-          rm -rf /tmp/exploratory-publish
-          mkdir -p /tmp/exploratory-publish
-          cp -a "$SRC/." /tmp/exploratory-publish/
-          rm -f /tmp/exploratory-publish/actions.log /tmp/exploratory-publish/instances.jsonl
-          # The raw log tree stays in the artifact: the page lists it unlinked,
-          # and the curated files beside it are what a reader opens.
-          rm -rf /tmp/exploratory-publish/logs/all
-          # Scratch, never part of the report; older artifacts still carry it.
-          rm -rf /tmp/exploratory-publish/tmp
-
-      - name: Upload run directory to S3
-        id: s3-upload
-        if: steps.download.outcome == 'success'
+      - name: Download the report URL files
+        if: always() && steps.dispatch.outputs.run_id != ''
         continue-on-error: true
-        uses: ./.harness/.github/actions/upload-report-to-s3
+        uses: actions/download-artifact@v7
         with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          source-dir: /tmp/exploratory-publish
+          repository: posit-dev/positron-builds
+          run-id: ${{ steps.dispatch.outputs.run_id }}
+          github-token: ${{ steps.final-token.outputs.token }}
+          pattern: explore-report-url-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/explore-results
 
-      - name: Warn if S3 upload failed
-        if: always() && steps.s3-upload.outcome != 'success'
-        shell: bash
+      - name: Collect the results
+        id: collect
+        if: always()
+        env:
+          RESULT_DIR: ${{ runner.temp }}/explore-results
+          JOBS_FILE: ${{ runner.temp }}/builds-jobs.json
+          MODEL: ${{ needs.resolve.outputs.model }}
+          RUN_CONCLUSION: ${{ job.status == 'cancelled' && 'cancelled' || steps.run.outputs.conclusion }}
+          TIMED_OUT: ${{ steps.run.outputs.timed_out }}
+          BUILDS_RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          BUILDS_RUN_ATTEMPT: ${{ steps.run.outputs.attempt }}
+        run: node .harness/.github/actions/pr-exploratory-test/dispatch-result.ts
+
+      - name: Delete the run branch
+        if: always() && steps.cut.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.final-token.outputs.token }}
         run: |
-          set -euo pipefail
-          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
+          gh api -X DELETE "repos/posit-dev/positron-builds/git/refs/heads/$LANE" > /dev/null \
+            || echo "::warning::Could not delete $LANE; the next run's sweep removes it."
+
+      - name: Report the explore run
+        if: always() && steps.dispatch.outputs.run_id != ''
+        env:
+          CONCLUSION: ${{ steps.run.outputs.conclusion }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::The explore run ended ${CONCLUSION:-unfinished}: $url"
+            exit 1
+          fi
+          echo "The explore run passed: $url"
 
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as announce. always(): a failed build must still replace
@@ -1218,7 +950,7 @@ jobs:
   # A /explore's result, or an auto-run's once ack-auto has said it is running.
   report:
     name: report
-    needs: [resolve, worthiness, announce, ack-auto, explore, publish]
+    needs: [resolve, worthiness, announce, ack-auto, dispatch]
     if: >-
       ${{ always() && needs.resolve.outputs.ok == 'true' &&
       (github.event_name == 'issue_comment' || (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
@@ -1241,12 +973,64 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # The comment covers one model: opus, or sonnet when it ran alone. A
+      # dispatch that wrote no results counts as failed. The comment names the
+      # failed step only for an empty outcome, so failed is passed as empty.
+      - name: Read the dispatch result
+        id: result
+        env:
+          DECLINED: ${{ needs.worthiness.outputs.testable == 'false' }}
+          MODEL: ${{ needs.resolve.outputs.model == 'sonnet' && 'sonnet' || 'opus' }}
+          RESULTS: ${{ needs.dispatch.outputs.results }}
+          SCAN_URLS: ${{ needs.dispatch.outputs.scan_urls }}
+        run: |
+          set -uo pipefail
+          state=failed
+          report_url=""
+          scan_url=""
+          if [ "$DECLINED" = "true" ]; then
+            state=declined
+          elif [ -n "$RESULTS" ]; then
+            state=$(jq -r --arg m "$MODEL" '.[$m].state // "failed"' <<<"$RESULTS" 2>/dev/null) || state=failed
+            report_url=$(jq -r --arg m "$MODEL" '.[$m].reportUrl // ""' <<<"$RESULTS" 2>/dev/null) || report_url=""
+            if [ -n "$SCAN_URLS" ]; then
+              scan_url=$(jq -r --arg m "$MODEL" '.[$m] // ""' <<<"$SCAN_URLS" 2>/dev/null) || scan_url=""
+            fi
+          fi
+          [[ "$state" =~ ^[a-z-]+$ ]] || state=failed
+          [[ "$report_url" =~ ^https://[^[:space:]]+$ ]] || report_url=""
+          [[ "$scan_url" =~ ^https://[^[:space:]]+$ ]] || scan_url=""
+          {
+            echo "model=$MODEL"
+            echo "state=$state"
+            echo "outcome=$([ "$state" = failed ] || echo "$state")"
+            echo "report_url=$report_url"
+            echo "scan_url=$scan_url"
+          } >> "$GITHUB_OUTPUT"
+          echo "Outcome for $MODEL: $state"
+
+      - name: Mint a token to read positron-builds
+        id: builds-token
+        if: needs.dispatch.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
       - name: Download run directory
+        if: steps.builds-token.outcome == 'success'
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-${{ needs.resolve.outputs.model == 'sonnet' && 'sonnet' || 'opus' }}
+          name: exploratory-run-${{ steps.result.outputs.model }}
           path: /tmp/run-artifact
+          repository: posit-dev/positron-builds
+          run-id: ${{ needs.dispatch.outputs.run_id }}
+          github-token: ${{ steps.builds-token.outputs.token }}
 
       # The artifact root is the common parent of what matched, so the run dir
       # is nested when code.log or the workspace was uploaded too and at the
@@ -1260,7 +1044,7 @@ jobs:
           fi
 
       # Links only when the upload succeeded, so the comment never points at a
-      # CDN page that 404s; the run link still reaches the artifact.
+      # report page that 404s; the run link still reaches the artifact.
       - name: Post result comment
         continue-on-error: true
         uses: ./.harness/.github/actions/pr-exploratory-test
@@ -1271,25 +1055,28 @@ jobs:
           auto-run: ${{ inputs.auto_run_pr != '' }}
           # Empty when announce could not post; comment mode then posts a new one.
           comment-id: ${{ needs.announce.outputs.comment_id || needs.ack-auto.outputs.comment_id }}
-          # A declined run never reaches explore, and an outdated branch stops
-          # before the build; say which rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
-          decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
+          outcome: ${{ steps.result.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
-          report-base-url: ${{ needs.publish.outputs.report_base_url }}
+          report-base-url: ${{ steps.result.outputs.report_url }}
+          builds-run-id: ${{ needs.dispatch.outputs.run_id }}
+          builds-run-attempt: ${{ needs.dispatch.outputs.run_attempt || '1' }}
+          builds-token: ${{ steps.builds-token.outputs.token }}
+          scan-url: ${{ steps.result.outputs.scan_url }}
           pr-number: ${{ needs.resolve.outputs.pr_number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.resolve.outputs.sha }}
 
       # rocket only when the agent finished on its own, +1 when the gate
-      # declined. A partial run (turn cap) and a hard failure both get confused.
+      # declined. A partial run (turn cap), a job timeout, a failed scan and a
+      # hard failure all get confused.
       - name: Finalize reaction
         if: needs.announce.outputs.reaction_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.announce.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ steps.result.outputs.state }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
