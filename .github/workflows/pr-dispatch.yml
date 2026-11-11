@@ -87,12 +87,12 @@ jobs:
           echo "Tests are running at $url"
           echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      # The poll and finalize scripts come from main, never from the PR. Node
+      # The poll and finalize scripts come from the base branch commit this workflow runs at, never from the PR. Node
       # comes from .nvmrc because the runner's default may lack type stripping.
-      - name: Check out the test status scripts from main
+      - name: Check out the test status scripts from the base branch
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
             /.github/actions/pr-test-status
@@ -127,7 +127,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pr-test-status"
           export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
-          node .github/actions/pr-test-status/poll.ts
+          node .github/actions/pr-test-status/poll.ts || echo "code=1" >> "$GITHUB_OUTPUT"
           # poll.ts writes the code output itself.
 
       - name: Mint a second token
@@ -153,7 +153,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pr-test-status"
           export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
-          node .github/actions/pr-test-status/poll.ts
+          node .github/actions/pr-test-status/poll.ts || echo "code=1" >> "$GITHUB_OUTPUT"
 
       # Everything below is best effort: it never changes the required-tests result.
       - name: Mint a token to download results
