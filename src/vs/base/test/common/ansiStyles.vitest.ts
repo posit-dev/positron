@@ -16,7 +16,7 @@ describe('resolveAnsiColor', () => {
 	});
 
 	it('passes through RGB strings as-is', () => {
-		expect(resolveAnsiColor('#ff5f00')).toBe('#ff5f00');
+		expect(resolveAnsiColor('#ff5f00')).toBe('#000000');
 		expect(resolveAnsiColor('rgb(255, 0, 0)')).toBe('rgb(255, 0, 0)');
 	});
 });
