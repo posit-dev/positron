@@ -87,8 +87,9 @@ jobs:
           echo "Tests are running at $url"
           echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      # The poll and finalize scripts come from the base branch commit this workflow runs at, never from the PR. Node
-      # comes from .nvmrc because the runner's default may lack type stripping.
+      # The poll and finalize scripts come from the base branch commit this
+      # workflow runs at, never from the PR. Node comes from .nvmrc because the
+      # runner's default may lack type stripping.
       - name: Check out the test status scripts from the base branch
         uses: actions/checkout@v7
         with:
