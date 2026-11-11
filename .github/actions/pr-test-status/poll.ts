@@ -95,11 +95,24 @@ export function loadState(file: string): State {
 	}
 }
 
+/** Writes the state file. */
 export function saveState(file: string, state: State): void {
 	writeFileSync(file, JSON.stringify(state));
 }
 
-/** Binds the tokens and run details from the environment. */
+/** Reads DEADLINE_SECONDS: a finite number above zero, or an error. */
+export function parseDeadline(raw: string | undefined): number {
+	const n = Number(raw ?? '3300');
+	if (!Number.isFinite(n) || n <= 0) {
+		throw new Error('DEADLINE_SECONDS must be a number above zero');
+	}
+	return n;
+}
+
+/**
+ * Binds the tokens and run details from the environment. CHECKS_TOKEN is
+ * optional: without it, check writes are skipped so tests never depend on it.
+ */
 export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 	const need = (k: string): string => {
 		const v = env[k];
@@ -109,40 +122,73 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 		return v;
 	};
 	const builds = need('BUILDS_TOKEN');
-	const checks = need('CHECKS_TOKEN');
+	const checks = env.CHECKS_TOKEN;
 	const runId = need('RUN_ID');
+	if (!/^\d+$/.test(runId)) {
+		throw new Error('RUN_ID must be all digits');
+	}
+	let warned = false;
+	const skip = (): void => {
+		if (!warned) {
+			warned = true;
+			console.log('CHECKS_TOKEN is not set: skipping check writes');
+		}
+	};
 	return {
 		runId,
 		headSha: need('HEAD_SHA'),
 		runUrl: `https://github.com/posit-dev/positron-builds/actions/runs/${runId}`,
 		listJobs: id => listJobs(builds, id),
 		getRun: id => getRun(builds, id),
-		createCheck: (sha, name, out) => createCheck(checks, sha, name, out),
-		updateCheck: (id, out) => updateCheck(checks, id, out),
+		createCheck: async (sha, name, out) => {
+			if (!checks) {
+				skip();
+				return 0;
+			}
+			return createCheck(checks, sha, name, out);
+		},
+		updateCheck: async (id, out) => {
+			if (!checks) {
+				skip();
+				return;
+			}
+			await updateCheck(checks, id, out);
+		},
 	};
 }
 
-async function main(): Promise<void> {
-	const deps = depsFromEnv(process.env);
-	const stateFile = process.env.STATE_FILE ?? 'pr-test-status-state.json';
-	const deadline = Date.now() + Number(process.env.DEADLINE_SECONDS ?? '3300') * 1000;
-	const state = loadState(stateFile);
-	let code = 124;
-	while (true) {
-		const res = await pollOnce(deps, state);
-		saveState(stateFile, state);
-		if (res.done) {
-			code = res.conclusion === 'success' ? 0 : 1;
-			break;
-		}
-		if (Date.now() >= deadline) {
-			break;
-		}
-		await new Promise(r => setTimeout(r, Math.min(POLL_SECONDS * 1000, Math.max(0, deadline - Date.now()))));
-	}
+function writeCode(code: number): void {
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `code=${code}\n`);
 	}
+}
+
+async function main(): Promise<void> {
+	// Any crash counts as a failed read of the run: code 1.
+	let code = 1;
+	try {
+		const deps = depsFromEnv(process.env);
+		const stateFile = process.env.STATE_FILE ?? 'pr-test-status-state.json';
+		const deadline = Date.now() + parseDeadline(process.env.DEADLINE_SECONDS) * 1000;
+		const state = loadState(stateFile);
+		code = 124;
+		while (true) {
+			const res = await pollOnce(deps, state);
+			saveState(stateFile, state);
+			if (res.done) {
+				code = res.conclusion === 'success' ? 0 : 1;
+				break;
+			}
+			if (Date.now() >= deadline) {
+				break;
+			}
+			await new Promise(r => setTimeout(r, Math.min(POLL_SECONDS * 1000, Math.max(0, deadline - Date.now()))));
+		}
+	} catch (e) {
+		code = 1;
+		console.log(`Polling stopped: ${(e as Error).message}`);
+	}
+	writeCode(code);
 }
 
 if (import.meta.main) {
