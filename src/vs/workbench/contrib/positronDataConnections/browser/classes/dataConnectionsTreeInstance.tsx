@@ -351,6 +351,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this._register(this._service.onDidRequestRevealConnection(revealRequested));
 		revealRequested();
 
+		// A connection whose contents changed (an R session reports one after DBI::dbWriteTable, say)
+		// re-fetches what is loaded for it. reload keeps an expanded row's expansion and drops a
+		// collapsed row's children, so its next expand fetches fresh rather than asking a possibly
+		// busy session now. A collapsed runtime row stays connected and keeps its subtree, so this is
+		// what keeps that subtree from going stale. A row with nothing loaded has nothing to refresh.
+		this._register(this._service.onDidRequestRefresh(profileId => {
+			const id = entryNodeId(profileId);
+			if (this.hasLoadedChildren(id)) {
+				void this.reload(id);
+			}
+		}));
+
 		// Track both indent settings live -- the workbench one matters even while this view's own is
 		// set, since clearing the latter back to 0 has to fall through to it. Indent takes effect
 		// without a reload everywhere else in the workbench, and a user dialing it in wants the tree

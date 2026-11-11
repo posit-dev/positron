@@ -27,6 +27,7 @@ import { CustomContextMenuSeparator } from '../../../../browser/positronComponen
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { IDataConnectionDriver, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { isRuntimeDataConnectionDriverId } from '../../../../services/positronConnections/common/runtimeDataConnections.js';
 
 /**
  * DataConnectionEntryRowProps interface.
@@ -76,6 +77,10 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 
 	// Extract the profile from the entry for easy access.
 	const { profile } = entry;
+
+	// Whether the row is a connection an R or Python session opened. Such a row is the session's
+	// own connection object: it has nothing to edit, save, or remove, and no code to connect with.
+	const isRuntime = isRuntimeDataConnectionDriverId(profile.driverMetadata.id);
 
 	/**
 	 * Reports a driver access error to the user.
@@ -190,6 +195,30 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 	const showActionsMenu = (anchorElement: HTMLElement, anchorPoint?: AnchorPoint) => {
 		// Either entry point may be under the actions button's hover, whether a menu or an error follows.
 		hoverManager.hideHover();
+
+		// A runtime row offers only Refresh and, while it is live, Disconnect, which closes the
+		// connection in its session. Once disconnected the row is gone, so there is nothing else.
+		if (isRuntime) {
+			const runtimeEntries: CustomContextMenuEntry[] = [
+				new CustomContextMenuItem({
+					icon: 'refresh',
+					label: localize('positron.dataConnections.refresh', "Refresh"),
+					onSelected: onRefresh,
+				}),
+			];
+			if (entry.instance) {
+				runtimeEntries.push(
+					new CustomContextMenuSeparator(),
+					new CustomContextMenuItem({
+						icon: 'positron-disconnect-connection',
+						label: localize('positron.dataConnections.disconnect', "Disconnect"),
+						onSelected: onDisconnect,
+					}),
+				);
+			}
+			showMenu(anchorElement, runtimeEntries, anchorPoint);
+			return;
+		}
 
 		// Get the driver.
 		const driver = positronDataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
@@ -367,9 +396,16 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 			}));
 		}
 
+		showMenu(anchorElement, entries, anchorPoint);
+	};
+
+	/**
+	 * Shows a menu of the given entries for this row.
+	 */
+	const showMenu = (anchorElement: HTMLElement, entries: CustomContextMenuEntry[], anchorPoint?: AnchorPoint) => {
 		// Announced before the menu shows so the row is already selected and the tree still reads
-		// as focused when the menu paints over it. Acquired here rather than on entry to the
-		// function so the early returns above can't leave a hold outstanding.
+		// as focused when the menu paints over it. Acquired here rather than on entry to
+		// showActionsMenu so its early returns can't leave a hold outstanding.
 		const menuHold = onMenuOpening();
 
 		// Show the menu.
@@ -456,9 +492,10 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 				*/}
 				{(profile.discovered && profile.description) || profile.driverMetadata.name}
 			</div>
-			{profile.discovered && (
+			{profile.discovered && !isRuntime && (
 				// Marks a connection the machine's own configuration provides rather than one the
-				// user saved, so it is clear why it is there and why it offers Save over Remove.
+				// user saved, so it is clear why it is there and why it offers Save over Remove. A
+				// runtime row is not detected from configuration; its description names its session.
 				<div
 					aria-label={discoveredLabel}
 					className='data-connection-entry-discovered'

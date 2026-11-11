@@ -17,8 +17,17 @@ import { DataConnectionNode, DataConnectionsTreeInstance, formatGroupCount, relo
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionRevealOptions, IDataConnectionNodeRevealRequest, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { discoveredProfileId, PositronDataConnectionsService } from '../../../../services/positronDataConnections/browser/positronDataConnectionsService.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { ISecretStorageService } from '../../../../../platform/secrets/common/secrets.js';
+import { TestSecretStorageService } from '../../../../../platform/secrets/test/common/testSecretStorageService.js';
+import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
+import { IExtensionService, NullExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 
 // The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
 const hoverService = stubInterface<IHoverService>({ hideHover: vi.fn() });
@@ -244,6 +253,7 @@ describe('DataConnectionsTreeInstance', () => {
 			// No connection-reveal request is outstanding in these tests; the tree takes one on
 			// construction.
 			onDidRequestRevealConnection: Event.None,
+			onDidRequestRefresh: Event.None,
 			takePendingRevealConnection: () => undefined,
 			onDidRequestReveal: onDidRequestReveal.event,
 			takePendingReveal: () => {
@@ -323,6 +333,7 @@ describe('DataConnectionsTreeInstance', () => {
 			// No reveal request is outstanding in these tests; the tree takes one of each on
 			// construction.
 			onDidRequestRevealConnection: Event.None,
+			onDidRequestRefresh: Event.None,
 			takePendingRevealConnection: () => undefined,
 			onDidRequestReveal: Event.None,
 			takePendingReveal: () => undefined,
@@ -1873,6 +1884,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
 			onDidRequestRevealConnection: onDidRequestRevealConnection.event,
+			onDidRequestRefresh: Event.None,
 			takePendingRevealConnection: () => {
 				const taken = pending;
 				pending = undefined;
@@ -2180,5 +2192,109 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		await revealed.tree.setSize(300, 100);
 
 		await vi.waitFor(() => expect(revealed.tree.verticalScrollOffset).toBeGreaterThan(0));
+	});
+});
+
+// A connection an R session opened, shown by the real Data Connections service: always live, and
+// closed only by an explicit Disconnect.
+describe('DataConnectionsTreeInstance runtime rows', () => {
+	const ctx = createLightTestContainer()
+		.stub(IWorkspaceContextService, { getWorkbenchState: () => WorkbenchState.FOLDER })
+		.stub(IExtensionService, new NullExtensionService())
+		.stub(ILogService, new NullLogService())
+		.stub(IViewsService, { openView: async () => null })
+		.stub(IEditorService, { onDidCloseEditor: Event.None, findEditors: () => [] })
+		.stub(ISecretStorageService, new TestSecretStorageService())
+		.build();
+
+	const PROFILE_ID = discoveredProfileId('runtime-r', 's1:c1');
+	const ENTRY_ID = `entry:${PROFILE_ID}`;
+
+	/**
+	 * Builds the real service with a runtime driver holding one live connection, connects it as the
+	 * bridge does, and builds a tree over the service.
+	 */
+	async function createRuntimeTree() {
+		const storageService = ctx.disposables.add(new TestStorageService());
+		ctx.instantiationService.stub(IStorageService, storageService);
+		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronDataConnectionsService));
+
+		const getChildren = vi.fn(async (): Promise<IDataConnectionNodeDTO[]> => [{
+			nodeHandle: 7, name: 'mtcars', kind: 'table', hasGetChildren: false, hasPreview: true, hasDetails: false,
+		}]);
+		const handle = stubInterface<IDataConnectionHandle>({
+			handle: -1,
+			getChildren,
+			disconnect: vi.fn(async () => { }),
+			release: vi.fn(),
+			releaseNodes: vi.fn(),
+			isConnected: async () => true,
+		});
+		service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+			id: 'runtime-r',
+			metadata: {
+				id: 'runtime-r',
+				name: 'R Session',
+				description: '',
+				iconSvg: '',
+				supportedLanguageIds: [],
+				mechanisms: [{ id: 'live', label: 'Live', description: '', parameters: [] }],
+			},
+			discoverConnections: async () => [{
+				id: 's1:c1', name: 'mtcars.sqlite', description: 'R 4.5.1', mechanismId: 'live', parameterValues: { connectionId: 's1:c1' },
+			}],
+			connect: async () => handle,
+		}));
+		await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(profile => profile.id)).toEqual([PROFILE_ID]));
+		await service.connect(PROFILE_ID);
+
+		const tree = ctx.disposables.add(new DataConnectionsTreeInstance(
+			service,
+			new TestConfigurationService({ 'workbench.tree.indent': 16, 'dataConnections.tree.indent': 0 }),
+			stubInterface<INotificationService>({ error: vi.fn() }),
+			hoverService,
+			stubInterface<IEditorService>(),
+		));
+		await tree.refresh();
+		return { service, tree, handle, getChildren };
+	}
+
+	it('reloads a loaded runtime row on a refresh request', async () => {
+		const { service, tree, getChildren } = await createRuntimeTree();
+		await tree.expand(ENTRY_ID);
+		expect(getChildren).toHaveBeenCalledTimes(1);
+
+		service.requestRefresh(PROFILE_ID);
+
+		await vi.waitFor(() => expect(getChildren).toHaveBeenCalledTimes(2));
+		expect(tree.isExpanded(ENTRY_ID)).toBe(true);
+	});
+
+	// A collapsed runtime row stays connected and keeps its subtree, so without this the subtree
+	// would stay stale until the session ends.
+	it('a refresh request drops a collapsed runtime row\'s children', async () => {
+		const { service, tree, getChildren } = await createRuntimeTree();
+		await tree.expand(ENTRY_ID);
+		tree.collapse(ENTRY_ID);
+
+		service.requestRefresh(PROFILE_ID);
+		await new Promise(resolve => setTimeout(resolve, 0));
+		expect(getChildren).toHaveBeenCalledTimes(1);
+
+		await tree.expand(ENTRY_ID);
+		expect(getChildren).toHaveBeenCalledTimes(2);
+	});
+
+	it('collapsing a runtime row keeps it connected', async () => {
+		const { service, tree, handle } = await createRuntimeTree();
+		await tree.expand(ENTRY_ID);
+
+		tree.collapse(ENTRY_ID);
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		expect({
+			connected: service.getInstanceForProfile(PROFILE_ID) !== undefined,
+			disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+		}).toEqual({ connected: true, disconnects: 0 });
 	});
 });

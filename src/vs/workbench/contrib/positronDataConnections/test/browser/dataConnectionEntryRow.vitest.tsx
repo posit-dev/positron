@@ -68,6 +68,18 @@ const savedDiscoveredProfile: IDataConnectionProfile = {
 	discovered: undefined,
 };
 
+// A connection an R session opened: discovered by the in-core runtime driver, already live in
+// the session, and labelled with the session it belongs to.
+const runtimeProfile: IDataConnectionProfile = {
+	...profile,
+	id: 'discovered:runtime-r:s1:c1',
+	driverMetadata: { ...profile.driverMetadata, id: 'runtime-r', name: 'R Session' },
+	connectionName: 'mtcars.sqlite',
+	mechanismId: 'live',
+	description: 'R 4.5.1 - localhost',
+	discovered: true,
+};
+
 // The badge's aria-label, which is also its tooltip; the visible text is just "Detected".
 const DISCOVERED_LABEL = 'Detected from this computer\'s configuration. Save it to keep and edit it.';
 
@@ -176,6 +188,25 @@ describe('DataConnectionEntryRow', () => {
 		rtl.render(<DataConnectionEntryRow entry={{ profile }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
 
 		expect(screen.queryByLabelText(DISCOVERED_LABEL)).not.toBeInTheDocument();
+	});
+
+	// The row is the session's connection object: it cannot be edited, saved, removed, or opened
+	// from other languages, and it is gone once it disconnects.
+	it('runtime row offers only Refresh and Disconnect', async () => {
+		const { labels } = await rightClickRow({ rowProfile: runtimeProfile });
+
+		expect(labels).toEqual(['Refresh', '---', 'Disconnect']);
+	});
+
+	it('runtime row shows no Detected badge', () => {
+		const instance = stubInterface<IDataConnectionInstance>({ id: 'instance-1', profileId: runtimeProfile.id });
+
+		rtl.render(<DataConnectionEntryRow entry={{ profile: runtimeProfile, instance }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+
+		expect(screen.queryByText('Detected')).not.toBeInTheDocument();
+		expect(screen.queryByLabelText(DISCOVERED_LABEL)).not.toBeInTheDocument();
+		// The session name and host still say which session the connection belongs to.
+		expect(screen.getByText('R 4.5.1 - localhost', { exact: false })).toBeInTheDocument();
 	});
 
 	it('hides the actions hover when a right-click opens the menu', async () => {
