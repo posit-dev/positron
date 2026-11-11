@@ -88,11 +88,10 @@ export function AttachLogsToReportFixture() {
 		await use();
 
 		if (!suiteId) { return; }
-
-		// CI leaves attachments off and uploads test-logs as they are, so scrub either way.
-		await scrubDirectory(logsPath, secretValues(process.env));
-
 		if (!isArtifactEnabled('E2E_ATTACH_LOGS')) { return; }
+
+		// The attachment is zipped now, before the worker-level scrub in the app fixture.
+		await scrubDirectory(logsPath, secretValues(process.env));
 
 		// For e2e-workbench, pull logs from Docker container
 		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
@@ -255,9 +254,7 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 			return;
 		}
 
-		const secrets = secretValues(process.env);
-		await scrubDirectory(tempLogsDir, secrets);
-		await scrubDirectory(logsPath, secrets);
+		await scrubDirectory(tempLogsDir, secretValues(process.env));
 
 		// Create zip archive from both Docker logs and local test logs
 		const output = fs.createWriteStream(zipPath);

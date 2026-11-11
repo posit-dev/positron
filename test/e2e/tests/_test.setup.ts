@@ -22,6 +22,8 @@ import {
 } from '../fixtures/test-setup';
 import { defaultWorkspacePath } from '../infra/test-runner';
 import { isArtifactEnabled } from '../infra/artifactSwitches.js';
+import { secretValues } from '../infra/appEnv.js';
+import { scrubDirectory } from '../infra/secretScrub.js';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -229,6 +231,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			// hang case, which is exactly when afterAll needs to export the trace.
 			activeApp = undefined;
 			await stop();
+			// Shutdown logs land after the last test's attach, and CI uploads this dir as is.
+			await scrubDirectory(logsPath, secretValues(process.env));
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 		// Workbench projects sign in through Okta inside start(). That auth shares one TOTP

@@ -81,7 +81,13 @@ export async function scrubDirectory(dir: string, secrets: SecretValue[]): Promi
 		if (entry.isDirectory()) {
 			total += await scrubDirectory(full, secrets);
 		} else if (entry.isFile()) {
-			const { data, replaced } = scrubBuffer(await fs.readFile(full), secrets);
+			let content: Buffer;
+			try {
+				content = await fs.readFile(full);
+			} catch {
+				continue;
+			}
+			const { data, replaced } = scrubBuffer(content, secrets);
 			if (replaced > 0) {
 				await fs.writeFile(full, data);
 				total += replaced;

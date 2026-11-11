@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { mkdtempSync, mkdirSync, promises, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { encodedForms, scrubBuffer, scrubDirectory } from './secretScrub';
 
 const SECRET = 'fake"va/lu+e-123456';
@@ -76,6 +76,22 @@ describe('secretScrub', () => {
 			expect(readFileSync(join(dir, 'a', 'b', 'log.txt'), 'utf8')).toBe('token=***\n');
 			expect(readFileSync(join(dir, 'clean.txt'), 'utf8')).toBe('nothing here');
 		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('scrubDirectory skips a file that disappears mid-scrub', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'scrub-'));
+		const readFile = promises.readFile;
+		const spy = vi.spyOn(promises, 'readFile').mockImplementation((file, ...rest) =>
+			String(file).endsWith('gone.txt') ? Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })) : readFile(file, ...rest));
+		try {
+			writeFileSync(join(dir, 'gone.txt'), `token=${SECRET}`);
+			writeFileSync(join(dir, 'log.txt'), `token=${SECRET}`);
+			expect(await scrubDirectory(dir, secrets)).toBe(1);
+			expect(readFileSync(join(dir, 'log.txt'), 'utf8')).toBe('token=***');
+		} finally {
+			spy.mockRestore();
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
