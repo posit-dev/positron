@@ -19,7 +19,7 @@ import { INativeHostService } from '../../../../platform/native/common/native.js
 import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { dedicatedWindowOptions, prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';
@@ -27,7 +27,6 @@ import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { dedicatedWindowOptions } from '../../positronEditorActions/browser/positronDedicatedWindow.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { mergeCanvasGroupIntoIde } from '../browser/positronCanvasRestore.js';
 import { CANVAS_EXIT_COMMAND_ID, CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE, CanvasEntryOutcome, PositronCanvasModeActiveContext } from '../common/positronCanvasMode.js';

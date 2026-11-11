@@ -3,12 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ModifierKeyEmitter } from '../../../../../../base/browser/dom.js';
 import { IAction } from '../../../../../../base/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
+import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { CommandCenter } from '../../../../../../platform/commandCenter/common/commandCenter.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
@@ -176,5 +180,48 @@ describe('EditorActionBarFactory split-button dedup', () => {
 			  },
 			]
 		`);
+	});
+});
+
+describe('EditorActionBarFactory "Move into new window" button', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	afterEach(() => ModifierKeyEmitter.disposeInstance());
+
+	it('moves the active editor of its own group, not the active group', async () => {
+		// Action bar buttons don't take focus, so in a split the active group can be a different
+		// one. The button has to tell the command which group it belongs to.
+		// The button stays disabled unless its command is known.
+		CommandCenter.addCommandInfo({ id: 'workbench.action.moveEditorToNewWindow', title: 'Move Editor into New Window' });
+		const editor = ctx.disposables.add(new TestEditorInput(URI.file('/workspace/b.R'), 'test.R'));
+		const menuService = stubInterface<IMenuService>({
+			createMenu: () => stubInterface<IMenu>({
+				onDidChange: Event.None,
+				getActions: () => [],
+				dispose: () => { },
+			}),
+		});
+		const group = stubInterface<IEditorGroupView>({
+			id: 7,
+			activeEditor: editor,
+			activeEditorPane: undefined,
+			getIndexOfEditor: candidate => candidate === editor ? 2 : -1,
+			scopedContextKeyService: ctx.get(IContextKeyService),
+			onDidActiveEditorChange: Event.None,
+		});
+		const factory = ctx.disposables.add(new EditorActionBarFactory(
+			group, ctx.get(IContextKeyService), ctx.get(IKeybindingService), menuService,
+		));
+		const executeCommand = vi.spyOn(ctx.get(ICommandService), 'executeCommand').mockResolvedValue(undefined);
+		rtl.render(
+			<PositronActionBarContextProvider>
+				{factory.create()}
+			</PositronActionBarContextProvider>
+		);
+
+		await userEvent.click(screen.getByRole('button', { name: 'Move into new window' }));
+
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.moveEditorToNewWindow', { groupId: 7, editorIndex: 2 });
 	});
 });

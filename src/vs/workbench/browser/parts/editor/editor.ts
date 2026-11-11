@@ -21,6 +21,9 @@ import { BooleanVerifier, EnumVerifier, NumberVerifier, ObjectVerifier, SetVerif
 import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { ContextKeyValue, IContextKey, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { coalesce } from '../../../../base/common/arrays.js';
+// --- Start Positron ---
+import { ASSISTANT_WEBVIEW_VIEW_TYPE } from '../../../common/positronAssistantIdentity.js';
+// --- End Positron ---
 
 export interface IEditorPartCreationOptions {
 	readonly restorePreviousState: boolean;
@@ -400,15 +403,36 @@ export function prepareMoveCopyEditors(sourceGroup: IEditorGroup, editors: Edito
 
 // --- Start Positron ---
 /**
- * Determines auxiliary window options for editors being moved to a new window.
- * Returns compact mode options for plot editors.
+ * The single definition of the "dedicated window" look: native OS title bar,
+ * compact chrome, sized to (and opening over) the window the editor leaves.
+ * `extraTraits` may add traits but never replace the shape -- the dedicated
+ * look wins.
  */
-export function getAuxiliaryWindowOptionsForEditors(editors: readonly EditorInput[]): IAuxiliaryWindowOpenOptions | undefined {
-	const hasPlotEditor = editors.some(editor => editor.typeId === 'workbench.input.positronPlots');
-	return hasPlotEditor ? {
+export function dedicatedWindowOptions(sourceWindow: Window, extraTraits?: IAuxiliaryWindowOpenOptions): IAuxiliaryWindowOpenOptions {
+	return {
+		...extraTraits,
 		compact: true,
-		bounds: { width: 900, height: 700 }
-	} : undefined;
+		nativeTitlebar: true,
+		bounds: { width: sourceWindow.outerWidth, height: sourceWindow.outerHeight }
+	};
+}
+
+/**
+ * Determines auxiliary window options for editors being moved to a new window.
+ * Plot editors get a small compact window; Posit Assistant chat tabs get the dedicated window.
+ */
+export function getAuxiliaryWindowOptionsForEditors(editors: readonly EditorInput[], sourceWindow: Window): IAuxiliaryWindowOpenOptions | undefined {
+	if (editors.some(editor => editor.typeId === 'workbench.input.positronPlots')) {
+		return {
+			compact: true,
+			bounds: { width: 900, height: 700 }
+		};
+	}
+	// Webview tabs report `mainThreadWebview-<view type>` as their editor id.
+	if (editors.some(editor => editor.editorId === `mainThreadWebview-${ASSISTANT_WEBVIEW_VIEW_TYPE}`)) {
+		return dedicatedWindowOptions(sourceWindow);
+	}
+	return undefined;
 }
 // --- End Positron ---
 
