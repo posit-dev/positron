@@ -149,6 +149,17 @@ test('a failed lane still shows failure while the run is going', async () => {
 	assert.strictEqual(f.created[0].out.conclusion, 'failure');
 });
 
+test('a failed lane is not reopened when a later job of the lane starts', async () => {
+	const f = fake([
+		{ jobs: [job('e2e / e2e-electron-ubuntu-1', 'completed', 'failure')], run: running },
+		{ jobs: [job('e2e / e2e-electron-ubuntu-1', 'completed', 'failure'), job('e2e / e2e-electron-ubuntu-scan-1', 'in_progress')], run: running },
+	]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	await pollOnce(f.deps, state);
+	assert.deepStrictEqual([f.created.map(c => c.out.status), f.updated.length], [['completed'], 0]);
+});
+
 test('unexpanded template job names never create a check', async () => {
 	const f = fake([{
 		jobs: [

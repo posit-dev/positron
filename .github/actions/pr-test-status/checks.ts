@@ -34,6 +34,10 @@ export async function publish(deps: Deps, state: State, lane: string, out: Check
 	if (known && JSON.stringify(known.out) === JSON.stringify(out)) {
 		return;
 	}
+	// Never reopen a closed check: a failed lane can gain jobs (scan, merge) that start later.
+	if (known?.closed && out.status === 'in_progress') {
+		return;
+	}
 	try {
 		const id = known ? known.id : await deps.createCheck(deps.headSha, lane, out);
 		if (known) {

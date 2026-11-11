@@ -77,12 +77,7 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 	// Second pass retries any write that failed.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const lane of lanes) {
-			const out = renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null);
-			// Never reopen a check that is already closed.
-			if (out.status === 'in_progress' && state.checks[lane.name]?.closed) {
-				continue;
-			}
-			await publish(deps, state, lane.name, out);
+			await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null));
 		}
 	}
 	await closeOpen(deps, state, 'unreadable');
