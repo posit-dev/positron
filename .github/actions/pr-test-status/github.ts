@@ -5,6 +5,7 @@
 
 import type { Job } from './lanes.ts';
 import type { LaneOutput } from './render.ts';
+import { sanitizeName } from './results.ts';
 
 const API = 'https://api.github.com/repos/posit-dev';
 const BUILDS = `${API}/positron-builds`;
@@ -30,7 +31,7 @@ async function call(token: string, method: string, url: string, body?: unknown):
 }
 
 /** A commit status has four states: anything that ended without passing or failing is `error`. */
-function statusState(out: LaneOutput): 'pending' | 'success' | 'failure' | 'error' {
+export function statusState(out: LaneOutput): 'pending' | 'success' | 'failure' | 'error' {
 	if (out.status === 'in_progress') {
 		return 'pending';
 	}
@@ -61,7 +62,7 @@ export async function getRun(token: string, runId: string): Promise<{ status: st
 /** Sets a lane's commit status on a positron commit. Needs STATUS_TOKEN. */
 export async function setStatus(token: string, sha: string, context: string, out: LaneOutput, url: string): Promise<void> {
 	await call(token, 'POST', `${STATUSES}/${sha}`, {
-		context,
+		context: sanitizeName(context),
 		state: statusState(out),
 		// GitHub caps a status description at 140 characters.
 		description: out.title.slice(0, 140),

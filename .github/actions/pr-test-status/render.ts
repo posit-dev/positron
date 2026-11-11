@@ -224,6 +224,9 @@ export function renderRequiredSummary(jobs: Job[], runUrl: string): string {
 		const step = (resolve.steps ?? []).find(s => s.conclusion === 'failure');
 		if (step) {
 			out += `Could not prepare the PR for testing: ${code(step.name)} - [log](${resolve.html_url})\n\n`;
+			if (step.name === 'Wait for the merge commit') {
+				out += 'The PR may have conflicts with its base, or GitHub had not finished preparing its merge commit.\n\n';
+			}
 		}
 	}
 	out += `${runLink(runUrl)}\n\n`;

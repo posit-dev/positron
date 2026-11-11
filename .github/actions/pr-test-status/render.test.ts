@@ -149,6 +149,7 @@ test('renderRequiredSummary resolve failure', () => {
 	const j = job('resolve PR 17', 'failure', { steps: [{ name: 'Checkout', conclusion: 'success' }, { name: 'Wait for the merge commit', conclusion: 'failure' }] });
 	assert.strictEqual(renderRequiredSummary([j], RUN), [
 		`Could not prepare the PR for testing: \`Wait for the merge commit\` - [log](${j.html_url})`, '',
+		'The PR may have conflicts with its base, or GitHub had not finished preparing its merge commit.', '',
 		`[Full run and artifacts](${RUN})`, '',
 		'To re-run the tests, re-run required-tests on this PR. Re-running jobs in positron-builds does not update the PR.', '',
 	].join('\n'));

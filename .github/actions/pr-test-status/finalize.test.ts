@@ -22,7 +22,7 @@ const job = (name: string, conclusion: string | null): Job => ({
 const SUMMARY = 'https://github.com/posit-dev/positron/actions/runs/42';
 type Write = { name: string; out: LaneOutput; url: string };
 
-function fake(jobs: Job[] | Error): { deps: Deps; writes: Write[] } {
+function fake(jobs: Job[] | Error, runStatus = 'completed'): { deps: Deps; writes: Write[] } {
 	const f = { writes: [] as Write[], deps: null as unknown as Deps };
 	f.deps = {
 		runId: '9', headSha: 'abc', runUrl: RUN, summaryUrl: SUMMARY,
@@ -32,7 +32,7 @@ function fake(jobs: Job[] | Error): { deps: Deps; writes: Write[] } {
 			}
 			return jobs;
 		},
-		getRun: async () => ({ status: 'completed', conclusion: 'success' }),
+		getRun: async () => ({ status: runStatus, conclusion: runStatus === 'completed' ? 'success' : null }),
 		setStatus: async (_s, name, out, url) => {
 			f.writes.push({ name, out, url });
 		},
@@ -71,6 +71,14 @@ test('final links each lane to the run summary, which holds a section per lane',
 	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['unit / vitest', '5 passed', SUMMARY]]);
 	assert.match(summary ?? '', /^## `unit \/ vitest`: 5 passed\n\n## Vitest Test Report/);
 	assert.match(summary ?? '', /Full run and artifacts/);
+});
+
+test('final does not pass a lane closed as unreadable while the run is still going', async () => {
+	const f = fake([job('e2e / e2e-electron-ubuntu-1', 'success')], 'in_progress');
+	const unreadable = { url: RUN, closed: true, out: { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: 'x' } as LaneOutput };
+	const state: State = { statuses: { 'e2e / e2e-electron-ubuntu': unreadable }, readErrors: 0 };
+	await finalize(f.deps, state, 'final', tmp());
+	assert.deepStrictEqual(f.writes, []);
 });
 
 test('final links to the lane itself when the summary page is unknown', async () => {

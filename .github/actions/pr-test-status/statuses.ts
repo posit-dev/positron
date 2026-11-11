@@ -32,7 +32,8 @@ export type Deps = {
  */
 export async function publish(deps: Deps, state: State, lane: string, out: LaneOutput, url: string): Promise<void> {
 	const known = state.statuses[lane];
-	if (known && known.url === url && JSON.stringify(known.out) === JSON.stringify(out)) {
+	// A status shows only the state, title and link, so a change to the summary alone is not written.
+	if (known && known.url === url && known.out.status === out.status && known.out.conclusion === out.conclusion && known.out.title === out.title) {
 		return;
 	}
 	// Never reopen a closed lane: a failed lane can gain jobs (scan, merge) that start later.

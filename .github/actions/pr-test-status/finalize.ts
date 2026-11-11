@@ -73,8 +73,10 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		await closeOpen(deps, state, 'unreadable');
 		return renderRequiredSummary([], deps.runUrl);
 	}
+	// final also runs after the poll gave up early, so the run may still be going.
+	const runCompleted = await deps.getRun(deps.runId).then(r => r.status === 'completed', () => false);
 	const artifacts = readArtifacts(resultsDir);
-	const lanes = groupLanes(jobs).map(lane => ({
+	const lanes = groupLanes(jobs, runCompleted).map(lane => ({
 		lane,
 		out: renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null),
 	}));

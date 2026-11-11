@@ -72,6 +72,15 @@ test('does not update when the rendered output is unchanged', async () => {
 	assert.strictEqual(f.writes.length, 1);
 });
 
+test('a change to the summary alone does not write the status again', async () => {
+	const f = fake([{ jobs: [job('unit / vitest', 'in_progress')], run: running }]);
+	const state = fresh();
+	await pollOnce(f.deps, state);
+	state.statuses['unit / vitest'].out.summary = 'older summary';
+	await pollOnce(f.deps, state);
+	assert.strictEqual(f.writes.length, 1);
+});
+
 test('updates when a lane completes', async () => {
 	const f = fake([
 		{ jobs: [job('unit / vitest', 'in_progress')], run: running },
