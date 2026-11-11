@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { getRun, listJobs, setStatus } from './github.ts';
 import type { Job } from './lanes.ts';
 import { renderUnreadable, type LaneOutput } from './render.ts';
@@ -66,8 +67,9 @@ export function loadState(file: string): State {
 	}
 }
 
-/** Writes the state file. */
+/** Writes the state file, creating its folder if needed. */
 export function saveState(file: string, state: State): void {
+	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(file, JSON.stringify(state));
 }
 
@@ -83,9 +85,12 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 		}
 		return v;
 	};
-	// cancel and timeout only write statuses, so they never read the builds run.
-	const reads = env.MODE !== 'cancel' && env.MODE !== 'timeout';
-	const builds = reads ? need('BUILDS_TOKEN') : env.BUILDS_TOKEN ?? '';
+	// The poll needs the builds token. finalize can run without it: its reads then
+	// fail, and it closes open lanes as unreadable instead of leaving them pending.
+	const builds = env.MODE === undefined ? need('BUILDS_TOKEN') : env.BUILDS_TOKEN ?? '';
+	const noToken = async (): Promise<never> => {
+		throw new Error('BUILDS_TOKEN is not set');
+	};
 	const token = env.STATUS_TOKEN;
 	const runId = need('RUN_ID');
 	if (!/^\d+$/.test(runId)) {
@@ -96,8 +101,8 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 		runId,
 		headSha: need('HEAD_SHA'),
 		runUrl: `https://github.com/posit-dev/positron-builds/actions/runs/${runId}`,
-		listJobs: id => listJobs(builds, id),
-		getRun: id => getRun(builds, id),
+		listJobs: id => builds ? listJobs(builds, id) : noToken(),
+		getRun: id => builds ? getRun(builds, id) : noToken(),
 		setStatus: async (sha, lane, out, url) => {
 			if (!token) {
 				if (!warned) {

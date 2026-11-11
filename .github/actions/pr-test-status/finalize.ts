@@ -54,6 +54,18 @@ export function parseMode(raw: string | undefined): Mode {
 	throw new Error('MODE must be final, cancel or timeout');
 }
 
+/** Whether the builds run is complete. Retries a failed read once; two failures count as not complete. */
+async function readRunCompleted(deps: Deps): Promise<boolean> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			return (await deps.getRun(deps.runId)).status === 'completed';
+		} catch (e) {
+			console.log(`Could not read the run status: ${(e as Error).message}`);
+		}
+	}
+	return false;
+}
+
 /**
  * Writes each lane's final status, or closes open lanes for cancel and
  * timeout. Whatever is still open at the end is closed as unreadable, so no
@@ -65,6 +77,9 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		await closeOpen(deps, state, mode === 'timeout' ? 'timed_out' : 'cancelled');
 		return null;
 	}
+	// final also runs after the poll gave up early, so the run may still be going.
+	// Read the run before the jobs, so a run that completes in between is not judged on an older job list.
+	const runCompleted = await readRunCompleted(deps);
 	let jobs: Job[];
 	try {
 		jobs = await deps.listJobs(deps.runId);
@@ -73,8 +88,6 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		await closeOpen(deps, state, 'unreadable');
 		return renderRequiredSummary([]);
 	}
-	// final also runs after the poll gave up early, so the run may still be going.
-	const runCompleted = await deps.getRun(deps.runId).then(r => r.status === 'completed', () => false);
 	const artifacts = readArtifacts(resultsDir);
 	const lanes = groupLanes(jobs, runCompleted).map(lane => ({
 		lane,
@@ -96,10 +109,10 @@ async function main(): Promise<void> {
 	const mode = parseMode(process.env.MODE);
 	const state = loadState(stateFile);
 	const summary = await finalize(deps, state, mode, process.env.RESULTS_DIR ?? 'results');
-	saveState(stateFile, state);
 	if (summary !== null && process.env.GITHUB_STEP_SUMMARY) {
 		appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 	}
+	saveState(stateFile, state);
 }
 
 if (import.meta.main) {

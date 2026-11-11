@@ -140,6 +140,18 @@ test('renderLanes escapes names in the table and in html', () => {
 	assert.ok(out.includes('<code>a|b&lt;c&gt;</code>'));
 });
 
+test('renderLanes drops folded sections that would push the page over its cap', () => {
+	const big = 'x'.repeat(59000) + '\n';
+	const lanes = Array.from({ length: 20 }, (_, i) => {
+		const l = lane(`e2e / lane-${String(i).padStart(2, '0')}`, 'failure', [job('x', 'failure')]);
+		return { lane: l, out: { status: 'completed', conclusion: 'failure', title: 'Failed', summary: big } as const };
+	});
+	const out = renderLanes(lanes, RUN);
+	assert.ok(Buffer.byteLength(out) <= 900000);
+	assert.strictEqual(out.split('| \u{274C} |').length - 1, 20);
+	assert.match(out, /_Details for \d+ more lanes not shown\. See the full run\._\n$/);
+});
+
 test('renderRequiredSummary resolve failure', () => {
 	const j = job('resolve PR 17', 'failure', { steps: [{ name: 'Checkout', conclusion: 'success' }, { name: 'Wait for the merge commit', conclusion: 'failure' }] });
 	assert.strictEqual(renderRequiredSummary([j]), [

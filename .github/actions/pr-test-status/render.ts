@@ -14,8 +14,10 @@ export type LaneOutput = {
 	summary: string;
 };
 
-// Keeps one lane's details well under the 1 MiB step summary cap.
+// Keeps one lane's details, and the whole page, under the 1 MiB step summary cap (in bytes).
 const MAX_SUMMARY = 60000;
+const MAX_PAGE = 900000;
+const bytes = (s: string): number => Buffer.byteLength(s, 'utf8');
 
 const noun = (n: number, one: string, many: string): string => n === 1 ? one : many;
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -74,7 +76,7 @@ function laneSummary(lane: Lane, results: Results | null, cache: CacheEntry[] | 
 	// Binary search for the most entries that fit under the cap.
 	let lo = 0;
 	let hi = total;
-	const fits = (n: number): boolean => laneBody(lane, results, n).body.length + tail(total - n).length <= MAX_SUMMARY;
+	const fits = (n: number): boolean => bytes(laneBody(lane, results, n).body) + bytes(tail(total - n)) <= MAX_SUMMARY;
 	if (!fits(total)) {
 		while (lo < hi) {
 			const mid = Math.ceil((lo + hi) / 2);
@@ -110,9 +112,21 @@ export function renderLanes(lanes: { lane: Lane; out: LaneOutput }[], runUrl: st
 		const link = out.conclusion === 'success' ? '' : ` - [${lane.jobs.length === 1 ? 'log' : 'run'}](${laneUrl(lane, runUrl)})`;
 		return `| ${icon(out)} | ${escapeCell(code(lane.name))} | ${out.title}${link} |`;
 	});
-	const sections = sorted.filter(({ out }) => out.summary !== '').map(({ lane, out }) =>
-		`<details><summary>${icon(out)} <code>${escapeHtml(sanitizeName(lane.name) || '(unnamed)')}</code>: ${out.title}</summary>\n\n${out.summary}\n</details>\n`);
-	return ['| | Lane | Result |', '|---|---|---|', ...rows].join('\n') + '\n\n' + sections.join('\n');
+	const table = ['| | Lane | Result |', '|---|---|---|', ...rows].join('\n') + '\n\n';
+	const sections: string[] = [];
+	let size = bytes(table);
+	let dropped = 0;
+	for (const { lane, out } of sorted.filter(({ out }) => out.summary !== '')) {
+		const section = `<details><summary>${icon(out)} <code>${escapeHtml(sanitizeName(lane.name) || '(unnamed)')}</code>: ${out.title}</summary>\n\n${out.summary}\n</details>\n`;
+		if (dropped === 0 && size + bytes(section) + 1 <= MAX_PAGE) {
+			sections.push(section);
+			size += bytes(section) + 1;
+		} else {
+			dropped++;
+		}
+	}
+	const note = dropped > 0 ? `\n_Details for ${dropped} more ${noun(dropped, 'lane', 'lanes')} not shown. See the full run._\n` : '';
+	return table + sections.join('\n') + note;
 }
 
 /** Renders one lane's result. */

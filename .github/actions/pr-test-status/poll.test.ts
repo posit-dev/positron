@@ -23,17 +23,18 @@ const job = (name: string, status: Job['status'], conclusion: string | null = nu
 type Write = { name: string; out: LaneOutput; url: string };
 type Fake = { deps: Deps; writes: Write[]; reads: { jobs: Job[]; run: { status: string; conclusion: string | null } | Error }[] };
 
-/** Fakes that serve the queued reads in order (the last one repeats). */
+/** Fakes that serve the queued reads in order (the last one repeats), one per poll. */
 function fake(reads: Fake['reads']): Fake {
 	const f: Fake = { writes: [], reads, deps: null as unknown as Deps };
 	let i = 0;
-	const current = () => f.reads[Math.min(i, f.reads.length - 1)];
+	let read = f.reads[0];
 	f.deps = {
 		runId: '9', headSha: 'abc', runUrl: RUN,
-		listJobs: async () => current().jobs,
+		// The poll reads the run first, so getRun takes the next read and listJobs reuses it.
+		listJobs: async () => read.jobs,
 		getRun: async () => {
-			const r = current().run;
-			i++;
+			read = f.reads[Math.min(i++, f.reads.length - 1)];
+			const r = read.run;
 			if (r instanceof Error) {
 				throw r;
 			}
@@ -181,6 +182,16 @@ test('unexpanded template job names never get a status', async () => {
 	}]);
 	await pollOnce(f.deps, fresh());
 	assert.deepStrictEqual(f.writes.map(w => w.name), ['unit / vitest']);
+});
+
+test('reads the run before the jobs, so a run that completes in between is judged on the final jobs', async () => {
+	const calls: string[] = [];
+	const f = fake([{ jobs: [job('unit / vitest', 'in_progress')], run: running }]);
+	const { listJobs, getRun } = f.deps;
+	f.deps.listJobs = async id => (calls.push('jobs'), listJobs(id));
+	f.deps.getRun = async id => (calls.push('run'), getRun(id));
+	await pollOnce(f.deps, fresh());
+	assert.deepStrictEqual(calls, ['run', 'jobs']);
 });
 
 test('poll.ts writes code and conclusion to GITHUB_OUTPUT', () => {

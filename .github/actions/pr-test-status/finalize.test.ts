@@ -72,6 +72,20 @@ test('final links each lane into the builds run and returns the lane table', asy
 	assert.match(summary ?? '', /re-run required-tests/);
 });
 
+test('final retries a failed run read once before judging lanes', async () => {
+	const f = fake([job('unit / vitest-1', 'success')]);
+	let calls = 0;
+	const getRun = f.deps.getRun;
+	f.deps.getRun = async id => {
+		if (calls++ === 0) {
+			throw new Error('flaky');
+		}
+		return getRun(id);
+	};
+	await finalize(f.deps, { statuses: {}, readErrors: 0 }, 'final', tmp());
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.conclusion]), [['unit / vitest', 'success']]);
+});
+
 test('final does not pass a lane closed as unreadable while the run is still going', async () => {
 	const f = fake([job('e2e / e2e-electron-ubuntu-1', 'success')], 'in_progress');
 	const unreadable = { url: RUN, closed: true, out: { status: 'completed', conclusion: 'neutral', title: 'Could not read the test run', summary: 'x' } as LaneOutput };

@@ -171,7 +171,7 @@ jobs:
           permission-actions: read
 
       - name: Download test results
-        if: ${{ !cancelled() && steps.token3.outputs.token != '' }}
+        if: ${{ !cancelled() && steps.token3.outputs.token != '' && (steps.wait2.outputs.code || steps.wait1.outputs.code) != '124' }}
         continue-on-error: true
         shell: bash
         env:
@@ -180,8 +180,9 @@ jobs:
         run: |
           gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RUNNER_TEMP/results" || true
 
+      # Runs without token3 too: finalize then closes open lanes as unreadable.
       - name: Write the final statuses
-        if: ${{ !cancelled() && steps.token3.outputs.token != '' }}
+        if: ${{ !cancelled() && steps.dispatch.outputs.run_id != '' }}
         continue-on-error: true
         shell: bash
         env:

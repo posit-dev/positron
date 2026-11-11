@@ -20,8 +20,9 @@ export async function pollOnce(deps: Deps, state: State): Promise<{ done: boolea
 	let jobs: Job[];
 	let run: { status: string; conclusion: string | null };
 	try {
-		jobs = await deps.listJobs(deps.runId);
+		// Read the run first: a run that completes between the reads must not be judged on an older job list.
 		run = await deps.getRun(deps.runId);
+		jobs = await deps.listJobs(deps.runId);
 	} catch (e) {
 		state.readErrors++;
 		console.log(`Could not read the run (${state.readErrors} in a row): ${(e as Error).message}`);
