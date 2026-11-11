@@ -304,6 +304,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// _scrollToCursorWhenLaidOut.
 	private readonly _pendingScrollToCursor = this._register(new MutableDisposable());
 
+	// Entries whose refresh request arrived while their children were loading or reloading. The
+	// fetch in flight may have read the old contents, so each one reloads once it settles.
+	private readonly _refreshAfterLoad = new Set<string>();
+
 	// Shared by every row so moving between rows' buttons re-hovers instantly, and so a row
 	// unmounting doesn't dispose a manager (which hides every hover in the workbench).
 	private readonly _hoverManager: PositronActionBarHoverManager;
@@ -356,10 +360,24 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// collapsed row's children, so its next expand fetches fresh rather than asking a possibly
 		// busy session now. A collapsed runtime row stays connected and keeps its subtree, so this is
 		// what keeps that subtree from going stale. A row with nothing loaded has nothing to refresh.
+		// A request that arrives during a load or reload waits for it, since a reload in flight
+		// would only be joined, and the fetch may already have read the old contents.
 		this._register(this._service.onDidRequestRefresh(profileId => {
 			const id = entryNodeId(profileId);
-			if (this.hasLoadedChildren(id)) {
+			if (this.isLoading(id) || this.isRefreshing(id)) {
+				this._refreshAfterLoad.add(id);
+			} else if (this.hasLoadedChildren(id)) {
 				void this.reload(id);
+			}
+		}));
+		this._register(this.onDidChangeLoading(() => {
+			for (const id of this._refreshAfterLoad) {
+				if (!this.isLoading(id) && !this.isRefreshing(id)) {
+					this._refreshAfterLoad.delete(id);
+					if (this.hasLoadedChildren(id)) {
+						void this.reload(id);
+					}
+				}
 			}
 		}));
 

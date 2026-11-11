@@ -2270,6 +2270,34 @@ describe('DataConnectionsTreeInstance runtime rows', () => {
 		expect(tree.isExpanded(ENTRY_ID)).toBe(true);
 	});
 
+	// The fetch in flight may have read the contents from before the change, so the request waits
+	// for it and then reloads, rather than being dropped (first load) or joined (reload).
+	it.each([
+		['its first load', 0, 2],
+		['a reload', 1, 3],
+	])('reloads a runtime row whose refresh request arrived during %s', async (_label, reloadsFirst, expectedFetches) => {
+		const { service, tree, getChildren } = await createRuntimeTree();
+		if (reloadsFirst) {
+			await tree.expand(ENTRY_ID);
+		}
+		const fetchAnswered = new DeferredPromise<void>();
+		const fetchAsked = new DeferredPromise<void>();
+		getChildren.mockImplementationOnce(async () => {
+			fetchAsked.complete();
+			await fetchAnswered.p;
+			return [];
+		});
+		const load = reloadsFirst ? tree.reload(ENTRY_ID) : tree.expand(ENTRY_ID);
+		await fetchAsked.p;
+
+		service.requestRefresh(PROFILE_ID);
+		fetchAnswered.complete();
+		await load;
+
+		await vi.waitFor(() => expect(getChildren).toHaveBeenCalledTimes(expectedFetches));
+		await vi.waitFor(() => expect(tree.getLoadedChildren(ENTRY_ID)?.map(node => node.data.kind === 'dto' && node.data.dto.name)).toEqual(['mtcars']));
+	});
+
 	// A collapsed runtime row stays connected and keeps its subtree, so without this the subtree
 	// would stay stale until the session ends.
 	it('a refresh request drops a collapsed runtime row\'s children', async () => {
