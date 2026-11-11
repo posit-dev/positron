@@ -19,7 +19,8 @@ import { INativeHostService } from '../../../../platform/native/common/native.js
 import { POSITRON_STANDALONE_MODE_CHANNEL_NAME } from '../../../../platform/positronStandaloneMode/common/positronStandaloneMode.js';
 import { PositronStandaloneModeChannelClient } from '../../../../platform/positronStandaloneMode/common/positronStandaloneModeIpc.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { dedicatedWindowOptions, prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { dedicatedWindowOptions } from '../../../browser/parts/editor/positronAuxiliaryWindowOptions.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';

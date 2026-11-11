@@ -44,8 +44,7 @@ import { resolveCommandsContext } from './editorCommandsContext.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { prepareMoveCopyEditors } from './editor.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { getAuxiliaryWindowOptionsForEditors } from './editor.js';
+import { getAuxiliaryWindowOptionsForEditors } from './positronAuxiliaryWindowOptions.js';
 // --- End Positron ---
 
 class ExecuteCommandAction extends Action2 {

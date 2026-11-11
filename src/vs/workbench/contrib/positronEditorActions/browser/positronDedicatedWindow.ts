@@ -6,7 +6,8 @@
 import { getActiveWindow } from '../../../../base/browser/dom.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { dedicatedWindowOptions, prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
+import { dedicatedWindowOptions } from '../../../browser/parts/editor/positronAuxiliaryWindowOptions.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 
 /**

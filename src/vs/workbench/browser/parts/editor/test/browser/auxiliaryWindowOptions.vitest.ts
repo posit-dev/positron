@@ -7,7 +7,7 @@ import { URI } from '../../../../../../base/common/uri.js';
 import { createLightTestContainer } from '../../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { TestEditorInput } from '../../../../../test/browser/workbenchTestServices.js';
-import { getAuxiliaryWindowOptionsForEditors } from '../../editor.js';
+import { getAuxiliaryWindowOptionsForEditors } from '../../positronAuxiliaryWindowOptions.js';
 
 describe('getAuxiliaryWindowOptionsForEditors', () => {
 	const ctx = createLightTestContainer().build();
