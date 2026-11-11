@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Decide whether a pull request, or a push, changes only docs or tooling, and
-# write docs_only=true|false to $GITHUB_OUTPUT. test-pull-request.yml and
-# test-merge.yml skip their test jobs when it is true. See
+# write docs_only=true|false to $GITHUB_OUTPUT. pr-dispatch.yml and
+# main-dispatch.yml skip tests in positron-builds when it is true. See
 # scripts/lib/pr-docs-only-lib.sh for the allowlist.
 #
 # With PR_NUMBER, the changed files come from the pull request. With
@@ -89,6 +89,12 @@ elif [[ -n "${BEFORE_SHA:-}" ]]; then
 	CHANGED=$(push_changed_files) || emit false
 else
 	echo "Not a pull request or a push; running the tests."
+	emit false
+fi
+
+# A missing root would reach nothing and make every workflow and action docs-only.
+if [[ ! -f "$ROOT/$CI_WORKFLOW" ]]; then
+	echo "$CI_WORKFLOW does not exist; running the tests."
 	emit false
 fi
 

@@ -117,6 +117,7 @@ assert_eq "rename from source into docs -> false" false "$(run "$RENAME" BEFORE_
 
 # Every failure runs the tests.
 assert_eq "no CI_WORKFLOW -> false" false "$(run "$DOCS" BEFORE_SHA="$BASE" CI_WORKFLOW=)"
+assert_eq "missing CI_WORKFLOW file -> false" false "$(run "$UNRELATED" BEFORE_SHA="$DOCS" CI_WORKFLOW=.github/workflows/gone.yml)"
 assert_eq "branch creation (zero SHA) -> false" false "$(run "$DOCS" BEFORE_SHA=0000000000000000000000000000000000000000)"
 assert_eq "unfetchable base -> false" false "$(run "$DOCS" BEFORE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef)"
 assert_eq "base is HEAD (no changes) -> false" false "$(run "$DOCS" BEFORE_SHA="$DOCS")"

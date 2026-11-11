@@ -32,6 +32,7 @@ jobs:
     # Per-lane commit statuses; a check run from this token would show under another workflow's name.
     permissions:
       contents: read
+      pull-requests: read
       statuses: write
     env:
       PR: ${{ github.event.pull_request.number }}
@@ -52,9 +53,26 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
-            /.github/actions/pr-test-status
+            /.github/actions/
+            /.github/workflows/
+            /scripts/pr-docs-only.sh
+            /scripts/lib/pr-docs-only-lib.sh
             /.nvmrc
           sparse-checkout-cone-mode: false
+
+      # A PR that changes only docs or tooling skips the dispatch, and
+      # required-tests passes. Fails open: an error means "not docs-only".
+      - name: Check for a docs-only change
+        id: docs-only
+        continue-on-error: true
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # The disabled PR workflow still reaches every positron action the
+          # positron-builds test workflows use.
+          CI_WORKFLOW: .github/workflows/test-pull-request.yml
+        run: bash scripts/pr-docs-only.sh
 
       - name: Set up Node
         uses: actions/setup-node@v7.1.0
@@ -68,6 +86,7 @@ jobs:
           echo "RESULTS_DIR=$RUNNER_TEMP/results" >> "$GITHUB_ENV"
 
       - name: Mint a token for positron-builds
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: token
         uses: actions/create-github-app-token@v3
         with:
@@ -78,6 +97,7 @@ jobs:
           permission-actions: write
 
       - name: Dispatch the test run
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: dispatch
         shell: bash
         env:
@@ -110,6 +130,7 @@ jobs:
 
       # App tokens live for an hour, so wait in two halves with a fresh token each.
       - name: Mint a token to wait with
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: token1
         uses: actions/create-github-app-token@v3
         with:
@@ -120,6 +141,7 @@ jobs:
           permission-actions: read
 
       - name: Wait for the test run (first hour)
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: wait1
         shell: bash
         env:
@@ -214,7 +236,13 @@ jobs:
           CONCLUSION1: ${{ steps.wait1.outputs.conclusion }}
           CONCLUSION2: ${{ steps.wait2.outputs.conclusion }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DOCS_ONLY: ${{ steps.docs-only.outputs.docs_only }}
         run: |
+          if [ "$DOCS_ONLY" = "true" ]; then
+            echo "This PR changes only docs or tooling, so no tests ran."
+            echo "This PR changes only docs or tooling (scripts/lib/pr-docs-only-lib.sh), so no tests ran." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           code="${CODE2:-$CODE1}"
           conclusion="${CONCLUSION2:-$CONCLUSION1}"
           url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"
