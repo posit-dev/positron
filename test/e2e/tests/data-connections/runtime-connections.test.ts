@@ -49,8 +49,9 @@ test.describe('Data Connections - Runtime Connections', {
 		await test.step('Browse to the fields of mtcars', async () => {
 			await dataConnections.expandConnection(rConnectionName);
 			// The connections package nests tables under a catalog named after the connection, which
-			// the pane skips, and then a schema.
-			await dataConnections.expandNode('Default');
+			// the pane skips, and then a schema. The schema is 'main' when RSQLite lists it for an
+			// empty database (newer RSQLite) and the placeholder 'Default' when it does not.
+			await dataConnections.expandNode(/^(main|Default)$/);
 			await dataConnections.expandNode('mtcars');
 			await dataConnections.expectNodeVisible('mpg');
 		});

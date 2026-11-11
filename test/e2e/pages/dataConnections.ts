@@ -331,10 +331,11 @@ export class DataConnections {
 	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info'). Pass a
 	 * `kind` to further narrow the match by node icon when the same label appears at more than one
 	 * level (e.g. a Redshift database and a table both named 'flights').
-	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'.
+	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'. A RegExp matches
+	 * a label that varies by environment.
 	 * @param kind Optional node kind to disambiguate rows that share a label.
 	 */
-	private treeRow(label: string, kind?: DataConnectionNodeKind): Locator {
+	private treeRow(label: string | RegExp, kind?: DataConnectionNodeKind): Locator {
 		const page = this.code.driver.currentPage;
 		let row = page.locator(TREE_ROW).filter({ has: page.getByText(label, { exact: true }) });
 		if (kind) {
@@ -409,11 +410,12 @@ export class DataConnections {
 
 	/**
 	 * Expands a tree node by its label.
-	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views'.
+	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views', or a
+	 * RegExp for a label that varies by environment.
 	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expandNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
-		await this.expandRow(this.treeRow(label, kind), label);
+	async expandNode(label: string | RegExp, kind?: DataConnectionNodeKind): Promise<void> {
+		await this.expandRow(this.treeRow(label, kind), String(label));
 	}
 
 	/**
