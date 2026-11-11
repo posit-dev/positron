@@ -85,8 +85,7 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 		}
 		return v;
 	};
-	// The poll needs the builds token. finalize can run without it: its reads then
-	// fail, and it closes open lanes as unreadable instead of leaving them pending.
+	// finalize runs without the builds token too, so it can still close open lanes.
 	const builds = env.MODE === undefined ? need('BUILDS_TOKEN') : env.BUILDS_TOKEN ?? '';
 	const noToken = async (): Promise<never> => {
 		throw new Error('BUILDS_TOKEN is not set');

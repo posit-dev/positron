@@ -30,8 +30,7 @@
 											"workerIndex": 0,
 											"status": "passed",
 											"duration": 18124,
-											"retry": 0,
-											"shardIndex": 1
+											"retry": 0
 										}
 									],
 									"status": "expected"
@@ -98,15 +97,13 @@
 														{
 															"message": "Error: element not visible"
 														}
-													],
-													"shardIndex": 2
+													]
 												},
 												{
 													"workerIndex": 14,
 													"status": "passed",
 													"duration": 8066,
-													"retry": 1,
-													"shardIndex": 2
+													"retry": 1
 												}
 											],
 											"status": "flaky"

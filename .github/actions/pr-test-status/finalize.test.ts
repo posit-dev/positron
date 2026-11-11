@@ -94,6 +94,23 @@ test('final does not pass a lane closed as unreadable while the run is still goi
 	assert.deepStrictEqual(f.writes, []);
 });
 
+test('final closes running lanes as timed out, once, when the run is read but still going', async () => {
+	const f = fake([job('unit / vitest-1', null), job('unit / vscode-1', 'failure')], 'in_progress');
+	const state: State = { statuses: { 'unit / vitest': open() }, readErrors: 0 };
+	await finalize(f.deps, state, 'final', tmp());
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title]), [['unit / vscode', 'Failed'], ['unit / vitest', 'Timed out']]);
+});
+
+test('final closes open lanes as unreadable when the run status cannot be read', async () => {
+	const f = fake([job('unit / vitest-1', null)]);
+	f.deps.getRun = async () => {
+		throw new Error('down');
+	};
+	const state: State = { statuses: { 'unit / vitest': open() }, readErrors: 0 };
+	await finalize(f.deps, state, 'final', tmp());
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title]), [['unit / vitest', 'Could not read the test run']]);
+});
+
 test('final closes every open lane as unreadable when jobs cannot be read', async () => {
 	const f = fake(new Error('down'));
 	const state: State = { statuses: { a: open(), b: open() }, readErrors: 0 };

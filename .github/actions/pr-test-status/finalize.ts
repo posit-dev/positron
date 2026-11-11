@@ -54,16 +54,16 @@ export function parseMode(raw: string | undefined): Mode {
 	throw new Error('MODE must be final, cancel or timeout');
 }
 
-/** Whether the builds run is complete. Retries a failed read once; two failures count as not complete. */
-async function readRunCompleted(deps: Deps): Promise<boolean> {
+/** The builds run's status, retrying a failed read once; null if both reads fail. */
+async function readRunStatus(deps: Deps): Promise<string | null> {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			return (await deps.getRun(deps.runId)).status === 'completed';
+			return (await deps.getRun(deps.runId)).status;
 		} catch (e) {
 			console.log(`Could not read the run status: ${(e as Error).message}`);
 		}
 	}
-	return false;
+	return null;
 }
 
 /**
@@ -77,9 +77,9 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		await closeOpen(deps, state, mode === 'timeout' ? 'timed_out' : 'cancelled');
 		return null;
 	}
-	// final also runs after the poll gave up early, so the run may still be going.
 	// Read the run before the jobs, so a run that completes in between is not judged on an older job list.
-	const runCompleted = await readRunCompleted(deps);
+	const runStatus = await readRunStatus(deps);
+	const runCompleted = runStatus === 'completed';
 	let jobs: Job[];
 	try {
 		jobs = await deps.listJobs(deps.runId);
@@ -89,7 +89,8 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		return renderRequiredSummary([]);
 	}
 	const artifacts = readArtifacts(resultsDir);
-	const lanes = groupLanes(jobs, runCompleted).map(lane => ({
+	// final also runs after the poll gave up early: lanes still running are closed below, not set pending.
+	const lanes = groupLanes(jobs, runCompleted).filter(lane => lane.state !== 'in_progress').map(lane => ({
 		lane,
 		out: renderLane(lane, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null),
 	}));
@@ -99,7 +100,7 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 			await publish(deps, state, lane.name, out, laneUrl(lane, deps.runUrl));
 		}
 	}
-	await closeOpen(deps, state, 'unreadable');
+	await closeOpen(deps, state, runStatus === null || runCompleted ? 'unreadable' : 'timed_out');
 	return (lanes.length > 0 ? renderLanes(lanes, deps.runUrl) + '\n' : '') + renderRequiredSummary(jobs);
 }
 

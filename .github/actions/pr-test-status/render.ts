@@ -31,22 +31,14 @@ function failedJobs(lane: Lane): Job[] {
 	return lane.jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
 }
 
-/** A shard job's name ends in `-<digits>`; `-scan-<digits>` jobs are not shards. */
-const SHARD_JOB = /(?<!-scan)-(?<n>\d+)$/;
+type Entry = { test: FailedTest; flaky: boolean };
 
-/** Log links for a test: its shard's job if known, else every failed job of the lane. */
-function logLinks(lane: Lane, shard: number | null): string {
-	const own = shard === null ? undefined : lane.jobs.find(j => SHARD_JOB.exec(j.name)?.groups?.n === String(shard));
-	const jobs = own ? [own] : failedJobs(lane);
-	return jobs.map(j => `[log](${j.html_url})`).join(' ');
-}
-
-/** One line per test: file and title, a flaky marker, and its log links. */
-function testList(lane: Lane, shown: { test: FailedTest; flaky: boolean }[]): string {
+/** One line per test: file and title, and a flaky marker. */
+function testList(shown: Entry[]): string {
 	const items = shown.map(({ test, flaky }) => {
 		const title = sanitizeName(test.title);
 		const name = title === '' || title === test.file ? code(test.file) : `${code(test.file)} > ${code(title)}`;
-		return `- ${flaky ? '\u{26A0}\u{FE0F} ' : ''}${name}${flaky ? ' (flaky)' : ''} - ${logLinks(lane, test.shard)}`;
+		return `- ${flaky ? '\u{26A0}\u{FE0F} ' : ''}${name}${flaky ? ' (flaky)' : ''}`;
 	});
 	return items.length > 0 ? items.join('\n') + '\n' : '';
 }
@@ -56,43 +48,41 @@ function cacheList(cache: CacheEntry[]): string {
 	return `\n**Cache**\n\n${items}\n`;
 }
 
-function laneBody(lane: Lane, results: Results | null, shownCount: number): { body: string; total: number } {
-	if (!results) {
-		return { body: '', total: 0 };
-	}
-	const entries = [
+function laneSummary(results: Results | null, cache: CacheEntry[] | null): string {
+	const entries: Entry[] = results ? [
 		...[...results.failures].sort(byFile).map(test => ({ test, flaky: false })),
 		...[...results.flakyTests].sort(byFile).map(test => ({ test, flaky: true })),
-	];
-	return { body: testList(lane, entries.slice(0, shownCount)), total: entries.length };
-}
-
-function laneSummary(lane: Lane, results: Results | null, cache: CacheEntry[] | null): string {
+	] : [];
+	const total = entries.length;
+	const body = (n: number): string => testList(entries.slice(0, n));
 	const tail = (more: number): string => {
 		const note = more > 0 ? `\n_${more} more not shown. See the full run._\n` : '';
 		return `${note}${cache ? cacheList(cache) : ''}`;
 	};
-	const total = laneBody(lane, results, Infinity).total;
+	const fits = (n: number): boolean => bytes(body(n)) + bytes(tail(total - n)) <= MAX_SUMMARY;
+	if (fits(total)) {
+		return body(total) + tail(0);
+	}
 	// Binary search for the most entries that fit under the cap.
 	let lo = 0;
 	let hi = total;
-	const fits = (n: number): boolean => bytes(laneBody(lane, results, n).body) + bytes(tail(total - n)) <= MAX_SUMMARY;
-	if (!fits(total)) {
-		while (lo < hi) {
-			const mid = Math.ceil((lo + hi) / 2);
-			if (fits(mid)) {
-				lo = mid;
-			} else {
-				hi = mid - 1;
-			}
+	while (lo < hi) {
+		const mid = Math.ceil((lo + hi) / 2);
+		if (fits(mid)) {
+			lo = mid;
+		} else {
+			hi = mid - 1;
 		}
-		return laneBody(lane, results, lo).body + tail(total - lo);
 	}
-	return laneBody(lane, results, total).body + tail(0);
+	return body(lo) + tail(total - lo);
 }
 
-/** Where a lane links: its job's log if it has one job, else the whole builds run. */
+/** Where a lane links: its one failed job, else its only job, else the whole builds run. */
 export function laneUrl(lane: Lane, runUrl: string): string {
+	const failed = failedJobs(lane);
+	if (failed.length === 1) {
+		return failed[0].html_url;
+	}
 	return lane.jobs.length === 1 ? lane.jobs[0].html_url : runUrl;
 }
 
@@ -109,7 +99,8 @@ const icon = (out: LaneOutput): string => out.conclusion ? ICON[out.conclusion] 
 export function renderLanes(lanes: { lane: Lane; out: LaneOutput }[], runUrl: string): string {
 	const sorted = [...lanes].sort((a, b) => RANK.indexOf(a.out.conclusion) - RANK.indexOf(b.out.conclusion) || (a.lane.name < b.lane.name ? -1 : 1));
 	const rows = sorted.map(({ lane, out }) => {
-		const link = out.conclusion === 'success' ? '' : ` - [${lane.jobs.length === 1 ? 'log' : 'run'}](${laneUrl(lane, runUrl)})`;
+		const url = laneUrl(lane, runUrl);
+		const link = out.conclusion === 'success' ? '' : ` - [${url === runUrl ? 'run' : 'log'}](${url})`;
 		return `| ${icon(out)} | ${escapeCell(code(lane.name))} | ${out.title}${link} |`;
 	});
 	const table = ['| | Lane | Result |', '|---|---|---|', ...rows].join('\n') + '\n\n';
@@ -131,7 +122,7 @@ export function renderLanes(lanes: { lane: Lane; out: LaneOutput }[], runUrl: st
 
 /** Renders one lane's result. */
 export function renderLane(lane: Lane, results: Results | null, cache: CacheEntry[] | null): LaneOutput {
-	const summary = laneSummary(lane, results, cache);
+	const summary = laneSummary(results, cache);
 	if (lane.state === 'in_progress') {
 		return { status: 'in_progress', title: 'Running', summary };
 	}

@@ -29,9 +29,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
-    # statuses: write is for the per-lane commit statuses on the PR head commit,
-    # written with this job's own token. Statuses, not check runs: a check run
-    # made with this token lands under some other workflow's name in the UI.
+    # Per-lane commit statuses; a check run from this token would show under another workflow's name.
     permissions:
       contents: read
       statuses: write
@@ -46,6 +44,28 @@ jobs:
           echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
           echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      # The scripts come from the base branch, never the PR.
+      - name: Check out the test status scripts from the base branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /.github/actions/pr-test-status
+            /.nvmrc
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set paths for the status scripts
+        shell: bash
+        run: |
+          echo "STATE_FILE=$RUNNER_TEMP/pr-test-status/state.json" >> "$GITHUB_ENV"
+          echo "RESULTS_DIR=$RUNNER_TEMP/results" >> "$GITHUB_ENV"
 
       - name: Mint a token for positron-builds
         id: token
@@ -88,26 +108,7 @@ jobs:
           echo "Tests are running at $url"
           echo "Tests for \`${HEAD_SHA:0:10}\` ran in [positron-builds]($url)." >> "$GITHUB_STEP_SUMMARY"
 
-      # The poll and finalize scripts come from the base branch commit this
-      # workflow runs at, never from the PR. Node comes from .nvmrc because the
-      # runner's default may lack type stripping.
-      - name: Check out the test status scripts from the base branch
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-          sparse-checkout: |
-            /.github/actions/pr-test-status
-            /.nvmrc
-          sparse-checkout-cone-mode: false
-
-      - name: Set up Node
-        uses: actions/setup-node@v7.1.0
-        with:
-          node-version-file: .nvmrc
-
-      # App tokens live for an hour. Wait in two halves, each with a freshly
-      # minted read-only token, so a long run is still reported rather than lost.
+      # App tokens live for an hour, so wait in two halves with a fresh token each.
       - name: Mint a token to wait with
         id: token1
         uses: actions/create-github-app-token@v3
@@ -126,11 +127,9 @@ jobs:
           STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           DEADLINE_SECONDS: "3300"
-        run: |
-          mkdir -p "$RUNNER_TEMP/pr-test-status"
-          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
+        # poll.ts writes the code output itself.
+        run: &wait |
           node .github/actions/pr-test-status/poll.ts || echo "code=1" >> "$GITHUB_OUTPUT"
-          # poll.ts writes the code output itself.
 
       - name: Mint a second token
         if: ${{ steps.wait1.outputs.code == '124' }}
@@ -152,10 +151,7 @@ jobs:
           STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           DEADLINE_SECONDS: "3300"
-        run: |
-          mkdir -p "$RUNNER_TEMP/pr-test-status"
-          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
-          node .github/actions/pr-test-status/poll.ts || echo "code=1" >> "$GITHUB_OUTPUT"
+        run: *wait
 
       # Everything below is best effort: it never changes the required-tests result.
       - name: Mint a token to download results
@@ -178,7 +174,7 @@ jobs:
           GH_TOKEN: ${{ steps.token3.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
-          gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RUNNER_TEMP/results" || true
+          gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RESULTS_DIR" || true
 
       # Runs without token3 too: finalize then closes open lanes as unreadable.
       - name: Write the final statuses
@@ -198,8 +194,6 @@ jobs:
           else
             export MODE=final
           fi
-          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
-          export RESULTS_DIR="$RUNNER_TEMP/results"
           node .github/actions/pr-test-status/finalize.ts
 
       - name: On cancel
@@ -210,10 +204,7 @@ jobs:
           STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           MODE: cancel
-        run: |
-          export STATE_FILE="$RUNNER_TEMP/pr-test-status/state.json"
-          export RESULTS_DIR="$RUNNER_TEMP/results"
-          node .github/actions/pr-test-status/finalize.ts
+        run: node .github/actions/pr-test-status/finalize.ts
 
       - name: Report the result
         shell: bash

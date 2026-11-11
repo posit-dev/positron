@@ -43,32 +43,21 @@ test('failed without results has no details; the table links the log', () => {
 	assert.deepStrictEqual([out.title, out.summary], ['Failed', '']);
 });
 
-test('failed vitest lists each failed test with its log', () => {
-	const j = job('unit / run-1', 'failure');
-	const r = results({ passed: 10, failed: 1, failures: [{ file: 'src/a.vitest.ts', title: 'suite > it breaks', shard: null }] });
-	const out = renderLane(lane('unit', 'failure', [j]), r, null);
-	assert.strictEqual(out.title, '1 test failed');
-	assert.strictEqual(out.summary, `- \`src/a.vitest.ts\` > \`suite > it breaks\` - [log](${j.html_url})\n`);
-});
-
-test('failed e2e links the shard job, or every failed job without a shard; flaky tests come last', () => {
-	const j1 = job('e2e / e2e-electron-ubuntu-1', 'failure');
-	const j2 = job('e2e / e2e-electron-ubuntu-2', 'failure');
-	const j3 = job('e2e / e2e-electron-ubuntu-3', 'success');
+test('failed tests are listed by file without log links; flaky tests come last', () => {
 	const r = results({
 		passed: 7, failed: 2,
 		failures: [
-			{ file: 'b.test.ts', title: 'does <b>', shard: 2 },
-			{ file: 'a.test.ts', title: 'one', shard: null },
+			{ file: 'b.test.ts', title: 'does <b>' },
+			{ file: 'a.test.ts', title: 'one' },
 		],
-		flakyTests: [{ file: 'c.test.ts', title: 'wobbly', shard: 1 }],
+		flakyTests: [{ file: 'c.test.ts', title: 'wobbly' }],
 	});
-	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [j1, j2, j3]), r, null);
+	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [job('e2e / e2e-electron-ubuntu-1', 'success'), job('e2e / e2e-electron-ubuntu', 'failure')]), r, null);
 	assert.strictEqual(out.title, '2 tests failed');
 	assert.strictEqual(out.summary, [
-		`- \`a.test.ts\` > \`one\` - [log](${j1.html_url}) [log](${j2.html_url})`,
-		`- \`b.test.ts\` > \`does <b>\` - [log](${j2.html_url})`,
-		`- \u{26A0}\u{FE0F} \`c.test.ts\` > \`wobbly\` (flaky) - [log](${j1.html_url})`,
+		'- `a.test.ts` > `one`',
+		'- `b.test.ts` > `does <b>`',
+		'- \u{26A0}\u{FE0F} `c.test.ts` > `wobbly` (flaky)',
 		'',
 	].join('\n'));
 });
@@ -82,7 +71,7 @@ test('vscode with cache', () => {
 
 test('summary over 60000 chars is cut', () => {
 	const j = job('e2e / e2e-electron-ubuntu-1', 'failure');
-	const failures = Array.from({ length: 400 }, (_, i) => ({ file: `f${String(i).padStart(3, '0')}.test.ts`, title: 'x'.repeat(150), shard: 1 }));
+	const failures = Array.from({ length: 400 }, (_, i) => ({ file: `f${String(i).padStart(3, '0')}.test.ts`, title: 'x'.repeat(150) }));
 	const out = renderLane(lane('e2e', 'failure', [j]), results({ failed: 400, failures }), null);
 	assert.ok(out.summary.length <= 60000);
 	assert.ok(out.summary.endsWith('See the full run._\n'));
@@ -104,7 +93,7 @@ test('renderLanes: a table with failures first, then a folded section for each l
 	const out = renderLanes([
 		{ lane: lane('e2e / e2e-electron-ubuntu', 'success', e2e), out: renderLane(lane('e2e / e2e-electron-ubuntu', 'success', e2e), null, null) },
 		{ lane: lane('unit / vscode', 'success', [job('unit / vscode', 'success')]), out: renderLane(lane('unit / vscode', 'success', []), null, [{ name: 'npm-core', hit: true }]) },
-		{ lane: vitestLane, out: renderLane(vitestLane, results({ failed: 1, failures: [{ file: 'a.vitest.ts', title: 'breaks', shard: null }] }), null) },
+		{ lane: vitestLane, out: renderLane(vitestLane, results({ failed: 1, failures: [{ file: 'a.vitest.ts', title: 'breaks' }] }), null) },
 		{ lane: lane('e2e / e2e-windows', 'failure', e2e), out: renderLane(lane('e2e / e2e-windows', 'failure', e2e), null, null) },
 	], RUN);
 	assert.strictEqual(out, [
@@ -117,7 +106,7 @@ test('renderLanes: a table with failures first, then a folded section for each l
 		'',
 		'<details><summary>\u{274C} <code>unit / vitest</code>: 1 test failed</summary>',
 		'',
-		`- \`a.vitest.ts\` > \`breaks\` - [log](${vitest.html_url})`,
+		'- `a.vitest.ts` > `breaks`',
 		'',
 		'</details>',
 		'',
@@ -166,31 +155,30 @@ test('renderRequiredSummary normal run', () => {
 });
 
 test('names are sanitized into code spans; empty names become (unnamed)', () => {
-	const r = results({ failed: 1, failures: [{ file: 'a`.ts', title: 'Run `evil` tests', shard: null }] });
+	const r = results({ failed: 1, failures: [{ file: 'a`.ts', title: 'Run `evil` tests' }] });
 	const j = job('unit / run-1', 'failure');
-	assert.ok(renderLane(lane('unit', 'failure', [j]), r, null).summary.startsWith('- `a.ts` > `Run evil tests` - '));
+	assert.ok(renderLane(lane('unit', 'failure', [j]), r, null).summary.startsWith('- `a.ts` > `Run evil tests`\n'));
 	const empty = job('resolve PR 17', 'failure', { steps: [{ name: '```', conclusion: 'failure' }] });
 	assert.strictEqual(renderRequiredSummary([empty]).split('\n')[0],
 		`Could not prepare the PR for testing: \`(unnamed)\` - [log](${empty.html_url})`);
 });
 
 test('a test whose title is empty or the file shows the file only', () => {
-	const f = results({ failed: 1, failures: [{ file: 'src/a.vitest.ts', title: '`', shard: null }] });
-	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), f, null).summary.startsWith('- `src/a.vitest.ts` - '));
+	const f = results({ failed: 1, failures: [{ file: 'src/a.vitest.ts', title: '`' }] });
+	assert.ok(renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), f, null).summary.startsWith('- `src/a.vitest.ts`\n'));
 });
 
 test('a long file path and a long title are both fully shown', () => {
 	const file = `${'d'.repeat(55)}/${'e'.repeat(54)}.vitest.ts`;
 	const title = 't'.repeat(100);
-	const r = results({ failed: 1, failures: [{ file, title, shard: null }] });
+	const r = results({ failed: 1, failures: [{ file, title }] });
 	const out = renderLane(lane('unit', 'failure', [job('unit / run-1', 'failure')]), r, null);
-	assert.ok(out.summary.includes(`- \`${file}\` > \`${title}\` - `));
+	assert.ok(out.summary.includes(`- \`${file}\` > \`${title}\`\n`));
 });
 
-test('the log link matches a shard job, not a scan job, whatever the order', () => {
-	const scan = job('e2e / e2e-electron-ubuntu-scan-1', 'failure', { html_url: 'https://example.test/scan' });
-	const shard = job('e2e / e2e-electron-ubuntu-1', 'failure', { html_url: 'https://example.test/shard' });
-	const r = results({ failed: 1, failures: [{ file: 'a.test.ts', title: 'one', shard: 1 }] });
-	const out = renderLane(lane('e2e / e2e-electron-ubuntu', 'failure', [scan, shard]), r, null);
-	assert.strictEqual(out.summary, '- `a.test.ts` > `one` - [log](https://example.test/shard)\n');
+test('the table links the one failed job of a multi-job lane', () => {
+	const merge = job('e2e / e2e-electron-ubuntu', 'failure');
+	const l = lane('e2e / e2e-electron-ubuntu', 'failure', [job('e2e / e2e-electron-ubuntu-1', 'success'), merge]);
+	const out = renderLanes([{ lane: l, out: renderLane(l, null, null) }], RUN);
+	assert.ok(out.includes(`| Failed - [log](${merge.html_url}) |`));
 });

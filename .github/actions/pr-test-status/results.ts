@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /** A failed or flaky test. Fields are already sanitized. */
-export type FailedTest = { file: string; title: string; shard: number | null };
+export type FailedTest = { file: string; title: string };
 
 /** Parsed counts and failing tests for one test lane. */
 export type Results = {
@@ -65,13 +65,9 @@ function walkPlaywright(suite: Obj, parents: string[], out: { failures: FailedTe
 			if (!isObj(test) || (test.status !== 'unexpected' && test.status !== 'flaky')) {
 				continue;
 			}
-			const shards = arr(test.results)
-				.map(r => isObj(r) ? r.shardIndex : undefined)
-				.filter((s): s is number => typeof s === 'number' && Number.isSafeInteger(s) && s >= 0);
 			const entry: FailedTest = {
 				file: sanitizeName(spec.file),
 				title: sanitizeName([...here, typeof spec.title === 'string' ? spec.title : ''].join(' > ')),
-				shard: shards.length > 0 ? shards[0] : null,
 			};
 			(test.status === 'unexpected' ? out.failures : out.flakyTests).push(entry);
 		}
@@ -139,14 +135,13 @@ function parseVitestUnsafe(raw: string): Results | null {
 		// A file that failed to load has no assertions; name the file so it is not lost.
 		if (result.status === 'failed' && assertions.length === 0) {
 			const file = relativeFile(result.name);
-			failures.push({ file, title: file, shard: null });
+			failures.push({ file, title: file });
 		}
 		for (const a of assertions) {
 			if (isObj(a) && a.status === 'failed') {
 				failures.push({
 					file: relativeFile(result.name),
 					title: sanitizeName([...arr(a.ancestorTitles).filter((t): t is string => typeof t === 'string'), typeof a.title === 'string' ? a.title : ''].join(' > ')),
-					shard: null,
 				});
 			}
 		}

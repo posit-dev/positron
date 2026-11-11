@@ -24,12 +24,10 @@ test('parsePlaywright reads the fixture', () => {
 		failures: [{
 			file: 'tests/console/console-input.test.ts',
 			title: 'Console Input > Python - Can get input string via console',
-			shard: null,
 		}],
 		flakyTests: [{
 			file: 'tests/notebook/notebook-create.test.ts',
 			title: 'Notebooks > R Notebooks > R - Verify code cell execution and markdown formatting in notebook',
-			shard: 2,
 		}],
 	});
 });
@@ -46,7 +44,6 @@ test('parseVitest reads the fixture', () => {
 		failures: [{
 			file: 'src/vs/workbench/contrib/positronPlots/test/browser/plotUtils.vitest.ts',
 			title: 'isNavigableSourceUri > is not navigable for notebook cell URIs',
-			shard: null,
 		}],
 		flakyTests: [],
 	});
@@ -100,9 +97,9 @@ test('deeply nested input does not throw', () => {
 test('hostile members are ignored', () => {
 	const pw = parsePlaywright('{"__proto__":{"x":1},"stats":{"__proto__":{"expected":9}},"suites":[1,null,[],"s",'
 		+ '{"title":"s","specs":[3,{"title":"t","file":"f","tests":[7,{"status":"unexpected","results":[null,5]}]}]}]}');
-	assert.deepStrictEqual([pw?.passed, pw?.failures], [0, [{ file: 'f', title: 's > t', shard: null }]]);
+	assert.deepStrictEqual([pw?.passed, pw?.failures], [0, [{ file: 'f', title: 's > t' }]]);
 	const vt = parseVitest('{"testResults":[1,null,{"name":"a/src/b.ts","assertionResults":[2,{"status":"failed","title":"t","ancestorTitles":[1,"d",{}]}]}]}');
-	assert.deepStrictEqual(vt?.failures, [{ file: 'src/b.ts', title: 'd > t', shard: null }]);
+	assert.deepStrictEqual(vt?.failures, [{ file: 'src/b.ts', title: 'd > t' }]);
 });
 
 test('parseVitest names a file that failed to load', () => {
@@ -110,5 +107,5 @@ test('parseVitest names a file that failed to load', () => {
 		numFailedTestSuites: 1,
 		testResults: [{ name: '/home/runner/work/positron/positron/src/vs/x/y.vitest.ts', status: 'failed', assertionResults: [] }],
 	}));
-	assert.deepStrictEqual(r?.failures, [{ file: 'src/vs/x/y.vitest.ts', title: 'src/vs/x/y.vitest.ts', shard: null }]);
+	assert.deepStrictEqual(r?.failures, [{ file: 'src/vs/x/y.vitest.ts', title: 'src/vs/x/y.vitest.ts' }]);
 });
