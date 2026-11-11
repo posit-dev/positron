@@ -29,11 +29,12 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
-    # checks: write is for the per-lane test checks on the PR head commit,
-    # written with this job's own token (the bot app has no checks permission).
+    # statuses: write is for the per-lane commit statuses on the PR head commit,
+    # written with this job's own token. Statuses, not check runs: a check run
+    # made with this token lands under some other workflow's name in the UI.
     permissions:
       contents: read
-      checks: write
+      statuses: write
     env:
       PR: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -43,7 +44,7 @@ jobs:
         shell: bash
         run: |
           echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
-          echo "Tests do not run for PRs from forks, so there are no test checks." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       - name: Mint a token for positron-builds
@@ -122,7 +123,7 @@ jobs:
         shell: bash
         env:
           BUILDS_TOKEN: ${{ steps.token1.outputs.token }}
-          CHECKS_TOKEN: ${{ github.token }}
+          STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           DEADLINE_SECONDS: "3300"
         run: |
@@ -148,7 +149,7 @@ jobs:
         shell: bash
         env:
           BUILDS_TOKEN: ${{ steps.token2.outputs.token }}
-          CHECKS_TOKEN: ${{ github.token }}
+          STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           DEADLINE_SECONDS: "3300"
         run: |
@@ -179,13 +180,13 @@ jobs:
         run: |
           gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RUNNER_TEMP/results" || true
 
-      - name: Write the final checks
+      - name: Write the final statuses
         if: ${{ !cancelled() && steps.token3.outputs.token != '' }}
         continue-on-error: true
         shell: bash
         env:
           BUILDS_TOKEN: ${{ steps.token3.outputs.token }}
-          CHECKS_TOKEN: ${{ github.token }}
+          STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           CODE1: ${{ steps.wait1.outputs.code }}
           CODE2: ${{ steps.wait2.outputs.code }}
@@ -205,7 +206,7 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
-          CHECKS_TOKEN: ${{ github.token }}
+          STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           MODE: cancel
         run: |

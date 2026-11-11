@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { appendFileSync } from 'node:fs';
-import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './checks.ts';
+import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './statuses.ts';
 import { groupLanes, type Job } from './lanes.ts';
-import { renderLane } from './render.ts';
+import { laneUrl, renderLane } from './render.ts';
 
 const READ_ERRORS_LIMIT = 3;
 const POLL_SECONDS = 60;
 
 /**
- * One poll: reads the run's jobs, writes each lane's check, and says whether
+ * One poll: reads the run's jobs, writes each lane's status, and says whether
  * the run is done. Results files are not available yet, so lanes render
  * without them. Three failed reads in a row end the poll as a failure.
  */
@@ -33,7 +33,7 @@ export async function pollOnce(deps: Deps, state: State): Promise<{ done: boolea
 	}
 	state.readErrors = 0;
 	for (const lane of groupLanes(jobs, run.status === 'completed')) {
-		await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, null, null));
+		await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, null, null), laneUrl(lane, deps.runUrl));
 	}
 	return run.status === 'completed' ? { done: true, conclusion: run.conclusion } : { done: false, conclusion: null };
 }

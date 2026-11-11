@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createCheck, getRun, listJobs, updateCheck } from './github.ts';
+import { getRun, listJobs, setStatus } from './github.ts';
 import type { Job } from './lanes.ts';
-import { renderUnreadable, type CheckOutput } from './render.ts';
+import { renderUnreadable, type LaneOutput } from './render.ts';
 
 /** What survives between poll halves and into finalize. */
 export type State = {
-	checks: Record<string, { id: number; out: CheckOutput; closed: boolean }>;
+	statuses: Record<string, { out: LaneOutput; url: string; closed: boolean }>;
 	readErrors: number;
 };
 
@@ -19,42 +19,40 @@ export type Deps = {
 	runId: string;
 	headSha: string;
 	runUrl: string;
+	/** The required-tests run's Summary page, which holds each lane's details at the end. */
+	summaryUrl: string | null;
 	listJobs: (runId: string) => Promise<Job[]>;
 	getRun: (runId: string) => Promise<{ status: string; conclusion: string | null }>;
-	createCheck: (sha: string, name: string, out: CheckOutput) => Promise<number>;
-	updateCheck: (id: number, out: CheckOutput) => Promise<void>;
+	setStatus: (sha: string, lane: string, out: LaneOutput, url: string) => Promise<void>;
 };
 
 /**
- * Creates the lane's check, or updates it if the output changed. Writing is
- * best effort: a failure leaves the state alone so the next call retries.
+ * Sets the lane's status if its output or link changed. Writing is best
+ * effort: a failure leaves the state alone so the next call retries.
  */
-export async function publish(deps: Deps, state: State, lane: string, out: CheckOutput): Promise<void> {
-	const known = state.checks[lane];
-	if (known && JSON.stringify(known.out) === JSON.stringify(out)) {
+export async function publish(deps: Deps, state: State, lane: string, out: LaneOutput, url: string): Promise<void> {
+	const known = state.statuses[lane];
+	if (known && known.url === url && JSON.stringify(known.out) === JSON.stringify(out)) {
 		return;
 	}
-	// Never reopen a closed check: a failed lane can gain jobs (scan, merge) that start later.
+	// Never reopen a closed lane: a failed lane can gain jobs (scan, merge) that start later.
 	if (known?.closed && out.status === 'in_progress') {
 		return;
 	}
 	try {
-		const id = known ? known.id : await deps.createCheck(deps.headSha, lane, out);
-		if (known) {
-			await deps.updateCheck(id, out);
-		}
-		state.checks[lane] = { id, out, closed: out.status === 'completed' };
+		await deps.setStatus(deps.headSha, lane, out, url);
+		state.statuses[lane] = { out, url, closed: out.status === 'completed' };
 	} catch (e) {
-		console.log(`Could not write the check for a lane: ${(e as Error).message}`);
+		console.log(`Could not write the status for a lane: ${(e as Error).message}`);
 	}
 }
 
-/** Closes every check that is still open. */
+/** Closes every lane that is still open, linking to the builds run. */
 export async function closeOpen(deps: Deps, state: State, reason: 'unreadable' | 'timed_out' | 'cancelled'): Promise<void> {
 	const out = renderUnreadable(deps.runUrl, reason);
-	for (const [lane, check] of Object.entries(state.checks)) {
-		if (!check.closed) {
-			await publish(deps, state, lane, out);
+	for (const [lane, status] of Object.entries(state.statuses)) {
+		if (!status.closed) {
+			await publish(deps, state, lane, out, deps.runUrl);
 		}
 	}
 }
@@ -63,9 +61,9 @@ export async function closeOpen(deps: Deps, state: State, reason: 'unreadable' |
 export function loadState(file: string): State {
 	try {
 		const s = JSON.parse(readFileSync(file, 'utf8')) as State;
-		return { checks: s.checks ?? {}, readErrors: s.readErrors ?? 0 };
+		return { statuses: s.statuses ?? {}, readErrors: s.readErrors ?? 0 };
 	} catch {
-		return { checks: {}, readErrors: 0 };
+		return { statuses: {}, readErrors: 0 };
 	}
 }
 
@@ -75,8 +73,8 @@ export function saveState(file: string, state: State): void {
 }
 
 /**
- * Binds the tokens and run details from the environment. CHECKS_TOKEN is
- * optional: without it, check writes are skipped so tests never depend on it.
+ * Binds the tokens and run details from the environment. STATUS_TOKEN is
+ * optional: without it, status writes are skipped so tests never depend on it.
  */
 export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 	const need = (k: string): string => {
@@ -86,40 +84,32 @@ export function depsFromEnv(env: NodeJS.ProcessEnv): Deps {
 		}
 		return v;
 	};
-	// cancel and timeout only write checks, so they never read the builds run.
+	// cancel and timeout only write statuses, so they never read the builds run.
 	const reads = env.MODE !== 'cancel' && env.MODE !== 'timeout';
 	const builds = reads ? need('BUILDS_TOKEN') : env.BUILDS_TOKEN ?? '';
-	const checks = env.CHECKS_TOKEN;
+	const token = env.STATUS_TOKEN;
 	const runId = need('RUN_ID');
 	if (!/^\d+$/.test(runId)) {
 		throw new Error('RUN_ID must be all digits');
 	}
+	const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: ownRun } = env;
 	let warned = false;
-	const skip = (): void => {
-		if (!warned) {
-			warned = true;
-			console.log('CHECKS_TOKEN is not set: skipping check writes');
-		}
-	};
 	return {
 		runId,
 		headSha: need('HEAD_SHA'),
 		runUrl: `https://github.com/posit-dev/positron-builds/actions/runs/${runId}`,
+		summaryUrl: server && repo && ownRun ? `${server}/${repo}/actions/runs/${ownRun}` : null,
 		listJobs: id => listJobs(builds, id),
 		getRun: id => getRun(builds, id),
-		createCheck: async (sha, name, out) => {
-			if (!checks) {
-				skip();
-				return 0;
-			}
-			return createCheck(checks, sha, name, out);
-		},
-		updateCheck: async (id, out) => {
-			if (!checks) {
-				skip();
+		setStatus: async (sha, lane, out, url) => {
+			if (!token) {
+				if (!warned) {
+					warned = true;
+					console.log('STATUS_TOKEN is not set: skipping status writes');
+				}
 				return;
 			}
-			await updateCheck(checks, id, out);
+			await setStatus(token, sha, lane, out, url);
 		},
 	};
 }

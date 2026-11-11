@@ -5,9 +5,9 @@
 
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './checks.ts';
+import { closeOpen, depsFromEnv, loadState, publish, saveState, type Deps, type State } from './statuses.ts';
 import { groupLanes, type Job } from './lanes.ts';
-import { renderLane, renderRequiredSummary } from './render.ts';
+import { laneUrl, renderLane, renderRequiredSummary, renderSection } from './render.ts';
 import { parseCache, parsePlaywright, parseVitest, type CacheEntry, type Results } from './results.ts';
 
 /** Parsed artifacts by lane name. */
@@ -43,7 +43,7 @@ export function readArtifacts(dir: string): Artifacts {
 	return out;
 }
 
-/** What finalize does: write final results, or close open checks. */
+/** What finalize does: write final results, or close open lanes. */
 export type Mode = 'final' | 'cancel' | 'timeout';
 
 /** Reads MODE: one of the three known values, or an error. */
@@ -55,9 +55,10 @@ export function parseMode(raw: string | undefined): Mode {
 }
 
 /**
- * Writes each lane's final check, or closes open checks for cancel and
+ * Writes each lane's final status, or closes open lanes for cancel and
  * timeout. Whatever is still open at the end is closed as unreadable, so no
- * check stays in progress. Returns the step summary text, or null.
+ * lane stays pending. Returns the step summary text, with a section per lane
+ * that the final statuses link to, or null.
  */
 export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir: string): Promise<string | null> {
 	if (mode === 'timeout' || mode === 'cancel') {
@@ -73,15 +74,18 @@ export async function finalize(deps: Deps, state: State, mode: Mode, resultsDir:
 		return renderRequiredSummary([], deps.runUrl);
 	}
 	const artifacts = readArtifacts(resultsDir);
-	const lanes = groupLanes(jobs);
+	const lanes = groupLanes(jobs).map(lane => ({
+		lane,
+		out: renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null),
+	}));
 	// Second pass retries any write that failed.
 	for (let pass = 0; pass < 2; pass++) {
-		for (const lane of lanes) {
-			await publish(deps, state, lane.name, renderLane(lane, deps.runUrl, artifacts.results.get(lane.name) ?? null, artifacts.cache.get(lane.name) ?? null));
+		for (const { lane, out } of lanes) {
+			await publish(deps, state, lane.name, out, deps.summaryUrl ?? laneUrl(lane, deps.runUrl));
 		}
 	}
 	await closeOpen(deps, state, 'unreadable');
-	return renderRequiredSummary(jobs, deps.runUrl);
+	return lanes.map(({ lane, out }) => renderSection(lane.name, out)).join('\n') + '\n' + renderRequiredSummary(jobs, deps.runUrl);
 }
 
 async function main(): Promise<void> {

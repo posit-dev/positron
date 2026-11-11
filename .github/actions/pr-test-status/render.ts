@@ -6,15 +6,15 @@
 import type { Job, Lane } from './lanes.ts';
 import { sanitizeName, type CacheEntry, type FailedTest, type Results } from './results.ts';
 
-/** The content of a check run: status, conclusion, and its page. */
-export type CheckOutput = {
+/** A lane's result: status, conclusion, one-line title, and its details for the run summary. */
+export type LaneOutput = {
 	status: 'in_progress' | 'completed';
 	conclusion?: 'success' | 'failure' | 'cancelled' | 'neutral' | 'timed_out';
 	title: string;
 	summary: string;
 };
 
-// GitHub caps a check summary at 65535 characters.
+// Keeps one lane's details well under the 1 MiB step summary cap.
 const MAX_SUMMARY = 60000;
 const SEP = ' \u{B7} ';
 
@@ -176,8 +176,18 @@ function laneSummary(lane: Lane, runUrl: string, results: Results | null, cache:
 	return laneBody(lane, results, total).body + tail(0);
 }
 
-/** Renders the check page for one lane. */
-export function renderLane(lane: Lane, runUrl: string, results: Results | null, cache: CacheEntry[] | null): CheckOutput {
+/** Where a running lane links: its job's log if it has one job, else the whole builds run. */
+export function laneUrl(lane: Lane, runUrl: string): string {
+	return lane.jobs.length === 1 ? lane.jobs[0].html_url : runUrl;
+}
+
+/** Renders one lane's section of the required-tests run summary. */
+export function renderSection(name: string, out: LaneOutput): string {
+	return `## ${code(name)}: ${out.title}\n\n${out.summary}\n`;
+}
+
+/** Renders one lane's result. */
+export function renderLane(lane: Lane, runUrl: string, results: Results | null, cache: CacheEntry[] | null): LaneOutput {
 	const summary = laneSummary(lane, runUrl, results, cache);
 	if (lane.state === 'in_progress') {
 		return { status: 'in_progress', title: 'Running', summary };
@@ -193,8 +203,8 @@ export function renderLane(lane: Lane, runUrl: string, results: Results | null, 
 	return { status: 'completed', conclusion: 'failure', title, summary };
 }
 
-/** Renders the check page for a lane whose results could not be used. */
-export function renderUnreadable(runUrl: string, reason: 'unreadable' | 'timed_out' | 'cancelled'): CheckOutput {
+/** Renders the result for a lane whose results could not be used. */
+export function renderUnreadable(runUrl: string, reason: 'unreadable' | 'timed_out' | 'cancelled'): LaneOutput {
 	const link = `\n${runLink(runUrl)}\n`;
 	switch (reason) {
 		case 'timed_out':

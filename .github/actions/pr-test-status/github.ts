@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { Job } from './lanes.ts';
-import type { CheckOutput } from './render.ts';
+import type { LaneOutput } from './render.ts';
 
 const API = 'https://api.github.com/repos/posit-dev';
 const BUILDS = `${API}/positron-builds`;
-const CHECKS = `${API}/positron/check-runs`;
+const STATUSES = `${API}/positron/statuses`;
 
 /** Calls the API. Errors carry the status only: response bodies are not echoed. */
 async function call(token: string, method: string, url: string, body?: unknown): Promise<unknown> {
@@ -29,11 +29,13 @@ async function call(token: string, method: string, url: string, body?: unknown):
 	return res.json();
 }
 
-const checkBody = (out: CheckOutput) => ({
-	status: out.status,
-	...(out.conclusion ? { conclusion: out.conclusion } : {}),
-	output: { title: out.title, summary: out.summary },
-});
+/** A commit status has four states: anything that ended without passing or failing is `error`. */
+function statusState(out: LaneOutput): 'pending' | 'success' | 'failure' | 'error' {
+	if (out.status === 'in_progress') {
+		return 'pending';
+	}
+	return out.conclusion === 'success' || out.conclusion === 'failure' ? out.conclusion : 'error';
+}
 
 /** Lists every job of a positron-builds run, 100 per page. Needs BUILDS_TOKEN. */
 export async function listJobs(token: string, runId: string): Promise<Job[]> {
@@ -56,13 +58,13 @@ export async function getRun(token: string, runId: string): Promise<{ status: st
 	return { status: data.status, conclusion: data.conclusion };
 }
 
-/** Creates a check on a positron commit and returns its id. Needs CHECKS_TOKEN. */
-export async function createCheck(token: string, sha: string, name: string, out: CheckOutput): Promise<number> {
-	const data = await call(token, 'POST', CHECKS, { name, head_sha: sha, ...checkBody(out) }) as { id: number };
-	return data.id;
-}
-
-/** Updates a positron check. Needs CHECKS_TOKEN. */
-export async function updateCheck(token: string, id: number, out: CheckOutput): Promise<void> {
-	await call(token, 'PATCH', `${CHECKS}/${id}`, checkBody(out));
+/** Sets a lane's commit status on a positron commit. Needs STATUS_TOKEN. */
+export async function setStatus(token: string, sha: string, context: string, out: LaneOutput, url: string): Promise<void> {
+	await call(token, 'POST', `${STATUSES}/${sha}`, {
+		context,
+		state: statusState(out),
+		// GitHub caps a status description at 140 characters.
+		description: out.title.slice(0, 140),
+		target_url: url,
+	});
 }

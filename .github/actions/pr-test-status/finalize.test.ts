@@ -10,19 +10,22 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { finalize, parseMode, readArtifacts } from './finalize.ts';
 import type { Job } from './lanes.ts';
-import type { Deps, State } from './checks.ts';
+import type { Deps, State } from './statuses.ts';
 import { parseDeadline } from './poll.ts';
-import type { CheckOutput } from './render.ts';
+import type { LaneOutput } from './render.ts';
 
 const RUN = 'https://github.com/posit-dev/positron-builds/actions/runs/9';
 const job = (name: string, conclusion: string | null): Job => ({
 	id: 1, name, status: conclusion ? 'completed' : 'in_progress', conclusion, html_url: 'https://example.test/job/1',
 });
 
-function fake(jobs: Job[] | Error): { deps: Deps; created: string[]; updated: { id: number; out: CheckOutput }[] } {
-	const f = { created: [] as string[], updated: [] as { id: number; out: CheckOutput }[], deps: null as unknown as Deps };
+const SUMMARY = 'https://github.com/posit-dev/positron/actions/runs/42';
+type Write = { name: string; out: LaneOutput; url: string };
+
+function fake(jobs: Job[] | Error): { deps: Deps; writes: Write[] } {
+	const f = { writes: [] as Write[], deps: null as unknown as Deps };
 	f.deps = {
-		runId: '9', headSha: 'abc', runUrl: RUN,
+		runId: '9', headSha: 'abc', runUrl: RUN, summaryUrl: SUMMARY,
 		listJobs: async () => {
 			if (jobs instanceof Error) {
 				throw jobs;
@@ -30,18 +33,14 @@ function fake(jobs: Job[] | Error): { deps: Deps; created: string[]; updated: { 
 			return jobs;
 		},
 		getRun: async () => ({ status: 'completed', conclusion: 'success' }),
-		createCheck: async (_s, name) => {
-			f.created.push(name);
-			return 100 + f.created.length;
-		},
-		updateCheck: async (id, out) => {
-			f.updated.push({ id, out });
+		setStatus: async (_s, name, out, url) => {
+			f.writes.push({ name, out, url });
 		},
 	};
 	return f;
 }
 
-const openCheck = (id: number): State['checks'][string] => ({ id, closed: false, out: { status: 'in_progress', title: 'Running', summary: 'x' } });
+const open = (): State['statuses'][string] => ({ url: 'u', closed: false, out: { status: 'in_progress', title: 'Running', summary: 'x' } });
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'pr-test-status-'));
 
 test('readArtifacts maps folders to lanes and a missing file to null', () => {
@@ -62,65 +61,71 @@ test('readArtifacts maps folders to lanes and a missing file to null', () => {
 	assert.deepStrictEqual(a.cache.get('unit / vscode'), [{ name: 'npm-core', hit: true }]);
 });
 
-test('final writes lanes with results and returns the summary', async () => {
+test('final links each lane to the run summary, which holds a section per lane', async () => {
 	const dir = tmp();
 	mkdirSync(join(dir, 'vitest-results'));
 	writeFileSync(join(dir, 'vitest-results', 'results.json'), JSON.stringify({ numPassedTests: 5, numFailedTests: 0, testResults: [] }));
 	const f = fake([job('unit / vitest-1', 'success')]);
-	const state: State = { checks: {}, readErrors: 0 };
+	const state: State = { statuses: {}, readErrors: 0 };
 	const summary = await finalize(f.deps, state, 'final', dir);
-	assert.deepStrictEqual(f.created, ['unit / vitest']);
-	assert.strictEqual(state.checks['unit / vitest'].out.title, '5 passed');
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['unit / vitest', '5 passed', SUMMARY]]);
+	assert.match(summary ?? '', /^## `unit \/ vitest`: 5 passed\n\n## Vitest Test Report/);
 	assert.match(summary ?? '', /Full run and artifacts/);
 });
 
-test('final closes every open check as unreadable when jobs cannot be read', async () => {
+test('final links to the lane itself when the summary page is unknown', async () => {
+	const f = fake([job('unit / vitest-1', 'success')]);
+	f.deps.summaryUrl = null;
+	await finalize(f.deps, { statuses: {}, readErrors: 0 }, 'final', tmp());
+	assert.deepStrictEqual(f.writes.map(w => w.url), ['https://example.test/job/1']);
+});
+
+test('final closes every open lane as unreadable when jobs cannot be read', async () => {
 	const f = fake(new Error('down'));
-	const state: State = { checks: { a: openCheck(1), b: openCheck(2) }, readErrors: 0 };
+	const state: State = { statuses: { a: open(), b: open() }, readErrors: 0 };
 	const summary = await finalize(f.deps, state, 'final', tmp());
-	assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.title]), [[1, 'Could not read the test run'], [2, 'Could not read the test run']]);
+	assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['a', 'Could not read the test run', RUN], ['b', 'Could not read the test run', RUN]]);
 	assert.match(summary ?? '', /Full run and artifacts/);
 });
 
 test('final closes a lane that is in the state but absent from the final jobs', async () => {
 	const f = fake([job('unit / vitest-1', 'success')]);
-	const state: State = { checks: { 'e2e / gone': openCheck(7) }, readErrors: 0 };
+	const state: State = { statuses: { 'e2e / gone': open() }, readErrors: 0 };
 	await finalize(f.deps, state, 'final', tmp());
-	assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.conclusion]), [[7, 'neutral']]);
-	assert.strictEqual(state.checks['e2e / gone'].closed, true);
+	assert.deepStrictEqual(f.writes.filter(w => w.name === 'e2e / gone').map(w => w.out.conclusion), ['neutral']);
+	assert.strictEqual(state.statuses['e2e / gone'].closed, true);
 });
 
-test('final never reopens a closed check for a lane that is running again', async () => {
+test('final never reopens a closed lane that is running again', async () => {
 	const f = fake([job('unit / vitest-1', null)]);
-	const closed = { id: 5, closed: true, out: { status: 'completed', conclusion: 'success', title: '5 passed', summary: 'x' } as CheckOutput };
-	const state: State = { checks: { 'unit / vitest': closed }, readErrors: 0 };
+	const closed = { url: 'u', closed: true, out: { status: 'completed', conclusion: 'success', title: '5 passed', summary: 'x' } as LaneOutput };
+	const state: State = { statuses: { 'unit / vitest': closed }, readErrors: 0 };
 	await finalize(f.deps, state, 'final', tmp());
-	assert.deepStrictEqual(f.updated, []);
-	assert.deepStrictEqual(f.created, []);
-	assert.strictEqual(state.checks['unit / vitest'].closed, true);
+	assert.deepStrictEqual(f.writes, []);
+	assert.strictEqual(state.statuses['unit / vitest'].closed, true);
 });
 
 test('final retries a failed write once', async () => {
 	const f = fake([job('unit / vitest-1', 'success')]);
 	let calls = 0;
-	const create = f.deps.createCheck;
-	f.deps.createCheck = async (s, n, o) => {
+	const write = f.deps.setStatus;
+	f.deps.setStatus = async (s, n, o, u) => {
 		if (calls++ === 0) {
 			throw new Error('flaky');
 		}
-		return create(s, n, o);
+		return write(s, n, o, u);
 	};
-	const state: State = { checks: {}, readErrors: 0 };
+	const state: State = { statuses: {}, readErrors: 0 };
 	await finalize(f.deps, state, 'final', tmp());
-	assert.strictEqual(state.checks['unit / vitest'].closed, true);
+	assert.strictEqual(state.statuses['unit / vitest'].closed, true);
 });
 
-test('cancel and timeout close open checks', async () => {
+test('cancel and timeout close open lanes', async () => {
 	for (const [mode, title] of [['cancel', 'Cancelled'], ['timeout', 'Timed out']] as const) {
 		const f = fake([]);
-		const state: State = { checks: { a: openCheck(1), done: { ...openCheck(2), closed: true } }, readErrors: 0 };
+		const state: State = { statuses: { a: open(), done: { ...open(), closed: true } }, readErrors: 0 };
 		assert.strictEqual(await finalize(f.deps, state, mode, tmp()), null);
-		assert.deepStrictEqual(f.updated.map(u => [u.id, u.out.title]), [[1, title]]);
+		assert.deepStrictEqual(f.writes.map(w => [w.name, w.out.title, w.url]), [['a', title, RUN]]);
 	}
 });
 
