@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createWriteStream, mkdtempSync, mkdirSync, promises, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { createWriteStream, existsSync, mkdtempSync, mkdirSync, promises, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, expect, it, vi } from 'vitest';
@@ -139,6 +139,22 @@ describe('secretScrub', () => {
 				expect(entries['trace.trace'].toString()).toBe('{"type":"before","params":{"value":"***"}}\n');
 				expect(entries['resources/snapshot.html'].toString()).toBe('<input __playwright_value_="***">');
 				expect(entries['resources/image.png'].equals(binary)).toBe(true);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		it('scrubDirectory scrubs inside zips and removes one it cannot read', async () => {
+			const dir = mkdtempSync(join(tmpdir(), 'scrub-zip-'));
+			try {
+				await writeZip(join(dir, 'logs.zip'), { 'main.log': Buffer.from(`key=${SECRET}`) });
+				writeFileSync(join(dir, 'broken.zip'), 'not a zip');
+				writeFileSync(join(dir, 'plain.log'), `key=${SECRET}`);
+				expect(await scrubDirectory(dir, secrets)).toBe(2);
+				const [entry] = await readZipEntries(readFileSync(join(dir, 'logs.zip')), 'logs.zip');
+				expect(entry.data.toString()).toBe('key=***');
+				expect(readFileSync(join(dir, 'plain.log'), 'utf8')).toBe('key=***');
+				expect(existsSync(join(dir, 'broken.zip'))).toBe(false);
 			} finally {
 				rmSync(dir, { recursive: true, force: true });
 			}

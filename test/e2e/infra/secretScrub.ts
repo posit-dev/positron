@@ -66,7 +66,7 @@ export function scrubBuffer(data: Buffer, secrets: SecretValue[]): { data: Buffe
 	return replaced === 0 ? { data, replaced } : { data: Buffer.from(text, 'latin1'), replaced };
 }
 
-/** Scrubs every regular file under `dir` in place. Returns the total replacement count. */
+/** Scrubs every regular file under `dir` in place, zip entries included. Returns the total replacement count. */
 export async function scrubDirectory(dir: string, secrets: SecretValue[]): Promise<number> {
 	let total = 0;
 	let entries;
@@ -82,6 +82,14 @@ export async function scrubDirectory(dir: string, secrets: SecretValue[]): Promi
 		}
 		if (entry.isDirectory()) {
 			total += await scrubDirectory(full, secrets);
+		} else if (entry.isFile() && entry.name.toLowerCase().endsWith('.zip')) {
+			try {
+				total += await scrubZip(full, secrets);
+			} catch (e) {
+				// A zip that cannot be read cannot be scrubbed, so it must not be uploaded.
+				console.error(`Removed ${full}: scrub failed: ${e}`);
+				await fs.rm(full, { force: true });
+			}
 		} else if (entry.isFile()) {
 			let content: Buffer;
 			try {
