@@ -1,0 +1,171 @@
+{
+	"config": {
+		"projects": [
+			{
+				"name": "e2e-electron"
+			}
+		]
+	},
+	"suites": [
+		{
+			"title": "tests/apps/python-apps.test.ts",
+			"file": "tests/apps/python-apps.test.ts",
+			"specs": [],
+			"suites": [
+				{
+					"title": "Python Applications",
+					"file": "tests/apps/python-apps.test.ts",
+					"line": 60,
+					"column": 6,
+					"specs": [
+						{
+							"title": "Python - Verify Basic Dash App",
+							"ok": true,
+							"tests": [
+								{
+									"expectedStatus": "passed",
+									"projectName": "e2e-electron",
+									"results": [
+										{
+											"workerIndex": 0,
+											"status": "passed",
+											"duration": 18124,
+											"retry": 0
+										}
+									],
+									"status": "expected"
+								}
+							],
+							"file": "tests/apps/python-apps.test.ts"
+						},
+						{
+							"title": "Python - Verify Basic FastAPI App",
+							"ok": true,
+							"tests": [
+								{
+									"expectedStatus": "passed",
+									"projectName": "e2e-electron",
+									"results": [
+										{
+											"workerIndex": 0,
+											"status": "passed",
+											"duration": 6654,
+											"retry": 0
+										}
+									],
+									"status": "expected"
+								}
+							],
+							"file": "tests/apps/python-apps.test.ts"
+						}
+					]
+				}
+			]
+		},
+		{
+			"title": "tests/notebook/notebook-create.test.ts",
+			"file": "tests/notebook/notebook-create.test.ts",
+			"specs": [],
+			"suites": [
+				{
+					"title": "Notebooks",
+					"file": "tests/notebook/notebook-create.test.ts",
+					"line": 16,
+					"column": 6,
+					"specs": [],
+					"suites": [
+						{
+							"title": "R Notebooks",
+							"file": "tests/notebook/notebook-create.test.ts",
+							"line": 116,
+							"column": 7,
+							"specs": [
+								{
+									"title": "R - Verify code cell execution and markdown formatting in notebook",
+									"ok": true,
+									"tests": [
+										{
+											"expectedStatus": "passed",
+											"projectName": "e2e-electron",
+											"results": [
+												{
+													"workerIndex": 12,
+													"status": "failed",
+													"duration": 6719,
+													"retry": 0,
+													"errors": [
+														{
+															"message": "Error: element not visible"
+														}
+													]
+												},
+												{
+													"workerIndex": 14,
+													"status": "passed",
+													"duration": 8066,
+													"retry": 1
+												}
+											],
+											"status": "flaky"
+										}
+									],
+									"file": "tests/notebook/notebook-create.test.ts"
+								}
+							],
+							"suites": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"title": "tests/console/console-input.test.ts",
+			"file": "tests/console/console-input.test.ts",
+			"specs": [],
+			"suites": [
+				{
+					"title": "Console Input",
+					"file": "tests/console/console-input.test.ts",
+					"line": 12,
+					"column": 6,
+					"specs": [
+						{
+							"title": "Python - Can get input string via console",
+							"ok": false,
+							"tests": [
+								{
+									"expectedStatus": "passed",
+									"projectName": "e2e-electron",
+									"results": [
+										{
+											"workerIndex": 0,
+											"status": "failed",
+											"duration": 5000,
+											"retry": 0,
+											"errors": [
+												{
+													"message": "Error: expect(locator).toBeVisible() failed"
+												}
+											]
+										}
+									],
+									"status": "unexpected"
+								}
+							],
+							"file": "tests/console/console-input.test.ts"
+						}
+					]
+				}
+			]
+		}
+	],
+	"errors": [],
+	"stats": {
+		"startTime": "2026-11-10T23:52:02.839Z",
+		"duration": 1000,
+		"expected": 2,
+		"skipped": 1,
+		"unexpected": 1,
+		"flaky": 1
+	}
+}

@@ -33,8 +33,8 @@ jobs:
           filter: blob:none
 
       # A docs-only push to main still runs the unit suite in positron-builds
-      # (it saves the caches) and skips the rest. Fails open: an error means
-      # "not docs-only". Release and prerelease branches always run everything.
+      # (it saves the caches) and skips the rest. Any error runs the tests.
+      # Release and prerelease branches always run everything.
       - name: Check for a docs-only push
         id: docs-only
         if: github.ref == 'refs/heads/main'
@@ -42,7 +42,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           BEFORE_SHA: ${{ github.event.before }}
-          CI_WORKFLOW: .github/workflows/main-dispatch.yml
 
       - name: Mint a token for positron-builds
         id: token

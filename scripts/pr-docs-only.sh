@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Decide whether a pull request, or a push, changes only docs or tooling, and
-# write docs_only=true|false to $GITHUB_OUTPUT. test-pull-request.yml and
-# test-merge.yml skip their test jobs when it is true. See
+# write docs_only=true|false to $GITHUB_OUTPUT. pr-dispatch.yml and
+# main-dispatch.yml skip tests in positron-builds when it is true. See
 # scripts/lib/pr-docs-only-lib.sh for the allowlist.
 #
 # With PR_NUMBER, the changed files come from the pull request. With
@@ -9,15 +9,12 @@
 # push). Each push is judged on its own changes: an earlier push's red run
 # doesn't make a later docs-only push run the tests.
 #
-# CI_WORKFLOW is the workflow whose test jobs would be skipped; the workflows
-# and actions it uses are never docs-only. Push mode requires it.
-#
 # Any error (no PR number or push range, API or git failure, truncated file
 # list) yields false, so the tests run.
 #
 # Usage: bash scripts/pr-docs-only.sh
-# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER or BEFORE_SHA, CI_WORKFLOW
-#      (default .github/workflows/test-pull-request.yml), GITHUB_OUTPUT
+# Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER (optionally HEAD_SHA) or
+#      BEFORE_SHA, GITHUB_OUTPUT
 
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -34,17 +31,27 @@ emit() {
 
 # Echoes the PR's changed files, including a rename's previous name, or fails.
 pr_changed_files() {
-	local repo="${GITHUB_REPOSITORY:?}" expected files actual
-	if ! expected=$(gh api "repos/${repo}/pulls/${PR_NUMBER}" --jq '.changed_files'); then
-		echo "Could not fetch the pull request; running the tests." >&2
-		return 1
-	fi
-
+	local repo="${GITHUB_REPOSITORY:?}" pr expected head files actual
 	# A rename lists only its new name in `filename`, so include the old name too:
 	# moving a source file into docs/ is not a docs-only change.
 	if ! files=$(gh api "repos/${repo}/pulls/${PR_NUMBER}/files" --paginate \
 		--jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
 		echo "Could not fetch the changed files; running the tests." >&2
+		return 1
+	fi
+
+	# Read the head after the file list: if the head moved while the list was
+	# fetched, it no longer matches HEAD_SHA here.
+	if ! pr=$(gh api "repos/${repo}/pulls/${PR_NUMBER}" --jq '"\(.changed_files) \(.head.sha)"'); then
+		echo "Could not fetch the pull request; running the tests." >&2
+		return 1
+	fi
+	read -r expected head <<< "$pr"
+
+	# The file list is for the PR's current head; if that moved past the commit
+	# being judged, the list doesn't describe it.
+	if [[ -n "${HEAD_SHA:-}" && "$head" != "$HEAD_SHA" ]]; then
+		echo "The PR head is $head, not $HEAD_SHA; running the tests." >&2
 		return 1
 	fi
 
@@ -78,28 +85,18 @@ push_changed_files() {
 }
 
 if [[ -n "${PR_NUMBER:-}" ]]; then
-	CI_WORKFLOW="${CI_WORKFLOW:-.github/workflows/test-pull-request.yml}"
 	CHANGED=$(pr_changed_files) || emit false
 elif [[ -n "${BEFORE_SHA:-}" ]]; then
-	# No default: the PR workflow's list would miss merge-only workflows.
-	if [[ -z "${CI_WORKFLOW:-}" ]]; then
-		echo "CI_WORKFLOW is not set; running the tests."
-		emit false
-	fi
 	CHANGED=$(push_changed_files) || emit false
 else
 	echo "Not a pull request or a push; running the tests."
 	emit false
 fi
 
-REACHABLE=$(ci_reachable_paths "$ROOT" "$CI_WORKFLOW")
-
-echo "Workflows and actions $CI_WORKFLOW uses (never docs-only):"
-printf '%s\n' "$REACHABLE" | sed 's/^/  /'
 echo "Changed files:"
 while IFS= read -r path; do
 	[[ -z "$path" ]] && continue
-	echo "  [docs-only=$(is_docs_only_path "$path" "$REACHABLE")] $path"
+	echo "  [docs-only=$(is_docs_only_path "$path")] $path"
 done <<< "$CHANGED"
 
-emit "$(all_docs_only "$REACHABLE" <<< "$CHANGED")"
+emit "$(all_docs_only <<< "$CHANGED")"
