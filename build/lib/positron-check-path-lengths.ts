@@ -12,7 +12,8 @@ import {
 	EXTENSIONS_FILE_COUNT_BUDGET,
 	EXTENSION_FILE_COUNT_BUDGETS,
 	MAX_RELATIVE_PATH_LENGTH,
-	describeBudget
+	describeBudget,
+	isPrunedServerDependencyFile
 } from './positron-path-budget.ts';
 import { checkSharedDuckdbRuntime, duckdbBindingPackage } from './positron-duckdb-runtime.ts';
 
@@ -96,6 +97,12 @@ export interface IPackagedTreeCheckOptions {
 	 * positron-duckdb-runtime.ts.
 	 */
 	duckdbTarget?: { platform: string; arch: string };
+	/**
+	 * Whether to fail when a shipped `node_modules` file matches the server
+	 * prune (`isPrunedServerDependencyFile`). Only the server builds set it. The
+	 * desktop build packs `node_modules` into an asar and does not prune.
+	 */
+	prunedServerDependencies?: boolean;
 }
 
 export interface IPackagedTreeResult {
@@ -365,11 +372,48 @@ function reportDuckdbRuntime(extensionsPath: string, { platform, arch }: { platf
 	return `the shared DuckDB runtime is incomplete: ${problems.join('; ')}`;
 }
 
+/** How many pruned files to name when the check fails. */
+const REPORTED_PRUNED_FILES = 20;
+
+/**
+ * Logs the server prune result. Returns an error message when a shipped
+ * `node_modules` file matches the prune, or when the tree has no `node_modules`
+ * files to check. This is an invariant, so it has no threshold and
+ * `POSITRON_IGNORE_FILE_BUDGET` does not apply.
+ */
+function reportPrunedServerDependencies(files: IShippedFile[]): string | undefined {
+	const dependencies = files.filter(file => file.path.startsWith('node_modules\\'));
+	if (dependencies.length === 0) {
+		fancyLog.error('The packaged tree holds no node_modules files, so the server prune cannot be checked.');
+		return 'the packaged tree holds no node_modules files, so the server prune cannot be checked';
+	}
+
+	const pruned = dependencies.filter(file => isPrunedServerDependencyFile(file.path));
+	if (pruned.length === 0) {
+		fancyLog(`Server node_modules prune ok: ${formatCount(dependencies.length)} files checked`);
+		return undefined;
+	}
+
+	fancyLog.error(`${pruned.length} shipped file(s) in node_modules match the server prune:`);
+	for (const file of pruned.slice(0, REPORTED_PRUNED_FILES)) {
+		fancyLog.error(`  ${file.path}`);
+	}
+	if (pruned.length > REPORTED_PRUNED_FILES) {
+		fancyLog.error(`  ...and ${pruned.length - REPORTED_PRUNED_FILES} more.`);
+	}
+	fancyLog.error('The filter stage in build/gulpfile.reh.ts did not run on these files, or they joined the stream after it.');
+
+	return `${pruned.length} shipped file(s) in node_modules match the server prune, so the filter stage in gulpfile.reh.ts did not run on them, or they joined the stream after it: `
+		+ pruned.slice(0, REPORTED_PRUNED_FILES).map(file => file.path).join(', ');
+}
+
 /**
  * Fails the build when an extension, or `extensions/` as a whole, ships more
  * files than its budget, and, with `pathLengths`, when a path is too long for a
  * Windows per-user install or auto-update. With `duckdbTarget`, it also fails
- * when the shared DuckDB runtime is incomplete for the target. All results are
+ * when the shared DuckDB runtime is incomplete for the target. With
+ * `prunedServerDependencies`, it fails when a shipped `node_modules` file
+ * matches the server prune. All results are
  * logged before the function throws, so that one build shows every problem. With
  * `POSITRON_IGNORE_FILE_BUDGET` set, a file count over budget is only a
  * warning.
@@ -390,7 +434,8 @@ export function checkPackagedTree(appRoot: string, extensionsDir: string, option
 	const errors = [
 		pathLengths && reportPathLengths(pathLengths),
 		reportFileCounts(fileCounts, budgets),
-		options.duckdbTarget && reportDuckdbRuntime(path.join(appRoot, extensionsDir), options.duckdbTarget)
+		options.duckdbTarget && reportDuckdbRuntime(path.join(appRoot, extensionsDir), options.duckdbTarget),
+		options.prunedServerDependencies && reportPrunedServerDependencies(files)
 	].filter(error => error !== undefined);
 
 	if (errors.length) {

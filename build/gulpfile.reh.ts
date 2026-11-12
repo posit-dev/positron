@@ -46,6 +46,7 @@ import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
 import { getAiLibServerDependencies } from './lib/ai-lib-dependencies.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
+import { isPrunedServerDependencyFile } from './lib/positron-path-budget.ts';
 // --- End Positron ---
 // --- Start PWB: build-time gzip compression ---
 import through2 from 'through2';
@@ -541,6 +542,8 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true }),
 			getAiLibServerDependencies(shippedModulePaths)
 		)
+			// Drop server dependency files that neither Node nor the web client loads; see isPrunedServerDependencyFile.
+			.pipe(filter(file => !isPrunedServerDependencyFile(file.relative)))
 			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/*.{js,css}.map']))
@@ -747,11 +750,12 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
  * Workbench runs the server build on network filesystems, where file count
  * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
  * models the desktop install directory, so this task does not check it. The
- * task also checks the shared DuckDB runtime for the target.
+ * task also checks the shared DuckDB runtime for the target, and that no
+ * file that the server prune removes ships in node_modules.
  */
 function checkPackagedTreeTaskREH(platform: string, arch: string, destinationFolderName: string) {
 	return async () => {
-		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch } });
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch }, prunedServerDependencies: true });
 	};
 }
 // --- End Positron ---
