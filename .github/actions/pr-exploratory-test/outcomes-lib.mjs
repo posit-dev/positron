@@ -26,9 +26,13 @@ export function isResultComment(comment) {
 	return comment.user?.login === 'github-actions[bot]' && parseResultComment(comment.body) !== null;
 }
 
-/** The PRs, in ascending order, that a list of repo comments posts a result comment on. Comments on issues are left out. */
-export function resultCommentPrs(comments) {
-	const prs = comments.filter(isResultComment).map(c => Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1])).filter(Boolean);
+/**
+ * The PRs, in ascending order, with a result comment posted at or after `since` in a list of repo comments. The list
+ * API's own `since` goes by when a comment was last edited, so an older one edited later is left out here. Comments on issues are left out too.
+ */
+export function resultCommentPrs(comments, since) {
+	const from = new Date(since).getTime();
+	const prs = comments.filter(c => new Date(c.created_at).getTime() >= from && isResultComment(c)).map(c => Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1])).filter(Boolean);
 	return [...new Set(prs)].sort((a, b) => a - b);
 }
 

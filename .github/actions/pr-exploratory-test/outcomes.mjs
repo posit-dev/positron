@@ -77,8 +77,9 @@ async function prNumbers() {
 		return [Number(args.pr)];
 	}
 	// The repo's comment list rather than search: search is slow to index a new comment and misses some for good.
-	const comments = await gh(`/repos/${REPO}/issues/comments?since=${args.since}T00:00:00Z&per_page=100`);
-	return resultCommentPrs(comments).filter(n => !SKIPPED_PRS.has(n));
+	const since = new Date(args.since).toISOString();
+	const comments = await gh(`/repos/${REPO}/issues/comments?since=${since}&per_page=100`);
+	return resultCommentPrs(comments, since).filter(n => !SKIPPED_PRS.has(n));
 }
 
 let anthropic = null;

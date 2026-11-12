@@ -16,7 +16,7 @@ test('parseResultComment takes the short SHA, report base and run id from a resu
 
 test('resultCommentPrs keeps PRs with a result comment from the workflow, once each', () => {
 	const bot = { login: 'github-actions[bot]' };
-	const comment = (n, user, body, kind = 'pull') => ({ user, body, html_url: `https://github.com/posit-dev/positron/${kind}/${n}#issuecomment-1` });
+	const comment = (n, user, body, kind = 'pull', created_at = '2026-11-12T22:25:34Z') => ({ user, body, created_at, html_url: `https://github.com/posit-dev/positron/${kind}/${n}#issuecomment-1` });
 	const comments = [
 		comment(17302, bot, RESULT),
 		comment(17282, bot, RESULT),
@@ -24,8 +24,10 @@ test('resultCommentPrs keeps PRs with a result comment from the workflow, once e
 		comment(17290, { login: 'someone' }, RESULT),
 		comment(17291, bot, 'E2E Tests'),
 		comment(17292, bot, RESULT, 'issues'),
+		comment(17293, bot, '<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\nRunning…'),
+		comment(16000, bot, RESULT, 'pull', '2026-09-01T00:00:00Z'),
 	];
-	assert.deepEqual(resultCommentPrs(comments), [17282, 17302]);
+	assert.deepEqual(resultCommentPrs(comments, '2026-09-15'), [17282, 17302]);
 	assert.equal(isResultComment(comments[3]), false);
 });
 
