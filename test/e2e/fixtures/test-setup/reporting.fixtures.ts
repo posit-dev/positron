@@ -87,7 +87,11 @@ export function AttachLogsToReportFixture() {
 
 		await use();
 
-		if (!isArtifactEnabled('E2E_ATTACH_LOGS') || !suiteId) { return; }
+		if (!suiteId) { return; }
+		if (!isArtifactEnabled('E2E_ATTACH_LOGS')) { return; }
+
+		// The attachment is zipped now, before the worker-level scrub in the app fixture.
+		await scrubDirectory(logsPath, secretValues(process.env));
 
 		// For e2e-workbench, pull logs from Docker container
 		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
@@ -150,7 +154,6 @@ export function AttachCrashDumpsToReportFixture() {
  * Attach logs from the local filesystem (non-Docker projects)
  */
 async function attachLocalLogsToReport(logsPath: string, testInfo: playwright.TestInfo): Promise<void> {
-	await scrubDirectory(logsPath, secretValues(process.env));
 	const zipPath = path.join(logsPath, 'logs.zip');
 	const output = fs.createWriteStream(zipPath);
 	const archive = archiver('zip', { zlib: { level: 9 } });
@@ -251,9 +254,7 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 			return;
 		}
 
-		const secrets = secretValues(process.env);
-		await scrubDirectory(tempLogsDir, secrets);
-		await scrubDirectory(logsPath, secrets);
+		await scrubDirectory(tempLogsDir, secretValues(process.env));
 
 		// Create zip archive from both Docker logs and local test logs
 		const output = fs.createWriteStream(zipPath);
