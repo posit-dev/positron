@@ -14,6 +14,26 @@
 import * as crypto from 'crypto';
 
 /**
+ * Map a Node.js platform (`process.platform` / `os.platform()`) and a target
+ * arch (`npm_config_arch` or `os.arch()`) to the DuckDB extension platform name
+ * (e.g. `osx_arm64`). The extension must match the arch of the bundled DuckDB
+ * engine, which follows the build's target arch, so cross-builds (e.g. building
+ * x64 on an arm64 host) must pass the target arch, not the host arch.
+ */
+export function resolveDuckDBPlatform(osPlatform: string, targetArch: string): string {
+	switch (osPlatform) {
+		case 'darwin':
+			return targetArch === 'arm64' ? 'osx_arm64' : 'osx_amd64';
+		case 'linux':
+			return targetArch === 'arm64' ? 'linux_arm64' : 'linux_amd64';
+		case 'win32':
+			return 'windows_amd64';
+		default:
+			throw new Error(`Unsupported platform for the DuckDB Excel extension: ${osPlatform}`);
+	}
+}
+
+/**
  * Truncate a thin 64-bit Mach-O to the end of its last segment, dropping any
  * trailing data. DuckDB signs its extensions by appending a footer past the end
  * of the Mach-O image (it does NOT add an `LC_CODE_SIGNATURE` load command), and

@@ -58,7 +58,7 @@ import * as https from 'https';
 import { arch, platform } from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { stripMachOTrailingData, verifyExtensionHash } from '../src/excelExtensionInstallUtils';
+import { resolveDuckDBPlatform, stripMachOTrailingData, verifyExtensionHash } from '../src/excelExtensionInstallUtils';
 
 /** Directory holding the vendored extension (packaged into the .vsix). */
 const RESOURCES_DIR = path.join(__dirname, '..', 'resources');
@@ -83,16 +83,7 @@ const VERSION_FILE = path.join(RESOURCES_DIR, 'EXCEL_VERSION');
  */
 function duckdbPlatform(): string {
 	const targetArch = process.env['npm_config_arch'] || process.env['NPM_CONFIG_ARCH'] || arch();
-	switch (platform()) {
-		case 'darwin':
-			return targetArch === 'arm64' ? 'osx_arm64' : 'osx_amd64';
-		case 'linux':
-			return targetArch === 'arm64' ? 'linux_arm64' : 'linux_amd64';
-		case 'win32':
-			return 'windows_amd64';
-		default:
-			throw new Error(`Unsupported platform for the DuckDB Excel extension: ${platform()}`);
-	}
+	return resolveDuckDBPlatform(platform(), targetArch);
 }
 
 /**
