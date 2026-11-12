@@ -622,6 +622,8 @@ jobs:
       # To tell which positron runs a leftover explore-run branch belongs to.
       actions: read
       contents: read
+      # The PR title, for the run name in positron-builds.
+      pull-requests: read
     outputs:
       run_id: ${{ steps.dispatch.outputs.run_id }}
       run_attempt: ${{ steps.run.outputs.attempt }}
@@ -727,19 +729,29 @@ jobs:
           FOCUS: ${{ needs.resolve.outputs.focus }}
           TIME_LIMIT: ${{ needs.resolve.outputs.time_limit }}
           HARNESS_SHA: ${{ github.sha }}
+          POSITRON_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ -n "$PR" ]; then
+            full=$(GH_TOKEN=$POSITRON_TOKEN gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .title || true)
+            subject=${full:0:60}
+            if [ ${#full} -gt 60 ]; then subject="$subject..."; fi
+            title="explore: #$PR $subject ($POSITRON_RUN)"
+          else
+            title="explore: $REF ($POSITRON_RUN)"
+          fi
           args=(-f "positron_run=$POSITRON_RUN" -f "sha=$SHA" -f "base=$BASE_REF" -f "model=$MODEL"
-            -f "focus=$FOCUS" -f "time_limit=$TIME_LIMIT" -f "main_replay=$MAIN_REPLAY" -f "harness_sha=$HARNESS_SHA")
+            -f "focus=$FOCUS" -f "time_limit=$TIME_LIMIT" -f "main_replay=$MAIN_REPLAY" -f "harness_sha=$HARNESS_SHA"
+            -f "title=$title")
           if [ -n "$PR" ]; then args+=(-f "pr_number=$PR"); else args+=(-f "branch=$REF"); fi
           gh workflow run explore-pr.yml -R posit-dev/positron-builds --ref "$LANE" "${args[@]}"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
-          # The dispatch API returns no run id; find the run by its run-name, and
-          # only among dispatches the bot itself started.
+          # The dispatch API returns no run id; find the run by the run id its
+          # run-name ends with, and only among dispatches the bot itself started.
           id=""
           for _ in $(seq 1 24); do
             id=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-pr.yml/runs?event=workflow_dispatch&branch=$LANE" \
-              --jq ".workflow_runs[] | select((.display_title | startswith(\"explore $POSITRON_RUN \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+              --jq ".workflow_runs[] | select((.display_title | endswith(\" ($POSITRON_RUN)\")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
@@ -848,7 +860,7 @@ jobs:
         run: |
           if [ -z "$RUN_ID" ]; then
             RUN_ID=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-pr.yml/runs?event=workflow_dispatch&branch=$LANE" \
-              --jq ".workflow_runs[] | select((.display_title | startswith(\"explore $POSITRON_RUN \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" \
+              --jq ".workflow_runs[] | select((.display_title | endswith(\" ($POSITRON_RUN)\")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" \
               | head -n 1) || RUN_ID=""
           fi
           if [ -z "$RUN_ID" ]; then

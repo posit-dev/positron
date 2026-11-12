@@ -61,16 +61,19 @@ jobs:
         run: |
           set -euo pipefail
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          full=$(git log -1 --format=%s "$SHA" || true)
+          subject=${full:0:60}
+          if [ ${#full} -gt 60 ]; then subject="$subject..."; fi
+          title="merge: $BRANCH - $subject (${SHA:0:7})"
           # Privileged runs dispatch from main so their caches land in main's scope.
           gh workflow run merge-test.yml -R posit-dev/positron-builds --ref main \
-            -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY"
+            -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY" -f "title=$title"
           # The dispatch API returns no run id; find the run by its run-name, and
           # only among dispatches the bot itself started.
-          title="positron $BRANCH at $SHA"
           id=""
           for i in $(seq 1 24); do
-            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=main&created=>=$since&per_page=20" \
-              --jq ".workflow_runs[] | select(.path == \".github/workflows/merge-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=main&created=>=$since&per_page=20" |
+              jq -r --arg title "$title" '.workflow_runs[] | select(.path == ".github/workflows/merge-test.yml" and .display_title == $title and .triggering_actor.login == "positron-bot[bot]") | .id' | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
