@@ -353,9 +353,8 @@ async function prRows(number) {
 
 const runs = await prRuns();
 const numbers = [...runs.keys()];
-// A merged PR whose rows are all settled isn't read again: they can't change, and reading it costs several GitHub calls.
-// A PR shipped through another is decided again every time, so it is always read.
-// A PR asked for with --pr is always read.
+// A merged PR whose rows can't change isn't read again, which saves several GitHub calls each. A PR shipped through
+// another is decided again every time, and one asked for with --pr is always read.
 const kept = new Set(args.pr ? [] : numbers.filter(n => !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, n, runs.get(n))));
 console.error(`[outcomes] ${kept.size} settled PRs kept without reading, ${numbers.length - kept.size} to read`);
 // One fetch for every PR rather than one each; if it fails, each PR fetches its own.
