@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { timeout } from '../../../../../base/common/async.js';
+import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -1214,12 +1214,18 @@ describe('Positron - RuntimeSessionService', () => {
 
 			const [, newSession] = await Promise.all([restartSession(session.sessionId), start(runtime)]);
 
-			// TODO: Perhaps a new console should be started in this case?
-			// The existing session is reused.
-			expect(session.sessionId).toBe(newSession.sessionId);
-			assertActiveSessions([newSession]);
-			assertCurrentSession(runtime, notebookUri, newSession);
-			expect(newSession.getRuntimeState()).toBe(RuntimeState.Ready);
+			if (mode === LanguageRuntimeSessionMode.Notebook) {
+				// The start joins the restart, so the existing session is reused.
+				expect(session.sessionId).toBe(newSession.sessionId);
+				assertActiveSessions([newSession]);
+				assertCurrentSession(runtime, notebookUri, newSession);
+				expect(newSession.getRuntimeState()).toBe(RuntimeState.Ready);
+			} else if (mode === LanguageRuntimeSessionMode.Console) {
+				// A console restart is not joined, so a new console starts.
+				expect(session.sessionId).not.toBe(newSession.sessionId);
+				assertActiveSessions([session, newSession]);
+				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
+			}
 		});
 	}
 
@@ -1748,6 +1754,24 @@ describe('Positron - RuntimeSessionService', () => {
 			await restart;
 		});
 
+		test('fails a pending restart when its session is deleted', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			const gate = new DeferredPromise<void>();
+			vi.spyOn(session, 'restart').mockImplementation(() => gate.p);
+			const restartOutcome = runtimeSessionService.restartSession(session.sessionId, startReason, false)
+				.then(() => 'restarted', () => 'failed');
+			await timeout(0);
+
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			expect({
+				display: runtimeSessionService.getDisplayRuntimeState(session.sessionId),
+				restartOutcome: await restartOutcome,
+			}).toEqual({ display: undefined, restartOutcome: 'failed' });
+			gate.complete();
+		});
+
 		test('clears display state after the session is deleted', async () => {
 			const session = await startConsole(runtime);
 			await waitForRuntimeState(session, RuntimeState.Ready);
@@ -2241,18 +2265,441 @@ describe('Positron - RuntimeSessionService', () => {
 			});
 		});
 
-		it('restarts a running console while another console of its runtime is starting', async () => {
+		/**
+		 * Makes the next session that the manager creates or restores wait on
+		 * the returned gate before it starts.
+		 */
+		function gateNextSession(method: 'createSession' | 'restoreSession') {
+			const gate = new DeferredPromise<void>();
+			const gatedSession = async (runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: IRuntimeSessionMetadata) => {
+				const session = new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata);
+				const start = session.start.bind(session);
+				session.start = async () => {
+					await gate.p;
+					return start();
+				};
+				return session;
+			};
+			if (method === 'createSession') {
+				vi.spyOn(manager, 'createSession').mockImplementationOnce(gatedSession);
+			} else {
+				vi.spyOn(manager, 'restoreSession').mockImplementationOnce(gatedSession);
+			}
+			return gate;
+		}
+
+		const restoredConsoleMetadata = (): IRuntimeSessionMetadata => ({
+			sessionId: 'restored-console-session-id',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			createdTimestamp: Date.now(),
+			notebookUri: undefined,
+			startReason,
+			startReasonId: startSource.id,
+			owner: 'user',
+		});
+
+		const restoreConsoleInBackground = () =>
+			runtimeSessionService.restoreRuntimeSession(runtime, restoredConsoleMetadata(), sessionName, true, false)
+				.then(() => true, () => false);
+
+		const resetValidator = () =>
+			manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => metadata);
+
+		it('keeps a start registered when a console restore of its runtime finishes', async () => {
+			const gate = gateNextSession('createSession');
+			const first = startBackgroundConsole();
+			await timeout(0);
+
+			const restored = await restoreConsoleInBackground();
+			const second = startBackgroundConsole();
+			gate.complete();
+			const [firstId, secondId] = await Promise.all([first, second]);
+
+			expect({ restored, secondJoinedFirst: secondId === firstId })
+				.toEqual({ restored: true, secondJoinedFirst: true });
+		});
+
+		it('lets a requireNewSession start wait for a gated start after a restore of its runtime finishes', async () => {
+			const createSession = vi.spyOn(manager, 'createSession');
+			const gate = gateNextSession('createSession');
+			const first = startBackgroundConsole();
+			await timeout(0);
+
+			const restored = await restoreConsoleInBackground();
+			const second = startBackgroundConsole({ requireNewSession: true });
+			await timeout(0);
+			const before = createSession.mock.calls.length;
+			gate.complete();
+			await Promise.all([first, second]);
+
+			expect({ restored, before, after: createSession.mock.calls.length })
+				.toEqual({ restored: true, before: 1, after: 2 });
+		});
+
+		it('keeps a start registered when a console restore of its runtime finishes during it', async () => {
+			const createSession = vi.spyOn(manager, 'createSession');
+			const restoreGate = gateNextSession('restoreSession');
+			const restore = restoreConsoleInBackground();
+			await timeout(0);
+
+			// A console restore registers nothing, so this start passes validation.
+			const startGate = gateNextSession('createSession');
+			const second = startBackgroundConsole();
+			await timeout(0);
+			restoreGate.complete();
+			const restored = await restore;
+
+			// A request that does not join reaches `createSession` only after
+			// some awaits, so wait before counting.
+			const third = startBackgroundConsole();
+			await timeout(0);
+			const createSessionCalls = createSession.mock.calls.length;
+			startGate.complete();
+			const [secondId, thirdId] = await Promise.all([second, third]);
+
+			expect({ restored, createSessionCalls, thirdJoinedSecond: thirdId === secondId })
+				.toEqual({ restored: true, createSessionCalls: 1, thirdJoinedSecond: true });
+		});
+
+		it('leaves no entry under the old runtime ID when validation changes it', async () => {
+			const validatedRuntimeId = 'validated-runtime-id';
+			manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) =>
+				({ ...metadata, runtimeId: validatedRuntimeId }));
+			try {
+				const started = async (id: Promise<string>) => {
+					const timer = timeout(1000);
+					try {
+						return await Promise.race([
+							id.then(sessionId => sessionId ? 'started' : 'not started', () => 'failed'),
+							timer.then(() => 'timed out', () => 'cancelled'),
+						]);
+					} finally {
+						timer.cancel();
+					}
+				};
+
+				const first = await started(runtimeSessionService.autoStartRuntime(unregisteredRuntime, startSource, false));
+				const newRuntimeId = await started(runtimeSessionService.startNewRuntimeSession(
+					validatedRuntimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined,
+					startSource, RuntimeStartMode.Starting, false));
+				const oldRuntimeIdAgain = await started(runtimeSessionService.autoStartRuntime(unregisteredRuntime, startSource, false));
+
+				expect({ first, newRuntimeId, oldRuntimeIdAgain })
+					.toEqual({ first: 'started', newRuntimeId: 'started', oldRuntimeIdAgain: 'started' });
+			} finally {
+				resetValidator();
+			}
+		});
+
+		it('joins the start in flight when validation changes the runtime ID to one that is starting', async () => {
+			const createSession = vi.spyOn(manager, 'createSession');
+			const gate = gateNextSession('createSession');
+			manager.setValidateMetadata(async () => runtime);
+			try {
+				const gated = startBackgroundConsole();
+				const autoStart = runtimeSessionService.autoStartRuntime(unregisteredRuntime, startSource, false);
+				await timeout(0);
+				const later = startBackgroundConsole();
+				gate.complete();
+				const [gatedId, autoStartId, laterId] = await Promise.all([gated, autoStart, later]);
+
+				expect({
+					autoStartJoined: autoStartId === gatedId,
+					laterStartJoined: laterId === gatedId,
+					createSessionCalls: createSession.mock.calls.length,
+				}).toEqual({ autoStartJoined: true, laterStartJoined: true, createSessionCalls: 1 });
+			} finally {
+				resetValidator();
+			}
+		});
+
+		it('waits for a private start in flight when validation changes the runtime ID to it', async () => {
+			const createSession = vi.spyOn(manager, 'createSession');
+			const gate = gateNextSession('createSession');
+			manager.setValidateMetadata(async () => runtime);
+			try {
+				const gated = startBackgroundConsole({ requireNewSession: true });
+				const autoStart = runtimeSessionService.autoStartRuntime(unregisteredRuntime, startSource, false);
+				await timeout(0);
+				const createSessionCallsDuringWait = createSession.mock.calls.length;
+				gate.complete();
+				const [gatedId, autoStartId] = await Promise.all([gated, autoStart]);
+
+				expect({
+					createSessionCallsDuringWait,
+					autoStartIsOwnSession: !!autoStartId && autoStartId !== gatedId,
+					createSessionCallsAfter: createSession.mock.calls.length,
+				}).toEqual({ createSessionCallsDuringWait: 1, autoStartIsOwnSession: true, createSessionCallsAfter: 2 });
+			} finally {
+				resetValidator();
+			}
+		});
+
+		/** Makes `session.restart()` wait on the returned gate before it restarts. */
+		function gateRestart(session: TestLanguageRuntimeSession) {
+			const gate = new DeferredPromise<void>();
+			const restartNow = session.restart.bind(session);
+			vi.spyOn(session, 'restart').mockImplementation(async workingDirectory => {
+				await gate.p;
+				return restartNow(workingDirectory);
+			});
+			return gate;
+		}
+
+		/**
+		 * Makes `session.restart()` exit the kernel, then wait on the returned
+		 * gate before it starts the kernel again.
+		 */
+		function gateRestartWhileExited(session: TestLanguageRuntimeSession) {
+			const gate = new DeferredPromise<void>();
+			vi.spyOn(session, 'restart').mockImplementation(async () => {
+				const exited = waitForRuntimeState(session, RuntimeState.Exited);
+				await session.shutdown(RuntimeExitReason.Restart);
+				await exited;
+				await gate.p;
+				await session.start();
+			});
+			return gate;
+		}
+
+		it('restarts a running console without waiting for another console of its runtime to start', async () => {
 			const running = await startConsole(runtime);
 			await waitForRuntimeState(running, RuntimeState.Ready);
 			const restart = vi.spyOn(running, 'restart');
-
+			const gate = gateNextSession('createSession');
 			const other = startBackgroundConsole();
-			await Promise.all([
-				other,
-				runtimeSessionService.restartSession(running.sessionId, startReason, false),
-			]);
+			let otherSettled = false;
+			other.finally(() => otherSettled = true).catch(() => { });
+			await timeout(0);
 
-			expect(restart).toHaveBeenCalledOnce();
+			const restarting = runtimeSessionService.restartSession(running.sessionId, startReason, false);
+			const timer = timeout(1000);
+			try {
+				const winner = await Promise.race([
+					restarting.then(() => 'restart'),
+					timer.then(() => 'timeout', () => 'cancelled'),
+				]);
+
+				expect({ restartWon: winner === 'restart', restartCalls: restart.mock.calls.length, otherStillStarting: !otherSettled })
+					.toEqual({ restartWon: true, restartCalls: 1, otherStillStarting: true });
+			} finally {
+				timer.cancel();
+				gate.complete();
+				await Promise.all([other, restarting]);
+			}
+		});
+
+		it('starts a new console instead of joining a console restart', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const gate = gateRestart(running);
+			const restarting = runtimeSessionService.restartSession(running.sessionId, startReason, false);
+			await timeout(0);
+
+			const newConsole = startBackgroundConsole();
+			gate.complete();
+			const [newId] = await Promise.all([newConsole, restarting]);
+
+			expect({ joinedRestart: newId === running.sessionId }).toEqual({ joinedRestart: false });
+		});
+
+		it('counts a restarting console as running while its kernel is exited', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const gate = gateRestartWhileExited(running);
+			const exited = waitForRuntimeState(running, RuntimeState.Exited);
+			const restarting = runtimeSessionService.restartSession(running.sessionId, startReason, false);
+			await exited;
+
+			expect({
+				forLanguage: runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId),
+				forAnyLanguage: runtimeSessionService.hasStartingOrRunningConsole(),
+			}).toEqual({ forLanguage: true, forAnyLanguage: true });
+
+			gate.complete();
+			await restarting;
+		});
+
+		it('does not count a restarting notebook session as a console', async () => {
+			const notebook = await startNotebook(runtime);
+			await waitForRuntimeState(notebook, RuntimeState.Ready);
+			const gate = gateRestartWhileExited(notebook);
+			const exited = waitForRuntimeState(notebook, RuntimeState.Exited);
+			const restarting = runtimeSessionService.restartSession(notebook.sessionId, startReason, false);
+			await exited;
+
+			expect({
+				forLanguage: runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId),
+				forAnyLanguage: runtimeSessionService.hasStartingOrRunningConsole(),
+			}).toEqual({ forLanguage: false, forAnyLanguage: false });
+
+			gate.complete();
+			await restarting;
+		});
+
+		it('fails a console restart when its session is restored during it', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			gateRestart(running);
+			const outcome = (restart: Promise<boolean>) => restart.then(() => 'restarted', () => 'failed');
+			const firstOutcome = outcome(runtimeSessionService.restartSession(running.sessionId, startReason, false));
+			await timeout(0);
+
+			const restored = await restoreSession(running.metadata, runtime, false);
+			await waitForRuntimeState(restored, RuntimeState.Ready);
+			const timer = timeout(1000);
+			try {
+				const first = await Promise.race([firstOutcome, timer.then(() => 'timed out', () => 'cancelled')]);
+				const displayIsRestarting =
+					runtimeSessionService.getDisplayRuntimeState(running.sessionId) === RuntimeState.Restarting;
+				const later = await Promise.race([
+					outcome(runtimeSessionService.restartSession(running.sessionId, startReason, false)),
+					timer.then(() => 'timed out', () => 'cancelled'),
+				]);
+
+				expect({ first, displayIsRestarting, later })
+					.toEqual({ first: 'failed', displayIsRestarting: false, later: 'restarted' });
+			} finally {
+				timer.cancel();
+			}
+		});
+
+		it('waits for a console restart when selecting its runtime', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const gate = gateRestartWhileExited(running);
+			const exited = waitForRuntimeState(running, RuntimeState.Exited);
+			const restarting = runtimeSessionService.restartSession(running.sessionId, startReason, false);
+			await exited;
+
+			let selected = false;
+			const selecting = runtimeSessionService.selectRuntime(runtime.runtimeId, startSource)
+				.then(() => { selected = true; });
+			await timeout(0);
+			const selectedDuringRestart = selected;
+			gate.complete();
+			await Promise.all([restarting, selecting]);
+
+			expect({ selectedDuringRestart, selectedAfterRestart: selected })
+				.toEqual({ selectedDuringRestart: false, selectedAfterRestart: true });
+		});
+
+		it('fails selecting a runtime whose console restart fails', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const gate = new DeferredPromise<void>();
+			vi.spyOn(running, 'restart').mockImplementation(async () => {
+				await gate.p;
+				throw new Error('restart failed');
+			});
+			const restarting = runtimeSessionService.restartSession(running.sessionId, startReason, false)
+				.catch(() => { });
+			await timeout(0);
+
+			const selecting = runtimeSessionService.selectRuntime(runtime.runtimeId, startSource)
+				.then(() => 'selected', () => 'failed');
+			gate.complete();
+			await restarting;
+
+			expect(await selecting).toBe('failed');
+		});
+
+		it('runs a later restart after a failed restart', async () => {
+			const running = await startConsole(runtime);
+			await waitForRuntimeState(running, RuntimeState.Ready);
+			const restart = vi.spyOn(running, 'restart').mockRejectedValueOnce(new Error('restart failed'));
+
+			const firstOutcome = await runtimeSessionService.restartSession(running.sessionId, startReason, false)
+				.then(() => 'restarted', () => 'failed');
+			await runtimeSessionService.restartSession(running.sessionId, startReason, false);
+
+			expect({ firstOutcome, restartCalls: restart.mock.calls.length })
+				.toEqual({ firstOutcome: 'failed', restartCalls: 2 });
+		});
+
+		describe('restarting an exited notebook session', () => {
+			const startBackgroundNotebook = (notebookRuntime: ILanguageRuntimeMetadata) =>
+				runtimeSessionService.startNewRuntimeSession(
+					notebookRuntime.runtimeId,
+					sessionName,
+					LanguageRuntimeSessionMode.Notebook,
+					notebookUri,
+					startSource,
+					RuntimeStartMode.Starting,
+					false,
+				);
+
+			/**
+			 * Starts a notebook session and makes it exit, so that it leaves
+			 * the notebook but stays active. The returned spy counts the
+			 * session's starts after the exit.
+			 */
+			async function startExitedNotebook() {
+				const session = await startNotebook(runtime);
+				await waitForRuntimeState(session, RuntimeState.Ready);
+				const exited = waitForRuntimeState(session, RuntimeState.Exited);
+				await session.shutdown(RuntimeExitReason.Shutdown);
+				await exited;
+				return { session, start: vi.spyOn(session, 'start') };
+			}
+
+			it('shows Restarting while a notebook restart waits for a start of its notebook', async () => {
+				const { session: exited, start } = await startExitedNotebook();
+				const gate = gateNextSession('createSession');
+				const second = startBackgroundNotebook(runtime);
+				await timeout(0);
+
+				const restarting = runtimeSessionService.restartSession(exited.sessionId, startReason, false);
+				await timeout(0);
+				const displayDuringWait = runtimeSessionService.getDisplayRuntimeState(exited.sessionId);
+				gate.complete();
+				const [secondId, restarted] = await Promise.all([second, restarting]);
+
+				expect({
+					displayDuringWait,
+					restarted,
+					startCalls: start.mock.calls.length,
+					notebookSessionIsSecond: runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri)?.sessionId === secondId,
+				}).toEqual({
+					displayDuringWait: RuntimeState.Restarting,
+					restarted: false,
+					startCalls: 0,
+					notebookSessionIsSecond: true,
+				});
+			});
+
+			it('restarts an exited notebook session when no other session took over its notebook', async () => {
+				const { session: exited, start } = await startExitedNotebook();
+
+				const restarted = await runtimeSessionService.restartSession(exited.sessionId, startReason, false);
+
+				expect({ restarted, startCalls: start.mock.calls.length }).toEqual({ restarted: true, startCalls: 1 });
+			});
+
+			it('waits for a kernel switch of its notebook before restarting an exited notebook session', async () => {
+				const { session: exited, start } = await startExitedNotebook();
+				const gate = gateNextSession('createSession');
+				const second = startBackgroundNotebook(anotherRuntime);
+				await timeout(0);
+
+				const restarting = runtimeSessionService.restartSession(exited.sessionId, startReason, false);
+				await timeout(0);
+				const startCallsDuringWait = start.mock.calls.length;
+				// A start of a third runtime is rejected with the name of the
+				// runtime that owns the notebook's starting entry.
+				const thirdStartError = await startBackgroundNotebook(unrelatedRuntime)
+					.then(() => '', (err: Error) => err.message);
+				gate.complete();
+				const [, restarted] = await Promise.all([second, restarting]);
+
+				expect({
+					startCallsDuringWait,
+					uriEntryOwnedBySwitch: thirdStartError.includes(
+						`because language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} is already starting`),
+					restarted,
+					startCallsAfter: start.mock.calls.length,
+				}).toEqual({ startCallsDuringWait: 0, uriEntryOwnedBySwitch: true, restarted: false, startCallsAfter: 0 });
+			});
 		});
 
 		it('restarts a console once when it is asked to restart twice before its state changes', async () => {
