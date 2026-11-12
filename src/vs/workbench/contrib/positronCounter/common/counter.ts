@@ -12,6 +12,9 @@ export const COUNTER_INITIAL_VALUE_KEY = 'counter.initialValue';
 /** The storage key the persist middleware writes to. */
 export const COUNTER_STORAGE_KEY = 'positron.counter.state';
 
+/** The command that opens the Counter editor. */
+export const COUNTER_OPEN_COMMAND_ID = 'positron.counter.open';
+
 /** The maximum number of history entries kept in memory. */
 export const COUNTER_HISTORY_LIMIT = 50;
 
