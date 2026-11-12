@@ -145,6 +145,7 @@ jobs:
       ref: ${{ steps.comment.outputs.ref || steps.dispatch.outputs.ref }}
       base_ref: ${{ steps.comment.outputs.base_ref || steps.dispatch.outputs.base_ref }}
       pr_number: ${{ steps.comment.outputs.pr_number || steps.dispatch.outputs.pr_number }}
+      pr_title: ${{ steps.comment.outputs.pr_title || steps.dispatch.outputs.pr_title }}
       model: ${{ steps.comment.outputs.model || steps.dispatch.outputs.model }}
       focus: ${{ steps.comment.outputs.focus || steps.dispatch.outputs.focus }}
       time_limit: ${{ steps.comment.outputs.time_limit || steps.dispatch.outputs.time_limit }}
@@ -287,6 +288,7 @@ jobs:
             echo "ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
             echo "pr_number=$PR_NUMBER"
+            echo "pr_title=$(jq -r '.title' <<<"$pr" | tr '\r\n' '  ')"
             echo "model=opus"
             echo "time_limit=$time_limit"
             echo "focus=$focus"
@@ -342,6 +344,11 @@ jobs:
               --jq '.[0].number // empty' 2>/dev/null || true)
           fi
           if [ -n "$pr" ]; then echo "PR #$pr"; else echo "no open PR"; fi
+          pr_title=""
+          if [ -n "$pr" ]; then
+            pr_title=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" --jq .title | tr '\r\n' '  ') ||
+              echo "::warning::Could not read the title of PR #$pr for the run name."
+          fi
           # The choice's label, as the name the explore matrix compares. Any
           # case, and the bare names, since an API dispatch may send either.
           case "$(printf '%s' "$MODEL" | tr '[:upper:]' '[:lower:]')" in
@@ -359,6 +366,7 @@ jobs:
             echo "ref=$REF"
             echo "base_ref=$BASE_REF"
             echo "pr_number=$pr"
+            echo "pr_title=$pr_title"
             echo "model=$model"
             echo "time_limit=$TIME_LIMIT"
             # On one line, as a comment's focus is.
@@ -622,8 +630,6 @@ jobs:
       # To tell which positron runs a leftover explore-run branch belongs to.
       actions: read
       contents: read
-      # The PR title, for the run name in positron-builds.
-      pull-requests: read
     outputs:
       run_id: ${{ steps.dispatch.outputs.run_id }}
       run_attempt: ${{ steps.run.outputs.attempt }}
@@ -729,13 +735,12 @@ jobs:
           FOCUS: ${{ needs.resolve.outputs.focus }}
           TIME_LIMIT: ${{ needs.resolve.outputs.time_limit }}
           HARNESS_SHA: ${{ github.sha }}
-          POSITRON_TOKEN: ${{ github.token }}
+          PR_TITLE: ${{ needs.resolve.outputs.pr_title }}
         run: |
           set -euo pipefail
           if [ -n "$PR" ]; then
-            full=$(GH_TOKEN=$POSITRON_TOKEN gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .title || true)
-            subject=${full:0:60}
-            if [ ${#full} -gt 60 ]; then subject="$subject..."; fi
+            subject=${PR_TITLE:0:60}
+            if [ ${#PR_TITLE} -gt 60 ]; then subject="${subject% }..."; fi
             title="explore #$PR :: $subject ($POSITRON_RUN)"
           else
             title="explore $REF ($POSITRON_RUN)"

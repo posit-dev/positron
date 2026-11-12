@@ -124,19 +124,20 @@ jobs:
           set -euo pipefail
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           subject=${PR_TITLE:0:60}
-          if [ ${#PR_TITLE} -gt 60 ]; then subject="$subject..."; fi
+          if [ ${#PR_TITLE} -gt 60 ]; then subject="${subject% }..."; fi
           title="pr #$PR :: $subject (${HEAD_SHA:0:7})"
           # pr-lane mirrors positron-builds main; PR runs use it so their build caches
           # stay in that branch's cache scope, away from the privileged main runs.
           gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane \
             -f "pr_number=$PR" -f "head_sha=$HEAD_SHA" -f "title=$title"
-          # The dispatch API returns no run id; find the run by its run-name, and
-          # only among dispatches the bot itself started, so a same-named run pushed
-          # by someone else on positron-builds cannot stand in for it.
+          # The dispatch API returns no run id; find the run by the start and end
+          # of its run-name (the PR title between them is only for show), and only
+          # among dispatches the bot itself started, so a same-named run pushed by
+          # someone else on positron-builds cannot stand in for it.
           id=""
           for i in $(seq 1 24); do
             id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=pr-lane&created=>=$since&per_page=20" |
-              jq -r --arg title "$title" '.workflow_runs[] | select(.path == ".github/workflows/pr-test.yml" and .display_title == $title and .triggering_actor.login == "positron-bot[bot]") | .id' | head -n 1)
+              jq -r --arg start "pr #$PR :: " --arg end " (${HEAD_SHA:0:7})" '.workflow_runs[] | select(.path == ".github/workflows/pr-test.yml" and (.display_title | startswith($start) and endswith($end)) and .triggering_actor.login == "positron-bot[bot]") | .id' | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
