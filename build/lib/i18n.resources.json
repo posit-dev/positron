@@ -239,6 +239,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronCounter",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronMissingPackages",
 			"project": "vscode-workbench"
 		},

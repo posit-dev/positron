@@ -66,6 +66,7 @@ import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js'
 import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
 import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
 import { IPositronPackagesService } from '../../workbench/contrib/positronPackages/browser/interfaces/positronPackagesService.js';
+import { ICounterService } from '../../workbench/contrib/positronCounter/common/counter.js';
 
 /**
  * PositronReactServices interface.
@@ -97,6 +98,7 @@ export class PositronReactServices {
 		@IConfigurationService public readonly configurationService: IConfigurationService,
 		@IContextKeyService public readonly contextKeyService: IContextKeyService,
 		@IContextMenuService public readonly contextMenuService: IContextMenuService,
+		@ICounterService public readonly counterService: ICounterService,
 		@IEditorService public readonly editorService: IEditorService,
 		@IExecutionHistoryService public readonly executionHistoryService: IExecutionHistoryService,
 		@IExtensionService public readonly extensionService: IExtensionService,
