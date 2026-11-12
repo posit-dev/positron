@@ -48,11 +48,12 @@ describe('PlotSaveMemory', () => {
 	});
 
 	it('updates the folder but keeps the previous format when a save has no format', async () => {
+		const plots = URI.file('/workspace/plots');
+		existing.add(plots.toString());
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Svg);
-		await memory.remember(fallback);
-		existing.add(fallback.toString());
-		expect((await memory.getDirectory(URI.file('/elsewhere'))).toString()).toBe(fallback.toString());
+		await memory.remember(plots);
+		expect((await memory.getDirectory(fallback)).toString()).toBe(plots.toString());
 		expect(await memory.getFormat()).toBe(PlotRenderFormat.Svg);
 	});
 
@@ -75,6 +76,12 @@ describe('PlotSaveMemory', () => {
 		const memory = new PlotSaveMemory(failing, fileService, 'ws1');
 		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
 		expect(await memory.getFormat()).toBeUndefined();
+	});
+
+	it('does not fail when the saved state cannot be written', async () => {
+		const failing = { getItem: async () => undefined, setItem: async () => { throw new Error('no remote connection'); } };
+		const memory = new PlotSaveMemory(failing, fileService, 'ws1');
+		await expect(memory.remember(figures, PlotRenderFormat.Png)).resolves.toBeUndefined();
 	});
 
 	it('keeps each workspace separate', async () => {

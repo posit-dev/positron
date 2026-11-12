@@ -49,7 +49,11 @@ export class PlotSaveMemory {
 	async remember(directory: URI, format?: PlotRenderFormat): Promise<void> {
 		format ??= await this.getFormat();
 		const saved: SavedPlotLocation = { directory: directory.toString(), format };
-		await this._ephemeralState.setItem(this._key, saved);
+		try {
+			await this._ephemeralState.setItem(this._key, saved);
+		} catch {
+			// The plot is already saved; losing the memory is harmless.
+		}
 	}
 
 	// A failed read must not block the save, e.g. web with no remote connection.
