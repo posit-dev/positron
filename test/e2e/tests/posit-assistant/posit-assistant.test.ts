@@ -18,6 +18,11 @@ test.describe('Posit Assistant', {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
+			// The tool-call tests set Normal; leave the product default behind.
+			test.afterAll(async function ({ app }) {
+				await app.workbench.positAssistant.setApprovalMode('auto').catch(() => { });
+			});
+
 			test.beforeAll(async function ({ app, settings }) {
 				// Ensure we're running the latest Posit Assistant dev build.
 				// Enables the auto dev-build update check, triggers the check,
@@ -71,6 +76,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				await app.workbench.positAssistant.sendMessage('Print "hello world" in python', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
@@ -86,6 +92,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				await app.workbench.positAssistant.sendMessage('Print "hello world" in R', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
@@ -101,6 +108,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				// First tool call - allow once
 				await app.workbench.positAssistant.sendMessage('Print "first" in python', false, { newConversation: false });
@@ -123,6 +131,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				// First tool call - allow for session
 				await app.workbench.positAssistant.sendMessage('Print "first" in python', false, { newConversation: false });
@@ -143,6 +152,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using base R plot()', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
@@ -165,6 +175,7 @@ test.describe('Posit Assistant', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using matplotlib', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();

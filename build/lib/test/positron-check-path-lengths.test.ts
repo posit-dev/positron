@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { suite, test, before, after } from 'node:test';
+import { suite, test, before, after, beforeEach, afterEach } from 'node:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -194,5 +194,59 @@ suite('positron-check-path-lengths file counts', () => {
 		assert.throws(
 			() => countFiles(appRoot, 'resources/app/extensions'),
 			/resources\/app\/extensions holds no files/);
+	});
+});
+
+suite('positron-check-path-lengths pruned server dependencies', () => {
+	let root: string;
+
+	beforeEach(() => {
+		root = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-pruned-deps-'));
+		writeFiles(root, 'extensions/ext', 1);
+	});
+
+	afterEach(() => {
+		fs.rmSync(root, { recursive: true, force: true });
+	});
+
+	/** Writes each path, relative to `root`, as a file. */
+	function writeTree(...relativePaths: string[]): void {
+		for (const relativePath of relativePaths) {
+			fs.mkdirSync(path.dirname(path.join(root, relativePath)), { recursive: true });
+			fs.writeFileSync(path.join(root, relativePath), 'x');
+		}
+	}
+
+	const prunedPaths = [
+		'node_modules/@smithy/core/dist-es/index.js',
+		'node_modules/@smithy/core/dist-es/index.js.gz',
+		'node_modules/tar/dist/esm/index.mjs.map'
+	];
+
+	test('passes when no shipped node_modules file matches a prune pattern', () => {
+		writeTree('node_modules/@smithy/core/dist-cjs/index.js', 'node_modules/@vscode/codicons/dist/codicon.css');
+
+		assert.doesNotThrow(() => checkPackagedTree(root, 'extensions', { pathLengths: false, prunedServerDependencies: true }));
+	});
+
+	test('fails and names each pruned file that ships', () => {
+		writeTree('node_modules/@smithy/core/dist-cjs/index.js', ...prunedPaths);
+
+		assert.throws(
+			() => checkPackagedTree(root, 'extensions', { pathLengths: false, prunedServerDependencies: true }),
+			(error: Error) => /3 shipped file\(s\)/.test(error.message)
+				&& prunedPaths.every(p => error.message.includes(p.split('/').join('\\'))));
+	});
+
+	test('does not check when the option is off', () => {
+		writeTree(...prunedPaths);
+
+		assert.doesNotThrow(() => checkPackagedTree(root, 'extensions', { pathLengths: false }));
+	});
+
+	test('reports a tree with no node_modules rather than passing vacuously', () => {
+		assert.throws(
+			() => checkPackagedTree(root, 'extensions', { pathLengths: false, prunedServerDependencies: true }),
+			/holds no node_modules files/);
 	});
 });
