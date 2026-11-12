@@ -34,7 +34,7 @@ function groupHeader(group: PythonPickerGroup): string {
         case PythonPickerGroup.Project:
             return vscode.l10n.t('Project environments');
         // Base interpreters share the Global header: both are places to pip
-        // install. They also share a groupOrder, so their rows sort as one list.
+        // install. Base's higher groupOrder keeps its rows last in the group.
         case PythonPickerGroup.Global:
         case PythonPickerGroup.Base:
             return vscode.l10n.t('Global environments');
@@ -113,13 +113,14 @@ const TOOL_NAMES: ReadonlyMap<EnvironmentType, string> = new Map([
     [EnvironmentType.Module, 'Module'],
 ]);
 
-/** Tool names for `System` and `Global` Pythons, by PET kind. */
+/** Tool names for `System` and `Global` Pythons, by PET kind, most useful first. */
 const INSTALLER_NAMES: ReadonlyMap<NativePythonEnvironmentKind, string> = new Map([
     [NativePythonEnvironmentKind.Homebrew, 'Homebrew'],
-    [NativePythonEnvironmentKind.MacXCode, 'Xcode'],
-    [NativePythonEnvironmentKind.MacCommandLineTools, 'Command Line Tools'],
     [NativePythonEnvironmentKind.MacPythonOrg, 'python.org'],
+    [NativePythonEnvironmentKind.MacCommandLineTools, 'Command Line Tools'],
+    [NativePythonEnvironmentKind.MacXCode, 'Xcode'],
 ]);
+const INSTALLER_ORDER = [...INSTALLER_NAMES.keys()];
 
 /** The tool that made or manages the interpreter, e.g. `uv` or `Homebrew`, if known. */
 function pythonToolName(
@@ -152,15 +153,23 @@ export function createPythonPickerInfo(args: {
     const tool = pythonToolName(interpreter, runtimeSource, context);
     const toolAndName = [tool, envName].filter(Boolean).join(': ');
     const version = `Python ${pythonVersion}`;
-    // The tool and name lead the row, with the version in the gray text.
-    // With no tool or name, the version is the label.
+    const source = isUvBase(interpreter, context) ? EnvironmentType.Uv : runtimeSource;
+    // System and Global Pythons share a type rank, so their installer breaks the tie:
+    // most useful first, unknown installers last. This stays below the rank spacing.
+    let installerOrder = 0;
+    if (source === EnvironmentType.System || source === EnvironmentType.Global) {
+        const index = interpreter.nativeKind ? INSTALLER_ORDER.indexOf(interpreter.nativeKind) : -1;
+        installerOrder = index === -1 ? INSTALLER_ORDER.length : index;
+    }
     return {
         group: groupHeader(group),
-        groupOrder: GROUP_ORDER.indexOf(group === PythonPickerGroup.Base ? PythonPickerGroup.Global : group),
+        groupOrder: GROUP_ORDER.indexOf(group),
         // Rows sort by environment type, in the same priority order used to pick a
-        // recommended interpreter (uv first, system Pythons last), then by version
-        // (newest first).
-        rowOrder: getEnvironmentTypeRank(isUvBase(interpreter, context) ? EnvironmentType.Uv : runtimeSource),
+        // recommended interpreter (uv first, system Pythons last), then by installer,
+        // then by version (newest first).
+        rowOrder: getEnvironmentTypeRank(source) + installerOrder,
+        // The tool and name lead the row, with the version in the gray text.
+        // With no tool or name, the version is the label.
         label: toolAndName || version,
         description: toolAndName ? version : undefined,
     };

@@ -128,7 +128,7 @@ suite('pickerInfo', () => {
         assert.strictEqual(pickerGroupOf(pyenvVirtualenv, context, false), PythonPickerGroup.Global);
     });
 
-    test('createPythonPickerInfo orders rows by environment type', () => {
+    test('createPythonPickerInfo orders rows by environment type, then installer', () => {
         const info = (interpreter: PythonEnvironment, runtimeSource: EnvironmentType, supported: boolean) =>
             createPythonPickerInfo({
                 interpreter,
@@ -145,10 +145,11 @@ suite('pickerInfo', () => {
             info(pyenv, EnvironmentType.Pyenv, true),
             info(homebrew, EnvironmentType.System, true),
             info(condaNamed, EnvironmentType.Conda, true),
+            info(pythonOrg, EnvironmentType.System, true),
         ];
         assert.deepEqual(
             rows.sort((a, b) => a.rowOrder! - b.rowOrder!).map((row) => row.label),
-            ['uv', 'conda', 'pyenv', 'Python 3.12.0', 'Homebrew'],
+            ['uv', 'conda', 'pyenv', 'Homebrew', 'python.org', 'Python 3.12.0'],
         );
     });
 
@@ -215,7 +216,7 @@ suite('pickerInfo', () => {
                 {
                     group: 'Unsupported',
                     groupOrder: 4,
-                    rowOrder: 160,
+                    rowOrder: 164,
                     label: 'Python 3.8.10',
                     description: undefined,
                 },
