@@ -2130,6 +2130,30 @@ export default defineConfig(
 						'ai-credentials/store-backend'
 					]
 				},
+				// The zustand service-store PoC. Only the React-free zustand entries are
+				// allowed in .ts files, so services and stores cannot import React;
+				// components (.tsx) bind the store through zustand's React entry.
+				{
+					'target': 'src/vs/workbench/contrib/positronCounter/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						{
+							'when': 'test',
+							'pattern': 'vs/test/vitest/**'
+						},
+						'zustand/vanilla',
+						'zustand/middleware',
+						'zustand/middleware/immer',
+						'immer'
+					]
+				},
 				// --- End Positron ---
 				{
 					'target': 'src/vs/workbench/contrib/*/~',
