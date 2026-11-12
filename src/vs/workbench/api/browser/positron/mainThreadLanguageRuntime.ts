@@ -2138,6 +2138,11 @@ export class MainThreadLanguageRuntime
 		return this._runtimeSessionService.interruptSession(sessionId);
 	}
 
+	async $cancelPendingExecution(sessionId: string, executionId: string): Promise<boolean> {
+		const instance = this._positronConsoleService.positronConsoleInstances.find(i => i.sessionId === sessionId);
+		return instance?.cancelPendingExecution(executionId) ?? false;
+	}
+
 	$focusSession(sessionId: string): void {
 		return this._runtimeSessionService.focusSession(sessionId);
 	}
