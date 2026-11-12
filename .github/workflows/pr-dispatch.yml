@@ -26,9 +26,13 @@ concurrency:
 jobs:
   required-tests:
     name: required-tests
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
+    # Per-lane commit statuses; a check run from this token would show under another workflow's name.
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
     env:
       PR: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -38,10 +42,50 @@ jobs:
         shell: bash
         run: |
           echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
+          echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      # The scripts come from the base branch, never the PR.
+      - name: Check out the test status scripts from the base branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /.github/actions/pr-test-status
+            /scripts/pr-docs-only.sh
+            /scripts/lib/
+            /.nvmrc
+          sparse-checkout-cone-mode: false
+
+      # A PR that changes only docs or tooling skips the dispatch, and
+      # required-tests passes. Any error runs the tests.
+      - name: Check for a docs-only change
+        id: docs-only
+        continue-on-error: true
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/pr-docs-only.sh
+
+      - name: Set up Node
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set paths for the status scripts
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
+        shell: bash
+        run: |
+          echo "STATE_FILE=$RUNNER_TEMP/pr-test-status/state.json" >> "$GITHUB_ENV"
+          echo "RESULTS_DIR=$RUNNER_TEMP/results" >> "$GITHUB_ENV"
 
       - name: Mint a token for positron-builds
         id: token
+        # A docs-only PR needs the token only for the best-effort cancel.
+        continue-on-error: ${{ steps.docs-only.outputs.docs_only == 'true' }}
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
@@ -50,7 +94,27 @@ jobs:
           repositories: positron-builds
           permission-actions: write
 
+      # No dispatch means no new run in the pr-test-<PR> concurrency group to
+      # cancel the one from an earlier push, so cancel it here. Best effort.
+      - name: Cancel earlier test runs for this PR
+        if: ${{ steps.docs-only.outputs.docs_only == 'true' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          for state in queued in_progress waiting pending; do
+            gh api --paginate "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&status=$state&per_page=100" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
+          done | sort -u |
+            while read -r id; do
+              echo "Cancelling https://github.com/posit-dev/positron-builds/actions/runs/$id"
+              gh run cancel "$id" -R posit-dev/positron-builds || true
+            done
+
       - name: Dispatch the test run
+        if: ${{ steps.docs-only.outputs.docs_only != 'true' }}
         id: dispatch
         shell: bash
         env:
@@ -79,24 +143,32 @@ jobs:
           url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
           echo "run_id=$id" >> "$GITHUB_OUTPUT"
           echo "Tests are running at $url"
-          echo "Tests for \`${HEAD_SHA:0:10}\`: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tests for \`${HEAD_SHA:0:10}\` ran in [positron-builds]($url)." >> "$GITHUB_STEP_SUMMARY"
 
-      # App tokens live for an hour. Wait in two halves with a fresh token for
-      # the second, so a long run is still reported rather than lost.
+      # App tokens live for an hour, so wait in two halves with a fresh token each.
+      - name: Mint a token to wait with
+        if: ${{ steps.dispatch.outputs.run_id != '' }}
+        id: token1
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
       - name: Wait for the test run (first hour)
+        if: ${{ steps.dispatch.outputs.run_id != '' }}
         id: wait1
         shell: bash
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
+          BUILDS_TOKEN: ${{ steps.token1.outputs.token }}
+          STATUS_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
-        run: |
-          set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
-          code=$?
-          set -e
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          [ "$code" -eq 124 ] && echo "Still running after 55 minutes; waiting with a fresh token."
-          exit 0
+          DEADLINE_SECONDS: "3300"
+        # poll.ts writes the code output itself.
+        run: &wait |
+          node .github/actions/pr-test-status/poll.ts || echo "code=1" >> "$GITHUB_OUTPUT"
 
       - name: Mint a second token
         if: ${{ steps.wait1.outputs.code == '124' }}
@@ -114,27 +186,91 @@ jobs:
         id: wait2
         shell: bash
         env:
-          GH_TOKEN: ${{ steps.token2.outputs.token }}
+          BUILDS_TOKEN: ${{ steps.token2.outputs.token }}
+          STATUS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DEADLINE_SECONDS: "3300"
+        run: *wait
+
+      # Everything below is best effort: it never changes the required-tests result.
+      - name: Mint a token to download results
+        if: ${{ !cancelled() && steps.dispatch.outputs.run_id != '' }}
+        id: token3
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: read
+
+      - name: Download test results
+        if: ${{ !cancelled() && steps.token3.outputs.token != '' && (steps.wait2.outputs.code || steps.wait1.outputs.code) != '124' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token3.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
         run: |
-          set +e
-          timeout 3300 gh run watch "$RUN_ID" -R posit-dev/positron-builds --interval 60 --exit-status
-          code=$?
-          set -e
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          exit 0
+          gh run download "$RUN_ID" -R posit-dev/positron-builds -p 'e2e-results-*' -p vitest-results -p unit-cache -D "$RESULTS_DIR" || true
+
+      # Runs without token3 too: finalize then closes open lanes as unreadable.
+      - name: Write the final statuses
+        if: ${{ !cancelled() && steps.dispatch.outputs.run_id != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          BUILDS_TOKEN: ${{ steps.token3.outputs.token }}
+          STATUS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          CODE1: ${{ steps.wait1.outputs.code }}
+          CODE2: ${{ steps.wait2.outputs.code }}
+        run: |
+          code="${CODE2:-$CODE1}"
+          if [ "$code" = "124" ]; then
+            export MODE=timeout
+          else
+            export MODE=final
+          fi
+          node .github/actions/pr-test-status/finalize.ts
+
+      - name: On cancel
+        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          STATUS_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          MODE: cancel
+        run: node .github/actions/pr-test-status/finalize.ts
 
       - name: Report the result
         shell: bash
         env:
           CODE1: ${{ steps.wait1.outputs.code }}
           CODE2: ${{ steps.wait2.outputs.code }}
+          CONCLUSION1: ${{ steps.wait1.outputs.conclusion }}
+          CONCLUSION2: ${{ steps.wait2.outputs.conclusion }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DOCS_ONLY: ${{ steps.docs-only.outputs.docs_only }}
         run: |
+          if [ "$DOCS_ONLY" = "true" ]; then
+            echo "This PR changes only docs or tooling, so no tests ran."
+            echo "This PR changes only docs or tooling (scripts/lib/pr-docs-only-lib.sh), so no tests ran." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           code="${CODE2:-$CODE1}"
+          conclusion="${CONCLUSION2:-$CONCLUSION1}"
           url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"
           case "$code" in
             0) echo "Tests passed: $url" ;;
             124) echo "::error::Tests still running after two hours: $url"; exit 1 ;;
-            *) echo "::error::Tests failed or were cancelled: $url"; exit 1 ;;
+            *)
+              if [ "$conclusion" = "cancelled" ]; then
+                echo "::error::The positron-builds run was cancelled, probably by a newer run for this PR. Push again or re-run this job to test: $url"
+              else
+                echo "::error::Tests failed or were cancelled: $url"
+              fi
+              exit 1 ;;
           esac
