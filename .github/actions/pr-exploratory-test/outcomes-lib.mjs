@@ -21,6 +21,17 @@ export function parseResultComment(body) {
 	return sha && base && run ? { shortSha: sha, reportBase: base, run, trigger } : null;
 }
 
+/** Whether `comment` is a result comment the workflow posted, not a quote of one. */
+export function isResultComment(comment) {
+	return comment.user?.login === 'github-actions[bot]' && parseResultComment(comment.body) !== null;
+}
+
+/** The PRs, in ascending order, that a list of repo comments posts a result comment on. Comments on issues are left out. */
+export function resultCommentPrs(comments) {
+	const prs = comments.filter(isResultComment).map(c => Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1])).filter(Boolean);
+	return [...new Set(prs)].sort((a, b) => a - b);
+}
+
 /**
  * Repo paths the finding's cause names, in backticks or not, plus its test case paths. A line number or range after a path
  * is dropped. Given `files`, a name counts when it is one of them or exactly one of them ends with it; without, only paths with a folder count.

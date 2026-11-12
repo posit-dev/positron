@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, isResultComment, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -76,8 +76,9 @@ async function prNumbers() {
 	if (args.pr) {
 		return [Number(args.pr)];
 	}
-	const q = encodeURIComponent(`repo:${REPO} is:pr "View report" "Exploratory testing" in:comments created:>=${args.since}`);
-	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number).filter(n => !SKIPPED_PRS.has(n));
+	// The repo's comment list rather than search: search is slow to index a new comment and misses some for good.
+	const comments = await gh(`/repos/${REPO}/issues/comments?since=${args.since}T00:00:00Z&per_page=100`);
+	return resultCommentPrs(comments).filter(n => !SKIPPED_PRS.has(n));
 }
 
 let anthropic = null;
@@ -267,7 +268,7 @@ async function prRows(number) {
 		git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
 	}
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
-	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
+	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(isResultComment);
 	// A failed timeline leaves the title search, rather than skipping the PR.
 	const timeline = await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
 		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);

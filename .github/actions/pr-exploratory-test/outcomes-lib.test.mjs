@@ -5,13 +5,28 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, isResultComment, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
 
 test('parseResultComment takes the short SHA, report base and run id from a result comment', () => {
 	assert.deepEqual(parseResultComment(RESULT), { shortSha: '78afc20', reportBase: BASE, run: '38443304195', trigger: 'explore' });
+});
+
+test('resultCommentPrs keeps PRs with a result comment from the workflow, once each', () => {
+	const bot = { login: 'github-actions[bot]' };
+	const comment = (n, user, body, kind = 'pull') => ({ user, body, html_url: `https://github.com/posit-dev/positron/${kind}/${n}#issuecomment-1` });
+	const comments = [
+		comment(17302, bot, RESULT),
+		comment(17282, bot, RESULT),
+		comment(17302, bot, RESULT),
+		comment(17290, { login: 'someone' }, RESULT),
+		comment(17291, bot, 'E2E Tests'),
+		comment(17292, bot, RESULT, 'issues'),
+	];
+	assert.deepEqual(resultCommentPrs(comments), [17282, 17302]);
+	assert.equal(isResultComment(comments[3]), false);
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
