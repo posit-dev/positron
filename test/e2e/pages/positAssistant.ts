@@ -59,6 +59,12 @@ const MODEL_MENU_GROUP = '[data-slot="dropdown-menu-group"]';
 // The inline model-picker trigger.
 const INLINE_MODEL_TRIGGER = '[data-testid="model-selector"]';
 
+// Approval-mode picker (status bar). Standalone it is a menu button whose
+// aria-label reads "Mode: <active row>"; collapsed into the overflow (...) menu
+// it is a submenu whose trigger reads the active row's label.
+const MODE_PICKER_TRIGGER = 'button[aria-haspopup="menu"][aria-label^="Mode: "]';
+const MODE_PICKER_ROW_LABELS = /^(Normal|Auto mode|Mode and thinking effort)$/;
+
 /**
  * Maps an e2e provider id to the provider's display name as shown in the model
  * picker's group headers. Sourced from the assistant's provider registry
@@ -790,6 +796,47 @@ export class PositAssistant {
 	async insertCodeBlockIntoNewFile(index: number = 0): Promise<void> {
 		await this.frame.locator(CODE_BLOCK).nth(index).hover();
 		await this.frame.locator(CODE_BLOCK_INSERT_FILE_BUTTON).nth(index).click();
+	}
+
+	// --- Approval mode ---
+
+	/**
+	 * Switches the Assistant's approval mode. Since Assistant #3011 a trusted
+	 * session defaults to Auto, which approves tool calls without the confirmation
+	 * card the tool-call tests drive, so they set Normal first. The choice persists
+	 * in the user's global Assistant settings, so suites restore Auto when done.
+	 */
+	async setApprovalMode(mode: 'normal' | 'auto'): Promise<void> {
+		const rowLabel = mode === 'normal' ? 'Normal' : 'Auto mode';
+		const row = this.frame.getByRole('menuitemradio', { name: new RegExp(`^${rowLabel}\\b`) });
+		const standalone = this.frame.locator(MODE_PICKER_TRIGGER);
+		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
+		const submenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]').filter({ hasText: MODE_PICKER_ROW_LABELS });
+		await expect(async () => {
+			if (await standalone.isVisible().catch(() => false)) {
+				if (await standalone.getAttribute('aria-label') === `Mode: ${rowLabel}`) {
+					return;
+				}
+				await standalone.click({ timeout: 5000 });
+				await row.click({ timeout: 5000 });
+				await expect(standalone).toHaveAttribute('aria-label', `Mode: ${rowLabel}`, { timeout: 5000 });
+				return;
+			}
+			await overflow.click({ timeout: 5000 });
+			if ((await submenu.textContent({ timeout: 5000 }))?.trim() === rowLabel) {
+				await this.code.driver.currentPage.keyboard.press('Escape');
+				return;
+			}
+			await submenu.click({ timeout: 5000 });
+			await row.click({ timeout: 5000 });
+			// Radio items do not close the menu; dismiss it so the overlay frees the chat input.
+			await this.code.driver.currentPage.keyboard.press('Escape');
+			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+			await overflow.click({ timeout: 5000 });
+			await expect(submenu).toHaveText(rowLabel, { timeout: 5000 });
+			await this.code.driver.currentPage.keyboard.press('Escape');
+			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	// --- Tool confirmation ---
