@@ -19,8 +19,6 @@ const SKILLS_DIR = 'skills';
 const STAMP_FILE = 'skills.stamp';
 /** The workbench command that reports a setting's registry facts. */
 const FIND_SETTINGS_COMMAND = 'positronSettings.findSettings';
-/** The most keys one findSettings call returns: its FIND_SETTINGS_MAX_LIMIT. */
-const FIND_SETTINGS_MAX_KEYS = 100;
 
 export interface GenerateResult {
 	/** Absolute path of the generated skill root. */
@@ -29,7 +27,7 @@ export interface GenerateResult {
 	readonly regenerated: boolean;
 	/** Command ids named by a template that no command provides -- i.e. drift. */
 	readonly unresolved: readonly string[];
-	/** Setting keys named by a template that the build does not register -- i.e. drift. */
+	/** Setting keys named by a template whose facts the registry did not report -- i.e. drift. */
 	readonly unresolvedSettings: readonly string[];
 }
 
@@ -113,12 +111,20 @@ interface FoundSetting extends AgentSetting {
  */
 export async function loadSettings(keys: readonly string[]): Promise<ReadonlyMap<string, AgentSetting>> {
 	const settings = new Map<string, AgentSetting>();
-	for (let start = 0; start < keys.length; start += FIND_SETTINGS_MAX_KEYS) {
-		const batch = keys.slice(start, start + FIND_SETTINGS_MAX_KEYS);
+	// findSettings answers explicit keys in request order, up to a cap of its
+	// own. Asking again for whatever it didn't reach keeps this loop correct
+	// whatever that cap is.
+	let remaining = [...new Set(keys)];
+	while (remaining.length > 0) {
 		const result = await vscode.commands.executeCommand<{ settings?: FoundSetting[] } | undefined>(
-			FIND_SETTINGS_COMMAND, undefined, batch, undefined, FIND_SETTINGS_MAX_KEYS,
+			FIND_SETTINGS_COMMAND, undefined, remaining, undefined, remaining.length,
 		);
-		for (const found of result?.settings ?? []) {
+		const answered = result?.settings ?? [];
+		if (answered.length === 0) {
+			break;
+		}
+		remaining = remaining.slice(answered.length);
+		for (const found of answered) {
 			if (found.registered === false) {
 				continue;
 			}
@@ -272,8 +278,9 @@ export async function generateSkills(
 	}
 	if (unresolvedSettings.size > 0) {
 		log.warn(
-			`Templates name ${unresolvedSettings.size} setting key(s) that this build does not register; ` +
-			`their facts were replaced with a not-registered note: ${[...unresolvedSettings].join(', ')}`,
+			`Templates name ${unresolvedSettings.size} setting key(s) whose facts the settings registry did not report ` +
+			`(not registered, contributed by a disabled extension, or the lookup failed); ` +
+			`their facts were replaced with a note: ${[...unresolvedSettings].join(', ')}`,
 		);
 	}
 	if (problems.length > 0) {

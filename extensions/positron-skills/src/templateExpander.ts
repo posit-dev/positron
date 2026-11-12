@@ -301,7 +301,7 @@ function applyBlocks(template: string, flags: TemplateFlags, problems: string[])
  * Keep the blocks in `template` that apply under `flags`, then replace every
  * directive with facts from `commandsById` and `settingsByKey`. An id with no
  * matching command degrades to an empty section, and a key with no matching
- * setting to a line saying the build does not register it (never a leaked
+ * setting to a line saying its facts were not available (never a leaked
  * `{{...}}`). Both are reported, in {@link ExpandResult.unresolved} and
  * {@link ExpandResult.unresolvedSettings}, so the caller can treat them as drift.
  */
@@ -330,8 +330,10 @@ export function expandTemplate(
 			if (!setting) {
 				unresolvedSettings.add(key);
 				// Unlike a command, a setting's empty facts would read as real
-				// ones (a default of "none"), so say plainly that it is missing.
-				return 'This setting is not registered in this Positron build.';
+				// ones (a default of "none"), so say plainly that they are
+				// missing. Don't claim the setting doesn't exist: the lookup may
+				// have failed, or the extension contributing it may be disabled.
+				return 'Positron did not report this setting\'s facts when this skill was generated. Look it up with `positronSettings.findSettings` before relying on it.';
 			}
 			return renderSetting(setting);
 		});

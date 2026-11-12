@@ -209,7 +209,12 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 	return candidates;
 }
 
-/** Every setting key named by a `{{setting:<key>}}` directive. */
+/**
+ * Every setting key named by a `{{setting:<key>}}` directive, blank keys
+ * included so the drift test can reject them. The pattern mirrors
+ * `SETTING_DIRECTIVE` in `extensions/positron-skills/src/templateExpander.ts`;
+ * keep the two identical.
+ */
 function extractSettingKeys(skills: readonly SkillFile[]): Candidate[] {
 	return skills.flatMap(skill => [...skill.content.matchAll(/\{\{setting:(?<key>[^}]+)\}\}/g)]
 		.map(match => ({ id: (match.groups?.key ?? '').trim(), skillName: skill.name })));
@@ -229,12 +234,19 @@ function contributedSettingKeys(manifestPath: string): string[] {
 }
 
 /**
- * Whether a setting key is declared somewhere: contributed by a built-in
- * extension's `package.json`, or written as a quoted literal in non-test source
- * under `src/vs`, the way the configuration registry calls (and setting-id
- * enums such as `TerminalSettingId`) spell it.
+ * The setting keys in `keys` that are declared nowhere: not contributed by a
+ * built-in extension's `package.json`, and not written as a quoted literal in
+ * non-test source under `src/vs`, the way configuration registrations (and
+ * setting-id enums such as `TerminalSettingId`) spell them. A blank key is
+ * never declared.
+ *
+ * Like the command check, this is textual: it catches a key that disappears
+ * from the source, not a rename that leaves the old key behind as a literal (a
+ * settings migration, a localize id). The generator's warning at generation
+ * time covers that case.
  */
-function createSettingResolver(): (key: string) => boolean {
+function undeclaredSettingKeys(keys: readonly string[]): Set<string> {
+	const isQuotedIn = (corpus: string, key: string) => corpus.includes(`'${key}'`) || corpus.includes(`"${key}"`);
 	const contributed = new Set<string>();
 	for (const entry of fs.readdirSync(EXTENSIONS_ROOT, { withFileTypes: true })) {
 		const manifestPath = path.join(EXTENSIONS_ROOT, entry.name, 'package.json');
@@ -242,9 +254,20 @@ function createSettingResolver(): (key: string) => boolean {
 			contributedSettingKeys(manifestPath).forEach(key => contributed.add(key));
 		}
 	}
-	// The workbench is already in `sourceCorpus`; read only the rest of src/vs.
-	const corpus = [sourceCorpus, ...collectTsFiles(VS_SRC_ROOT, [WORKBENCH_SRC_ROOT]).map(file => fs.readFileSync(file, 'utf8'))].join('\n');
-	return key => contributed.has(key) || corpus.includes(`'${key}'`) || corpus.includes(`"${key}"`);
+	const pending = new Set(keys.filter(key => key === '' || (!contributed.has(key) && !isQuotedIn(sourceCorpus, key))));
+	// Only keys the manifests and the workbench don't declare need the rest of
+	// src/vs, so it is read only when there are some.
+	if ([...pending].some(key => key !== '')) {
+		for (const file of collectTsFiles(VS_SRC_ROOT, [WORKBENCH_SRC_ROOT])) {
+			const text = fs.readFileSync(file, 'utf8');
+			for (const key of pending) {
+				if (key !== '' && isQuotedIn(text, key)) {
+					pending.delete(key);
+				}
+			}
+		}
+	}
+	return pending;
 }
 
 /** Every `export const NAME = '...'` (or `"..."`) binding found in the corpus, name -> string value. */
@@ -323,8 +346,9 @@ describe('agent skill / command drift', () => {
 
 describe('agent skill / setting drift', () => {
 	it('every setting key named in a skill file is declared in source or an extension manifest', () => {
-		const isDeclared = createSettingResolver();
-		const unresolved = extractSettingKeys(skillFiles).filter(candidate => !isDeclared(candidate.id));
+		const candidates = extractSettingKeys(skillFiles);
+		const undeclared = undeclaredSettingKeys(candidates.map(candidate => candidate.id));
+		const unresolved = candidates.filter(candidate => undeclared.has(candidate.id));
 
 		if (unresolved.length > 0) {
 			const lines = unresolved.map(c => `  - \`${c.id}\` (from ${c.skillName})`);

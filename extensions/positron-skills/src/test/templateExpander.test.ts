@@ -172,10 +172,10 @@ suite('expandTemplate settings', () => {
 		].join('\n'));
 	});
 
-	test('an unknown setting key says it is not registered and is reported as unresolved', () => {
+	test('a setting with no facts points the model at findSettings and is reported as unresolved', () => {
 		const result = expandTemplate(' {{setting: gone }}', commands(), DESKTOP);
 		assert.deepStrictEqual(result, {
-			text: ' This setting is not registered in this Positron build.',
+			text: ' Positron did not report this setting\'s facts when this skill was generated. Look it up with `positronSettings.findSettings` before relying on it.',
 			unresolved: [],
 			unresolvedSettings: ['gone'],
 			problems: [],

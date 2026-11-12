@@ -88,12 +88,16 @@ literal id in a `### \`id\`` heading, write the guidance, and add its
 
 - A directive naming a command the build does not provide expands to an empty
   facts block and is logged as a warning at generation time.
-- A directive naming a setting the build does not register expands to a line
-  saying so and is logged as a warning at generation time.
+- A directive naming a setting whose facts the registry does not report (not
+  registered, contributed by a disabled extension, or the lookup failed) expands
+  to a line telling the model to look the setting up, and is logged as a warning
+  at generation time.
 - `agentSkillDrift.vitest.ts` (in `positronAiFeatures`) fails when a command id
   named in a template no longer resolves in the workbench source, or when a
   setting key named in a template is declared nowhere under `src/vs` or in any
-  extension's `package.json`.
+  extension's `package.json`. Both checks are textual: they catch an id or key
+  that disappears from the source, not a rename that leaves the old key behind
+  (in a settings migration, say); the generation-time warning covers that case.
 - A malformed conditional block (an unknown flag, or an unmatched marker) is
   logged as a warning at generation time, and no marker reaches the output.
 - `src/test/templateExpander.test.ts` covers the expansion itself, and fails on a
