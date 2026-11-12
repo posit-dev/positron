@@ -27,13 +27,19 @@ export function isResultComment(comment) {
 }
 
 /**
- * The PRs, in ascending order, with a result comment posted at or after `since` in a list of repo comments. The list
- * API's own `since` goes by when a comment was last edited, so an older one edited later is left out here. Comments on issues are left out too.
+ * The run ids of the result comments posted at or after `since` in a list of repo comments, by PR. The list API's own
+ * `since` goes by when a comment was last edited, so an older one edited later is left out here. Comments on issues are left out too.
  */
-export function resultCommentPrs(comments, since) {
+export function resultRuns(comments, since) {
 	const from = new Date(since).getTime();
-	const prs = comments.filter(c => new Date(c.created_at).getTime() >= from && isResultComment(c)).map(c => Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1])).filter(Boolean);
-	return [...new Set(prs)].sort((a, b) => a - b);
+	const runs = new Map();
+	for (const c of comments) {
+		const pr = Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1]);
+		if (pr && new Date(c.created_at).getTime() >= from && isResultComment(c)) {
+			runs.set(pr, [...(runs.get(pr) ?? []), parseResultComment(c.body).run]);
+		}
+	}
+	return runs;
 }
 
 /**
@@ -213,26 +219,15 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
 /**
- * When to start reading the repo's comments: `marginDays` before the newest saved run, or `since` when nothing is saved
- * or that is earlier. A result comment is dated when its run starts, so the margin covers a run that was still going
- * when the last page was built. Starting from the newest run, not a fixed date, keeps the read short as the page grows.
+ * Whether reading `pr` again can't change its saved rows: it is merged, every run on it has saved rows, and every row is
+ * in `settled`. A run with no rows (a report that failed to load, or one with no findings) keeps the PR read. Origins
+ * set by hand and the PR's closing issues aren't read again, so a change to either needs a --recheck.
  */
-export function scanStart(rows, since, marginDays = 7) {
-	const from = new Date(since).getTime();
-	const newest = Math.max(...rows.map(r => new Date(r.postedAt).getTime()).filter(Number.isFinite));
-	return new Date(Number.isFinite(newest) ? Math.max(from, newest - marginDays * 24 * 60 * 60 * 1000) : from).toISOString();
-}
-
-/**
- * Whether every saved row on `pr` is in `settled` and already shows any origin set by hand for it, so reading the PR
- * again can't change them. A hand-set origin added or changed since the last page makes the PR read again.
- */
-export function prSettled(rows, settled, pr, overrides = {}) {
+export function prSettled(rows, settled, pr, runs) {
 	const own = rows.filter(r => r.pr === pr);
-	return own.length > 0 && own.every(r => {
-		const key = `${r.run}#${r.finding}`;
-		return settled.has(key) && (overrides[key]?.origin ?? r.origin) === r.origin;
-	});
+	return own.length > 0
+		&& runs.every(run => own.some(r => r.run === run))
+		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`));
 }
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */

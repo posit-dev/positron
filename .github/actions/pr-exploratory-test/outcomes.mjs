@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, isResultComment, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, scanStart, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, isResultComment, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultRuns, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -39,20 +39,26 @@ const PRIOR = args.previous ? readFileSync(args.previous, 'utf8').split('\n').fi
 const PREVIOUS = args.recheck ? [] : PRIOR;
 const SETTLED = settledRows(PREVIOUS);
 // Origins set by hand, keyed by run#finding, for findings from before main was replayed.
+// A PR that isn't read again keeps its saved origins, so run with --recheck after changing this file.
 const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const SAVED_REPLIES = savedReplies(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
+async function ghFetch(url) {
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github+json' } });
+	if (!res.ok) {
+		throw new Error(`GitHub GET ${url.slice(API.length)} failed: ${res.status}`);
+	}
+	return res;
+}
+
 async function gh(path) {
 	let url = `${API}${path}`;
 	let all = null;
 	while (url) {
-		const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github+json' } });
-		if (!res.ok) {
-			throw new Error(`GitHub GET ${path} failed: ${res.status}`);
-		}
+		const res = await ghFetch(url);
 		const data = await res.json();
 		if (!Array.isArray(data)) {
 			return data;
@@ -61,6 +67,14 @@ async function gh(path) {
 		url = res.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
 	}
 	return all;
+}
+
+/** Every page of a long list, read a few at a time rather than one after another. `path` must already have a query string. */
+async function ghAllPages(path) {
+	const first = await ghFetch(`${API}${path}`);
+	const last = Number(first.headers.get('link')?.match(/[?&]page=(\d+)>;\s*rel="last"/)?.[1] ?? 1);
+	const rest = await mapLimit(Array.from({ length: last - 1 }, (_, i) => i + 2), PR_CONCURRENCY, async page => (await ghFetch(`${API}${path}&page=${page}`)).json());
+	return [await first.json(), ...rest].flat();
 }
 
 const git = (...a) => execFileSync('git', ['-C', ROOT, '--no-pager', ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -72,22 +86,15 @@ async function fetchJson(url) {
 	return res.ok ? res.json() : null;
 }
 
-/**
- * The PRs to list: those with a result comment since the scan start, plus those already on the page. `recent` is the
- * first set; a PR with a new run is always read again, even when its saved rows are settled.
- */
-async function prNumbers() {
+/** The result runs on each PR since --since. */
+async function prRuns() {
 	if (args.pr) {
-		return { all: [Number(args.pr)], recent: new Set([Number(args.pr)]) };
+		return new Map([[Number(args.pr), []]]);
 	}
-	// --recheck reads every run since --since again; otherwise only runs since the last page are new.
-	const since = args.recheck ? new Date(args.since).toISOString() : scanStart(PRIOR, args.since);
 	// The repo's comment list rather than search: search is slow to index a new comment and misses some for good.
-	const comments = await gh(`/repos/${REPO}/issues/comments?since=${since}&per_page=100`);
-	const recent = new Set(resultCommentPrs(comments, since));
-	const all = [...new Set([...recent, ...PRIOR.map(r => r.pr)])].filter(n => !SKIPPED_PRS.has(n)).sort((a, b) => a - b);
-	console.error(`[outcomes] ${recent.size} PRs with a run since ${since.slice(0, 10)}, ${all.length} in all`);
-	return { all, recent };
+	const since = new Date(args.since).toISOString();
+	const runs = resultRuns(await ghAllPages(`/repos/${REPO}/issues/comments?since=${since}&per_page=100`), since);
+	return new Map([...runs].filter(([n]) => !SKIPPED_PRS.has(n)).sort(([a], [b]) => a - b));
 }
 
 let anthropic = null;
@@ -344,10 +351,12 @@ async function prRows(number) {
 	return rows;
 }
 
-const { all: numbers, recent } = await prNumbers();
-// A PR with no new run whose rows are all settled isn't read again: its rows can't change, and reading it costs several GitHub calls.
+const runs = await prRuns();
+const numbers = [...runs.keys()];
+// A merged PR whose rows are all settled isn't read again: they can't change, and reading it costs several GitHub calls.
 // A PR shipped through another is decided again every time, so it is always read.
-const kept = new Set(numbers.filter(n => !recent.has(n) && !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, n, ORIGIN_OVERRIDES)));
+// A PR asked for with --pr is always read.
+const kept = new Set(args.pr ? [] : numbers.filter(n => !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, n, runs.get(n))));
 console.error(`[outcomes] ${kept.size} settled PRs kept without reading, ${numbers.length - kept.size} to read`);
 // One fetch for every PR rather than one each; if it fails, each PR fetches its own.
 let FETCHED_ALL = false;

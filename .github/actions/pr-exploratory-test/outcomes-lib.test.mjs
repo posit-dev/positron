@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, isResultComment, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, scanStart, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultRuns, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -14,38 +14,31 @@ test('parseResultComment takes the short SHA, report base and run id from a resu
 	assert.deepEqual(parseResultComment(RESULT), { shortSha: '78afc20', reportBase: BASE, run: '38443304195', trigger: 'explore' });
 });
 
-test('resultCommentPrs keeps PRs with a result comment from the workflow, once each', () => {
+test('resultRuns lists the run ids posted on each PR since the start, from the workflow only', () => {
 	const bot = { login: 'github-actions[bot]' };
 	const comment = (n, user, body, kind = 'pull', created_at = '2026-11-12T22:25:34Z') => ({ user, body, created_at, html_url: `https://github.com/posit-dev/positron/${kind}/${n}#issuecomment-1` });
-	const comments = [
+	const runs = resultRuns([
 		comment(17302, bot, RESULT),
 		comment(17282, bot, RESULT),
-		comment(17302, bot, RESULT),
+		comment(17302, bot, RESULT.replace(/38443304195/g, '38443304196')),
 		comment(17290, { login: 'someone' }, RESULT),
 		comment(17291, bot, 'E2E Tests'),
 		comment(17292, bot, RESULT, 'issues'),
 		comment(17293, bot, '<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\nRunning…'),
 		comment(16000, bot, RESULT, 'pull', '2026-09-01T00:00:00Z'),
-	];
-	assert.deepEqual(resultCommentPrs(comments, '2026-09-15'), [17282, 17302]);
-	assert.equal(isResultComment(comments[3]), false);
+	], '2026-09-15');
+	assert.deepEqual([...runs], [[17302, ['38443304195', '38443304196']], [17282, ['38443304195']]]);
 });
 
-test('scanStart starts a week before the newest saved run, and never before --since', () => {
-	const rows = [{ postedAt: '2026-11-01T00:00:00Z' }, { postedAt: '2026-11-12T22:25:34Z' }];
-	assert.equal(scanStart(rows, '2026-09-15'), '2026-11-05T22:25:34.000Z');
-	assert.equal(scanStart(rows, '2026-11-10'), '2026-11-10T00:00:00.000Z');
-	assert.equal(scanStart([], '2026-09-15'), '2026-09-15T00:00:00.000Z');
-});
-
-test('prSettled holds only when every row on the PR is settled and shows its hand-set origin', () => {
-	const rows = [{ pr: 1, run: 'a', finding: 1 }, { pr: 1, run: 'a', finding: 2, origin: 'introduced' }, { pr: 2, run: 'b', finding: 1 }];
+test('prSettled holds only for a merged PR whose runs all have rows and whose rows are all settled', () => {
+	const merged = { state: 'merged' };
+	const rows = [{ pr: 1, run: 'a', finding: 1, prPreview: merged }, { pr: 1, run: 'a', finding: 2, prPreview: merged }];
 	const settled = new Set(['a#1', 'a#2']);
-	assert.equal(prSettled(rows, settled, 1), true);
-	assert.equal(prSettled(rows, settled, 2), false);
-	assert.equal(prSettled(rows, settled, 3), false);
-	assert.equal(prSettled(rows, settled, 1, { 'a#2': { origin: 'introduced' } }), true);
-	assert.equal(prSettled(rows, settled, 1, { 'a#2': { origin: 'inherited' } }), false);
+	assert.equal(prSettled(rows, settled, 1, ['a']), true);
+	assert.equal(prSettled(rows, settled, 1, ['a', 'b']), false, 'a run with no saved rows');
+	assert.equal(prSettled(rows, new Set(['a#1']), 1, ['a']), false, 'a row not settled');
+	assert.equal(prSettled(rows.map(r => ({ ...r, prPreview: { state: 'closed' } })), settled, 1, ['a']), false, 'not merged');
+	assert.equal(prSettled(rows, settled, 2, []), false, 'no rows');
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
