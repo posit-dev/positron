@@ -35,7 +35,8 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: "CLA Assistant"
-        if: (steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # The action locks the PR on any close, merged or not; skip unmerged closes.
+        if: ((steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target') && !(github.event.action == 'closed' && !github.event.pull_request.merged)
         uses: posit-dev/cla-assistant-github-action@v2.5.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
