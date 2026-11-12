@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // MAINTENANCE: This directory (src/vs/test/vitest/) is excluded from tsc
 // compilation via two mechanisms:
 //   - src/tsconfig.json "exclude" array (glob: ./vs/test/vitest/**)

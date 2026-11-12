@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import type * as http from 'http';
 import type * as net from 'net';
 import { createUnlicensedServer } from '../../node/positronUnlicensedServer.js';

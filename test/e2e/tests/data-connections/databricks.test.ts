@@ -67,7 +67,7 @@ test.describe('Data Connections - Databricks (OAuth U2M)', {
 		const httpPath = process.env.DATABRICKS_HTTP_PATH || '';
 		const passkeyCredential = process.env.POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL || '';
 
-		// The workspace, the warehouse, and the service account are all secrets. Where they are not
+		// The workspace, the warehouse, and the service account all come from the env. Where they are not
 		// provisioned (no .env locally, no 1Password in a given CI rig) the sign-in cannot happen, so
 		// skip the whole suite rather than fail. Follows the convention the Redshift tests use.
 		test.skip(!host || !httpPath || !passkeyCredential, 'Databricks test credentials not configured (DATABRICKS_URL / DATABRICKS_HTTP_PATH / POSITRON_SERVICE_ACCOUNT_PASSKEY_CREDENTIAL unset)');

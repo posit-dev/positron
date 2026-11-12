@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { bufferToStream, VSBuffer } from '../../../../base/common/buffer.js';
 import { TestConfigurationService } from '../../../configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../log/common/log.js';

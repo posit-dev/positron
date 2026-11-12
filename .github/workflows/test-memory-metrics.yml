@@ -136,6 +136,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The upload scan fails closed without a canary. Set it before any launch
+      # so the app and the scan share one value.
+      - name: Plant the leak canary
+        run: |
+          set -euo pipefail
+          CANARY="canary-$(cat /proc/sys/kernel/random/uuid)"
+          echo "::add-mask::$CANARY"
+          echo "E2E_LEAK_CANARY_KEY=$CANARY" >> "$GITHUB_ENV"
+
       # Captured before the next step replaces the root package.json with a
       # stub, so the version cannot drift from the root declaration.
       - name: Resolve the undici range
@@ -256,8 +265,33 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: npx playwright test "$MEMORY_SPEC" --project e2e-electron --grep 'Render and publish'
 
-      - name: Upload report
+      # Scans exactly what the two uploads below ship: the snapshot dir minus its
+      # top-level heap snapshots and meta files, plus test-results and .build/logs.
+      # The secrets go in the env so the scan knows their values.
+      - name: Scan the upload set for secrets
+        id: secret-scan
         if: always()
+        shell: bash
+        env:
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          TAILSCALE_OAUTH_SECRET: ${{ secrets.POSITRON_TAILSCALE_OAUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          SNAP="$RUNNER_TEMP/memory-snapshots-$MEMORY_LANE-$MEMORY_SCENARIO"
+          FILES=()
+          if [ -d "$SNAP" ]; then
+            while IFS= read -r -d '' f; do
+              case "${f#"$SNAP"/}" in
+                */*) ;;
+                *.heapsnapshot|*.meta.json) continue ;;
+              esac
+              FILES+=("$f")
+            done < <(find "$SNAP" -type f -print0)
+          fi
+          npx tsx test/e2e/scripts/scan-for-secrets.ts "${FILES[@]}" test-results .build/logs
+
+      - name: Upload report
+        if: always() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: memory-report-${{ matrix.lane }}-${{ matrix.scenario }}
@@ -277,7 +311,7 @@ jobs:
       # the only thing that says why. Without this a failed job is diagnosable
       # only by re-running it with more logging.
       - name: Upload failure logs
-        if: failure()
+        if: failure() && steps.secret-scan.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: memory-logs-${{ matrix.lane }}-${{ matrix.scenario }}

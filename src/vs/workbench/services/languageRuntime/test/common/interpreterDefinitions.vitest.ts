@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { createInterpreterVariant, findInterpreterDefinition, findInterpreterDefinitionPath, getInterpreterDefinitionPaths, getMatchingDefinitions, IInterpreterDefinition, isSameInterpreterPath, recreateInterpreterVariant } from '../../common/interpreterDefinitions.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior } from '../../common/languageRuntimeService.js';

@@ -8,8 +8,8 @@
 # Echoes "true" iff a changed path should contribute to tag derivation. Test
 # files (co-located unit/vitest tests under a test/ dir or named *.test.* /
 # *.vitest.*) and lockfiles are excluded: a test-only or lockfile-only change
-# should not auto-select a feature suite. This is derivation-only -- the map-rot
-# guardrail excludes test/build dirs separately via positron_dir_of.
+# should not auto-select a feature suite. find_unmapped_positron_dirs also uses
+# it, in its owner-root fallback only.
 is_derivable_source() {
 	local path="$1"
 	case "$path" in
@@ -341,7 +341,7 @@ positron_dir_of() {
 		*/out/*|*/node_modules/*) return 0 ;;
 		src/vs/base/*|src/vs/workbench/api/*|src/positron-dts/*) return 0 ;;
 	esac
-	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' <<<"$dir" && return 0
 	printf '%s\n' "$dir"
 }
 
@@ -372,7 +372,7 @@ owner_root_dir_of() {
 		*) return 0 ;;
 	esac
 	[[ -z "$dir" ]] && return 0
-	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' <<<"$dir" && return 0
 	printf '%s\n' "$dir"
 }
 
@@ -385,7 +385,7 @@ owner_root_dir_of() {
 is_posit_owned_file() {
 	local file="$1"
 	[[ -f "$file" ]] || { echo false; return 0; }
-	if head -20 "$file" 2>/dev/null | grep -qi "Copyright.*Posit"; then
+	if grep -qi "Copyright.*Posit" <<<"$(head -20 "$file" 2>/dev/null)"; then
 		echo true
 	else
 		echo false
@@ -439,7 +439,7 @@ split_valid_invalid_tags() {
 	valid_set="$(valid_enum_tags "$enum_file")"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
-		if printf '%s\n' "$valid_set" | grep -qxF "$tag"; then
+		if grep -qxF "$tag" <<<"$valid_set"; then
 			valid+=("$tag")
 		else
 			invalid+=("$tag")
@@ -461,7 +461,9 @@ split_valid_invalid_tags() {
 # owner_root_dir_of + a copyright-header check. Without this, a Positron-owned
 # file that doesn't follow the naming convention is invisible to this check
 # entirely -- not just unmapped, undetectable -- and stays that way until
-# someone finds it by hand (as happened with #14604).
+# someone finds it by hand (as happened with #14604). The fallback skips test
+# files (is_derivable_source): a Posit test in an upstream dir doesn't make the
+# dir Posit-owned.
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
@@ -470,6 +472,8 @@ find_unmapped_positron_dirs() {
 		[[ -z "$file" ]] && continue
 		dir="$(positron_dir_of "$file")"
 		if [[ -z "$dir" ]]; then
+			# A Posit test file doesn't make an upstream dir Posit-owned.
+			[[ "$(is_derivable_source "$file")" == "true" ]] || continue
 			dir="$(owner_root_dir_of "$file")"
 			[[ -z "$dir" ]] && continue
 			[[ "$(is_posit_owned_file "$file")" == "true" ]] || continue
@@ -503,9 +507,9 @@ build_tag_reasons() {
 		[[ -z "$tag" ]] && continue
 		if [[ "$tag" == "@:critical" ]]; then
 			code="required"
-		elif printf '%s\n' "$author_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$author_nl"; then
 			code="body"
-		elif printf '%s\n' "$map_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$map_nl"; then
 			code="files"
 		elif [[ ( "$tag" == "@:ark" || "$tag" == "@:win" || "$tag" == "@:web" ) && "$ark" == "true" ]]; then
 			# An ark bump injects @:ark plus @:win/@:web together (see
@@ -513,13 +517,13 @@ build_tag_reasons() {
 			# the test-win/test-web branches, so a bump wins over a coincidental
 			# tags.WIN/WEB add in the same PR.
 			code="ark"
-		elif auto_code="$(printf '%s\n' "${auto_reasons//,/$'\n'}" | awk -F'|' -v t="$tag" '$1 == t { print $2; exit }')" && [[ -n "$auto_code" ]]; then
+		elif auto_code="$(awk -F'|' -v t="$tag" '$1 == t { print $2; exit }' <<<"${auto_reasons//,/$'\n'}")" && [[ -n "$auto_code" ]]; then
 			code="$auto_code"
 		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
-		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$test_change_nl"; then
 			code="test-changed"
 		else
 			code="auto"

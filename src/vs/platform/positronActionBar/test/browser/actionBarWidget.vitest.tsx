@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { MenuId } from '../../../actions/common/actions.js';

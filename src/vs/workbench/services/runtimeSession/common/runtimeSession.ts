@@ -70,6 +70,135 @@ function getSessionMapKey(sessionMode: LanguageRuntimeSessionMode,
 }
 
 /**
+ * The maps that track session starts in flight.
+ */
+interface IStartingSessionMaps {
+	/** Console starts, keyed by runtime ID. */
+	readonly consolesByRuntimeId: Map<string, StartingSession>;
+	/** Notebook starts, keyed by notebook URI. */
+	readonly notebooksByNotebookUri: ResourceMap<StartingSession>;
+	/** All starts, keyed by `getSessionMapKey`. */
+	readonly sessionsBySessionMapKey: Map<string, StartingSession>;
+}
+
+/**
+ * One start's entries in the starting-session maps. Disposing removes only
+ * entries that still point to this start.
+ */
+class StartingSession implements IDisposable {
+	/** Resolves with the session ID when the session is ready to use. */
+	readonly promise = new DeferredPromise<string>();
+
+	private _runtimeMetadata: ILanguageRuntimeMetadata;
+	private _disposed = false;
+
+	/**
+	 * Registers the start in the maps.
+	 *
+	 * @param _maps The maps to register the start in.
+	 * @param sessionMode The mode of the session.
+	 * @param runtimeMetadata The metadata of the session's runtime.
+	 * @param notebookUri The notebook URI of the session, if any.
+	 * @param joinable False for `requireNewSession` starts, which other
+	 * requests never join.
+	 * @param logService Logs start errors that nothing awaits.
+	 * @throws An error, and registers nothing, if one of the start's keys
+	 * points to another start. Callers check the keys first.
+	 */
+	constructor(
+		private readonly _maps: IStartingSessionMaps,
+		readonly sessionMode: LanguageRuntimeSessionMode,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		readonly notebookUri: URI | undefined,
+		readonly joinable: boolean,
+		logService: ILogService,
+	) {
+		this._runtimeMetadata = runtimeMetadata;
+		this.assertKeysFree(runtimeMetadata);
+		this.setEntries();
+
+		// It's possible that the promise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		this.promise.p.catch(err => logService.debug(`Error starting runtime session: ${err}`));
+	}
+
+	/** The metadata of the session's runtime. */
+	get runtimeMetadata(): ILanguageRuntimeMetadata {
+		return this._runtimeMetadata;
+	}
+
+	/**
+	 * Moves this start's entries to the keys of `runtimeMetadata`, for when
+	 * validation changes the runtime ID. Does nothing after `dispose`.
+	 *
+	 * @throws An error, and moves nothing, if a new key points to another
+	 * start. Callers check the new keys first.
+	 */
+	replaceRuntimeMetadata(runtimeMetadata: ILanguageRuntimeMetadata): void {
+		if (this._disposed) {
+			return;
+		}
+		this.assertKeysFree(runtimeMetadata);
+		this.deleteEntries();
+		this._runtimeMetadata = runtimeMetadata;
+		this.setEntries();
+	}
+
+	/** Removes this start's entries. Safe to call more than once. */
+	dispose(): void {
+		if (this._disposed) {
+			return;
+		}
+		this._disposed = true;
+		this.deleteEntries();
+	}
+
+	private sessionMapKey(runtimeMetadata: ILanguageRuntimeMetadata): string {
+		return getSessionMapKey(this.sessionMode, runtimeMetadata.runtimeId, this.notebookUri);
+	}
+
+	private assertKeysFree(runtimeMetadata: ILanguageRuntimeMetadata): void {
+		const owners = [this._maps.sessionsBySessionMapKey.get(this.sessionMapKey(runtimeMetadata))];
+		if (this.sessionMode === LanguageRuntimeSessionMode.Console) {
+			owners.push(this._maps.consolesByRuntimeId.get(runtimeMetadata.runtimeId));
+		} else if (this.sessionMode === LanguageRuntimeSessionMode.Notebook && this.notebookUri) {
+			owners.push(this._maps.notebooksByNotebookUri.get(this.notebookUri));
+		}
+		const other = owners.find(owner => owner && owner !== this);
+		if (other) {
+			throw new Error(`Cannot register the start of ` +
+				`${formatLanguageRuntimeMetadata(runtimeMetadata)} because a start of ` +
+				`${formatLanguageRuntimeMetadata(other.runtimeMetadata)} is already registered.`);
+		}
+	}
+
+	private setEntries(): void {
+		this._maps.sessionsBySessionMapKey.set(this.sessionMapKey(this._runtimeMetadata), this);
+		if (this.sessionMode === LanguageRuntimeSessionMode.Console) {
+			this._maps.consolesByRuntimeId.set(this._runtimeMetadata.runtimeId, this);
+		} else if (this.sessionMode === LanguageRuntimeSessionMode.Notebook && this.notebookUri) {
+			this._maps.notebooksByNotebookUri.set(this.notebookUri, this);
+		}
+	}
+
+	private deleteEntries(): void {
+		const sessionMapKey = this.sessionMapKey(this._runtimeMetadata);
+		if (this._maps.sessionsBySessionMapKey.get(sessionMapKey) === this) {
+			this._maps.sessionsBySessionMapKey.delete(sessionMapKey);
+		}
+		if (this.sessionMode === LanguageRuntimeSessionMode.Console) {
+			if (this._maps.consolesByRuntimeId.get(this._runtimeMetadata.runtimeId) === this) {
+				this._maps.consolesByRuntimeId.delete(this._runtimeMetadata.runtimeId);
+			}
+		} else if (this.sessionMode === LanguageRuntimeSessionMode.Notebook && this.notebookUri) {
+			if (this._maps.notebooksByNotebookUri.get(this.notebookUri) === this) {
+				this._maps.notebooksByNotebookUri.delete(this.notebookUri);
+			}
+		}
+	}
+}
+
+/**
  * The implementation of IRuntimeSessionService.
  */
 export class RuntimeSessionService extends Disposable implements IRuntimeSessionService, IOpener {
@@ -100,17 +229,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// A map of the starting consoles. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime owning the session.
 	// This is the replacement for _startingConsolesByLanguageId for multiple console sessions
-	private readonly _startingConsolesByRuntimeId = new Map<string, ILanguageRuntimeMetadata>();
+	private readonly _startingConsolesByRuntimeId = new Map<string, StartingSession>();
 
 	// A map of the starting notebooks. This is keyed by the notebook URI
 	// owning the session.
-	private readonly _startingNotebooksByNotebookUri = new ResourceMap<ILanguageRuntimeMetadata>();
+	private readonly _startingNotebooksByNotebookUri = new ResourceMap<StartingSession>();
 
-	// A map of sessions currently starting to promises that resolve when the session
-	// is ready to use. This is keyed by the composition of the session mode, runtime ID,
-	// and notebook URI. This map limits the number of sessions that can be started at once
-	// per runtime due to the nature of the session key.
-	private readonly _startingSessionsBySessionMapKey = new Map<string, DeferredPromise<string>>();
+	// A map of sessions currently starting. This is keyed by the composition of the
+	// session mode, runtime ID, and notebook URI. This map limits the number of sessions
+	// that can be started at once per runtime due to the nature of the session key.
+	private readonly _startingSessionsBySessionMapKey = new Map<string, StartingSession>();
+
+	// The three maps above, for the `StartingSession` records that own their entries.
+	private readonly _startingSessionMaps: IStartingSessionMaps = {
+		consolesByRuntimeId: this._startingConsolesByRuntimeId,
+		notebooksByNotebookUri: this._startingNotebooksByNotebookUri,
+		sessionsBySessionMapKey: this._startingSessionsBySessionMapKey,
+	};
 
 	// A map of sessions currently shutting down to promises that resolve when the session
 	// has shut down. This is keyed by the session ID.
@@ -186,8 +321,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidChangeDisplayRuntimeStateEmitter =
 		this._register(new Emitter<{ sessionId: string; state: RuntimeState }>());
 
-	// The set of session IDs that are currently restarting.
-	private readonly _restartingSessionIds = new Set<string>();
+	// Restarts in flight, keyed by session ID. Each resolves to false if a
+	// notebook restart was skipped because another session now owns the notebook.
+	private readonly _pendingRestartsBySessionId = new Map<string, Promise<boolean>>();
 
 	// The last known display state per session ID.
 	private readonly _lastDisplayRuntimeStateBySessionId = new Map<string, RuntimeState>();
@@ -543,10 +679,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 
 		// If a start request is already in progress, wait for it to complete.
-		const startingPromise = this._startingSessionsBySessionMapKey.get(
+		const startingSession = this._startingSessionsBySessionMapKey.get(
 			getSessionMapKey(sessionMode, runtimeId, notebookUri));
-		if (startingPromise && !startingPromise.isSettled) {
-			await startingPromise.p;
+		if (startingSession && !startingSession.promise.isSettled) {
+			await startingSession.promise.p;
+		}
+
+		// A console restart is not in the starting maps, so also wait for a
+		// restart of the console that this would select.
+		if (!notebookUri) {
+			const consoleSession = this.getConsoleSessionForRuntime(runtimeId, true);
+			const pendingRestart = consoleSession && this._pendingRestartsBySessionId.get(consoleSession.sessionId);
+			if (pendingRestart) {
+				await pendingRestart;
+			}
 		}
 
 		if (notebookUri) {
@@ -783,13 +929,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// session to be coalesced.
+		// session to be coalesced. Private starts are not joined.
 		const sessionMapKey = getSessionMapKey(sessionMode, runtimeId, notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p;
-		}
+		return this.joinOrStart(sessionMapKey, !!options?.requireNewSession, () =>
+			this.doStartNewRuntimeSession(
+				runtimeId, sessionName, sessionMode, notebookUri, startReason, startMode, activate, options));
+	}
 
+	/**
+	 * Starts a new runtime session when `joinOrStart` finds nothing to join.
+	 * Must stay synchronous until `doCreateRuntimeSession` registers the start.
+	 */
+	private async doStartNewRuntimeSession(
+		runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		notebookUri: URI | undefined,
+		startReason: IRuntimeSessionStartReason,
+		startMode: RuntimeStartMode,
+		activate: boolean,
+		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		// Get the runtime. Throw an error, if it could not be found.
 		const languageRuntime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!languageRuntime) {
@@ -805,7 +964,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If the workspace is not trusted, defer starting the runtime until the
 		// workspace is trusted.
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-			if (sessionMode === LanguageRuntimeSessionMode.Console) {
+			if (options?.requireNewSession) {
+				// A deferred start would later open an empty console.
+				throw new Error(localize(
+					'positron.startNewRuntimeSession.untrusted',
+					"Could not start a new {0} session because the workspace is not trusted.",
+					languageRuntime.languageName));
+			} else if (sessionMode === LanguageRuntimeSessionMode.Console) {
 				return this.autoStartRuntime(languageRuntime, startReason, activate);
 			} else {
 				throw new Error(`Cannot start a ${sessionMode} session in an untrusted workspace.`);
@@ -885,9 +1050,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMapKey = getSessionMapKey(
 			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-			if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-				return startingRuntimePromise.p.then(() => { });
+			const startingSession = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+			if (startingSession && !startingSession.promise.isSettled) {
+				return startingSession.promise.p.then(() => { });
 			}
 		}
 
@@ -908,41 +1073,37 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		const runningSessionId = this.validateRuntimeSessionStart(
-			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-		if (runningSessionId) {
-			return;
-		}
-
-		// Create a promise that resolves when the runtime is ready to use.
-		const startPromise = new DeferredPromise<string>();
-
-		// It's possible that startPromise is never awaited, so we log any errors here
-		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
-
-		// For notebook sessions, update the starting sessions map so that any concurrent
+		// A console restore registers no start, so a start of another console
+		// of the runtime does not block it, and it does not block that start.
+		// For notebook sessions, register the start so that any concurrent
 		// start/restore requests return the same pending promise.
+		let startingSession: StartingSession | undefined;
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-
-			this.setStartingSessionMaps(
+			const runningSessionId = this.validateRuntimeSessionStart(
 				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			if (runningSessionId) {
+				return;
+			}
+			startingSession = this.createStartingSession(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri, true);
 		}
 
 		try {
 			const sessionId = await this.doRestoreRuntimeSession(
-				sessionMetadata, runtimeMetadata, sessionName, createConsole, activate, takeForegroundIfEmpty);
-			startPromise.complete(sessionId);
+				sessionMetadata, runtimeMetadata, sessionName, createConsole, activate, takeForegroundIfEmpty,
+				startingSession);
+			startingSession?.promise.complete(sessionId);
 		} catch (err) {
-			startPromise.error(err);
+			if (!startingSession) {
+				throw err;
+			}
+			startingSession.promise.error(err);
 		} finally {
 			// The session is no longer considered starting.
-			this.clearStartingSessionMaps(
-				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			startingSession?.dispose();
 		}
 
-		return startPromise.p.then(() => { });
+		return startingSession?.promise.p.then(() => { });
 	}
 
 	async doRestoreRuntimeSession(
@@ -952,6 +1113,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		createConsole: boolean,
 		activate: boolean,
 		takeForegroundIfEmpty: boolean,
+		startingSession: StartingSession | undefined,
 	) {
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
@@ -981,7 +1143,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			RuntimeStartMode.Reconnecting,
 			createConsole,
 			activate,
-			takeForegroundIfEmpty);
+			takeForegroundIfEmpty,
+			startingSession);
 
 		return sessionMetadata.sessionId;
 
@@ -1061,7 +1224,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!active) {
 			return undefined;
 		}
-		return this._restartingSessionIds.has(sessionId)
+		return this._pendingRestartsBySessionId.has(sessionId)
 			? RuntimeState.Restarting
 			: active.state;
 	}
@@ -1281,8 +1444,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			state === RuntimeState.Exited) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
-			await this.doRestartRuntime(session);
-			return true;
+			return this.doRestartRuntime(session);
 		} else if (state === RuntimeState.Uninitialized) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
@@ -1373,18 +1535,62 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Internal method to restart a runtime session.
+	 * Internal method to restart a runtime session. Concurrent restarts of a
+	 * session share one restart.
 	 *
 	 * @param session The runtime to restart.
+	 * @returns False if a notebook restart was skipped because another session
+	 * now owns the notebook; otherwise true once the session is ready.
 	 */
-	private async doRestartRuntime(session: ILanguageRuntimeSession): Promise<void> {
-		// If there is already a runtime starting for the session, return its promise.
-		const sessionMapKey = getSessionMapKey(
-			session.metadata.sessionMode, session.runtimeMetadata.runtimeId, session.metadata.notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			await startingRuntimePromise.p;
-			return;
+	private doRestartRuntime(session: ILanguageRuntimeSession): Promise<boolean> {
+		const pending = this._pendingRestartsBySessionId.get(session.sessionId);
+		if (pending) {
+			return pending;
+		}
+
+		// Display state reads Restarting from the request until the restart settles.
+		const restart = new DeferredPromise<boolean>();
+		this._pendingRestartsBySessionId.set(session.sessionId, restart.p);
+		this._updateDisplayRuntimeState(session.sessionId);
+		restart.p.finally(() => {
+			if (this._pendingRestartsBySessionId.get(session.sessionId) === restart.p) {
+				this._pendingRestartsBySessionId.delete(session.sessionId);
+			}
+			this._updateDisplayRuntimeState(session.sessionId);
+		}).catch(() => { /* handled by the callers of the restart */ });
+
+		this.doRestartRuntimeUnshared(session).then(
+			restarted => restart.complete(restarted),
+			err => restart.error(err));
+		return restart.p;
+	}
+
+	/**
+	 * Restarts a runtime session. Use `doRestartRuntime`, which shares a
+	 * restart between concurrent requests.
+	 *
+	 * A console restart does not wait for other starts of its runtime and
+	 * registers no start, so new console starts never join it. A notebook
+	 * restart waits for any start for its notebook, and is skipped if another
+	 * session owns the notebook after the wait.
+	 *
+	 * @param session The runtime to restart.
+	 * @returns False if the restart was skipped; otherwise true once the
+	 * session is ready.
+	 */
+	private async doRestartRuntimeUnshared(session: ILanguageRuntimeSession): Promise<boolean> {
+		const notebookUri = session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook
+			? session.metadata.notebookUri
+			: undefined;
+		if (notebookUri) {
+			// Wait on the notebook's starting entry, which also covers a kernel
+			// switch to another runtime. Keep this synchronous from the last
+			// check to the registration below.
+			let inFlight = this._startingNotebooksByNotebookUri.get(notebookUri);
+			while (inFlight && !inFlight.promise.isSettled) {
+				await inFlight.promise.p.catch(() => { });
+				inFlight = this._startingNotebooksByNotebookUri.get(notebookUri);
+			}
 		}
 
 		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
@@ -1392,30 +1598,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No active session '${session.sessionId}'`);
 		}
 
-		// Create a promise that resolves when the runtime is ready to use.
-		const startPromise = new DeferredPromise<string>();
-		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-
-		// Open the restarting window so display state reads Restarting until the session is ready.
-		this._restartingSessionIds.add(session.sessionId);
-		this._updateDisplayRuntimeState(session.sessionId);
-		startPromise.p.finally(() => {
-			this._restartingSessionIds.delete(session.sessionId);
-			this._updateDisplayRuntimeState(session.sessionId);
-		}).catch(() => { /* handled by the awaited start promise */ });
-
-		// Mark the session as starting.
-		this.setStartingSessionMaps(
-			session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+		// For a notebook, mark the session as starting, so that no other kernel
+		// starts for the notebook while its session is exited. Other starts of
+		// the same runtime for the notebook join the restart.
+		let startingSession: StartingSession | undefined;
+		if (notebookUri) {
+			const owner = this._notebookSessionsByNotebookUri.get(notebookUri);
+			if (owner && owner.sessionId !== session.sessionId) {
+				this._logService.info(
+					`Not restarting ${formatLanguageRuntimeSession(session)}, because ` +
+					`${formatLanguageRuntimeSession(owner)} now runs for the notebook ${notebookUri.toString()}.`);
+				return false;
+			}
+			startingSession = this.createStartingSession(
+				LanguageRuntimeSessionMode.Notebook, session.runtimeMetadata, notebookUri, true);
+		}
+		const startPromise = startingSession?.promise ?? new DeferredPromise<string>();
 
 		const restartDisposables = activeSession.register(new DisposableStore());
+		let settled = false;
 		const settle = (error?: Error) => {
-			if (startPromise.isSettled) {
+			if (settled) {
 				return;
 			}
+			settled = true;
 			restartDisposables.dispose();
-			this.clearStartingSessionMaps(
-				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			startingSession?.dispose();
 			if (error) {
 				startPromise.error(error);
 			} else {
@@ -1470,6 +1678,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`was deleted while restarting.`));
 			}
 		}));
+		// The session's tracking is disposed when a reconnect replaces it
+		// (or the service shuts down). Nothing can then finish the restart, so
+		// fail it instead of leaving it pending.
+		restartDisposables.add(toDisposable(() => settle(new Error(
+			`Session ${formatLanguageRuntimeSession(session)} was replaced while restarting.`))));
 
 		if (session.getRuntimeState() === RuntimeState.Exited) {
 			onOldRuntimeExited();
@@ -1495,6 +1708,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		})();
 
 		await startPromise.p;
+		return true;
 	}
 
 	/**
@@ -1642,7 +1856,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 
 			// Remove stale display-state entries for the deleted session.
-			this._restartingSessionIds.delete(sessionId);
+			this._pendingRestartsBySessionId.delete(sessionId);
 			this._lastDisplayRuntimeStateBySessionId.delete(sessionId);
 
 			// Dispose of the session.
@@ -1675,17 +1889,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Check if there is a starting session for the notebook.
-		const startingRuntime = this._startingNotebooksByNotebookUri.get(notebookUri);
-		if (!startingRuntime) {
-			this._logService.debug(`No starting session for notebook ${notebookUri.toString()}`);
-			return undefined;
-		}
-
-		// Get the starting promise.
-		const sessionMapKey = getSessionMapKey(
-			LanguageRuntimeSessionMode.Notebook, startingRuntime.runtimeId, notebookUri);
-		const startingPromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (!startingPromise) {
+		const startingSession = this._startingNotebooksByNotebookUri.get(notebookUri);
+		if (!startingSession) {
 			this._logService.debug(`No starting session for notebook ${notebookUri.toString()}`);
 			return undefined;
 		}
@@ -1694,7 +1899,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.debug(`Waiting for session to start before shutting down notebook ${notebookUri.toString()}`);
 		let sessionId: string;
 		try {
-			sessionId = await startingPromise.p;
+			sessionId = await startingSession.promise.p;
 		} catch (error) {
 			// We assume that the error is handled elsewhere but log for debugging purposes.
 			this._logService.debug(
@@ -1748,12 +1953,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const hasStartingConsoleForLanguageId = Array.from(this._startingConsolesByRuntimeId.values())
 			.some(
-				runtime => runtime.languageId === languageId);
+				starting => starting.runtimeMetadata.languageId === languageId);
+
+		// A restarting console counts as running, even while its kernel is
+		// exited and it is out of the console session map.
+		const restartingConsoles = Array.from(this._pendingRestartsBySessionId.keys())
+			.map(sessionId => this._activeSessionsBySessionId.get(sessionId)?.session)
+			.filter(session => session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
+		const hasRestartingConsoleForLanguageId = restartingConsoles
+			.some(session => session?.runtimeMetadata.languageId === languageId);
 
 		if (languageId) {
-			return hasStartingConsoleForLanguageId || hasRunningConsoleForLanguageId;
+			return hasStartingConsoleForLanguageId || hasRunningConsoleForLanguageId ||
+				hasRestartingConsoleForLanguageId;
 		} else {
-			return this._startingConsolesByRuntimeId.size > 0 || hasRunningConsole;
+			return this._startingConsolesByRuntimeId.size > 0 || hasRunningConsole ||
+				restartingConsoles.length > 0;
 		}
 	}
 
@@ -1860,6 +2075,58 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	//#region Private Methods
 
 	/**
+	 * Joins the start in flight for a session map key, or calls `start` when
+	 * there is none to join. Private (`requireNewSession`) starts are never
+	 * joined; with `requireNewSession`, no start is joined. In both cases this
+	 * waits for the start to settle and checks again.
+	 *
+	 * `start` must register its start before its first await, so that
+	 * concurrent waiters are serialized rather than coalesced.
+	 *
+	 * @param sessionMapKey The session map key of the session to start.
+	 * @param requireNewSession Whether the caller needs a session of its own.
+	 * @param start Starts the session when there is no start to join.
+	 * @returns A promise that resolves with the session ID.
+	 */
+	private async joinOrStart(
+		sessionMapKey: string,
+		requireNewSession: boolean,
+		start: () => Promise<string>): Promise<string> {
+		let inFlight = this.findStartInFlight(sessionMapKey, requireNewSession);
+		while (inFlight?.mustWait) {
+			await inFlight.start.promise.p.catch(() => { });
+			inFlight = this.findStartInFlight(sessionMapKey, requireNewSession);
+		}
+		if (inFlight) {
+			return inFlight.start.promise.p;
+		}
+		return start();
+	}
+
+	/**
+	 * Finds the start in flight for a session map key, and whether a request
+	 * must wait for it to settle instead of joining it. Private
+	 * (`requireNewSession`) starts are never joined; with `requireNewSession`,
+	 * no start is joined.
+	 *
+	 * Callers wait while `mustWait` is true, call this again after each wait,
+	 * and act on the last result with no `await` in between.
+	 *
+	 * @param sessionMapKey The session map key to look up.
+	 * @param requireNewSession Whether the caller needs a session of its own.
+	 * @returns The unsettled start, or `undefined` when there is none.
+	 */
+	private findStartInFlight(
+		sessionMapKey: string,
+		requireNewSession: boolean): { readonly start: StartingSession; readonly mustWait: boolean } | undefined {
+		const start = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		if (!start || start.promise.isSettled) {
+			return undefined;
+		}
+		return { start, mustWait: requireNewSession || !start.joinable };
+	}
+
+	/**
 	 * Automatically starts a runtime. Does not perform any checks to see if
 	 * auto-start is enabled or trust is granted; call autoStartRuntime()
 	 * instead if you need those checks.
@@ -1880,12 +2147,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
-		// session to be coalesced.
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
-			getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri));
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p;
-		}
+		// session to be coalesced. Private starts are not joined.
+		return this.joinOrStart(getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri), false, () =>
+			this.doAutoStartRuntimeUnjoined(metadata, startReason, activate));
+	}
+
+	/**
+	 * Automatically starts a console when `joinOrStart` finds nothing to join.
+	 * Must stay synchronous until the start is registered.
+	 */
+	private async doAutoStartRuntimeUnjoined(
+		metadata: ILanguageRuntimeMetadata,
+		startReason: IRuntimeSessionStartReason,
+		activate: boolean): Promise<string> {
+		const sessionMode = LanguageRuntimeSessionMode.Console;
+		const notebookUri = undefined;
 
 		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri,
 			describeSessionStartReasonForLog(startReason, metadata, notebookUri));
@@ -1893,18 +2169,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return runningSessionId;
 		}
 
-		// Before attempting to validate the runtime, add it to the set of
-		// starting consoles.
-		this._startingConsolesByRuntimeId.set(metadata.runtimeId, metadata);
-
-		// Create a promise that resolves when the runtime is ready to use.
-		const startPromise = new DeferredPromise<string>();
-		const sessionMapKey = getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri);
-		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-
-		// It's possible that startPromise is never awaited, so we log any errors here
-		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+		// Before attempting to validate the runtime, register the start.
+		const startingSession = this.createStartingSession(sessionMode, metadata, notebookUri, true);
+		const startPromise = startingSession.promise;
 
 		// Get the runtime's manager.
 		let sessionManager: ILanguageRuntimeSessionManager;
@@ -1912,7 +2179,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionManager = await this.getManagerForRuntime(metadata);
 		} catch (err) {
 			startPromise.error(err);
-			this.clearStartingSessionMaps(sessionMode, metadata, notebookUri);
+			startingSession.dispose();
 			throw err;
 		}
 
@@ -1994,12 +2261,33 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Register the newly validated runtime.
 				this._languageRuntimeService.registerRuntime(validated);
 
+				// If the validated runtime is already starting, do what joining
+				// would have done had its ID been known up front: wait for a
+				// private start, and join any other start.
+				if (validated.runtimeId !== metadata.runtimeId) {
+					const validatedKey = getSessionMapKey(sessionMode, validated.runtimeId, notebookUri);
+					let inFlight = this.findStartInFlight(validatedKey, false);
+					while (inFlight?.mustWait) {
+						await inFlight.start.promise.p.catch(() => { });
+						inFlight = this.findStartInFlight(validatedKey, false);
+					}
+					if (inFlight) {
+						// Settle requests that joined this start under the old ID too.
+						const joined = inFlight.start.promise.p;
+						joined.then(
+							sessionId => startPromise.complete(sessionId),
+							err => startPromise.error(err));
+						startingSession.dispose();
+						return joined;
+					}
+				}
+
 				// Replace the metadata we were given with the validated metadata.
 				metadata = validated;
-				this._startingConsolesByRuntimeId.set(metadata.runtimeId, validated);
+				startingSession.replaceRuntimeMetadata(validated);
 			} catch (err) {
 				startPromise.error(err);
-				this.clearStartingSessionMaps(sessionMode, metadata, notebookUri);
+				startingSession.dispose();
 
 				// Log the error and re-throw it.
 				this._logService.error(
@@ -2016,7 +2304,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			RuntimeStartMode.Starting,
 			true, // Create a console
 			activate,
-			notebookUri);
+			notebookUri,
+			undefined,
+			startingSession);
 	}
 
 	/**
@@ -2043,82 +2333,66 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		createConsole: boolean,
 		activate: boolean,
 		notebookUri?: URI,
-		options?: IStartNewRuntimeSessionOptions): Promise<string> {
-		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
+		options?: IStartNewRuntimeSessionOptions,
+		startingSession?: StartingSession): Promise<string> {
+		const starting = startingSession ?? this.createStartingSession(
+			sessionMode, runtimeMetadata, notebookUri, !options?.requireNewSession);
+		const startPromise = starting.promise;
 
-		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
-		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
-		let startPromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (!startPromise || startPromise.isSettled) {
-			startPromise = new DeferredPromise<string>();
-			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-
-			// It's possible that startPromise is never awaited, so we log any errors here
-			// at the debug level since we still expect the error to be handled/logged elsewhere.
-			startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
-		}
-
-		// Get the runtime's manager.
-		let sessionManager: ILanguageRuntimeSessionManager;
 		try {
-			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
-		} catch (err) {
-			startPromise.error(err);
-			this.clearStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
-			throw err;
-		}
+			// Get the runtime's manager.
+			const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 
-		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
+			const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 
-		// Resolve the working directory configuration
-		let workingDirectory: string | undefined;
-		if (notebookUri) {
-			workingDirectory = await resolveNotebookWorkingDirectory(
+			// Resolve the working directory configuration
+			let workingDirectory: string | undefined;
+			if (notebookUri) {
+				workingDirectory = await resolveNotebookWorkingDirectory(
+					notebookUri,
+					this._fileService,
+					this._configurationService,
+					this._configurationResolverService,
+					this._workspaceContextService,
+					this._pathService,
+					this._logService
+				);
+			}
+
+			const sessionMetadata: IRuntimeSessionMetadata = {
+				sessionId,
+				sessionMode,
 				notebookUri,
-				this._fileService,
-				this._configurationService,
-				this._configurationResolverService,
-				this._workspaceContextService,
-				this._pathService,
-				this._logService
-			);
-		}
+				workingDirectory,
+				createdTimestamp: Date.now(),
+				startReason: describeSessionStartReason(startReason, runtimeMetadata, notebookUri),
+				startReasonId: startReason.id,
+				requestingExtensionId: startReason.requestingExtensionId,
+				userSelected: options?.userSelected,
+				quartoNotebookUri: options?.quartoNotebookUri,
+				owner: options?.owner ?? 'user',
+			};
 
-		const sessionMetadata: IRuntimeSessionMetadata = {
-			sessionId,
-			sessionMode,
-			notebookUri,
-			workingDirectory,
-			createdTimestamp: Date.now(),
-			startReason: describeSessionStartReason(startReason, runtimeMetadata, notebookUri),
-			startReasonId: startReason.id,
-			requestingExtensionId: startReason.requestingExtensionId,
-			userSelected: options?.userSelected,
-			quartoNotebookUri: options?.quartoNotebookUri,
-			owner: options?.owner ?? 'user',
-		};
+			// Provision the new session.
+			let session: ILanguageRuntimeSession;
+			try {
+				session = await sessionManager.createSession(runtimeMetadata, sessionMetadata, sessionName);
+			} catch (err) {
+				this._logService.error(
+					`Creating session for language runtime ` +
+					`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
+				throw err;
+			}
 
-		// Provision the new session.
-		let session: ILanguageRuntimeSession;
-		try {
-			session = await sessionManager.createSession(runtimeMetadata, sessionMetadata, sessionName);
-		} catch (err) {
-			this._logService.error(
-				`Creating session for language runtime ` +
-				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
-			startPromise.error(err);
-			this.clearStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
-
-			// Re-throw the error.
-			throw err;
-		}
-
-		// Actually start the session.
-		try {
-			await this.doStartRuntimeSession(session, sessionManager, startMode, createConsole, activate);
+			// Actually start the session.
+			await this.doStartRuntimeSession(session, sessionManager, startMode, createConsole, activate,
+				options?.takeForegroundIfEmpty ?? true, starting);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
+		} finally {
+			// The session is no longer considered starting.
+			starting.dispose();
 		}
 
 		return startPromise.p;
@@ -2134,13 +2408,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param takeForegroundIfEmpty Whether a console session that isn't
 	 * activated still becomes the foreground session when there is none.
+	 * @param startingSession The start's entries in the starting-session
+	 * maps, removed once the session starts or fails to start. Undefined for
+	 * a console restore, which registers no start.
 	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
 		startMode: RuntimeStartMode,
 		createConsole: boolean,
 		activate: boolean,
-		takeForegroundIfEmpty = true):
+		takeForegroundIfEmpty: boolean,
+		startingSession: StartingSession | undefined):
 		Promise<void> {
 		// Fire the onWillStartRuntime event.
 		const evt: IRuntimeSessionWillStartEvent = {
@@ -2160,8 +2438,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// The session has started. Move it from the starting runtimes to the
 			// running runtimes.
-			this.clearStartingSessionMaps(
-				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			startingSession?.dispose();
 
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				// Append the new session to the list of existing sessions if it hasn't been added
@@ -2190,8 +2467,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 			}
 		} catch (reason) {
-			this.clearStartingSessionMaps(
-				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			startingSession?.dispose();
 
 			// Fire the onDidFailStartRuntime event.
 			this._onDidFailStartRuntimeEmitter.fire(session);
@@ -2463,7 +2739,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				throw new Error(`Session for language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
 					`cannot be started because language runtime ` +
-					`${formatLanguageRuntimeMetadata(startingLanguageRuntime)} ` +
+					`${formatLanguageRuntimeMetadata(startingLanguageRuntime.runtimeMetadata)} ` +
 					`is already starting for the language.` +
 					(source ? ` Request source: ${source}` : ``));
 			}
@@ -2479,7 +2755,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				throw new Error(`Session for language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
 					`cannot be started because language runtime ` +
-					`${formatLanguageRuntimeMetadata(startingLanguageRuntime)} ` +
+					`${formatLanguageRuntimeMetadata(startingLanguageRuntime.runtimeMetadata)} ` +
 					`is already starting for the notebook ${notebookUri.toString()}.` +
 					(source ? ` Request source: ${source}` : ``));
 			}
@@ -2508,41 +2784,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Sets the session maps for a starting session.
+	 * Registers a start in the starting-session maps.
 	 *
 	 * @param sessionMode The mode of the session.
 	 * @param runtimeMetadata The metadata of the session's runtime.
 	 * @param notebookUri The notebook URI attached to the session, if any.
+	 * @param joinable False for `requireNewSession` starts, which other
+	 * requests never join.
+	 * @returns The start's record; dispose it when the start settles.
 	 */
-	private setStartingSessionMaps(
+	private createStartingSession(
 		sessionMode: LanguageRuntimeSessionMode,
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		notebookUri?: URI) {
-		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			this._startingConsolesByRuntimeId.set(runtimeMetadata.runtimeId, runtimeMetadata);
-		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook && notebookUri) {
-			this._startingNotebooksByNotebookUri.set(notebookUri, runtimeMetadata);
-		}
-	}
-
-	/**
-	 * Clears the session maps for a starting session.
-	 *
-	 * @param sessionMode The mode of the session.
-	 * @param runtimeMetadata The metadata of the session's runtime.
-	 * @param notebookUri The notebook URI attached to the session, if any.
-	 */
-	private clearStartingSessionMaps(
-		sessionMode: LanguageRuntimeSessionMode,
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		notebookUri?: URI) {
-		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
-		this._startingSessionsBySessionMapKey.delete(sessionMapKey);
-		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			this._startingConsolesByRuntimeId.delete(runtimeMetadata.runtimeId);
-		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook && notebookUri) {
-			this._startingNotebooksByNotebookUri.delete(notebookUri);
-		}
+		notebookUri: URI | undefined,
+		joinable: boolean): StartingSession {
+		return new StartingSession(
+			this._startingSessionMaps, sessionMode, runtimeMetadata, notebookUri, joinable, this._logService);
 	}
 
 	/**

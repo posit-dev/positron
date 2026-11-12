@@ -5,6 +5,7 @@
 
 import { join } from 'path';
 import { PermissionPayload } from '../../pages/connect.js';
+import { fillSecretValue } from '../../utils/secretInput.js';
 import { test, tags, expect } from '../_test.setup.js';
 
 test.use({
@@ -183,7 +184,7 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.CONNECT, tags
 			await app.code.driver.currentPage.locator('[data-automation="signin"]').click();
 
 			await app.code.driver.currentPage.fill('input[name="username"]', 'user1');
-			await app.code.driver.currentPage.fill('input[name="password"]', connectUserPassword);
+			await fillSecretValue(app.code.driver.currentPage.locator('input[name="password"]'), connectUserPassword);
 			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
 			await app.code.driver.currentPage.locator('[data-automation="content-item-title"]').first().click();

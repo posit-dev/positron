@@ -384,12 +384,12 @@ assert_eq "collapse leaves @:workbench-all itself" "@:workbench-all" \
 # auto test-change derivation, which is how you end up spending three OS lanes on
 # an unrelated PR.
 REAL_ENUM_WBALL="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
-if printf '%s\n' "$(valid_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+if grep -qxF "@:workbench-all" <<<"$(valid_enum_tags "$REAL_ENUM_WBALL")"; then
 	echo "PASS: real TestTags includes @:workbench-all"
 else
 	echo "FAIL: real TestTags should include @:workbench-all"; fail=1
 fi
-if printf '%s\n' "$(feature_enum_tags "$REAL_ENUM_WBALL")" | grep -qxF "@:workbench-all"; then
+if grep -qxF "@:workbench-all" <<<"$(feature_enum_tags "$REAL_ENUM_WBALL")"; then
 	echo "FAIL: @:workbench-all must not be in FeatureTags (it is a lane selector)"; fail=1
 else
 	echo "PASS: real FeatureTags excludes @:workbench-all"
@@ -418,6 +418,13 @@ assert_eq "split: empty input yields both sides empty" "|" \
 	"$(split_valid_invalid_tags "" "$ENUM")"
 assert_eq "split: missing enum file treats all tags as invalid" "|@:console" \
 	"$(split_valid_invalid_tags "@:console" "/nonexistent/test-tags.ts")"
+# An early match in a large set must not SIGPIPE the membership check under
+# pipefail (it used to pipe into `grep -q`, which exits on the first match).
+BIG_ENUM="$(mktemp)"
+{ echo 'export enum TestTags {'; echo "	AAA = '@:aaa',"; awk 'BEGIN { for (i = 1; i <= 20000; i++) printf "\tF%d = '\''@:filler-%d'\'',\n", i, i }'; echo '}'; } > "$BIG_ENUM"
+assert_eq "split: early match in a large enum stays valid" "@:aaa|" \
+	"$(split_valid_invalid_tags "@:aaa" "$BIG_ENUM")"
+rm -f "$BIG_ENUM"
 
 # --- feature_enum_tags ---
 # test-tags.ts splits tags into FeatureTags / PlatformTags enums,
@@ -452,14 +459,14 @@ rm -f "$ROLE_ENUM"
 REAL_ENUM="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
 REAL_FEATURE="$(feature_enum_tags "$REAL_ENUM")"
 for t in @:console @:variables @:plots @:performance; do
-	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
+	if grep -qxF "$t" <<<"$REAL_FEATURE"; then
 		echo "PASS: real FeatureTags includes $t"
 	else
 		echo "FAIL: real FeatureTags should include $t"; fail=1
 	fi
 done
 for t in @:win @:web @:cross-browser @:workbench @:workbench-rocky @:remote-ssh; do
-	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
+	if grep -qxF "$t" <<<"$REAL_FEATURE"; then
 		echo "FAIL: real FeatureTags should NOT include platform tag $t"; fail=1
 	else
 		echo "PASS: real FeatureTags excludes $t"
@@ -503,12 +510,12 @@ else
 	echo "FAIL: guardrail --tags-only should exit 0 despite a stale entry"; fail=1
 fi
 STALE_OUTPUT="$(MAP_FILE="$STALE_MAP" bash "$HERE/../check-test-tag-map.sh" 2>&1)"
-if printf '%s' "$STALE_OUTPUT" | grep -qF "definitely/not/a/real/path/"; then
+if grep -qF "definitely/not/a/real/path/" <<<"$STALE_OUTPUT"; then
 	echo "PASS: guardrail flags a stale map entry"
 else
 	echo "FAIL: guardrail should flag the stale entry"; fail=1
 fi
-if printf '%s' "$STALE_OUTPUT" | grep -qF "scripts/lib/pr-tags-lib.sh"; then
+if grep -qF "scripts/lib/pr-tags-lib.sh" <<<"$STALE_OUTPUT"; then
 	echo "FAIL: guardrail should not flag a genuinely-tracked entry as stale"; fail=1
 else
 	echo "PASS: guardrail leaves a genuinely-tracked entry alone"
@@ -598,12 +605,12 @@ LAST_MEMBER_MAP="$(mktemp)"
 echo '{"some/dir/": ["@:last-one"]}' > "$LAST_MEMBER_MAP"
 EMPTY_TESTS_DIR="$(mktemp -d)"
 LAST_MEMBER_OUTPUT="$(MAP_FILE="$LAST_MEMBER_MAP" ENUM_FILE="$LAST_MEMBER_ENUM" TESTS_DIR="$EMPTY_TESTS_DIR" bash "$HERE/../check-test-tag-map.sh" --tags-only 2>&1)"
-if printf '%s' "$LAST_MEMBER_OUTPUT" | grep -qF "@:last-one"; then
+if grep -qF "@:last-one" <<<"$LAST_MEMBER_OUTPUT"; then
 	echo "PASS: guardrail resolves the enum's last member (no trailing comma)"
 else
 	echo "FAIL: guardrail should flag @:last-one as untested, not skip it silently"; fail=1
 fi
-if printf '%s' "$LAST_MEMBER_OUTPUT" | grep -q "could not resolve"; then
+if grep -q "could not resolve" <<<"$LAST_MEMBER_OUTPUT"; then
 	echo "FAIL: guardrail should not report an unresolved lookup for a well-formed enum"; fail=1
 else
 	echo "PASS: guardrail reports no unresolved lookups for a well-formed enum"
@@ -754,6 +761,15 @@ assert_eq "fallback: Posit-owned non-positron-named dir flagged, upstream one is
 # for a copyright header, so it's skipped rather than guessed at.
 assert_eq "fallback: nonexistent file not flagged" "" \
 	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/legacyRuntime/gone.ts" "$EMPTY_MAP")"
+# A Posit-owned test file in an upstream dir is not a feature dir to map, under
+# a test/ dir (plain name, so only the test/ rule applies) or co-located.
+mkdir -p "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/common"
+cp "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/test/browser/helper.ts"
+cp "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/common/z.vitest.ts"
+assert_eq "fallback: Posit-owned file under test/ in an upstream dir not flagged" "" \
+	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/upstreamThing/test/browser/helper.ts" "$EMPTY_MAP")"
+assert_eq "fallback: co-located Posit-owned vitest file in an upstream dir not flagged" "" \
+	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/upstreamThing/common/z.vitest.ts" "$EMPTY_MAP")"
 
 # --- check-test-tag-map.sh: dir-coverage ignores untracked cruft ---
 # The dir-coverage sweep walks the filesystem (`find src extensions`), not
@@ -772,12 +788,12 @@ echo 'cruft' > "$CRUFT_ROOT/extensions/positron-gone/node_modules/leftover.js"
 CRUFT_MAP="$(mktemp)"
 echo '{}' > "$CRUFT_MAP"
 CRUFT_OUTPUT="$(cd "$CRUFT_ROOT" && MAP_FILE="$CRUFT_MAP" bash scripts/check-test-tag-map.sh 2>&1)"
-if printf '%s' "$CRUFT_OUTPUT" | grep -qF "extensions/positron-gone/"; then
+if grep -qF "extensions/positron-gone/" <<<"$CRUFT_OUTPUT"; then
 	echo "FAIL: guardrail should not flag an untracked leftover dir as missing"; fail=1
 else
 	echo "PASS: guardrail ignores untracked leftover dirs"
 fi
-if printf '%s' "$CRUFT_OUTPUT" | grep -qF "extensions/positron-real/"; then
+if grep -qF "extensions/positron-real/" <<<"$CRUFT_OUTPUT"; then
 	echo "PASS: guardrail still flags a genuinely-tracked unmapped dir"
 else
 	echo "FAIL: guardrail should flag the tracked-but-unmapped dir"; fail=1
@@ -810,7 +826,7 @@ if grep -qF '"extensions/positron-gone/"' "$APPLY_DIR/map.json"; then
 else
 	echo "PASS: apply script removes the stale entry"
 fi
-if printf '%s' "$APPLY_OUTPUT" | grep -qF '"removed":["extensions/positron-gone/"]'; then
+if grep -qF '"removed":["extensions/positron-gone/"]' <<<"$APPLY_OUTPUT"; then
 	echo "PASS: apply script reports the removed key"
 else
 	echo "FAIL: apply script should report the removed key"; fail=1
@@ -826,7 +842,7 @@ else
 fi
 cp "$APPLY_DIR/map.json" "$APPLY_DIR/map.before-noop.json"
 NOOP_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" 2>&1)"
-if printf '%s' "$NOOP_OUTPUT" | grep -qF '"removed":[]'; then
+if grep -qF '"removed":[]' <<<"$NOOP_OUTPUT"; then
 	echo "PASS: apply script reports a no-op with no stale arg"
 else
 	echo "FAIL: apply script should report a no-op with no stale arg"; fail=1
@@ -984,33 +1000,33 @@ assert_eq "render: critical-only is not informative (empty)" "" \
 assert_eq "render: empty input yields nothing" "" \
 	"$(render_why_these_tags "")"
 RENDER_OUT="$(render_why_these_tags "@:critical|required,@:quarto|body,@:console|files")"
-if printf '%s' "$RENDER_OUT" | grep -qF "<summary>Why these tags?</summary>"; then
+if grep -qF "<summary>Why these tags?</summary>" <<<"$RENDER_OUT"; then
 	echo "PASS: render includes the collapse summary"
 else
 	echo "FAIL: render should include the collapse summary"; fail=1
 fi
-if printf '%s' "$RENDER_OUT" | grep -qF '| `@:critical` | Always runs (required) |'; then
+if grep -qF '| `@:critical` | Always runs (required) |' <<<"$RENDER_OUT"; then
 	echo "PASS: render annotates critical as required"
 else
 	echo "FAIL: render should annotate critical as required"; fail=1
 fi
-if printf '%s' "$RENDER_OUT" | grep -qF '| `@:quarto` | PR description |'; then
+if grep -qF '| `@:quarto` | PR description |' <<<"$RENDER_OUT"; then
 	echo "PASS: render annotates an author tag as PR description"
 else
 	echo "FAIL: render should annotate the author tag"; fail=1
 fi
-if printf '%s' "$RENDER_OUT" | grep -qF '| `@:console` | Changed files |'; then
+if grep -qF '| `@:console` | Changed files |' <<<"$RENDER_OUT"; then
 	echo "PASS: render annotates a map tag as Changed files"
 else
 	echo "FAIL: render should annotate the map tag"; fail=1
 fi
-if printf '%s' "$RENDER_OUT" | grep -qF "#automatic-tags-from-changed-files"; then
+if grep -qF "#automatic-tags-from-changed-files" <<<"$RENDER_OUT"; then
 	echo "PASS: render moves the why-these-tags link into the collapse"
 else
 	echo "FAIL: render should include the README link inside the collapse"; fail=1
 fi
 ALL_OUT="$(render_why_these_tags "@:all|body")"
-if printf '%s' "$ALL_OUT" | grep -qF '| `@:all` | PR description |'; then
+if grep -qF '| `@:all` | PR description |' <<<"$ALL_OUT"; then
 	echo "PASS: render handles the @:all case"
 else
 	echo "FAIL: render should annotate @:all as PR description"; fail=1
@@ -1018,19 +1034,19 @@ fi
 # The ark / test-win / test-web label arms: one assertion each so a typo or
 # label change in those arms is caught (they aren't exercised by the cases above).
 ARK_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark")"
-if printf '%s' "$ARK_OUT" | grep -qF '| `@:ark` | Ark submodule bump |'; then
+if grep -qF '| `@:ark` | Ark submodule bump |' <<<"$ARK_OUT"; then
 	echo "PASS: render labels the ark arm"
 else
 	echo "FAIL: render should label @:ark as Ark submodule bump"; fail=1
 fi
 WIN_OUT="$(render_why_these_tags "@:critical|required,@:win|test-win")"
-if printf '%s' "$WIN_OUT" | grep -qF '| `@:win` | New test (tags.WIN) |'; then
+if grep -qF '| `@:win` | New test (tags.WIN) |' <<<"$WIN_OUT"; then
 	echo "PASS: render labels the test-win arm"
 else
 	echo "FAIL: render should label @:win as New test (tags.WIN)"; fail=1
 fi
 WEB_OUT="$(render_why_these_tags "@:critical|required,@:web|test-web")"
-if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
+if grep -qF '| `@:web` | New test (tags.WEB) |' <<<"$WEB_OUT"; then
 	echo "PASS: render labels the test-web arm"
 else
 	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
@@ -1039,9 +1055,9 @@ fi
 # a critical-only PR with a count still renders it, and a count never appears
 # outside <details>.
 COUNT_ONLY_OUT="$(render_why_these_tags "@:critical|required" "linux=62/1")"
-if printf '%s' "$COUNT_ONLY_OUT" | grep -qF "<summary>Why these tags?</summary>" \
-	&& printf '%s' "$COUNT_ONLY_OUT" | grep -qF "Test count: Linux: 62 tests." \
-	&& ! printf '%s' "$COUNT_ONLY_OUT" | grep -qF "| Tag | Source |"; then
+if grep -qF "<summary>Why these tags?</summary>" <<<"$COUNT_ONLY_OUT" \
+	&& grep -qF "Test count: Linux: 62 tests." <<<"$COUNT_ONLY_OUT" \
+	&& ! grep -qF "| Tag | Source |" <<<"$COUNT_ONLY_OUT"; then
 	echo "PASS: render critical-only with a count shows the count without the table"
 else
 	echo "FAIL: render critical-only with a count should show only the count inside the collapse"; fail=1
@@ -1049,8 +1065,8 @@ fi
 assert_eq "render: critical-only with no count stays empty" "" \
 	"$(render_why_these_tags "@:critical|required" "")"
 BOTH_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark" "linux=246/2,win=180/1")"
-if printf '%s' "$BOTH_OUT" | grep -qF '| `@:ark` | Ark submodule bump |' \
-	&& printf '%s' "$BOTH_OUT" | grep -qF "Test count: Linux: 246 tests across 2 shards, Windows: 180 tests." \
+if grep -qF '| `@:ark` | Ark submodule bump |' <<<"$BOTH_OUT" \
+	&& grep -qF "Test count: Linux: 246 tests across 2 shards, Windows: 180 tests." <<<"$BOTH_OUT" \
 	&& [[ "$(printf '%s' "$BOTH_OUT" | tail -1)" == "</details>" ]]; then
 	echo "PASS: render puts the table and the count inside one collapse"
 else
@@ -1058,7 +1074,7 @@ else
 fi
 
 TESTCHANGE_OUT="$(render_why_these_tags "@:critical|required,@:viewer|test-changed")"
-if printf '%s' "$TESTCHANGE_OUT" | grep -qF '| `@:viewer` | Touched test file |'; then
+if grep -qF '| `@:viewer` | Touched test file |' <<<"$TESTCHANGE_OUT"; then
 	echo "PASS: render labels the test-changed arm"
 else
 	echo "FAIL: render should label @:viewer as Touched test file"; fail=1
@@ -1215,7 +1231,7 @@ assert_eq "two touched files sharing a cheaper common tag: picks the one shared 
 
 changed_file "test/e2e/tests/console/console-untagged.test.ts"
 WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json" 2>&1 1>/dev/null)"
-if printf '%s' "$WARN_OUT" | grep -qF "no declared tags"; then
+if grep -qF "no declared tags" <<<"$WARN_OUT"; then
 	echo "PASS: untagged touched test warns on stderr"
 else
 	echo "FAIL: untagged touched test should warn on stderr"; fail=1
@@ -1318,7 +1334,7 @@ assert_eq "platform tag already selected does not suppress the spec's real featu
 
 changed_file "test/e2e/tests/webonly/webonly.test.ts"
 WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>&1 1>/dev/null)"
-if printf '%s' "$WARN_OUT" | grep -qF "platform/non-feature"; then
+if grep -qF "platform/non-feature" <<<"$WARN_OUT"; then
 	echo "PASS: platform-only touched test warns on stderr"
 else
 	echo "FAIL: platform-only touched test should warn on stderr"; fail=1

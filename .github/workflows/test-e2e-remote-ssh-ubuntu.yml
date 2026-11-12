@@ -17,7 +17,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: true
+        default: false
       commit:
         description: "Commit SHA to test"
         required: false
@@ -223,7 +223,7 @@ jobs:
           BUILD=/usr/share/positron npx playwright test --project e2e-remote-ssh --retries=1 --workers=1
 
       - name: Upload Playwright Report to S3
-        if: always()
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
@@ -231,13 +231,17 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-remote-ssh-ubuntu-logs
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
+
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
       - name: Teardown
         if: always()

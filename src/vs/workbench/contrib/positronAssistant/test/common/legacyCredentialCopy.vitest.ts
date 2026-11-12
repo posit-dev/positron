@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { extensionSecretStorageKey as extensionSecretKey } from '../../../../api/common/extensionSecretStorageKey.js';
 import {
 	ASSISTANT_EXTENSION_ID,

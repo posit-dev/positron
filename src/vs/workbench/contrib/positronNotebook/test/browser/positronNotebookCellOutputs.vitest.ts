@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -33,6 +31,16 @@ function invalidJsonOutputItem() {
 	return { mime: 'application/json', data: VSBuffer.fromString('{not valid json') };
 }
 
+// Narrowing accessor: expect(cell.isCodeCell()).toBe(true) does not
+// narrow the union type, so output members would not typecheck.
+function firstCodeCell(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
+	const cell = notebook.cells.get()[0];
+	if (!cell.isCodeCell()) {
+		throw new Error('expected a code cell');
+	}
+	return cell;
+}
+
 describe('Positron Notebook Cell Outputs', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
 
@@ -49,9 +57,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithImageOutput], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
@@ -69,9 +76,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithTextOutput], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('stdout');
@@ -89,9 +95,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithSvgOutput], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('image');
@@ -102,9 +107,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx
 			);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			expect(cell.outputs.get().length, 'cell should start with no outputs').toBe(0);
 
 			// Add an image output via the text model
@@ -128,8 +132,7 @@ describe('Positron Notebook Cell Outputs', () => {
 				[['print("hello")', 'python', CellKind.Code]],
 				ctx
 			);
-			const cell = notebook.cells.get()[0];
-			expect(cell.isCodeCell()).toBe(true);
+			const cell = firstCodeCell(notebook);
 
 			// Add output
 			notebook.textModel!.applyEdits([{
@@ -199,9 +202,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithJsonOutput], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('json');
@@ -222,9 +224,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithInvalidJson], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].parsed.type).toBe('text');
@@ -258,9 +259,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithComplexHtml], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell(), 'cell should be a code cell').toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'should have a preloadMessageResult').toBeDefined();
@@ -279,9 +279,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithSimpleHtml], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'simple HTML should not have preloadMessageResult').toBe(undefined);
@@ -300,9 +299,8 @@ describe('Positron Notebook Cell Outputs', () => {
 				}],
 			};
 			const notebook = createTestPositronNotebookInstance([cellWithFullDocument], ctx);
-			const cell = notebook.cells.get()[0];
+			const cell = firstCodeCell(notebook);
 
-			expect(cell.isCodeCell()).toBe(true);
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'an inert full document must not route to a webview').toBe(undefined);
@@ -318,7 +316,7 @@ describe('Positron Notebook Cell Outputs', () => {
 				outputs: [{ outputId: 'output-1', outputs: [complexHtmlOutputItem()] }],
 			};
 			const webviewNotebook = createTestPositronNotebookInstance([webviewCell], ctx);
-			expect(hasWebviewOutput(webviewNotebook.cells.get()[0].outputs.get())).toBe(true);
+			expect(hasWebviewOutput(firstCodeCell(webviewNotebook).outputs.get())).toBe(true);
 
 			const inlineCell: TestCellInput = {
 				source: 'GT(df)',
@@ -328,7 +326,7 @@ describe('Positron Notebook Cell Outputs', () => {
 				outputs: [{ outputId: 'output-1', outputs: [inertFullDocumentOutputItem()] }],
 			};
 			const inlineNotebook = createTestPositronNotebookInstance([inlineCell], ctx);
-			expect(hasWebviewOutput(inlineNotebook.cells.get()[0].outputs.get())).toBe(false);
+			expect(hasWebviewOutput(firstCodeCell(inlineNotebook).outputs.get())).toBe(false);
 		});
 	});
 
@@ -348,16 +346,6 @@ describe('Positron Notebook Cell Outputs', () => {
 					outputs: items,
 				})),
 			};
-		}
-
-		// Narrowing accessor: expect(cell.isCodeCell()).toBe(true) does not
-		// narrow the union type, so output members would not typecheck.
-		function firstCodeCell(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
-			const cell = notebook.cells.get()[0];
-			if (!cell.isCodeCell()) {
-				throw new Error('expected a code cell');
-			}
-			return cell;
 		}
 
 		it('collapse output hides the output without deleting it', () => {

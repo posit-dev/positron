@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { renderLineageLines } from '../../common/dataConnectionLineageSummary.js';
 import { IDataConnectionLineageEdge, IDataConnectionLineageObject } from '../../common/interfaces/dataConnectionDriver.js';
 

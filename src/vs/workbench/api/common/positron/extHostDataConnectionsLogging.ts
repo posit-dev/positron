@@ -10,24 +10,8 @@ import { localize } from '../../../../nls.js';
 /**
  * The channel surface the lazy logger needs. `vscode.LogOutputChannel` satisfies it
  * structurally. Kept narrow so a test can supply a fake without an extension host.
- *
- * The five log methods are spelled out here rather than inherited from
- * `positron.DataConnectionLogger`. Vitest files are excluded from `src/tsconfig.json` and no
- * `tsconfig.json` includes them, so the editor type-checks them in an inferred project that
- * cannot resolve the ambient `positron` module. Inheriting would leave this interface with
- * only `dispose()` there, and every test that builds a fake channel would report spurious
- * errors.
- *
- * The two cannot drift apart silently: `createLazyDriverLogger` returns
- * `positron.DataConnectionLogger`, and it builds that object out of these methods, so adding a
- * method to the public interface fails to compile here until this one gains it too.
  */
-export interface IDriverLogChannel {
-	trace(message: string): void;
-	debug(message: string): void;
-	info(message: string): void;
-	warn(message: string): void;
-	error(message: string): void;
+export interface IDriverLogChannel extends positron.DataConnectionLogger {
 	dispose(): void;
 }
 

@@ -29,31 +29,17 @@ test.describe('Large Python Notebook', {
 		await notebooks.selectInterpreter('Python');
 		await notebooks.runAllCells({ timeout: 12000 });
 
-		// scroll through the notebook and count unique plot outputs
+		// scroll through the notebook until its plot outputs have rendered
 		await layouts.enterLayout('notebook');
+		// Leave focus on the cell list (not a cell editor) so PageDown pages through cells.
 		await runCommand('notebook.focusTop');
-		await app.code.driver.currentPage.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
-		const allFigures: any[] = [];
-		const uniqueLocators = new Set<string>();
-
-		for (let i = 0; i < 12; i++) {
-
+		// Outputs render into the webview as their cells scroll into view, and stay there once
+		// rendered, so keep paging down until enough plots exist rather than paging a fixed amount.
+		const figures = notebooks.frameLocator.locator('.plot-container');
+		await expect(async () => {
 			await app.code.driver.currentPage.keyboard.press('PageDown');
-
-			const figureLocator = app.workbench.notebooks.frameLocator.locator('.plot-container');
-			const figures = await figureLocator.all();
-
-			if (figures!.length > 0) {
-				for (const figure of figures!) {
-					if (!uniqueLocators.has(figure.toString())) {
-						allFigures.push(figure);
-						uniqueLocators.add(figure.toString());
-					}
-				}
-			}
-		}
-
-		expect(allFigures.length).toBeGreaterThan(15);
+			expect(await figures.count()).toBeGreaterThan(15);
+		}).toPass({ timeout: 90000 });
 	});
 });

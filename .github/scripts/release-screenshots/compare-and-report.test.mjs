@@ -197,7 +197,7 @@ test('formatHtml: includes one card per file with status section', () => {
 		'b.png': { status: 'changed', generatedHash: 'b', generatedSize: 2, docsHash: 'old' },
 		'c.png': { status: 'new', generatedHash: 'c', generatedSize: 3 },
 	};
-	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	const html = formatHtml(classification);
 	assert.match(html, /a\.png/);
 	assert.match(html, /b\.png/);
 	assert.match(html, /c\.png/);
@@ -223,7 +223,7 @@ test('formatHtml: cards are sorted alphabetically by filename', () => {
 		'a.png': { status: 'changed', generatedHash: 'a', generatedSize: 2, docsHash: 'old' },
 		'm.png': { status: 'changed', generatedHash: 'm', generatedSize: 3, docsHash: 'old' },
 	};
-	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	const html = formatHtml(classification);
 	assert.ok(html.indexOf('a.png') < html.indexOf('m.png'), 'a.png must appear before m.png');
 	assert.ok(html.indexOf('m.png') < html.indexOf('z.png'), 'm.png must appear before z.png');
 });
@@ -232,7 +232,7 @@ test('formatHtml: new-status cards have placeholder for missing current image', 
 	const classification = {
 		'newonly.png': { status: 'new', generatedHash: 'x', generatedSize: 1 },
 	};
-	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	const html = formatHtml(classification);
 	assert.match(html, /not on positron\.posit\.co/i);
 });
 
@@ -240,9 +240,17 @@ test('formatHtml: escapes HTML-unsafe characters in filenames', () => {
 	const classification = {
 		'has<bad>.png': { status: 'new', generatedHash: 'x', generatedSize: 1 },
 	};
-	const html = formatHtml(classification, { screenshotBaseUrl: 'https://example.com/run123' });
+	const html = formatHtml(classification);
 	assert.ok(!html.includes('has<bad>.png'), 'unescaped angle brackets should not appear');
 	assert.match(html, /has&lt;bad&gt;\.png/);
+});
+
+test('formatHtml: new and diff images use encoded paths relative to report.html', () => {
+	const html = formatHtml({ 'a b.png': { status: 'changed', diffName: 'a b-diff.png' } });
+	assert.deepStrictEqual(
+		[...html.matchAll(/<img loading="lazy" src="([^"]+)" alt="(new|diff)">/g)].map(m => [m[2], m[1]]),
+		[['new', './a%20b.png'], ['diff', './a%20b-diff.png']]
+	);
 });
 
 // --- formatChangedRatio ---

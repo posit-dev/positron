@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from '../../browser/copyJsonUtils.js';
 

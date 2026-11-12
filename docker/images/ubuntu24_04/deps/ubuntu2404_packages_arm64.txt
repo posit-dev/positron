@@ -14,6 +14,7 @@ gstreamer1.0-plugins-bad
 gstreamer1.0-plugins-base
 gstreamer1.0-plugins-good
 gstreamer1.0-plugins-ugly
+jq
 libasound2t64
 libatk-bridge2.0-0
 libatk1.0-0
@@ -92,6 +93,7 @@ libxshmfence1
 libxss1
 libxtst6
 lsb-release
+lsof
 make
 mesa-utils
 pandoc
@@ -110,3 +112,4 @@ x11vnc
 xvfb
 xz-utils
 zlib1g-dev
+zstd

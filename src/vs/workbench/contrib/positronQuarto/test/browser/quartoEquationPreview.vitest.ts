@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // Import the real KaTeX module so the rendering test exercises actual KaTeX
 // output rather than a stub. The runtime loads KaTeX lazily via
 // `importAMDNodeModule`, which has no module URI to resolve under vitest, so a

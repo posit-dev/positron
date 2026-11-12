@@ -8,6 +8,9 @@ import path = require('path');
 import archiver from 'archiver';
 import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
+import { isArtifactEnabled } from '../../infra/artifactSwitches.js';
+import { secretValues } from '../../infra/appEnv.js';
+import { scrubDirectory, scrubZip } from '../../infra/secretScrub.js';
 
 export interface AttachScreenshotsToReportOptions {
 	app: Application;
@@ -85,6 +88,10 @@ export function AttachLogsToReportFixture() {
 		await use();
 
 		if (!suiteId) { return; }
+		if (!isArtifactEnabled('E2E_ATTACH_LOGS')) { return; }
+
+		// The attachment is zipped now, before the worker-level scrub in the app fixture.
+		await scrubDirectory(logsPath, secretValues(process.env));
 
 		// For e2e-workbench, pull logs from Docker container
 		const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
@@ -104,18 +111,19 @@ const attachedCrashDumps = new Set<string>();
 
 /**
  * Attach any Electron minidump written during this test to the report, so a
- * native crash arrives with the failure instead of only in the job's artifacts.
+ * native crash arrives with the failure.
  *
  * Deliberately does not wait for a dump: crashpad writes asynchronously, and
  * polling on every test to catch the rare late write would cost more than it
- * saves. A dump that lands after teardown is still picked up by the workflow's
- * `.build/crashes` upload.
+ * saves. A dump that lands after teardown stays in `.build/crashes` locally.
  */
 export function AttachCrashDumpsToReportFixture() {
 	return async (options: AttachCrashDumpsToReportOptions, use: (arg0: void) => Promise<void>) => {
 		const { crashesPath, testInfo } = options;
 
 		await use();
+
+		if (!isArtifactEnabled('E2E_ATTACH_CRASH_DUMPS')) { return; }
 
 		let dumps: string[];
 		try {
@@ -246,6 +254,8 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 			return;
 		}
 
+		await scrubDirectory(tempLogsDir, secretValues(process.env));
+
 		// Create zip archive from both Docker logs and local test logs
 		const output = fs.createWriteStream(zipPath);
 		const archive = archiver('zip', { zlib: { level: 9 } });
@@ -324,6 +334,12 @@ export function TracingFixture() {
 			return;
 		}
 
+		if (!isArtifactEnabled('E2E_TRACES')) {
+			// Traces are off: no chunks, no trace attachment.
+			await use(app);
+			return;
+		}
+
 		// Ensure a chunk is recording for this test. This fixture is an auto fixture,
 		// so it sets up before the test's request fixtures (`python`, `r`, ...) and
 		// `beforeEach` hooks -- their activity is captured. For the first test in the
@@ -339,13 +355,20 @@ export function TracingFixture() {
 		} finally {
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 
-			// Keep the trace locally, and in CI only for failures, retries, or PW_TRACE=on.
+			// With traces on (E2E_TRACES; off by default in CI): keep the trace locally, and in CI only for failures, retries, or PW_TRACE=on.
 			// Otherwise close the chunk without writing it: exporting the zip costs ~1.5s per test.
 			const isCI = process.env.CI === 'true';
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {
 				const tracePath = testInfo.outputPath(`${title}.zip`);
 				await app.stopTracing(title, true, tracePath);
-				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+				try {
+					await scrubZip(tracePath, secretValues(process.env));
+					testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+				} catch (e) {
+					// Never attach a trace that may still hold a typed secret.
+					console.error(`Dropped trace ${tracePath}: scrub failed: ${e}`);
+					await fs.promises.rm(tracePath, { force: true });
+				}
 			} else {
 				await app.stopTracing(title, false);
 			}

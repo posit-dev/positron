@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { Position } from '../../../../../editor/common/core/position.js';
 import { EditorType } from '../../../../../editor/common/editorCommon.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';

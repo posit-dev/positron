@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { UNIFIED_DOWNLOAD_URL_KEY, UNIFIED_DOWNLOAD_URL_SECTION } from './open-remote-ssh/src/serverDownloadUrl';
@@ -35,8 +33,7 @@ const COPIES = [
 
 // `__dirname` is this file's own directory, so the paths hold wherever Vitest is started
 // from. `process.cwd()` does not: Vitest resolves `root` for module resolution but never
-// changes the working directory. `import.meta.url` would read better still, but it does not
-// survive the CommonJS type check in vitest.tsconfig.json.
+// changes the working directory.
 function read(relativePath: string): string {
 	return fs.readFileSync(path.join(__dirname, relativePath), 'utf8');
 }

@@ -19,7 +19,7 @@ import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/
 import { buildKnownIssuesBrief, pageIssueRefs } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, exploreRepo, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -99,7 +99,7 @@ When you need a state the running app cannot reach -- a tool absent at startup, 
 
 \`\`\`bash
 sed 's#node build/lib/preLaunch.ts#true#' \\
-  .claude/skills/drive-positron/scripts/launch.sh > /tmp/launch-cold.sh
+  .harness/.claude/skills/drive-positron/scripts/launch.sh > /tmp/launch-cold.sh
 chmod +x /tmp/launch-cold.sh
 \`\`\`
 
@@ -107,7 +107,7 @@ To make a tool read as absent, drop its directory from PATH for the new process 
 
 \`\`\`bash
 COLD_PATH=$(echo "$PATH" | sed -e 's#:/root/.local/bin##' -e 's#:/root/.venv/bin##')
-env PATH="$COLD_PATH" /tmp/launch-cold.sh --source-user-data-dir /tmp/positron-seed -- <app args>
+env PATH="$COLD_PATH" LAUNCH_ENV_ROOT="$PWD/.harness" /tmp/launch-cold.sh --repo "$PWD" --pass-env ANTHROPIC_API_KEY --source-user-data-dir /tmp/positron-seed -- <app args>
 \`\`\`
 
 Attach the result under its own session name and stop it with \`stop.sh --cdp-port <port>\` when you are done with it.
@@ -235,7 +235,7 @@ async function main() {
 	// The agent was told to write report.json itself. A report with problems
 	// gets one retry in the same session.
 	const explored = { model: cost.model, costUsd: cost.total_cost_usd, turns: cost.num_turns, maxTurns: MAX_TURNS, durationMs: cost.duration_ms };
-	const pr = /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY ? { pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } : {};
+	const pr = /^\d+$/.test(process.env.PR_NUMBER ?? '') && exploreRepo(process.env) ? { pr: { repo: exploreRepo(process.env), number: Number(process.env.PR_NUMBER) } } : {};
 	const report = await completeRun(WORK_DIR, explored, {
 		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL,
 		branchCheck: `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`,

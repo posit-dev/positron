@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { POSITRON_LICENSE_HASH_GLOBAL } from '../../../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 import { BrowserPositronAcademicLicenseService } from '../../browser/positronAcademicLicenseService.js';
 

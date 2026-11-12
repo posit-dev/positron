@@ -3,44 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, chromium, Browser, BrowserContext, Locator, Page } from '@playwright/test';
+import { expect, chromium, Browser, BrowserContext, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { completeDatabricksOktaSignIn } from '../utils/databricksOAuth.js';
 import { OktaCredentials } from '../utils/oktaSignIn.js';
 import { armExternalUrlCapture, waitForExternalUrl } from '../utils/externalUrl.js';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 // Helpers for authenticating against model providers, kept free of any particular
 // UI's selectors so provider metadata and the OAuth device-code flow stay out of
 // the provider manager page object.
-
-/**
- * Fills an input element's value using evaluate() instead of Playwright's
- * fill() to prevent the value from being recorded in Playwright trace files.
- * Use this for sensitive values like API keys and passwords.
- */
-export async function fillSecretValue(locator: Locator, value: string): Promise<void> {
-	await locator.evaluate((el: HTMLInputElement, val) => {
-		// Take the value setter from the element's OWN realm (its document's window)
-		// rather than the top-level window, so React's value tracker is bypassed
-		// correctly even when the workbench renders in a different browsing context
-		// (as it can on the web build). Falls back to the top window, then a direct
-		// assignment.
-		const view = el.ownerDocument.defaultView ?? window;
-		const nativeSetter = Object.getOwnPropertyDescriptor(
-			view.HTMLInputElement.prototype, 'value'
-		)?.set;
-		if (nativeSetter) {
-			nativeSetter.call(el, val);
-		} else {
-			el.value = val;
-		}
-		// Dispatch both input and change. React's onChange for a controlled input
-		// keys off the input event; change is dispatched too for any listener that
-		// relies on it and to more closely match a real user edit.
-		el.dispatchEvent(new Event('input', { bubbles: true }));
-		el.dispatchEvent(new Event('change', { bubbles: true }));
-	}, value);
-}
 
 const POSIT_EMAIL_FIELD = 'input[name="email"]';
 const POSIT_PASSWORD_FIELD = 'input[name="password"]';
@@ -205,6 +177,34 @@ export function getProviderEnvVarName(provider: ModelProvider): string {
 
 export function getProviderEnvKey(provider: ModelProvider): string | undefined {
 	return process.env[getProviderEnvVarName(provider)];
+}
+
+/**
+ * Env var names `loginModelProvider` would need for `provider` that are unset and not
+ * covered by `options`, so a test can skip instead of fail on a lane without the vault.
+ */
+export function getMissingProviderEnv(provider: ModelProvider, options: LoginModelProviderOptions = {}): string[] {
+	const missing: string[] = [];
+	const needs = (name: string, provided?: string) => {
+		if (!provided && !process.env[name]) {
+			missing.push(name);
+		}
+	};
+	switch (getProviderAuthType(provider)) {
+		case 'apiKey':
+			needs(getProviderEnvVarName(provider), options.apiKey);
+			if (providerRequiresBaseUrl(provider)) {
+				needs(getProviderBaseUrlEnvVarName(provider), options.baseUrl);
+			}
+			break;
+		case 'oauth': {
+			const { envVars } = getOAuthConfig(provider);
+			needs(envVars.username);
+			needs(envVars.password);
+			break;
+		}
+	}
+	return missing;
 }
 
 async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationUrl: string): Promise<void> {

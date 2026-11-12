@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { act, screen } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';

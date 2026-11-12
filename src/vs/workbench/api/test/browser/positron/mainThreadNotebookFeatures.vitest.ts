@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';

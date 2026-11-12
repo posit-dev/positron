@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 import * as net from 'node:net';
 import { describe, it, expect } from 'vitest';
 import { SupervisorHandshakeBroker } from './server-supervisor-handshake.js';

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/// <reference types="vitest/globals" />
-
 // The service resolves its bundled HTML with FileAccess.asFileUri, which needs
 // globalThis._VSCODE_FILE_ROOT. A bootstrap entry point normally sets that; a
 // plain Vitest run doesn't go through one, so set it here. Assigning through

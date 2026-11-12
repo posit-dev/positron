@@ -233,6 +233,15 @@ export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMes
 
 	/** The identifier of the output to update */
 	readonly output_id: string;
+
+	/**
+	 * Optional metadata about the output itself, keyed by MIME type. This is
+	 * distinct from {@link ILanguageRuntimeMessage.metadata}, which describes the
+	 * message more generally. It corresponds to the `metadata` field of a Jupyter
+	 * `update_display_data` message, e.g.
+	 * `{ 'image/png': { width: 640, height: 480 } }`.
+	 */
+	readonly outputMetadata?: Record<string, unknown>;
 }
 
 /**
