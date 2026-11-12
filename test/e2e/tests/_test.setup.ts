@@ -23,7 +23,7 @@ import {
 import { defaultWorkspacePath } from '../infra/test-runner';
 import { isArtifactEnabled } from '../infra/artifactSwitches.js';
 import { secretValues } from '../infra/appEnv.js';
-import { scrubDirectory } from '../infra/secretScrub.js';
+import { scrubDirectory, scrubZip } from '../infra/secretScrub.js';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -544,6 +544,7 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 			const tracePath = testInfo.outputPath(APP_START_FAILURE_TRACE);
 			const timeout = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('export timed out')), 30000));
 			await Promise.race([activeApp.stopTracing('app-start-failure', true, tracePath), timeout]);
+			await scrubZip(tracePath, secretValues(process.env));
 			testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 		} catch (e) {
 			console.log(`Failed to export startup trace after app setup hang: ${e}`);

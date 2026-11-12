@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { promises as fs } from 'fs';
+import { createWriteStream, promises as fs } from 'fs';
 import { join } from 'path';
+import yauzl from 'yauzl';
+import yazl from 'yazl';
 import type { SecretValue } from './appEnv';
 
 export type SecretEncoding = 'raw' | 'json' | 'url' | 'base64';
@@ -94,5 +96,70 @@ export async function scrubDirectory(dir: string, secrets: SecretValue[]): Promi
 			}
 		}
 	}
+	return total;
+}
+
+/** Reads every file entry of a zip held in memory. */
+export function readZipEntries(zip: Buffer, label: string): Promise<{ path: string; data: Buffer }[]> {
+	return new Promise((resolve, reject) => {
+		yauzl.fromBuffer(zip, { lazyEntries: true }, (openErr, zipfile) => {
+			if (openErr || !zipfile) {
+				reject(new Error(`cannot read zip ${label}: ${openErr?.message ?? 'unknown error'}`));
+				return;
+			}
+			const entries: { path: string; data: Buffer }[] = [];
+			const fail = (err: Error) => {
+				zipfile.close();
+				reject(new Error(`cannot read zip ${label}: ${err.message}`));
+			};
+			zipfile.on('error', fail);
+			zipfile.on('end', () => resolve(entries));
+			zipfile.on('entry', (entry: yauzl.Entry) => {
+				if (entry.fileName.endsWith('/')) {
+					zipfile.readEntry();
+					return;
+				}
+				zipfile.openReadStream(entry, (streamErr, stream) => {
+					if (streamErr || !stream) {
+						fail(streamErr ?? new Error('no stream'));
+						return;
+					}
+					const chunks: Buffer[] = [];
+					stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+					stream.on('error', fail);
+					stream.on('end', () => {
+						entries.push({ path: entry.fileName, data: Buffer.concat(chunks) });
+						zipfile.readEntry();
+					});
+				});
+			});
+			zipfile.readEntry();
+		});
+	});
+}
+
+/**
+ * Scrubs every entry of a zip in place. Playwright traces record typed values raw
+ * (action params, action log, DOM snapshots), so trace zips need this before upload.
+ * Returns the replacement count; the file is rewritten only when something matched.
+ */
+export async function scrubZip(zipPath: string, secrets: SecretValue[]): Promise<number> {
+	const entries = await readZipEntries(await fs.readFile(zipPath), zipPath);
+	const out = new yazl.ZipFile();
+	let total = 0;
+	for (const entry of entries) {
+		const { data, replaced } = scrubBuffer(entry.data, secrets);
+		total += replaced;
+		out.addBuffer(data, entry.path);
+	}
+	if (total === 0) {
+		return 0;
+	}
+	const tmp = `${zipPath}.scrub`;
+	await new Promise<void>((resolve, reject) => {
+		out.outputStream.pipe(createWriteStream(tmp)).on('close', resolve).on('error', reject);
+		out.end();
+	});
+	await fs.rename(tmp, zipPath);
 	return total;
 }
