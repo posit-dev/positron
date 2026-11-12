@@ -1462,19 +1462,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
 		} else if (plotClient instanceof PlotClientInstance) {
 			// if it's a dynamic plot, present options dialog
+			const { directory, format } = await this.getSuggestedSaveLocation();
 			showSavePlotModalDialog(
 				this._selectedSizingPolicy,
 				plotClient,
 				this.savePlotAs,
-				await this.getSuggestedSaveDirectory(),
-				await this._saveMemory.getFormat()
+				directory,
+				format
 			);
 		}
 		// webview plots can't be saved
 	}
 
-	private async getSuggestedSaveDirectory(): Promise<URI> {
-		return this._saveMemory.getDirectory(await this._fileDialogService.defaultFilePath());
+	private async getSuggestedSaveLocation() {
+		return this._saveMemory.get(await this._fileDialogService.defaultFilePath());
 	}
 
 	private savePlotAs = async (options: SavePlotOptions) => {
@@ -1505,7 +1506,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Derive the extension from the MIME type; image/svg+xml maps to .svg.
 		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
-		const defaultUri = joinPath(await this.getSuggestedSaveDirectory(), suggestedFileName ?? 'plot');
+		const defaultUri = joinPath((await this.getSuggestedSaveLocation()).directory, suggestedFileName ?? 'plot');
 		const result = await this._fileDialogService.showSaveDialog({
 			title: localize('positron.savePlot', "Save Plot"),
 			defaultUri,

@@ -35,16 +35,16 @@ describe('PlotSaveMemory', () => {
 
 	it('uses the fallback folder and no format before anything is saved', async () => {
 		const memory = memoryFor('ws1');
-		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
-		expect(await memory.getFormat()).toBeUndefined();
+		expect((await memory.get(fallback)).directory.toString()).toBe(fallback.toString());
+		expect((await memory.get(fallback)).format).toBeUndefined();
 	});
 
 	it('returns the last saved folder and format', async () => {
 		await memoryFor('ws1').remember(figures, PlotRenderFormat.Pdf);
 
 		const memory = memoryFor('ws1');
-		expect((await memory.getDirectory(fallback)).toString()).toBe(figures.toString());
-		expect(await memory.getFormat()).toBe(PlotRenderFormat.Pdf);
+		expect((await memory.get(fallback)).directory.toString()).toBe(figures.toString());
+		expect((await memory.get(fallback)).format).toBe(PlotRenderFormat.Pdf);
 	});
 
 	it('updates the folder but keeps the previous format when a save has no format', async () => {
@@ -53,29 +53,29 @@ describe('PlotSaveMemory', () => {
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Svg);
 		await memory.remember(plots);
-		expect((await memory.getDirectory(fallback)).toString()).toBe(plots.toString());
-		expect(await memory.getFormat()).toBe(PlotRenderFormat.Svg);
+		expect((await memory.get(fallback)).directory.toString()).toBe(plots.toString());
+		expect((await memory.get(fallback)).format).toBe(PlotRenderFormat.Svg);
 	});
 
 	it('falls back when the saved folder no longer exists', async () => {
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Png);
 		existing.delete(figures.toString());
-		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
+		expect((await memory.get(fallback)).directory.toString()).toBe(fallback.toString());
 	});
 
 	it('falls back when the saved folder has been replaced by a file', async () => {
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Png);
 		files.add(figures.toString());
-		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
+		expect((await memory.get(fallback)).directory.toString()).toBe(fallback.toString());
 	});
 
 	it('uses the defaults when the saved state cannot be read', async () => {
 		const failing = { getItem: async () => { throw new Error('no remote connection'); }, setItem: async () => { } };
 		const memory = new PlotSaveMemory(failing, fileService, 'ws1');
-		expect((await memory.getDirectory(fallback)).toString()).toBe(fallback.toString());
-		expect(await memory.getFormat()).toBeUndefined();
+		expect((await memory.get(fallback)).directory.toString()).toBe(fallback.toString());
+		expect((await memory.get(fallback)).format).toBeUndefined();
 	});
 
 	it('does not fail when the saved state cannot be written', async () => {
@@ -88,7 +88,7 @@ describe('PlotSaveMemory', () => {
 		await memoryFor('ws1').remember(figures, PlotRenderFormat.Pdf);
 
 		const other = memoryFor('ws2');
-		expect((await other.getDirectory(fallback)).toString()).toBe(fallback.toString());
-		expect(await other.getFormat()).toBeUndefined();
+		expect((await other.get(fallback)).directory.toString()).toBe(fallback.toString());
+		expect((await other.get(fallback)).format).toBeUndefined();
 	});
 });

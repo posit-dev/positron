@@ -29,25 +29,19 @@ export class PlotSaveMemory {
 		this._key = `positron.plots.lastSaveLocation.${workspaceId}`;
 	}
 
-	/** The last folder saved to, or the fallback if there is none or it is no longer a folder. */
-	async getDirectory(fallback: URI): Promise<URI> {
+	/** The last folder and format saved to. Uses the fallback folder if there is none or it is no longer a folder. */
+	async get(fallback: URI): Promise<{ directory: URI; format?: PlotRenderFormat }> {
 		const saved = await this._read();
-		if (saved) {
-			const directory = URI.parse(saved.directory);
-			if (await this._isDirectory(directory)) {
-				return directory;
-			}
-		}
-		return fallback;
-	}
-
-	async getFormat(): Promise<PlotRenderFormat | undefined> {
-		return (await this._read())?.format;
+		const directory = saved ? URI.parse(saved.directory) : undefined;
+		return {
+			directory: directory && await this._isDirectory(directory) ? directory : fallback,
+			format: saved?.format,
+		};
 	}
 
 	/** Records a successful save. Omit the format to keep the previous one. */
 	async remember(directory: URI, format?: PlotRenderFormat): Promise<void> {
-		format ??= await this.getFormat();
+		format ??= (await this._read())?.format;
 		const saved: SavedPlotLocation = { directory: directory.toString(), format };
 		try {
 			await this._ephemeralState.setItem(this._key, saved);
