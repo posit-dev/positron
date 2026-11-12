@@ -212,6 +212,29 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 // Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
+/**
+ * When to start reading the repo's comments: `marginDays` before the newest saved run, or `since` when nothing is saved
+ * or that is earlier. A result comment is dated when its run starts, so the margin covers a run that was still going
+ * when the last page was built. Starting from the newest run, not a fixed date, keeps the read short as the page grows.
+ */
+export function scanStart(rows, since, marginDays = 7) {
+	const from = new Date(since).getTime();
+	const newest = Math.max(...rows.map(r => new Date(r.postedAt).getTime()).filter(Number.isFinite));
+	return new Date(Number.isFinite(newest) ? Math.max(from, newest - marginDays * 24 * 60 * 60 * 1000) : from).toISOString();
+}
+
+/**
+ * Whether every saved row on `pr` is in `settled` and already shows any origin set by hand for it, so reading the PR
+ * again can't change them. A hand-set origin added or changed since the last page makes the PR read again.
+ */
+export function prSettled(rows, settled, pr, overrides = {}) {
+	const own = rows.filter(r => r.pr === pr);
+	return own.length > 0 && own.every(r => {
+		const key = `${r.run}#${r.finding}`;
+		return settled.has(key) && (overrides[key]?.origin ?? r.origin) === r.origin;
+	});
+}
+
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {
 	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));

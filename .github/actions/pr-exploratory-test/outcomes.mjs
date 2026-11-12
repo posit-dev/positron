@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, isResultComment, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, isResultComment, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, scanStart, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -72,14 +72,22 @@ async function fetchJson(url) {
 	return res.ok ? res.json() : null;
 }
 
+/**
+ * The PRs to list: those with a result comment since the scan start, plus those already on the page. `recent` is the
+ * first set; a PR with a new run is always read again, even when its saved rows are settled.
+ */
 async function prNumbers() {
 	if (args.pr) {
-		return [Number(args.pr)];
+		return { all: [Number(args.pr)], recent: new Set([Number(args.pr)]) };
 	}
+	// --recheck reads every run since --since again; otherwise only runs since the last page are new.
+	const since = args.recheck ? new Date(args.since).toISOString() : scanStart(PRIOR, args.since);
 	// The repo's comment list rather than search: search is slow to index a new comment and misses some for good.
-	const since = new Date(args.since).toISOString();
 	const comments = await gh(`/repos/${REPO}/issues/comments?since=${since}&per_page=100`);
-	return resultCommentPrs(comments, since).filter(n => !SKIPPED_PRS.has(n));
+	const recent = new Set(resultCommentPrs(comments, since));
+	const all = [...new Set([...recent, ...PRIOR.map(r => r.pr)])].filter(n => !SKIPPED_PRS.has(n)).sort((a, b) => a - b);
+	console.error(`[outcomes] ${recent.size} PRs with a run since ${since.slice(0, 10)}, ${all.length} in all`);
+	return { all, recent };
 }
 
 let anthropic = null;
@@ -336,16 +344,23 @@ async function prRows(number) {
 	return rows;
 }
 
-const numbers = await prNumbers();
+const { all: numbers, recent } = await prNumbers();
+// A PR with no new run whose rows are all settled isn't read again: its rows can't change, and reading it costs several GitHub calls.
+// A PR shipped through another is decided again every time, so it is always read.
+const kept = new Set(numbers.filter(n => !recent.has(n) && !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, n, ORIGIN_OVERRIDES)));
+console.error(`[outcomes] ${kept.size} settled PRs kept without reading, ${numbers.length - kept.size} to read`);
 // One fetch for every PR rather than one each; if it fails, each PR fetches its own.
 let FETCHED_ALL = false;
 try {
-	git('fetch', '-q', 'origin', 'main', ...numbers.map(n => `refs/pull/${n}/head`));
+	git('fetch', '-q', 'origin', 'main', ...numbers.filter(n => !kept.has(n)).map(n => `refs/pull/${n}/head`));
 	FETCHED_ALL = true;
 } catch (err) {
 	console.error(`[outcomes] fetching every PR at once failed, fetching each instead: ${err}`);
 }
 const rows = (await mapLimit(numbers, PR_CONCURRENCY, async number => {
+	if (kept.has(number)) {
+		return priorRows(PREVIOUS, number);
+	}
 	try {
 		return await prRows(number);
 	} catch (err) {

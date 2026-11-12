@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, isResultComment, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, isResultComment, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultCommentPrs, savedPrChecks, savedReplies, scanStart, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -29,6 +29,23 @@ test('resultCommentPrs keeps PRs with a result comment from the workflow, once e
 	];
 	assert.deepEqual(resultCommentPrs(comments, '2026-09-15'), [17282, 17302]);
 	assert.equal(isResultComment(comments[3]), false);
+});
+
+test('scanStart starts a week before the newest saved run, and never before --since', () => {
+	const rows = [{ postedAt: '2026-11-01T00:00:00Z' }, { postedAt: '2026-11-12T22:25:34Z' }];
+	assert.equal(scanStart(rows, '2026-09-15'), '2026-11-05T22:25:34.000Z');
+	assert.equal(scanStart(rows, '2026-11-10'), '2026-11-10T00:00:00.000Z');
+	assert.equal(scanStart([], '2026-09-15'), '2026-09-15T00:00:00.000Z');
+});
+
+test('prSettled holds only when every row on the PR is settled and shows its hand-set origin', () => {
+	const rows = [{ pr: 1, run: 'a', finding: 1 }, { pr: 1, run: 'a', finding: 2, origin: 'introduced' }, { pr: 2, run: 'b', finding: 1 }];
+	const settled = new Set(['a#1', 'a#2']);
+	assert.equal(prSettled(rows, settled, 1), true);
+	assert.equal(prSettled(rows, settled, 2), false);
+	assert.equal(prSettled(rows, settled, 3), false);
+	assert.equal(prSettled(rows, settled, 1, { 'a#2': { origin: 'introduced' } }), true);
+	assert.equal(prSettled(rows, settled, 1, { 'a#2': { origin: 'inherited' } }), false);
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
