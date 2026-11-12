@@ -121,7 +121,7 @@ function assertVersionMatchesEngine(pinnedVersion: string): void {
  * The DuckDB platform names we ship an extension for. Used by `--print-hashes`
  * to regenerate the pinned SHA-256 map when bumping the version.
  */
-const SUPPORTED_PLATFORMS = ['osx_arm64', 'osx_amd64', 'linux_arm64', 'linux_amd64', 'windows_amd64'] as const;
+const SUPPORTED_PLATFORMS = ['osx_arm64', 'osx_amd64', 'linux_arm64', 'linux_amd64', 'windows_arm64', 'windows_amd64'] as const;
 
 /**
  * Assert the downloaded (decompressed) extension matches the SHA-256 pinned for

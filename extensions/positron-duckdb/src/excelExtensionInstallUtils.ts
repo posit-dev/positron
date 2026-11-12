@@ -27,7 +27,7 @@ export function resolveDuckDBPlatform(osPlatform: string, targetArch: string): s
 		case 'linux':
 			return targetArch === 'arm64' ? 'linux_arm64' : 'linux_amd64';
 		case 'win32':
-			return 'windows_amd64';
+			return targetArch === 'arm64' ? 'windows_arm64' : 'windows_amd64';
 		default:
 			throw new Error(`Unsupported platform for the DuckDB Excel extension: ${osPlatform}`);
 	}
