@@ -275,9 +275,10 @@ explorer left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkou
 --base <sha> --head <sha>` on it. A replay sends no usage row: a CI run has
 `cost.json`, and a local one keeps the `usage-reported` marker from its first
 render. That covers everything after the explorer. For the explorer,
-run the skill locally on a small branch, or start `test-exploratory.yml` with
-workflow_dispatch on your branch. A `/explore` comment always runs main's copy
-of the harness, so it won't test your change.
+run the skill locally on a small branch, or run `explore-pr.yml` by hand in
+positron-builds, from a throwaway branch cut from its main, with `harness_ref`
+set to your branch. `test-exploratory.yml` and a `/explore` comment always run
+main's copy of the harness, so they won't test your change.
 
 `page/page.test.mjs` pins the whole page, less its stylesheet and scripts,
 for two saved runs under `renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases

@@ -10,3 +10,11 @@ vsc-extension-quickstart.md
 **/*.ts
 ark/**
 tsconfig.vitest.json
+.nvmrc
+
+# The test explorer loads vscodereporter with devtools::load_all(), which does not read
+# its tests or man pages. The e2e test reads the fixture package from the repo, not from
+# the installed extension.
+resources/testing/r.pkg.test.explorer.fixture/**
+resources/testing/vscodereporter/tests/**
+resources/testing/vscodereporter/man/**

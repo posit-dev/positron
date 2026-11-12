@@ -1,0 +1,83 @@
+name: "Test: Merge to branch"
+
+# Positron's tests run in the private repo posit-dev/positron-builds. After a
+# push to main, prerelease/**, or release/**, this job dispatches that repo's
+# merge-test.yml for the pushed commit: the full suite with credentials, and
+# the build caches that PR runs restore from. It does not wait for the run;
+# the link is in the step summary. The only secret here is the bot app key.
+
+on:
+  push:
+    branches:
+      - main
+      - "prerelease/**"
+      - "release/**"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: dispatch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHA: ${{ github.sha }}
+      BRANCH: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github
+            scripts
+          filter: blob:none
+
+      # A docs-only push to main still runs the unit suite in positron-builds
+      # (it saves the caches) and skips the rest. Any error runs the tests.
+      # Release and prerelease branches always run everything.
+      - name: Check for a docs-only push
+        id: docs-only
+        if: github.ref == 'refs/heads/main'
+        run: bash scripts/pr-docs-only.sh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+
+      - name: Mint a token for positron-builds
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+
+      - name: Dispatch the test run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          DOCS_ONLY: ${{ steps.docs-only.outputs.docs_only == 'true' }}
+        run: |
+          set -euo pipefail
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # Privileged runs dispatch from main so their caches land in main's scope.
+          gh workflow run merge-test.yml -R posit-dev/positron-builds --ref main \
+            -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY"
+          # The dispatch API returns no run id; find the run by its run-name, and
+          # only among dispatches the bot itself started.
+          title="positron $BRANCH at $SHA"
+          id=""
+          for i in $(seq 1 24); do
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=main&created=>=$since&per_page=20" \
+              --jq ".workflow_runs[] | select(.path == \".github/workflows/merge-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            if [ -n "$id" ]; then break; fi
+            sleep 5
+          done
+          if [ -z "$id" ]; then
+            echo "::error::Dispatched merge-test.yml but could not find its run within two minutes."
+            exit 1
+          fi
+          url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
+          echo "Tests are running at $url"
+          echo "Tests for \`${SHA:0:10}\` on \`$BRANCH\` (docs-only: $DOCS_ONLY): $url" >> "$GITHUB_STEP_SUMMARY"

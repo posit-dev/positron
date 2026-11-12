@@ -65,22 +65,55 @@ export async function findFailedStep({ fetchImpl, token, repo, runId, attempt })
 	}
 }
 
+const BUILDS_REPO = 'posit-dev/positron-builds';
+
+/** The run the comment links to: the builds run when one was dispatched, else this one. */
+export function buildRunUrl(env) {
+	const server = env.GITHUB_SERVER_URL || 'https://github.com';
+	return env.BUILDS_RUN_ID
+		? `${server}/${BUILDS_REPO}/actions/runs/${env.BUILDS_RUN_ID}`
+		: `${server}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`;
+}
+
+/**
+ * The failed step in the builds run when one was dispatched (tagged with its
+ * repo), else in this run. Builds first: the dispatch job here fails whenever
+ * the builds run did, so this run's own step would always win.
+ */
+export async function findFailure(env, fetchImpl) {
+	if (env.BUILDS_RUN_ID) {
+		const builds = await findFailedStep({
+			fetchImpl,
+			token: env.BUILDS_TOKEN,
+			repo: BUILDS_REPO,
+			runId: env.BUILDS_RUN_ID,
+			attempt: env.BUILDS_RUN_ATTEMPT || '1',
+		});
+		if (builds) {
+			return { ...builds, repo: 'positron-builds' };
+		}
+	}
+	return findFailedStep({
+		fetchImpl,
+		token: env.GH_TOKEN,
+		repo: env.GITHUB_REPOSITORY,
+		runId: env.GITHUB_RUN_ID,
+		attempt: env.GITHUB_RUN_ATTEMPT || '1',
+	});
+}
+
 async function main() {
 	const state = process.env.COMMENT_STATE === 'running' ? 'running' : (process.env.OUTCOME || '');
 	// Only a run that failed before the agent ran needs the step that broke.
-	const failure = state ? null : await findFailedStep({
-		fetchImpl: fetch,
-		token: process.env.GH_TOKEN,
-		repo: process.env.GITHUB_REPOSITORY,
-		runId: process.env.GITHUB_RUN_ID,
-		attempt: process.env.GITHUB_RUN_ATTEMPT || '1',
-	});
+	const failure = state ? null : await findFailure(process.env, fetch);
 	const body = renderPrComment({
 		state,
 		report: state === 'running' ? null : readReport(process.env.WORK_DIR),
 		demoted: state === 'running' ? [] : readDemoted(process.env.WORK_DIR),
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
-		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+		runUrl: buildRunUrl(process.env),
+		scanUrl: process.env.SCAN_URL || '',
+		buildsRun: Boolean(process.env.BUILDS_RUN_ID),
 		headSha: process.env.HEAD_SHA || '',
 		reason: process.env.DECLINE_REASON || '',
 		focus: process.env.FOCUS || '',

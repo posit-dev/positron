@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, exploreRepo, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, resolveDispatchOutcome, OUTDATED_HELPERS_REASON, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
@@ -56,15 +56,15 @@ test('renderCostFooter degrades gracefully with no result message', () => {
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
+		buildShotsBaseUrl('https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
+		buildShotsBaseUrl('https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://positron-reports.tail00da2.ts.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
@@ -268,7 +268,7 @@ test('renderPrComment counts the findings the page shows, not the ones it lists 
 });
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled', 'job-timeout', 'scan-failed']) {
 		const body = renderPrComment({ state, report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -602,4 +602,65 @@ test('takeStepSummary keeps the job summary for the run and hides it from the ag
 	assert.equal(takeStepSummary(env), '/runner/summary.md');
 	assert.deepEqual(env, { PATH: '/bin' }, 'a test an agent runs (Vitest\'s GitHub reporter) cannot write to the job summary');
 	assert.equal(takeStepSummary({}), undefined);
+});
+
+test('exploreRepo prefers EXPLORE_REPO over GITHUB_REPOSITORY', () => {
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron-builds', EXPLORE_REPO: 'posit-dev/positron' }), 'posit-dev/positron');
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron' }), 'posit-dev/positron');
+	assert.equal(exploreRepo({ GITHUB_REPOSITORY: 'posit-dev/positron', EXPLORE_REPO: '' }), 'posit-dev/positron');
+});
+
+test('resolveDispatchOutcome follows the order: published report, job timeout, cancelled, missing result, scan, outdated, outcome', () => {
+	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
+	const base = { runConclusion: 'success', timedOutModels: new Set(), result, reportUrl: 'https://r/x' };
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled' }), { state: 'cancelled', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', timedOutModels: new Set(['m']), model: 'm' }), { state: 'job-timeout', reportUrl: '' });
+	// Another model's timeout must not hide this model's finished report.
+	assert.deepEqual(resolveDispatchOutcome({ ...base, timedOutModels: new Set(['opus']), model: 'sonnet' }), { state: 'complete', reportUrl: 'https://r/x' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, result: null }), { state: 'failed', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { model: 'm', scan: 'failed' } }), { state: 'scan-failed', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { ...result, outdated: true } }), { state: 'outdated', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome(base), { state: 'complete', reportUrl: 'https://r/x' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '' }), { state: 'complete', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: '', result: { ...result, outcome: 'no-report' } }), { state: 'no-report', reportUrl: '' });
+});
+
+test('resolveDispatchOutcome keeps a published complete report over a later timeout or cancel', () => {
+	const result = { model: 'm', outcome: 'complete', outdated: false, scan: 'passed' };
+	const base = { model: 'm', result, reportUrl: 'https://r/x' };
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'complete', reportUrl: 'https://r/x' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, runConclusion: 'cancelled', timedOutModels: new Set() }), { state: 'complete', reportUrl: 'https://r/x' });
+	// No published report: the timeout still wins.
+	assert.deepEqual(resolveDispatchOutcome({ ...base, reportUrl: '', runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'job-timeout', reportUrl: '' });
+	assert.deepEqual(resolveDispatchOutcome({ ...base, result: { ...result, outcome: 'partial' }, runConclusion: 'cancelled', timedOutModels: new Set(['m']) }), { state: 'job-timeout', reportUrl: '' });
+});
+
+test('renderPrComment on a job timeout names the 90-minute limit', () => {
+	const body = renderPrComment({ state: 'job-timeout', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.match(body, /Stopped at the 90-minute job limit before the agent produced a report\./);
+});
+
+test('renderPrComment on a failed scan links the scan job and shows nothing from the run', () => {
+	const body = renderPrComment({ state: 'scan-failed', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA, scanUrl: 'https://github.com/posit-dev/positron-builds/actions/runs/2/job/3', failure: { job: 'j', step: 'sk-secret-step', url: 'https://x/y' }, reason: 'ghp_secret' });
+	assert.match(body, /The secret scan found a secret in the run output, so nothing was published\./);
+	assert.match(body, /\[View scan job \u2192\]\(https:\/\/github\.com\/posit-dev\/positron-builds\/actions\/runs\/2\/job\/3\)/);
+	assert.doesNotMatch(body, /sk-secret|ghp_secret|cdn\.example|major/);
+});
+
+test('renderPrComment on a positron-builds failure names the repo and the private log', () => {
+	const failure = { job: 'explore', step: 'Run agent', url: 'https://github.com/posit-dev/positron-builds/actions/runs/2/job/3#step:5:1', repo: 'positron-builds' };
+	const body = renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, failure });
+	assert.match(body, /The run failed at `Run agent` in positron-builds\. Only posit-dev org members can open this log\./);
+});
+
+test('renderPrComment outdated falls back to the shared reason constant', () => {
+	assert.match(renderPrComment({ state: 'outdated', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), new RegExp(`Not run: ${OUTDATED_HELPERS_REASON.replace(/[.]/g, '\\.')}`));
+});
+
+test('the artifact text names the positron-builds run once', () => {
+	const url = 'https://github.com/posit-dev/positron-builds/actions/runs/2';
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: url, headSha: SHA, buildsRun: true });
+	assert.match(body, /positron-builds run\]\(.*runs\/2\); only posit-dev org members can open it/);
+	assert.equal(body.split(url).length - 1, 1);
 });
