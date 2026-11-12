@@ -108,6 +108,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$unsubscribeFromSession(sessionId: string): void;
 	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
+	$cancelPendingExecution(sessionId: string, executionId: string): Promise<boolean>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
 	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { agentCliCommand } from '../McpAgentConfig';
+import { agentCliAdds, agentCliCommand, agentCliRemoves, cliEntryOutdated } from '../McpAgentConfig';
 import { McpCliInstall, McpLaunch, findMcpAgent } from '../McpAgents';
 
 /** The command line that starts the bridge. */
@@ -51,5 +51,40 @@ suite('agentCliCommand', () => {
 		assert.deepStrictEqual(
 			{ command, first: args.slice(0, 2) },
 			{ command: 'cmd.exe', first: ['/c', 'C:\\bin\\claude.CMD'] });
+	});
+});
+
+suite('agentCliRemoves and agentCliAdds', () => {
+	test('write under both drive letter cases on Windows', () => {
+		// Claude Code keys entries by its working directory's exact text, which
+		// is C:\ from a terminal but c:\ from cmd's `cd c:\` or a folder's fsPath.
+		const install = cliInstall('claude-code');
+		const directories = (runs: { directory: string }[]) => runs.map(run => run.directory);
+		assert.deepStrictEqual(
+			{
+				removes: directories(agentCliRemoves(install, {}, 'c:\\proj', 'win32')),
+				adds: directories(agentCliAdds(install, LAUNCH, 'c:\\proj', 'win32')),
+			},
+			{
+				removes: ['c:\\proj', 'C:\\proj'],
+				adds: ['c:\\proj', 'C:\\proj'],
+			});
+	});
+});
+
+suite('cliEntryOutdated', () => {
+	test('rewrites an entry written before directories were recorded only on Windows', () => {
+		// Elsewhere the entry is already where it belongs, so it is not
+		// written again: a user who removed it does not get it back.
+		assert.deepStrictEqual(
+			{
+				windows: cliEntryOutdated({}, 'c:\\proj', 'win32'),
+				macos: cliEntryOutdated({}, '/Users/me/proj', 'darwin'),
+			},
+			{ windows: true, macos: false });
+	});
+
+	test('rewrites it only once', () => {
+		assert.strictEqual(cliEntryOutdated({ directory: 'c:\\proj' }, 'c:\\proj', 'win32'), false);
 	});
 });

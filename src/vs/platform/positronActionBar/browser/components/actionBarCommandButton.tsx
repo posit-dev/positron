@@ -22,6 +22,8 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
  */
 type ActionBarCommandButtonProps = ActionBarButtonProps & {
 	readonly commandId: string;
+	/** Returns the arguments to run the command with, read when the button is pressed. */
+	readonly getCommandArgs?: () => unknown[];
 }
 
 /**
@@ -93,7 +95,7 @@ export const ActionBarCommandButton = (props: PropsWithChildren<ActionBarCommand
 			disabled={props.disabled || commandDisabled}
 			tooltip={tooltip}
 			onPressed={() =>
-				services.commandService.executeCommand(props.commandId)
+				services.commandService.executeCommand(props.commandId, ...(props.getCommandArgs?.() ?? []))
 			}
 		>
 			{props.children}

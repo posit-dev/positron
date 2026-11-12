@@ -103,6 +103,22 @@ inputs:
     description: "Comment mode: token with issues: write, and actions: read to name the step a failed run broke at"
     required: false
     default: ""
+  builds-run-id:
+    description: "Comment mode: the positron-builds run the exploration ran in; empty when it ran here"
+    required: false
+    default: ""
+  builds-run-attempt:
+    description: "Comment mode: attempt of that builds run"
+    required: false
+    default: "1"
+  builds-token:
+    description: "Comment mode: token with actions: read on positron-builds, to name the step its run broke at"
+    required: false
+    default: ""
+  scan-url:
+    description: "Comment mode: link to the scan result, when the run was blocked by it"
+    required: false
+    default: ""
   comment-id:
     description: "Comment mode: the comment to edit; empty posts a new one"
     required: false
@@ -197,6 +213,10 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}
+        BUILDS_RUN_ID: ${{ inputs.builds-run-id }}
+        BUILDS_RUN_ATTEMPT: ${{ inputs.builds-run-attempt }}
+        BUILDS_TOKEN: ${{ inputs.builds-token }}
+        SCAN_URL: ${{ inputs.scan-url }}
         AUTO_RUN: ${{ inputs.auto-run }}
         # VERIFY is deliberately absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth

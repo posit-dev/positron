@@ -34,14 +34,17 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { ActiveEditorAvailableEditorIdsContext, ActiveEditorCannotCloseContext, ActiveEditorContext, ActiveEditorGroupEmptyContext, AuxiliaryBarVisibleContext, EditorPartMaximizedEditorGroupContext, EditorPartMultipleEditorGroupsContext, InAutomationContext, IsAuxiliaryWindowFocusedContext, MultipleEditorGroupsContext, SideBarVisibleContext } from '../../../common/contextkeys.js';
 import { getActiveDocument } from '../../../../base/browser/dom.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { getWindowById } from '../../../../base/browser/dom.js';
+// --- End Positron ---
 import { ICommandActionTitle } from '../../../../platform/action/common/action.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { resolveCommandsContext } from './editorCommandsContext.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { prepareMoveCopyEditors } from './editor.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { getAuxiliaryWindowOptionsForEditors } from './editor.js';
+import { getAuxiliaryWindowOptionsForEditors } from './positronAuxiliaryWindowOptions.js';
 // --- End Positron ---
 
 class ExecuteCommandAction extends Action2 {
@@ -2640,9 +2643,9 @@ abstract class BaseMoveCopyEditorToNewWindowAction extends Action2 {
 		const { group, editors } = resolvedContext.groupedEditors[0]; // only single group supported for move/copy for now
 
 		// --- Start Positron ---
-		// Use compact mode for plot editors
+		// Use compact mode for plot editors and Posit Assistant tabs
 		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(
-			getAuxiliaryWindowOptionsForEditors(editors)
+			getAuxiliaryWindowOptionsForEditors(editors, getWindowById(group.windowId, true).window)
 		);
 		// --- End Positron ---
 
@@ -2709,9 +2712,9 @@ abstract class BaseMoveCopyEditorGroupToNewWindowAction extends Action2 {
 		// --- Start Positron ---
 		// const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart();
 
-		// Use compact mode for plot editors
+		// Use compact mode for plot editors and Posit Assistant tabs
 		const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart(
-			getAuxiliaryWindowOptionsForEditors(activeGroup.editors)
+			getAuxiliaryWindowOptionsForEditors(activeGroup.editors, getWindowById(activeGroup.windowId, true).window)
 		);
 		// --- End Positron ---
 

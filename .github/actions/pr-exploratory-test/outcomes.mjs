@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, priorRows, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -34,7 +34,9 @@ const SHIPPED_VIA = new Map([[16866, 16878]]);
 // PRs read at once. Git runs synchronously, so only the GitHub and model calls overlap.
 const PR_CONCURRENCY = 6;
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
-const PREVIOUS = args.previous && !args.recheck ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+// Every saved row, even with --recheck: a report that can't be read keeps its rows instead of dropping them.
+const PRIOR = args.previous ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+const PREVIOUS = args.recheck ? [] : PRIOR;
 const SETTLED = settledRows(PREVIOUS);
 // Origins set by hand, keyed by run#finding, for findings from before main was replayed.
 const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
@@ -280,9 +282,14 @@ async function prRows(number) {
 		if (!parsed) {
 			continue;
 		}
-		const report = await fetchReport(parsed.reportBase);
+		const report = await fetchReport(parsed.reportBase).catch(err => {
+			console.error(`[outcomes] #${number} run ${parsed.run}: report fetch failed: ${err}`);
+			return null;
+		});
 		if (!report) {
-			console.error(`[outcomes] #${number} run ${parsed.run}: no report, skipped`);
+			const prior = priorRows(PRIOR, number, parsed.run);
+			rows.push(...prior);
+			console.error(`[outcomes] #${number} run ${parsed.run}: no report, kept ${prior.length} previous rows`);
 			continue;
 		}
 		const stats = await fetchJson(`${parsed.reportBase}/stats.json`);
@@ -340,8 +347,9 @@ const rows = (await mapLimit(numbers, PR_CONCURRENCY, async number => {
 	try {
 		return await prRows(number);
 	} catch (err) {
-		console.error(`[outcomes] #${number} failed, skipped: ${err}`);
-		return [];
+		const prior = priorRows(PRIOR, number);
+		console.error(`[outcomes] #${number} failed, kept ${prior.length} previous rows: ${err}`);
+		return prior;
 	}
 })).flat();
 const marked = markDuplicates(rows);

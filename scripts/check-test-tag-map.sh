@@ -111,7 +111,7 @@ if [[ -f "$ENUM_FILE" ]]; then
 	valid_tags="$(valid_enum_tags "$ENUM_FILE")"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
-		if ! printf '%s\n' "$valid_tags" | grep -qxF "$tag"; then
+		if ! grep -qxF "$tag" <<<"$valid_tags"; then
 			invalid_tags+=("$tag")
 			continue
 		fi

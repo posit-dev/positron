@@ -168,7 +168,7 @@ test('runApiPath takes owner/repo from the run_url, not the local checkout', () 
 		runApiPath('https://github.com/posit-dev/positron/actions/runs/42'),
 		'repos/posit-dev/positron/actions/runs/42'
 	);
-	assert.equal(runApiPath('https://d38p2avprg8il3.cloudfront.net/playwright-report/index.html'), null);
+	assert.equal(runApiPath('https://positron-reports.tail00da2.ts.net/playwright-report/index.html'), null);
 	assert.equal(runApiPath(null), null);
 });
 
