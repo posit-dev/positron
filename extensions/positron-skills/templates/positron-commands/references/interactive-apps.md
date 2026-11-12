@@ -181,9 +181,9 @@ authoritative wording; the notes here cover only what changes how you work.
 ### `positron.runApp.previewMode`
 
 Where the app is previewed once its URL is detected: the Viewer pane
-(`viewer`, the default), a Simple Browser editor tab (`editor`), the user's own
-browser (`external`), or nowhere (`none`). It applies to the Python framework
-commands; Shiny is governed separately by `shiny.previewType`.
+(`viewer`), a Simple Browser editor tab (`editor`), the user's own browser
+(`external`), or nowhere (`none`). It applies to the Python framework commands;
+Shiny is governed separately by `shiny.previewType`.
 
 `none` is the one that changes how you work: it turns URL detection off
 entirely, so a healthy app produces no preview anywhere, and
@@ -192,16 +192,22 @@ re-running will not change that. `external` matters less but still makes
 "check the Viewer" the wrong thing to say. Read the setting before telling the
 user which pane to look at, and after a run the user says they cannot see.
 
+{{setting:positron.runApp.previewMode}}
+
 ### `positron.runApp.urlDetectionTimeout`
 
-How long Positron waits for the app to print its URL. A slow app can outrun
-it: the app still runs, it just never gets previewed.
+How long Positron waits for the app to print its URL, in seconds. A slow app
+can outrun it: the app still runs, it just never gets previewed.
+
+{{setting:positron.runApp.urlDetectionTimeout}}
 
 ### `terminal.integrated.shellIntegration.enabled`
 
 URL detection for terminal-run apps rides on shell integration. With it off the
 app still runs, but Positron never sees its URL or its output, and nothing
 previews.
+
+{{setting:terminal.integrated.shellIntegration.enabled}}
 
 Neither the timeout nor shell integration is a reason to re-run. Read the app's
 output with `positronRunApp.readOutput` instead, or, with shell integration

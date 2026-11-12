@@ -562,6 +562,12 @@ export interface IFoundSetting {
 
 	/** The allowed values, for enum-typed settings. */
 	enum?: unknown[];
+
+	/** The smallest allowed value, for a numeric setting that declares one. */
+	minimum?: number;
+
+	/** The largest allowed value, for a numeric setting that declares one. */
+	maximum?: number;
 }
 
 /** What the findSettings command returns. */
@@ -634,6 +640,8 @@ export function findSettings(accessor: ServicesAccessor, query?: string, keys?: 
 			hidden: properties[key] === undefined && excluded[key] !== undefined ? true : undefined,
 			deprecated: deprecationSummary(schema),
 			enum: schema.enum?.length ? schema.enum : undefined,
+			minimum: schema.minimum,
+			maximum: schema.maximum,
 		};
 	};
 
@@ -731,6 +739,6 @@ CommandsRegistry.registerCommand({
 				schema: { type: 'number' },
 			},
 		],
-		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force -- resolved without a file context, so for a resource-scoped setting a per-folder override is not reflected and positronSettings.getConfiguredSettings is the command that reports the per-target and per-folder picture; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; and enum, the allowed values for enum-typed settings. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<masked>\', in whole for a credential-shaped or known credential-bearing key, or for the credential-shaped properties inside an object value.',
+		returns: 'An object with settings, the matching registry entries best-match first (key equality, then key substring, then description matches), and total, how many settings matched before the limit was applied: when total exceeds the number of entries returned, say the listing is partial rather than presenting it as complete. Each entry carries: key; description, the first sentence of the registered description; type; default, the registered default value; value, the current effective value, present only when it differs from default, so its absence means the default is in force -- resolved without a file context, so for a resource-scoped setting a per-folder override is not reflected and positronSettings.getConfiguredSettings is the command that reports the per-target and per-folder picture; scope; tags, e.g. \'preview\' or \'experimental\', which mark preview features; hidden, present and true only when the setting is excluded from the Settings editor UI, so the user cannot find it by browsing there and must edit settings.json directly; deprecated, present only when the registry marks the key deprecated, carrying the deprecation message, which usually names the replacement; enum, the allowed values for enum-typed settings; and minimum and maximum, the allowed range, present only when a numeric setting declares one. For an explicitly requested key the registry does not know, the entry is just key plus registered: false. A value that may hold a credential is replaced with \'<masked>\', in whole for a credential-shaped or known credential-bearing key, or for the credential-shaped properties inside an object value.',
 	},
 });

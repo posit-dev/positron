@@ -34,11 +34,18 @@ import { fileURLToPath } from 'url';
  *       `export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots'`
  *       -- a pure literal search finds zero hits for that id even though it
  *       genuinely exists.
+ *
+ * Setting keys named by `{{setting:}}` directives get the same guard, against a
+ * wider net: a setting may be registered anywhere under `src/vs` (terminal
+ * settings live in `src/vs/platform`) or contributed by an extension's
+ * `package.json`, and both are scanned.
  */
 
 const TEST_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_FILE_DIR, '../../../../../../..');
-const WORKBENCH_SRC_ROOT = path.join(REPO_ROOT, 'src', 'vs', 'workbench');
+const VS_SRC_ROOT = path.join(REPO_ROOT, 'src', 'vs');
+const WORKBENCH_SRC_ROOT = path.join(VS_SRC_ROOT, 'workbench');
+const EXTENSIONS_ROOT = path.join(REPO_ROOT, 'extensions');
 const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templates');
 
 /** Dotted-identifier shape, e.g. `workbench.action.foo` or `positron.help.lookupHelpTopic`. */
@@ -180,6 +187,9 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 	const candidates: Candidate[] = [];
 	const directivePattern = /\{\{command:([^}]+)\}\}/g;
 	const backtickPattern = /`([^`]+)`/g;
+	// A key a `{{setting:}}` directive names is a setting by definition, so its
+	// prose mentions are not command ids, whatever its prefix.
+	const settingKeys = new Set(extractSettingKeys(skills).map(candidate => candidate.id));
 	for (const skill of skills) {
 		let match: RegExpExecArray | null;
 		directivePattern.lastIndex = 0;
@@ -195,13 +205,50 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
 				continue;
 			}
-			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix))) {
+			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix)) || settingKeys.has(token)) {
 				continue;
 			}
 			candidates.push({ id: token, skillName: skill.name });
 		}
 	}
 	return candidates;
+}
+
+/** Every setting key named by a `{{setting:<key>}}` directive. */
+function extractSettingKeys(skills: readonly SkillFile[]): Candidate[] {
+	return skills.flatMap(skill => [...skill.content.matchAll(/\{\{setting:([^}]+)\}\}/g)]
+		.map(match => ({ id: match[1].trim(), skillName: skill.name })));
+}
+
+/** The keys an extension manifest contributes under `contributes.configuration`. */
+function contributedSettingKeys(manifestPath: string): string[] {
+	interface Manifest {
+		readonly contributes?: {
+			readonly configuration?: { readonly properties?: Record<string, unknown> } | { readonly properties?: Record<string, unknown> }[];
+		};
+	}
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Manifest;
+	const configuration = manifest.contributes?.configuration;
+	const sections = Array.isArray(configuration) ? configuration : configuration ? [configuration] : [];
+	return sections.flatMap(section => Object.keys(section.properties ?? {}));
+}
+
+/**
+ * Whether a setting key is declared somewhere: contributed by a built-in
+ * extension's `package.json`, or written as a quoted literal in non-test source
+ * under `src/vs`, the way the configuration registry calls (and setting-id
+ * enums such as `TerminalSettingId`) spell it.
+ */
+function createSettingResolver(): (key: string) => boolean {
+	const contributed = new Set<string>();
+	for (const entry of fs.readdirSync(EXTENSIONS_ROOT, { withFileTypes: true })) {
+		const manifestPath = path.join(EXTENSIONS_ROOT, entry.name, 'package.json');
+		if (entry.isDirectory() && fs.existsSync(manifestPath)) {
+			contributedSettingKeys(manifestPath).forEach(key => contributed.add(key));
+		}
+	}
+	const corpus = collectTsFiles(VS_SRC_ROOT).map(file => fs.readFileSync(file, 'utf8')).join('\n');
+	return key => contributed.has(key) || corpus.includes(`'${key}'`) || corpus.includes(`"${key}"`);
 }
 
 /** Every `export const NAME = '...'` (or `"..."`) binding found in the corpus, name -> string value. */
@@ -275,5 +322,26 @@ describe('agent skill / command drift', () => {
 		const referenced = new Set(extractCandidates(skillFiles).map(candidate => candidate.id));
 		const stale = [...KNOWN_EXTENSION_COMMANDS].filter(id => !referenced.has(id));
 		expect(stale).toEqual([]);
+	});
+});
+
+describe('agent skill / setting drift', () => {
+	it('every setting key named in a skill file is declared in source or an extension manifest', () => {
+		const isDeclared = createSettingResolver();
+		const unresolved = extractSettingKeys(skillFiles).filter(candidate => !isDeclared(candidate.id));
+
+		if (unresolved.length > 0) {
+			const lines = unresolved.map(c => `  - \`${c.id}\` (from ${c.skillName})`);
+			expect.fail(
+				`${unresolved.length} setting key(s) named in a skill file are declared neither in src/vs ` +
+				`nor in any extension's package.json. This usually means a setting was renamed or ` +
+				`removed but the skill documenting it was not updated:\n${lines.join('\n')}`
+			);
+		}
+	});
+
+	// Guards against a broken path or pattern making the test above pass vacuously.
+	it('extracted the setting keys the templates name', () => {
+		expect(extractSettingKeys(skillFiles).length).toBeGreaterThanOrEqual(1);
 	});
 });

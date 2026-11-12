@@ -5,13 +5,16 @@
 
 /**
  * Expands the mechanical facts of a command (its argument shapes and return
- * value) into a skill template, leaving the surrounding hand-written guidance
- * untouched. The facts come from live command metadata, so they are never
- * hand-copied and cannot drift from the code.
+ * value) or a setting (its type, default, and allowed values) into a skill
+ * template, leaving the surrounding hand-written guidance untouched. The facts
+ * come from live metadata, so they are never hand-copied and cannot drift from
+ * the code.
  *
- * A template carries one directive, naming a command id:
+ * A template carries two directives:
  *   {{command:some.command.id}}   -> renders the command's Arguments and
  *                                    Returns sections, labels included.
+ *   {{setting:some.setting.key}}  -> renders the setting's Type, Default, and
+ *                                    Allowed values, labels included.
  *
  * Guidance that only applies in some environments sits in a block, with each
  * marker on its own line:
@@ -50,6 +53,22 @@ export interface AgentCommand {
 }
 
 /**
+ * The registry facts about a setting needed to render a template. A subset of
+ * what `positronSettings.findSettings` reports: only the facts fixed for the
+ * build, never the current value, which can change mid-session.
+ */
+export interface AgentSetting {
+	readonly key: string;
+	readonly type?: string | string[];
+	readonly default?: unknown;
+	readonly enum?: readonly unknown[];
+	readonly minimum?: number;
+	readonly maximum?: number;
+	/** The deprecation message, present only when the setting is deprecated. */
+	readonly deprecated?: string;
+}
+
+/**
  * The facts about the environment a block can be conditioned on. Each must be
  * fixed for the session, since the output is only regenerated on the next
  * launch.
@@ -66,12 +85,17 @@ export interface ExpandResult {
 	readonly text: string;
 	/** Command ids named by a directive that were absent from the metadata. */
 	readonly unresolved: readonly string[];
+	/** Setting keys named by a directive that were absent from the registry. */
+	readonly unresolvedSettings: readonly string[];
 	/** Malformed conditional blocks, one message each, with line numbers. */
 	readonly problems: readonly string[];
 }
 
 /** Matches `{{command:ID}}`, capturing the id. */
 const DIRECTIVE = /\{\{command:([^}]+)\}\}/g;
+
+/** Matches `{{setting:KEY}}`, capturing the key. */
+const SETTING_DIRECTIVE = /\{\{setting:([^}]+)\}\}/g;
 
 /** Matches a line that is only an `{{if:FLAG}}` or `{{endif}}` marker. */
 const BLOCK_MARKER_LINE = /^\s*\{\{(?:if:(?<flag>[^}]*)|endif)\}\}\s*$/;
@@ -136,6 +160,63 @@ function renderCommand(command: AgentCommand): string {
 		? `**Arguments:**\n${renderArgs(command)}`
 		: '**Arguments:** None.';
 	return `${args}\n\n**Returns:** ${renderReturns(command)}`;
+}
+
+/** Inline code, with a longer fence when the text itself holds a backtick. */
+function code(text: string): string {
+	return text.includes('`') ? `\`\` ${text} \`\`` : `\`${text}\``;
+}
+
+/** The allowed values: the enum when there is one, else a declared numeric range. */
+function renderAllowedValues(setting: AgentSetting): string | undefined {
+	if (setting.enum?.length) {
+		return setting.enum.map(value => code(JSON.stringify(value))).join(', ');
+	}
+	const { minimum, maximum } = setting;
+	if (minimum !== undefined && maximum !== undefined) {
+		return `${code(String(minimum))} to ${code(String(maximum))}`;
+	}
+	if (minimum !== undefined) {
+		return `at least ${code(String(minimum))}`;
+	}
+	if (maximum !== undefined) {
+		return `at most ${code(String(maximum))}`;
+	}
+	return undefined;
+}
+
+/**
+ * Render a setting's registry facts as a list, one labeled fact per item, so
+ * the facts stay on separate lines when the Markdown is rendered. Allowed
+ * values and deprecation appear only when the registry declares them.
+ */
+function renderSetting(setting: AgentSetting): string {
+	const type = Array.isArray(setting.type) ? setting.type.join(' | ') : setting.type;
+	const lines = [
+		`- **Type:** ${type ? code(type) : 'unspecified'}`,
+		`- **Default:** ${setting.default === undefined ? 'none' : code(JSON.stringify(setting.default))}`,
+	];
+	const allowed = renderAllowedValues(setting);
+	if (allowed) {
+		lines.push(`- **Allowed values:** ${allowed}`);
+	}
+	if (setting.deprecated) {
+		lines.push(`- **Deprecated:** ${setting.deprecated}`);
+	}
+	return lines.join('\n');
+}
+
+/**
+ * Every setting key named by a `{{setting:KEY}}` directive in `template`, in
+ * order of first appearance. Includes keys inside conditional blocks, so the
+ * caller can look the facts up once before expanding under any flags.
+ */
+export function collectSettingKeys(template: string): string[] {
+	const keys = new Set<string>();
+	for (const match of template.matchAll(SETTING_DIRECTIVE)) {
+		keys.add(match[1].trim());
+	}
+	return [...keys];
 }
 
 function isFlag(name: string, flags: TemplateFlags): name is keyof TemplateFlags {
@@ -215,25 +296,41 @@ function applyBlocks(template: string, flags: TemplateFlags, problems: string[])
 
 /**
  * Keep the blocks in `template` that apply under `flags`, then replace every
- * directive with facts from `commandsById`. An id with no matching command
- * degrades to an empty section (never a leaked `{{...}}`) and is reported in
- * {@link ExpandResult.unresolved} so the caller can treat it as drift.
+ * directive with facts from `commandsById` and `settingsByKey`. An id with no
+ * matching command degrades to an empty section, and a key with no matching
+ * setting to a line saying the build does not register it (never a leaked
+ * `{{...}}`). Both are reported, in {@link ExpandResult.unresolved} and
+ * {@link ExpandResult.unresolvedSettings}, so the caller can treat them as drift.
  */
 export function expandTemplate(
 	template: string,
 	commandsById: ReadonlyMap<string, AgentCommand>,
 	flags: TemplateFlags,
+	settingsByKey: ReadonlyMap<string, AgentSetting> = new Map(),
 ): ExpandResult {
 	const unresolved = new Set<string>();
+	const unresolvedSettings = new Set<string>();
 	const problems: string[] = [];
-	const text = applyBlocks(template, flags, problems).replace(DIRECTIVE, (_match, rawId: string) => {
-		const id = rawId.trim();
-		const command = commandsById.get(id);
-		if (!command) {
-			unresolved.add(id);
-			return renderCommand({ id });
-		}
-		return renderCommand(command);
-	});
-	return { text, unresolved: [...unresolved], problems };
+	const text = applyBlocks(template, flags, problems)
+		.replace(DIRECTIVE, (_match, rawId: string) => {
+			const id = rawId.trim();
+			const command = commandsById.get(id);
+			if (!command) {
+				unresolved.add(id);
+				return renderCommand({ id });
+			}
+			return renderCommand(command);
+		})
+		.replace(SETTING_DIRECTIVE, (_match, rawKey: string) => {
+			const key = rawKey.trim();
+			const setting = settingsByKey.get(key);
+			if (!setting) {
+				unresolvedSettings.add(key);
+				// Unlike a command, a setting's empty facts would read as real
+				// ones (a default of "none"), so say plainly that it is missing.
+				return 'This setting is not registered in this Positron build.';
+			}
+			return renderSetting(setting);
+		});
+	return { text, unresolved: [...unresolved], unresolvedSettings: [...unresolvedSettings], problems };
 }

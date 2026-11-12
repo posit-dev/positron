@@ -28,6 +28,14 @@ command's Arguments and Returns sections, labels included:
 {{command:workbench.panel.positronConsole.focus}}
 ```
 
+A setting's facts -- its type, default, and allowed values (an enum or a declared numeric range) -- have the same kind of source of truth: the configuration registry of the running build. A second directive, naming a setting key, expands to a list of those facts, labels included:
+
+```
+{{setting:positron.runApp.previewMode}}
+```
+
+The facts come from the `positronSettings.findSettings` command. The setting's current value is deliberately left out, since it can change mid-session; guidance that depends on it should tell the model to read it.
+
 Guidance that only applies in some environments goes in a block, with each
 marker on its own line. The block is kept only when its flag is set in the
 environment the skill is generated in:
@@ -56,14 +64,15 @@ On activation (`onAiEnabled`, so it loads only once the `ai.enabled` setting is 
 1. Read the bundled templates under `templates/`.
 2. Load command metadata, including commands disabled in the current UI state
    (so a Data Explorer command is documented even when no Data Explorer is open).
-3. Keep the conditional blocks that apply to this environment, then expand
-   each `{{command:id}}` directive.
-4. Write the result to `<globalStorage>/skills` and register it via
+3. Look up the registry facts for every setting key the templates name.
+4. Keep the conditional blocks that apply to this environment, then expand
+   each `{{command:id}}` and `{{setting:key}}` directive.
+5. Write the result to `<globalStorage>/skills` and register it via
    `positron.ai.registerAgentSkillRoot`.
 
 Output is rewritten only when its inputs change: a digest of the Positron build,
 the extension version, the environment flags, the remote root, the templates,
-and the command metadata is stored alongside the output, so an ordinary launch
+the command metadata, and the setting facts is stored alongside the output, so an ordinary launch
 does no writing. The write is staged in a sibling directory and swapped in, so
 the assistant never reads a half-written root.
 
@@ -71,15 +80,20 @@ the assistant never reads a half-written root.
 
 Edit the templates under `templates/`. Add a `<skill-name>/SKILL.md` with a
 short router and `references/*.md` files for each area. Name each command by its
-literal id in a `### \`id\`` heading, write the guidance, and add the two
-directives for its facts. That is all -- the facts fill themselves in.
+literal id in a `### \`id\`` heading, write the guidance, and add its
+`{{command:id}}` directive. A setting gets the same treatment with its key and a
+`{{setting:key}}` directive. That is all -- the facts fill themselves in.
 
 ## Drift protection
 
 - A directive naming a command the build does not provide expands to an empty
   facts block and is logged as a warning at generation time.
+- A directive naming a setting the build does not register expands to a line
+  saying so and is logged as a warning at generation time.
 - `agentSkillDrift.vitest.ts` (in `positronAiFeatures`) fails when a command id
-  named in a template no longer resolves in the workbench source.
+  named in a template no longer resolves in the workbench source, or when a
+  setting key named in a template is declared nowhere in the workbench source or
+  in any extension's `package.json`.
 - A malformed conditional block (an unknown flag, or an unmatched marker) is
   logged as a warning at generation time, and no marker reaches the output.
 - `src/test/templateExpander.test.ts` covers the expansion itself, and fails on a

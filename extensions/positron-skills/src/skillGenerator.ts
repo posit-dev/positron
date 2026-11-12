@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { AgentCommand, expandTemplate, TemplateFlags } from './templateExpander';
+import { AgentCommand, AgentSetting, collectSettingKeys, expandTemplate, TemplateFlags } from './templateExpander';
 
 /** Subdirectory of the extension holding the skill templates. */
 const TEMPLATES_DIR = 'templates';
@@ -17,6 +17,10 @@ const TEMPLATES_DIR = 'templates';
 const SKILLS_DIR = 'skills';
 /** File, next to the skills dir, recording the inputs the current output was built from. */
 const STAMP_FILE = 'skills.stamp';
+/** The workbench command that reports a setting's registry facts. */
+const FIND_SETTINGS_COMMAND = 'positronSettings.findSettings';
+/** The most keys one findSettings call returns. */
+const FIND_SETTINGS_MAX_KEYS = 100;
 
 export interface GenerateResult {
 	/** Absolute path of the generated skill root. */
@@ -25,6 +29,8 @@ export interface GenerateResult {
 	readonly regenerated: boolean;
 	/** Command ids named by a template that no command provides -- i.e. drift. */
 	readonly unresolved: readonly string[];
+	/** Setting keys named by a template that the build does not register -- i.e. drift. */
+	readonly unresolvedSettings: readonly string[];
 }
 
 /**
@@ -93,15 +99,54 @@ async function loadCommands(): Promise<ReadonlyMap<string, AgentCommand>> {
 	return new Map(commands.map(command => [command.id, command]));
 }
 
+/** One entry of the findSettings result; only the fields read here are typed. */
+interface FoundSetting extends AgentSetting {
+	/** Present, and false, only for a key the registry does not know. */
+	readonly registered?: boolean;
+}
+
+/**
+ * Look up the registry facts for every setting key the templates name. Keys the
+ * build does not register are left out, so they read as unresolved. Only the
+ * facts fixed for the build are kept: the current value can change mid-session,
+ * and keeping it would also make every settings change rewrite the output.
+ */
+async function loadSettings(templates: readonly TemplateFile[]): Promise<ReadonlyMap<string, AgentSetting>> {
+	const keys = [...new Set(templates.flatMap(template => collectSettingKeys(template.content)))];
+	const settings = new Map<string, AgentSetting>();
+	for (let start = 0; start < keys.length; start += FIND_SETTINGS_MAX_KEYS) {
+		const batch = keys.slice(start, start + FIND_SETTINGS_MAX_KEYS);
+		const result = await vscode.commands.executeCommand<{ settings?: FoundSetting[] } | undefined>(
+			FIND_SETTINGS_COMMAND, undefined, batch, undefined, FIND_SETTINGS_MAX_KEYS,
+		);
+		for (const found of result?.settings ?? []) {
+			if (found.registered === false) {
+				continue;
+			}
+			settings.set(found.key, {
+				key: found.key,
+				type: found.type,
+				default: found.default,
+				enum: found.enum,
+				minimum: found.minimum,
+				maximum: found.maximum,
+				deprecated: found.deprecated,
+			});
+		}
+	}
+	return settings;
+}
+
 /**
  * A digest of everything the output depends on: the Positron build, the
- * extension version, the environment flags, the remote root, the templates, and
- * the command metadata. When it is unchanged the cached output is reused, so an
- * ordinary launch does no writing.
+ * extension version, the environment flags, the remote root, the templates, the
+ * command metadata, and the setting facts. When it is unchanged the cached
+ * output is reused, so an ordinary launch does no writing.
  */
 function computeStamp(
 	templates: readonly TemplateFile[],
 	commandsById: ReadonlyMap<string, AgentCommand>,
+	settingsByKey: ReadonlyMap<string, AgentSetting>,
 	extensionVersion: string,
 	flags: TemplateFlags,
 	remoteRoot: string | undefined,
@@ -117,6 +162,8 @@ function computeStamp(
 	// Stable key order so metadata reordering alone does not force a rebuild.
 	const commandsJson = JSON.stringify([...commandsById.values()].sort((a, b) => a.id.localeCompare(b.id)));
 	hash.update(`commands:${commandsJson}\n`);
+	const settingsJson = JSON.stringify([...settingsByKey.values()].sort((a, b) => a.key.localeCompare(b.key)));
+	hash.update(`settings:${settingsJson}\n`);
 	return hash.digest('hex');
 }
 
@@ -142,27 +189,31 @@ export async function generateSkills(
 	// Drift is measured against this set, so record its size: an empty or partial
 	// load turns every directive into apparent drift, and this line tells them apart.
 	log.debug(`Loaded ${commandsById.size} agent command(s).`);
+	const settingsByKey = await loadSettings(templates);
+	log.debug(`Loaded ${settingsByKey.size} setting(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
 	const remoteRoot = currentRemoteRoot();
 	const flags = currentFlags(remoteRoot);
-	const stamp = computeStamp(templates, commandsById, extensionVersion, flags, remoteRoot);
+	const stamp = computeStamp(templates, commandsById, settingsByKey, extensionVersion, flags, remoteRoot);
 
 	const existingStamp = await fs.readFile(stampPath, 'utf8').catch(() => undefined);
 	const outputExists = await fs.stat(skillRoot).then(() => true, () => false);
 	if (existingStamp === stamp && outputExists) {
 		log.debug('Generated skills are up to date; nothing to rebuild.');
-		return { skillRoot, regenerated: false, unresolved: [] };
+		return { skillRoot, regenerated: false, unresolved: [], unresolvedSettings: [] };
 	}
 
 	const unresolved = new Set<string>();
+	const unresolvedSettings = new Set<string>();
 	const problems: string[] = [];
 	const runId = crypto.randomUUID();
 	const stageDir = path.join(storageDir, `${SKILLS_DIR}.staging-${runId}`);
 	const backupDir = path.join(storageDir, `${SKILLS_DIR}.old-${runId}`);
 	try {
 		for (const template of templates) {
-			const result = expandTemplate(template.content, commandsById, flags);
+			const result = expandTemplate(template.content, commandsById, flags, settingsByKey);
 			result.unresolved.forEach(id => unresolved.add(id));
+			result.unresolvedSettings.forEach(key => unresolvedSettings.add(key));
 			result.problems.forEach(problem => problems.push(`${template.relativePath} ${problem}`));
 			if (remoteRoot === undefined && result.text.includes('{{remote_root}}')) {
 				problems.push(`${template.relativePath} has {{remote_root}} outside an {{if:remote}} block`);
@@ -214,9 +265,15 @@ export async function generateSkills(
 			`their argument and return blocks were left empty: ${[...unresolved].join(', ')}`,
 		);
 	}
+	if (unresolvedSettings.size > 0) {
+		log.warn(
+			`Templates name ${unresolvedSettings.size} setting key(s) that this build does not register; ` +
+			`their facts were replaced with a not-registered note: ${[...unresolvedSettings].join(', ')}`,
+		);
+	}
 	if (problems.length > 0) {
 		log.warn(`Templates have ${problems.length} conditional block problem(s): ${problems.join('; ')}`);
 	}
 	log.info(`Generated ${templates.length} skill file(s) at ${skillRoot}.`);
-	return { skillRoot, regenerated: true, unresolved: [...unresolved] };
+	return { skillRoot, regenerated: true, unresolved: [...unresolved], unresolvedSettings: [...unresolvedSettings] };
 }
