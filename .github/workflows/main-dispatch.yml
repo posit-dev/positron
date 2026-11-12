@@ -64,7 +64,7 @@ jobs:
           full=$(git log -1 --format=%s "$SHA" || true)
           subject=${full:0:60}
           if [ ${#full} -gt 60 ]; then subject="$subject..."; fi
-          title="merge ($BRANCH): $subject (${SHA:0:7})"
+          title="merge ($BRANCH) / $subject (${SHA:0:7})"
           # Privileged runs dispatch from main so their caches land in main's scope.
           gh workflow run merge-test.yml -R posit-dev/positron-builds --ref main \
             -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY" -f "title=$title"

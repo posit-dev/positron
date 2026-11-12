@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           for state in queued in_progress waiting pending; do
             gh api --paginate "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&status=$state&per_page=100" \
-              --jq ".workflow_runs[] | select((.display_title | startswith(\"pr: #$PR \") or startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"pr (#$PR) \") or startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
           done | sort -u |
             while read -r id; do
               echo "Cancelling https://github.com/posit-dev/positron-builds/actions/runs/$id"
@@ -125,7 +125,7 @@ jobs:
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           subject=${PR_TITLE:0:60}
           if [ ${#PR_TITLE} -gt 60 ]; then subject="$subject..."; fi
-          title="pr: #$PR $subject (${HEAD_SHA:0:7})"
+          title="pr (#$PR) / $subject (${HEAD_SHA:0:7})"
           # pr-lane mirrors positron-builds main; PR runs use it so their build caches
           # stay in that branch's cache scope, away from the privileged main runs.
           gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane \

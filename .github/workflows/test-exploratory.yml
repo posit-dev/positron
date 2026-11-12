@@ -736,9 +736,9 @@ jobs:
             full=$(GH_TOKEN=$POSITRON_TOKEN gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .title || true)
             subject=${full:0:60}
             if [ ${#full} -gt 60 ]; then subject="$subject..."; fi
-            title="explore: #$PR $subject ($POSITRON_RUN)"
+            title="explore (#$PR) / $subject ($POSITRON_RUN)"
           else
-            title="explore: $REF ($POSITRON_RUN)"
+            title="explore ($REF) ($POSITRON_RUN)"
           fi
           args=(-f "positron_run=$POSITRON_RUN" -f "sha=$SHA" -f "base=$BASE_REF" -f "model=$MODEL"
             -f "focus=$FOCUS" -f "time_limit=$TIME_LIMIT" -f "main_replay=$MAIN_REPLAY" -f "harness_sha=$HARNESS_SHA"
