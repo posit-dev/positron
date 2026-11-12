@@ -95,28 +95,23 @@ const KNOWN_EXTENSION_COMMANDS = new Set([
 	'posit.publisher.agent.troubleshootDeploymentFailure',
 ]);
 
-/**
- * Prefixes under which a dotted, `positron.`-prefixed prose token is a
- * *setting* key rather than a command id, so the command scan must skip it.
- * `positron.runApp.previewMode` and `positron.runApp.urlDetectionTimeout` are
- * contributed by the positron-run-app extension and are named in the
- * interactive-apps reference as settings to read, not commands to run.
- */
-const SETTING_PREFIXES = ['positron.runApp.'];
-
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Recursively collects every `.ts` file under `dir`, skipping directories named `test`. */
-function collectTsFiles(dir: string): string[] {
+/**
+ * Recursively collects every `.ts` file under `dir`, skipping directories named
+ * `test` and any directory in `skip`.
+ */
+function collectTsFiles(dir: string, skip: readonly string[] = []): string[] {
 	const result: string[] = [];
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			if (entry.name === 'test') {
+			const full = path.join(dir, entry.name);
+			if (entry.name === 'test' || skip.includes(full)) {
 				continue;
 			}
-			result.push(...collectTsFiles(path.join(dir, entry.name)));
+			result.push(...collectTsFiles(full, skip));
 		} else if (entry.isFile() && entry.name.endsWith('.ts')) {
 			result.push(path.join(dir, entry.name));
 		}
@@ -205,7 +200,7 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
 				continue;
 			}
-			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix)) || settingKeys.has(token)) {
+			if (settingKeys.has(token)) {
 				continue;
 			}
 			candidates.push({ id: token, skillName: skill.name });
@@ -216,8 +211,8 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 
 /** Every setting key named by a `{{setting:<key>}}` directive. */
 function extractSettingKeys(skills: readonly SkillFile[]): Candidate[] {
-	return skills.flatMap(skill => [...skill.content.matchAll(/\{\{setting:([^}]+)\}\}/g)]
-		.map(match => ({ id: match[1].trim(), skillName: skill.name })));
+	return skills.flatMap(skill => [...skill.content.matchAll(/\{\{setting:(?<key>[^}]+)\}\}/g)]
+		.map(match => ({ id: (match.groups?.key ?? '').trim(), skillName: skill.name })));
 }
 
 /** The keys an extension manifest contributes under `contributes.configuration`. */
@@ -247,7 +242,8 @@ function createSettingResolver(): (key: string) => boolean {
 			contributedSettingKeys(manifestPath).forEach(key => contributed.add(key));
 		}
 	}
-	const corpus = collectTsFiles(VS_SRC_ROOT).map(file => fs.readFileSync(file, 'utf8')).join('\n');
+	// The workbench is already in `sourceCorpus`; read only the rest of src/vs.
+	const corpus = [sourceCorpus, ...collectTsFiles(VS_SRC_ROOT, [WORKBENCH_SRC_ROOT]).map(file => fs.readFileSync(file, 'utf8'))].join('\n');
 	return key => contributed.has(key) || corpus.includes(`'${key}'`) || corpus.includes(`"${key}"`);
 }
 

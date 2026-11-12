@@ -19,7 +19,7 @@ const SKILLS_DIR = 'skills';
 const STAMP_FILE = 'skills.stamp';
 /** The workbench command that reports a setting's registry facts. */
 const FIND_SETTINGS_COMMAND = 'positronSettings.findSettings';
-/** The most keys one findSettings call returns. */
+/** The most keys one findSettings call returns: its FIND_SETTINGS_MAX_LIMIT. */
 const FIND_SETTINGS_MAX_KEYS = 100;
 
 export interface GenerateResult {
@@ -106,13 +106,12 @@ interface FoundSetting extends AgentSetting {
 }
 
 /**
- * Look up the registry facts for every setting key the templates name. Keys the
- * build does not register are left out, so they read as unresolved. Only the
- * facts fixed for the build are kept: the current value can change mid-session,
- * and keeping it would also make every settings change rewrite the output.
+ * Look up the registry facts for the given setting keys. Keys the build does not
+ * register are left out, so they read as unresolved. Only the facts fixed for
+ * the build are kept: the current value can change mid-session, and keeping it
+ * would also make every settings change rewrite the output.
  */
-async function loadSettings(templates: readonly TemplateFile[]): Promise<ReadonlyMap<string, AgentSetting>> {
-	const keys = [...new Set(templates.flatMap(template => collectSettingKeys(template.content)))];
+export async function loadSettings(keys: readonly string[]): Promise<ReadonlyMap<string, AgentSetting>> {
 	const settings = new Map<string, AgentSetting>();
 	for (let start = 0; start < keys.length; start += FIND_SETTINGS_MAX_KEYS) {
 		const batch = keys.slice(start, start + FIND_SETTINGS_MAX_KEYS);
@@ -189,7 +188,13 @@ export async function generateSkills(
 	// Drift is measured against this set, so record its size: an empty or partial
 	// load turns every directive into apparent drift, and this line tells them apart.
 	log.debug(`Loaded ${commandsById.size} agent command(s).`);
-	const settingsByKey = await loadSettings(templates);
+	const settingKeys = [...new Set(templates.flatMap(template => collectSettingKeys(template.content)))];
+	// Setting facts are secondary: a failed lookup should leave their keys
+	// unresolved, not abort generation and take every command skill down too.
+	const settingsByKey = await loadSettings(settingKeys).catch(error => {
+		log.warn(`Could not look up setting facts: ${error instanceof Error ? error.message : String(error)}`);
+		return new Map<string, AgentSetting>();
+	});
 	log.debug(`Loaded ${settingsByKey.size} setting(s).`);
 	const extensionVersion = (context.extension.packageJSON as { version?: string }).version ?? '0.0.0';
 	const remoteRoot = currentRemoteRoot();

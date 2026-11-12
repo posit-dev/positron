@@ -95,7 +95,7 @@ export interface ExpandResult {
 const DIRECTIVE = /\{\{command:([^}]+)\}\}/g;
 
 /** Matches `{{setting:KEY}}`, capturing the key. */
-const SETTING_DIRECTIVE = /\{\{setting:([^}]+)\}\}/g;
+const SETTING_DIRECTIVE = /\{\{setting:(?<key>[^}]+)\}\}/g;
 
 /** Matches a line that is only an `{{if:FLAG}}` or `{{endif}}` marker. */
 const BLOCK_MARKER_LINE = /^\s*\{\{(?:if:(?<flag>[^}]*)|endif)\}\}\s*$/;
@@ -214,7 +214,10 @@ function renderSetting(setting: AgentSetting): string {
 export function collectSettingKeys(template: string): string[] {
 	const keys = new Set<string>();
 	for (const match of template.matchAll(SETTING_DIRECTIVE)) {
-		keys.add(match[1].trim());
+		const key = match.groups?.key;
+		if (key !== undefined) {
+			keys.add(key.trim());
+		}
 	}
 	return [...keys];
 }
@@ -321,8 +324,8 @@ export function expandTemplate(
 			}
 			return renderCommand(command);
 		})
-		.replace(SETTING_DIRECTIVE, (_match, rawKey: string) => {
-			const key = rawKey.trim();
+		.replace(SETTING_DIRECTIVE, (_match: string, _group: string, _offset: number, _input: string, groups: { key: string }) => {
+			const key = groups.key.trim();
 			const setting = settingsByKey.get(key);
 			if (!setting) {
 				unresolvedSettings.add(key);

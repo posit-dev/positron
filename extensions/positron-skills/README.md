@@ -92,8 +92,8 @@ literal id in a `### \`id\`` heading, write the guidance, and add its
   saying so and is logged as a warning at generation time.
 - `agentSkillDrift.vitest.ts` (in `positronAiFeatures`) fails when a command id
   named in a template no longer resolves in the workbench source, or when a
-  setting key named in a template is declared nowhere in the workbench source or
-  in any extension's `package.json`.
+  setting key named in a template is declared nowhere under `src/vs` or in any
+  extension's `package.json`.
 - A malformed conditional block (an unknown flag, or an unmatched marker) is
   logged as a warning at generation time, and no marker reaches the output.
 - `src/test/templateExpander.test.ts` covers the expansion itself, and fails on a

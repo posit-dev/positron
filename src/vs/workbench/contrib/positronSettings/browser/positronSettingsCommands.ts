@@ -519,7 +519,12 @@ CommandsRegistry.registerCommand({
 	},
 });
 
-/** One registered setting, as the findSettings command reports it. */
+/**
+ * One registered setting, as the findSettings command reports it. Besides the
+ * model, the positron-skills extension reads `key`, `registered`, `type`,
+ * `default`, `enum`, `minimum`, `maximum`, and `deprecated` to render setting
+ * facts into skill templates, so keep those fields' meaning stable.
+ */
 export interface IFoundSetting {
 	key: string;
 
@@ -580,6 +585,8 @@ export interface IFindSettingsResult {
 }
 
 const FIND_SETTINGS_DEFAULT_LIMIT = 50;
+// The positron-skills extension batches its key lookups by this cap
+// (FIND_SETTINGS_MAX_KEYS); lowering it here needs the same change there.
 const FIND_SETTINGS_MAX_LIMIT = 100;
 
 /**
