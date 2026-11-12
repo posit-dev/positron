@@ -3,13 +3,27 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-import base64
+from __future__ import annotations
+
+import io
+import itertools
 import logging
+from typing import TYPE_CHECKING, cast
 
 from ..session_mode import SessionMode
-from ..ui import UiService
+
+if TYPE_CHECKING:
+    from holoviews.core.dimension import Dimensioned
+    from matplotlib.figure import Figure
+
+    from ..plot_comm import PlotSize
+    from ..positron_ipkernel import PositronIPyKernel
+    from ..ui import UiService
 
 logger = logging.getLogger(__name__)
+
+# Numbers used to name HoloViews plots in the Plots pane.
+_plot_numbers = itertools.count(1)
 
 
 def set_holoviews_extension(ui_service: UiService, session_mode: SessionMode) -> None:
@@ -90,35 +104,75 @@ def set_holoviews_extension(ui_service: UiService, session_mode: SessionMode) ->
 
 def _patch_static_image_components() -> None:
     """
-    Display static HoloViews plots (e.g. the matplotlib backend) as images in the console.
+    Show static HoloViews matplotlib plots in the Plots pane.
 
-    HoloViews renders static plots as an HTML `<img>` fragment, which the console shows inline
-    instead of in the Plots pane. Emit an image MIME bundle instead so that the plot is shown in the
-    Plots pane like any other static plot.
+    HoloViews renders static matplotlib plots as an HTML `<img>` fragment, which the console shows
+    inline. Instead, open the figure in the Plots pane via the plots service and display nothing in
+    the console (see `display_holoviews`), like plots from Positron's matplotlib backend.
     """
     try:
         from holoviews.plotting import Plot, Renderer
-        from holoviews.plotting.renderer import MIME_TYPES
-        from panel.viewable import Viewable
 
         original_components = Renderer.components
 
         def patched_components(self, obj, fmt=None, comm=True, **kwargs):  # noqa: FBT002
+            if self.backend != "matplotlib":
+                return original_components(self, obj, fmt, comm, **kwargs)
+
             if isinstance(obj, Plot):
                 plot = obj
             else:
                 plot, fmt = self._validate(obj, fmt)
 
-            mime_type = MIME_TYPES.get(fmt) if fmt else None
-            if isinstance(plot, Viewable) or mime_type not in ("image/png", "image/svg+xml"):
+            if not isinstance(plot, Plot) or fmt not in ("png", "svg"):
                 return original_components(self, plot, fmt, comm, **kwargs)
 
-            data = self._figure_data(plot, fmt, **kwargs)
-            if isinstance(data, bytes):
-                data = base64.b64encode(data).decode("ascii")
-            return {mime_type: data}, {}
+            _show_in_plots_pane(plot.state)
+            return {}, {}
 
         Renderer.components = patched_components
     except Exception as e:
         # If patching fails, static plots are still shown, just inline in the console
         logger.warning("Could not patch holoviews to show static plots in the Plots pane: %s", e)
+
+
+def display_holoviews(obj: Dimensioned) -> None:
+    """
+    Display a HoloViews object.
+
+    Unlike IPython's default display, don't fall back to the object's text repr when HoloViews
+    displays nothing in the console, e.g. when the plot is shown in the Plots pane instead.
+    """
+    from holoviews import Store
+    from IPython.display import publish_display_data
+
+    data, metadata = obj._repr_mimebundle_()
+    # Show nothing if HoloViews displayed nothing, unless no HoloViews extension is loaded.
+    if data or not Store.renderers:
+        # Include the text repr like IPython would. The frontend also requires it to recognize
+        # interactive HoloViews plots.
+        publish_display_data({"text/plain": repr(obj), **data}, metadata)
+
+
+def _show_in_plots_pane(figure: Figure) -> None:
+    """Open a matplotlib figure in the Plots pane."""
+    from ..positron_ipkernel import PositronIPyKernel
+
+    intrinsic_size = tuple(figure.get_size_inches())
+
+    def render(size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
+        if size is None:
+            figure.set_size_inches(*intrinsic_size, forward=False)
+        else:
+            figure.set_size_inches(size.width / figure.dpi, size.height / figure.dpi, forward=False)
+        with io.BytesIO() as buffer:
+            figure.savefig(
+                buffer,
+                format=format_,
+                dpi=figure.dpi * pixel_ratio,
+                bbox_inches="tight" if size is None else None,
+            )
+            return buffer.getvalue()
+
+    kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
+    kernel.plots_service.create_plot(render, intrinsic_size, "HoloViews", next(_plot_numbers))

@@ -21,14 +21,13 @@ import hashlib
 import inspect
 import io
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from ..execute_request import PositronExecuteRequest
 from .backend import Backend
 from .registry import registry
 
@@ -130,33 +129,11 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
-        from ..plot_comm import PlotOrigin, PlotRange
         from ..positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
 
         kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
-
-        # Get the execution context from the current shell message
-        parent = kernel.get_parent("shell")
-        header: dict[str, Any] = cast("dict[str, Any]", parent.get("header", {}))
-        content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
-        execution_id: str = header.get("msg_id", "")
-        code: str = content.get("code", "")
-
-        # Extract code_location from the positron metadata, if present
-        code_location = PositronExecuteRequest.from_message(parent).code_location
-        origin: PlotOrigin | None = None
-        if code_location is not None:
-            origin = PlotOrigin(
-                uri=code_location.uri,
-                range=PlotRange(
-                    start_line=code_location.range.start.line,
-                    start_character=code_location.range.start.character,
-                    end_line=code_location.range.end.line,
-                    end_character=code_location.range.end.character,
-                ),
-            )
 
         # Detect which plotting library was used. Stored so `detach_library_figures`
         # can decide whether this figure should be detached after each cell.
@@ -166,14 +143,7 @@ class FigureManagerPositron(FigureManagerBase):
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot = self._plots_service.create_plot(
-            canvas.render,
-            canvas.intrinsic_size,
-            kind,
-            execution_id,
-            code,
-            num,
-            self._on_close,
-            origin,
+            canvas.render, canvas.intrinsic_size, kind, num, self._on_close
         )
 
     def _on_close(self) -> None:
