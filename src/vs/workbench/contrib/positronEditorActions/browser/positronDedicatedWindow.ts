@@ -7,23 +7,8 @@ import { getActiveWindow } from '../../../../base/browser/dom.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
-import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
+import { dedicatedWindowOptions } from '../../../browser/parts/editor/positronAuxiliaryWindowOptions.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-
-/**
- * The single definition of the "dedicated window" look: native OS title bar,
- * compact chrome, sized to (and opening over) the window the editor leaves.
- * `extraTraits` may add traits but never replace the shape -- the dedicated
- * look wins.
- */
-export function dedicatedWindowOptions(sourceWindow: Window, extraTraits?: IAuxiliaryWindowOpenOptions): IAuxiliaryWindowOpenOptions {
-	return {
-		...extraTraits,
-		compact: true,
-		nativeTitlebar: true,
-		bounds: { width: sourceWindow.outerWidth, height: sourceWindow.outerHeight }
-	};
-}
 
 /**
  * Moves the active editor into a dedicated window. Not in the palette;

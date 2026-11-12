@@ -21,13 +21,14 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { IProgressService } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorExtensions } from '../../../common/editor.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { withDelayedNotificationProgress } from '../../../common/positron/positronNotificationUtils.js';
 import { PackageEditor } from './packageEditor.js';
 import { PackageEditorInput } from './packageEditorInput.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -369,12 +370,7 @@ class RefreshPackagesAction extends Action2 {
 		const cts = new CancellationTokenSource();
 
 		try {
-			return await progress.withProgress({
-				title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...'),
-				location: ProgressLocation.Notification,
-				cancellable: true,
-				delay: 500
-			}, async () => {
+			return await withDelayedNotificationProgress(progress, { title: nls.localize('positronPackages.refreshingPackages', 'Refreshing Packages...') }, async () => {
 				try {
 					// User-initiated refresh: force a live outdated recompute so
 					// the pane can't keep showing stale cached indicators.
@@ -455,12 +451,7 @@ export class InstallPackageAction extends Action2 {
 			let outcome: IInstallPackageResult | undefined;
 
 			const performInstall = async (pkg: string, version?: string): Promise<void> => {
-				await progress.withProgress({
-					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
-					location: ProgressLocation.Notification,
-					cancellable: true,
-					delay: 500
-				}, async () => {
+				await withDelayedNotificationProgress(progress, { title: nls.localize('positronPackages.installingPackages', 'Installing Packages...') }, async () => {
 					try {
 						await service.installPackages([{ name: pkg, version }], cts.token);
 						showRestartSessionNotification(
@@ -558,12 +549,7 @@ class UninstallPackageAction extends Action2 {
 			};
 
 			const performUninstall = async (pkg: string): Promise<void> => {
-				await progress.withProgress({
-					title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...'),
-					location: ProgressLocation.Notification,
-					cancellable: true,
-					delay: 500
-				}, async () => {
+				await withDelayedNotificationProgress(progress, { title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...') }, async () => {
 					try {
 						await service.uninstallPackages([pkg], cts.token);
 						showRestartSessionNotification(
@@ -662,12 +648,7 @@ export class UpdatePackageAction extends Action2 {
 			let outcome: IUpdatePackageResult | undefined;
 
 			const performUpdate = async (pkg: string, version?: string): Promise<void> => {
-				await progress.withProgress({
-					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
-					location: ProgressLocation.Notification,
-					cancellable: true,
-					delay: 500
-				}, async () => {
+				await withDelayedNotificationProgress(progress, { title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...') }, async () => {
 					try {
 						await service.updatePackages([{ name: pkg, version }], cts.token);
 						showRestartSessionNotification(
@@ -765,12 +746,7 @@ class UpdateAllPackagesAction extends Action2 {
 		const cts = new CancellationTokenSource();
 
 		try {
-			await progress.withProgress({
-				title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
-				location: ProgressLocation.Notification,
-				cancellable: true,
-				delay: 500
-			}, async () => {
+			await withDelayedNotificationProgress(progress, { title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...') }, async () => {
 				try {
 					const updated = await service.updateAllPackages(cts.token);
 					if (cts.token.isCancellationRequested) {
