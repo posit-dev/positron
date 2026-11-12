@@ -26,7 +26,6 @@ concurrency:
 jobs:
   required-tests:
     name: required-tests
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
     # Per-lane commit statuses; a check run from this token would show under another workflow's name.
