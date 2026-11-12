@@ -5,9 +5,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
-const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
+const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
 
 test('parseResultComment takes the short SHA, report base and run id from a result comment', () => {
@@ -467,4 +467,18 @@ test('findingOrigin marks an inherited finding whose duplicate the PR closes as 
 	assert.equal(findingOrigin(null, dupe, [17021]), null);
 	// Related but a different bug: known, not a duplicate.
 	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'inherited');
+});
+
+test('priorRows keeps every previous row for a PR, or one run on it, without duplicate marks', () => {
+	const prev = [
+		{ pr: 1, run: '10', finding: 1, outcome: 'pending', dupOf: '9#1' },
+		{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed', dupMaybe: '10#1' },
+		{ pr: 2, run: '12', finding: 1, outcome: 'fixed-in-pr' },
+	];
+	assert.deepEqual(priorRows(prev, 1), [
+		{ pr: 1, run: '10', finding: 1, outcome: 'pending' },
+		{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' },
+	]);
+	assert.deepEqual(priorRows(prev, 1, '11'), [{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' }]);
+	assert.deepEqual(priorRows(prev, 3), []);
 });

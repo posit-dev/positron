@@ -296,6 +296,11 @@ export function renderPrBody(body, max = PR_BODY_MAX) {
 	].join('\n');
 }
 
+/** The repo the run is about: EXPLORE_REPO when set (run hosted elsewhere), else this repo. */
+export function exploreRepo(env) {
+	return env.EXPLORE_REPO || env.GITHUB_REPOSITORY;
+}
+
 /**
  * The run's target line, in announce's summary: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none, and
@@ -362,6 +367,35 @@ export function renderStepSummary(report, baseUrl, demoted = []) {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
 	return `${lines.join('\n')}\n`;
+}
+
+/** The exact reason the helpers check gives; the comment shows it when no `reason` is passed. */
+export const OUTDATED_HELPERS_REASON = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
+
+/** Points at the run artifact; a positron-builds run says only org members can open it. */
+function artifactLine(runUrl, buildsRun) {
+	return buildsRun
+		? `The report and its screenshots are in the workflow artifact of the [positron-builds run](${runUrl}); only posit-dev org members can open it.`
+		: `The report and its screenshots are in the workflow artifact. [View run \u2192](${runUrl})`;
+}
+
+/**
+ * Turns the builds run's outcome into the comment state. A published complete
+ * report wins, then a job timeout, a cancelled run, a missing result (failed),
+ * a failed scan, an outdated branch, and last the agent's own outcome. A
+ * timed-out job leaves the run cancelled too, and must not read as "Cancelled".
+ * `reportUrl` comes back only for a state that shows a report.
+ */
+export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, result, reportUrl }) {
+	// A later failure or cancel must not hide a report that was published.
+	if (reportUrl && result?.scan === 'passed' && !result.outdated && result.outcome === 'complete') { return { state: 'complete', reportUrl }; }
+	if (timedOutModels?.has(model)) { return { state: 'job-timeout', reportUrl: '' }; }
+	if (runConclusion === 'cancelled') { return { state: 'cancelled', reportUrl: '' }; }
+	if (!result) { return { state: 'failed', reportUrl: '' }; }
+	if (result.scan === 'failed') { return { state: 'scan-failed', reportUrl: '' }; }
+	if (result.outdated) { return { state: 'outdated', reportUrl: '' }; }
+	const showsReport = ['complete', 'partial', 'timed-out'].includes(result.outcome);
+	return { state: result.outcome, reportUrl: showsReport ? reportUrl : '' };
 }
 
 /** Labels this workflow's PR comments. Each /test run owns its own comment. */
@@ -449,11 +483,13 @@ function autoRunNote(hasReport) {
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
  * `reason` says why), `outdated` (the branch predates the tooling the run
- * needs, and `reason` says what to do), `cancelled`, or empty when the agent
+ * needs, and `reason` says what to do), `cancelled`, `job-timeout` (the explore job hit
+ * its limit), `scan-failed` (the secret scan blocked publishing; `scanUrl` links the
+ * scan job and nothing from the run is shown), or empty when the agent
  * never ran (the build failed first). `failure` is failedStep's answer for that
  * last case, so the comment names the step that broke and links its log.
  */
-export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null }) {
+export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, headSha, reason, focus, autoRun = false, failure = null, scanUrl = '', buildsRun = false }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
@@ -465,23 +501,30 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (state === 'outdated') {
-		return comment([`Not run: ${reason || 'this branch is older than the tooling exploratory runs need. Rebase it onto main and comment /explore again.'}`, run]);
+		return comment([`Not run: ${reason || OUTDATED_HELPERS_REASON}`, run]);
 	}
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);
+	}
+	if (state === 'job-timeout') {
+		return comment(['Stopped at the 90-minute job limit before the agent produced a report.', run]);
+	}
+	if (state === 'scan-failed') {
+		return comment(['The secret scan found a secret in the run output, so nothing was published.', scanUrl ? `[View scan job \u2192](${scanUrl})` : run]);
 	}
 	if (report && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
 		const lines = [tallyFindings(report, demoted)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
-		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
+		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : artifactLine(runUrl, buildsRun));
 		return comment(lines, true);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
 		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'
 			: state === 'no-report' ? 'The agent finished without writing a report.'
-				: failure ? `The run failed at the \`${failure.step}\` step of \`${failure.job}\`, before the agent produced a report.`
-					: 'The run failed before the agent produced a report.';
+				: failure?.repo ? `The run failed at \`${failure.step}\` in ${failure.repo}. Only posit-dev org members can open this log.`
+					: failure ? `The run failed at the \`${failure.step}\` step of \`${failure.job}\`, before the agent produced a report.`
+						: 'The run failed before the agent produced a report.';
 	return comment([why, failure ? `[View failed step \u2192](${failure.url})` : run]);
 }
 

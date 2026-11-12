@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Processes a CloudFront-hosted Playwright HTML report end-to-end (positron-builds
+// Processes a Playwright HTML report on the report server end-to-end (positron-builds
 // non-sharded runs). Fetches index.html, decodes the embedded base64 report.zip,
 // reads report.json + per-file detail JSONs, downloads trace and error-context
 // attachments from S3, parses traces, and extracts screencast frames.
@@ -12,10 +12,10 @@
 //     [--last N] [--screenshots N] [--cleanup] [--title <string>] [--test-id <string>]
 //
 // <S3_URL> is a Playwright HTML report base URL, e.g.:
-//   https://d38p2avprg8il3.cloudfront.net/playwright-report-<run>-<attempt>-<id>-<os>-<arch>/
+//   https://positron-reports.tail00da2.ts.net/playwright-report-<run>-<attempt>-<id>-<os>-<arch>/
 //
 // Options:
-//   --report-url <url>   CloudFront base URL of the Playwright HTML report (required)
+//   --report-url <url>   Report server base URL of the Playwright HTML report (required)
 //   --output-dir <dir>   Where to save screenshots and error-context (required)
 //   --last <N>           Number of trace actions to show (default: 500)
 //   --screenshots <N>    Number of screencast frames leading up to the failure to extract per attempt (default: 3)

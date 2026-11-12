@@ -1,0 +1,39 @@
+name: "PR Docs-Only Check: Tests"
+
+# Runs the docs-only check's own tests on a PR that changes it. pr-dispatch.yml
+# and main-dispatch.yml use the check to skip the tests in positron-builds, so
+# a broken check could pass a code PR with no tests run.
+#
+# Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
+
+on:
+  pull_request:
+    paths:
+      - "scripts/pr-docs-only.sh"
+      - "scripts/lib/pr-docs-only-lib.sh"
+      - "scripts/test/pr-docs-only-*.sh"
+      - ".github/workflows/pr-docs-only-checks.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+          persist-credentials: false
+
+      - name: Test the docs-only helpers
+        run: bash scripts/test/pr-docs-only-lib-test.sh
+
+      - name: Test the docs-only script
+        run: bash scripts/test/pr-docs-only-test.sh
