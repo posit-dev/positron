@@ -23,7 +23,7 @@ import {
 import { defaultWorkspacePath } from '../infra/test-runner';
 import { isArtifactEnabled } from '../infra/artifactSwitches.js';
 import { secretValues } from '../infra/appEnv.js';
-import { scrubDirectory } from '../infra/secretScrub.js';
+import { scrubDirectory, scrubZip } from '../infra/secretScrub.js';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
@@ -540,13 +540,16 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	// false. The startup chunk is still recording on the (still-open) context, so
 	// export it here. Bounded by a race so a wedged context can't hang afterAll.
 	if (activeApp && activeApp.code?.driver?.isTracingChunkOpen && shouldUseCustomTracing(testInfo.project)) {
+		const tracePath = testInfo.outputPath(APP_START_FAILURE_TRACE);
 		try {
-			const tracePath = testInfo.outputPath(APP_START_FAILURE_TRACE);
 			const timeout = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('export timed out')), 30000));
 			await Promise.race([activeApp.stopTracing('app-start-failure', true, tracePath), timeout]);
+			await scrubZip(tracePath, secretValues(process.env));
 			testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 		} catch (e) {
+			// Never leave a trace that may still hold a typed secret in the upload set.
 			console.log(`Failed to export startup trace after app setup hang: ${e}`);
+			await fs.promises.rm(tracePath, { force: true });
 		}
 	}
 	activeApp = undefined;

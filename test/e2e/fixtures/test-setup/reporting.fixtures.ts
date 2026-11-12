@@ -10,7 +10,7 @@ import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
 import { isArtifactEnabled } from '../../infra/artifactSwitches.js';
 import { secretValues } from '../../infra/appEnv.js';
-import { scrubDirectory } from '../../infra/secretScrub.js';
+import { scrubDirectory, scrubZip } from '../../infra/secretScrub.js';
 
 export interface AttachScreenshotsToReportOptions {
 	app: Application;
@@ -361,7 +361,14 @@ export function TracingFixture() {
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {
 				const tracePath = testInfo.outputPath(`${title}.zip`);
 				await app.stopTracing(title, true, tracePath);
-				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+				try {
+					await scrubZip(tracePath, secretValues(process.env));
+					testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+				} catch (e) {
+					// Never attach a trace that may still hold a typed secret.
+					console.error(`Dropped trace ${tracePath}: scrub failed: ${e}`);
+					await fs.promises.rm(tracePath, { force: true });
+				}
 			} else {
 				await app.stopTracing(title, false);
 			}

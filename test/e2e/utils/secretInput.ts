@@ -9,8 +9,8 @@ import { expect, Locator } from '@playwright/test';
  * Sets an input's value with evaluate() instead of fill()/type()/pressSequentially(), whose
  * step titles carry the value ("Fill \"...\"") into blob and HTML reports.
  * Use for every secret: API keys, passwords, tokens.
- * Traces still record the evaluate argument and the field's DOM value, so a
- * run with traces on still holds the secret. CI keeps traces off.
+ * Traces still record the evaluate argument and the field's DOM value; the
+ * tracing fixture scrubs the exported trace zip (see scrubZip).
  */
 export async function fillSecretValue(locator: Locator, value: string): Promise<void> {
 	await locator.evaluate((el: HTMLInputElement | HTMLTextAreaElement, val) => {

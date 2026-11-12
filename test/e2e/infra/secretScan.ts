@@ -5,53 +5,13 @@
 
 import { promises as fs } from 'fs';
 import { basename, join } from 'path';
-import yauzl from 'yauzl';
 import type { SecretValue } from './appEnv';
-import { encodedForms, scrubBuffer, toLatin1Needle, type SecretEncoding } from './secretScrub';
+import { encodedForms, readZipEntries, scrubBuffer, toLatin1Needle, type SecretEncoding } from './secretScrub';
 
 export interface ScanHit {
 	file: string;
 	name: string;
 	encoding: SecretEncoding;
-}
-
-/** Reads every file entry of a zip held in memory. */
-function readZipEntries(zip: Buffer, label: string): Promise<{ path: string; data: Buffer }[]> {
-	return new Promise((resolve, reject) => {
-		yauzl.fromBuffer(zip, { lazyEntries: true }, (openErr, zipfile) => {
-			if (openErr || !zipfile) {
-				reject(new Error(`cannot read zip ${label}: ${openErr?.message ?? 'unknown error'}`));
-				return;
-			}
-			const entries: { path: string; data: Buffer }[] = [];
-			const fail = (err: Error) => {
-				zipfile.close();
-				reject(new Error(`cannot read zip ${label}: ${err.message}`));
-			};
-			zipfile.on('error', fail);
-			zipfile.on('end', () => resolve(entries));
-			zipfile.on('entry', (entry: yauzl.Entry) => {
-				if (entry.fileName.endsWith('/')) {
-					zipfile.readEntry();
-					return;
-				}
-				zipfile.openReadStream(entry, (streamErr, stream) => {
-					if (streamErr || !stream) {
-						fail(streamErr ?? new Error('no stream'));
-						return;
-					}
-					const chunks: Buffer[] = [];
-					stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-					stream.on('error', fail);
-					stream.on('end', () => {
-						entries.push({ path: entry.fileName, data: Buffer.concat(chunks) });
-						zipfile.readEntry();
-					});
-				});
-			});
-			zipfile.readEntry();
-		});
-	});
 }
 
 function isZip(label: string, data: Buffer): boolean {
