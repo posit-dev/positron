@@ -1554,6 +1554,29 @@ describe('DataConnectionsTreeInstance', () => {
 		});
 	});
 
+	it('fetches a failed node again when it is collapsed and expanded', async () => {
+		let tablesFail = true;
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => {
+				if (nodeHandle === 1 && tablesFail) {
+					throw new Error('busy');
+				}
+				return nodeHandle === 1 ? [nodeDto({ nodeHandle: 2, name: 'mtcars', kind: 'table', hasGetChildren: false })] : [];
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		await tree.expand('dto:1:1');
+
+		tablesFail = false;
+		tree.collapse('dto:1:1');
+		await tree.expand('dto:1:1');
+
+		expect(tree.visibleNodes.map(visible => [visible.node.data.kind === 'dto' ? visible.node.data.dto.name : 'connection', visible.expandState]))
+			.toEqual([['connection', 'expanded'], ['Tables', 'expanded'], ['mtcars', 'leaf']]);
+	});
+
 	it('reports a connection that fails on Refresh once, however many times Refresh is pressed', async () => {
 		const { tree, getChildren, notificationError } = createTree();
 		await tree.refresh();

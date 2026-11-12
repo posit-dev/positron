@@ -13,8 +13,11 @@ export class ConnectionsClientInstance extends Disposable {
 	constructor(client: IRuntimeClientInstance<any, any>) {
 		super();
 		this._positronConnectionsComm = new PositronConnectionsComm(client, {
-			// No timeout for listing or previewing objects
+			// No timeout for browsing or previewing objects. A busy runtime answers these when it
+			// is idle again, and a timed-out request would leave the tree in an error state.
 			list_objects: { timeout: undefined },
+			list_fields: { timeout: undefined },
+			contains_data: { timeout: undefined },
 			preview_object: { timeout: undefined },
 		});
 		this._register(this._positronConnectionsComm);

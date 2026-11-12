@@ -173,6 +173,34 @@ describe('Positron - Runtime Connection Handle', () => {
 		expect(nodes.map(node => node.name)).toEqual(expected);
 	});
 
+	it('waits for a busy runtime instead of timing out while it browses', async () => {
+		objects[''] = [{ name: 'main', kind: 'schema' }];
+		objects.main = [{ name: 'mtcars', kind: 'table' }];
+		dataPaths.add('main/mtcars');
+		const timeouts: Record<string, number | undefined> = {};
+		const answer = testClient.rpcHandler!;
+		testClient.rpcHandler = async (request: RpcRequest, timeout: number) => {
+			timeouts[request.method] = timeout;
+			return answer(request, timeout);
+		};
+
+		const [schema] = await handle.getChildren();
+		const [table] = await handle.nodeGetChildren(schema.nodeHandle);
+		await handle.nodeGetChildren(table.nodeHandle);
+
+		expect(timeouts).toEqual({
+			list_objects: undefined,
+			contains_data: undefined,
+			list_fields: undefined,
+		});
+	});
+
+	it('rejects with an Error that carries the runtime\'s message', async () => {
+		testClient.rpcHandler = async () => ({ data: { error: { code: -32603, message: 'Invalid connection' } } });
+
+		await expect(handle.getChildren()).rejects.toThrow(new Error('Invalid connection'));
+	});
+
 	it('keeps unknown kinds in the request path', async () => {
 		objects[''] = [{ name: 'bq', kind: 'dataset' }];
 

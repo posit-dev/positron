@@ -7,6 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
+import { PositronCommError } from '../../languageRuntime/common/positronBaseComm.js';
 import { ObjectSchema } from '../../languageRuntime/common/positronConnectionsComm.js';
 import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult } from '../../positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -21,6 +22,22 @@ function isContainerKind(contractKind: string): boolean {
 			return false;
 		default:
 			return true;
+	}
+}
+
+/**
+ * Waits for a comm request and rethrows a failure as an Error. The comm rejects with a plain
+ * `PositronCommError` object, which the Data Connections pane would print as "[object Object]".
+ */
+async function commRequest<T>(request: Promise<T>): Promise<T> {
+	try {
+		return await request;
+	} catch (err) {
+		if (err instanceof Error) {
+			throw err;
+		}
+		const message = (err as Partial<PositronCommError> | undefined)?.message;
+		throw new Error(typeof message === 'string' ? message : String(err));
 	}
 }
 
@@ -91,7 +108,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 				}
 			}
 		}
-		const topLevel = await this._client.listObjects([]);
+		const topLevel = await commRequest(this._client.listObjects([]));
 		const lone = topLevel.length === 1 ? topLevel[0] : undefined;
 		const nodes = lone && lone.name === this._connectionName && isContainerKind(lone.kind)
 			? await this._childrenOf([{ name: lone.name, kind: lone.kind }])
@@ -145,7 +162,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	 * dataset id to report.
 	 */
 	async nodePreview(nodeHandle: number): Promise<string | undefined> {
-		await this._client.previewObject(this._getNodePath(nodeHandle));
+		await commRequest(this._client.previewObject(this._getNodePath(nodeHandle)));
 		return undefined;
 	}
 
@@ -183,11 +200,11 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 
 	/** Lists the fields of a path that contains data, and its child objects otherwise. */
 	private async _childrenOf(path: ObjectSchema[]): Promise<IDataConnectionNodeDTO[]> {
-		if (await this._client.containsData(path)) {
-			const fields = await this._client.listFields(path);
+		if (await commRequest(this._client.containsData(path))) {
+			const fields = await commRequest(this._client.listFields(path));
 			return this._toNodes(path, fields.map(field => ({ name: field.name, kind: 'field', dtype: field.dtype })), true);
 		}
-		return this._toNodes(path, await this._client.listObjects(path), false);
+		return this._toNodes(path, await commRequest(this._client.listObjects(path)), false);
 	}
 
 	/** Marks node handles as held by a `retainNodes` walk; see {@link _retained}. */
@@ -213,7 +230,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 		return Promise.all(items.map(async item => {
 			const path = [...parentPath, { name: item.name, kind: item.kind }];
 			// A field never contains data, so skip asking the runtime about it.
-			const containsData = !isField && await this._client.containsData(path);
+			const containsData = !isField && await commRequest(this._client.containsData(path));
 			const nodeHandle = this._nextNodeHandle++;
 			this._nodePaths.set(nodeHandle, path);
 			const node: IDataConnectionNodeDTO = {
