@@ -338,19 +338,28 @@ export function renderGateSummary(testable, reason, note, cost) {
  */
 function tallyFindings(report, demoted = []) {
 	const findings = (report?.findings ?? []).filter(f => !demoted.includes(f.n));
-	const findingCount = findings.length;
 	const severityCounts = { major: 0, moderate: 0, minor: 0 };
 	for (const f of findings) {
 		if (f.severity in severityCounts) {
 			severityCounts[f.severity]++;
 		}
 	}
+	return formatTally(severityCounts, findings.length);
+}
+
+/** "2 moderate \u00b7 3 minor" from per-severity counts, or the total when no severity has any. */
+export function formatTally(severityCounts, findingCount) {
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
 		.join(' \u00b7 ');
 	if (breakdown) { return breakdown; }
 	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
+}
+
+/** The step summaries' link to a run's report page. */
+export function reportLinkLine(pageUrl) {
+	return `\u{1F50D} [Exploratory Test Report](${pageUrl})`;
 }
 
 /**
@@ -362,7 +371,7 @@ export function renderStepSummary(report, baseUrl, demoted = []) {
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
-		lines.push(`\u{1F50D} [Exploratory Test Report](${baseUrl}/index.html)`);
+		lines.push(reportLinkLine(`${baseUrl}/index.html`));
 	} else {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
