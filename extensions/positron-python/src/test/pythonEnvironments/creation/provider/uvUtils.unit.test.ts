@@ -62,6 +62,12 @@ suite('uv Utils test', () => {
         assert.deepEqual(result.versions, ['3.13', '3.12', '3.11']);
     });
 
+    test('getUvPythonVersions follows the uv config (not only uv-managed Pythons)', async () => {
+        // With python-preference = "only-system", only system Pythons are usable. See #16343.
+        await getUvPythonVersions();
+        sinon.assert.calledOnceWithExactly(getAvailablePythonVersionsStub, { managedOnly: false });
+    });
+
     test('getUvPythonVersions falls back to static list on error', async () => {
         getAvailablePythonVersionsStub.rejects(new Error('uv not found'));
 

@@ -612,6 +612,33 @@ suite('UV Python Installer Tests', () => {
             );
         });
 
+        test('Follows the uv config when managedOnly is false (omits --managed-python)', async () => {
+            // Venv creation must respect python-preference (for example "only-system"), so it
+            // lists every Python that uv can use, including system Pythons. See #16343.
+            execStub.resolves({
+                stdout: 'cpython-3.12.3-linux-x86_64-gnu    /usr/bin/python3.12',
+            });
+
+            const result = await getAvailablePythonVersions({ managedOnly: false });
+
+            const listCall = execStub
+                .getCalls()
+                .find((call) => Array.isArray(call.args[1]) && (call.args[1] as string[]).includes('list'));
+            assert.ok(listCall, 'Expected uv python list to be invoked');
+            assert.ok(
+                !(listCall.args[1] as string[]).includes('--managed-python'),
+                'Expected uv python list to be called without --managed-python',
+            );
+            assert.deepStrictEqual(result, [
+                {
+                    version: '3.12',
+                    isInstalled: true,
+                    path: '/usr/bin/python3.12',
+                    identifier: 'cpython-3.12.3-linux-x86_64-gnu',
+                },
+            ]);
+        });
+
         test('Reports a minor version as installed when a newer patch is download-available', async () => {
             // Mirrors real `uv python list` output: newest patches are listed first as
             // "<download available>", freethreaded variants are interleaved, and the installed

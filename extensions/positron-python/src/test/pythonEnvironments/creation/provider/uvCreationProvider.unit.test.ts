@@ -173,6 +173,58 @@ suite('uv Creation provider tests', () => {
         assert.isTrue(pickExistingVenvActionStub.calledOnce);
     });
 
+    test("uvPythonVersion 'auto': lets uv venv pick the interpreter (no -p)", async () => {
+        // A version picked from `uv python list --managed-python` and passed with -p overrides
+        // the user's uv config (for example python-preference = "only-system"). See #16343.
+        const workspace1 = {
+            uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
+            name: 'workspace1',
+            index: 0,
+        };
+        pickWorkspaceFolderStub.resolves(workspace1);
+        const getAvailablePythonVersionsStub = sinon
+            .stub(uv, 'getAvailablePythonVersions')
+            .resolves([{ version: '3.13', isInstalled: true, identifier: 'cpython-3.13.1-macos-aarch64-none' }]);
+
+        const deferred = createDeferred();
+        let _complete: undefined | (() => void);
+        execObservableStub.callsFake(() => ({
+            proc: { exitCode: 0 },
+            out: {
+                subscribe: (
+                    _next?: (value: Output<string>) => void,
+                    _error?: (error: unknown) => void,
+                    complete?: () => void,
+                ) => {
+                    _complete = complete;
+                    deferred.resolve();
+                },
+            },
+            dispose: () => undefined,
+        }));
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
+        const promise = uvProvider.createEnvironment({ uvPythonVersion: 'auto' });
+        await deferred.promise;
+        _complete!();
+        const result = await promise;
+
+        assert.deepStrictEqual(execObservableStub.firstCall.args[1], ['venv', '.venv', '--no-project', '--seed']);
+        assert.isDefined(result);
+        assert.isUndefined((result as CreateEnvironmentResult).error);
+        sinon.assert.notCalled(getAvailablePythonVersionsStub);
+        sinon.assert.notCalled(getUvPythonVersionInfoStub);
+        sinon.assert.notCalled(pickPythonVersionStub);
+    });
+
     test('Reports rather than spawning when the probe can no longer find uv', async () => {
         pickWorkspaceFolderStub.resolves({
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
