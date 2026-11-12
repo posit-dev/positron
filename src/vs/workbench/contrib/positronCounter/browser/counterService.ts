@@ -33,6 +33,9 @@ function createCounterStore(initialValue: number, storageService: IStorageServic
 				version: 1,
 				storage: createJSONStorage(() => createStorageStateStorage(storageService)),
 				partialize: state => ({ value: state.value, stats: state.stats }),
+				// Where a schema change would convert older persisted state. Version 1 is
+				// the first shape, so older state passes through unchanged.
+				migrate: persistedState => persistedState as CounterState,
 			}
 		)
 	);
@@ -91,9 +94,13 @@ export class CounterService extends Disposable implements ICounterService {
 		if (!Number.isFinite(amount)) {
 			return;
 		}
+		// A finite amount can still overflow; Infinity would persist as null.
+		const to = next(this._counterStore.getState().value);
+		if (!Number.isFinite(to)) {
+			return;
+		}
 		this._counterStore.setState(state => {
 			const from = state.value;
-			const to = next(from);
 			state.value = to;
 			state.history.push({ op, amount, from, to, at: Date.now() });
 			if (state.history.length > COUNTER_HISTORY_LIMIT) {

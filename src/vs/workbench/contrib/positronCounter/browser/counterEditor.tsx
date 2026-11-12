@@ -8,6 +8,7 @@ import './counterEditor.css';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { CounterView } from './components/counterView.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -27,7 +28,9 @@ import { IReactComponentContainer, ISize, IElementPosition, PositronReactRendere
  */
 export class CounterEditor extends EditorPane implements IReactComponentContainer {
 	private readonly _container: HTMLElement;
-	private _reactRenderer?: PositronReactRenderer;
+	// Cleared in clearInput so a closed copy (for example, in a split group whose pane is
+	// cached) unmounts its React tree and drops its store subscriptions.
+	private readonly _reactRenderer = this._register(new MutableDisposable<PositronReactRenderer>());
 
 	private _width = 0;
 	private _height = 0;
@@ -80,15 +83,16 @@ export class CounterEditor extends EditorPane implements IReactComponentContaine
 	): Promise<void> {
 		await super.setInput(input, options, context, token);
 
-		if (!this._reactRenderer) {
-			this._reactRenderer = this._register(new PositronReactRenderer(this._container));
-			this._reactRenderer.render(<CounterView />);
+		if (!this._reactRenderer.value) {
+			this._reactRenderer.value = new PositronReactRenderer(this._container);
+			this._reactRenderer.value.render(<CounterView />);
 		}
 
 		this._onVisibilityChangedEmitter.fire(this.isVisible());
 	}
 
 	override clearInput(): void {
+		this._reactRenderer.clear();
 		this._onVisibilityChangedEmitter.fire(false);
 		super.clearInput();
 	}

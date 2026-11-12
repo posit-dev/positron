@@ -72,6 +72,14 @@ describe('CounterService', () => {
 		expect(service.store.getState()).toBe(before);
 	});
 
+	it('ignores a change whose result overflows to a non-finite value', () => {
+		const { service } = createService();
+		service.increment(1e308);
+		const before = service.store.getState();
+		service.increment(1e308);
+		expect(service.store.getState()).toBe(before);
+	});
+
 	it('reset reads the setting live', () => {
 		const { service, configuration } = createService();
 		service.increment(2);
@@ -130,6 +138,18 @@ describe('CounterService', () => {
 			history: [],
 			stats: { min: 5, max: 7, counts: { increment: 1, decrement: 0, reset: 0 } },
 		});
+	});
+
+	it('migrates state stored by an older version', () => {
+		const storage = createStorage();
+		storage.store(
+			COUNTER_STORAGE_KEY,
+			JSON.stringify({ state: { value: 3, stats: { min: 0, max: 3, counts: { increment: 3, decrement: 0, reset: 0 } } }, version: 0 }),
+			StorageScope.PROFILE,
+			1 /* StorageTarget.MACHINE */
+		);
+		const { service } = createService({ storage });
+		expect(service.store.getState().value).toBe(3);
 	});
 
 	it('recovers from corrupt stored state', () => {

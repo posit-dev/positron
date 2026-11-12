@@ -12,6 +12,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { CounterView } from '../../browser/components/counterView.js';
 import { CounterService } from '../../browser/counterService.js';
 import { ICounterService } from '../../common/counter.js';
+import { trackSubscriptions } from './counterTestUtils.js';
 
 describe('CounterView', () => {
 	// One service for the suite: the stub is captured at describe scope, so
@@ -77,10 +78,11 @@ describe('CounterView', () => {
 		expect(screen.getByTestId('counter-controls')).toHaveAttribute('data-render-count', renders);
 	});
 
-	it('unmounting stops updates', () => {
+	it('unmounting removes every store subscription', () => {
+		const activeSubscriptions = trackSubscriptions(service);
 		const { unmount } = rtl.render(<CounterView />);
+		expect(activeSubscriptions()).toBe(4);
 		unmount();
-		expect(() => service.increment()).not.toThrow();
-		expect(screen.queryByTestId('counter-value')).not.toBeInTheDocument();
+		expect(activeSubscriptions()).toBe(0);
 	});
 });
