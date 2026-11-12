@@ -514,9 +514,12 @@ export interface UvAvailablePython {
 /**
  * Gets a list of available Python versions from uv.
  * Filters out pre-release versions and returns stable versions only.
+ * @param options.managedOnly When true (the default), list only uv-managed Pythons. Pass false
+ *   to follow the user's uv config (for example `python-preference = "only-system"`).
  * @returns Array of available Python versions, sorted by version descending
  */
-export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]> {
+export async function getAvailablePythonVersions(options?: { managedOnly?: boolean }): Promise<UvAvailablePython[]> {
+    const managedOnly = options?.managedOnly ?? true;
     try {
         // Use `uv python list` to get available versions
         // Output format:
@@ -524,13 +527,19 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
         //   cpython-3.12.8-macos-aarch64-none     <download available>
         // --managed-python restricts the listing to uv-managed Pythons. This still includes the
         // "<download available>" rows for installable versions, but excludes system Pythons (e.g.
-        // /usr/bin/python3, Homebrew). For this "Install Python via uv" flow, only uv-managed
+        // /usr/bin/python3, Homebrew). For the "Install Python via uv" flow, only uv-managed
         // installs should count as already installed; a system Python is shown as installable.
+        // Venv creation passes managedOnly: false so the list follows the user's uv config
+        // (python-preference, python-downloads) instead of overriding it.
         // On Windows ARM64, use --all-arches to see ARM64 builds (uv defaults to x64)
         // See: https://github.com/astral-sh/uv/issues/12906
-        const args = isWindowsArm64()
-            ? ['python', 'list', '--managed-python', '--all-arches']
-            : ['python', 'list', '--managed-python'];
+        const args = ['python', 'list'];
+        if (managedOnly) {
+            args.push('--managed-python');
+        }
+        if (isWindowsArm64()) {
+            args.push('--all-arches');
+        }
         const result = await execLocatedUv(args, { throwOnStdErr: false });
         const output = result?.stdout.trim();
 

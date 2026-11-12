@@ -26,7 +26,6 @@ import {
 } from '../proposed.createEnvApis';
 import {
     execObservableLocatedUv,
-    getAvailablePythonVersions,
     getStablePythonAfterUpdate,
     getUvPythonVersionInfo,
 } from '../../common/environmentManagers/uv';
@@ -37,9 +36,14 @@ import { reusedEnvironmentResult } from '../reusedEnvironment';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
+/**
+ * Runs `uv venv` in the workspace.
+ * @param version The Python version to pass with `-p`. When undefined, uv picks the
+ *   interpreter from the user's uv config (for example `python-preference`).
+ */
 export async function createUvVenv(
     workspace: WorkspaceFolder,
-    version: string,
+    version: string | undefined,
     progress: CreateEnvironmentProgress,
     token?: CancellationToken,
     envName?: string,
@@ -48,7 +52,10 @@ export async function createUvVenv(
         message: CreateEnv.Venv.creating,
     });
     const targetDir = envName ?? '.venv';
-    const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
+    const argv = ['venv', targetDir, '--no-project', '--seed'];
+    if (version) {
+        argv.push('-p', version);
+    }
 
     const deferred = createDeferred<string | undefined>();
     traceLog('Running uv venv creation script: ', ['uv', ...argv]);
@@ -144,19 +151,16 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
         workspaceStep.next = existingEnvStep;
 
         let version: string | undefined;
+        // 'auto' runs `uv venv` without -p, so uv picks the interpreter from the user's uv
+        // config (for example python-preference = "only-system"). See #16343.
+        let letUvPickVersion = false;
         let installDeps = options?.installPackages ?? false;
         const versionStep = new MultiStepNode(
             workspaceStep,
             async (context) => {
                 if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion === 'auto') {
-                    const versions = await getAvailablePythonVersions();
-                    if (versions.length > 0) {
-                        version = versions[0].version;
-                        traceInfo(`Auto-selected Python version ${version} for uv environment.`);
-                    } else {
-                        traceError('No Python versions available from uv for auto-selection.');
-                        return MultiStepAction.Cancel;
-                    }
+                    letUvPickVersion = true;
+                    traceInfo('Letting uv pick the Python version for the uv environment.');
                 } else if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion) {
                     version = options.uvPythonVersion;
                 } else if (
@@ -219,13 +223,13 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     throw new Error('Failed to create uv environment. Workspace is undefined.');
                 }
 
-                if (!version) {
+                if (!version && !letUvPickVersion) {
                     throw new Error('Failed to create uv environment. Python version is undefined.');
                 }
 
                 // Check if uv would install a pre-release version and warn the user
-                const versionInfo = await getUvPythonVersionInfo(version);
-                if (versionInfo?.isPrerelease) {
+                const versionInfo = version ? await getUvPythonVersionInfo(version) : undefined;
+                if (version && versionInfo?.isPrerelease) {
                     traceWarn(
                         `uv would install pre-release Python ${versionInfo.version} for requested version ${version}`,
                     );

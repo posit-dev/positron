@@ -18,7 +18,8 @@ const SUPPORTED_UV_PYTHON_VERSIONS = ['3.15', '3.14', '3.13', '3.12', '3.11', '3
  */
 export async function getUvPythonVersions(): Promise<{ versions: string[] }> {
     try {
-        const availableVersions = await getAvailablePythonVersions();
+        // Follow the user's uv config, so that system Pythons are listed when uv can use them.
+        const availableVersions = await getAvailablePythonVersions({ managedOnly: false });
         if (availableVersions.length > 0) {
             return {
                 versions: availableVersions.map((v) => v.version),
