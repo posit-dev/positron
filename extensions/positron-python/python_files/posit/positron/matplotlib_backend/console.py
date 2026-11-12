@@ -16,6 +16,7 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import hashlib
 import inspect
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..plot_comm import PlotSize
+    from ..plots import Plot
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +132,7 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
+        from ..patch.ipywidgets import is_capturing
         from ..plot_comm import PlotOrigin, PlotRange
         from ..positron_ipkernel import PositronIPyKernel
 
@@ -163,6 +166,12 @@ class FigureManagerPositron(FigureManagerBase):
         kind = _detect_plotting_library()
         self.plotting_library = kind
 
+        # Figures created while an ipywidgets Output is capturing are shown as static images
+        # inside the Output (as in Jupyter) instead of in the Plots pane.
+        self._plot: Plot | None = None
+        if is_capturing():
+            return
+
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot = self._plots_service.create_plot(
@@ -192,11 +201,28 @@ class FigureManagerPositron(FigureManagerBase):
 
     @property
     def closed(self) -> bool:
-        return self._plot.closed
+        return self._plot is None or self._plot.closed
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
-        self._plot.show()
+        if self._plot is None:
+            self._show_static()
+        else:
+            self._plot.show()
+
+    def _show_static(self) -> None:
+        """Display the figure as a static PNG and close it."""
+        from IPython.display import display
+
+        png = self.canvas.render(None, 1.0, "png")
+        display(
+            {
+                "image/png": base64.b64encode(png).decode("ascii"),
+                "text/plain": repr(self.canvas.figure),
+            },
+            raw=True,
+        )
+        plt.close(self.canvas.figure)
 
     def destroy(self) -> None:
         """Called by matplotlib after a figure is closed via `plt.close()`.
@@ -218,7 +244,8 @@ class FigureManagerPositron(FigureManagerBase):
 
         Called by the canvas when a figure is drawn and its contents have changed.
         """
-        self._plot.update()
+        if self._plot is not None:
+            self._plot.update()
 
 
 class FigureCanvasPositron(FigureCanvasAgg):

@@ -39,6 +39,11 @@ _originals: dict[str, Any] = {}
 _clear_pending: weakref.WeakSet[Any] = weakref.WeakSet()
 
 
+def is_capturing() -> bool:
+    """Whether an Output widget is currently capturing output."""
+    return bool(_capture_stack)
+
+
 def _append_output(output: dict[str, Any]) -> None:
     """Append an output to the innermost capturing Output widget."""
     widget = _capture_stack[-1]
