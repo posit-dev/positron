@@ -477,9 +477,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
-				// Ignore when sessions "exited" due to being transferred or restarted.
+				// Ignore when sessions "exited" due to being transferred or
+				// restarted, or because the extension host disconnected.
 				if (exit.reason === RuntimeExitReason.Transferred ||
-					exit.reason === RuntimeExitReason.Restart) {
+					exit.reason === RuntimeExitReason.Restart ||
+					exit.reason === RuntimeExitReason.ExtensionHost) {
 					return;
 				}
 
@@ -3319,7 +3321,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			.filter(session =>
 				session.getRuntimeState() !== RuntimeState.Uninitialized &&
 				session.getRuntimeState() !== RuntimeState.Initializing &&
-				session.getRuntimeState() !== RuntimeState.Exited
+				(session.getRuntimeState() !== RuntimeState.Exited ||
+					this._runtimeSessionService.isSessionDisconnected(session.metadata.sessionId))
 			)
 			.map(session => {
 				const activeSession =

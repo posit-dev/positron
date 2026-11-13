@@ -164,6 +164,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
+	isSessionDisconnected(_sessionId: string): boolean {
+		throw new Error('Method not implemented.');
+	}
+
 	getConsoleSessionForRuntime(_runtimeId: string): ILanguageRuntimeSession | undefined {
 		throw new Error('Method not implemented.');
 	}
