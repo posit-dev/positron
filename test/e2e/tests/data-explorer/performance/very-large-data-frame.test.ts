@@ -19,9 +19,13 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
+// The PR lane has no AWS role, so the S3 download below cannot authenticate there.
+const hasAwsCredentials = !!process.env.AWS_ACCESS_KEY_ID;
+
 test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] }, () => {
 	test.beforeAll(async function ({ app }) {
 		if (githubActions && process.platform !== 'win32') {
+			test.skip(!hasAwsCredentials, 'Downloading the test data from S3 needs AWS credentials');
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);
 			const downloadOptions: S3FileDownloadOptions = {
 				region: region,
