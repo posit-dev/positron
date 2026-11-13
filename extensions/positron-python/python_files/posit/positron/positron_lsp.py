@@ -521,10 +521,7 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
             yield user_handler, args, None
 
         if self.writer is not None:
-            res = self.writer.close()
-            if inspect.isawaitable(res):
-                # Keep a reference so the task is not garbage collected early.
-                self._writer_close_task = asyncio.ensure_future(res)
+            self.writer.close()
 
 
 class PositronLanguageServer(LanguageServer):

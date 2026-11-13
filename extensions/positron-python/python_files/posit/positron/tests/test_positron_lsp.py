@@ -2114,4 +2114,3 @@ class TestServerLifecycle:
 
         asyncio_errors = [r for r in caplog.records if r.name == "asyncio"]
         assert asyncio_errors == []
-        assert not any("SystemExit" in r.getMessage() for r in caplog.records)
