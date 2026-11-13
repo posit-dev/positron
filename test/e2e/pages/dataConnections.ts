@@ -225,9 +225,9 @@ export class DataConnections {
 
 	/**
 	 * Asserts that a connection profile is present in the tree.
-	 * @param connectionName The connection name shown in the tree.
+	 * @param connectionName The connection name shown in the tree, or a pattern for the entry's text.
 	 */
-	async expectConnectionInTree(connectionName: string): Promise<void> {
+	async expectConnectionInTree(connectionName: string | RegExp): Promise<void> {
 		await expect(
 			this.connectionEntries.filter({ hasText: connectionName })
 		).toBeVisible({ timeout: this.actionTimeout });
@@ -269,6 +269,36 @@ export class DataConnections {
 	}
 
 	/**
+	 * Selects an item from a connection entry's Actions menu, e.g. 'Refresh' or 'Disconnect'.
+	 * @param connectionName The connection name shown in the tree.
+	 * @param menuItem The menu item's title.
+	 */
+	async selectConnectionMenuItem(connectionName: string, menuItem: string): Promise<void> {
+		await test.step(`Select ${menuItem} on connection: ${connectionName}`, async () => {
+			const page = this.code.driver.currentPage;
+			const row = this.connectionEntries.filter({ hasText: connectionName });
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.getByRole('button', { name: 'Actions' }).click();
+
+			const menu = page.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: page.locator('.title', { hasText: new RegExp(`^${menuItem}$`) })
+			}).click();
+			await expect(menu).toBeHidden();
+		});
+	}
+
+	/**
+	 * Asserts that no connection entry with the given name is in the tree.
+	 * @param connectionName The connection name shown in the tree.
+	 */
+	async expectConnectionAbsent(connectionName: string): Promise<void> {
+		await expect(this.connectionEntries.filter({ hasText: connectionName })).toHaveCount(0);
+	}
+
+	/**
 	 * Selects a connection code variant (e.g. a package like 'SQLAlchemy') by its label in the
 	 * open Connect With dialog.
 	 * @param label The variant's label.
@@ -301,10 +331,11 @@ export class DataConnections {
 	 * false matches between names that share a substring (e.g. 'actor' vs 'actor_info'). Pass a
 	 * `kind` to further narrow the match by node icon when the same label appears at more than one
 	 * level (e.g. a Redshift database and a table both named 'flights').
-	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'.
+	 * @param label The node label, e.g. 'Schemas', 'public', 'Tables', 'actor'. A RegExp matches
+	 * a label that varies by environment.
 	 * @param kind Optional node kind to disambiguate rows that share a label.
 	 */
-	private treeRow(label: string, kind?: DataConnectionNodeKind): Locator {
+	private treeRow(label: string | RegExp, kind?: DataConnectionNodeKind): Locator {
 		const page = this.code.driver.currentPage;
 		let row = page.locator(TREE_ROW).filter({ has: page.getByText(label, { exact: true }) });
 		if (kind) {
@@ -379,11 +410,12 @@ export class DataConnections {
 
 	/**
 	 * Expands a tree node by its label.
-	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views'.
+	 * @param label The node label to expand, e.g. 'Schemas', 'public', 'Tables', 'Views', or a
+	 * RegExp for a label that varies by environment.
 	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
 	 */
-	async expandNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
-		await this.expandRow(this.treeRow(label, kind), label);
+	async expandNode(label: string | RegExp, kind?: DataConnectionNodeKind): Promise<void> {
+		await this.expandRow(this.treeRow(label, kind), String(label));
 	}
 
 	/**
