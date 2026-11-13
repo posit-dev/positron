@@ -61,6 +61,22 @@ def test_matplotlib_backend_shows_in_plots_pane(
     assert Image.open(io.BytesIO(rendered)).size == (800, 600)
 
 
+@pytest.mark.parametrize("display_formats", [["png"], ["html", "png"], ["png", "svg"]])
+def test_image_display_formats_show_in_plots_pane(
+    shell: PositronShell, session: MockSession, plots_service: PlotsService, display_formats: list
+) -> None:
+    """Image display formats open one plot in the Plots pane and show nothing in the console."""
+    shell.run_cell(
+        f'import holoviews as hv; hv.extension("matplotlib", display_formats={display_formats})'
+    ).raise_error()
+    session.messages.clear()
+
+    shell.run_cell("hv.Curve([1, 2, 3])").raise_error()
+
+    assert [plot._kind for plot in plots_service._plots] == ["HoloViews"]  # noqa: SLF001
+    assert _displayed_data(session) == []
+
+
 def test_matplotlib_plots_after_extension(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:

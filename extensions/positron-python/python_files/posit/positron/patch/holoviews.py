@@ -132,12 +132,35 @@ def _patch_static_image_components() -> None:
     """
     Show static HoloViews matplotlib plots in the Plots pane.
 
-    HoloViews renders static matplotlib plots as an HTML `<img>` fragment, which the console shows
-    inline. Instead, open the figure in the Plots pane via the plots service and display nothing in
-    the console (see `display_holoviews`), like plots from Positron's matplotlib backend.
+    HoloViews renders static matplotlib plots as an HTML `<img>` fragment, or as a PNG or SVG image
+    with `hv.extension(..., display_formats=[...])`, which the console shows inline. Instead, open
+    the figure in the Plots pane via the plots service and display nothing in the console (see
+    `display_holoviews`), like plots from Positron's matplotlib backend.
     """
     try:
+        from holoviews import Store
+        from holoviews.ipython import display_hooks
         from holoviews.plotting import Plot, Renderer
+
+        original_image_display = display_hooks.image_display
+
+        def patched_image_display(element, max_frames, fmt):
+            if Store.current_backend != "matplotlib" or fmt not in Store.display_formats:
+                return original_image_display(element, max_frames, fmt)
+
+            # Open one plot per display: the html display hook opens it via `components` below,
+            # otherwise the hook for the first requested image format does.
+            image_formats = [f for f in Store.display_formats if f in ("png", "svg")]
+            if "html" in Store.display_formats or fmt != image_formats[0]:
+                return None
+
+            if type(element) not in Store.registry["matplotlib"]:
+                return original_image_display(element, max_frames, fmt)
+
+            _show_in_plots_pane(Store.renderers["matplotlib"].get_plot(element).state)
+            return None
+
+        display_hooks.image_display = patched_image_display
 
         original_components = Renderer.components
 
