@@ -9,10 +9,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IDuckDBDataExplorerHost } from 'positron-data-explorer-duckdb';
 import { KeyAuthenticator, TokenAuthenticator } from './connectAuth.js';
-import { ConnectClient, isAuthFailure } from './connectClient.js';
+import { ConnectClient, isAuthFailure, normalizeServerUrl } from './connectClient.js';
 import { escapeDoubleQuoted } from './pinsCode.js';
 import { PinsCache } from './pinsCache.js';
 import { PinsConnection } from './pinsConnection.js';
+import { getPublisherSession, GetSessionFn, PublisherSessionAuthenticator } from './publisherAuth.js';
 import { claimToken as defaultClaimToken, TokenClaimDeps, TokenClaimResult } from './tokenAuth.js';
 import { SecretTokenCredentialStore, TokenCredentialStore } from './tokenCredentialStore.js';
 
@@ -24,6 +25,9 @@ const API_KEY_MECHANISM_ID = 'apiKey';
 
 /** The id of the browser sign-in (token-pairing) mechanism. */
 const TOKEN_MECHANISM_ID = 'token';
+
+/** The id of the Posit Publisher sign-in mechanism. */
+const PUBLISHER_MECHANISM_ID = 'publisher';
 
 /** The id of the environment-variable mechanism. */
 const ENVVAR_MECHANISM_ID = 'envvar';
@@ -115,6 +119,8 @@ export interface PinsDriverDeps {
 	fetch?: typeof fetch;
 	/** Runs the browser sign-in flow; defaults to the real `claimToken`. */
 	claimToken?: (serverUrl: string, deps: TokenClaimDeps) => Promise<TokenClaimResult>;
+	/** Requests Posit Publisher sessions; defaults to `vscode.authentication.getSession`. */
+	getSession?: GetSessionFn;
 }
 
 /**
@@ -140,6 +146,7 @@ export function createPinsDriver(
 	const env = deps.env ?? process.env;
 	const credentialStore = deps.credentialStore ?? new SecretTokenCredentialStore(context.secrets);
 	const claimTokenFn = deps.claimToken ?? defaultClaimToken;
+	const getSessionFn: GetSessionFn = deps.getSession ?? vscode.authentication.getSession;
 
 	// Validates a client (server URL and credentials) and wraps it in a connection. A non-Connect URL
 	// fails getServerSettings; a bad credential returns 401/403 from getCurrentUser.
@@ -157,6 +164,23 @@ export function createPinsDriver(
 		id: TOKEN_MECHANISM_ID,
 		label: vscode.l10n.t('Sign in with a browser'),
 		description: vscode.l10n.t('Sign in to a Posit Connect server in your browser. No API key needed.'),
+		parameters: [
+			{
+				id: 'serverUrl',
+				label: vscode.l10n.t('Server URL'),
+				type: positron.DataConnectionParameterType.String,
+				required: true,
+				placeholder: 'https://connect.example.com',
+			},
+		],
+	};
+
+	// Posit Publisher sign-in: uses (or creates) the user's Publisher credential for the server, so a
+	// sign-in in Publisher works here and a sign-in here works in Publisher.
+	const publisherMechanism: positron.DataConnectionMechanism = {
+		id: PUBLISHER_MECHANISM_ID,
+		label: vscode.l10n.t('Sign in with Posit Publisher'),
+		description: vscode.l10n.t('Use your Posit Connect sign-in from Posit Publisher, or sign in now. Your sign-in is shared with Publisher.'),
 		parameters: [
 			{
 				id: 'serverUrl',
@@ -206,7 +230,7 @@ export function createPinsDriver(
 		description: vscode.l10n.t('Browse pins on a Posit Connect server'),
 		iconSvg,
 		supportedLanguageIds: ['python', 'r'],
-		mechanisms: [tokenMechanism, apiKeyMechanism, envVarMechanism],
+		mechanisms: [publisherMechanism, tokenMechanism, apiKeyMechanism, envVarMechanism],
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			switch (mechanismId) {
 				case API_KEY_MECHANISM_ID: {
@@ -226,6 +250,17 @@ export function createPinsDriver(
 						throw new Error(vscode.l10n.t('Set the CONNECT_SERVER and CONNECT_API_KEY environment variables in the environment Positron was launched from, then reconnect. Variables set only in .Renviron or a shell profile are not visible to Positron.'));
 					}
 					const client = new ConnectClient(serverUrl, new KeyAuthenticator(apiKey), fetchFn, logger);
+					return connectWithClient(client);
+				}
+				case PUBLISHER_MECHANISM_ID: {
+					if (!isNonEmptyString(params.serverUrl)) {
+						throw new Error(vscode.l10n.t('Server URL is required'));
+					}
+					const serverUrl = normalizeServerUrl(params.serverUrl);
+					const session = await getPublisherSession(serverUrl, getSessionFn);
+					logger?.info(`Using the Posit Publisher sign-in "${session.account.label}" for ${serverUrl}`);
+					const auth = new PublisherSessionAuthenticator(serverUrl, session, getSessionFn);
+					const client = new ConnectClient(serverUrl, auth, fetchFn, logger);
 					return connectWithClient(client);
 				}
 				case TOKEN_MECHANISM_ID: {
@@ -293,7 +328,7 @@ export function createPinsDriver(
 			// pins packages resolve credentials through their own channels (R's rsconnect account
 			// registry, Python's CONNECT_* variables) and cannot read the token this driver keeps in
 			// secret storage, so the snippet is only the package default and is labelled as such.
-			if (mechanismId === ENVVAR_MECHANISM_ID || mechanismId === TOKEN_MECHANISM_ID) {
+			if (mechanismId === ENVVAR_MECHANISM_ID || mechanismId === TOKEN_MECHANISM_ID || mechanismId === PUBLISHER_MECHANISM_ID) {
 				const code = boardOpenCode(languageId);
 				if (!code) {
 					return [];

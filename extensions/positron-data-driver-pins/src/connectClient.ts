@@ -324,6 +324,8 @@ export class ConnectClient {
 	 */
 	private async _get(url: string, accept: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<Response> {
 		this._logger?.trace(`GET ${url}`);
+		// Outside the try below, so a credential failure is not reported as an unreachable server.
+		await this._auth.prepare?.();
 		const controller = new AbortController();
 		const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 		let response: Response;
