@@ -96,9 +96,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				if (e.name === 'Canceled' || e.message === 'Canceled') {
 					return;
 				}
-				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.getName(props.plotClient), e.message, e.code);
-				services.notificationService.warn(message);
-				setError(message);
+				// Renders run on every resize, so log instead of notifying; the last
+				// good image (if any) stays visible.
+				services.logService.warn(`Error rendering plot to '${policy.getName(props.plotClient)}' size: ${e.message} (${e.code})`);
+				setError(localize('positronPlots.renderErrorAtSize', "Couldn't render this plot at the current size. See the Output panel for details."));
 			}
 		};
 
@@ -172,7 +173,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.notificationService]);
+	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {
