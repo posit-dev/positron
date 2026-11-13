@@ -90,10 +90,10 @@ describe('KernelStatusBadge', () => {
 		);
 	}
 
-	it('shows disconnected icon and "No Kernel Selected" when kernelStatus=Unselected and no session', () => {
+	it('shows not-started icon and "No Kernel Selected" when kernelStatus=Unselected and no session', () => {
 		displayState = undefined;
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected));
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel Selected')).toBeInTheDocument();
 	});
 
@@ -121,11 +121,13 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('R 4.3.2')).toBeInTheDocument();
 	});
 
-	it('shows disconnected icon and kernel name when a kernel is selected but no session is attached', () => {
+	// A preview notebook: its kernel is selected, but the session doesn't start
+	// until the tab is pinned (posit-dev/positron#16078).
+	it('shows not-started icon and kernel name when a kernel is selected but no session has started', () => {
 		displayState = undefined;
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 

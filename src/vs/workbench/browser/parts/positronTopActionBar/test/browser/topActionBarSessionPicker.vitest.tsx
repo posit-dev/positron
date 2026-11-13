@@ -196,6 +196,31 @@ describe('TopActionBarSessionPicker', () => {
 		});
 	});
 
+	describe('notebook with no session started', () => {
+		const notStartedInfo = makeDisplayInfo({
+			sessionName: 'analysis.ipynb',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: URI.file('/workspace/analysis.ipynb'),
+			sessionState: undefined,
+		});
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: notStartedInfo,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			})
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+		it('shows the not-started status and the notebook filename', () => {
+			rtl.render(<TopActionBarSessionPicker />);
+			expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: SESSION_BUTTON_NAME })).toHaveTextContent('analysis.ipynb');
+		});
+	});
+
 	describe('notebook session without notebookUri', () => {
 		const notebookInfoNoUri = makeDisplayInfo({
 			sessionName: 'R 4.3.2',

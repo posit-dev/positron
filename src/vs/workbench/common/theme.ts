@@ -32,7 +32,8 @@ import { // eslint-disable-line no-duplicate-imports
 	selectBorder,
 	inputActiveOptionBackground,
 	inputActiveOptionBorder,
-	inputValidationInfoBorder
+	inputValidationInfoBorder,
+	descriptionForeground
 } from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
@@ -1804,6 +1805,11 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 	hcDark: '#2eb77c',
 	hcLight: '#2eb77c'
 }, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
+
+// Positron runtime not started state icon color.
+export const POSITRON_RUNTIME_STATE_ICON_NOT_STARTED = registerColor('positronRuntime.stateIconNotStarted',
+	descriptionForeground,
+	localize('positronRuntime.stateIconNotStarted', "Positron runtime icon color when no session has started."));
 
 //  < --- Positron Data Grid --- >
 
