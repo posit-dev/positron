@@ -219,6 +219,10 @@ jobs:
       - name: Install Positron IPyKernel test requirements
         run: uv sync --active --inexact --frozen --project python_files/posit
 
+      # ubuntu-26.04 has no legacy zone names (US/Eastern), which the tests use.
+      - name: Install tzdata
+        run: uv pip install tzdata
+
       - name: Run Positron IPyKernel unit tests
         run: uv run pytest python_files/posit
 
