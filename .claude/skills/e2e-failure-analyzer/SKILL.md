@@ -11,7 +11,7 @@ Analyzes Playwright e2e test failures from a GitHub Actions run using JSON repor
 ## When to Use
 
 - A CI run has failed and you want to understand why
-- Triaging e2e test failures from `Test: Merge`, `Test: Full Suite`, or `Positron Build: Daily Release`
+- Triaging e2e test failures from positron-builds `Test: Merge`, `Test: Full Suite`, or `Positron Build: Daily Release`
 - Triaging a whole run's hard failures (for deep per-test investigation of one flaky/failing test, use the `debug-e2e-test` skill instead)
 
 ## Prerequisites
