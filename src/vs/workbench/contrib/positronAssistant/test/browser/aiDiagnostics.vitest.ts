@@ -10,7 +10,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { AuthenticationSession, IAuthenticationProvider, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
-import { capLogLines, collectAISettings, collectAssistantSettingsReport, collectProviderDiagnostics, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, nestMarkdownHeadings, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
+import { capLogLines, collectAISettings, collectAssistantSettingsReport, collectProviderDiagnostics, describeChatViewState, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, nestMarkdownHeadings, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
@@ -21,7 +21,7 @@ function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsIn
 			{ label: 'Posit AI NES', setting: 'nextEditSuggestions.enabled', state: 'Enabled' },
 			{ label: 'Notebook AI', setting: 'notebook.ai.enabled', state: 'Disabled' },
 			{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: 'Enabled' },
-			{ label: 'GitHub Copilot Chat', setting: 'chat.disableAIFeatures', state: 'Enabled' },
+			{ label: 'Chat View', setting: 'chat.disableAIFeatures', state: 'Enabled' },
 		],
 		application: 'Positron',
 		positronVersion: '2026.07.0',
@@ -107,7 +107,7 @@ describe('generateAIDiagnosticsReport', () => {
 			- Posit AI NES (\`nextEditSuggestions.enabled\`): Enabled
 			- Notebook AI (\`notebook.ai.enabled\`): Disabled
 			- Console Fix & Explain (\`console.assistantActions.enabled\`): Enabled
-			- GitHub Copilot Chat (\`chat.disableAIFeatures\`): Enabled
+			- Chat View (\`chat.disableAIFeatures\`): Enabled
 
 			## Providers
 
@@ -406,6 +406,22 @@ describe('describeFeatureToggle', () => {
 			def: describeFeatureToggle(undefined),
 			object: describeFeatureToggle({ '*': true, markdown: false }),
 		}).toEqual({ on: 'Enabled', off: 'Disabled', def: 'Enabled', object: '{"*":true,"markdown":false}' });
+	});
+});
+
+describe('describeChatViewState', () => {
+	it('reports a missing chat agent instead of plain Enabled', () => {
+		expect({
+			settingOff: describeChatViewState(false, false),
+			settingOffWithAgent: describeChatViewState(false, true),
+			noAgent: describeChatViewState(true, false),
+			withAgent: describeChatViewState(true, true),
+		}).toEqual({
+			settingOff: 'Disabled',
+			settingOffWithAgent: 'Disabled',
+			noAgent: 'Enabled, but no chat agent is installed',
+			withAgent: 'Enabled',
+		});
 	});
 });
 

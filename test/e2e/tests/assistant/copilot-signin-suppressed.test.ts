@@ -14,12 +14,15 @@ test.use({
  * Positron suppresses them in chatSetupContributions.ts; these e2e assertions guard against
  * them reappearing on a VS Code merge.
  *
- * Most of these affordances are gated on `Setup.hidden.negate()`, and Positron defaults
- * `chat.disableAIFeatures` to true (so `hidden` is true at launch). That means upstream
- * wouldn't render them in the default state anyway, so a test in that state passes whether or
- * not the suppression is in place. To actually exercise the suppression we flip AI features on
- * for those checks (see the second describe). The "Use AI Features" on-ramp is the exception:
- * it shows precisely when chat is hidden, so it stays in the default state.
+ * Positron doesn't ship GitHub Copilot, so it always reports chat setup as hidden
+ * (`ChatEntitlementContext.withConfiguration`), whatever `chat.disableAIFeatures` says. Most of
+ * these affordances are gated on `Setup.hidden.negate()`, so that alone hides them; the dropped
+ * menu / f1 entries are a second line of defense. The "Use AI Features" on-ramp is the reverse:
+ * upstream shows it precisely when setup is hidden, so Positron drops its f1 entry.
+ *
+ * All checks run with `chat.disableAIFeatures: false`, the opted-in state that users who used
+ * Copilot Chat carry over. In the default state AI features are off and every surface is gated
+ * out anyway, so a test there would pass whether or not the suppression is in place.
  *
  * Not covered:
  * - The title-bar "Sign In" button: also gated behind the `chat.signInTitleBar.enabled`
@@ -38,33 +41,10 @@ const AI_SIGNIN_CONCEPT = /copilot|ai features/i;
 const EDITOR_PRESETUP_ITEMS = ['Explain', 'Fix', 'Code Review'];
 const HIDE_AI_COMMAND = 'Learn How to Hide AI Features';
 const USE_AI_FEATURES_COMMAND = 'Use AI Features with Copilot for free';
+const CHAT_STATUS_ITEM = '.statusbar-item[id="chat.statusBarEntry"]';
 
-test.describe('Assistant: Copilot setup on-ramp suppressed', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
-
-	test('Command palette does not list the Copilot "Use AI Features with Copilot for free..." command', async function ({ app }) {
-		const { hotKeys, quickInput } = app.workbench;
-
-		await hotKeys.openCommandPalette();
-		await quickInput.type(`>${USE_AI_FEATURES_COMMAND}`);
-		// Wait for the palette to return a result first, so the count below is meaningful.
-		await quickInput.waitForQuickInputElementText();
-
-		// In the default state AI features are off, so this command's precondition gates
-		// it out of the palette (it only reappears once AI is enabled). The palette then
-		// falls back to fuzzy "similar commands", so assert the exact title isn't among them.
-		await expect(
-			quickInput.quickInputResult.filter({ hasText: USE_AI_FEATURES_COMMAND })
-		).toHaveCount(0);
-
-		await quickInput.closeQuickInput();
-	});
-});
-
-// These affordances are gated on AI features being enabled (their `when` includes
-// `Setup.hidden.negate()`), but Positron defaults `chat.disableAIFeatures` to true, so they're
-// already hidden by that gate. We turn AI features on so the gate passes and the dropped menu /
-// f1 entries are the only thing keeping them out of view; otherwise the assertions would pass
-// trivially. The default is restored afterward.
+// Turn AI features on so the `chatAiFeaturesEnabled` gate passes and only the setup suppression
+// keeps these surfaces out of view. The default is restored afterward.
 test.describe('Assistant: Copilot sign-in surfaces suppressed with AI features on', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
 
 	test.beforeAll(async ({ settings }) => {
@@ -115,6 +95,31 @@ test.describe('Assistant: Copilot sign-in surfaces suppressed with AI features o
 
 		await page.keyboard.press('Escape');
 		await expect(menu).toBeHidden();
+	});
+
+	test('Status bar has no Copilot chat status item', async function ({ page }) {
+		// Positron doesn't register the chat status bar entry (Copilot's status, sign-in,
+		// and quota menu). Confirm the status bar rendered first, so the count is meaningful.
+		await expect(page.locator('.statusbar-item').first()).toBeVisible();
+		await expect(page.locator(CHAT_STATUS_ITEM)).toHaveCount(0);
+	});
+
+	test('Command palette does not list the Copilot "Use AI Features with Copilot for free..." command', async function ({ app }) {
+		const { hotKeys, quickInput } = app.workbench;
+
+		await hotKeys.openCommandPalette();
+		await quickInput.type(`>${USE_AI_FEATURES_COMMAND}`);
+		// Wait for the palette to return a result first, so the count below is meaningful.
+		await quickInput.waitForQuickInputElementText();
+
+		// Upstream lists this command while chat setup is hidden, which in Positron is always.
+		// Positron drops its f1 entry, so the palette falls back to fuzzy "similar commands";
+		// assert the exact title isn't among them.
+		await expect(
+			quickInput.quickInputResult.filter({ hasText: USE_AI_FEATURES_COMMAND })
+		).toHaveCount(0);
+
+		await quickInput.closeQuickInput();
 	});
 
 	test('Command palette does not list the Copilot "Learn How to Hide AI Features" command', async function ({ app }) {

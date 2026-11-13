@@ -18,8 +18,7 @@ export const POSITRON_BLOCKED_EXTENSIONS: readonly string[] = [
 	'jeanp413.open-remote-ssh',
 	'jeanp413.open-remote-wsl',
 	'ms-python.python',
-	'ms-python.vscode-python-envs',
-	'github.copilot-chat'
+	'ms-python.vscode-python-envs'
 ];
 
 /**
@@ -30,7 +29,6 @@ export const POSITRON_BLOCKED_EXTENSIONS: readonly string[] = [
  * name; scripts/check-bootstrap-extension-deps.ts verifies this nightly.
  */
 export const POSITRON_BLOCKED_EXTENSIONS_WITH_BUILTIN: readonly string[] = [
-	'github.copilot-chat',		// extensions/copilot
 	'jeanp413.open-remote-ssh',	// extensions/open-remote-ssh
 	'ms-python.python',			// extensions/positron-python
 	'vscode.r'					// extensions/r

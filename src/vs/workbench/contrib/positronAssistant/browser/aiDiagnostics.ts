@@ -32,9 +32,9 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IUntitledTextResourceEditorInput } from '../../../common/editor.js';
 import { hasExplicitValue, matchesSensitiveKey, REDACTED_VALUE, REPORT_SENSITIVE_KEYS } from '../common/settingsInspection.js';
-import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOutputChannelDescriptor } from '../../../services/output/common/output.js';
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
-import { ChatConfiguration } from '../../chat/common/constants.js';
+import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
+import { IChatAgentService } from '../../chat/common/participants/chatAgents.js';
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 import { NES_ENABLE_SETTING } from './nextEditSuggestionsDashboard.js';
 import { GIT_SUGGESTIONS_ENABLED_KEY } from './commitMessageAction.js';
@@ -120,7 +120,7 @@ export interface IAIDiagnosticsInputs {
 	readonly generatedAt: string;
 	/** The `ai.enabled` main switch; when false, every AI feature is off regardless of its own toggle. */
 	readonly aiEnabled: boolean;
-	/** Per-feature on/off state (NES, notebook AI, console Fix & Explain, Copilot chat). */
+	/** Per-feature on/off state (NES, notebook AI, console Fix & Explain, chat view). */
 	readonly features: readonly IAIDiagnosticsFeature[];
 	readonly application: string;
 	readonly positronVersion: string;
@@ -145,7 +145,7 @@ export interface IAIDiagnosticsInputs {
 	readonly modelListing: IModelListingDiagnostics;
 	/**
 	 * Models registered with the built-in language model API, which is where
-	 * GitHub Copilot's live. Merged into the same per-provider listing as
+	 * extension-contributed models live. Merged into the same per-provider listing as
 	 * {@link modelListing}: which of the two paths a model arrived through is
 	 * Positron's plumbing, not something the report should make the reader parse.
 	 */
@@ -493,18 +493,6 @@ export interface IProviderDiagnostics {
 	readonly disabled: string[];
 }
 
-/**
- * GitHub Copilot output channels, collected only when Copilot is enabled. In
- * Positron the single `GitHub.copilot-chat` extension provides both the chat UI
- * and inline completions (it bundles completions-core and logs both to the same
- * channel), so there's no separate `github.copilot` completions extension to
- * report - upstream VS Code ships those as two marketplace extensions, but
- * Positron does not.
- */
-const COPILOT_CHANNELS: readonly { label: string; extensionId: string }[] = [
-	{ label: 'GitHub Copilot', extensionId: 'GitHub.copilot-chat' },
-];
-
 /** Keep reports bounded: only the most recent lines of each log. */
 const MAX_LOG_LINES = 500;
 
@@ -552,6 +540,21 @@ export function featureState(presence: AIDiagnosticsExtensionPresence, value: un
 	return presence === 'running' ? describeFeatureToggle(value) : PRESENCE_LABELS[presence];
 }
 
+/**
+ * Renders the chat view's state. The setting alone can't show the view:
+ * Positron doesn't ship a chat agent, so with the setting on and no extension
+ * providing a default chat agent, the view still doesn't appear. Say so rather
+ * than reporting plain "Enabled".
+ * @param settingAllowsChat Whether `chat.disableAIFeatures` is anything but `true`.
+ * @param hasChatAgent Whether a default chat agent is registered for the chat view.
+ */
+export function describeChatViewState(settingAllowsChat: boolean, hasChatAgent: boolean): string {
+	if (!settingAllowsChat) {
+		return describeFeatureToggle(false);
+	}
+	return hasChatAgent ? describeFeatureToggle(true) : 'Enabled, but no chat agent is installed';
+}
+
 /** The activation fields of `IExtensionsStatus` that the report renders. */
 interface IActivationStatus {
 	readonly activationStarted: boolean;
@@ -575,8 +578,7 @@ export function describeExtensionStatus(status: IActivationStatus | undefined): 
 
 /**
  * Creates an AI diagnostic report: itemizes non-default AI settings and gathers
- * trace/debug logs from Authentication, Posit Assistant, Posit AI NES, and (when
- * enabled) GitHub Copilot, then opens the report in an editor. Runs without
+ * trace/debug logs from Authentication, Posit Assistant, and Posit AI NES, then opens the report in an editor. Runs without
  * asking the user to reproduce: the Posit surfaces buffer their recent
  * trace/debug in memory and hand it over via a bridge command.
  */
@@ -601,7 +603,6 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const extensionManagementService = accessor.get(IExtensionManagementService);
 		const productService = accessor.get(IProductService);
 		const environmentService = accessor.get(IWorkbenchEnvironmentService);
-		const outputService = accessor.get(IOutputService);
 		const fileService = accessor.get(IFileService);
 		const aiProviderService = accessor.get(IAiProviderService);
 		const authenticationService = accessor.get(IAuthenticationService);
@@ -612,12 +613,10 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const progressService = accessor.get(IProgressService);
 		const logService = accessor.get(ILogService);
+		const chatAgentService = accessor.get(IChatAgentService);
 
 		// Resolved once; the Extensions list, log sections, and feature rows all read it.
-		const presenceOf = await resolveExtensionPresence(extensionService, extensionManagementService, [
-			...AI_LOG_SOURCES.map(source => source.id),
-			...COPILOT_CHANNELS.map(channel => channel.extensionId),
-		]);
+		const presenceOf = await resolveExtensionPresence(extensionService, extensionManagementService, AI_LOG_SOURCES.map(source => source.id));
 
 		// When Posit Assistant is installed, ask up front whether to also produce
 		// its diagnostics bundle. The report is always generated; the bundle is
@@ -663,17 +662,6 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 				logs.push({ label: source.label, content: await collectBridgedLogs(source, extensionService, commandService) });
 			}
 
-			// GitHub Copilot: third-party, so no bridge command. Read its log file(s)
-			// directly, and only when Copilot is enabled (`chat.disableAIFeatures` off).
-			const copilotEnabled = configurationService.getValue(ChatConfiguration.AIDisabled) !== true;
-			for (const channel of COPILOT_CHANNELS) {
-				extensions.push(describe(channel.label, channel.extensionId));
-				logs.push({
-					label: channel.label,
-					content: await copilotLogSection(channel, presenceOf(channel.extensionId).presence, copilotEnabled, extensionService, outputService, fileService),
-				});
-			}
-
 			progress.report({ message: localize('positron.ai.diagnostics.collectingProviders', "Reading provider configuration") });
 			const providers = await collectProviderDiagnostics(aiProviderService, authenticationService);
 			const providerConfig = await collectProvidersConfig(aiProviderService, fileService);
@@ -693,11 +681,11 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 				? localize('positron.ai.diagnostics.bundleRequested', "Requested. Posit Assistant saves the bundle and shows its location in a notification.")
 				: undefined;
 
-			// Extension-backed toggles (Posit Assistant, NES, Copilot chat) read as
-			// "not installed" when their extension is absent, since the setting is then
-			// unregistered and would otherwise default to "Enabled" - contradicting the
-			// Extensions list. Notebook AI, console actions, and Git suggestions are
-			// core, so always show.
+			// Extension-backed toggles (Posit Assistant, NES) read as "not installed"
+			// when their extension is absent, since the setting is then unregistered and
+			// would otherwise default to "Enabled" - contradicting the Extensions list.
+			// Notebook AI, console actions, Git suggestions, and the chat view are core,
+			// so always show.
 			// NES's `enabled` is a per-language-type map; the `*` wildcard is the overall on/off.
 			const nesEnabled = configurationService.getValue<Record<string, boolean>>(NES_ENABLE_SETTING)?.['*'];
 			const features: IAIDiagnosticsFeature[] = [
@@ -706,7 +694,8 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 				{ label: 'Notebook AI', setting: NOTEBOOK_AI_ENABLED_KEY, state: describeFeatureToggle(configurationService.getValue(NOTEBOOK_AI_ENABLED_KEY)) },
 				{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
 				{ label: 'Git Suggestions', setting: GIT_SUGGESTIONS_ENABLED_KEY, state: describeFeatureToggle(configurationService.getValue(GIT_SUGGESTIONS_ENABLED_KEY)) },
-				{ label: 'GitHub Copilot Chat', setting: ChatConfiguration.AIDisabled, state: featureState(presenceOf(COPILOT_CHANNELS[0].extensionId).presence, copilotEnabled) },
+				// `chat.disableAIFeatures` is inverted: `true` hides the chat view.
+				{ label: 'Chat View', setting: ChatConfiguration.AIDisabled, state: describeChatViewState(configurationService.getValue(ChatConfiguration.AIDisabled) !== true, chatAgentService.getDefaultAgent(ChatAgentLocation.Chat) !== undefined) },
 			];
 
 			return generateAIDiagnosticsReport({
@@ -1109,70 +1098,4 @@ async function collectAssistantBundle(
 ): Promise<void> {
 	await activateWithTimeout(extensionService, ASSISTANT_EXTENSION_ID);
 	await commandService.executeCommand(ASSISTANT_BUNDLE_COMMAND, { includeAttachments: false });
-}
-
-/**
- * The Copilot log section. {@link collectCopilotLogs} activates the extension
- * first, so an absent, disabled, or unactivatable Copilot is guarded here rather
- * than rejecting out of the whole report.
- */
-async function copilotLogSection(
-	channel: { label: string; extensionId: string },
-	presence: AIDiagnosticsExtensionPresence,
-	copilotEnabled: boolean,
-	extensionService: IExtensionService,
-	outputService: IOutputService,
-	fileService: IFileService,
-): Promise<string> {
-	if (presence === 'missing') {
-		return 'Extension not installed';
-	}
-	if (presence === 'disabled') {
-		return 'Extension installed but disabled';
-	}
-	if (!copilotEnabled) {
-		return 'Skipped (GitHub Copilot is disabled)';
-	}
-	try {
-		return await collectCopilotLogs(channel, extensionService, outputService, fileService);
-	} catch (error) {
-		return `Logs unavailable: ${error instanceof Error ? error.message : String(error)}`;
-	}
-}
-
-async function collectCopilotLogs(
-	channel: { label: string; extensionId: string },
-	extensionService: IExtensionService,
-	outputService: IOutputService,
-	fileService: IFileService,
-): Promise<string> {
-	// Copilot registers its output channel during activation, so activate it
-	// first (we only get here when Copilot is enabled) or the descriptor lookup
-	// finds nothing when Copilot hasn't been used yet this session.
-	await activateWithTimeout(extensionService, channel.extensionId);
-
-	const descriptor = outputService.getChannelDescriptors().find(d => d.extensionId === channel.extensionId);
-	if (!descriptor) {
-		return 'Output channel not available';
-	}
-
-	const resources = isSingleSourceOutputChannelDescriptor(descriptor)
-		? [descriptor.source.resource]
-		: isMultiSourceOutputChannelDescriptor(descriptor)
-			? descriptor.source.map(s => s.resource)
-			: [];
-	if (resources.length === 0) {
-		return 'No log file available';
-	}
-
-	const parts: string[] = [];
-	for (const resource of resources) {
-		try {
-			const file = await fileService.readFile(resource);
-			parts.push(file.value.toString());
-		} catch (error) {
-			parts.push(`Could not read ${resource.toString()}: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}
-	return capLogLines(parts.join('\n'));
 }

@@ -35,7 +35,11 @@ import log from 'fancy-log';
 import { runEsbuildBundle, getBootstrapEntryPointsForTarget } from './lib/esbuild.ts';
 import { fetchUrls } from './lib/fetch.ts';
 import { downloadFeedPackage } from './lib/azureFeed.ts';
-import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+// --- Start Positron ---
+// Positron does not ship the Copilot Chat extension, so the ripgrep shim for it is not prepared.
+// import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter } from './lib/copilot.ts';
+// --- End Positron ---
 import { readAgentSdkResults } from './agent-sdk/common.ts';
 
 
@@ -755,15 +759,18 @@ function checkPackagedTreeTaskREH(platform: string, arch: string, destinationFol
 }
 // --- End Positron ---
 
-function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destinationFolderName: string) {
-	return async () => {
-		const outputDir = path.join(BUILD_ROOT, destinationFolderName);
-		const nodeModulesDir = path.join(outputDir, 'node_modules');
-
-		const builtInCopilotExtensionDir = path.join(outputDir, 'extensions', 'copilot');
-		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, nodeModulesDir);
-	};
-}
+// --- Start Positron ---
+// Positron does not ship the Copilot Chat extension, so there is no ripgrep shim to prepare.
+// function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destinationFolderName: string) {
+// 	return async () => {
+// 		const outputDir = path.join(BUILD_ROOT, destinationFolderName);
+// 		const nodeModulesDir = path.join(outputDir, 'node_modules');
+//
+// 		const builtInCopilotExtensionDir = path.join(outputDir, 'extensions', 'copilot');
+// 		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, nodeModulesDir);
+// 	};
+// }
+// --- End Positron ---
 
 // --- Start PWB ---
 ['reh', 'reh-web', 'reh-web-pwb'].forEach(type => {
@@ -797,7 +804,7 @@ function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destin
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName),
 				// --- Start Positron ---
 				// prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
-				prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName),
+				// Positron does not ship the Copilot Chat extension, so there is no ripgrep shim to prepare.
 				checkPackagedTreeTaskREH(platform, arch, destinationFolderName)
 				// --- End Positron ---
 			];

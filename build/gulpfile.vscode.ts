@@ -32,8 +32,9 @@ import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 // import { checkApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
 import { checkApiProposalNamesTask } from './lib/compilation.ts';
 // The Copilot CLI shim launcher is not packaged; see the Windows packaging step below.
+// Positron does not ship the Copilot Chat extension, so the ripgrep shim for it is not prepared.
 // import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim, renderCopilotShimLauncher } from './lib/copilot.ts';
-import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getRipgrepExcludeFilter } from './lib/copilot.ts';
 // --- End Positron ---
 import { ensureOSProxyResolverPlatformPackage, getOSProxyResolverExcludeFilter, getOSProxyResolverPlatformFiles } from './lib/osProxyResolver.ts';
 import { readAgentSdkResults } from './agent-sdk/common.ts';
@@ -705,22 +706,25 @@ function checkPackagedTreeTask(platform: string, arch: string, destinationFolder
 }
 // --- End Positron ---
 
-function prepareCopilotRipgrepShimTask(platform: string, arch: string, destinationFolderName: string) {
-	const outputDir = path.join(path.dirname(root), destinationFolderName);
-
-	return async () => {
-		// On Windows with win32VersionedUpdate, app resources live under a
-		// commit-hash prefix: {output}/{commitHash}/resources/app/
-		const versionedResourcesFolder = util.getVersionedResourcesFolder(platform, commit!);
-		const appBase = platform === 'darwin'
-			? path.join(outputDir, `${product.nameLong}.app`, 'Contents', 'Resources', 'app')
-			: path.join(outputDir, versionedResourcesFolder, 'resources', 'app');
-		const appNodeModulesDir = path.join(appBase, 'node_modules.asar.unpacked');
-
-		const builtInCopilotExtensionDir = path.join(appBase, 'extensions', 'copilot');
-		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, appNodeModulesDir);
-	};
-}
+// --- Start Positron ---
+// Positron does not ship the Copilot Chat extension, so there is no ripgrep shim to prepare.
+// function prepareCopilotRipgrepShimTask(platform: string, arch: string, destinationFolderName: string) {
+// 	const outputDir = path.join(path.dirname(root), destinationFolderName);
+//
+// 	return async () => {
+// 		// On Windows with win32VersionedUpdate, app resources live under a
+// 		// commit-hash prefix: {output}/{commitHash}/resources/app/
+// 		const versionedResourcesFolder = util.getVersionedResourcesFolder(platform, commit!);
+// 		const appBase = platform === 'darwin'
+// 			? path.join(outputDir, `${product.nameLong}.app`, 'Contents', 'Resources', 'app')
+// 			: path.join(outputDir, versionedResourcesFolder, 'resources', 'app');
+// 		const appNodeModulesDir = path.join(appBase, 'node_modules.asar.unpacked');
+//
+// 		const builtInCopilotExtensionDir = path.join(appBase, 'extensions', 'copilot');
+// 		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, appNodeModulesDir);
+// 	};
+// }
+// --- End Positron ---
 
 function generateNodeCompileCacheTask(platform: string, destinationFolderName: string) {
 	const outputDirectory = path.join(path.dirname(root), destinationFolderName);
@@ -766,7 +770,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 			packageTask(platform, arch, sourceFolderName, destinationFolderName, opts),
 			// --- Start Positron ---
 			// prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
-			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName),
+			// Positron does not ship the Copilot Chat extension, so there is no ripgrep shim to prepare.
 			checkPackagedTreeTask(platform, arch, destinationFolderName)
 			// --- End Positron ---
 		];
