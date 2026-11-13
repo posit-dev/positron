@@ -117,6 +117,13 @@ describe('PackageMetadataCache', () => {
 		expect(makeCache().get('py-abc')).toBeUndefined();
 	});
 
+	it('persists the environment version of a bundled package', () => {
+		const tornado: ICachedPackageMetadata = { version: '6.5.7', environmentVersion: '6.4.0', outdated: true, latestVersion: '6.5.7' };
+		makeCache().upsert('py-abc', { tornado }, { now: 1_000 });
+
+		expect(makeCache().get('py-abc')?.packages).toEqual({ tornado });
+	});
+
 	it('discards an unparseable persisted blob without throwing', () => {
 		ctx.get(IStorageService).store(PACKAGE_METADATA_CACHE_STORAGE_KEY, 'not json', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 

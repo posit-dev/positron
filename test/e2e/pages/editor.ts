@@ -251,6 +251,16 @@ export class Editor {
 		return { classNames, termIndex };
 	}
 
+	/**
+	 * Distinct `mtk<n>` token classes rendered in the editor's view lines. A file
+	 * whose grammar failed to load tokenizes every span with the same class.
+	 */
+	async getTokenClasses(filename: string): Promise<string[]> {
+		const tokens = this.code.driver.currentPage.locator(`${VIEW_LINES(filename)} [class*="mtk"]`);
+		const classes = await tokens.evaluateAll(spans => spans.flatMap(span => Array.from(span.classList).filter(c => /^mtk\d+$/.test(c))));
+		return [...new Set(classes)];
+	}
+
 	async getLine(filename: string, line: number): Promise<string> {
 		const lineIndex = await this.getViewLineIndex(filename, line);
 		const lineContent = await this.editorPane.locator('div.view-line').nth(lineIndex - 1).textContent();

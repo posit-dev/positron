@@ -832,11 +832,11 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                     "2000-01-04",
                     "2000-01-05",
                 ],
-                dtype=pd.DatetimeTZDtype(tz="US/Eastern"),
+                dtype=pd.DatetimeTZDtype(tz="America/New_York"),
             ),
-            "datetime64[ns, US/Eastern]",
+            "datetime64[ns, America/New_York]",
             "datetime",
-            "US/Eastern",
+            "America/New_York",
         ),
         # categorical
         (
@@ -1382,7 +1382,7 @@ def test_get_data_values_max_value_length(dxf: DataExplorerFixture):
 def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
     test_df = pd.DataFrame(
         {
-            "datetime_tz": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "datetime_tz": pd.date_range("2000-01-01", periods=5, tz="America/New_York"),
             "arrow_bools": pd.Series([False, None, True, False, None], dtype=pd.BooleanDtype()),
             "arrow_strings": pd.Series(
                 ["foo", "bar", "baz", None, "quuuux"], dtype=pd.StringDtype()
@@ -1410,14 +1410,14 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
 
     schema = dxf.get_schema("test_df")
     # date_range resolution changed from ns to us in pandas 3.0
-    _datetimetz_type_name = str(pd.date_range("2000-01-01", periods=5, tz="US/Eastern").dtype)
+    _datetimetz_type_name = str(pd.date_range("2000-01-01", periods=5, tz="America/New_York").dtype)
     ex_schema = [
         {
             "column_name": "datetime_tz",
             "column_index": 0,
             "type_name": _datetimetz_type_name,
             "type_display": "datetime",
-            "timezone": "US/Eastern",
+            "timezone": "America/New_York",
         },
         {
             "column_name": "arrow_bools",
@@ -1602,7 +1602,7 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
 
 
 def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     test_df = pd.DataFrame(
         {
@@ -1624,7 +1624,7 @@ def test_pandas_filter_datetimetz_timestamps(dxf: DataExplorerFixture):
     # ensure that we can filter datetimetz columns with
     # timestamps as well as datetime objects
     # see GH#8760 for context
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     test_df = pd.DataFrame(
         {
@@ -3291,7 +3291,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             ),  # date column
             "f5": pd.date_range("2000-01-01", freq="2h", periods=100),  # datetime no tz
             "f6": pd.date_range(
-                "2000-01-01", freq="2h", periods=100, tz="US/Eastern"
+                "2000-01-01", freq="2h", periods=100, tz="America/New_York"
             ),  # datetime single tz
             "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
             "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
@@ -3314,21 +3314,21 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f14": (
                 pd.date_range("2000-01-01", freq="10us", periods=100)
                 .astype("datetime64[us]")
-                .tz_localize("US/Eastern")  # type: ignore
+                .tz_localize("America/New_York")  # type: ignore
             ),
             # datetime64[ms] with 10ms increments
             "f15": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
             "f16": (
                 pd.date_range("2000-01-01", freq="10ms", periods=100)
                 .astype("datetime64[ms]")
-                .tz_localize("US/Eastern")  # type: ignore
+                .tz_localize("America/New_York")  # type: ignore
             ),
             # datetime64[s] for 10s increments
             "f17": pd.date_range("2000-01-01", freq="10s", periods=100).astype("datetime64[s]"),
             "f18": (
                 pd.date_range("2000-01-01", freq="10s", periods=100)
                 .astype("datetime64[s]")
-                .tz_localize("US/Eastern")  # type: ignore
+                .tz_localize("America/New_York")  # type: ignore
             ),
         }
     )
@@ -3339,7 +3339,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         [
             pd.DataFrame({"x": pd.date_range("2000-01-01", freq="2h", periods=50)}),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="America/New_York")}
             ),
             pd.DataFrame(
                 {
@@ -3358,7 +3358,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
     df_mixed_tz2 = pd.concat(
         [
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
+                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="America/New_York")}
             ),
             pd.DataFrame(
                 {
@@ -3451,7 +3451,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "mean_date": "2000-01-05 03:00:00-05:00",
                 "median_date": "2000-01-05 03:00:00-05:00",
                 "max_date": "2000-01-09 06:00:00-05:00",
-                "timezone": "US/Eastern",
+                "timezone": "America/New_York",
             },
         ),
         (
@@ -3503,7 +3503,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "mean_date": None,
                 "median_date": None,
                 "max_date": None,
-                "timezone": "None, US/Eastern, ... (1 more)",
+                "timezone": "None, America/New_York, ... (1 more)",
             },
         ),
         (
@@ -3515,7 +3515,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "mean_date": None,
                 "median_date": None,
                 "max_date": "2000-01-05 02:00:00-05:00",
-                "timezone": "US/Eastern, Asia/Hong_Kong",
+                "timezone": "America/New_York, Asia/Hong_Kong",
             },
         ),
     ]
@@ -3546,7 +3546,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                         "mean_date": "2000-01-01 00:00:00.000495-05:00",
                         "median_date": "2000-01-01 00:00:00.000495-05:00",
                         "max_date": "2000-01-01 00:00:00.000990-05:00",
-                        "timezone": "US/Eastern",
+                        "timezone": "America/New_York",
                     },
                 ),
                 # datetime64[ms]
@@ -3571,7 +3571,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                         "mean_date": "2000-01-01 00:00:00.495-05:00",
                         "median_date": "2000-01-01 00:00:00.495-05:00",
                         "max_date": "2000-01-01 00:00:00.990-05:00",
-                        "timezone": "US/Eastern",
+                        "timezone": "America/New_York",
                     },
                 ),
                 # datetime64[s]
@@ -3596,7 +3596,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                         "mean_date": "2000-01-01 00:08:15-05:00",
                         "median_date": "2000-01-01 00:08:15-05:00",
                         "max_date": "2000-01-01 00:16:30-05:00",
-                        "timezone": "US/Eastern",
+                        "timezone": "America/New_York",
                     },
                 ),
             ]

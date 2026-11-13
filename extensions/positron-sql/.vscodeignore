@@ -3,3 +3,11 @@
 # scripts/build-analyzer.mts.
 sql-analyzer/**
 scripts/**
+
+# esbuild bundles src/ into dist/extension.js. The TypeScript sources, the tests, and the
+# build configuration do not ship.
+src/**
+out/**
+tsconfig*.json
+**/*.tsbuildinfo
+esbuild*.mts

@@ -100,4 +100,10 @@ out/**
 **/*.stats.json
 **/.pytest_cache/**
 **/.ruff_cache/**
+# The Python kernel tests, and the tests that the bundled packages ship (IPython,
+# traitlets, pyzmq, debugpy). No runtime code imports them. IPython/testing is a
+# different directory, and IPython imports it at runtime, so it needs to stay.
+# See https://github.com/posit-dev/positron/issues/16025.
+python_files/posit/positron/tests/**
+python_files/lib/ipykernel/**/tests/**
 # --- End Positron ---

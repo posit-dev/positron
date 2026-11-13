@@ -5,7 +5,6 @@
 
 import {
 	chartsGreen,
-	disabledForeground,
 	editorBackground,
 	foreground,
 	problemsErrorIconForeground,
@@ -52,6 +51,10 @@ export const POSITRON_WELCOME_ENVIRONMENT_SETUP_ERROR_ICON = registerColor('posi
 	problemsErrorIconForeground,
 	localize('positronWelcome.environmentSetupErrorIcon', "Color of the icon for a check that failed on the Positron welcome page."));
 
-export const POSITRON_WELCOME_ENVIRONMENT_SETUP_SKIPPED_ICON = registerColor('positronWelcome.environmentSetupSkippedIcon',
-	disabledForeground,
+export const POSITRON_WELCOME_ENVIRONMENT_SETUP_SKIPPED_ICON = registerColor('positronWelcome.environmentSetupSkippedIcon', {
+	dark: '#848484',
+	light: '#848484',
+	hcDark: '#848484',
+	hcLight: '#848484'
+},
 	localize('positronWelcome.environmentSetupSkippedIcon', "Color of the icon for a check that was not run on the Positron welcome page."));

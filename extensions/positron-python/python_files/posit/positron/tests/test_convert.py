@@ -349,11 +349,11 @@ def test_convert_pandas_skips_global_search(dxf: DataExplorerConvertFixture):
 
 
 def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     test_df = pd.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "date": pd.date_range("2000-01-01", periods=5, tz="America/New_York"),
         }
     )
     dxf.register_table("dtz", test_df)
@@ -686,10 +686,10 @@ def test_convert_polars_skips_global_search(dxf: DataExplorerConvertFixture):
 def test_convert_polars_filter_datetimetz(dxf: DataExplorerConvertFixture):
     test_df = pl.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern").to_list(),
+            "date": pd.date_range("2000-01-01", periods=5, tz="America/New_York").to_list(),
         }
     )
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")

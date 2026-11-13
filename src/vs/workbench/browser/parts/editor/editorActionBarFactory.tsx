@@ -12,7 +12,7 @@ import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
-import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
+import { EditorResourceAccessor, IEditorCommandsContext, SideBySideEditor } from '../../../common/editor.js';
 import { CANVAS_WEBVIEW_VIEW_TYPE } from '../../../common/positronCanvasIdentity.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
@@ -211,6 +211,7 @@ export class EditorActionBarFactory extends Disposable {
 					ariaLabel={positronMoveIntoNewWindowAriaLabel}
 					commandId='workbench.action.moveEditorToNewWindow'
 					disabled={auxiliaryWindow}
+					getCommandArgs={() => [this.editorCommandsContext()]}
 					icon={ThemeIcon.fromId('positron-open-in-new-window')}
 					tooltip={positronMoveIntoNewWindowTooltip}
 				/>
@@ -242,6 +243,19 @@ export class EditorActionBarFactory extends Disposable {
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Gets the command context for this group's active editor, so a command run from this action
+	 * bar acts on this group even when another group is active.
+	 * @returns The editor commands context.
+	 */
+	private editorCommandsContext(): IEditorCommandsContext {
+		const activeEditor = this._editorGroup.activeEditor;
+		return {
+			groupId: this._editorGroup.id,
+			editorIndex: activeEditor ? this._editorGroup.getIndexOfEditor(activeEditor) : undefined
+		};
+	}
 
 	/**
 	 * Creates a menu.

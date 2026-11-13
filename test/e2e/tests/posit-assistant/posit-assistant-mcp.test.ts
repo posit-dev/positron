@@ -58,7 +58,8 @@ test.describe('Posit Assistant MCP', {
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
 			});
 
-			test.afterAll(async function ({ cleanup }) {
+			test.afterAll(async function ({ app, cleanup }) {
+				await app.workbench.positAssistant.setApprovalMode('auto').catch(() => { });
 				// No logout: the `app` fixture is worker-scoped and tears down
 				// after this spec finishes, so signing out adds no isolation - it
 				// only adds flake surface.
@@ -71,6 +72,7 @@ test.describe('Posit Assistant MCP', {
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();
 				await app.workbench.positAssistant.selectProviderModel(provider);
+				await app.workbench.positAssistant.setApprovalMode('normal');
 
 				// Unique marker so any positive match has to come from this run.
 				const marker = 'positron-mcp-echo-marker-7f31b9c4';

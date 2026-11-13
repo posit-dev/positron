@@ -49,9 +49,10 @@ export function milestonedAt(events = [], title) {
 
 /**
  * One row for the page. `report` is the run's report (or null), `stats` its stats.json (or null), `events` the issue's
- * events, `via` 'linked' for a body link to the finding or 'matched' for one the outcomes job matched.
+ * events, `via` 'linked' for a body link to the finding or 'matched' for one the outcomes job matched, and
+ * `previous` the issue's row on the last published page, for what a missing report or stats can't give.
  */
-export function issueRow(issue, link, { report, stats, events, via = 'linked' } = {}) {
+export function issueRow(issue, link, { report, stats, events, via = 'linked', previous } = {}) {
 	const out = outcomeOf(issue);
 	const finding = report?.findings?.find(f => Number(f.n) === link.finding);
 	return {
@@ -61,14 +62,16 @@ export function issueRow(issue, link, { report, stats, events, via = 'linked' } 
 		closed: issue.closed_at?.slice(0, 10) ?? null,
 		reportUrl: `${link.base}/index.html`,
 		findingUrl: `${link.base}/index.html#f${link.finding}`,
-		sev: SEVERITIES.includes(finding?.severity) ? finding.severity : null,
+		// A report or stats that can't be read keeps what the last page had: the
+		// early reports are gone, and the page is the only copy of what they said.
+		sev: report ? (SEVERITIES.includes(finding?.severity) ? finding.severity : null) : previous?.sev ?? null,
 		out,
 		milestone: issue.milestone?.title ?? null,
 		futureSince: out === 'future' ? milestonedAt(events, 'Future')?.slice(0, 10) ?? null : null,
 		type: issue.type?.name ?? null,
 		areas: areasOf(issue.labels),
 		source: link.base.includes('-local-') ? 'local' : 'pr',
-		skillVersion: stats?.version ?? null,
+		skillVersion: stats ? stats.version ?? null : previous?.skillVersion ?? null,
 		via,
 	};
 }

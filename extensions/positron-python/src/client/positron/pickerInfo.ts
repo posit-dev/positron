@@ -6,14 +6,15 @@
 /**
  * How the interpreter picker groups and labels Python runtimes.
  *
- * Groups depend on where an interpreter lives, never on settings or shell state:
- * cached runtime metadata is shared across workspace folders.
+ * Unsupported Python versions share one group. Other groups depend on where an
+ * interpreter lives, never on settings or shell state: cached runtime metadata is
+ * shared across workspace folders.
  */
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { isBaseCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { getEnvironmentTypeRank, isBaseCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { NativePythonEnvironmentKind } from '../pythonEnvironments/base/locators/common/nativePythonUtils';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import { isPyenvVirtualenv, isUvBase, isWorkspaceEnv, RankingContext } from './interpreterRanking';
@@ -24,6 +25,7 @@ export enum PythonPickerGroup {
     Global = 'Global environments',
     Base = 'Base interpreters',
     ExternallyManaged = 'Externally managed',
+    Unsupported = 'Unsupported',
 }
 
 /** The localized header text for a picker group. */
@@ -38,6 +40,8 @@ function groupHeader(group: PythonPickerGroup): string {
             return vscode.l10n.t('Global environments');
         case PythonPickerGroup.ExternallyManaged:
             return vscode.l10n.t('Externally managed');
+        case PythonPickerGroup.Unsupported:
+            return vscode.l10n.t('Unsupported');
     }
 }
 
@@ -46,6 +50,7 @@ const GROUP_ORDER: readonly PythonPickerGroup[] = [
     PythonPickerGroup.Global,
     PythonPickerGroup.Base,
     PythonPickerGroup.ExternallyManaged,
+    PythonPickerGroup.Unsupported,
 ];
 
 /** The `groupOrder` of the project environments group; stable regardless of localization. */
@@ -108,13 +113,14 @@ const TOOL_NAMES: ReadonlyMap<EnvironmentType, string> = new Map([
     [EnvironmentType.Module, 'Module'],
 ]);
 
-/** Tool names for `System` and `Global` Pythons, by PET kind. */
+/** Tool names for `System` and `Global` Pythons, by PET kind, most useful first. */
 const INSTALLER_NAMES: ReadonlyMap<NativePythonEnvironmentKind, string> = new Map([
     [NativePythonEnvironmentKind.Homebrew, 'Homebrew'],
-    [NativePythonEnvironmentKind.MacXCode, 'Xcode'],
-    [NativePythonEnvironmentKind.MacCommandLineTools, 'Command Line Tools'],
     [NativePythonEnvironmentKind.MacPythonOrg, 'python.org'],
+    [NativePythonEnvironmentKind.MacCommandLineTools, 'Command Line Tools'],
+    [NativePythonEnvironmentKind.MacXCode, 'Xcode'],
 ]);
+const INSTALLER_ORDER = [...INSTALLER_NAMES.keys()];
 
 /** The tool that made or manages the interpreter, e.g. `uv` or `Homebrew`, if known. */
 function pythonToolName(
@@ -142,17 +148,29 @@ export function createPythonPickerInfo(args: {
     externallyManaged: boolean;
 }): positron.RuntimePickerInfo {
     const { interpreter, runtimeSource, pythonVersion, supported, context, externallyManaged } = args;
-    const group = pickerGroupOf(interpreter, context, externallyManaged);
+    const group = supported ? pickerGroupOf(interpreter, context, externallyManaged) : PythonPickerGroup.Unsupported;
     const envName = args.envName === pythonVersion ? '' : args.envName;
-    const toolAndName = [pythonToolName(interpreter, runtimeSource, context), envName].filter(Boolean).join(': ');
-    const description = [toolAndName, supported ? undefined : vscode.l10n.t('not supported')]
-        .filter(Boolean)
-        .join(' \u00B7 ');
+    const tool = pythonToolName(interpreter, runtimeSource, context);
+    const toolAndName = [tool, envName].filter(Boolean).join(': ');
+    const version = `Python ${pythonVersion}`;
+    const source = isUvBase(interpreter, context) ? EnvironmentType.Uv : runtimeSource;
+    // System and Global Pythons share a type rank, so their installer breaks the tie:
+    // most useful first, unknown installers last. This stays below the rank spacing.
+    let installerOrder = 0;
+    if (source === EnvironmentType.System || source === EnvironmentType.Global) {
+        const index = interpreter.nativeKind ? INSTALLER_ORDER.indexOf(interpreter.nativeKind) : -1;
+        installerOrder = index === -1 ? INSTALLER_ORDER.length : index;
+    }
     return {
         group: groupHeader(group),
         groupOrder: GROUP_ORDER.indexOf(group),
-        rowOrder: supported ? 0 : 1,
-        label: `Python ${pythonVersion}`,
-        description: description || undefined,
+        // Rows sort by environment type, in the same priority order used to pick a
+        // recommended interpreter (uv first, system Pythons last), then by installer,
+        // then by version (newest first).
+        rowOrder: getEnvironmentTypeRank(source) + installerOrder,
+        // The tool and name lead the row, with the version in the gray text.
+        // With no tool or name, the version is the label.
+        label: toolAndName || version,
+        description: toolAndName ? version : undefined,
     };
 }
