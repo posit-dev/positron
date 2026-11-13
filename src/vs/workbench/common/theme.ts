@@ -32,8 +32,7 @@ import { // eslint-disable-line no-duplicate-imports
 	selectBorder,
 	inputActiveOptionBackground,
 	inputActiveOptionBorder,
-	inputValidationInfoBorder,
-	descriptionForeground
+	inputValidationInfoBorder
 } from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
@@ -1807,9 +1806,12 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 }, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
 
 // Positron runtime not started state icon color.
-export const POSITRON_RUNTIME_STATE_ICON_NOT_STARTED = registerColor('positronRuntime.stateIconNotStarted',
-	descriptionForeground,
-	localize('positronRuntime.stateIconNotStarted', "Positron runtime icon color when no session has started."));
+export const POSITRON_RUNTIME_STATE_ICON_NOT_STARTED = registerColor('positronRuntime.stateIconNotStarted', {
+	dark: '#848484',
+	light: '#848484',
+	hcDark: '#848484',
+	hcLight: '#848484'
+}, localize('positronRuntime.stateIconNotStarted', "Positron runtime icon color when no session has started."));
 
 //  < --- Positron Data Grid --- >
 
