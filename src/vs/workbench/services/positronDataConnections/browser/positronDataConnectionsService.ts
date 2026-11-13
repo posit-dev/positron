@@ -408,14 +408,6 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Whether the discovered connection with this id is hidden.
-	 * @param id The discovered profile id.
-	 */
-	isHiddenDiscoveredProfile(id: string): boolean {
-		return this._hiddenDiscoveryIds.has(id);
-	}
-
-	/**
 	 * Saves a discovered connection as an ordinary profile. The saved profile gets a fresh id: the
 	 * discovered id is scoped to the driver's discovery namespace, and reusing it would tie the
 	 * saved profile's identity to a discovery that may later disappear. The discovered id is instead
@@ -556,8 +548,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 */
 	getProfile(id: string): IDataConnectionProfile | undefined {
 		// Discovered profiles are addressable by id too, so a caller holding an id from the pane can
-		// resolve it without caring whether the row it came from was saved or discovered.
-		return this._profiles.find(p => p.id === id) ?? this._discoveredProfiles.find(p => p.id === id);
+		// resolve it without caring whether the row it came from was saved or discovered. A hidden
+		// one is not: it has no row, so every by-id caller treats it as not found.
+		return this._profiles.find(p => p.id === id) ?? this._findVisibleDiscovery(id);
 	}
 
 	/**
@@ -575,7 +568,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			// values its driver reported were split out at discovery time and held in
 			// _discoveredSecretValues; merge them back so the connect gets the values the driver
 			// reported.
-			const discovered = this._discoveredProfiles.find(_ => _.id === id);
+			const discovered = this._findVisibleDiscovery(id);
 			if (!discovered) {
 				return undefined;
 			}
@@ -780,7 +773,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 */
 	async connect(profileId: string): Promise<IDataConnectionInstance> {
 		// A hidden discovery has no row to disconnect from, so opening one would leave a connection
-		// the user cannot reach. Callers report their own not-found before getting here.
+		// the user cannot reach. Checked before the live-instance reuse below, which would otherwise
+		// hand back a connection that hiding is still closing.
 		if (this._hiddenDiscoveryIds.has(profileId)) {
 			throw new Error(`Data connection '${profileId}' is hidden`);
 		}
@@ -1104,6 +1098,16 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Finds a current discovery by id, unless the user has hidden it. Unlike
+	 * getDiscoveredProfiles, this still finds a discovery a saved profile stands in for: a
+	 * connection opened from it before it was saved is still backed by it.
+	 * @param id The discovered profile id.
+	 */
+	private _findVisibleDiscovery(id: string): IDataConnectionProfile | undefined {
+		return this._hiddenDiscoveryIds.has(id) ? undefined : this._discoveredProfiles.find(p => p.id === id);
+	}
+
+	/**
 	 * The current discoveries that no saved profile stands in for, hidden or not.
 	 */
 	private _unsavedDiscoveries(): IDataConnectionProfile[] {
@@ -1179,9 +1183,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * asked for: the connection they opened is the entry that is now gone.
 	 */
 	private async _disconnectVanishedDiscoveries(): Promise<void> {
-		// Resolved against the unfiltered discoveries, the same way getProfile resolves them: a
-		// discovery the user has saved is filtered out of getDiscoveredProfiles but still backs the
-		// instance opened from it.
+		// Resolved against every current discovery: a discovery the user has saved is filtered out of
+		// getDiscoveredProfiles but still backs the instance opened from it. A hidden one is not
+		// vanished; hiding closes its connection itself.
 		const vanished = this._instances.filter(instance =>
 			!this._profiles.some(profile => profile.id === instance.profileId)
 			&& !this._discoveredProfiles.some(profile => profile.id === instance.profileId));

@@ -1173,6 +1173,28 @@ describe('PositronDataConnectionsService', () => {
 				}).toEqual({ stored: undefined, fires: 0 });
 			});
 
+			it('resolves a hidden discovery by id as not found until it is shown again', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+				const whileHidden = {
+					profile: service.getProfile(pagilaId),
+					withSecrets: await service.getProfileWithSecrets(pagilaId),
+				};
+
+				service.unhideDiscoveredProfiles([pagilaId]);
+
+				expect({
+					whileHidden,
+					afterUnhide: {
+						profile: service.getProfile(pagilaId)?.id,
+						withSecrets: (await service.getProfileWithSecrets(pagilaId))?.id,
+					},
+				}).toEqual({
+					whileHidden: { profile: undefined, withSecrets: undefined },
+					afterUnhide: { profile: pagilaId, withSecrets: pagilaId },
+				});
+			});
+
 			it('ignores a discovery that a saved profile stands in for', async () => {
 				await registerDiscoveringDriver([pagila]);
 				service.saveDiscoveredProfile(pagilaId);
@@ -1182,9 +1204,8 @@ describe('PositronDataConnectionsService', () => {
 
 				expect({
 					stored: storageService.get(hiddenKey, StorageScope.PROFILE),
-					hidden: service.isHiddenDiscoveredProfile(pagilaId),
 					fires: changes.fires,
-				}).toEqual({ stored: undefined, hidden: false, fires: 0 });
+				}).toEqual({ stored: undefined, fires: 0 });
 			});
 
 			it('stops hiding a discovery once it is saved, so removing the saved profile brings the row back', async () => {

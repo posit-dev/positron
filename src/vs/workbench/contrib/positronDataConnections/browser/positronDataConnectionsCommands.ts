@@ -375,8 +375,7 @@ export async function getDataConnectionCode(
 	const dataConnectionsService = accessor.get(IPositronDataConnectionsService);
 	const logService = accessor.get(ILogService);
 
-	// A hidden discovery is as good as gone: it has no row, and getProfile still resolves it.
-	const profile = args?.profileId === undefined || dataConnectionsService.isHiddenDiscoveredProfile(args.profileId)
+	const profile = args?.profileId === undefined
 		? undefined
 		: dataConnectionsService.getProfile(args.profileId);
 	if (!profile) {
@@ -515,14 +514,12 @@ async function connectCommandTarget(
 ): Promise<CommandTarget> {
 	// An already-live connection is used as-is: it shouldn't stop working because its driver was
 	// unregistered after it connected, so the driver check below applies only to a new connect.
-	// A hidden discovery has no live instance (hiding disconnects it), and is as good as gone.
-	const hidden = dataConnectionsService.isHiddenDiscoveredProfile(profileId);
-	const instance = hidden ? undefined : dataConnectionsService.getInstanceForProfile(profileId);
+	const instance = dataConnectionsService.getInstanceForProfile(profileId);
 	if (instance) {
 		return { kind: 'instance', instance };
 	}
 
-	const profile = hidden ? undefined : dataConnectionsService.getProfile(profileId);
+	const profile = dataConnectionsService.getProfile(profileId);
 	if (!profile) {
 		logService.warn(`[DataConnections] ${commandName}: no profile with id ${profileId}.`);
 		return { kind: 'unavailable', reason: 'not-found' };

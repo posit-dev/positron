@@ -88,7 +88,6 @@ describe('MainThreadDataConnections', () => {
 	let configurationService: TestConfigurationService;
 	let profiles: IDataConnectionProfile[];
 	let instances: IDataConnectionInstance[];
-	let hiddenProfileIds: string[];
 	let onDidChangeInstances: Emitter<IDataConnectionInstance[]>;
 	let onDidChangeProfiles: Emitter<IDataConnectionProfile[]>;
 	let onDidChangeSessionConnectionCode: Emitter<ISessionConnectionCodeChangeEvent>;
@@ -98,7 +97,6 @@ describe('MainThreadDataConnections', () => {
 		registeredDrivers = [];
 		profiles = [];
 		instances = [];
-		hiddenProfileIds = [];
 		onDidChangeInstances = disposables.add(new Emitter<IDataConnectionInstance[]>());
 		onDidChangeProfiles = disposables.add(new Emitter<IDataConnectionProfile[]>());
 		onDidChangeSessionConnectionCode = disposables.add(new Emitter<ISessionConnectionCodeChangeEvent>());
@@ -118,7 +116,6 @@ describe('MainThreadDataConnections', () => {
 			driverManager,
 			getProfiles: () => profiles,
 			getProfile: (id: string) => profiles.find(p => p.id === id),
-			isHiddenDiscoveredProfile: (id: string) => hiddenProfileIds.includes(id),
 			getInstances: () => instances,
 			getInstanceForProfile: (profileId: string) => instances.find(i => i.profileId === profileId),
 			connect,
@@ -325,15 +322,6 @@ describe('MainThreadDataConnections', () => {
 			// A caller can hold an id the user has since removed -- a file that remembers the
 			// database it was written against, say -- and that is ordinary, not an error.
 			await expect(mainThread.$openDataConnection('gone')).resolves.toBe(false);
-			expect(connect).not.toHaveBeenCalled();
-		});
-
-		it('says no rather than reopening a discovery the user has hidden', async () => {
-			// getProfile still resolves a hidden discovery, but it has no row in the pane.
-			profiles = [profile('discovered:driver:dsn', 'Sales')];
-			hiddenProfileIds = ['discovered:driver:dsn'];
-
-			await expect(mainThread.$openDataConnection('discovered:driver:dsn')).resolves.toBe(false);
 			expect(connect).not.toHaveBeenCalled();
 		});
 
