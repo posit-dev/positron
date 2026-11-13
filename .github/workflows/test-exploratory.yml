@@ -893,12 +893,7 @@ jobs:
           GH_TOKEN: ${{ steps.final-token.outputs.token }}
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           DEST: ${{ runner.temp }}/explore-results
-        run: |
-          status=0
-          for glob in 'explore-result-*' 'explore-report-url-*'; do
-            .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$DEST" "$glob" || status=1
-          done
-          exit "$status"
+        run: bash .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$DEST" 'explore-result-*' 'explore-report-url-*'
 
       - name: Collect the results
         id: collect
@@ -1018,7 +1013,7 @@ jobs:
           GH_TOKEN: ${{ steps.builds-token.outputs.token }}
           RUN_ID: ${{ needs.dispatch.outputs.run_id }}
           MODEL: ${{ steps.result.outputs.model }}
-        run: .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" /tmp/run-artifact "exploratory-run-$MODEL"
+        run: bash .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" /tmp/run-artifact "exploratory-run-$MODEL"
 
       # The artifact root is the common parent of what matched, so the run dir
       # is nested when code.log or the workspace was uploaded too and at the
