@@ -1,8 +1,9 @@
 name: "PR Docs-Only Check: Tests"
 
-# Runs the docs-only check's own tests on a PR that changes it. pr-dispatch.yml
-# and main-dispatch.yml use the check to skip the tests in positron-builds, so
-# a broken check could pass a code PR with no tests run.
+# Runs the docs-only check's own tests on a PR that changes it.
+# test-pr-dispatch.yml and test-merge-dispatch.yml use the check to skip the
+# tests in positron-builds, so a broken check could pass a code PR with no
+# tests run.
 #
 # Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
 

@@ -29,9 +29,10 @@ const IMPORT_REGEX =
  */
 export function parsePythonImports(code: string): string[] {
     const modules = new Set<string>();
-    // Split on both newlines and semicolons so compound one-line statements
-    // (`import pandas; import numpy`) surface every imported module.
-    for (const line of code.split(/\r?\n|;/)) {
+    // Drop trailing comments, then split on semicolons so compound one-line
+    // statements (`import pandas; import numpy`) surface every imported module.
+    const statements = code.split(/\r?\n/).flatMap((line) => line.split('#')[0].split(';'));
+    for (const line of statements) {
         const match = IMPORT_REGEX.exec(line);
         if (!match?.groups) {
             continue;

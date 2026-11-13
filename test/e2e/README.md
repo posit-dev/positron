@@ -247,12 +247,12 @@ When creating a pull request, the test runner automatically scans the PR descrip
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
 > [!NOTE]
-> **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
+> **Add tags before the tests start**. If you update tags _after_ opening the PR, push a new commit or re-run the `required-tests` check to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 > For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Automatic Tags (from changed files)
 
-In addition to scanning your PR description, the `pr-tags` job derives tags from the files your PR changes, so the right suites run even if you forget to tag them. Derived tags are **added to** (never replace) the tags you write, and `@:critical` always runs.
+In addition to scanning your PR description, the `e2e / tags` job derives tags from the files your PR changes, so the right suites run even if you forget to tag them. Derived tags are **added to** (never replace) the tags you write, and `@:critical` always runs.
 
 - **Source / extension changes** map to feature tags via [`.github/workflows/test-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`).
 - **E2E test-file changes** map to the minimal tag(s) needed to guarantee the touched/added tests actually run, chosen to add as few additional sibling tests as possible -- see [`scripts/derive-test-change-tags.mjs`](https://github.com/posit-dev/positron/blob/main/scripts/derive-test-change-tags.mjs). A test file with no declared tags gets a warning in the job log instead of a guessed tag.
@@ -273,19 +273,43 @@ By default, only Linux E2E tests run. If you need to include additional environm
 - Add `@:win` to your PR description to run tests on Windows. (Note: Windows tests take longer to complete.)
 - Add `@:web` to run browser-based tests.
 
+`@:win` and `@:web` are the only tags that start an additional lane on a PR. The other lane tags (for example `@:workbench`, `@:rocky-electron`, or `@:remote-ssh`) still select tests, but their lanes do not run on a PR at this time. This includes the Workbench lane that the automatic tags above refer to.
+
 ### Shards
 
-The `pr-tags` job counts the tests that each lane will run. If a lane has more than 200 tests, the job splits the lane into shards of up to 200 tests. For example, an Ark bump with feature tags runs the Linux lane as the jobs `electron-1`, `electron-2`, and `electron-3`. A job named `electron` then merges the shard reports into one report and sets the pass or fail result. The E2E Tests comment shows the test count and the shard count for each lane. Most PRs run only `@:critical` and use one shard.
+The `e2e / tags` job counts the tests that each lane will run. If a lane has more than 200 tests, the job splits the lane into shards of up to 200 tests. For example, an Ark bump with feature tags runs the Linux lane as the jobs `electron-1`, `electron-2`, and `electron-3`. A job named `electron` then merges the shard reports into one report and sets the pass or fail result. The E2E Tests comment shows the test count and the shard count for each lane. Most PRs run only `@:critical` and use one shard.
 
 ## Running Tests in Github Actions
 
-New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/test-full-suite.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
+New tests are not complete until they run successfully in Github Actions. The tests do not run in this repository. They run in the private repository `posit-dev/positron-builds`, against the commit under test. The default lane uses an Ubuntu instance, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system.
+
+There are three lanes:
+
+- **PR lane.** The [Test: PR](https://github.com/posit-dev/positron/actions/workflows/pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the manual lane.
+- **Merge lane.** Each push to `main`, `prerelease/**`, or `release/**` runs the full suite with credentials.
+- **Manual lane.** Posit staff can run the tests against a branch, tag, commit, or PR.
+
+### Running the Manual Lane (Posit-internal)
+
+Use the manual lane to run your new tests against a branch before merge, or to run more tests than the PR lane selects. You need access to `posit-dev/positron-builds`.
+
+```shell
+gh workflow run test-positron-ref.yml --repo posit-dev/positron-builds --ref pr-lane \
+  -f positron_ref=<branch, tag, SHA, or refs/pull/<n>/merge> \
+  -f grep='@:critical' \
+  -f run_unit=false -f run_ext_host=false
+```
+
+- `--ref pr-lane` is necessary for a ref that is not on `main`. Such a run gets no credentials.
+- `grep` accepts tags (comma-separated), test titles, or file names.
+- `run_unit` and `run_ext_host` are on by default. Set them to `false` to get e2e results more quickly.
+- `run_e2e_web=true` adds the browser lane, and `run_e2e_windows=true` adds the Windows lane.
 
 ### Github Actions Test Artifacts
 
-When a run is complete, you can debug any test failures that occurred using the HTML report. It has error info, test steps and screenshot(s).
+When a run is complete, you can debug any test failures that occurred using the HTML report. It has error info, test steps and screenshot(s). The report is the `playwright-report-<project>` artifact on the run in `positron-builds`, and it is kept for 3 days. For the merge lane, the report is also on the report server at `https://positron-reports.tail00da2.ts.net`, which you can open only from the Posit tailnet.
 
-Traces, log attachments and crash dumps are off by default in CI and on by default locally. To override either way, set `E2E_TRACES`, `E2E_ATTACH_LOGS` or `E2E_ATTACH_CRASH_DUMPS` to `on` or `off`. Before anything is uploaded, CI scans the artifacts for secret values and skips the upload if it finds any.
+Traces, log attachments and crash dumps are on by default locally. In CI, the PR lane and the merge lane keep traces for failed and retried tests, and log attachments and crash dumps are off. To override either way, set `E2E_TRACES`, `E2E_ATTACH_LOGS` or `E2E_ATTACH_CRASH_DUMPS` to `on` or `off`. Before anything is uploaded, CI scans the artifacts for secret values and skips the upload if it finds any.
 
 > [!TIP]
 > To reproduce and debug a CI failure locally using the actual CI image, see [`.devcontainer/ci-arm/README.md`](../../.devcontainer/ci-arm/README.md).

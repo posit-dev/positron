@@ -138,19 +138,12 @@ jobs:
           npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
           npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
 
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
-
       - name: Judge the PR
         id: judge
         working-directory: .github/actions/pr-exploratory-test
         env:
           GH_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node suggest.ts judge
 
   # The only job that can write, and it runs no model.

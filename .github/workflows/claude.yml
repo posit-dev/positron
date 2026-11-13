@@ -199,18 +199,15 @@ jobs:
           echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
 
       - name: Setup Claude
-        id: setup
         if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
-        with:
-          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Run Claude Code Action
         id: claude
         if: steps.ack.outputs.duplicate != 'true'
         uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
         with:
-          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
@@ -333,10 +330,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Claude
-        id: setup
         uses: ./.github/actions/setup-claude
-        with:
-          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Setup core dependencies
         uses: ./.github/actions/setup-claude-build-deps
@@ -375,7 +369,7 @@ jobs:
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
         with:
-          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"

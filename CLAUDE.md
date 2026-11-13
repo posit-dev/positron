@@ -106,6 +106,10 @@ Positron has three test categories:
 	  it returns, so "it's stuck, stop" cannot reach you and you cannot `TaskStop` the run.
 	  Background runs also let you watch a log with Monitor and act on failures as they land.
 
+### Where CI runs
+
+The unit, extension host, and e2e lanes do not run in this repo. `pr-dispatch.yml` and `main-dispatch.yml` start them in the private repo `posit-dev/positron-builds` and report the result here. The old lane workflows in `.github/workflows/` (for example `test-pull-request.yml` and the `test-e2e-*.yml` files) are disabled and stay only as references. See [Running Tests in Github Actions](test/e2e/README.md#running-tests-in-github-actions) for the lanes and the manual run command.
+
 ### Triaging an e2e test that is failing or flaking
 
 For a **named e2e test that is failing or flaking**, use the `debug-e2e-test`
