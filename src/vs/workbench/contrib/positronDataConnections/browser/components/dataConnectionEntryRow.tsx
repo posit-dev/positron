@@ -15,6 +15,7 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
+import { showHideDataConnectionConfirmation } from '../dialogs/hideDataConnectionConfirmation.js';
 import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
 import { showSaveDataConnectionConfirmation } from '../dialogs/saveDataConnectionConfirmation.js';
@@ -179,6 +180,20 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 		if (confirmed) {
 			positronDataConnectionsService.removeProfile(profile.id);
 		}
+	};
+
+	/**
+	 * Hides this detected connection. Hiding closes the connection, and the Data Explorers previewed
+	 * from it with it; Show Hidden Connections brings the row back but not those grids. So confirm
+	 * first when any are open, and hide right away when none are.
+	 */
+	const confirmHideProfile = async () => {
+		const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(profile.id);
+		if (openDataExplorerCount > 0 &&
+			!await showHideDataConnectionConfirmation(profile.connectionName, openDataExplorerCount)) {
+			return;
+		}
+		positronDataConnectionsService.hideDiscoveredProfile(profile.id);
 	};
 
 	/**
@@ -353,7 +368,8 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 		// saved connection that can then be edited and removed like any other) and Hide (stop
 		// showing it). Only Remove is marked destructive; disconnecting gives up the connection but
 		// keeps the saved profile, saving takes nothing away, and hiding is reversible from the
-		// Show Hidden Connections quick pick, so it needs no confirmation.
+		// Show Hidden Connections quick pick. Hiding confirms only when it would close open Data
+		// Explorers.
 		if (profile.discovered) {
 			entries.push(new CustomContextMenuItem({
 				icon: 'save',
@@ -363,7 +379,7 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 			entries.push(new CustomContextMenuItem({
 				icon: 'eye-closed',
 				label: localize('positron.dataConnections.hide', "Hide"),
-				onSelected: () => positronDataConnectionsService.hideDiscoveredProfile(profile.id),
+				onSelected: () => confirmHideProfile(),
 			}));
 		} else {
 			entries.push(new CustomContextMenuItem({

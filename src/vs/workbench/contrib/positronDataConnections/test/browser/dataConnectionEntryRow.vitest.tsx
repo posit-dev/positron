@@ -90,6 +90,7 @@ describe('DataConnectionEntryRow', () => {
 	// then looks up. Declared here so the tests can assert against the calls.
 	const saveDiscoveredProfile = vi.fn((_id: string) => savedDiscoveredProfile.id);
 	const hideDiscoveredProfile = vi.fn((_id: string) => { });
+	const countOpenDataExplorers = vi.fn((_profileId: string) => 0);
 	const getProfile = vi.fn((id: string) => id === savedDiscoveredProfile.id ? savedDiscoveredProfile : undefined);
 
 	const ctx = createTestContainer()
@@ -99,6 +100,7 @@ describe('DataConnectionEntryRow', () => {
 			getProfile,
 			saveDiscoveredProfile,
 			hideDiscoveredProfile,
+			countOpenDataExplorers,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -260,8 +262,9 @@ describe('DataConnectionEntryRow', () => {
 		`);
 	});
 
-	// Hiding is reversible from the Show Hidden Connections quick pick, so it asks nothing first.
-	it('hides a discovered profile without a confirmation', async () => {
+	// Hiding is reversible from the Show Hidden Connections quick pick, so with no Data Explorers to
+	// lose it asks nothing first.
+	it('hides a discovered profile without a confirmation when no Data Explorers are open', async () => {
 		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
 		modalRender.mockClear();
 
@@ -278,6 +281,51 @@ describe('DataConnectionEntryRow', () => {
 			  ],
 			}
 		`);
+	});
+
+	// Show Hidden Connections brings the row back but not the grids that closed with it, so hiding
+	// asks first when it would close any.
+	it('confirms before hiding a discovered profile with open Data Explorers', async () => {
+		countOpenDataExplorers.mockReturnValueOnce(2);
+		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+		const dialogProps = modalRender.mock.lastCall?.[0].props;
+		const hiddenBeforeConfirm = hideDiscoveredProfile.mock.calls.length;
+		dialogProps.onConfirm();
+		await vi.waitFor(() => expect(hideDiscoveredProfile).toHaveBeenCalled());
+
+		expect({
+			dialog: { connectionName: dialogProps.connectionName, openDataExplorerCount: dialogProps.openDataExplorerCount },
+			hiddenBeforeConfirm,
+			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
+		}).toMatchInlineSnapshot(`
+			{
+			  "dialog": {
+			    "connectionName": "Discovered Connection",
+			    "openDataExplorerCount": 2,
+			  },
+			  "hiddenBeforeConfirm": 0,
+			  "hiddenProfileIds": [
+			    "discovered-1",
+			  ],
+			}
+		`);
+	});
+
+	it('does not hide a discovered profile when the confirmation is cancelled', async () => {
+		countOpenDataExplorers.mockReturnValueOnce(1);
+		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+		modalRender.mock.lastCall?.[0].props.onCancel();
+		// Let the cancelled confirmation settle before checking that nothing was hidden.
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(hideDiscoveredProfile).not.toHaveBeenCalled();
 	});
 
 	it('saves a discovered profile before opening the edit dialog on it', async () => {
