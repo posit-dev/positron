@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { watchForFileCreation } from './connectionsFileArrival.js';
-import { connectionsFilePath, isSameConnectionsFile, readConnectionsFile, SnowflakeConnectionsFileEntry } from './snowflakeConnectionsFile.js';
+import { connectionsFilePath, isSameConnectionsFile, partitionConnections, readConnectionsFile, SnowflakeConnectionsFileEntry } from './snowflakeConnectionsFile.js';
 import { createSnowflakeDriver } from './snowflakeDriver.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
 
@@ -59,7 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// nothing new.
 	const missingAtStart = !existsSync(filePath);
 
-	// What the driver currently offers, to tell a real edit from a file event that changed nothing.
+	// What the file held at the last good reading, to tell a real edit from a file event that changed
+	// nothing. This is the whole file, entries with no account included: the driver leaves those out
+	// and says so each time it discovers connections, so a change to one is still a change.
 	let current = read() ?? {};
 
 	const driver = createSnowflakeDriver(context, dataExplorerHandler, filePath, current, logger);
@@ -80,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 		current = connections;
-		logger.info(`Discovered ${Object.keys(connections).length} named connection(s) in ${filePath}.`);
+		logger.info(`Discovered ${Object.keys(partitionConnections(connections).connectable).length} named connection(s) in ${filePath}.`);
 		driver.setFileConnections(connections);
 	}, logger));
 }

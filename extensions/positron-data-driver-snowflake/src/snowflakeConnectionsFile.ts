@@ -83,6 +83,36 @@ export function readConnectionsFile(filePath: string): Record<string, SnowflakeC
 }
 
 /**
+ * Splits the named connections into those that can be connected to and those that cannot. An entry
+ * can be connected to when it names an account, the one field a Snowflake connection cannot do
+ * without. An entry with no account is a stub (often a profile started by hand or by a tool and
+ * never finished), and offering it would show a row that can only fail to connect.
+ *
+ * A blank or whitespace-only account counts as none here. This is stricter than reading the
+ * account at connect time, which only rejects an empty string, so a whitespace-only account is
+ * never offered in the first place.
+ *
+ * @param connections The named connections read from the file.
+ * @returns The entries that have an account, and the names of those that do not, both in file
+ * order.
+ */
+export function partitionConnections(connections: Record<string, SnowflakeConnectionsFileEntry>): {
+	connectable: Record<string, SnowflakeConnectionsFileEntry>;
+	skipped: string[];
+} {
+	const connectable: Record<string, SnowflakeConnectionsFileEntry> = {};
+	const skipped: string[] = [];
+	for (const [name, entry] of Object.entries(connections)) {
+		if (typeof entry.account === 'string' && entry.account.trim().length > 0) {
+			connectable[name] = entry;
+		} else {
+			skipped.push(name);
+		}
+	}
+	return { connectable, skipped };
+}
+
+/**
  * Whether two readings of the file define the same connections.
  *
  * Used to tell a real edit from a file event that changed nothing, so the pane is only asked to

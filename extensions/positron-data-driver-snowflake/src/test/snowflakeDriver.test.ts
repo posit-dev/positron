@@ -13,7 +13,8 @@ import * as vscode from 'vscode';
 import { dataExplorerQueryClient, SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions, SnowflakeQueryOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
-import { connectionOptionsFromToml, connectionsFileOptions, parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { connectionOptionsFromToml, connectionsFileOptions, createSnowflakeDriver, parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { SnowflakeDataExplorerRpcHandler } from '../snowflakeDataExplorerRpcHandler.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -1479,6 +1480,101 @@ suite('Snowflake Connections File Options', () => {
 			const options = connectionsFileOptions(filePath, 'workbench');
 			assert.deepStrictEqual({ password: options.password, tokenProvider: options.tokenProvider }, { password: 'pat-token', tokenProvider: undefined });
 		});
+	});
+});
+
+suite('Snowflake Connections File Stubs', () => {
+	// The driver only reads the icon from the context, and hands the handler to connections it opens,
+	// which these tests never do.
+	const context = { extensionPath: path.join(__dirname, '..', '..') } as vscode.ExtensionContext;
+	const handler = {} as SnowflakeDataExplorerRpcHandler;
+
+	// Records what the driver logs, so a test can check what a user would find in the output channel.
+	function createLogger() {
+		const infos: string[] = [];
+		const logger: positron.DataConnectionLogger = {
+			trace: () => { },
+			debug: () => { },
+			info: message => infos.push(message),
+			warn: () => { },
+			error: () => { },
+		};
+		return { logger, infos };
+	}
+
+	// The names the Connections File mechanism offers in its connection picker.
+	function pickerNames(driver: positron.DataConnectionDriver): string[] | undefined {
+		const parameter = driver.mechanisms
+			.find(mechanism => mechanism.id === 'connections-file')
+			?.parameters.find(candidate => candidate.id === 'connectionName');
+		return parameter?.type === positron.DataConnectionParameterType.Option ? parameter.options : undefined;
+	}
+
+	test('leaves entries with no account out of discovery and the picker, and logs them at discovery', async () => {
+		const { logger, infos } = createLogger();
+		const driver = createSnowflakeDriver(context, handler, '/tmp/connections.toml', {
+			dev: { account: 'myorg-dev' },
+			stub: { user: 'me' },
+		}, logger);
+		try {
+			const discovered = await driver.discoverConnections!();
+			assert.deepStrictEqual({
+				discovered: discovered.map(connection => connection.name),
+				picker: pickerNames(driver),
+				skipLogs: infos.filter(message => message.startsWith('Skipped')),
+			}, {
+				discovered: ['dev'],
+				picker: ['dev'],
+				skipLogs: ['Skipped connection \'stub\' in /tmp/connections.toml: it has no account.'],
+			});
+		} finally {
+			driver.dispose();
+		}
+	});
+
+	test('logs each entry with no account once per reading of the file, however often discovery runs', async () => {
+		const { logger, infos } = createLogger();
+		const driver = createSnowflakeDriver(context, handler, '/tmp/connections.toml', {
+			stub: { user: 'me' },
+		}, logger);
+		try {
+			// Core discovers again each time any driver registers, so one pane open can run it twice.
+			await driver.discoverConnections!();
+			await driver.discoverConnections!();
+			const afterTwoDiscoveries = infos.filter(message => message.startsWith('Skipped')).length;
+
+			// A new reading of the file says again what it leaves out, even when that is unchanged.
+			driver.setFileConnections({ stub: { user: 'me' } });
+			await driver.discoverConnections!();
+			const afterNewReading = infos.filter(message => message.startsWith('Skipped')).length;
+
+			assert.deepStrictEqual({ afterTwoDiscoveries, afterNewReading }, { afterTwoDiscoveries: 1, afterNewReading: 2 });
+		} finally {
+			driver.dispose();
+		}
+	});
+
+	test('leaves entries with no account out after the file changes', async () => {
+		const { logger, infos } = createLogger();
+		const driver = createSnowflakeDriver(context, handler, '/tmp/connections.toml', {}, logger);
+		try {
+			driver.setFileConnections({
+				prod: { account: 'myorg-prod' },
+				draft: { account: ' ' },
+			});
+			const discovered = await driver.discoverConnections!();
+			assert.deepStrictEqual({
+				discovered: discovered.map(connection => connection.name),
+				picker: pickerNames(driver),
+				skipLogs: infos.filter(message => message.startsWith('Skipped')),
+			}, {
+				discovered: ['prod'],
+				picker: ['prod'],
+				skipLogs: ['Skipped connection \'draft\' in /tmp/connections.toml: it has no account.'],
+			});
+		} finally {
+			driver.dispose();
+		}
 	});
 });
 
