@@ -396,7 +396,7 @@ test('a finding filed as an issue links to that issue on the triage page', () =>
 });
 
 test('runUrl: the Actions run when built there, else the workflow page', () => {
-	const workflow = 'https://github.com/posit-dev/positron/actions/workflows/exploratory-outcomes.yml';
+	const workflow = 'https://github.com/posit-dev/positron-builds/actions/workflows/explore-outcomes.yml';
 	assert.equal(runUrl({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '42' }), 'https://github.com/o/r/actions/runs/42');
 	assert.equal(runUrl({}), workflow);
 	assert.equal(runUrl({ GITHUB_REPOSITORY: 'o/r' }), workflow);

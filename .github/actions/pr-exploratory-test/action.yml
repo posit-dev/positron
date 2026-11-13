@@ -92,7 +92,7 @@ inputs:
     required: false
     default: ""
   decline-reason:
-    description: "Comment mode: why the run did not happen, when outcome is 'declined' or 'outdated'"
+    description: "Comment mode: why the run did not happen, when outcome is 'declined', 'refused' or 'outdated'"
     required: false
     default: ""
   pr-number:
