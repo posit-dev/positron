@@ -257,12 +257,17 @@ export class Packages {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
-		// Click "Install Package" from the overflow menu
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.packagesViewMoreActionsButton,
-			menuItemLabel: 'Install Package',
-			exact: true
-		});
+		// Click "Install Package" from the overflow menu. The action is disabled while the
+		// pane is busy, which it is for a while after a previous install (the new package's
+		// detail view and the metadata refresh keep it so). triggerAndClick gives up on a
+		// disabled item after 10s, so retry it until the action is enabled.
+		await expect(async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.packagesViewMoreActionsButton,
+				menuItemLabel: 'Install Package',
+				exact: true
+			});
+		}).toPass({ timeout: 90_000 });
 
 		// Wait for the quick input to appear
 		await this.quickInput.waitForQuickInputOpened();
@@ -325,6 +330,124 @@ export class Packages {
 			menuTriggerButton: 'right',
 			exact: true
 		});
+	}
+
+	/**
+	 * Locates a package's list row. The row wrapper, not the card inside it, is the
+	 * element that carries the `selected` class.
+	 * @param packageName The exact package name whose row to return.
+	 */
+	private listRow(packageName: string): Locator {
+		return this.packagesContainer.locator('.positron-list-row', {
+			has: this.code.driver.currentPage.locator('.packages-list-item-name', {
+				hasText: new RegExp(`^${packageName}$`),
+			}),
+		}).first();
+	}
+
+	/**
+	 * Selects several packages the way a user does: click the first row, then
+	 * Cmd/Ctrl-click each of the others. All the rows must be on screen at once, so
+	 * filter the list down to them first ({@link searchPackages}); changing the
+	 * filter afterwards clears the selection.
+	 *
+	 * Rows are recreated whenever a refresh lands, so the clicks are retried as a
+	 * unit together with their outcome.
+	 * @param packageNames The exact names of the packages to select.
+	 */
+	async selectPackages(packageNames: string[]): Promise<void> {
+		await this.clickPackagesButton();
+		await expect(async () => {
+			for (const [index, name] of packageNames.entries()) {
+				await this.listRow(name).click({ modifiers: index === 0 ? [] : ['ControlOrMeta'], timeout: 5_000 });
+			}
+			await this.expectPackagesSelected(packageNames, 5_000);
+		}).toPass({ timeout: 60_000 });
+	}
+
+	/**
+	 * Asserts every named package's row is selected.
+	 * @param packageNames The exact names of the packages that should be selected.
+	 * @param timeout Max time to wait for each row to show as selected.
+	 */
+	async expectPackagesSelected(packageNames: string[], timeout = 15_000): Promise<void> {
+		for (const name of packageNames) {
+			await expect(this.listRow(name)).toHaveClass(/\bselected\b/, { timeout });
+		}
+	}
+
+	/**
+	 * Runs "Update Packages" on the current multi-selection from the context menu
+	 * of one of its rows. Right-clicking a selected row keeps the whole selection.
+	 * Returns once the action is dispatched; assert the outcome with
+	 * {@link expectPackageVersionChanged}.
+	 * @param packageName The name of a selected package whose row to right-click.
+	 */
+	async updateSelectedPackages(packageName: string): Promise<void> {
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: this.listRow(packageName),
+			menuItemLabel: 'Update Packages',
+			menuTriggerButton: 'right',
+			exact: true
+		});
+
+		// Best-effort wait for the "Updating Packages..." toast, as installPackage does:
+		// a fast update can raise and clear it before it is observed.
+		await this.toasts.waitForAppear('Updating Packages...', { timeout: 30000 }).catch(() => { });
+		await this.toasts.waitForDisappear('Updating Packages...', { timeout: 60000 }).catch(() => { });
+	}
+
+	/**
+	 * Runs "Uninstall Packages" on the current multi-selection from the context
+	 * menu of one of its rows. The confirmation is auto-confirmed under the smoke
+	 * test driver (see {@link uninstallPackage}). Returns once the action is
+	 * dispatched; use {@link expectPackageNotInList} for the outcome.
+	 * @param packageName The name of a selected package whose row to right-click.
+	 */
+	async uninstallSelectedPackages(packageName: string): Promise<void> {
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: this.listRow(packageName),
+			menuItemLabel: 'Uninstall Packages',
+			menuTriggerButton: 'right',
+			exact: true
+		});
+	}
+
+	/**
+	 * Asserts a package's row shows an installed version. The row must be in the
+	 * currently filtered list.
+	 * @param packageName The exact package name to check.
+	 * @param version The version the row should show.
+	 * @param timeout Max time to wait, generous because it follows an install.
+	 */
+	async expectPackageVersion(packageName: string, version: string, timeout = 60_000): Promise<void> {
+		await expect(this.listRow(packageName).locator('.packages-list-item-version')).toHaveText(version, { timeout });
+	}
+
+	/**
+	 * Asserts a package's row advertises an available update: the Update button, or
+	 * the compact arrow when the pane is narrow. The row shows neither until the
+	 * runtime's outdated state for the package has arrived, which follows the install
+	 * by a few seconds. A bulk update skips any package not yet known to be outdated,
+	 * so wait for this before updating. The row must be in the currently filtered list.
+	 * @param packageName The exact package name to check.
+	 * @param timeout Max time to wait for the outdated state to arrive.
+	 */
+	async expectUpdateAvailable(packageName: string, timeout = 90_000): Promise<void> {
+		await expect(
+			this.listRow(packageName).locator('.packages-list-item-update-button, .packages-list-item-update')
+		).toBeVisible({ timeout });
+	}
+
+	/**
+	 * Asserts a package's row no longer shows a version, i.e. it was updated.
+	 * Asserts the change, not the new version, so it holds as newer releases ship.
+	 * @param packageName The exact package name to check.
+	 * @param previousVersion The version the row showed before the update.
+	 * @param timeout Max time to wait for the update and the list refresh.
+	 */
+	async expectPackageVersionChanged(packageName: string, previousVersion: string, timeout = 120_000): Promise<void> {
+		await expect(this.listRow(packageName).locator('.packages-list-item-version')).not.toHaveText(previousVersion, { timeout });
 	}
 
 	/**

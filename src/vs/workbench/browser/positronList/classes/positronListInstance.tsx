@@ -303,6 +303,27 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	}
 
 	/**
+	 * Replaces the selection with every item that matches the predicate, leaving the cursor and
+	 * scroll position alone. Clears the selection when nothing matches. Useful for carrying a
+	 * selection across setEntries, since the selection is tracked by row index.
+	 * @param predicate Returns true for each item to select.
+	 */
+	selectItems(predicate: (item: TItem) => boolean): void {
+		const rowIndexes: number[] = [];
+		for (let i = 0; i < this._entries.length; i++) {
+			const entry = this._entries[i];
+			if (entry.kind === 'item' && predicate(entry.item)) {
+				rowIndexes.push(i);
+			}
+		}
+		if (rowIndexes.length === 0) {
+			this.clearSelection();
+		} else {
+			this.selectRows(rowIndexes);
+		}
+	}
+
+	/**
 	 * Returns the item the cursor is on, or undefined when the cursor is out of range or sitting on
 	 * a section row.
 	 *

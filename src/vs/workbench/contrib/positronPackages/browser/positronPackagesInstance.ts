@@ -11,6 +11,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { getUpdatablePackages } from './packageSelection.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
 import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup, TOTAL_BUDGET_MS } from './packageVulnerabilityLookup.js';
 
@@ -156,6 +157,15 @@ export interface IPositronPackagesInstance {
 	 * changed, sorted alphabetically. Empty when nothing was updated.
 	 */
 	updateAllPackages(token?: CancellationToken): Promise<string[]>;
+	/**
+	 * Updates the named packages to their latest known version. Names that
+	 * are not outdated are skipped.
+	 *
+	 * @returns The names of the packages whose installed version actually
+	 * changed, sorted alphabetically. Empty when none were updatable or
+	 * nothing changed.
+	 */
+	updateOutdatedPackages(names: readonly string[], token?: CancellationToken): Promise<string[]>;
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
@@ -721,6 +731,54 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	async updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void> {
+		const completed = await this._updatePackagesAndRefresh(packages, token);
+		if (completed) {
+			// Highlight the updated packages in the view.
+			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
+		}
+	}
+
+	async updateOutdatedPackages(names: readonly string[], token?: CancellationToken): Promise<string[]> {
+		// Use the merged `packages` view: the runtime's raw package list carries no
+		// outdated state, which lives in the metadata cache and is overlaid there.
+		const updatable = getUpdatablePackages(this.packages, names);
+		if (updatable.length === 0) {
+			return [];
+		}
+
+		// Snapshot installed versions so we can report only what changed.
+		const versionsBefore = new Map(this._packages.map((pkg) => [pkg.name, pkg.version]));
+		const specs: IPackageSpec[] = updatable.map((pkg) => ({ name: pkg.name, version: pkg.latestVersion }));
+
+		const completed = await this._updatePackagesAndRefresh(specs, token);
+		if (!completed) {
+			return [];
+		}
+
+		const requested = new Set(updatable.map((pkg) => pkg.name));
+		const updated = this._packages
+			.filter((pkg) => {
+				const previousVersion = versionsBefore.get(pkg.name);
+				return requested.has(pkg.name) && previousVersion !== undefined && previousVersion !== pkg.version;
+			})
+			.map((pkg) => pkg.name)
+			.sort((a, b) => a.localeCompare(b));
+
+		// Highlight only the packages whose version changed.
+		this._onDidChangePackages.fire(updated);
+
+		return updated;
+	}
+
+	/**
+	 * Shared body of `updatePackages` and `updateOutdatedPackages`: runs the
+	 * backend update with the update-loading state, evicts the packages from
+	 * the cache and refreshes. Does not fire `_onDidChangePackages`; callers
+	 * decide what to highlight.
+	 *
+	 * @returns false if the update was cancelled, true otherwise.
+	 */
+	private async _updatePackagesAndRefresh(packages: IPackageSpec[], token?: CancellationToken): Promise<boolean> {
 		const packageManager = this.getPackageManagerOrThrow();
 		const effectiveToken = token ?? CancellationToken.None;
 
@@ -730,16 +788,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.updatePackages(packages, effectiveToken);
 			if (effectiveToken.isCancellationRequested) {
-				return;
+				return false;
 			}
 
 			this._evictPackagesFromCache(packages.map((pkg) => pkg.name));
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
-
-			// Highlight the updated packages in the view.
-			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
+			return true;
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);

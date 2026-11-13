@@ -15,9 +15,10 @@ import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/co
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PackageMetadataCache } from './packageMetadataCache.js';
+import { getUpdatablePackages } from './packageSelection.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
-import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
+import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
@@ -44,7 +45,11 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
 	private readonly _selectedPackageContextKey: IContextKey<string>;
+	private readonly _selectionCountContextKey: IContextKey<number>;
+	private readonly _selectionHasUpdatableContextKey: IContextKey<boolean>;
 	private readonly _itemSizeContextKey: IContextKey<PackagesItemSize>;
+
+	private _selectedPackages: readonly string[] = [];
 
 	// Disposables for tracking busy state of the active instance
 	private readonly _activeInstanceDisposables = this._register(new DisposableStore());
@@ -96,6 +101,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
+		this._selectionCountContextKey = POSITRON_PACKAGES_SELECTION_COUNT.bindTo(this._contextKeyService);
+		this._selectionHasUpdatableContextKey = POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
 
 		// Seed the item-size context key from persisted storage so the user's preferred
@@ -190,7 +197,14 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 				uninstallLoading = isLoading;
 				updateBusy();
 			}));
+
+			// Whether the selection is updatable depends on the instance's package
+			// list, which can change without the selection changing.
+			this._activeInstanceDisposables.add(instance.onDidRefreshPackagesInstance(() => {
+				this.updateSelectionHasUpdatable();
+			}));
 		}
+		this.updateSelectionHasUpdatable();
 
 		this._onDidChangeActivePackagesInstance.fire(instance);
 	}
@@ -216,12 +230,19 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		return this._activeInstance;
 	}
 
-	get selectedPackage(): string | undefined {
-		return this._selectedPackageContextKey.get() || undefined;
+	get selectedPackages(): readonly string[] {
+		return this._selectedPackages;
 	}
 
-	setSelectedPackage(packageName: string | undefined): void {
-		this._selectedPackageContextKey.set(packageName ?? '');
+	get selectedPackage(): string | undefined {
+		return this._selectedPackages.length === 1 ? this._selectedPackages[0] : undefined;
+	}
+
+	setSelectedPackages(names: readonly string[]): void {
+		this._selectedPackages = [...names];
+		this._selectedPackageContextKey.set(this.selectedPackage ?? '');
+		this._selectionCountContextKey.set(names.length);
+		this.updateSelectionHasUpdatable();
 	}
 
 	get itemSize(): PackagesItemSize {
@@ -285,6 +306,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
+	async updateOutdatedPackages(names: readonly string[], token?: CancellationToken): Promise<string[]> {
+		const instance = this._activeInstance;
+		if (instance) {
+			return await instance.updateOutdatedPackages(names, token);
+		}
+
+		throw new Error('No active session found.');
+	}
+
 	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {
 		const instance = this._activeInstance;
 		if (instance) {
@@ -323,6 +353,13 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	//#endregion IPositronPackagesService Implementation
 
 	//#region Private Methods
+
+	private updateSelectionHasUpdatable(): void {
+		const packages = this._activeInstance?.packages ?? [];
+		this._selectionHasUpdatableContextKey.set(
+			getUpdatablePackages(packages, this._selectedPackages).length > 0
+		);
+	}
 
 	getInstances(): IPositronPackagesInstance[] {
 		return Array.from(this._instancesBySessionId.values());

@@ -20,7 +20,7 @@ import React, {
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
-import { Separator } from '../../../../../base/common/actions.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { matchesSomeScheme, Schemas } from '../../../../../base/common/network.js';
@@ -37,6 +37,7 @@ import { ListEntry, PositronListInstance, PositronListItemContext } from '../../
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
+import { canUninstallSelection, canUpdateSelection, copyPackagesLabel, isPackageUpdatable } from '../packageSelection.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
@@ -47,6 +48,17 @@ const positronUninstallPackage = localize(
 const positronUpdatePackage = localize(
 	'positronUpdatePackage',
 	'Update Package',
+);
+
+// Plural forms for a multi-package selection.
+const positronUninstallPackages = localize(
+	'positronUninstallPackages',
+	'Uninstall Packages',
+);
+
+const positronUpdatePackages = localize(
+	'positronUpdatePackages',
+	'Update Packages',
 );
 
 // Row heights for each item size mode.
@@ -192,6 +204,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const listInstance = useMemo(() => new PositronListInstance<ILanguageRuntimePackage>({
 		itemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
 		itemRenderer: () => null,
+		selectionMode: 'list-multiple-selection',
 	}), [itemSize]);
 
 	// Clear selection when filter text changes.
@@ -262,8 +275,17 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// PositronList entry contract; this list has no sections.
 	useEffect(() => {
 		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
-		// so re-anchor by package id after pushing the new entries.
-		const previouslySelectedId = listInstance.getSelectedItems()[0]?.id;
+		// so re-anchor every selected package by name after pushing the new entries, dropping the
+		// ones that are gone. The name, not the id: a runtime's package id embeds the version
+		// (the kernel's is `<name>-<version>`), so an update changes it and an id match would
+		// deselect exactly the packages that were just updated. Names are unique here (the list
+		// is deduplicated by name). onDidUpdate is batched into a microtask, so the clear, the
+		// new entries, and the re-selection reach the selection sync effect as one update and
+		// only the final selection is pushed to the service.
+		const previouslySelectedNames = new Set(listInstance.getSelectedItems().map(p => p.name));
+		if (previouslySelectedNames.size > 0) {
+			listInstance.clearSelection();
+		}
 
 		const entries: ListEntry<ILanguageRuntimePackage, never>[] = filteredPackages.map(pkg => ({
 			kind: 'item',
@@ -271,13 +293,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}));
 		listInstance.setEntries(entries);
 
-		if (previouslySelectedId !== undefined) {
-			const newIndex = filteredPackages.findIndex(p => p.id === previouslySelectedId);
-			if (newIndex >= 0) {
-				listInstance.selectRow(newIndex);
-			} else {
-				listInstance.clearSelection();
-			}
+		if (previouslySelectedNames.size > 0) {
+			listInstance.selectItems(p => previouslySelectedNames.has(p.name));
 		}
 	}, [listInstance, filteredPackages]);
 
@@ -303,8 +320,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		const firstIndex = Math.min(...indices);
 		void listInstance.scrollToRow(firstIndex);
 		// A single affected package (install, single update) also becomes the
-		// selection; a bulk update has no meaningful single row to select.
-		if (highlight.names.length === 1) {
+		// selection; a bulk update has no meaningful single row to select. A bulk
+		// update of a multi-selection can still report one changed package, so a
+		// multi-selection (already re-anchored by the refresh) is left alone.
+		if (highlight.names.length === 1 && listInstance.getSelectedItems().length <= 1) {
 			listInstance.selectRow(firstIndex);
 		}
 
@@ -332,22 +351,34 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		await showPackageHelp(session, services.positronHelpService, services.notificationService, packageName);
 	}, [activeInstance, services]);
 
-	// Shows the row context menu for a package, anchored on either a point (right-click) or an
-	// element (keyboard). Defined at component scope rather than inside the item renderer because
-	// the keyboard path below has no item closure to reach into: it looks the package up from the
-	// list's cursor instead. Both paths must offer the same actions.
+	// Shows the row context menu for the selected packages, anchored on either a point
+	// (right-click) or an element (keyboard). Defined at component scope rather than inside the
+	// item renderer because the keyboard path below has no item closure to reach into. Both paths
+	// pass the list's selection, which they make current before calling this: Update and
+	// Uninstall run the selection commands, which read the selection from the service.
 	const showPackageContextMenu = useCallback((
-		pkg: ILanguageRuntimePackage,
+		items: readonly ILanguageRuntimePackage[],
 		anchor: { x: number; y: number } | HTMLElement
 	) => {
-		const { name, version, url } = pkg;
-		// Validate the kernel-provided URL in core: only surface http(s) links so a malformed or
-		// non-web scheme (file:, javascript:, ...) coming from the runtime can never reach the
-		// opener.
-		const hasValidUrl = !!url && matchesSomeScheme(url, Schemas.http, Schemas.https);
+		if (items.length === 0) {
+			return;
+		}
 
-		services.contextMenuService.showContextMenu({
-			getActions: () => [
+		const formatPackage = (p: ILanguageRuntimePackage) => `${p.name} (${p.version})`;
+		const hasUpdatable = items.some(isPackageUpdatable);
+		// A single package keeps the singular labels; a multi-selection reads in the plural.
+		const isMulti = items.length > 1;
+		const updateLabel = isMulti ? positronUpdatePackages : positronUpdatePackage;
+		const uninstallLabel = isMulti ? positronUninstallPackages : positronUninstallPackage;
+
+		// Entries that only make sense for one package: help, website, and copying that package.
+		const singlePackageActions = (pkg: ILanguageRuntimePackage): IAction[] => {
+			const { name, version, url } = pkg;
+			// Validate the kernel-provided URL in core: only surface http(s) links so a malformed
+			// or non-web scheme (file:, javascript:, ...) coming from the runtime can never reach
+			// the opener.
+			const hasValidUrl = !!url && matchesSomeScheme(url, Schemas.http, Schemas.https);
+			return [
 				{
 					id: 'showHelp',
 					label: localize('positronPackages.showHelp', "Show Help"),
@@ -374,33 +405,47 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					tooltip: localize('positronPackages.copyPackage', "Copy '{0} ({1})'", name, version),
 					class: undefined,
 					enabled: true,
-					run: () => services.clipboardService.writeText(`${name} (${version})`)
+					run: () => services.clipboardService.writeText(formatPackage(pkg))
 				},
+			];
+		};
+
+		const copySelectedAction: IAction = {
+			id: 'copySelected',
+			label: copyPackagesLabel(items.length),
+			tooltip: copyPackagesLabel(items.length),
+			class: undefined,
+			enabled: true,
+			run: () => services.clipboardService.writeText(items.map(formatPackage).join('\n'))
+		};
+
+		services.contextMenuService.showContextMenu({
+			getActions: () => [
+				...(items.length === 1 ? singlePackageActions(items[0]) : [copySelectedAction]),
 				{
 					id: 'copyAll',
 					label: localize('positronPackages.copyAllPackages', 'Copy All'),
 					tooltip: localize('positronPackages.copyAllPackages', 'Copy All'),
 					class: undefined,
 					enabled: true,
-					run: () => services.clipboardService.writeText(deduplicatedPackages.map((p) => `${p.name} (${p.version})`).join('\n'))
+					run: () => services.clipboardService.writeText(deduplicatedPackages.map(formatPackage).join('\n'))
 				},
 				new Separator(),
 				{
 					id: 'updatePackage',
-					label: positronUpdatePackage,
-					tooltip: positronUpdatePackage,
+					label: updateLabel,
+					tooltip: updateLabel,
 					class: undefined,
-					enabled: true,
-					run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
-
+					enabled: canUpdateSelection(items.length, hasUpdatable),
+					run: () => services.commandService.executeCommand('positronPackages.updateSelectedPackage')
 				},
 				{
 					id: 'uninstallPackage',
-					label: positronUninstallPackage,
-					tooltip: positronUninstallPackage,
+					label: uninstallLabel,
+					tooltip: uninstallLabel,
 					class: undefined,
-					enabled: true,
-					run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
+					enabled: canUninstallSelection(items.length),
+					run: () => services.commandService.executeCommand('positronPackages.uninstallSelectedPackage')
 				}
 			],
 			getAnchor: () => anchor
@@ -504,7 +549,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						// mousedown, so right-click handling lives on contextmenu instead.
 						e.preventDefault();
 						e.stopPropagation();
-						showPackageContextMenu(pkg, { x: e.clientX, y: e.clientY });
+						// The menu acts on the selection. The grid's mousedown has already
+						// settled it: right-clicking inside the selection keeps it, and
+						// right-clicking any other row selects just that row.
+						showPackageContextMenu(listInstance.getSelectedItems(), { x: e.clientX, y: e.clientY });
 					}}
 					onDoubleClick={() => {
 						// Double-click pins the editor (matching the Extensions pane behaviour).
@@ -565,34 +613,34 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		listInstance.setItemRenderer(renderItem);
 	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds, vulnerabilitiesEnabled]);
 
-	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
-	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
-	// When the selection changes to a new non-empty package, also open a preview editor.
+	// Sync the selected packages' names into the packages service. onDidUpdate fires for any
+	// instance change (selection, cursor, scroll), so we dedupe before pushing. When the
+	// selection changes to exactly one new package, also open a preview editor; a
+	// multi-selection leaves the preview showing whatever it showed.
 	useEffect(() => {
-		const pushSelection = () => {
-			const name = listInstance.getSelectedItems()[0]?.name;
-			services.positronPackagesService.setSelectedPackage(name);
-		};
+		const selectedNames = () => listInstance.getSelectedItems().map(p => p.name);
 		// Push once on mount in case selection already exists.
-		pushSelection();
-		let lastName: string | undefined;
+		const initialNames = selectedNames();
+		services.positronPackagesService.setSelectedPackages(initialNames);
+		let lastKey = initialNames.join('\n');
 		const disposable = listInstance.onDidUpdate(() => {
-			const name = listInstance.getSelectedItems()[0]?.name;
-			if (name !== lastName) {
-				lastName = name;
-				services.positronPackagesService.setSelectedPackage(name);
-				// Open a preview (non-pinned) editor when the selected package changes.
-				// lastOpenedRef guards against reopening on list refreshes that
+			const names = selectedNames();
+			const key = names.join('\n');
+			if (key !== lastKey) {
+				lastKey = key;
+				services.positronPackagesService.setSelectedPackages(names);
+				// Open a preview (non-pinned) editor when the single selected package
+				// changes. lastOpenedRef guards against reopening on list refreshes that
 				// re-select the same row without the user having changed selection.
-				if (name && name !== lastOpenedRef.current) {
-					lastOpenedRef.current = name;
-					void services.commandService.executeCommand('positronPackages.openPackage', name, false);
+				if (names.length === 1 && names[0] !== lastOpenedRef.current) {
+					lastOpenedRef.current = names[0];
+					void services.commandService.executeCommand('positronPackages.openPackage', names[0], false);
 				}
 			}
 		});
 		return () => {
 			disposable.dispose();
-			services.positronPackagesService.setSelectedPackage(undefined);
+			services.positronPackagesService.setSelectedPackages([]);
 		};
 	}, [listInstance, services]);
 
@@ -710,10 +758,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return;
 		}
 
-		// The menu acts on the row the cursor is on, not the selection. Arrow keys move the cursor
-		// and leave the selection behind, so targeting the selection would open the menu for a
-		// different package than the one the user navigated to. A click sets both, so the mouse
-		// path is unaffected.
+		// The menu acts on the selection when the cursor row is part of it (a click, or a
+		// Shift+Arrow range, which extends with the cursor). Plain arrow keys move the cursor and
+		// leave the selection behind, so in that case select the cursor row first, the keyboard
+		// counterpart of right-clicking an unselected row.
 		const cursorItem = listInstance.getCursorItem();
 		if (!cursorItem) {
 			return;
@@ -722,12 +770,16 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		e.preventDefault();
 		e.stopPropagation();
 
+		if (!listInstance.getSelectedItems().includes(cursorItem)) {
+			listInstance.selectRow(listInstance.cursorRowIndex);
+		}
+
 		// Anchor on the cursor row so the menu opens next to it rather than at the pane's corner.
 		// The class is PositronList's default row styling, applied by the list itself. Falling back
 		// to the wrapper keeps the menu reachable if the row is scrolled out of the rendered window.
 		// eslint-disable-next-line no-restricted-syntax -- the row belongs to PositronList's DOM and carries no role or text of its own to query by.
 		const cursorRow = e.currentTarget.querySelector('.positron-list-row.focused');
-		showPackageContextMenu(cursorItem, (cursorRow as HTMLElement | null) ?? e.currentTarget);
+		showPackageContextMenu(listInstance.getSelectedItems(), (cursorRow as HTMLElement | null) ?? e.currentTarget);
 	};
 
 	// Only show the "No packages found" message when the user has narrowed the
