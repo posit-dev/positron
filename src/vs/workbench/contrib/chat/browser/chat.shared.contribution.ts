@@ -241,7 +241,10 @@ import { ChatRepoInfoContribution } from './chatRepoInfo.js';
 import { ChatSetupContribution, ChatTeardownContribution } from './chatSetup/chatSetupContributions.js';
 import { ChatMicrosoftSignInProbeContribution, ChatMicrosoftSignInProbeService, IChatMicrosoftSignInProbeService } from './chatSetup/chatSetupMicrosoftProbe.js';
 import { ChatSessionOptionSlashCommandsContribution, ChatSlashCommandsContribution } from './chatSlashCommands.js';
-import { ChatStatusBarEntry } from './chatStatus/chatStatusEntry.js';
+// --- Start Positron ---
+// The chat status bar entry is not registered; see the registration below.
+// import { ChatStatusBarEntry } from './chatStatus/chatStatusEntry.js';
+// --- End Positron ---
 import { CodexStatusBarEntry } from './chatStatus/codexStatusEntry.js';
 import { ChatTipService, IChatTipService } from './chatTipService.js';
 import { ChatWindowNotifier } from './chatWindowNotifier.js';
@@ -2443,13 +2446,15 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			// --- Start Positron ---
 			// description: nls.localize('chat.disableAIFeatures', "Disable and hide built-in AI features provided by GitHub Copilot, including chat and inline suggestions."),
-			// In Positron this hides the Copilot chat UI only; inline suggestions stay
-			// available and are controlled by their own setting.
-			markdownDescription: nls.localize('positron.chat.disableAIFeatures', "Hide the built-in GitHub Copilot chat UI. Inline suggestions are not affected and stay controlled by the `#github.copilot.enable#` setting."),
+			// In Positron this hides the chat view and inline chat only; other AI
+			// features are controlled by `ai.enabled` and their own settings.
+			markdownDescription: nls.localize('positron.chat.disableAIFeatures', "Hide the chat view and inline chat. Positron doesn't include a chat agent, so they appear only when this is `false` and an extension provides a default chat participant. The `#ai.enabled#` setting hides them regardless."),
 			// default: false,
-			// Positron hides the Copilot chat UI by default. The chat extension's
-			// `vscode.lm` model provider stays registered for other consumers; see
-			// the AIDisabled gating in chatAgents.ts.
+			// Positron hides the chat view by default and keeps Ctrl+I bound to
+			// reindent. Positron doesn't ship a default chat participant, so the chat
+			// view also stays hidden when this is false unless an extension provides
+			// one; see ChatEntitlementContext.withConfiguration. See the AIDisabled
+			// gating in chatAgents.ts.
 			default: true,
 			// --- End Positron ---
 			scope: ConfigurationScope.WINDOW,
@@ -3377,7 +3382,12 @@ registerWorkbenchContribution2(ChatPromoNotificationContribution.ID, ChatPromoNo
 registerWorkbenchContribution2(ChatExpNotificationContribution.ID, ChatExpNotificationContribution, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(HasByokModelsContribution.ID, HasByokModelsContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(ChatTeardownContribution.ID, ChatTeardownContribution, WorkbenchPhase.AfterRestored);
-registerWorkbenchContribution2(ChatStatusBarEntry.ID, ChatStatusBarEntry, WorkbenchPhase.BlockRestore);
+// --- Start Positron ---
+// The chat status bar entry is GitHub Copilot's status, sign-in, and quota menu.
+// Positron doesn't ship Copilot, so it doesn't show the entry, even when a user
+// sideloads Copilot Chat.
+// registerWorkbenchContribution2(ChatStatusBarEntry.ID, ChatStatusBarEntry, WorkbenchPhase.BlockRestore);
+// --- End Positron ---
 registerWorkbenchContribution2(CodexStatusBarEntry.ID, CodexStatusBarEntry, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(BuiltinToolsContribution.ID, BuiltinToolsContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(ClientToolSetsContribution.ID, ClientToolSetsContribution, WorkbenchPhase.Eventually);

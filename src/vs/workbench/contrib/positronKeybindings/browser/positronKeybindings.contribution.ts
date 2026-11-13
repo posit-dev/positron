@@ -15,6 +15,7 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { registerPositronKeybindingRemovals } from './positronKeybindingRemovals.js';
+import { CTX_INLINE_CHAT_V2_ENABLED } from '../../inlineChat/common/inlineChat.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -238,19 +239,17 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 
-		// Reindent selected lines. We only bind this if inline chat is not available
-		// (i.e. AI is off or Copilot chat is disabled), since Ctrl+I invokes inline chat.
-		const inlineChatDisabled =
-			this._configurationService.getValue('ai.enabled') === false
-			|| this._configurationService.getValue('chat.disableAIFeatures') === true;
-		if (inlineChatDisabled) {
-			this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
-				id: 'editor.action.reindentselectedlines',
-				weight: KeybindingWeight.BuiltinExtension,
-				when: EditorContextKeys.editorTextFocus,
-				primary: KeyMod.CtrlCmd | KeyCode.KeyI
-			}));
-		}
+		// Reindent selected lines, unless inline chat has an agent to handle Ctrl+I.
+		// Positron doesn't ship an inline chat agent, so this is the usual case. The
+		// agent context key is false while AI is off (`ai.enabled` or
+		// `chat.disableAIFeatures`), and it updates at runtime, so Ctrl+I switches to
+		// inline chat as soon as an extension provides an agent.
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'editor.action.reindentselectedlines',
+			weight: KeybindingWeight.BuiltinExtension,
+			when: ContextKeyExpr.and(EditorContextKeys.editorTextFocus, CTX_INLINE_CHAT_V2_ENABLED?.negate()),
+			primary: KeyMod.CtrlCmd | KeyCode.KeyI
+		}));
 
 		// Format selection
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({

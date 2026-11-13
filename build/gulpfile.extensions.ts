@@ -431,7 +431,13 @@ task.task(compileNativeExtensionsBuildTask);
  * Compiles the built-in copilot extension for the build.
  * Used by non-CI local builds where copilot is not downloaded as a VSIX.
  */
-export const compileCopilotExtensionBuildTask = task.define('compile-copilot-extension-build', () => ext.packageCopilotExtensionStream().pipe(gulp.dest('.build')));
+// --- Start Positron ---
+// Positron does not ship the Copilot Chat extension. Keep the task name defined
+// because release workflows (here and in positron-builds) call it by name, but
+// emit nothing so that the extension is never packaged.
+// export const compileCopilotExtensionBuildTask = task.define('compile-copilot-extension-build', () => ext.packageCopilotExtensionStream().pipe(gulp.dest('.build')));
+export const compileCopilotExtensionBuildTask = task.define('compile-copilot-extension-build', async () => { });
+// --- End Positron ---
 task.task(compileCopilotExtensionBuildTask);
 
 /**

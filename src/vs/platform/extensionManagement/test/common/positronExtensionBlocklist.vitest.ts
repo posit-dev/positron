@@ -18,6 +18,10 @@ describe('positronExtensionBlocklist', () => {
 	it('should treat dependencies on blocked extensions Positron ships as built-ins as satisfiable', () => {
 		// ruff 2026.62.0 depends on ms-python.python; Positron provides it in-tree
 		expect(isUnsatisfiableDependency('ms-python.python')).toBe(false);
+	});
+
+	it('should not block Copilot Chat, which Positron does not ship but users may sideload', () => {
+		expect(isBlockedExtension('GitHub.copilot-chat')).toBe(false);
 		expect(isUnsatisfiableDependency('GitHub.copilot-chat')).toBe(false);
 	});
 

@@ -12,12 +12,12 @@ import { NullTelemetryService } from '../../../../../platform/telemetry/common/t
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { ChatEntitlementContext, ChatEntitlementContextKeys, IChatSentiment, isCompletionsOnlyMode } from '../../common/chatEntitlementService.js';
 
-// `ai.enabled` is Positron's main AI switch. When it's off, the chat UI (the
-// chat pane and the Copilot status icon) must hide just like Copilot's own
-// `chat.disableAIFeatures`. Both feed the `chatSetupHidden` context key through
-// `ChatEntitlementContext`, so these tests assert that key flips with
-// `ai.enabled` -- including at runtime, without a reload.
-describe('ChatEntitlementContext ai.enabled gating', () => {
+// Positron doesn't ship the default chat extension (GitHub Copilot Chat), so
+// `ChatEntitlementContext` always reports chat setup as hidden. That keeps
+// upstream's setup agents from registering and hides the chat view's setup
+// fallback, which would otherwise show an empty chat view to anyone with
+// `chat.disableAIFeatures: false` (see `withConfiguration`).
+describe('ChatEntitlementContext setup hiding', () => {
 	const disposables = ensureNoLeakedDisposables();
 
 	let contextKeyService: MockContextKeyService;
@@ -47,34 +47,46 @@ describe('ChatEntitlementContext ai.enabled gating', () => {
 		});
 	};
 
-	it('hides the chat UI when ai.enabled is off at startup', () => {
+	const cases = [
+		{ name: 'no settings', config: {} },
+		{ name: 'chat opted in and AI on', config: { 'chat.disableAIFeatures': false, 'ai.enabled': true } },
+		{ name: 'chat hidden', config: { 'chat.disableAIFeatures': true } },
+		{ name: 'AI off', config: { 'ai.enabled': false } },
+	];
+	for (const { name, config } of cases) {
+		it(`hides chat setup with ${name}`, () => {
+			for (const [key, value] of Object.entries(config)) {
+				configurationService.setUserConfiguration(key, value);
+			}
+			createContext();
+
+			expect(isHidden()).toBe(true);
+		});
+	}
+
+	it('keeps chat setup hidden when the settings change at runtime', async () => {
 		configurationService.setUserConfiguration('ai.enabled', false);
-		createContext();
-
+		const context = createContext();
 		expect(isHidden()).toBe(true);
-	});
-
-	it('leaves the chat UI visible when ai.enabled is unset and Copilot is not disabled', () => {
-		createContext();
-
-		expect(isHidden()).toBe(false);
-	});
-
-	it('flips chatSetupHidden when ai.enabled toggles at runtime, no reload', async () => {
-		createContext();
-		expect(isHidden()).toBe(false);
 
 		// The config listener recomputes via the async `updateContext()`, so let
 		// its microtask settle before asserting.
-		configurationService.setUserConfiguration('ai.enabled', false);
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('chat.disableAIFeatures', false);
 		fireConfigChange('ai.enabled');
+		fireConfigChange('chat.disableAIFeatures');
 		await Promise.resolve();
 		expect(isHidden()).toBe(true);
+		expect(context.state.hidden).toBe(true);
+	});
 
-		configurationService.setUserConfiguration('ai.enabled', true);
-		fireConfigChange('ai.enabled');
-		await Promise.resolve();
-		expect(isHidden()).toBe(false);
+	it('keeps chat setup hidden when an installed chat extension reports itself', async () => {
+		const context = createContext();
+
+		// Upstream treats an installed, enabled default chat extension as a sign to
+		// unhide chat setup. A sideloaded Copilot Chat must not bring setup back.
+		await context.update({ installed: true, disabled: false, untrusted: false, disabledInWorkspace: false });
+		expect(isHidden()).toBe(true);
 	});
 });
 
