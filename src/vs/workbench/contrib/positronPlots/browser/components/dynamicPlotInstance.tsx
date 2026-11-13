@@ -58,13 +58,16 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			return;
 		}
 
+		// Clear any message from an earlier size; this render may succeed.
+		setError('');
+
 		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
 			setUri(props.plotClient.lastRender.uri);
 		}
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
-		const render = async (policy: IPositronPlotSizingPolicy, forceRerender?: boolean) => {
+		const render = async (policy: IPositronPlotSizingPolicy, reportErrors = false) => {
 			let plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
@@ -98,8 +101,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				}
 				// Renders run on every resize, so log instead of notifying; the last
 				// good image (if any) stays visible.
-				services.logService.warn(`Error rendering plot to '${policy.getName(props.plotClient)}' size: ${e.message} (${e.code})`);
-				setError(localize('positronPlots.renderErrorAtSize', "Couldn't render this plot at the current size. See the Output panel for details."));
+				services.logService.warn(`Error rendering plot to '${policy.getName(props.plotClient)}' size: ${e.message}`);
+				setError(localize('positronPlots.renderError', "Couldn't render this plot. Try making the plot area larger, or see the Window log in the Output panel for details."));
+				// A sizing change is usually picked by the user, and the old image
+				// would hide the failure, so tell them.
+				if (reportErrors) {
+					services.notificationService.warn(localize('positronPlots.renderErrorAtPolicy', "Couldn't render this plot at the '{0}' size. See the Window log in the Output panel for details.", policy.getName(props.plotClient)));
+				}
 			}
 		};
 
@@ -173,7 +181,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService]);
+	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService, services.notificationService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {
