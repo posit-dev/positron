@@ -7,7 +7,7 @@
 import './currentWorkingDirectory.css';
 
 // React.
-import { MouseEvent, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, MouseEvent, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -15,16 +15,11 @@ import { toSlashes } from '../../../../../base/common/extpath.js';
 import { isWindows } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { useActionBarHover } from '../../../../../platform/positronActionBar/browser/useActionBarHover.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-
-/**
- * Localized strings for UI.
- */
-const positronCurrentWorkingDirectory = localize(
-	'positronCurrentWorkingDirectory',
-	"Current Working Directory"
-);
 
 /**
  * CurrentWorkingDirectoryProps interface.
@@ -32,6 +27,19 @@ const positronCurrentWorkingDirectory = localize(
 interface CurrentWorkingDirectoryProps {
 	readonly directoryLabel: string;
 }
+
+/**
+ * How long after Shift+F10 or the Menu key a contextmenu event is treated as coming from that key.
+ */
+const KEYBOARD_CONTEXT_MENU_WINDOW_MS = 500;
+
+/**
+ * Determines whether a key opens the context menu (Shift+F10 or the Menu key).
+ * @param e The keyboard event.
+ * @returns true if the key opens the context menu; otherwise, false.
+ */
+const isContextMenuKey = (e: KeyboardEvent<HTMLElement>) =>
+	e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey);
 
 /**
  * The current working directory component.
@@ -43,54 +51,80 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
 
+	// Hover hooks. The hover shows the full path, which the label may truncate.
+	const hover = useActionBarHover(props.directoryLabel);
+	const ref = hover.ref;
+
 	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
+	const keyboardContextMenuTimeRef = useRef(0);
 
-	// State hooks.
-	const [mouseInside, setMouseInside] = useState(false);
+	// Participate in the action bar's arrow key navigation.
+	useRegisterWithActionBar([ref]);
 
-	// Hover useEffect.
-	useEffect(() => {
-		// If the mouse is inside, show the hover. This has the effect of showing the hover when
-		// mouseInside is set to true and updating the hover when the tooltip changes.
-		if (mouseInside) {
-			positronActionBarContext.hoverManager.showHover(ref.current, props.directoryLabel);
-		}
-	}, [mouseInside, positronActionBarContext.hoverManager, props.directoryLabel]);
+	// The directory label as displayed.
+	const directoryLabel = isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel;
 
 	/**
-	 * onMouseDown handler.
-	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 * Shows the context menu.
+	 * @param anchorPoint The point to anchor the menu to, or undefined to anchor it to the label.
 	 */
-	const mouseDownHandler = async (e: MouseEvent<HTMLElement>) => {
-		// Stop propagation.
+	const showContextMenu = async (anchorPoint?: AnchorPoint) => {
+		// Hide the hover so it doesn't cover the menu.
+		positronActionBarContext.hoverManager?.hideHover();
+
+		// Build the context menu entries.
+		const entries: CustomContextMenuEntry[] = [
+			new CustomContextMenuItem({
+				icon: 'copy',
+				label: localize('positron.dataExplorer.copy', "Copy"),
+				onSelected: async () => await services.clipboardService.writeText(
+					props.directoryLabel
+				)
+			})
+		];
+
+		// Show the context menu.
+		await showCustomContextMenu({
+			anchorElement: ref.current,
+			anchorPoint,
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			width: 'auto',
+			entries
+		});
+	};
+
+	/**
+	 * onContextMenu handler for right-click.
+	 * @param e A MouseEvent<HTMLElement> that describes the contextmenu event.
+	 */
+	const contextMenuHandler = async (e: MouseEvent<HTMLElement>) => {
+		e.preventDefault();
 		e.stopPropagation();
 
-		// If the left mouse button was pressed, show the context menu.
-		if (e.button === 2) {
-			// Build the context menu entries.
-			const entries: CustomContextMenuEntry[] = [
-				new CustomContextMenuItem({
-					icon: 'copy',
-					label: localize('positron.dataExplorer.copy', "Copy"),
-					onSelected: async () => await services.clipboardService.writeText(
-						props.directoryLabel
-					)
-				})
-			];
+		// On Windows and Linux the browser also fires contextmenu for Shift+F10 and the Menu key,
+		// after the keydown handler has already opened the menu.
+		if (Date.now() - keyboardContextMenuTimeRef.current < KEYBOARD_CONTEXT_MENU_WINDOW_MS) {
+			return;
+		}
 
-			// Show the context menu.
-			await showCustomContextMenu({
-				anchorElement: ref.current,
-				anchorPoint: {
-					clientX: e.clientX,
-					clientY: e.clientY
-				},
-				popupPosition: 'auto',
-				popupAlignment: 'auto',
-				width: 'auto',
-				entries
-			});
+		await showContextMenu({ clientX: e.clientX, clientY: e.clientY });
+	};
+
+	/**
+	 * onKeyDown handler. Enter and Space open the menu, as they do for any menu button. Shift+F10
+	 * and the Menu key open it too, because macOS does not fire contextmenu for them.
+	 * @param e A KeyboardEvent<HTMLElement> that describes a user interaction with the keyboard.
+	 */
+	const keyDownHandler = async (e: KeyboardEvent<HTMLElement>) => {
+		const contextMenuKey = isContextMenuKey(e);
+		if (contextMenuKey || e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			e.stopPropagation();
+			if (contextMenuKey) {
+				keyboardContextMenuTimeRef.current = Date.now();
+			}
+			await showContextMenu();
 		}
 	};
 
@@ -98,24 +132,24 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 	return (
 		<div
 			ref={ref}
-			aria-label={positronCurrentWorkingDirectory}
+			aria-haspopup='menu'
+			aria-label={localize(
+				'positron.console.currentWorkingDirectory.ariaLabel',
+				"Current Working Directory: {0}",
+				directoryLabel
+			)}
 			className='current-working-directory-label'
-			onMouseDown={mouseDownHandler}
-			onMouseEnter={() => {
-				// Set the mouse inside state.
-				setMouseInside(true);
-			}}
-			onMouseLeave={() => {
-				// Clear the mouse inside state.
-				setMouseInside(false);
-
-				// Hide the hover.
-				positronActionBarContext.hoverManager?.hideHover();
-			}}
+			role='button'
+			onBlur={hover.onBlur}
+			onContextMenu={contextMenuHandler}
+			onFocus={hover.onFocus}
+			onKeyDown={keyDownHandler}
+			onMouseEnter={hover.onMouseEnter}
+			onMouseLeave={hover.onMouseLeave}
 		>
 			<span className='codicon codicon-folder' role='presentation' />
 			<span className='label'>
-				{isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel}
+				{directoryLabel}
 			</span>
 		</div>
 	);
