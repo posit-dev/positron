@@ -107,7 +107,7 @@ export type CanvasEntryOutcome =
  * Set while Canvas is the only surface the user can see. Gates the action
  * that hands the user back to the IDE.
  */
-export const PositronCanvasModeActiveContext = new RawContextKey<boolean>('positronCanvasModeActive', false, localize('positron.canvas.modeActiveContext', "Whether Canvas is currently the only visible Positron surface."));
+export const PositronCanvasModeActiveContext = new RawContextKey<boolean>('positronCanvasModeActive', false, localize('positron.canvas.modeActiveContext', "Whether Braid is currently the only visible Positron surface."));
 
 /**
  * Command id of the action that exits Canvas mode; part of the pinned
@@ -118,13 +118,13 @@ export const CANVAS_EXIT_COMMAND_ID = 'positron.canvas.exit';
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'canvas',
-	title: localize('positron.canvas.title', "Canvas"),
+	title: localize('positron.canvas.title', "Braid"),
 	type: 'object',
 	properties: {
 		[CANVAS_OPEN_ON_STARTUP_KEY]: {
 			type: 'boolean',
 			default: false,
-			description: localize('positron.canvas.openOnStartup', "Experimental. Open Canvas as the only window when this workspace starts, instead of the full Positron interface. Requires a Canvas-capable Posit Assistant."),
+			description: localize('positron.canvas.openOnStartup', "Experimental. Open Braid as the only window when this workspace starts, instead of the full Positron interface. Requires a Braid-capable Posit Assistant."),
 			included: false,
 			tags: ['experimental'],
 			scope: ConfigurationScope.WINDOW

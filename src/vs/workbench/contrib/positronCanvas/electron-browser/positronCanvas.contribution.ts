@@ -59,7 +59,7 @@ class OpenCanvasAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenCanvasAction.ID,
-			title: localize2('positron.canvas.open', "Open Canvas"),
+			title: localize2('positron.canvas.open', "Open Braid"),
 			category: Categories.View,
 			f1: false,
 			precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
@@ -101,7 +101,7 @@ class ExitCanvasModeAction extends Action2 {
 	constructor() {
 		super({
 			id: ExitCanvasModeAction.ID,
-			title: localize2('positron.canvas.exit', "Exit Canvas to the Positron IDE"),
+			title: localize2('positron.canvas.exit', "Exit Braid to the Positron IDE"),
 			category: Categories.View,
 			f1: true,
 			precondition: PositronCanvasModeActiveContext
@@ -218,7 +218,7 @@ class CanvasStartupBoot extends Disposable {
 			return {
 				entered: false,
 				reason: 'superseded',
-				message: localize('positron.canvas.startupSuperseded', "Canvas stopped opening because Positron was asked for the IDE.")
+				message: localize('positron.canvas.startupSuperseded', "Braid stopped opening because Positron was asked for the IDE.")
 			};
 		}
 
@@ -318,16 +318,16 @@ class PositronCanvasStartupContribution extends Disposable implements IWorkbench
 			// The flag was an explicit ask; a veto must not answer it with a
 			// silent plain IDE window.
 			if (!signals.aiEnabled) {
-				notificationService.error(localize('positron.canvas.flagAiDisabled', "Canvas is unavailable because AI features are disabled."));
+				notificationService.error(localize('positron.canvas.flagAiDisabled', "Braid is unavailable because AI features are disabled."));
 			} else if (signals.engagedElsewhere) {
-				notificationService.error(localize('positron.canvas.flagEngagedElsewhere', "Canvas is already open in another Positron window."));
+				notificationService.error(localize('positron.canvas.flagEngagedElsewhere', "Braid is already open in another Positron window."));
 			} else {
 				// No workspace is a normal first-launch state, not an error:
 				// point at the way forward rather than offering a retry that
 				// can never succeed.
 				notificationService.prompt(
 					Severity.Info,
-					localize('positron.canvas.flagNoWorkspace', "Canvas needs a single local folder to work in. Open one to get started."),
+					localize('positron.canvas.flagNoWorkspace', "Braid needs a single local folder to work in. Open one to get started."),
 					[{
 						label: localize('positron.canvas.openFolder', "Open Folder"),
 						run: () => commandService.executeCommand('workbench.action.files.openFolder')

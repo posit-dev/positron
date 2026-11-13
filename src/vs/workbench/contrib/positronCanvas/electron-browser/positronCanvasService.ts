@@ -46,7 +46,7 @@ const CANVAS_ENSURE_TIMEOUT = 20_000;
 const supersededOutcome: CanvasEntryOutcome = {
 	entered: false,
 	reason: 'superseded',
-	message: localize('positron.canvas.superseded', "Canvas stopped opening because Positron was asked for the IDE.")
+	message: localize('positron.canvas.superseded', "Braid stopped opening because Positron was asked for the IDE.")
 };
 
 export const IPositronCanvasService = createDecorator<IPositronCanvasService>('positronCanvasService');
@@ -240,7 +240,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return {
 				entered: false,
 				reason: 'ai-disabled',
-				message: localize('positron.canvas.aiDisabled', "Canvas is unavailable because AI features are disabled.")
+				message: localize('positron.canvas.aiDisabled', "Braid is unavailable because AI features are disabled.")
 			};
 		}
 
@@ -254,7 +254,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return {
 				entered: false,
 				reason: 'engaged-elsewhere',
-				message: localize('positron.canvas.engagedElsewhere', "Canvas is already open in another Positron window.")
+				message: localize('positron.canvas.engagedElsewhere', "Braid is already open in another Positron window.")
 			};
 		}
 
@@ -286,7 +286,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return {
 				entered: false,
 				reason: 'no-panel',
-				message: localize('positron.canvas.couldNotOpen', "Canvas could not be opened. Check the Posit Assistant output for details.")
+				message: localize('positron.canvas.couldNotOpen', "Braid could not be opened. Check the Posit Assistant output for details.")
 			};
 		}
 
@@ -306,7 +306,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return {
 				entered: false,
 				reason: 'no-window',
-				message: localize('positron.canvas.couldNotOpenWindow', "Canvas could not be opened in its own window.")
+				message: localize('positron.canvas.couldNotOpenWindow', "Braid could not be opened in its own window.")
 			};
 		}
 
@@ -328,7 +328,7 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 			return {
 				entered: false,
 				reason: 'no-window',
-				message: localize('positron.canvas.couldNotHideIde', "Canvas could not take over from the Positron window.")
+				message: localize('positron.canvas.couldNotHideIde', "Braid could not take over from the Positron window.")
 			};
 		}
 
