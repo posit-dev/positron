@@ -188,12 +188,22 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 	 * first when any are open, and hide right away when none are.
 	 */
 	const confirmHideProfile = async () => {
-		const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(profile.id);
-		if (openDataExplorerCount > 0 &&
-			!await showHideDataConnectionConfirmation(profile.connectionName, openDataExplorerCount)) {
-			return;
+		try {
+			const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(profile.id);
+			if (openDataExplorerCount > 0 &&
+				!await showHideDataConnectionConfirmation(profile.connectionName, openDataExplorerCount)) {
+				return;
+			}
+			positronDataConnectionsService.hideDiscoveredProfile(profile.id);
+		} catch (error) {
+			// The menu that ran this has already closed, so nothing else would tell the user.
+			notificationService.error(localize(
+				'positron.dataConnections.hideFailed',
+				"Could not hide '{0}': {1}",
+				profile.connectionName,
+				error instanceof Error ? error.message : String(error)
+			));
 		}
-		positronDataConnectionsService.hideDiscoveredProfile(profile.id);
 	};
 
 	/**
@@ -379,7 +389,7 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 			entries.push(new CustomContextMenuItem({
 				icon: 'eye-closed',
 				label: localize('positron.dataConnections.hide', "Hide"),
-				onSelected: () => confirmHideProfile(),
+				onSelected: () => void confirmHideProfile(),
 			}));
 		} else {
 			entries.push(new CustomContextMenuItem({

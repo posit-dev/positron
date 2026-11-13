@@ -7,6 +7,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -91,6 +92,7 @@ describe('DataConnectionEntryRow', () => {
 	const saveDiscoveredProfile = vi.fn((_id: string) => savedDiscoveredProfile.id);
 	const hideDiscoveredProfile = vi.fn((_id: string) => { });
 	const countOpenDataExplorers = vi.fn((_profileId: string) => 0);
+	const notifyError = vi.fn();
 	const getProfile = vi.fn((id: string) => id === savedDiscoveredProfile.id ? savedDiscoveredProfile : undefined);
 
 	const ctx = createTestContainer()
@@ -102,6 +104,7 @@ describe('DataConnectionEntryRow', () => {
 			hideDiscoveredProfile,
 			countOpenDataExplorers,
 		})
+		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -312,6 +315,15 @@ describe('DataConnectionEntryRow', () => {
 			  ],
 			}
 		`);
+	});
+
+	it('reports a hide that fails', async () => {
+		hideDiscoveredProfile.mockImplementationOnce(() => { throw new Error('storage is full'); });
+		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith(`Could not hide 'Discovered Connection': storage is full`));
 	});
 
 	it('does not hide a discovered profile when the confirmation is cancelled', async () => {
