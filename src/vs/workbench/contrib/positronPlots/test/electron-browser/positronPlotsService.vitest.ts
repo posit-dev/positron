@@ -214,6 +214,26 @@ describe('Positron - Plots Service', () => {
 		expect(plotInstance.sizingPolicy.id).toBe('intrinsic');
 	});
 
+	it('sizing policy: an intrinsic default waits for the backend to report a size', async () => {
+		const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+		await configurationService.setUserConfiguration('plots.defaultSizingPolicy', 'intrinsic');
+		const session = await createSession();
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+
+		// Starting on intrinsic with no size would make the plot fall back while rendering.
+		const plotInstance = plotsService.positronPlotInstances[0] as PlotClientInstance;
+		expect(plotInstance.sizingPolicy.id).toBe('auto');
+
+		// eslint-disable-next-line local/code-no-any-casts -- private field access for stub injection in test only
+		const comm = (plotInstance as any)._commProxy._comm;
+		comm.getIntrinsicSize = vi.fn().mockResolvedValue({
+			width: 10, height: 3, unit: PlotUnit.Inches, source: 'Quarto',
+		} satisfies IntrinsicSize);
+		await plotInstance.getIntrinsicSize();
+
+		expect(plotInstance.sizingPolicy.id).toBe('intrinsic');
+	});
+
 	it('sizing policy: keeps the auto policy when the backend reports no intrinsic size', async () => {
 		const session = await createSession();
 		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
