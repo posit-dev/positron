@@ -82,6 +82,11 @@ export interface RequestAuthenticator {
 	 */
 	readonly authFailureHint: string;
 	/**
+	 * Optional async work to run before each request, such as fetching a refreshed access token.
+	 * Runs before {@link headers}, so `headers` can stay synchronous.
+	 */
+	prepare?(): Promise<void>;
+	/**
 	 * @param method The HTTP method (e.g. "GET").
 	 * @param path The request pathname (Connect's token signature covers the pathname only, not the
 	 * query string, so callers pass the pathname without any `?...` suffix).
