@@ -612,6 +612,20 @@ suite('UV Python Installer Tests', () => {
             );
         });
 
+        test('Runs uv python list in the given cwd, so a workspace uv.toml is read', async () => {
+            execStub.resolves({
+                stdout: 'cpython-3.12.3-linux-x86_64-gnu    /usr/bin/python3.12',
+            });
+
+            await getAvailablePythonVersions({ managedOnly: false, cwd: '/path/to/workspace' });
+
+            const listCall = execStub
+                .getCalls()
+                .find((call) => Array.isArray(call.args[1]) && (call.args[1] as string[]).includes('list'));
+            assert.ok(listCall, 'Expected uv python list to be invoked');
+            assert.strictEqual(listCall.args[2]?.cwd, '/path/to/workspace');
+        });
+
         test('Follows the uv config when managedOnly is false (omits --managed-python)', async () => {
             // Venv creation must respect python-preference (for example "only-system"), so it
             // lists every Python that uv can use, including system Pythons. See #16343.

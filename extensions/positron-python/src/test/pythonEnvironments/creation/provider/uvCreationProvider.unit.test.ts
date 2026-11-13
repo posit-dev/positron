@@ -171,9 +171,11 @@ suite('uv Creation provider tests', () => {
         });
         assert.isTrue(showErrorMessageWithLogsStub.notCalled);
         assert.isTrue(pickExistingVenvActionStub.calledOnce);
+        // List versions from the workspace, so that a workspace uv.toml is read.
+        sinon.assert.calledOnceWithExactly(pickPythonVersionStub, undefined, workspace1.uri.fsPath);
     });
 
-    test("uvPythonVersion 'auto': lets uv venv pick the interpreter (no -p)", async () => {
+    test("uvPythonVersion 'auto': lets uv venv pick an interpreter in the supported range", async () => {
         // A version picked from `uv python list --managed-python` and passed with -p overrides
         // the user's uv config (for example python-preference = "only-system"). See #16343.
         const workspace1 = {
@@ -217,7 +219,15 @@ suite('uv Creation provider tests', () => {
         _complete!();
         const result = await promise;
 
-        assert.deepStrictEqual(execObservableStub.firstCall.args[1], ['venv', '.venv', '--no-project', '--seed']);
+        // A range, not a version: uv picks from it by the uv config, but never an unsupported Python.
+        assert.deepStrictEqual(execObservableStub.firstCall.args[1], [
+            'venv',
+            '.venv',
+            '--no-project',
+            '--seed',
+            '-p',
+            '>=3.10.0,<3.16.0',
+        ]);
         assert.isDefined(result);
         assert.isUndefined((result as CreateEnvironmentResult).error);
         sinon.assert.notCalled(getAvailablePythonVersionsStub);
