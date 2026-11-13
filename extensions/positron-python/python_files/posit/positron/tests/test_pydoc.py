@@ -139,6 +139,59 @@ _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT = """\
 """
 
 
+def _test_getdoc_multi_name_arguments_section() -> None:
+    """
+    Summary.
+
+    Parameters
+    ----------
+    X, Y : array-like, optional
+        The coordinates of *Z*.
+
+        Must be 2D with ``len(X) == N``.
+    Z : array-like
+        The height values.
+    """
+
+
+_TEST_GETDOC_MULTI_NAME_ARGS_SECTION_OUTPUT = """\
+<p>Summary.</p>
+<h4>Parameters</h4>
+<ul>
+<li>
+<p><code>X</code>, <code>Y</code>: array-like, optional
+The coordinates of <em>Z</em>.</p>
+<p>Must be 2D with <code>len(X) == N</code>.</p>
+</li>
+<li>
+<p><code>Z</code>: array-like
+The height values.</p>
+</li>
+</ul>
+"""
+
+
+def _test_getdoc_sphinx_roles() -> None:
+    """
+    Summary.
+
+    Parameters
+    ----------
+    corner_mask : bool, default: :rc:`contour.corner_mask`
+        Uses `~copy.copy` and :mpltype:`color`.
+    """
+
+
+_TEST_GETDOC_SPHINX_ROLES_OUTPUT = """\
+<p>Summary.</p>
+<h4>Parameters</h4>
+<ul>
+<li><code>corner_mask</code>: bool, default: <code>contour.corner_mask</code>
+Uses <a href="get?key=copy.copy"><code>copy.copy</code></a> and <code>color</code>.</li>
+</ul>
+"""
+
+
 def _test_getdoc_code_blocks() -> None:
     """
     >>> import pandas as pd
@@ -517,6 +570,17 @@ def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
         (
             _test_getdoc_md_links_see_also_section,
             _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT,
+        ),
+        # Parameters with more than one name are list items, and their indented
+        # descriptions are not code blocks.
+        (
+            _test_getdoc_multi_name_arguments_section,
+            _TEST_GETDOC_MULTI_NAME_ARGS_SECTION_OUTPUT,
+        ),
+        # Strips unknown Sphinx roles and the leading "~" of cross-references.
+        (
+            _test_getdoc_sphinx_roles,
+            _TEST_GETDOC_SPHINX_ROLES_OUTPUT,
         ),
         # Highlights code blocks.
         # Inputs and outputs are split into separate html elements.
