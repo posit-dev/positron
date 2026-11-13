@@ -15,6 +15,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionDriver, IDataConnectionDriverMetadata } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { isRuntimeDataConnectionDriverId } from '../../../../services/positronConnections/common/runtimeDataConnections.js';
 
 /**
  * The width the dialog box is drawn at. Matches the Configure LLM Providers modal, whose row
@@ -65,8 +66,11 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 	// Load the registered drivers and listen for changes.
 	useEffect(() => {
 		// Sorts driver metadata alphabetically by display name so the provider list has a stable,
-		// predictable order regardless of the order drivers registered in.
-		const byName = (metadata: IDataConnectionDriverMetadata[]) => [...metadata].sort((a, b) => a.name.localeCompare(b.name));
+		// predictable order regardless of the order drivers registered in. Leaves out the runtime
+		// drivers, which serve connections R and Python sessions opened and cannot create new ones.
+		const byName = (metadata: IDataConnectionDriverMetadata[]) => metadata
+			.filter(driver => !isRuntimeDataConnectionDriverId(driver.id))
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		// Set the initial list of drivers.
 		setDrivers(byName(positronDataConnectionsService.driverManager.getDrivers().map(d => d.metadata)));

@@ -201,6 +201,50 @@ describe('MainThreadDataConnections', () => {
 		expect(summaries[0].mechanisms).toEqual(metadataDto.mechanisms);
 	});
 
+	describe('runtime drivers', () => {
+		/** The in-core R driver, registered with the service directly rather than through the ext host. */
+		function registerRuntimeDriver() {
+			const runtimeConnect = vi.fn(async () => stubInterface<IDataConnectionHandle>({ handle: -1 }));
+			registeredDrivers.push(stubInterface<IDataConnectionDriver>({
+				id: 'runtime-r',
+				metadata: { ...metadataDto, id: 'runtime-r', name: 'R Session', mechanisms: [], supportedLanguageIds: [] },
+				connect: runtimeConnect,
+			}));
+			return runtimeConnect;
+		}
+
+		it('hides runtime drivers from getDrivers', async () => {
+			registerRuntimeDriver();
+			mainThread.$registerDataConnectionDriver('duckdb', metadataDto);
+
+			const summaries = await mainThread.$getDataConnectionDrivers();
+
+			expect(summaries.map(summary => summary.id)).toEqual(['duckdb']);
+		});
+
+		// The runtime handle is shared by the pane and the schema summary; an extension that held it
+		// could release or disconnect the user's R connection.
+		it('rejects connecting to a runtime driver', async () => {
+			const runtimeConnect = registerRuntimeDriver();
+
+			await expect(mainThread.$connectToDataConnectionDriver('runtime-r', 'live', { connectionId: 'x' }))
+				.rejects.toThrow('Data connection driver \'runtime-r\' not found');
+			expect(runtimeConnect).not.toHaveBeenCalled();
+		});
+
+		// Replacing or dropping the in-core driver would leave the user's R connection to an
+		// extension, or close its comm if a connect was in flight.
+		it('refuses to register or remove a driver under a runtime id', () => {
+			registerRuntimeDriver();
+			const inCoreDriver = registeredDrivers[0];
+
+			mainThread.$registerDataConnectionDriver('runtime-r', { ...metadataDto, id: 'runtime-r' });
+			mainThread.$removeDataConnectionDriver('runtime-r');
+
+			expect(registeredDrivers).toEqual([inCoreDriver]);
+		});
+	});
+
 	it('maps a discovered connection onto the service shape, renaming parameters to parameterValues', async () => {
 		mainThread.$registerDataConnectionDriver('duckdb', metadataDto);
 		$discoverConnections.mockResolvedValue([{

@@ -53,6 +53,14 @@ export interface ICachedPackageMetadata {
 	/** Installed version at the time the metadata was fetched. */
 	version: string;
 
+	/**
+	 * For a bundled package, the version also installed in the user's
+	 * environment at the time the metadata was fetched. Outdated state
+	 * describes this copy, so the entry is stale when it changes even though
+	 * the bundled `version` does not.
+	 */
+	environmentVersion?: string;
+
 	/** Whether the installed version is strictly older than the latest available. */
 	outdated?: boolean;
 
@@ -77,6 +85,17 @@ export interface ICachedPackageMetadata {
 	 * refresh instead of counting as fresh until the entry ages out.
 	 */
 	vulnerabilitiesCheckedAt?: number;
+}
+
+/** The installed versions a cache entry is anchored to. */
+export type PackageMetadataAnchor = Pick<ICachedPackageMetadata, 'version' | 'environmentVersion'>;
+
+/**
+ * Whether a cache entry was computed against the installed versions in
+ * `anchor`, so it still describes the package as installed now.
+ */
+export function isCachedMetadataFor(entry: ICachedPackageMetadata | undefined, anchor: PackageMetadataAnchor): entry is ICachedPackageMetadata {
+	return entry !== undefined && entry.version === anchor.version && entry.environmentVersion === anchor.environmentVersion;
 }
 
 /**
