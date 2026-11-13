@@ -8,7 +8,7 @@
 // to whoever made it; CI only deploys to its GUID, so its key's user must own
 // the content or be a collaborator on it.
 //   node outcomes-publish.mjs create [triage]   (once per page; prints the GUID)
-//   node outcomes-publish.mjs previous > previous.jsonl
+//   node outcomes-publish.mjs previous [file] > previous.jsonl   (file: rows.jsonl by default)
 //   node outcomes-publish.mjs deploy index.html rows.jsonl
 // Needs CONNECT_API_KEY, and CONNECT_CONTENT_GUID for previous and deploy.
 
@@ -59,7 +59,9 @@ function client({ server, key, fetch }) {
 			}
 		}
 		if (!res.ok) {
-			throw new Error(`Connect ${method} ${url.replace(server, '')} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+			const err = new Error(`Connect ${method} ${url.replace(server, '')} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+			err.status = res.status;
+			throw err;
 		}
 		return raw ? res : res.json();
 	};
@@ -73,15 +75,22 @@ export async function create({ server, key, name = CONTENT.outcomes.name, title 
 	return content.guid;
 }
 
-/** The rows the last deploy published, or '' before the first. */
-export async function fetchPrevious({ server, key, guid, fetch = globalThis.fetch }) {
+/**
+ * `file` as the last deploy published it, or '' when that deploy had none.
+ * Any other failure throws: the pages carry rows forward from here, and some of
+ * the reports they came from are gone, so an empty read must not pass for one.
+ */
+export async function fetchPrevious({ server, key, guid, file = 'rows.jsonl', fetch = globalThis.fetch }) {
 	const call = client({ server, key, fetch });
 	const content = await call('GET', `/__api__/v1/content/${guid}`);
 	try {
-		return await (await call('GET', `${content.content_url}rows.jsonl`, { raw: true })).text();
-	} catch {
-		// Deployed, but not with rows yet.
-		return '';
+		return await (await call('GET', `${content.content_url}${file}`, { raw: true })).text();
+	} catch (err) {
+		if (err.status === 404) {
+			// Deployed, but not with this file yet.
+			return '';
+		}
+		throw err;
 	}
 }
 
@@ -126,7 +135,7 @@ async function main() {
 		throw new Error('CONNECT_CONTENT_GUID is not set; make the content once with `create`');
 	}
 	if (command === 'previous') {
-		process.stdout.write(await fetchPrevious({ server, key, guid }));
+		process.stdout.write(await fetchPrevious({ server, key, guid, file: paths[0] }));
 	} else if (command === 'deploy') {
 		const files = Object.fromEntries(paths.map(p => [basename(p), readFileSync(p)]));
 		const url = await deploy({ server, key, guid, archive: bundle(files) });
@@ -136,7 +145,7 @@ async function main() {
 			appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\nPublished to <${url}>\n`);
 		}
 	} else {
-		throw new Error('usage: outcomes-publish.mjs create [outcomes|triage] | previous | deploy <file>...');
+		throw new Error('usage: outcomes-publish.mjs create [outcomes|triage] | previous [file] | deploy <file>...');
 	}
 }
 

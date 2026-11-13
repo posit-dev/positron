@@ -62,6 +62,19 @@ test('fetchPrevious is empty when the content has no rows yet', async () => {
 	assert.equal(await fetchPrevious({ server: SERVER, key: 'k', guid: 'c1', fetch }), '');
 });
 
+test('fetchPrevious reads the named file, and throws on anything but a missing one', async () => {
+	const { fetch } = fakeConnect({
+		'GET /__api__/v1/content/c1': CONTENT,
+		'GET /content/c1/triage.json': '{"rows":[]}',
+	});
+	assert.equal(await fetchPrevious({ server: SERVER, key: 'k', guid: 'c1', file: 'triage.json', fetch }), '{"rows":[]}');
+	const denied = fakeConnect({
+		'GET /__api__/v1/content/c1': CONTENT,
+		'GET /content/c1/rows.jsonl': new Response('forbidden', { status: 403 }),
+	});
+	await assert.rejects(fetchPrevious({ server: SERVER, key: 'k', guid: 'c1', fetch: denied.fetch }), /rows\.jsonl failed: 403/);
+});
+
 test('deploy uploads to the given content, waits for the task, and never creates or renames anything', async () => {
 	let polls = 0;
 	const { fetch, calls } = fakeConnect({

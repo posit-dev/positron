@@ -1,8 +1,8 @@
-name: "Test: Merge to branch"
+name: "Test: Merge (dispatch)"
 
 # Positron's tests run in the private repo posit-dev/positron-builds. After a
 # push to main, prerelease/**, or release/**, this job dispatches that repo's
-# merge-test.yml for the pushed commit: the full suite with credentials, and
+# test-merge.yml for the pushed commit: the full suite with credentials, and
 # the build caches that PR runs restore from. It does not wait for the run;
 # the link is in the step summary. The only secret here is the bot app key.
 
@@ -61,21 +61,31 @@ jobs:
         run: |
           set -euo pipefail
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          full=$(git log -1 --format=%s "$SHA" || true)
+          if [ -z "$full" ]; then echo "::warning::Could not read the commit subject for the run title."; fi
+          # The whole title stays within 72 characters, so it fits on one line in
+          # the positron-builds Actions run list.
+          prefix="merge $BRANCH :: "
+          suffix=" (${SHA:0:7})"
+          room=$((72 - ${#prefix} - ${#suffix}))
+          subject=$full
+          if [ ${#full} -gt $room ]; then subject="${full:0:room-3}"; subject="${subject% }..."; fi
+          title="$prefix$subject$suffix"
           # Privileged runs dispatch from main so their caches land in main's scope.
-          gh workflow run merge-test.yml -R posit-dev/positron-builds --ref main \
-            -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY"
-          # The dispatch API returns no run id; find the run by its run-name, and
+          gh workflow run test-merge.yml -R posit-dev/positron-builds --ref main \
+            -f "positron_sha=$SHA" -f "branch=$BRANCH" -f "docs_only=$DOCS_ONLY" -f "title=$title"
+          # The dispatch API returns no run id; find the run by the start and end
+          # of its run-name (the commit subject between them is only for show), and
           # only among dispatches the bot itself started.
-          title="positron $BRANCH at $SHA"
           id=""
           for i in $(seq 1 24); do
-            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=main&created=>=$since&per_page=20" \
-              --jq ".workflow_runs[] | select(.path == \".github/workflows/merge-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=main&created=>=$since&per_page=20" |
+              jq -r --arg start "merge $BRANCH :: " --arg end " (${SHA:0:7})" '.workflow_runs[] | select(.path == ".github/workflows/test-merge.yml" and (.display_title | startswith($start) and endswith($end)) and .triggering_actor.login == "positron-bot[bot]") | .id' | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
           if [ -z "$id" ]; then
-            echo "::error::Dispatched merge-test.yml but could not find its run within two minutes."
+            echo "::error::Dispatched test-merge.yml but could not find its run within two minutes."
             exit 1
           fi
           url="https://github.com/posit-dev/positron-builds/actions/runs/$id"
