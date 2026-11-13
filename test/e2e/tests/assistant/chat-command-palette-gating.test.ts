@@ -11,21 +11,22 @@ test.use({
 
 /**
  * Verifies that the "Chat" command category is hidden from the command palette
- * when AI features are turned off by either switch: Copilot's own
- * `chat.disableAIFeatures`, or Positron's `ai.enabled` main switch.
+ * when AI features are turned off by either switch: `chat.disableAIFeatures`, which
+ * hides the chat view, or Positron's `ai.enabled` main switch.
  *
- * Chat command preconditions (core and the Copilot extension's `commandPalette`
- * entries) gate on the `chatAiFeaturesEnabled` context key, which `ChatAgentService`
- * keeps in sync from both settings. A command's precondition gates its command
- * palette visibility, and the palette renders these commands with a "Chat: " prefix
- * (see commandsQuickAccess.ts "commandWithCategory").
+ * Chat command preconditions gate on the `chatAiFeaturesEnabled` context key, which
+ * `ChatAgentService` keeps in sync from both settings. A command's precondition
+ * gates its command palette visibility, and the palette renders these commands with
+ * a "Chat: " prefix (see commandsQuickAccess.ts "commandWithCategory").
+ *
+ * Positron does not ship a chat extension, so the commands checked here are the
+ * ones core contributes. Commands that a third-party agent or participant
+ * contributes are gated by its own `when` clauses on the same context keys.
  *
  * Both switches are covered: an earlier version only flipped `chat.disableAIFeatures`,
  * so an `ai.enabled = false` regression (commands still showing) went uncaught.
- *
- * The e2e settings fixture enables Positron Assistant (`positron.assistant.enable`),
- * which registers the default chat participant, so chat is "enabled" by default and
- * the "Chat" category is shown until AI features are explicitly turned off.
+ * `chat.disableAIFeatures` defaults to `true` in Positron, so the visible case opts
+ * in explicitly.
  *
  * @see https://github.com/posit-dev/positron/pull/14054 (single-command gating this extends)
  */

@@ -96,19 +96,22 @@ accept the upstream change and then reapply the Positron change by adding the
 missing fields, matching the new formatting and adding appropriate change
 markers..
 
-### Copilot AI commands and menus
+### Chat gating
 
-Don't add `chatAiFeaturesEnabled` to Copilot's AI commands or menu items by hand.
-Positron already gates every command and menu item from `GitHub.copilot-chat`
-where the extension points read them, via `gateCopilotContribution` in
-`src/vs/workbench/services/actions/common/menusExtensionPoint.ts`, so anything
-upstream adds is covered.
+Positron doesn't ship a chat extension, so it keeps upstream's chat setup permanently hidden. `ChatEntitlementContext.withConfiguration` in `src/vs/workbench/services/chat/common/chatEntitlementService.ts` always reports `hidden: true` (Positron-marked). This keeps upstream's setup agents from registering, and hides every surface gated on `Setup.hidden.negate()`, including the chat view's own fallback. Without it, a user with `chat.disableAIFeatures: false` gets an empty chat view. The chat view appears only when an extension registers a default chat participant, such as a sideloaded Copilot Chat.
 
-- Check that the two Positron-marked call sites in `menusExtensionPoint.ts`
-  survived the merge, one on `precondition:` and one on `item.when =`. Nothing
-  else does the gating, so if they're gone the gate is gone.
-- `test/e2e/tests/assistant/chat-command-palette-gating.test.ts` checks this end
-  to end.
+`chat.disableAIFeatures` still defaults to `true` (Positron-marked in `src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts`), and `ai.enabled: false` hides chat regardless. After each merge, check that these Positron changes survived:
+
+- the always-hidden `withConfiguration`
+- the `true` default
+- the `ai.enabled` and `chat.disableAIFeatures` checks in `_isAIDisabled` and the default-agent gating in `src/vs/workbench/contrib/chat/common/participants/chatAgents.ts`
+- the Copilot sign-in suppression in `chatSetup/chatSetupContributions.ts`, including `f1: false` on the "Use AI Features with Copilot for free..." command, which upstream shows while setup is hidden
+- the dropped `chat.disableAIFeatures: false` write in that command's `run`. Setup is still reachable from sign-in prompts, and the write would undo the user's choice to hide the chat view.
+- `ChatStatusBarEntry` stays unregistered in `src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts`. It is Copilot's status, sign-in, and quota menu.
+
+If upstream adds a setup surface gated on `Setup.hidden` being true, or one that ignores it, suppress it. `gateCopilotContribution` was removed with the Copilot Chat extension; don't bring it back.
+
+`test/e2e/tests/assistant/chat-command-palette-gating.test.ts` checks the two switches end to end, and `test/e2e/tests/assistant/copilot-signin-suppressed.test.ts` checks the setup surfaces stay hidden.
 
 ## Upstream Divergence
 

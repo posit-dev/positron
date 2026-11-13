@@ -38,10 +38,6 @@ import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 import { CONFIGURE_PROVIDERS_ACTION_ID, CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
 import { ASSISTANT_EXTENSION_ID } from '../common/legacyCredentialCopy.js';
 
-// Register the migration from the deprecated
-// `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
-import './inlineCompletionsMigration.js';
-
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
 
@@ -177,9 +173,8 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);
 
-// Fire the custom AI activation events (`onAiEnabled`, `onCopilotEnabled`) so
-// the bundled AI extensions activate lazily while their backing settings are
-// on. Registered at `Eventually` to preserve the deferred timing those
+// Fire the custom AI activation event (`onAiEnabled`) so the bundled AI
+// extensions activate lazily while `ai.enabled` is on. Registered at `Eventually` to preserve the deferred timing those
 // extensions had under `onStartupFinished`.
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(LegacyCredentialCopyContribution, LifecyclePhase.Eventually);
