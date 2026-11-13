@@ -50,6 +50,7 @@ import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
+import { EditReview } from '../pages/editReview.js';
 import { ProviderManager } from '../pages/providerManager.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { ObjectExplorer } from '../pages/objectExplorer.js';
@@ -109,6 +110,7 @@ export class Workbench {
 	readonly hotKeys: HotKeys;
 	readonly positConnect: PositConnect;
 	readonly positAssistant: PositAssistant;
+	readonly editReview: EditReview;
 	readonly providerManager: ProviderManager;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly objectExplorer: ObjectExplorer;
@@ -164,6 +166,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
+		this.editReview = new EditReview(code);
 		this.providerManager = new ProviderManager(code, this.toasts, this.quickaccess);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.objectExplorer = new ObjectExplorer(code.driver.currentPage);
