@@ -508,16 +508,17 @@ describe('ListPackages bundled packages', () => {
 	const reactComponentContainer = stubInterface<IReactComponentContainer>({});
 
 	let restoreLayout: () => void;
-	beforeEach(() => { restoreLayout = stubGridLayoutWithSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT); });
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		restoreLayout();
 	});
 
-	function renderList() {
+	// Stubbed per render so a narrow render's grid measurements match its width prop.
+	function renderList(width = VIEWPORT_WIDTH) {
+		restoreLayout = stubGridLayoutWithSize(width, VIEWPORT_HEIGHT);
 		rtl.render(
 			<PositronPackagesContextProvider reactComponentContainer={reactComponentContainer}>
-				<ListPackages height={VIEWPORT_HEIGHT} reactComponentContainer={reactComponentContainer} width={VIEWPORT_WIDTH} />
+				<ListPackages height={VIEWPORT_HEIGHT} reactComponentContainer={reactComponentContainer} width={width} />
 			</PositronPackagesContextProvider>
 		);
 	}
@@ -539,6 +540,14 @@ describe('ListPackages bundled packages', () => {
 		expect(screen.getAllByRole('img', { name: 'Bundled with Positron' })).toHaveLength(2);
 		expect(within(screen.getByText('numpy').closest('.packages-list-item') as HTMLElement)
 			.queryByRole('img', { name: 'Bundled with Positron' })).not.toBeInTheDocument();
+	});
+
+	// Like the row actions, the tag would squeeze the name at narrow widths.
+	it('drops the bundled tag below the narrow-width threshold', async () => {
+		renderList(NARROW_VIEWPORT_WIDTH);
+		expect(await screen.findByText('tornado')).toBeInTheDocument();
+
+		expect(screen.queryByRole('img', { name: 'Bundled with Positron' })).not.toBeInTheDocument();
 	});
 
 	it('shows no update indicator for a bundled-only package', async () => {

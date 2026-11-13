@@ -541,7 +541,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						<div className='packages-list-item-header'>
 							<div className='packages-list-item-name'>{displayName}</div>
 							<div className='packages-list-item-version'>{version}</div>
-							{bundled && (
+							{/* Hidden in a narrow pane, where it would squeeze the name; the
+								detail view still says the package is bundled. */}
+							{bundled && !isNarrow && (
 								<span
 									aria-label={positronBundledWithPositron}
 									className='packages-list-item-bundled'
