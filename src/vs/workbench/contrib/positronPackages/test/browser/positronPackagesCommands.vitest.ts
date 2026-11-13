@@ -12,7 +12,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
-import { PACKAGES_GET_ALL_PACKAGES_COMMAND_ID, PACKAGES_GET_PACKAGES_COMMAND_ID, getAllPackages, getPackages } from '../../browser/positronPackagesCommands.js';
+import { IAllPackagesCommandPackage, IPackageCommandPackage, PACKAGES_GET_ALL_PACKAGES_COMMAND_ID, PACKAGES_GET_PACKAGES_COMMAND_ID, getAllPackages, getPackages } from '../../browser/positronPackagesCommands.js';
 import { IPackagesSnapshot, IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 /** An installed package as a session's package list reports it. */
@@ -212,7 +212,9 @@ describe('getAllPackages', () => {
 			  "packages": [
 			    {
 			      "attached": true,
+			      "bundled": undefined,
 			      "description": "Data analysis",
+			      "environmentVersion": undefined,
 			      "latestVersion": "2.3.0",
 			      "name": "pandas",
 			      "outdated": true,
@@ -221,7 +223,9 @@ describe('getAllPackages', () => {
 			    },
 			    {
 			      "attached": undefined,
+			      "bundled": undefined,
 			      "description": undefined,
+			      "environmentVersion": undefined,
 			      "latestVersion": undefined,
 			      "name": "numpy",
 			      "outdated": false,
@@ -252,6 +256,24 @@ describe('getAllPackages', () => {
 
 		const description = (result as { packages: { description: string }[] }).packages[0].description;
 		expect(description).toBe(`${'x'.repeat(256)}...`);
+	});
+
+	it('reports which packages ship with Positron and the environment copy a bundled one shadows', async () => {
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			packages: [
+				{ ...pkg('tornado', '6.5.7'), bundled: true },
+				{ ...pkg('six', '1.17.0'), bundled: true, environmentVersion: '1.16.0', outdated: true, latestVersion: '1.17.0' },
+			],
+		}));
+
+		const result = await getAllPackages(ctx.instantiationService);
+
+		const packages = (result as { packages: IAllPackagesCommandPackage[] }).packages;
+		expect(packages.map(({ name, bundled, environmentVersion }) => ({ name, bundled, environmentVersion }))).toEqual([
+			{ name: 'tornado', bundled: true, environmentVersion: undefined },
+			{ name: 'six', bundled: true, environmentVersion: '1.16.0' },
+		]);
 	});
 
 	it('is registered as a read-only agent-compatible command', async () => {
@@ -334,7 +356,9 @@ describe('getPackages', () => {
 			    {
 			      "attached": undefined,
 			      "author": "The pandas team",
+			      "bundled": undefined,
 			      "description": "Data analysis",
+			      "environmentVersion": undefined,
 			      "latestVersion": "2.3.0",
 			      "license": "BSD-3-Clause",
 			      "name": "pandas",
@@ -419,6 +443,18 @@ describe('getPackages', () => {
 			vulnerabilitySource: undefined,
 			packages: [{ name: 'pandas', vulnerabilities: undefined }],
 		});
+	});
+
+	it('reports a bundled package and the environment copy it shadows', async () => {
+		stubServices(createInstance({
+			metadataStatus: 'fresh',
+			packages: [{ ...pkg('six', '1.17.0'), bundled: true, environmentVersion: '1.16.0' }],
+		}));
+
+		const result = await getPackages(ctx.instantiationService, 'six');
+
+		const [six] = (result as { packages: IPackageCommandPackage[] }).packages;
+		expect({ bundled: six.bundled, environmentVersion: six.environmentVersion }).toEqual({ bundled: true, environmentVersion: '1.16.0' });
 	});
 
 	it('is registered as a read-only agent-compatible command that takes names', async () => {

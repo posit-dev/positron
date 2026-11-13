@@ -551,20 +551,12 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '.body // ""' > "$OUT"
           echo "file=$OUT" >> "$GITHUB_OUTPUT"
 
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
       - name: Rule on the change
         id: gate
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           mode: gate
-          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -739,9 +731,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$PR" ]; then
-            subject=${PR_TITLE:0:60}
-            if [ ${#PR_TITLE} -gt 60 ]; then subject="${subject% }..."; fi
-            title="explore #$PR :: $subject ($POSITRON_RUN)"
+            # The whole title stays within 72 characters, so it fits on one line in
+            # the positron-builds Actions run list.
+            prefix="explore #$PR :: "
+            suffix=" ($POSITRON_RUN)"
+            room=$((72 - ${#prefix} - ${#suffix}))
+            subject=$PR_TITLE
+            if [ ${#PR_TITLE} -gt $room ]; then subject="${PR_TITLE:0:room-3}"; subject="${subject% }..."; fi
+            title="$prefix$subject$suffix"
           else
             title="explore $REF ($POSITRON_RUN)"
           fi

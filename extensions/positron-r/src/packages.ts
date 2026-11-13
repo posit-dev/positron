@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
 import { resolveRRepositoryUrl } from './packageRepository';
 import { RMetadataExtra } from './r-installation';
+import { RRepositoryIndex } from './repositoryIndex';
 import { RSession } from './session';
 
 /**
@@ -30,7 +31,11 @@ export class RPackageManager {
 	 */
 	private _isRenvProject: boolean | undefined;
 
-	constructor(private readonly _session: RSession) { }
+	private readonly _repositoryIndex: RRepositoryIndex;
+
+	constructor(private readonly _session: RSession) {
+		this._repositoryIndex = new RRepositoryIndex(_session);
+	}
 
 	/**
 	 * Get list of installed packages from all libpaths.
@@ -337,6 +342,20 @@ export class RPackageManager {
 			'pkg_search', token, query, method
 		);
 		return result ?? [];
+	}
+
+	/**
+	 * Returns the subset of `names` that can be installed from the repositories
+	 * the installer uses, without making the session wait on the network.
+	 */
+	async filterAvailable(names: string[]): Promise<string[]> {
+		const usePak = !(await this._detectRenv()) && (await this._resolveMethod(false)) === 'pak';
+		return this._repositoryIndex.filterAvailable(names, usePak);
+	}
+
+	/** Forgets cached repository lookups; call when R restarts. */
+	resetRepositoryIndex(): void {
+		this._repositoryIndex.reset();
 	}
 
 	/**

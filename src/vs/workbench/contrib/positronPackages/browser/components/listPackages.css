@@ -154,6 +154,18 @@
 	margin-left: 0.5em;
 }
 
+.packages-list-item-bundled {
+	flex: 0 0 auto;
+	white-space: nowrap;
+	font-size: 0.8em;
+	line-height: 1.4;
+	margin-left: 0.5em;
+	padding: 0 6px;
+	border-radius: 8px;
+	color: var(--vscode-descriptionForeground);
+	background: color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent);
+}
+
 .packages-list-item-update {
 	flex: 0 0 auto;
 	margin-left: 0.5em;
