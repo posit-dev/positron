@@ -69,6 +69,51 @@ describe('positron.assistantWindow.enter', () => {
 	});
 });
 
+describe('positron.assistantWindow.open', () => {
+	// The panel Assistant creates in the opened window, once it's there.
+	const windowEditors: EditorInput[] = [];
+	const panel = new TestEditorInput(URI.file('/panel'), WINDOW_PANEL);
+	const mainGroup = stubInterface<IEditorGroup>({});
+	const windowGroup = stubInterface<IEditorGroup>({
+		lock: vi.fn(),
+		focus: vi.fn(),
+		editors: windowEditors,
+		get isEmpty() { return windowEditors.length === 0; },
+		get activeEditor() { return windowEditors[0]; },
+	});
+	const window = stubInterface<IAuxiliaryEditorPart>({ windowId: 2, activeGroup: windowGroup, groups: [windowGroup], onWillDispose: Event.None, close: vi.fn(() => true) });
+	const mainPart = stubInterface<IEditorPart>({});
+	const editorGroupsService = stubInterface<IEditorGroupsService>({
+		mainPart,
+		// Assistant created the panel in the new window, which is now active.
+		activeGroup: windowGroup,
+		getPart: () => window,
+		getGroups: () => [mainGroup, windowGroup],
+		createAuxiliaryEditorPart: vi.fn(async () => window),
+	});
+	const container = createLightTestContainer()
+		.stub(IEditorGroupsService, editorGroupsService)
+		.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
+			getWindow: () => stubInterface<IAuxiliaryWindow>({ createState: () => ({ lockCompact: true }) }),
+		}))
+		.build();
+	// Called by their literal ids: the names are shared with Posit Assistant.
+	const run = (id: string) => container.instantiationService.invokeFunction(accessor => CommandsRegistry.getCommand(id)!.handler(accessor));
+
+	it('opens an empty locked window for the panel, which enter then keeps', async () => {
+		// The window's group is the second column, as an extension's ViewColumn.Two.
+		expect(await run('positron.assistantWindow.open')).toBe(2);
+		expect(editorGroupsService.createAuxiliaryEditorPart).toHaveBeenCalledWith(expect.objectContaining({ compact: true, lockCompact: true }));
+		expect(windowGroup.lock).toHaveBeenCalledWith(true);
+
+		windowEditors.push(panel);
+		expect(await run('positron.assistantWindow.enter')).toBe(true);
+		// No second window, and the opened one stays.
+		expect(editorGroupsService.createAuxiliaryEditorPart).toHaveBeenCalledTimes(1);
+		expect(window.close).not.toHaveBeenCalled();
+	});
+});
+
 describe('AssistantWindowGuard', () => {
 	const assistantGroupChanges = new Emitter<IGroupModelChangeEvent>();
 	const sideGroupChanges = new Emitter<IGroupModelChangeEvent>();
