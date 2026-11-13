@@ -2182,3 +2182,73 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		await vi.waitFor(() => expect(revealed.tree.verticalScrollOffset).toBeGreaterThan(0));
 	});
 });
+
+// A row that goes away while it holds the keyboard focus (hidden or removed from its own actions
+// menu, which hands focus back to the row as it closes) would otherwise take the focus with it,
+// leaving nothing focused. The next quick input then has nowhere to return focus to.
+describe('DataConnectionsTreeInstance focus when a row goes away', () => {
+	const ctx = createLightTestContainer().build();
+
+	const first = createProfile({ id: 'conn-1', connectionName: 'First' });
+	const second = createProfile({ id: 'conn-2', connectionName: 'Second' });
+	const onDidChangeProfiles = new Emitter<IDataConnectionProfile[]>();
+
+	function createTree() {
+		let profiles = [first, second];
+		const service = stubInterface<IPositronDataConnectionsService>({
+			onDidChangeProfiles: onDidChangeProfiles.event,
+			onDidChangeInstances: Event.None,
+			onDidChangeDiscoveredProfiles: Event.None,
+			onDidRequestRevealConnection: Event.None,
+			takePendingRevealConnection: () => undefined,
+			onDidRequestReveal: Event.None,
+			takePendingReveal: () => undefined,
+			getAllProfiles: () => profiles,
+			getInstanceForProfile: () => undefined,
+		});
+		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		}), stubInterface<INotificationService>(), hoverService, stubInterface<IEditorService>());
+		ctx.disposables.add(tree);
+
+		// Counted here because there is no view to answer the request.
+		let focusRequests = 0;
+		ctx.disposables.add(tree.onDidRequestFocus(() => focusRequests++));
+
+		const setProfiles = (next: IDataConnectionProfile[]) => {
+			profiles = next;
+			onDidChangeProfiles.fire(next);
+		};
+		return { tree, setProfiles, focusRequests: () => focusRequests };
+	}
+
+	it('keeps the focus in the tree when a row goes away while the tree has it', async () => {
+		const { tree, setProfiles, focusRequests } = createTree();
+		await tree.refresh();
+		tree.setFocused(true);
+
+		setProfiles([second]);
+
+		expect(focusRequests()).toBe(1);
+	});
+
+	it('leaves the focus alone when the tree does not have it', async () => {
+		const { tree, setProfiles, focusRequests } = createTree();
+		await tree.refresh();
+
+		setProfiles([second]);
+
+		expect(focusRequests()).toBe(0);
+	});
+
+	it('leaves the focus alone when no row goes away', async () => {
+		const { tree, setProfiles, focusRequests } = createTree();
+		await tree.refresh();
+		tree.setFocused(true);
+
+		setProfiles([first, second, createProfile({ id: 'conn-3', connectionName: 'Third' })]);
+
+		expect(focusRequests()).toBe(0);
+	});
+});
