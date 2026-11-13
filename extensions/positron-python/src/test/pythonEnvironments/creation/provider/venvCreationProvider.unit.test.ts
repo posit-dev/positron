@@ -24,6 +24,8 @@ import {
     CreateEnvironmentResult,
 } from '../../../../client/pythonEnvironments/creation/proposed.createEnvApis';
 // --- Start Positron ---
+import * as fs from 'fs';
+import * as os from 'os';
 import { reusedEnvironmentResult } from '../../../../client/pythonEnvironments/creation/reusedEnvironment';
 // --- End Positron ---
 
@@ -625,6 +627,68 @@ suite('venv Creation provider tests', () => {
         assert.deepStrictEqual(result, reusedEnvironmentResult(commonUtils.getVenvExecutable(workspace1), workspace1));
         assert.isTrue(withProgressStub.notCalled);
         assert.isTrue(deleteEnvironmentStub.notCalled);
+    });
+
+    test('Created venv path uses the workspace spelling when the workspace path goes through a symlink', async () => {
+        // The creation script prints the symlink-resolved path (Path.cwd() resolves symlinks),
+        // e.g. /private/var/... on macOS while the workspace is /var/....
+        const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-symlink-'));
+        try {
+            const realDir = path.join(tempRoot, 'real');
+            const linkDir = path.join(tempRoot, 'link');
+            fs.mkdirSync(realDir);
+            fs.symlinkSync(realDir, linkDir, 'dir');
+            const symlinkedWorkspace = { uri: Uri.file(linkDir), name: 'link', index: 0 };
+            const resolvedPython = path.join(fs.realpathSync(linkDir), '.venv', 'bin', 'python');
+
+            pickWorkspaceFolderStub.resolves(symlinkedWorkspace);
+            interpreterQuickPick
+                .setup((i) => i.getInterpreterViaQuickPick(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
+                .returns(() => Promise.resolve('/usr/bin/python'));
+            pickPackagesToInstallStub.resolves([]);
+
+            const deferred = createDeferred();
+            let _next: undefined | ((value: Output<string>) => void);
+            let _complete: undefined | (() => void);
+            execObservableStub.callsFake(() => {
+                deferred.resolve();
+                return {
+                    proc: { exitCode: 0 },
+                    out: {
+                        subscribe: (
+                            next?: (value: Output<string>) => void,
+                            _error?: (error: unknown) => void,
+                            complete?: () => void,
+                        ) => {
+                            _next = next;
+                            _complete = complete;
+                        },
+                    },
+                    dispose: () => undefined,
+                };
+            });
+            withProgressStub.callsFake(
+                (
+                    _options: ProgressOptions,
+                    task: (
+                        progress: CreateEnvironmentProgress,
+                        token?: CancellationToken,
+                    ) => Thenable<CreateEnvironmentResult>,
+                ) => task(progressMock.object),
+            );
+
+            const promise = venvProvider.createEnvironment();
+            await deferred.promise;
+            _next!({ out: `${VENV_CREATED_MARKER}${resolvedPython}`, source: 'stdout' });
+            _complete!();
+
+            assert.deepStrictEqual(await promise, {
+                path: path.join(linkDir, '.venv', 'bin', 'python'),
+                workspaceFolder: symlinkedWorkspace,
+            });
+        } finally {
+            fs.rmSync(tempRoot, { recursive: true, force: true });
+        }
     });
     // --- End Positron ---
 });
