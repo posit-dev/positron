@@ -21,6 +21,7 @@ import { RequirementsChange, syncWorkspaceRequirements } from './requirementsSyn
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { pypiPackageExists, searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
+import { classifyPackages, environmentPackageNames, KernelPackageEntry } from './bundledPackages';
 
 /**
  * uv Package Manager
@@ -39,7 +40,8 @@ export class UvPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+        const entries = await this._callMethod<KernelPackageEntry[]>('getPackagesInstalled', token);
+        return classifyPackages(entries, this._session.bundledIpykernelPaths);
     }
 
     async getPackageMetadata(
@@ -287,7 +289,7 @@ export class UvPackageManager implements IPackageManager {
         token?: vscode.CancellationToken,
     ): Promise<void> {
         await syncWorkspaceRequirements(this._serviceContainer, requirementsPath, change, async () =>
-            (await this.getPackages(token)).map((pkg) => pkg.name),
+            environmentPackageNames(await this.getPackages(token)),
         );
     }
 

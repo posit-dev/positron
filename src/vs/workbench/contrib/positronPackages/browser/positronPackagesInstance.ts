@@ -10,8 +10,9 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
+import { localize } from '../../../../nls.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ICachedPackageMetadata, isCachedMetadataFor, PackageMetadataAnchor, PackageMetadataCache } from './packageMetadataCache.js';
 import { IPackageRepositoryAccess, IPackageVulnerabilityResult, IPackageVulnerabilitySource, PackageVulnerabilityLookup, TOTAL_BUDGET_MS } from './packageVulnerabilityLookup.js';
 
 /**
@@ -139,6 +140,38 @@ export const PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS = 15_000;
  * on the backstop.
  */
 export const PACKAGES_SNAPSHOT_VULNERABILITY_GRACE_MS = 2_000;
+
+/** The setting that turns off Python's bundled ipykernel. */
+export const BUNDLED_IPYKERNEL_SETTING = 'python.useBundledIpykernel';
+
+/**
+ * The message for an uninstall that is rejected because only Positron's
+ * bundle provides the named packages. Only Python bundles packages today, so
+ * only a Python session gets advice on using the environment's own copy.
+ * @param names The bundled-only package names, as the package list spells them.
+ * @param languageId The session's language.
+ */
+export function bundledUninstallMessage(names: readonly string[], languageId: string): string {
+	const list = names.join(', ');
+	if (languageId === 'python') {
+		return names.length === 1
+			? localize(
+				'positron.packages.uninstallBundled',
+				"{0} is bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {1} setting, install ipykernel in the environment, and start a new Python session.",
+				list,
+				BUNDLED_IPYKERNEL_SETTING,
+			)
+			: localize(
+				'positron.packages.uninstallBundledMany',
+				"{0} are bundled with Positron and can't be uninstalled from the Packages pane. To use your environment's own copies, turn off the {1} setting, install ipykernel in the environment, and start a new Python session.",
+				list,
+				BUNDLED_IPYKERNEL_SETTING,
+			);
+	}
+	return names.length === 1
+		? localize('positron.packages.uninstallBundledGeneric', "{0} is bundled with Positron and can't be uninstalled from the Packages pane.", list)
+		: localize('positron.packages.uninstallBundledGenericMany', "{0} are bundled with Positron and can't be uninstalled from the Packages pane.", list);
+}
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -340,15 +373,20 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			// version that is installed now. A mismatch means the entry is from
 			// a different library context or a since-changed install, so we
 			// drop it rather than risk a misleading indicator.
-			if (metadata && metadata.version === pkg.version) {
-				return {
-					...pkg,
-					outdated: metadata.outdated,
-					latestVersion: metadata.latestVersion,
-					vulnerabilities: metadata.vulnerabilities,
-				};
+			if (!isCachedMetadataFor(metadata, pkg)) {
+				return pkg;
 			}
-			return pkg;
+			// Outdated state describes the environment's copy, and a
+			// bundled-only package has none, so it gets advisories only.
+			if (isBundledOnly(pkg)) {
+				return { ...pkg, vulnerabilities: metadata.vulnerabilities };
+			}
+			return {
+				...pkg,
+				outdated: metadata.outdated,
+				latestVersion: metadata.latestVersion,
+				vulnerabilities: metadata.vulnerabilities,
+			};
 		});
 	}
 
@@ -363,7 +401,45 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 */
 	private _freshEntryFor(pkg: ILanguageRuntimePackage): ICachedPackageMetadata | undefined {
 		const metadata = this._metadataCache.get(pkg.name.toLowerCase());
-		return metadata !== undefined && metadata.version === pkg.version ? metadata : undefined;
+		return isCachedMetadataFor(metadata, pkg) ? metadata : undefined;
+	}
+
+	/**
+	 * The first occurrence of each package name, with the installed versions
+	 * its cache entry is anchored to.
+	 *
+	 * The same package can be installed in several library paths (a project
+	 * library plus the system one), and the cache holds one entry per name.
+	 * The pane shows the first occurrence, following the runtime's search
+	 * order, so the first occurrence is the one the entry has to describe: ask
+	 * about it, and anchor the entry to its versions. Anchoring to another
+	 * copy left the entry describing a copy the pane never shows, and the
+	 * version-match guard in `packages` then threw the metadata away.
+	 */
+	private _visiblePackagesWithAnchors(): { visiblePackages: ILanguageRuntimePackage[]; anchorByName: Map<string, PackageMetadataAnchor> } {
+		const visiblePackages: ILanguageRuntimePackage[] = [];
+		const anchorByName = new Map<string, PackageMetadataAnchor>();
+		for (const pkg of this._packages) {
+			const key = pkg.name.toLowerCase();
+			if (anchorByName.has(key)) {
+				continue;
+			}
+			anchorByName.set(key, { version: pkg.version, environmentVersion: pkg.environmentVersion });
+			visiblePackages.push(pkg);
+		}
+		return { visiblePackages, anchorByName };
+	}
+
+	/**
+	 * The packages to ask the runtime for outdated state: all of them when
+	 * `fetchAll` is set, otherwise those without a fresh answer. Bundled-only
+	 * packages are always left out: the runtime reports on the environment's
+	 * copy, and they have none, so asking would leave a gap that is refetched
+	 * on every refresh.
+	 */
+	private _outdatedToFetch(visiblePackages: readonly ILanguageRuntimePackage[], fetchAll: boolean): ILanguageRuntimePackage[] {
+		const candidates = visiblePackages.filter((pkg) => !isBundledOnly(pkg));
+		return fetchAll ? candidates : candidates.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
 	}
 
 	/**
@@ -419,7 +495,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._packages = await packageManager.getPackages(token);
 		this._onDidRefreshPackagesInstance.fire(this.packages);
 
-		// Stage 2: Fetch metadata asynchronously (don't block). Refetch every
+		this._startMetadataStage(packageManager, forceMetadata);
+	}
+
+	/**
+	 * Stage 2 of a refresh: fetch metadata for the current package list
+	 * asynchronously, without blocking the caller.
+	 */
+	private _startMetadataStage(
+		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
+		forceMetadata: boolean = false,
+	): void {
+		// Fetch metadata asynchronously (don't block). Refetch every
 		// package when `forceMetadata` is set (a user-initiated refresh, which
 		// must be authoritative even inside the freshness window) or when the
 		// persisted entry has aged past its freshness window (so a new upstream
@@ -480,25 +567,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Cancel any prior in-flight fetch so re-entrance supersedes rather than no-ops
 		this._metadataFetch?.cancel();
 
-		// The same package can be installed in several library paths (a project
-		// library plus the system one), and the cache holds one entry per name.
-		// The pane shows the first occurrence, following R's library search
-		// order, so the first occurrence is the one the entry has to describe:
-		// ask about it, and anchor the entry to its version. Taking the version
-		// from the last occurrence instead left the entry describing a copy the
-		// pane never shows, and the version-match guard in `packages` then threw
-		// the metadata away -- no update indicator and no advisories on exactly
-		// the packages that live in two libraries.
-		const visiblePackages: ILanguageRuntimePackage[] = [];
-		const versionByName = new Map<string, string>();
-		for (const pkg of this._packages) {
-			const key = pkg.name.toLowerCase();
-			if (versionByName.has(key)) {
-				continue;
-			}
-			versionByName.set(key, pkg.version);
-			visiblePackages.push(pkg);
-		}
+		const { visiblePackages, anchorByName } = this._visiblePackagesWithAnchors();
 
 		// The advisory lookup needs the runtime's host to make its requests
 		// (the renderer can't reach a Package Manager API), so a runtime
@@ -523,9 +592,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// redoing the (slow) outdated fetch the runtime already answered.
 		const outdatedToFetch = !packageManager.getPackageMetadata
 			? []
-			: fetchAll
-				? visiblePackages
-				: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
+			: this._outdatedToFetch(visiblePackages, fetchAll);
 		const advisoriesToFetch = !access || !this._vulnerabilityLookup.enabled
 			? []
 			: fetchAll
@@ -572,7 +639,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			const metadataMap = metadataResult.status === 'fulfilled' ? metadataResult.value : undefined;
 			const vulnerabilities = vulnerabilityResult.status === 'fulfilled' ? vulnerabilityResult.value : undefined;
 
-			this._mergeAndPersistMetadata(metadataMap, versionByName, vulnerabilities);
+			this._mergeAndPersistMetadata(metadataMap, anchorByName, vulnerabilities);
 		});
 
 		this._metadataFetch = fetch;
@@ -595,7 +662,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	/**
 	 * Write fetched metadata into the in-memory cache, persist it to disk, and
-	 * notify listeners. `versionByName` is the installed versions as of when
+	 * notify listeners. `anchorByName` is the installed versions as of when
 	 * the fetch was issued, so each entry stays anchored to the version its
 	 * outdated state was computed against even if an install lands mid-fetch
 	 * (the `packages` getter drops mismatched entries).
@@ -606,7 +673,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 */
 	private _mergeAndPersistMetadata(
 		metadataMap: Map<string, Partial<ILanguageRuntimePackage>> | undefined,
-		versionByName: Map<string, string>,
+		anchorByName: Map<string, PackageMetadataAnchor>,
 		vulnerabilities?: IPackageVulnerabilityResult,
 	): void {
 		// Only the packages some source answered for get an entry, so a
@@ -627,18 +694,18 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 
 		for (const key of keys) {
-			const version = versionByName.get(key);
-			if (version === undefined) {
+			const anchor = anchorByName.get(key);
+			if (anchor === undefined) {
 				// Not currently installed; nothing to anchor the entry to.
 				continue;
 			}
 			const existing = this._metadataCache.get(key);
-			// Start from the cached entry when it describes the version
-			// that's installed now, so a source that failed this round
+			// Start from the cached entry when it describes the versions
+			// that are installed now, so a source that failed this round
 			// keeps whatever it last reported instead of being cleared.
-			const entry: ICachedPackageMetadata = existing?.version === version
+			const entry: ICachedPackageMetadata = isCachedMetadataFor(existing, anchor)
 				? { ...existing }
-				: { version };
+				: { ...anchor };
 			const metadata = metadataMap?.get(key);
 			if (metadata) {
 				entry.outdated = metadata.outdated;
@@ -707,6 +774,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._onDidChangeUninstallState.fire(true);
 
 		try {
+			await this._rejectBundledOnlyUninstall(packageManager, packageNames, effectiveToken);
 			await packageManager.uninstallPackages(packageNames, effectiveToken);
 
 			// Drop cached entries for the now-removed packages.
@@ -717,6 +785,40 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
+		}
+	}
+
+	/**
+	 * Throw, before anything is uninstalled, when any of the named packages is
+	 * provided only by Positron's bundle: there is no copy in the environment
+	 * to remove. The list is loaded first if nothing has loaded it yet (an
+	 * agent can call this before the pane ever opens), and a bundled-only name
+	 * is checked again against a fresh list, since an environment copy may
+	 * have been installed from a terminal since the last refresh.
+	 */
+	private async _rejectBundledOnlyUninstall(
+		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
+		packageNames: readonly string[],
+		token: CancellationToken,
+	): Promise<void> {
+		const requested = new Set(packageNames.map((name) => name.toLowerCase()));
+		const bundledOnlyNames = () => this._packages
+			.filter((pkg) => isBundledOnly(pkg) && requested.has(pkg.name.toLowerCase()))
+			.map((pkg) => pkg.name);
+		if (this._packages.length > 0 && bundledOnlyNames().length === 0) {
+			return;
+		}
+		// Only the list is needed to decide. When the uninstall goes ahead,
+		// the refresh after it fetches metadata, so fetching it here would be
+		// wasted.
+		this._packages = await packageManager.getPackages(token);
+		this._onDidRefreshPackagesInstance.fire(this.packages);
+		const blocked = bundledOnlyNames();
+		if (blocked.length > 0) {
+			// The uninstall stops here, so this is the refresh: fetch the fresh
+			// list's metadata (superseding any fetch in flight).
+			this._startMetadataStage(packageManager);
+			throw new Error(bundledUninstallMessage(blocked, this._session.runtimeMetadata.languageId));
 		}
 	}
 
@@ -754,7 +856,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// updateAllPackages returns void and base R / conda don't report which
 		// packages they touched, so a before/after version diff is the only
 		// backend-agnostic way to know what actually changed.
-		const versionsBefore = new Map(this._packages.map((pkg) => [pkg.name, pkg.version]));
+		// For a bundled package, the update acts on the environment's copy.
+		const versionsBefore = new Map(this._packages.map((pkg) => [pkg.name, pkg.environmentVersion ?? pkg.version]));
 
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
@@ -778,7 +881,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			const updated = this._packages
 				.filter((pkg) => {
 					const previousVersion = versionsBefore.get(pkg.name);
-					return previousVersion !== undefined && previousVersion !== pkg.version;
+					return previousVersion !== undefined && previousVersion !== (pkg.environmentVersion ?? pkg.version);
 				})
 				.map((pkg) => pkg.name)
 				.sort((a, b) => a.localeCompare(b));
@@ -826,7 +929,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		for (const pkg of this._packages) {
 			const key = pkg.name.toLowerCase();
 			const metadata = this._metadataCache.get(key);
-			if (metadata && metadata.version === pkg.version) {
+			if (isCachedMetadataFor(metadata, pkg)) {
 				snapshot[key] = metadata;
 			}
 		}
@@ -869,12 +972,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		}
 
 		// A metadata entry is only recorded for a package whose installed version
-		// is known, so the installed list has to be populated first. It usually
-		// already is, but a caller that never opened the pane (an agent) can get
-		// here first.
-		if (this._packages.length === 0) {
-			this._packages = await packageManager.getPackages(effectiveToken);
-		}
+		// is known, so the installed list has to be loaded first: a caller that
+		// never opened the pane (an agent) can get here before any refresh. It
+		// is reloaded even when it is populated, because whether a package is
+		// asked about at all depends on it: one listed as bundled only is left
+		// out, and an environment copy installed since the last refresh changes
+		// that.
+		this._packages = await packageManager.getPackages(effectiveToken);
+		this._onDidRefreshPackagesInstance.fire(this.packages);
 
 		// Force the fetch rather than trusting the freshness window: "the latest
 		// version" has to be answered against the repositories as they are now,
@@ -971,16 +1076,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// describe. The advisory stage asks about these rather than about the
 		// map's keys: the keys are lowercased for the cache, and a repository
 		// asked about 'matrix' has not been asked about 'Matrix'.
-		const versionByName = new Map<string, string>();
-		const visiblePackages: ILanguageRuntimePackage[] = [];
-		for (const pkg of this._packages) {
-			const key = pkg.name.toLowerCase();
-			if (versionByName.has(key)) {
-				continue;
-			}
-			versionByName.set(key, pkg.version);
-			visiblePackages.push(pkg);
-		}
+		const { visiblePackages, anchorByName } = this._visiblePackagesWithAnchors();
 
 		// A cache still inside its freshness window is exactly what the pane
 		// shows, so only refetch everything once it has aged out; gap-filling
@@ -996,7 +1092,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// can't cancel the other's in-flight request.
 		const [metadataStatus, vulnerabilityStatus] = await Promise.all([
 			outdatedSupported
-				? this._snapshotOutdatedStage(packageManager, visiblePackages, versionByName, token, metadataDeadline, fetchAll)
+				? this._snapshotOutdatedStage(packageManager, visiblePackages, anchorByName, token, metadataDeadline, fetchAll)
 				: Promise.resolve<PackagesMetadataStatus>('unsupported'),
 			// A caller that won't report advisories skips the lookup: it is the
 			// slow stage, and running it only to drop the result would defeat the
@@ -1007,7 +1103,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				: this._snapshotVulnerabilityStage(
 					packageManager,
 					visiblePackages,
-					versionByName,
+					anchorByName,
 					token,
 					options.vulnerabilityTimeoutMs ?? PACKAGES_SNAPSHOT_VULNERABILITY_TIMEOUT_MS,
 					fetchAll,
@@ -1055,7 +1151,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * for a read-only foreground caller that has to label its answer.
 	 * @param packageManager The session's package manager.
 	 * @param visiblePackages One package per name: the copies the pane shows.
-	 * @param versionByName Installed versions as of when the stage was issued.
+	 * @param anchorByName Installed versions as of when the stage was issued.
 	 * @param callerToken The caller's cancellation token.
 	 * @param deadline Epoch ms by which the stage must have answered.
 	 * @param fetchAll Whether the cached entry has aged out of its freshness
@@ -1066,7 +1162,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			getPackageMetadata?: (packageNames: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
 		},
 		visiblePackages: readonly ILanguageRuntimePackage[],
-		versionByName: Map<string, string>,
+		anchorByName: Map<string, PackageMetadataAnchor>,
 		callerToken: CancellationToken,
 		deadline: number,
 		fetchAll: boolean,
@@ -1076,9 +1172,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// version, so it never matches the cache's single entry per name: it
 		// would look like a permanent gap, refetched on every call and merged
 		// straight back under the visible copy's version.
-		const packagesToFetch = fetchAll
-			? visiblePackages
-			: visiblePackages.filter((pkg) => this._freshEntryFor(pkg)?.outdated === undefined);
+		const packagesToFetch = this._outdatedToFetch(visiblePackages, fetchAll);
 		if (packagesToFetch.length === 0) {
 			return 'cached';
 		}
@@ -1116,7 +1210,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				return 'unsupported';
 			}
 			if (outcome.map.size > 0) {
-				this._mergeAndPersistMetadata(outcome.map, versionByName);
+				this._mergeAndPersistMetadata(outcome.map, anchorByName);
 			}
 			return fetchAll ? 'fresh' : 'cached';
 		} finally {
@@ -1137,7 +1231,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	 * on every call.
 	 * @param packageManager The session's package manager.
 	 * @param visiblePackages One package per name: the copies the pane shows.
-	 * @param versionByName Installed versions as of when the stage was issued.
+	 * @param anchorByName Installed versions as of when the stage was issued.
 	 * @param callerToken The caller's cancellation token.
 	 * @param timeoutMs How long the lookup may take.
 	 * @param fetchAll Whether the cached entry has aged out of its freshness
@@ -1149,7 +1243,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			repositoryRequest?: (request: IPackageRepositoryRequest, token?: CancellationToken) => Promise<IPackageRepositoryResponse>;
 		},
 		visiblePackages: readonly ILanguageRuntimePackage[],
-		versionByName: Map<string, string>,
+		anchorByName: Map<string, PackageMetadataAnchor>,
 		callerToken: CancellationToken,
 		timeoutMs: number,
 		fetchAll: boolean,
@@ -1236,7 +1330,7 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 				// deciding whether asking again is worth anything.
 				return Date.now() - startedAt >= budgetMs ? 'timed-out' : 'unavailable';
 			}
-			this._mergeAndPersistMetadata(undefined, versionByName, outcome.result);
+			this._mergeAndPersistMetadata(undefined, anchorByName, outcome.result);
 			if (outcome.result.queried.size < askableCount) {
 				// The lookup ran out of budget (or a request failed) partway
 				// through its chunks. What it did answer is merged above, but

@@ -21,7 +21,7 @@ import { IViewsService } from '../../../views/common/viewsService.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
-import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
+import { discoveredProfileId, PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
 function createProfile(id: string): IDataConnectionProfile {
 	return {
@@ -51,6 +51,38 @@ function createDriverMetadata(): IDataConnectionDriverMetadata {
 			description: '',
 			parameters: [],
 		}],
+	};
+}
+
+/**
+ * A stub driver that discovers one live connection until `vanish` is called, the way a runtime
+ * driver reports a comm. Its handle still reports itself connected throughout, so the service
+ * dropping the discovery is the only thing that changes.
+ * @param driverId The driver id: 'runtime-r' for a runtime driver, anything else for a contrast.
+ */
+function createLiveConnectionDriver(driverId: string) {
+	let connections = [{ id: 's1:c1', name: 'mtcars.sqlite', mechanismId: 'live', parameterValues: { connectionId: 's1:c1' } }];
+	const handle = stubInterface<IDataConnectionHandle>({
+		handle: -1,
+		disconnect: vi.fn(async () => { }),
+		release: vi.fn(),
+		isConnected: async () => true,
+	});
+	const driver = stubInterface<IDataConnectionDriver>({
+		id: driverId,
+		metadata: {
+			...createDriverMetadata(),
+			id: driverId,
+			mechanisms: [{ id: 'live', label: 'Live', description: '', parameters: [] }],
+		},
+		discoverConnections: async () => connections,
+		connect: async () => handle,
+	});
+	return {
+		driver,
+		handle,
+		profileId: discoveredProfileId(driverId, 's1:c1'),
+		vanish: () => { connections = []; },
 	};
 }
 
@@ -533,6 +565,20 @@ describe('PositronDataConnectionsService', () => {
 
 				expect(() => service.disconnectWhenUnused('conn-1')).not.toThrow();
 			});
+
+			// Contrast for the runtime guard: runtime profiles are never closed implicitly, every
+			// other profile still is.
+			it('disconnectWhenUnused still closes a non-runtime profile with no previews', async () => {
+				await connectProfile([]);
+
+				service.disconnectWhenUnused('conn-1');
+
+				await vi.waitFor(() => expect(handleReleases).toBe(1));
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					handleDisconnects,
+				}).toEqual({ connected: false, handleDisconnects: 1 });
+			});
 		});
 
 		describe('disconnect', () => {
@@ -685,6 +731,23 @@ describe('PositronDataConnectionsService', () => {
 				`);
 			});
 
+			// Closing a runtime comm runs the user's disconnect() in R or Python, and a live comm
+			// should never lose its driver, so the instance is dropped and the comm left open.
+			it('removing the runtime driver does not close the comm', async () => {
+				const { driver, handle, profileId } = createLiveConnectionDriver('runtime-r');
+				service.driverManager.registerDriver(driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([profileId]));
+				await service.connect(profileId);
+
+				service.driverManager.removeDriver('runtime-r');
+
+				await vi.waitFor(() => expect(handle.release).toHaveBeenCalled());
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 0 });
+			});
+
 			// Snowflake updates its driver in place (onDidChange) rather than re-registering; its
 			// connections are meant to survive that.
 			it('keeps the connection when the driver is replaced under the same id', async () => {
@@ -726,6 +789,31 @@ describe('PositronDataConnectionsService', () => {
 					disconnects: disconnect.mock.calls.length,
 					releases: release.mock.calls.length,
 				}).toEqual({ connected: false, disconnects: 1, releases: 1 });
+			});
+
+			// The auto-connect bridge can be mid-connect when the runtime driver goes away. Closing
+			// the handle then would run the user's disconnect() in R or Python, so it is only released.
+			it('releases without closing a runtime connection that finishes opening after its driver was removed', async () => {
+				const { driver, handle, profileId } = createLiveConnectionDriver('runtime-r');
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				driver.connect = driverConnect;
+				service.driverManager.registerDriver(driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([profileId]));
+
+				const connecting = service.connect(profileId);
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('runtime-r');
+				finishConnecting(handle);
+
+				await expect(connecting).rejects.toThrow('was removed while connecting');
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+					releases: vi.mocked(handle.release).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 0, releases: 1 });
 			});
 
 			// The ODBC driver unregisters and re-registers back to back. The connection itself is
@@ -1033,6 +1121,47 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfiles()).toEqual([]);
 		});
 
+		describe('a live connection whose discovery goes away', () => {
+			/** Connects the driver's one discovery, then re-registers it reporting none. */
+			async function connectThenVanish(driverId: string) {
+				const live = createLiveConnectionDriver(driverId);
+				service.driverManager.registerDriver(live.driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([live.profileId]));
+				await service.connect(live.profileId);
+
+				live.vanish();
+				service.driverManager.registerDriver(live.driver);
+				await vi.waitFor(() => expect(live.handle.release).toHaveBeenCalled());
+				return live;
+			}
+
+			// A runtime discovery should only go away once its comm has closed. If one goes while
+			// the comm is open, closing it would run the user's disconnect() in R or Python.
+			it('a refresh that drops a live runtime discovery does not close the comm', async () => {
+				const warn = vi.spyOn(ctx.get(ILogService), 'warn');
+
+				const { handle, profileId } = await connectThenVanish('runtime-r');
+
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+					releases: vi.mocked(handle.release).mock.calls.length,
+					warned: warn.mock.calls.some(([message]) => String(message).includes(profileId)),
+				}).toEqual({ connected: false, disconnects: 0, releases: 1, warned: true });
+			});
+
+			// Contrast: a discovery from a file the user edited is a connection the user no longer
+			// has a row for, so it is still closed.
+			it('a vanished non-runtime discovery is still disconnected', async () => {
+				const { handle, profileId } = await connectThenVanish('test-driver');
+
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 1 });
+			});
+		});
+
 		it('keeps other drivers\' discoveries when one driver\'s discovery fails', async () => {
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
 				id: 'broken-driver',
@@ -1169,6 +1298,18 @@ describe('PositronDataConnectionsService', () => {
 			expect(takenWhileFiring).toBe('conn-1');
 		});
 	});
+
+	describe('refresh requests', () => {
+		it('requestRefresh fires onDidRequestRefresh with the profile id', () => {
+			const fired: string[] = [];
+			ctx.disposables.add(service.onDidRequestRefresh(profileId => fired.push(profileId)));
+
+			service.requestRefresh('conn-1');
+
+			expect(fired).toEqual(['conn-1']);
+		});
+	});
+
 	describe('revealNode', () => {
 		const PATH = [{ kind: DataConnectionNodeKind.Table, name: 'flights' }];
 

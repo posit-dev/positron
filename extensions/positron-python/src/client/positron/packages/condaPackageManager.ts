@@ -10,6 +10,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IComponentAdapter, ICondaService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
+import { classifyPackages, KernelPackageEntry } from './bundledPackages';
 
 /** Package info returned by `conda search --json` */
 interface CondaPackageInfo {
@@ -68,7 +69,8 @@ export class CondaPackageManager implements IPackageManager {
     ) {}
 
     async getPackages(token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
-        return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
+        const entries = await this._callMethod<KernelPackageEntry[]>('getPackagesInstalled', token);
+        return classifyPackages(entries, this._session.bundledIpykernelPaths);
     }
 
     async getPackageDetail(

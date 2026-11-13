@@ -8,7 +8,7 @@ import './packageDetail.css';
 import '../packageVulnerabilities.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { URI } from '../../../../../base/common/uri.js';
@@ -19,9 +19,9 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PositronTab, PositronTabs } from '../../../../../base/browser/ui/positronComponents/tabs/positronTabs.js';
 import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ILanguageRuntimePackage, IPackageVulnerability } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, IPackageVulnerability, isBundledOnly } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../interfaces/positronPackagesService.js';
-import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
+import { BUNDLED_IPYKERNEL_SETTING, IPositronPackagesInstance } from '../positronPackagesInstance.js';
 import { derivePackageViewState, PackageAction } from '../packageViewState.js';
 import { showPackageHelp } from '../packageHelp.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel } from '../packageVulnerabilities.js';
@@ -62,6 +62,73 @@ function formatFetchedDate(fetchedAt: number): string {
 	const month = `${fetched.getMonth() + 1}`.padStart(2, '0');
 	const day = `${fetched.getDate()}`.padStart(2, '0');
 	return `${fetched.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Renders a localized message whose {0} placeholder is the bundled ipykernel
+ * setting, with the setting name in code font as a link that opens the setting.
+ * @param message The localized message, with its {0} placeholder left unformatted.
+ * @returns The rendered message.
+ */
+const MessageWithBundledSetting = ({ message }: { message: string }) => {
+	const services = usePositronReactServicesContext();
+	const [before, after] = message.split('{0}');
+	return <>
+		{before}
+		<Button
+			ariaLabel={localize('positron.packages.detail.openSetting', "Open the {0} setting", BUNDLED_IPYKERNEL_SETTING)}
+			className='package-detail-setting-link'
+			onPressed={() => services.commandService.executeCommand('workbench.action.openSettings', BUNDLED_IPYKERNEL_SETTING)}
+		>
+			<code>{BUNDLED_IPYKERNEL_SETTING}</code>
+		</Button>
+		{after}
+	</>;
+};
+
+/**
+ * Explains how a bundled package differs from an ordinary one: in the header,
+ * why its actions are limited; in the Security tab, why updating the
+ * environment's copy does not fix advisories on the copy the console imports.
+ * Only Python bundles packages today, so only a Python session gets advice on
+ * using the environment's own copy.
+ * @param pkg The package.
+ * @param languageId The session's language.
+ * @param place Where the explanation is shown.
+ * @returns The explanation, or undefined for a package that is not bundled.
+ */
+function bundledExplanation(pkg: ILanguageRuntimePackage, languageId: string, place: 'header' | 'advisories'): ReactNode {
+	if (!pkg.bundled) {
+		return undefined;
+	}
+	if (!isBundledOnly(pkg)) {
+		return place === 'header'
+			? localize(
+				'positron.packages.detail.bundledShadowed',
+				"Your environment has {0}, but the console imports the bundled {1}. Update and Uninstall act on the environment copy.",
+				pkg.environmentVersion,
+				pkg.version
+			)
+			: localize(
+				'positron.packages.detail.bundledShadowedAdvisory',
+				"These advisories are for the bundled {0} the console imports. Updating the environment copy does not fix them; a fix comes with a Positron update.",
+				pkg.version
+			);
+	}
+	if (languageId !== 'python') {
+		return place === 'header'
+			? localize('positron.packages.detail.bundledOnlyGeneric', "This package ships with Positron and can't be uninstalled from the Packages pane.")
+			: localize('positron.packages.detail.bundledAdvisoryGeneric', "A fix for the bundled copy comes with a Positron update.");
+	}
+	return <MessageWithBundledSetting message={place === 'header'
+		? localize(
+			'positron.packages.detail.bundledOnly',
+			"This package ships with Positron and can't be uninstalled from the Packages pane. To use your environment's own copy, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+		)
+		: localize(
+			'positron.packages.detail.bundledAdvisory',
+			"A fix for the bundled copy comes with a Positron update. To use your environment's own copy instead, turn off the {0} setting, install ipykernel in the environment, and start a new Python session."
+		)} />;
 }
 
 /**
@@ -367,11 +434,22 @@ export const PackageDetail = (props: PackageDetailProps) => {
 
 	// Installed version, with "(latest)" appended when the runtime reports the
 	// installed version is the latest (so we omit a separate Latest version row).
+	// For a bundled package the version is the bundled copy the console
+	// imports, and "(latest)" belongs to the environment's copy, if any.
+	const withLatest = (version: string) => view.latest
+		? localize('positron.packages.detail.versionLatest', "{0} (latest)", version)
+		: version;
 	const installedVersionText = livePkg
-		? (livePkg.outdated === false
-			? localize('positron.packages.detail.versionLatest', "{0} (latest)", livePkg.version)
-			: livePkg.version)
+		? (livePkg.bundled
+			? localize('positron.packages.detail.versionBundled', "{0}, bundled", livePkg.version)
+			: withLatest(livePkg.version))
 		: undefined;
+	const environmentVersionText = livePkg?.environmentVersion !== undefined
+		? withLatest(livePkg.environmentVersion)
+		: undefined;
+
+	// Why a bundled package's actions differ from an ordinary one's.
+	const bundledNote = livePkg && bundledExplanation(livePkg, props.languageId, 'header');
 
 	// Hold the Overview back until the detail fetch resolves, then render it all
 	// at once. Half-rendering it with the list entry and filling in detail-only
@@ -381,6 +459,9 @@ export const PackageDetail = (props: PackageDetailProps) => {
 		<div className='package-detail-overview'>
 			<div className='package-detail-stats'>
 				<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
+				{environmentVersionText !== undefined &&
+					<Stat label={localize('positron.packages.detail.environmentVersion', "Environment")} value={environmentVersionText} />
+				}
 				<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
 			</div>
 
@@ -434,6 +515,11 @@ export const PackageDetail = (props: PackageDetailProps) => {
 							<VulnerabilityRow key={vulnerability.osvId} vulnerability={vulnerability} />)}
 					</div>
 				}
+				{sortedVulnerabilities.length > 0 && livePkg?.bundled &&
+					<div className='package-detail-security-bundled'>
+						{bundledExplanation(livePkg, props.languageId, 'advisories')}
+					</div>
+				}
 				{sortedVulnerabilities.length > 0 && vulnerabilitySource &&
 					<div className='package-detail-security-source'>
 						{localize('positron.packages.detail.advisorySource', "Reported by {0} as of {1}.", vulnerabilitySource.host, formatFetchedDate(vulnerabilitySource.fetchedAt))}
@@ -452,6 +538,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						<h2 className='package-detail-title'>{packageName}</h2>
 						{pkg?.version && <span className='package-detail-version'>{pkg.version}</span>}
 						{pkg?.attached && <span className='package-detail-attached-pill'>{localize('positron.packages.detail.attached', "Attached")}</span>}
+						{pkg?.bundled && <span className='package-detail-bundled-pill'>{localize('positron.packages.detail.bundled', "Bundled with Positron")}</span>}
 					</div>
 					{detailLoading
 						? <div className='package-detail-author'><span className='package-detail-skeleton' data-testid='package-detail-loading' /></div>
@@ -464,6 +551,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 					</div>
 				</div>
 			</div>
+
+			{bundledNote &&
+				<div className='package-detail-bundled-note'>{bundledNote}</div>
+			}
 
 			{view.showNotActiveHint &&
 				<div className='package-detail-banner'>
