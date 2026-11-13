@@ -526,8 +526,8 @@ describe('show hidden data connections', () => {
 
 		expect(t.pick).toHaveBeenCalledWith(
 			[
-				{ label: 'conn-a-name', description: 'conn-a-description', detail: 'Test Driver', profileId: 'conn-a' },
-				{ label: 'conn-b-name', description: 'conn-b-description', detail: 'Test Driver', profileId: 'conn-b' },
+				{ label: 'conn-a-name', description: 'Test Driver', detail: 'conn-a-description', profileId: 'conn-a' },
+				{ label: 'conn-b-name', description: 'Test Driver', detail: 'conn-b-description', profileId: 'conn-b' },
 			],
 			{ canPickMany: true, placeHolder: 'Select the connections to show again' });
 		expect(t.unhideDiscoveredProfiles).toHaveBeenCalledWith(['conn-a']);

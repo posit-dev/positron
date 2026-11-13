@@ -368,8 +368,8 @@ export async function showHiddenDataConnections(
 	const picks = await quickInputService.pick<IDataConnectionProfilePickItem>(
 		hidden.map(profile => ({
 			label: profile.connectionName,
-			description: profile.description,
-			detail: profile.driverMetadata.name,
+			description: profile.driverMetadata.name,
+			detail: profile.description,
 			profileId: profile.id,
 		})),
 		{

@@ -370,7 +370,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param id The discovered profile id.
 	 */
 	hideDiscoveredProfile(id: string): void {
-		if (this._hiddenDiscoveryIds.has(id) || !this._discoveredProfiles.some(_ => _.id === id)) {
+		// Only a discovery that is listed can be hidden: one a saved profile stands in for has no row,
+		// and hiding it would store an id the Show Hidden Connections pick never offers back.
+		if (this._hiddenDiscoveryIds.has(id) || !this._unsavedDiscoveries().some(_ => _.id === id)) {
 			return;
 		}
 		this._hiddenDiscoveryIds.add(id);
@@ -443,6 +445,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		};
 
 		this.addUpdateProfile(profile);
+
+		// A saved discovery is no longer hidden. Leaving its id in the set would hide the row again
+		// if the saved profile were later removed.
+		if (this._hiddenDiscoveryIds.delete(id)) {
+			this._storeHiddenDiscoveryIds();
+		}
 
 		// The discovery is now shadowed by the saved profile, so the pane needs to drop its row.
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);

@@ -1173,6 +1173,34 @@ describe('PositronDataConnectionsService', () => {
 				}).toEqual({ stored: undefined, fires: 0 });
 			});
 
+			it('ignores a discovery that a saved profile stands in for', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.saveDiscoveredProfile(pagilaId);
+				const changes = countDiscoveryChanges();
+
+				service.hideDiscoveredProfile(pagilaId);
+
+				expect({
+					stored: storageService.get(hiddenKey, StorageScope.PROFILE),
+					hidden: service.isHiddenDiscoveredProfile(pagilaId),
+					fires: changes.fires,
+				}).toEqual({ stored: undefined, hidden: false, fires: 0 });
+			});
+
+			it('stops hiding a discovery once it is saved, so removing the saved profile brings the row back', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+
+				const savedId = service.saveDiscoveredProfile(pagilaId)!;
+				const storedAfterSave = storageService.get(hiddenKey, StorageScope.PROFILE);
+				service.removeProfile(savedId);
+
+				expect({
+					storedAfterSave,
+					listed: service.getDiscoveredProfiles().map(p => p.id),
+				}).toEqual({ storedAfterSave: undefined, listed: [pagilaId] });
+			});
+
 			it('disconnects a hidden discovery that is connected', async () => {
 				const { disconnect } = await registerConnectableDriver();
 				await service.connect(pagilaId);

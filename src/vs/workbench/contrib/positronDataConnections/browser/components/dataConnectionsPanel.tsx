@@ -73,6 +73,7 @@ export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 	const [hiddenCount, setHiddenCount] = useState(() => positronDataConnectionsService.getHiddenDiscoveredProfiles().length);
 	useEffect(() => {
 		const update = () => setHiddenCount(positronDataConnectionsService.getHiddenDiscoveredProfiles().length);
+		// Catch a hide or unhide that landed between the first render and this subscription.
 		update();
 		const discoveredDisposable = positronDataConnectionsService.onDidChangeDiscoveredProfiles(update);
 		const profilesDisposable = positronDataConnectionsService.onDidChangeProfiles(update);
