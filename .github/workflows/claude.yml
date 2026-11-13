@@ -199,7 +199,6 @@ jobs:
           echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
 
       - name: Setup Claude
-        id: setup
         if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
 
@@ -331,7 +330,6 @@ jobs:
           persist-credentials: false
 
       - name: Setup Claude
-        id: setup
         uses: ./.github/actions/setup-claude
 
       - name: Setup core dependencies
