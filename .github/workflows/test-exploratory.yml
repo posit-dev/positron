@@ -731,9 +731,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$PR" ]; then
-            subject=${PR_TITLE:0:60}
-            if [ ${#PR_TITLE} -gt 60 ]; then subject="${subject% }..."; fi
-            title="explore #$PR :: $subject ($POSITRON_RUN)"
+            # The whole title stays within 72 characters, so it fits on one line in
+            # the positron-builds Actions run list.
+            prefix="explore #$PR :: "
+            suffix=" ($POSITRON_RUN)"
+            room=$((72 - ${#prefix} - ${#suffix}))
+            subject=$PR_TITLE
+            if [ ${#PR_TITLE} -gt $room ]; then subject="${PR_TITLE:0:room-3}"; subject="${subject% }..."; fi
+            title="$prefix$subject$suffix"
           else
             title="explore $REF ($POSITRON_RUN)"
           fi
