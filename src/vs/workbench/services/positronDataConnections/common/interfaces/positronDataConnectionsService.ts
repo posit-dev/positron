@@ -192,7 +192,8 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * Hides a discovered connection: it stops being returned by {@link getDiscoveredProfiles} and
 	 * {@link getAllProfiles}, its live connection (if any) is closed, and it can no longer be
 	 * connected to. The choice is stored with the user's profile, so it survives restarts and a
-	 * discovery that drops out and comes back. A no-op if the id is not a current discovery.
+	 * discovery that drops out and comes back. A no-op if the id is not a listed discovery: one
+	 * that is not current, or that a saved profile stands in for.
 	 * @param id The discovered profile id.
 	 */
 	hideDiscoveredProfile(id: string): void;

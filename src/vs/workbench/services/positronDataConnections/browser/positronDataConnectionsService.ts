@@ -372,7 +372,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	hideDiscoveredProfile(id: string): void {
 		// Only a discovery that is listed can be hidden: one a saved profile stands in for has no row,
 		// and hiding it would store an id the Show Hidden Connections pick never offers back.
-		if (this._hiddenDiscoveryIds.has(id) || !this._unsavedDiscoveries().some(_ => _.id === id)) {
+		if (this._hiddenDiscoveryIds.has(id) || !this._isUnsavedDiscovery(id)) {
 			return;
 		}
 		this._hiddenDiscoveryIds.add(id);
@@ -1114,19 +1114,34 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param id The discovered profile id.
 	 */
 	private _isHiddenHere(id: string): boolean {
-		return this._hiddenDiscoveryIds.has(id) && this._unsavedDiscoveries().some(discovered => discovered.id === id);
+		return this._hiddenDiscoveryIds.has(id) && this._isUnsavedDiscovery(id);
+	}
+
+	/**
+	 * Whether the id is a current discovery that no saved profile stands in for. Checks the one
+	 * discovery rather than building {@link _unsavedDiscoveries}, for callers asking about a single id.
+	 * @param id The discovered profile id.
+	 */
+	private _isUnsavedDiscovery(id: string): boolean {
+		const discovered = this._discoveredProfiles.find(p => p.id === id);
+		return discovered !== undefined && !this._isStoodInFor(discovered);
+	}
+
+	/**
+	 * Whether a saved profile stands in for a discovery: one saved from it, or one the user
+	 * configured by hand that matches it.
+	 * @param discovered The discovered profile.
+	 */
+	private _isStoodInFor(discovered: IDataConnectionProfile): boolean {
+		return this._profiles.some(saved =>
+			saved.discoveredFromId === discovered.id || this._isSameConnection(saved, discovered));
 	}
 
 	/**
 	 * The current discoveries that no saved profile stands in for, hidden or not.
 	 */
 	private _unsavedDiscoveries(): IDataConnectionProfile[] {
-		const savedFromIds = new Set(this._profiles
-			.map(saved => saved.discoveredFromId)
-			.filter((id): id is string => id !== undefined));
-		return this._discoveredProfiles.filter(discovered =>
-			!savedFromIds.has(discovered.id)
-			&& !this._profiles.some(saved => this._isSameConnection(saved, discovered)));
+		return this._discoveredProfiles.filter(discovered => !this._isStoodInFor(discovered));
 	}
 
 	/**
