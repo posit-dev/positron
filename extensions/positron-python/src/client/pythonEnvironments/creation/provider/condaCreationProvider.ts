@@ -39,6 +39,7 @@ import { shouldDisplayEnvCreationProgress } from './hideEnvCreation';
 import { noop } from '../../../common/utils/misc';
 // --- Start Positron ---
 import { reusedEnvironmentResult } from '../reusedEnvironment';
+import { toWorkspacePathSpelling } from '../workspacePathSpelling';
 // --- End Positron ---
 
 function generateCommandArgs(
@@ -143,7 +144,14 @@ async function createCondaEnv(
                     progressAndTelemetry.getLastError() || `Conda env creation failed with exitCode: ${proc?.exitCode}`,
                 );
             } else {
-                deferred.resolve(condaEnvPath);
+                // --- Start Positron ---
+                // The script reports the symlink-resolved path. Use the workspace spelling so the
+                // environment matches the one the file watcher registered.
+                // deferred.resolve(condaEnvPath);
+                deferred.resolve(
+                    condaEnvPath ? toWorkspacePathSpelling(condaEnvPath, workspace.uri.fsPath) : condaEnvPath,
+                );
+                // --- End Positron ---
             }
         },
     );
