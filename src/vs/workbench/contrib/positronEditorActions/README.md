@@ -14,7 +14,7 @@ The names below are shared with the assistant repo; change them in both places.
 
 Registered by Positron, called by the assistant:
 
-- `positron.assistantWindow.open`: opens an empty dedicated Assistant window, locks its group, and resolves its column as an extension `ViewColumn`. The assistant creates its window panel in that column (an explicit column still opens in a locked group), so the panel never shows in the main window first. It then calls `enter`. If no panel arrives within 15 seconds, or `enter` finds the panel somewhere else, the empty window closes.
+- `positron.assistantWindow.open`: opens an empty dedicated Assistant window, locks its group, and resolves its column as an extension `ViewColumn`. The assistant creates its window panel in that column (an explicit column still opens in a locked group), so the panel never shows in the main window first. It then calls `enter`. The assistant calls `open` only when it is about to create a new window panel (not when it reuses one), so the window doesn't sit empty.
 - `positron.assistantWindow.enter`: moves the active editor, which must be an Assistant window panel, into a dedicated Assistant window. Not in the palette; the assistant makes the panel active first. Resolves `true` when the panel ends up in a dedicated window (including when it was already in one, such as a window from `open`), `false` otherwise. The assistant checks the command exists and falls back to its older "Open in New Window" path when it doesn't.
 
 Registered by the assistant:

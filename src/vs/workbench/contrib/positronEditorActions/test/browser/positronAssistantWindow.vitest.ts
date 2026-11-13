@@ -78,10 +78,9 @@ describe('positron.assistantWindow.open', () => {
 		lock: vi.fn(),
 		focus: vi.fn(),
 		editors: windowEditors,
-		get isEmpty() { return windowEditors.length === 0; },
 		get activeEditor() { return windowEditors[0]; },
 	});
-	const window = stubInterface<IAuxiliaryEditorPart>({ windowId: 2, activeGroup: windowGroup, groups: [windowGroup], onWillDispose: Event.None, close: vi.fn(() => true) });
+	const window = stubInterface<IAuxiliaryEditorPart>({ windowId: 2, activeGroup: windowGroup, groups: [windowGroup] });
 	const mainPart = stubInterface<IEditorPart>({});
 	const editorGroupsService = stubInterface<IEditorGroupsService>({
 		mainPart,
@@ -108,9 +107,8 @@ describe('positron.assistantWindow.open', () => {
 
 		windowEditors.push(panel);
 		expect(await run('positron.assistantWindow.enter')).toBe(true);
-		// No second window, and the opened one stays.
+		// No second window: the panel is already in the opened one.
 		expect(editorGroupsService.createAuxiliaryEditorPart).toHaveBeenCalledTimes(1);
-		expect(window.close).not.toHaveBeenCalled();
 	});
 });
 
