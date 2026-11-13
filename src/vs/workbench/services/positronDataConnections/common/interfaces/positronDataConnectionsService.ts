@@ -179,13 +179,43 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * and editing it; and, for a connection the user configured by hand instead, a match on driver,
 	 * mechanism, name, and values. The name is part of that match because the secret values that
 	 * would otherwise distinguish two same-shaped data sources are held out of both profiles, so
-	 * without it, saving either one would hide both.
+	 * without it, saving either one would hide both. The third is the user hiding the discovery (see
+	 * {@link hideDiscoveredProfile}).
 	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
 	 * mechanism declares secret; those are held internally and merged back by
 	 * {@link getProfileWithSecrets}.
 	 * @returns The discovered data connection profiles.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Hides a discovered connection: it stops being returned by {@link getDiscoveredProfiles} and
+	 * {@link getAllProfiles}, its live connection (if any) is closed, and it can no longer be
+	 * connected to. The choice is stored with the user's profile, so it survives restarts and a
+	 * discovery that drops out and comes back. A no-op if the id is not a current discovery.
+	 * @param id The discovered profile id.
+	 */
+	hideDiscoveredProfile(id: string): void;
+
+	/**
+	 * Gets the discoveries the user has hidden that would otherwise be listed. A hidden discovery
+	 * that no longer exists, or that a saved profile already stands in for, is not included.
+	 * @returns The hidden discovered profiles.
+	 */
+	getHiddenDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Stops hiding discovered connections, so they are listed again.
+	 * @param ids The discovered profile ids to show again.
+	 */
+	unhideDiscoveredProfiles(ids: readonly string[]): void;
+
+	/**
+	 * Whether the user has hidden the discovered connection with this id. Callers that resolve a
+	 * profile by id use this to treat a hidden discovery as not found.
+	 * @param id The discovered profile id.
+	 */
+	isHiddenDiscoveredProfile(id: string): boolean;
 
 	/**
 	 * Gets the full connection catalog: every saved profile followed by every discovered

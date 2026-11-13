@@ -347,7 +347,69 @@ export class ShowDataConnectionLineageAction extends Action2 {
 	}
 }
 
+/**
+ * Offers the hidden detected connections and shows the ones the user picks again. Says so when
+ * nothing is hidden.
+ * @param dataConnectionsService The data connections service.
+ * @param quickInputService The quick input service.
+ * @param notificationService The notification service.
+ */
+export async function showHiddenDataConnections(
+	dataConnectionsService: IPositronDataConnectionsService,
+	quickInputService: IQuickInputService,
+	notificationService: INotificationService,
+): Promise<void> {
+	const hidden = dataConnectionsService.getHiddenDiscoveredProfiles();
+	if (hidden.length === 0) {
+		notificationService.info(localize('positron.dataConnections.showHiddenConnections.none', "No data connections are hidden."));
+		return;
+	}
+
+	const picks = await quickInputService.pick<IDataConnectionProfilePickItem>(
+		hidden.map(profile => ({
+			label: profile.connectionName,
+			description: profile.description,
+			detail: profile.driverMetadata.name,
+			profileId: profile.id,
+		})),
+		{
+			canPickMany: true,
+			placeHolder: localize('positron.dataConnections.showHiddenConnections.pick', "Select the connections to show again"),
+		});
+	if (!picks || picks.length === 0) {
+		return;
+	}
+
+	dataConnectionsService.unhideDiscoveredProfiles(picks.map(pick => pick.profileId));
+}
+
+export const SHOW_HIDDEN_DATA_CONNECTIONS_COMMAND_ID = 'positronDataConnections.showHiddenConnections';
+
+/**
+ * Command Palette entry that shows hidden detected connections again. Not an inspect action: it
+ * lives here to reuse CATEGORY, PRECONDITION and IDataConnectionProfilePickItem.
+ */
+class ShowHiddenDataConnectionsAction extends Action2 {
+	constructor() {
+		super({
+			id: SHOW_HIDDEN_DATA_CONNECTIONS_COMMAND_ID,
+			title: localize2('positron.dataConnections.showHiddenConnections', "Show Hidden Connections..."),
+			category: CATEGORY,
+			f1: true,
+			precondition: PRECONDITION,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		await showHiddenDataConnections(
+			accessor.get(IPositronDataConnectionsService),
+			accessor.get(IQuickInputService),
+			accessor.get(INotificationService));
+	}
+}
+
 registerAction2(ShowDataConnectionsAction);
 registerAction2(ShowDataConnectionCodeAction);
 registerAction2(ShowDataConnectionSchemaAction);
 registerAction2(ShowDataConnectionLineageAction);
+registerAction2(ShowHiddenDataConnectionsAction);

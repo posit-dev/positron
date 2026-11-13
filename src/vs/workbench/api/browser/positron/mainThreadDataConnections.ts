@@ -173,9 +173,10 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 */
 	async $openDataConnection(profileId: string): Promise<boolean> {
 		this._throwIfDisabled();
-		if (!this._dataConnectionsService.getProfile(profileId)) {
+		if (this._dataConnectionsService.isHiddenDiscoveredProfile(profileId)
+			|| !this._dataConnectionsService.getProfile(profileId)) {
 			// Nothing to open. A stale id is ordinary -- a caller may have recorded a profile the
-			// user has since removed -- so this is not an error, just a no.
+			// user has since removed or hidden -- so this is not an error, just a no.
 			this._logService.warn(`[DataConnections] openConnection: no profile ${profileId}.`);
 			return false;
 		}

@@ -47,11 +47,14 @@ function createDiscoveredProfile(overrides: Partial<IDataConnectionProfile> = {}
 function createCatalogStubs(
 	profiles: IDataConnectionProfile[],
 	discoveredProfiles: IDataConnectionProfile[],
+	hiddenProfileIds: string[] = [],
 ) {
 	const allProfiles = [...profiles, ...discoveredProfiles];
 	return {
 		getAllProfiles: vi.fn(() => allProfiles),
 		getProfile: vi.fn((profileId: string) => allProfiles.find(profile => profile.id === profileId)),
+		// Like the real service, a hidden discovery still resolves through getProfile.
+		isHiddenDiscoveredProfile: vi.fn((profileId: string) => hiddenProfileIds.includes(profileId)),
 	};
 }
 
@@ -79,6 +82,7 @@ interface CreateServiceOptions {
 	secretParameterIds?: string[];
 	redactedValues?: Record<string, string>;
 	connectedProfileIds?: string[];
+	hiddenProfileIds?: string[];
 }
 
 // Builds a stubInterface-backed IPositronDataConnectionsService exposing only the members
@@ -93,6 +97,7 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 		secretParameterIds = [],
 		redactedValues = {},
 		connectedProfileIds = [],
+		hiddenProfileIds = [],
 	} = options;
 
 	const driverManager = stubInterface<IDataConnectionsDriverManager>({
@@ -101,7 +106,7 @@ function createDataConnectionsService(options: CreateServiceOptions = {}): IPosi
 
 	return stubInterface<IPositronDataConnectionsService>({
 		driverManager,
-		...createCatalogStubs(profiles, discoveredProfiles),
+		...createCatalogStubs(profiles, discoveredProfiles, hiddenProfileIds),
 		// Mirrors the real getDisplayParameterValues: every parameter the profile carries, plus the
 		// secret ones it holds elsewhere, offered to the driver for redaction. A value the driver
 		// redacts appears masked; a secret it cannot redact is left out entirely.
@@ -442,6 +447,19 @@ describe('getDataConnectionCode', () => {
 		});
 	});
 
+	it('reports a hidden discovery as not found', async () => {
+		const discovered = createDiscoveredProfile();
+		const dataConnectionsService = createDataConnectionsService({
+			profiles: [],
+			discoveredProfiles: [discovered],
+			hiddenProfileIds: [discovered.id],
+			driver: createCodeDriver().driver,
+		});
+
+		expect(await run(dataConnectionsService, { profileId: discovered.id, languageId: 'python' }))
+			.toEqual({ available: false, reason: 'not-found' });
+	});
+
 	// A missing profileId lands in the same place as an unknown one: the argument object comes from a
 	// command invocation, so it can be absent however the schema describes it.
 	it.each([
@@ -525,6 +543,9 @@ interface CreateInstancesServiceOptions {
 	// The discovered connections auto-connect can target, alongside the saved profiles.
 	discoveredProfiles?: IDataConnectionProfile[];
 
+	// Ids of discovered connections the user has hidden.
+	hiddenProfileIds?: string[];
+
 	// What connecting a profile produces. Defaults to failing, so a test that expects a summary must
 	// say what the connect yields.
 	connect?: (profileId: string) => Promise<IDataConnectionInstance>;
@@ -537,6 +558,7 @@ function createInstancesService(
 	const {
 		profiles = [],
 		discoveredProfiles = [],
+		hiddenProfileIds = [],
 		connect = async () => { throw new Error('connection refused'); },
 	} = options;
 
@@ -547,7 +569,7 @@ function createInstancesService(
 		getInstances: vi.fn(() => instances),
 		getInstanceForProfile: vi.fn((profileId: string) =>
 			instances.find(instance => instance.profileId === profileId)),
-		...createCatalogStubs(profiles, discoveredProfiles),
+		...createCatalogStubs(profiles, discoveredProfiles, hiddenProfileIds),
 		connect: vi.fn(connect),
 	});
 }
@@ -609,6 +631,18 @@ describe('getDataConnectionSchema', () => {
 
 		expect(result).toEqual({ instanceId: '3', lines: ['invoices [table]'], truncated: false });
 		expect(connect).toHaveBeenCalledWith('conn-cold');
+	});
+
+	it('reports a hidden discovery as not existing, without a connect attempt', async () => {
+		const connect = vi.fn();
+		const discovered = createDiscoveredProfile();
+		const dataConnectionsService = createInstancesService(
+			[],
+			{ discoveredProfiles: [discovered], hiddenProfileIds: [discovered.id], connect });
+
+		expect(await run(dataConnectionsService, { profileId: discovered.id }))
+			.toEqual({ connected: false, reason: 'not-found' });
+		expect(connect).not.toHaveBeenCalled();
 	});
 
 	it('reports the named profile not existing, without a connect attempt', async () => {

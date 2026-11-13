@@ -19,7 +19,7 @@ import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageRes
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { GET_CONNECTIONS_COMMAND_ID, GET_CONNECTION_CODE_COMMAND_ID, GET_LINEAGE_COMMAND_ID, GET_SCHEMA_COMMAND_ID } from '../../browser/positronDataConnectionsCommands.js';
-import { ShowDataConnectionCodeAction, ShowDataConnectionLineageAction, ShowDataConnectionSchemaAction, ShowDataConnectionsAction } from '../../browser/positronDataConnectionsInspectActions.js';
+import { ShowDataConnectionCodeAction, ShowDataConnectionLineageAction, ShowDataConnectionSchemaAction, ShowDataConnectionsAction, showHiddenDataConnections } from '../../browser/positronDataConnectionsInspectActions.js';
 
 // The fields the pickers' items carry, as much of them as answering a picker needs: a connection
 // picker's items carry a profileId, and the lineage action's direction and domain pickers a value.
@@ -106,6 +106,7 @@ describe('data connections inspect actions', () => {
 		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({
 			// These tests configure no discovered connections, so the catalog is the profiles as-is.
 			getAllProfiles: vi.fn(() => profiles),
+			isHiddenDiscoveredProfile: vi.fn(() => false),
 			driverManager: stubInterface<IDataConnectionsDriverManager>({
 				getDriver: vi.fn((driverId: string) => driverId === driver.id ? driver : undefined),
 			}),
@@ -487,5 +488,56 @@ describe('data connections payload commands', () => {
 			  },
 			]
 		`);
+	});
+});
+
+describe('show hidden data connections', () => {
+	function createHidden(id: string): IDataConnectionProfile {
+		return { ...createProfile(id), description: `${id}-description` };
+	}
+
+	function setup(hidden: IDataConnectionProfile[], pickResult: unknown) {
+		const unhideDiscoveredProfiles = vi.fn();
+		const pick = vi.fn(async () => pickResult);
+		const info = vi.fn();
+		const service = stubInterface<IPositronDataConnectionsService>({
+			getHiddenDiscoveredProfiles: vi.fn(() => hidden),
+			unhideDiscoveredProfiles,
+		});
+		const quickInput = stubInterface<IQuickInputService>({ pick: pick as unknown as IQuickInputService['pick'] });
+		const notifications = stubInterface<INotificationService>({ info });
+		return { service, quickInput, notifications, unhideDiscoveredProfiles, pick, info };
+	}
+
+	it('tells the user when nothing is hidden', async () => {
+		const t = setup([], undefined);
+
+		await showHiddenDataConnections(t.service, t.quickInput, t.notifications);
+
+		expect(t.info).toHaveBeenCalledWith('No data connections are hidden.');
+		expect(t.pick).not.toHaveBeenCalled();
+	});
+
+	it('offers each hidden connection and shows the ones picked', async () => {
+		const hidden = [createHidden('conn-a'), createHidden('conn-b')];
+		const t = setup(hidden, [{ profileId: 'conn-a' }]);
+
+		await showHiddenDataConnections(t.service, t.quickInput, t.notifications);
+
+		expect(t.pick).toHaveBeenCalledWith(
+			[
+				{ label: 'conn-a-name', description: 'conn-a-description', detail: 'Test Driver', profileId: 'conn-a' },
+				{ label: 'conn-b-name', description: 'conn-b-description', detail: 'Test Driver', profileId: 'conn-b' },
+			],
+			{ canPickMany: true, placeHolder: 'Select the connections to show again' });
+		expect(t.unhideDiscoveredProfiles).toHaveBeenCalledWith(['conn-a']);
+	});
+
+	it('changes nothing when the pick is cancelled', async () => {
+		const t = setup([createHidden('conn-a')], undefined);
+
+		await showHiddenDataConnections(t.service, t.quickInput, t.notifications);
+
+		expect(t.unhideDiscoveredProfiles).not.toHaveBeenCalled();
 	});
 });
