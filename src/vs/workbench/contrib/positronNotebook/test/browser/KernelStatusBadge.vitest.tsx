@@ -16,6 +16,7 @@ import {
 } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import {
 	ILanguageRuntimeSession,
+	IRuntimeSessionDisplayInfo,
 	IRuntimeSessionMetadata,
 	IRuntimeSessionService,
 } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -32,6 +33,7 @@ const NOTEBOOK_URI = URI.file('/tmp/notebook.ipynb');
 describe('KernelStatusBadge', () => {
 	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
 	let displayState: RuntimeState | undefined;
+	let lastSessionInfo: IRuntimeSessionDisplayInfo | undefined;
 
 	function makeSession(initial: RuntimeState, sessionId = 's1'): { session: ILanguageRuntimeSession; emitter: Emitter<RuntimeState> } {
 		const stateEmitter = new Emitter<RuntimeState>();
@@ -78,9 +80,14 @@ describe('KernelStatusBadge', () => {
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
 			getDisplayRuntimeState: () => displayState,
+			getLastNotebookSessionInfo: () => lastSessionInfo,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		lastSessionInfo = undefined;
+	});
 
 	function renderBadge(instance: IPositronNotebookInstance) {
 		return rtl.render(
@@ -90,10 +97,10 @@ describe('KernelStatusBadge', () => {
 		);
 	}
 
-	it('shows disconnected icon and "No Kernel Selected" when kernelStatus=Unselected and no session', () => {
+	it('shows not-started icon and "No Kernel Selected" when kernelStatus=Unselected and no session', () => {
 		displayState = undefined;
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected));
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel Selected')).toBeInTheDocument();
 	});
 
@@ -121,11 +128,13 @@ describe('KernelStatusBadge', () => {
 		expect(screen.getByText('R 4.3.2')).toBeInTheDocument();
 	});
 
-	it('shows disconnected icon and kernel name when a kernel is selected but no session is attached', () => {
+	// A preview notebook: its kernel is selected, but the session doesn't start
+	// until the tab is pinned (posit-dev/positron#16078).
+	it('shows not-started icon and kernel name when a kernel is selected but no session has started', () => {
 		displayState = undefined;
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
 		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
@@ -153,5 +162,25 @@ describe('KernelStatusBadge', () => {
 		renderBadge(makeInstance(NotebookKernelStatus.Exited, kernel));
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	// A notebook whose kernel was shut down and which was then closed and
+	// reopened gets a new instance with no session, like a preview tab.
+	it('shows disconnected icon when a session ran for the notebook and has ended', () => {
+		displayState = undefined;
+		lastSessionInfo = stubInterface<IRuntimeSessionDisplayInfo>({ sessionState: RuntimeState.Exited });
+		const kernel = makeKernel('Python 3.12', 'python-3.12');
+		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));
+		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	// The badge attaches a session before it starts, while it is still
+	// Uninitialized, which on its own maps to disconnected.
+	it('shows active icon for an attached session that has not started yet', () => {
+		displayState = RuntimeState.Uninitialized;
+		const { session } = makeSession(RuntimeState.Uninitialized);
+		renderBadge(makeInstance(NotebookKernelStatus.Connected, undefined, session));
+		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 });

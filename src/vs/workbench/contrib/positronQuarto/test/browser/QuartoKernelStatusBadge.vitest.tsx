@@ -7,7 +7,7 @@ import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
 import { EditorGroupContext } from '../../../../browser/parts/editor/editorGroupContext.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
@@ -23,6 +23,7 @@ describe('QuartoKernelStatusBadge', () => {
 	const registerRuntimeEmitter = new Emitter<ILanguageRuntimeMetadata>();
 	const startupPhaseEmitter = new Emitter<RuntimeStartupPhase>();
 	let displayState: RuntimeState | undefined;
+	let lastSessionInfo: IRuntimeSessionDisplayInfo | undefined;
 
 	const quartoUri = URI.file('/tmp/notebook.qmd');
 
@@ -50,6 +51,7 @@ describe('QuartoKernelStatusBadge', () => {
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
 			getDisplayRuntimeState: () => displayState,
+			getLastNotebookSessionInfo: () => lastSessionInfo,
 		})
 		.stub(ILanguageRuntimeService, {
 			onDidRegisterRuntime: registerRuntimeEmitter.event,
@@ -78,20 +80,32 @@ describe('QuartoKernelStatusBadge', () => {
 
 	beforeEach(() => {
 		displayState = undefined;
+		lastSessionInfo = undefined;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
 		kernelManagerStub.getPreferredRuntimeForDocument = () => undefined;
 	});
 
-	it('shows disconnected icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
+	it('shows not-started icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
 		renderBadge();
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
 	});
 
 	it('names the interpreter that would start when no kernel is running', () => {
 		// No session yet, but a preferred runtime is available: the badge should
 		// name it instead of showing "No Kernel".
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		renderBadge();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('shows disconnected icon when a session ran for the document and has ended', () => {
+		// QuartoKernelState.None also follows a session that ended. A session
+		// that ran before reads as disconnected, like an exited notebook kernel.
+		lastSessionInfo = stubInterface<IRuntimeSessionDisplayInfo>({ sessionState: RuntimeState.Exited });
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
 		renderBadge();

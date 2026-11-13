@@ -170,7 +170,9 @@ export function getSessionIconClasses(
 export const enum RuntimeStatus {
 	Active = 'Active',
 	Disconnected = 'Disconnected',
-	Idle = 'Idle'
+	Idle = 'Idle',
+	/** No session has started yet, e.g. for a notebook in a preview tab. */
+	NotStarted = 'NotStarted',
 }
 
 /**

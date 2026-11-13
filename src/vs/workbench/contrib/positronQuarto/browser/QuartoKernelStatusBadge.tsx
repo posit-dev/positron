@@ -21,7 +21,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
-import { type ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { type ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -35,9 +35,12 @@ import { URI } from '../../../../base/common/uri.js';
  * so those states need explicit mappings to avoid a Disconnected icon.
  * Once a session is attached, its RuntimeState is authoritative and this
  * fallback isn't needed.
+ *
+ * `None` is NotStarted here; the badge shows Disconnected instead when a
+ * session already ran for the document and has ended.
  */
 const quartoStateToRuntimeStatus: Partial<Record<QuartoKernelState, RuntimeStatus>> = {
-	[QuartoKernelState.None]: RuntimeStatus.Disconnected,
+	[QuartoKernelState.None]: RuntimeStatus.NotStarted,
 	[QuartoKernelState.Starting]: RuntimeStatus.Active,
 	[QuartoKernelState.Error]: RuntimeStatus.Disconnected,
 	[QuartoKernelState.ShuttingDown]: RuntimeStatus.Active,
@@ -96,6 +99,7 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	const menuService = accessor.get(IMenuService);
 	const contextKeyService = accessor.get(IContextKeyService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 	// The editor group this badge is rendered in. State is resolved from this
 	// group's active editor, not the globally active editor (see
@@ -169,9 +173,13 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 
 	// Prefer the session's runtime state. Fall back to the manager's
 	// pre-session kernel state (None / Error) when no session exists.
-	const runtimeStatus = runtimeState !== undefined
+	let runtimeStatus = runtimeState !== undefined
 		? runtimeStateToRuntimeStatus[runtimeState]
 		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
+	if (runtimeStatus === RuntimeStatus.NotStarted &&
+		documentUri && runtimeSessionService.getLastNotebookSessionInfo(documentUri)) {
+		runtimeStatus = RuntimeStatus.Disconnected;
+	}
 	// Label priority:
 	// 1. A running session's runtime name.
 	// 2. When no kernel has started, the interpreter that would start if code

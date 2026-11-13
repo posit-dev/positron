@@ -23,7 +23,7 @@ import { useMenu } from './useMenu.js';
 import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
 import { observableFromEvent } from '../../../../base/common/observable.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 const kernelStatusToLabel: Partial<Record<NotebookKernelStatus, string>> = {
 	[NotebookKernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
@@ -53,17 +53,28 @@ export function KernelStatusBadge() {
 	));
 
 	// The icon reflects session connection state: a live session drives it
-	// via runtimeState, and no session means Disconnected. The two overrides
-	// (Switching, Discovering) intentionally show Active to communicate a
+	// via runtimeState. A session is attached before it starts, while it is
+	// still Uninitialized, so that state shows as Active. Without a session, a
+	// kernel that ran and stopped is Disconnected and one that never started
+	// (e.g. in a preview tab) is NotStarted.
+	// The two overrides (Switching, Discovering) show Active to communicate a
 	// transition the user kicked off or the app is working through, even
 	// though no session is attached during those windows.
 	let runtimeStatus: RuntimeStatus;
 	if (kernelStatus === NotebookKernelStatus.Switching) {
 		runtimeStatus = RuntimeStatus.Active;
+	} else if (runtimeState === RuntimeState.Uninitialized) {
+		runtimeStatus = RuntimeStatus.Active;
 	} else if (runtimeState !== undefined) {
 		runtimeStatus = runtimeStateToRuntimeStatus[runtimeState];
 	} else if (kernelStatus === NotebookKernelStatus.Discovering) {
 		runtimeStatus = RuntimeStatus.Active;
+	} else if (kernelStatus === NotebookKernelStatus.Unselected) {
+		// A reopened notebook gets a new instance with no session, so ask
+		// whether a session ran for it earlier in this window.
+		runtimeStatus = services.runtimeSessionService.getLastNotebookSessionInfo(notebookInstance.uri)
+			? RuntimeStatus.Disconnected
+			: RuntimeStatus.NotStarted;
 	} else {
 		runtimeStatus = RuntimeStatus.Disconnected;
 	}
