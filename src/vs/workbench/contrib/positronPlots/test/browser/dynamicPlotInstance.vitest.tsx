@@ -46,10 +46,12 @@ describe('DynamicPlotInstance', () => {
 		});
 	}
 
+	function plotAt(plotClient: PlotClientInstance, height = 325) {
+		return <DynamicPlotInstance height={height} plotClient={plotClient} width={525} zoom={ZoomLevel.Fit} />;
+	}
+
 	function renderPlot(plotClient: PlotClientInstance) {
-		rtl.render(
-			<DynamicPlotInstance height={325} plotClient={plotClient} width={525} zoom={ZoomLevel.Fit} />
-		);
+		return rtl.render(plotAt(plotClient));
 	}
 
 	describe('when a render fails', () => {
@@ -69,6 +71,18 @@ describe('DynamicPlotInstance', () => {
 			expect(screen.getByRole('img', { name: 'My Plot' })).toHaveAttribute('src', 'data:image/png;base64,earlier');
 			expect(screen.queryByText(/Couldn't render/)).not.toBeInTheDocument();
 			expect(warnNotification).not.toHaveBeenCalled();
+		});
+
+		it('shows the plot once a later render at a bigger size succeeds', async () => {
+			const plotClient = makeFailingPlotClient();
+			const { rerender } = renderPlot(plotClient);
+			expect(await screen.findByText(/Couldn't render this plot at the current size/)).toBeInTheDocument();
+
+			renderWithSizingPolicy.mockResolvedValue({ uri: 'data:image/png;base64,bigger', pixel_ratio: 1, renderTimeMs: 0 });
+			rerender(plotAt(plotClient, 700));
+
+			expect(await screen.findByRole('img', { name: 'My Plot' })).toHaveAttribute('src', 'data:image/png;base64,bigger');
+			expect(screen.queryByText(/Couldn't render/)).not.toBeInTheDocument();
 		});
 
 		it('stays quiet when a resize cancels the render', async () => {
