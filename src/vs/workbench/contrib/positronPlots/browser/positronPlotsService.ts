@@ -55,7 +55,10 @@ import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { plotOriginFromCodeLocation } from './plotUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
-import { joinPath } from '../../../../base/common/resources.js';
+import { dirname, joinPath } from '../../../../base/common/resources.js';
+import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { PlotSaveMemory } from './plotSaveMemory.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 /** The maximum number of recent executions to store. */
@@ -224,12 +227,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The current plot rendering settings. */
 	private readonly _plotsRenderSettings: ISettableObservable<PlotRenderSettings>;
 
+	/** The folder and format of the last plot save in this workspace */
+	private readonly _saveMemory: PlotSaveMemory;
+
 	/** Creates the Positron plots service instance */
 	constructor(
 		@IClipboardService private _clipboardService: IClipboardService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEphemeralStateService ephemeralStateService: IEphemeralStateService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IFileService private readonly _fileService: IFileService,
@@ -245,8 +252,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IStorageService private _storageService: IStorageService,
 		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
 		@IViewsService private _viewsService: IViewsService,
+		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 	) {
 		super();
+
+		this._saveMemory = new PlotSaveMemory(ephemeralStateService, this._fileService, workspaceContextService.getWorkspace().id);
 
 		// Initialize the display location context key
 		this._displayLocationContextKey = POSITRON_PLOTS_LOCATION_CONTEXT.bindTo(contextKeyService);
@@ -1442,39 +1452,33 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.savePlot(plot);
 	}
 
-	private savePlot(plotClient?: IPositronPlotClient) {
+	private async savePlot(plotClient?: IPositronPlotClient) {
 		if (!plotClient) {
 			this._notificationService.error(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 			return;
 		}
-		this._fileDialogService.defaultFilePath()
-			.then(defaultPath => {
-				const suggestedPath = defaultPath;
-				if (plotClient) {
-					if (plotClient instanceof StaticPlotClient) {
-						// if it's a static plot, save the image to disk
-						const uri = plotClient.uri;
-						this.showSavePlotDialog(uri, plotClient.metadata.suggested_file_name);
-					} else if (plotClient instanceof PlotClientInstance) {
-						// if it's a dynamic plot, present options dialog
-						showSavePlotModalDialog(
-							this._selectedSizingPolicy,
-							plotClient,
-							this.savePlotAs,
-							suggestedPath
-						);
-					} else {
-						// if it's a webview plot, do nothing
-						return;
-					}
-				}
-			})
-			.catch((error) => {
-				throw new Error(`Error saving plot: ${error.message}`);
-			});
+		if (plotClient instanceof StaticPlotClient) {
+			// if it's a static plot, save the image to disk
+			await this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
+		} else if (plotClient instanceof PlotClientInstance) {
+			// if it's a dynamic plot, present options dialog
+			const { directory, format } = await this.getSuggestedSaveLocation();
+			showSavePlotModalDialog(
+				this._selectedSizingPolicy,
+				plotClient,
+				this.savePlotAs,
+				directory,
+				format
+			);
+		}
+		// webview plots can't be saved
 	}
 
-	private savePlotAs = (options: SavePlotOptions) => {
+	private async getSuggestedSaveLocation() {
+		return this._saveMemory.get(await this._fileDialogService.defaultFilePath());
+	}
+
+	private savePlotAs = async (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
 		// Decode both base64 and URL-encoded image data.
 		const decoded = decodeImageDataUrl(options.uri);
@@ -1483,13 +1487,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			return;
 		}
 
-		htmlFileSystemProvider.writeFile(options.path, decoded.data.buffer, { create: true, overwrite: true, unlock: true, atomic: false })
-			.catch((error: Error) => {
-				this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
-			});
+		try {
+			await htmlFileSystemProvider.writeFile(options.path, decoded.data.buffer, { create: true, overwrite: true, unlock: true, atomic: false });
+		} catch (error) {
+			this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
+			return;
+		}
+		await this._saveMemory.remember(dirname(options.path), options.format);
 	};
 
-	showSavePlotDialog(uri: string, suggestedFileName?: string) {
+	async showSavePlotDialog(uri: string, suggestedFileName?: string) {
 		const parsed = parseImageDataUrl(uri);
 
 		if (!parsed) {
@@ -1499,24 +1506,21 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Derive the extension from the MIME type; image/svg+xml maps to .svg.
 		const extension = getImageExtensionForMimeType(parsed.mimeType).substring(1);
 
-		this._fileDialogService.defaultFilePath().then(defaultPath => {
-			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
-			this._fileDialogService.showSaveDialog({
-				title: localize('positron.savePlot', "Save Plot"),
-				defaultUri,
-				filters:
-					[
-						{
-							name: extension.toUpperCase(),
-							extensions: [extension],
-						},
-					],
-			}).then(result => {
-				if (result) {
-					this.savePlotAs({ path: result, uri });
-				}
-			});
+		const defaultUri = joinPath((await this.getSuggestedSaveLocation()).directory, suggestedFileName ?? 'plot');
+		const result = await this._fileDialogService.showSaveDialog({
+			title: localize('positron.savePlot', "Save Plot"),
+			defaultUri,
+			filters:
+				[
+					{
+						name: extension.toUpperCase(),
+						extensions: [extension],
+					},
+				],
 		});
+		if (result) {
+			await this.savePlotAs({ path: result, uri });
+		}
 	}
 
 	private async copyPlotToClipboard(plotClient: IPositronPlotClient): Promise<void> {
