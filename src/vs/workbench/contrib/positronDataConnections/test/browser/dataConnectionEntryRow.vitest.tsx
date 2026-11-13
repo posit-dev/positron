@@ -89,6 +89,7 @@ describe('DataConnectionEntryRow', () => {
 	// Saving a discovered profile hands back the id of the ordinary profile it became, which the row
 	// then looks up. Declared here so the tests can assert against the calls.
 	const saveDiscoveredProfile = vi.fn((_id: string) => savedDiscoveredProfile.id);
+	const hideDiscoveredProfile = vi.fn((_id: string) => { });
 	const getProfile = vi.fn((id: string) => id === savedDiscoveredProfile.id ? savedDiscoveredProfile : undefined);
 
 	const ctx = createTestContainer()
@@ -97,6 +98,7 @@ describe('DataConnectionEntryRow', () => {
 			driverManager: stubInterface<IDataConnectionsDriverManager>({ getDriver: () => driver }),
 			getProfile,
 			saveDiscoveredProfile,
+			hideDiscoveredProfile,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -226,8 +228,8 @@ describe('DataConnectionEntryRow', () => {
 	});
 
 	// A discovered connection comes from the machine's own configuration, so removing it would only
-	// have it reappear on the next refresh. Saving is the way out of it instead.
-	it('offers Save Connection instead of Remove for a discovered profile', async () => {
+	// have it reappear on the next refresh. Saving keeps it and hiding stops showing it instead.
+	it('offers Save Connection and Hide instead of Remove for a discovered profile', async () => {
 		const { labels } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
 
 		expect(labels).toMatchInlineSnapshot(`
@@ -237,7 +239,44 @@ describe('DataConnectionEntryRow', () => {
 			  "Edit Connection",
 			  "---",
 			  "Save Connection",
+			  "Hide",
 			]
+		`);
+	});
+
+	it('offers Disconnect above Save Connection and Hide for a connected discovered profile', async () => {
+		const { labels } = await rightClickRow({ rowProfile: discoveredProfile });
+
+		expect(labels).toMatchInlineSnapshot(`
+			[
+			  "Refresh",
+			  "---",
+			  "Edit Connection",
+			  "---",
+			  "Disconnect",
+			  "Save Connection",
+			  "Hide",
+			]
+		`);
+	});
+
+	// Hiding is reversible from the Show Hidden Connections quick pick, so it asks nothing first.
+	it('hides a discovered profile without a confirmation', async () => {
+		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+
+		expect({
+			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
+			dialogsShown: modalRender.mock.calls.length,
+		}).toMatchInlineSnapshot(`
+			{
+			  "dialogsShown": 0,
+			  "hiddenProfileIds": [
+			    "discovered-1",
+			  ],
+			}
 		`);
 	});
 
