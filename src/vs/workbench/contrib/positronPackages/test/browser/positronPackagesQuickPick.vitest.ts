@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { hoistExactMatch } from '../../browser/positronPackagesQuickPick.js';
+import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { environmentPackageCandidates, hoistExactMatch } from '../../browser/positronPackagesQuickPick.js';
 
 describe('hoistExactMatch', () => {
 	const results = [
@@ -39,5 +40,18 @@ describe('hoistExactMatch', () => {
 
 	it('handles an empty result set', () => {
 		expect(hoistExactMatch([], 'dplyr')).toEqual([]);
+	});
+});
+
+describe('environmentPackageCandidates', () => {
+	const pkg = (name: string, overrides: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage =>
+		({ id: name, name, displayName: name, version: '1.0.0', ...overrides });
+
+	it('offers every package except the ones only the bundle provides', () => {
+		expect(environmentPackageCandidates([
+			pkg('numpy'),
+			pkg('tornado', { bundled: true }),
+			pkg('six', { bundled: true, environmentVersion: '1.16.0' }),
+		])).toEqual([{ name: 'numpy' }, { name: 'six' }]);
 	});
 });
