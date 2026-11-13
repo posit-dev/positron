@@ -393,6 +393,16 @@ describe('packages install and update commands', () => {
 			expect(confirm).toHaveBeenCalled();
 			expect(uninstallPackages).toHaveBeenCalledWith(['tornado'], expect.anything());
 		});
+		it('says the environment copy was removed and the console keeps the bundled copy', async () => {
+			// After the uninstall the list shows tornado as bundled only.
+			const tornado = { ...installedPackage('tornado', '6.5.7'), bundled: true };
+			stubUninstall([tornado], [{ ...tornado, environmentVersion: '6.4.0' }]);
+
+			await runUninstall('tornado');
+
+			expect(info).toHaveBeenCalledWith('Package "tornado" was removed from your environment. The console still imports the copy bundled with Positron.');
+			expect(prompt).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('UpdatePackageAction', () => {

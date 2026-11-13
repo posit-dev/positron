@@ -313,7 +313,7 @@ function formatPackageList(packageNames: string[]): string {
  * @param runtimeSessionService The runtime session service
  * @param commandService The command service
  * @param packagesService The packages service
- * @param operation The operation that was performed (e.g., 'installed', 'uninstalled', 'updated')
+ * @param operation The operation that was performed
  * @param packageNames The names of the packages that were operated on
  */
 function showRestartSessionNotification(
@@ -321,7 +321,7 @@ function showRestartSessionNotification(
 	runtimeSessionService: IRuntimeSessionService,
 	commandService: ICommandService,
 	packagesService: IPositronPackagesService,
-	operation: string,
+	operation: 'installed' | 'uninstalled' | 'updated',
 	packageNames: string[]
 ): void {
 	const session = packagesService.activeSession;
@@ -336,20 +336,42 @@ function showRestartSessionNotification(
 	const bundledNames = packageNames.filter(isBundled);
 	const restartNames = packageNames.filter((name) => !isBundled(name));
 
+	const operationText = operation === 'installed'
+		? nls.localize('positronPackages.operationInstalled', 'installed')
+		: operation === 'uninstalled'
+			? nls.localize('positronPackages.operationUninstalled', 'uninstalled')
+			: nls.localize('positronPackages.operationUpdated', 'updated');
+
 	if (bundledNames.length > 0) {
-		notifications.info(bundledNames.length === 1
-			? nls.localize(
-				'positronPackages.bundledOperationSingular',
-				'Package {0} was {1} in your environment. The console still imports the copy bundled with Positron.',
-				formatPackageList(bundledNames),
-				operation
-			)
-			: nls.localize(
-				'positronPackages.bundledOperationPlural',
-				'Packages {0} were {1} in your environment. The console still imports the copies bundled with Positron.',
-				formatPackageList(bundledNames),
-				operation
-			));
+		const bundledList = formatPackageList(bundledNames);
+		// Uninstall has its own sentence: the copy leaves the environment,
+		// which "uninstalled in your environment" does not say naturally.
+		const bundledMessage = operation === 'uninstalled'
+			? (bundledNames.length === 1
+				? nls.localize(
+					'positronPackages.bundledUninstalledSingular',
+					'Package {0} was removed from your environment. The console still imports the copy bundled with Positron.',
+					bundledList
+				)
+				: nls.localize(
+					'positronPackages.bundledUninstalledPlural',
+					'Packages {0} were removed from your environment. The console still imports the copies bundled with Positron.',
+					bundledList
+				))
+			: (bundledNames.length === 1
+				? nls.localize(
+					'positronPackages.bundledOperationSingular',
+					'Package {0} was {1} in your environment. The console still imports the copy bundled with Positron.',
+					bundledList,
+					operationText
+				)
+				: nls.localize(
+					'positronPackages.bundledOperationPlural',
+					'Packages {0} were {1} in your environment. The console still imports the copies bundled with Positron.',
+					bundledList,
+					operationText
+				));
+		notifications.info(bundledMessage);
 	}
 
 	if (restartNames.length === 0) {
@@ -361,13 +383,13 @@ function showRestartSessionNotification(
 			'positronPackages.restartSessionSingular',
 			'Package {0} was {1}. A session restart may be required for changes to take effect.',
 			formatPackageList(restartNames),
-			operation
+			operationText
 		)
 		: nls.localize(
 			'positronPackages.restartSessionPlural',
 			'Packages {0} were {1}. A session restart may be required for changes to take effect.',
 			formatPackageList(restartNames),
-			operation
+			operationText
 		);
 
 	notifications.prompt(
@@ -512,7 +534,7 @@ export class InstallPackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationInstalled', 'installed'),
+							'installed',
 							[pkg]
 						);
 						// With no version requested, the package manager chose one.
@@ -615,7 +637,7 @@ export class UninstallPackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUninstalled', 'uninstalled'),
+							'uninstalled',
 							[pkg]
 						);
 					} catch (e) {
@@ -732,7 +754,7 @@ export class UpdatePackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUpdated', 'updated'),
+							'updated',
 							[pkg]
 						);
 						outcome = { updated: true, name: pkg, version };
@@ -841,7 +863,7 @@ class UpdateAllPackagesAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUpdated', 'updated'),
+							'updated',
 							updated
 						);
 					}
