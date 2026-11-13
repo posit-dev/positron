@@ -10,7 +10,11 @@ import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
 import { CancellationToken, ProgressOptions, Uri } from 'vscode';
 import { CreateEnvironmentProgress } from '../../../../client/pythonEnvironments/creation/types';
-import { UvCreationProvider } from '../../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
+import {
+    UvCreationProvider,
+    createUvVenv,
+} from '../../../../client/pythonEnvironments/creation/provider/uvCreationProvider';
+import * as externalDependencies from '../../../../client/pythonEnvironments/common/externalDependencies';
 import * as wsSelect from '../../../../client/pythonEnvironments/creation/common/workspaceSelection';
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import * as uvUtils from '../../../../client/pythonEnvironments/creation/provider/uvUtils';
@@ -233,6 +237,71 @@ suite('uv Creation provider tests', () => {
         sinon.assert.notCalled(getAvailablePythonVersionsStub);
         sinon.assert.notCalled(getUvPythonVersionInfoStub);
         sinon.assert.notCalled(pickPythonVersionStub);
+    });
+
+    suite('createUvVenv and the .python-version pin of the workspace', () => {
+        const workspace = {
+            uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
+            name: 'workspace1',
+            index: 0,
+        };
+        const pinPath = path.join(workspace.uri.fsPath, '.python-version');
+        const range = ['-p', '>=3.10.0,<3.16.0'];
+
+        async function runCreateUvVenv(pin: string | undefined, version?: string): Promise<string[]> {
+            const readFileStub = sinon.stub(externalDependencies, 'readFile');
+            if (pin === undefined) {
+                readFileStub.rejects(new Error('ENOENT'));
+            } else {
+                readFileStub.withArgs(pinPath).resolves(pin);
+            }
+            execObservableStub.callsFake(() => ({
+                proc: { exitCode: 0 },
+                out: {
+                    subscribe: (
+                        _next?: (value: Output<string>) => void,
+                        _error?: (error: unknown) => void,
+                        complete?: () => void,
+                    ) => complete?.(),
+                },
+                dispose: () => undefined,
+            }));
+            await createUvVenv(workspace, version, progressMock.object);
+            return execObservableStub.firstCall.args[1].slice(4);
+        }
+
+        // `-p` wins over `.python-version`, so a supported pin must not get -p.
+        test('Supported X.Y pin: no -p, so uv follows the pin', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('3.12\n'), []);
+        });
+
+        test('Supported X.Y.Z pin with a BOM and blank lines: no -p', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('﻿\n  3.13.1  \n'), []);
+        });
+
+        test('Pin below the supported range: gets the range', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('3.9'), range);
+        });
+
+        test('Pin above the supported range: gets the range', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('3.16'), range);
+        });
+
+        test('Pin that cannot be parsed: gets the range', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('pypy@3.11'), range);
+        });
+
+        test('Empty pin file: gets the range', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('\n'), range);
+        });
+
+        test('No pin file: gets the range', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv(undefined), range);
+        });
+
+        test('Explicit version: -p gets the version, also with a supported pin', async () => {
+            assert.deepStrictEqual(await runCreateUvVenv('3.12', '3.13'), ['-p', '3.13']);
+        });
     });
 
     test('Reports rather than spawning when the probe can no longer find uv', async () => {
