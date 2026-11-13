@@ -491,7 +491,8 @@ function autoRunNote(hasReport) {
  * and the SHA is how a reader tells. `focus` tells apart runs on the same head.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
- * `reason` says why), `outdated` (the branch predates the tooling the run
+ * `reason` says why), `refused` (the gate would not check this run, for example
+ * because the PR moved on; `reason` says why), `outdated` (the branch predates the tooling the run
  * needs, and `reason` says what to do), `cancelled`, `job-timeout` (the explore job hit
  * its limit), `scan-failed` (the secret scan blocked publishing; `scanUrl` links the
  * scan job and nothing from the run is shown), or empty when the agent
@@ -508,6 +509,9 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 	}
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
+	}
+	if (state === 'refused') {
+		return comment([`Not run: ${reason || 'the pre-flight check refused this run.'}`, run]);
 	}
 	if (state === 'outdated') {
 		return comment([`Not run: ${reason || OUTDATED_HELPERS_REASON}`, run]);

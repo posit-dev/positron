@@ -503,6 +503,7 @@ jobs:
       contents: read
     outputs:
       testable: ${{ steps.verdict.outputs.testable }}
+      refused: ${{ steps.verdict.outputs.refused }}
       reason: ${{ steps.verdict.outputs.reason }}
     env:
       POSITRON_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -559,7 +560,9 @@ jobs:
           bash .harness/.github/actions/pr-exploratory-test/run-builds.sh \
             explore-gate.yml "$LANE" "$title" 1800 "$RUNNER_TEMP/gate" explore-gate "${args[@]}"
 
-      # report shows the reason on the PR, so it is held to one line.
+      # report shows the reason on the PR, so it is held to one line. A
+      # refusal (the PR moved on, a fork, a bad request) stops the run like a
+      # decline; only a check that wrote nothing fails open.
       - name: Read the verdict
         id: verdict
         env:
@@ -569,10 +572,15 @@ jobs:
           set -uo pipefail
           url=""
           if [ -n "$RUN_ID" ]; then url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"; fi
+          status=$(jq -r '.status // ""' "$FILE" 2>/dev/null) || status=""
           testable=$(jq -r '.testable // ""' "$FILE" 2>/dev/null) || testable=""
-          if [ "$testable" = "false" ]; then
-            reason=$(jq -r '.reason // ""' "$FILE" | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//')
-            reason=${reason:0:1000}
+          reason=$(jq -r '.reason // ""' "$FILE" 2>/dev/null | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//') || reason=""
+          reason=${reason:0:1000}
+          if [ "$status" = "refused" ]; then
+            { echo "testable=false"; echo "refused=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+            echo "::warning::The worthiness check refused the run: $reason"
+            printf '**Worthiness check refused the run.**\n\n%s\n\n[Details](%s)\n' "$reason" "$url" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$testable" = "false" ]; then
             { echo "testable=false"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
             printf '**Worthiness check declined the run.**\n\n%s\n\n[Details](%s)\n' "$reason" "$url" >> "$GITHUB_STEP_SUMMARY"
           elif [ "$testable" = "true" ]; then
@@ -1036,6 +1044,7 @@ jobs:
         id: result
         env:
           DECLINED: ${{ needs.worthiness.outputs.testable == 'false' }}
+          REFUSED: ${{ needs.worthiness.outputs.refused == 'true' }}
           MODEL: ${{ needs.resolve.outputs.model == 'sonnet' && 'sonnet' || 'opus' }}
           RESULTS: ${{ needs.dispatch.outputs.results }}
           SCAN_URLS: ${{ needs.dispatch.outputs.scan_urls }}
@@ -1044,7 +1053,9 @@ jobs:
           state=failed
           report_url=""
           scan_url=""
-          if [ "$DECLINED" = "true" ]; then
+          if [ "$REFUSED" = "true" ]; then
+            state=refused
+          elif [ "$DECLINED" = "true" ]; then
             state=declined
           elif [ -n "$RESULTS" ]; then
             state=$(jq -r --arg m "$MODEL" '.[$m].state // "failed"' <<<"$RESULTS" 2>/dev/null) || state=failed

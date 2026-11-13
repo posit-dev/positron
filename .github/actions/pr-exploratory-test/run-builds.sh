@@ -14,7 +14,8 @@
 # id, so the run is found by that suffix, among runs positron-bot started.
 # Needs GH_TOKEN with actions: write on positron-builds. Writes run_id and
 # conclusion to GITHUB_OUTPUT when set. Cancels a run that outlasts the wait.
-# Exits 0 only when the run succeeded and the artifact is in <dest dir>.
+# Exits 0 only when the run succeeded and the artifact is in <dest dir>. A run
+# that failed still has its artifact downloaded when it uploaded one.
 
 set -uo pipefail
 
@@ -70,9 +71,17 @@ fi
 
 conclusion=$(gh api "repos/$REPO/actions/runs/$id" --jq '.conclusion // ""') || conclusion=""
 output "conclusion=$conclusion"
-if [ "$conclusion" != "success" ]; then
-	echo "::warning::$WORKFLOW ended ${conclusion:-unfinished}: $url"
-	exit 1
-fi
+case "$conclusion" in
+	success) ;;
+	# A failed run may still have uploaded the artifact, such as the gate's
+	# refusal, so the caller can read why.
+	failure)
+		echo "::warning::$WORKFLOW failed: $url"
+		bash "$HERE/download-builds-artifacts.sh" "$id" "$DEST" "$ARTIFACT" || true
+		exit 1 ;;
+	*)
+		echo "::warning::$WORKFLOW ended ${conclusion:-unfinished}: $url"
+		exit 1 ;;
+esac
 
 bash "$HERE/download-builds-artifacts.sh" "$id" "$DEST" "$ARTIFACT"
