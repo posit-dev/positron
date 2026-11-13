@@ -121,6 +121,28 @@ def test_output_clear_output_wait_keeps_outputs_until_new_output(shell: Positron
     )
 
 
+def test_output_restores_capture_state_when_exit_fails(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def structured_traceback(*_args, **_kwargs):
+        raise RuntimeError("traceback failed")
+
+    monkeypatch.setattr(shell.InteractiveTB, "structured_traceback", structured_traceback)
+    stdout, stderr = sys.stdout, sys.stderr
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+with out:
+    raise ValueError('boom')
+"""
+    )
+    assert sys.stdout is stdout
+    assert sys.stderr is stderr
+    assert "publish" not in vars(shell.display_pub)
+    assert "clear_output" not in vars(shell.display_pub)
+
+
 def test_output_captures_error(shell: PositronShell) -> None:
     shell.run_cell(
         """\

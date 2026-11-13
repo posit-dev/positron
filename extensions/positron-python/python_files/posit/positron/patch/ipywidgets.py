@@ -146,18 +146,22 @@ def _positron_exit(self, etype, evalue, tb) -> Literal[True] | None:
     from IPython.core.getipython import get_ipython
 
     ip = get_ipython()
-    if etype is not None and ip is not None:
-        stb = ip.InteractiveTB.structured_traceback(etype, evalue, tb, tb_offset=0)
-        _append_output(
-            {
-                "output_type": "error",
-                "ename": etype.__name__,
-                "evalue": str(evalue),
-                "traceback": stb,
-            }
-        )
-    self._flush()
-    _stop_capture()
+    try:
+        if etype is not None and ip is not None:
+            stb = ip.InteractiveTB.structured_traceback(etype, evalue, tb, tb_offset=0)
+            _append_output(
+                {
+                    "output_type": "error",
+                    "ename": etype.__name__,
+                    "evalue": str(evalue),
+                    "traceback": stb,
+                }
+            )
+        self._flush()
+    finally:
+        # Always restore the streams and display publisher, so a failure here doesn't leave
+        # all further output redirected into this widget.
+        _stop_capture()
     # Suppress exceptions when in IPython, since they are shown in the widget,
     # otherwise let someone else handle it (matching ipywidgets).
     return True if etype is not None and ip is not None else None
