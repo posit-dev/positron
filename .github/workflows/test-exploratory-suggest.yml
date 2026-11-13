@@ -11,14 +11,15 @@ name: "Test: Exploratory Suggest"
 # no other bot gets through. Empty the variable to end the experiment. The full list of when
 # a PR gets a run is in the exploratory-test skill's CONTRIBUTING.md.
 #
-# Plain `pull_request`, not `pull_request_target`. A fork PR gets no secrets
-# here, and precheck skips it anyway: /explore refuses a head outside this
-# repo, so there is nothing to suggest. A same-repo PR's author can already
-# push, so running this file from the PR grants them nothing new. The model
-# still gets no tools and no checkout of the PR: it reads the title, body and
-# diff from the API, framed as untrusted.
+# pull_request_target, not pull_request: the judge job holds the positron-bot
+# key, so this file and its scripts always come from main and never run PR
+# code (as in test-pr-dispatch.yml). precheck skips fork PRs: /explore refuses
+# a head outside this repo, so there is nothing to suggest. The model runs in
+# posit-dev/positron-builds (explore-suggest.yml) with positron main's scripts,
+# so a PR cannot change what judges it. It gets no tools and no checkout of
+# the PR: it reads the title, body and diff from the API, framed as untrusted.
 on:
-  pull_request:
+  pull_request_target:
     # ready_for_review catches a reviewer requested while the PR was a draft.
     types: [review_requested, ready_for_review]
   workflow_dispatch:
@@ -105,46 +106,66 @@ jobs:
           AUTO_RUN_AUTHORS: ${{ vars.EXPLORE_AUTO_RUN_AUTHORS }}
         run: node suggest.ts precheck
 
-  # One model call, read-only token. Fails closed: an error or an unclear
-  # answer is no suggestion.
+  # One model call, in posit-dev/positron-builds (explore-suggest.yml), which
+  # holds the Anthropic key and judges with positron main's scripts. This job
+  # holds only the bot key: it dispatches the call, waits, and reads back the
+  # verdict. Fails closed: an error or an unclear answer is no suggestion.
   judge:
     name: judge
     needs: [precheck]
     if: needs.precheck.outputs.proceed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: read
     outputs:
-      suggest: ${{ steps.judge.outputs.suggest }}
-      reason: ${{ steps.judge.outputs.reason }}
+      suggest: ${{ steps.verdict.outputs.suggest }}
+      reason: ${{ steps.verdict.outputs.reason }}
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: |
-            .nvmrc
-            .github/actions/pr-exploratory-test
-            .claude/skills/exploratory-test/renderer
-          sparse-checkout-cone-mode: false
+          sparse-checkout: .github/actions/pr-exploratory-test
           persist-credentials: false
 
-      - uses: actions/setup-node@v7.1.0
+      - name: Mint a token for positron-builds
+        id: token
+        uses: actions/create-github-app-token@v3
         with:
-          node-version-file: .nvmrc
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
 
-      - name: Install dependencies
-        run: |
-          npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
-          npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
-
-      - name: Judge the PR
-        id: judge
-        working-directory: .github/actions/pr-exploratory-test
+      - name: Judge the PR in positron-builds
+        id: run
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ github.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node suggest.ts judge
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          POSITRON_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          bash .github/actions/pr-exploratory-test/run-builds.sh \
+            explore-suggest.yml main "explore suggest #$PR_NUMBER ($POSITRON_RUN)" 900 "$RUNNER_TEMP/judge" explore-suggest \
+            -f "pr_number=$PR_NUMBER" -f "positron_run=$POSITRON_RUN"
+
+      # post puts the reason in a PR comment, so it is held to one line.
+      - name: Read the verdict
+        id: verdict
+        env:
+          FILE: ${{ runner.temp }}/judge/explore-suggest.json
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: |
+          set -uo pipefail
+          suggest=$(jq -r '.suggest // ""' "$FILE" 2>/dev/null) || suggest=""
+          reason=$(jq -r '.reason // ""' "$FILE" 2>/dev/null | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//') || reason=""
+          reason=${reason:0:1000}
+          if [ "$suggest" = "true" ]; then
+            { echo "suggest=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+          else
+            echo "suggest=false" >> "$GITHUB_OUTPUT"
+            [ "$suggest" = "false" ] || echo "::warning::The judge gave no verdict, so nothing is suggested."
+          fi
+          echo "**#$PR_NUMBER** judge: ${suggest:-no verdict}${reason:+. $reason}${RUN_ID:+ ([details](https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID))}" >> "$GITHUB_STEP_SUMMARY"
 
   # The only job that can write, and it runs no model.
   post:
