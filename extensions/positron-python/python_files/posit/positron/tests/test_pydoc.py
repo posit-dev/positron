@@ -179,6 +179,11 @@ def _test_getdoc_sphinx_roles() -> None:
     ----------
     corner_mask : bool, default: :rc:`contour.corner_mask`
         Uses `~copy.copy` and :mpltype:`color`.
+
+    Returns
+    -------
+    `~.contour.QuadContourSet`
+        Same as ``~x.in_(y)``.
     """
 
 
@@ -189,6 +194,9 @@ _TEST_GETDOC_SPHINX_ROLES_OUTPUT = """\
 <li><code>corner_mask</code>: bool, default: <code>contour.corner_mask</code>
 Uses <a href="get?key=copy.copy"><code>copy.copy</code></a> and <code>color</code>.</li>
 </ul>
+<h4>Returns</h4>
+<p><code>.contour.QuadContourSet</code>
+Same as <code>~x.in_(y)</code>.</p>
 """
 
 
@@ -577,7 +585,8 @@ def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
             _test_getdoc_multi_name_arguments_section,
             _TEST_GETDOC_MULTI_NAME_ARGS_SECTION_OUTPUT,
         ),
-        # Strips unknown Sphinx roles and the leading "~" of cross-references.
+        # Strips unknown Sphinx roles and the leading "~" of cross-references, but not of
+        # inline code.
         (
             _test_getdoc_sphinx_roles,
             _TEST_GETDOC_SPHINX_ROLES_OUTPUT,

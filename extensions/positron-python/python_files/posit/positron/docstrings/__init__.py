@@ -17,9 +17,11 @@ _MULTI_NAME_PARAM_RE = re.compile(
 # A Sphinx role that `rst_to_markdown` does not know, e.g. ":rc:`name`" or ":mpltype:`color`".
 _SPHINX_ROLE_RE = re.compile(r"(?<![\w`]):(?:[\w-]+:)?[\w-]+:(?=`)")
 
-# The "~" prefix of a cross-reference, e.g. "`~module.Class`". Markdown links like
-# "[](`~module.Class`)" are kept, since `_linkify` in `pydoc.py` handles them.
-_TILDE_REF_RE = re.compile(r"(?<!\()(?P<ticks>`+)~(?=[^\d\W])")
+# The "~" prefix of a cross-reference, e.g. "`~module.Class`" or "`~.module.func()`".
+# Only single-backtick dotted names match, so inline code like "``~x.in_(y)``" keeps its
+# "~". Markdown links like "[](`~module.Class`)" are kept, since `_linkify` in `pydoc.py`
+# handles them.
+_TILDE_REF_RE = re.compile(r"(?<![(`])`~(?=\.?[^\d\W][\w.]*(?:\(\))?`(?!`))")
 
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
@@ -41,7 +43,7 @@ def _postprocess_markdown(markdown: str) -> str:
             continue
         line = _MULTI_NAME_PARAM_RE.sub(_format_multi_name_param, line)
         line = _SPHINX_ROLE_RE.sub("", line)
-        lines[i] = _TILDE_REF_RE.sub(r"\g<ticks>", line)
+        lines[i] = _TILDE_REF_RE.sub("`", line)
     return "\n".join(lines)
 
 
