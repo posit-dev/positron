@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
+import * as path from 'path';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import {
     Commands,
@@ -38,14 +39,42 @@ import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/
 import { pickPythonVersion } from './uvUtils';
 import { uvInstallDeps } from './autoCreateVenv';
 import { reusedEnvironmentResult } from '../reusedEnvironment';
+import { readFile } from '../../common/externalDependencies';
+import { PythonVersion } from '../../info/pythonVersion';
+import { isVersionSupported, parsePythonVersionFile } from '../../../interpreter/configuration/environmentTypeComparer';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
 /**
+ * Returns true when the workspace's `.python-version` names a supported Python as `X.Y` or
+ * `X.Y.Z`. Other pins (for example `pypy@3.11`), a missing file, or an unreadable file give false.
+ */
+async function isSupportedPythonVersionPin(workspacePath: string): Promise<boolean> {
+    let content: string;
+    try {
+        content = await readFile(path.join(workspacePath, '.python-version'));
+    } catch {
+        return false;
+    }
+    const match = parsePythonVersionFile(content)?.match(/^(\d+)\.(\d+)(?:\.(\d+))?$/);
+    if (!match) {
+        return false;
+    }
+    return isVersionSupported({
+        major: Number(match[1]),
+        minor: Number(match[2]),
+        patch: Number(match[3] ?? 0),
+        raw: match[0],
+    } as PythonVersion);
+}
+
+/**
  * Runs `uv venv` in the workspace.
- * @param version The Python version to pass with `-p`. When undefined, `-p` gets the range of
- *   supported versions, and uv picks an interpreter in that range from the user's uv config
- *   (for example `python-preference`).
+ * @param version The Python version to pass with `-p`. When undefined and the workspace's
+ *   `.python-version` names a supported version, there is no `-p`, so uv follows that pin
+ *   (`-p` wins over `.python-version`). Otherwise `-p` gets the range of supported versions,
+ *   and uv picks an interpreter in that range from the user's uv config (for example
+ *   `python-preference`).
  */
 export async function createUvVenv(
     workspace: WorkspaceFolder,
@@ -61,7 +90,7 @@ export async function createUvVenv(
     const argv = ['venv', targetDir, '--no-project', '--seed'];
     if (version) {
         argv.push('-p', version);
-    } else {
+    } else if (!(await isSupportedPythonVersionPin(workspace.uri.fsPath))) {
         argv.push('-p', `>=${MINIMUM_PYTHON_VERSION.raw},<${MAXIMUM_PYTHON_VERSION_EXCLUSIVE.raw}`);
     }
 
@@ -159,8 +188,9 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
         workspaceStep.next = existingEnvStep;
 
         let version: string | undefined;
-        // 'auto' runs `uv venv` with the supported range in -p, so uv picks the interpreter from
-        // the user's uv config (for example python-preference = "only-system"). See #16343.
+        // 'auto' lets uv pick the interpreter from a supported .python-version pin, or else from
+        // the supported range and the user's uv config (for example python-preference =
+        // "only-system"). See #16343.
         let letUvPickVersion = false;
         let installDeps = options?.installPackages ?? false;
         const versionStep = new MultiStepNode(
