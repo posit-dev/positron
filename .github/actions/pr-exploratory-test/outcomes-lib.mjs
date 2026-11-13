@@ -22,6 +22,23 @@ export function parseResultComment(body) {
 }
 
 /**
+ * The results the workflow posted at or after `since`, by PR, each with its `postedAt`. Quotes by people and comments on
+ * issues are left out. The list API's own `since` goes by when a comment was last edited, so it is checked again here.
+ */
+export function resultsByPr(comments, since) {
+	const from = new Date(since).getTime();
+	const results = new Map();
+	for (const c of comments) {
+		const pr = Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1]);
+		const parsed = c.user?.login === 'github-actions[bot]' ? parseResultComment(c.body) : null;
+		if (pr && parsed && new Date(c.created_at).getTime() >= from) {
+			results.set(pr, [...(results.get(pr) ?? []), { ...parsed, postedAt: c.created_at }]);
+		}
+	}
+	return results;
+}
+
+/**
  * Repo paths the finding's cause names, in backticks or not, plus its test case paths. A line number or range after a path
  * is dropped. Given `files`, a name counts when it is one of them or exactly one of them ends with it; without, only paths with a folder count.
  */
@@ -196,6 +213,19 @@ export function decideOutcome({ prState, hasPaths, prCheck, laterChecks, dropped
 
 // Not fixed isn't final: a later fix or a matching issue still moves it to fixed later.
 const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
+
+/**
+ * Whether reading `pr` again can't change its saved rows: it is merged, every run on it has saved rows, and every row is
+ * in `settled` with the origin `overrides` sets for it, if any. A run with no rows (a report that failed to load, or one
+ * with no findings) keeps the PR read. A removed override and the PR's closing issues aren't seen, so they need a --recheck.
+ */
+export function prSettled(rows, settled, overrides, pr, runs) {
+	const own = rows.filter(r => r.pr === pr);
+	return own.length > 0
+		&& runs.every(run => own.some(r => r.run === run))
+		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`)
+			&& (overrides[`${r.run}#${r.finding}`]?.origin ?? r.origin) === r.origin);
+}
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {

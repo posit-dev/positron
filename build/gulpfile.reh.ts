@@ -43,7 +43,7 @@ import { readAgentSdkResults } from './agent-sdk/common.ts';
 import { positronBuildNumber, releaseChannel } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
-import { getAiLibServerDependencies } from './lib/ai-lib-dependencies.ts';
+import { aiLibServerBundleTask, getAiLibServerBundle } from './lib/ai-lib-server-bundle.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 import { isPrunedServerDependencyFile } from './lib/positron-path-budget.ts';
@@ -531,16 +531,11 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		// --- Start Positron ---
 		const productionDependencies = getProductionDependencies(isWebType(type) ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		// The ai-lib packages the server loads at runtime are `file:` dependencies
-		// of the root package.json, so the walk above (rooted at remote/) misses
-		// them. Ship them alongside, skipping whatever the remote dependencies
-		// already provide at the same path. See ai-lib-dependencies.ts.
-		const shippedModulePaths = productionDependencies
-			.map(d => path.relative(path.join(REPO_ROOT, packageJsonBase), d).split(path.sep).join('/'))
-			.filter(d => d.startsWith('node_modules/'));
+		// The server loads one ai-lib entry, which aiLibServerBundleTask bundles
+		// with its dependencies before packaging. See ai-lib-server-bundle.ts.
 		const cleanedDeps = es.merge(
 			gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true }),
-			getAiLibServerDependencies(shippedModulePaths)
+			getAiLibServerBundle()
 		)
 			// Drop server dependency files that neither Node nor the web client loads; see isPrunedServerDependencyFile.
 			.pipe(filter(file => !isPrunedServerDependencyFile(file.relative)))
@@ -795,6 +790,10 @@ function prepareCopilotRipgrepShimTaskREH(platform: string, arch: string, destin
 				compileNativeExtensionsBuildTask,
 				task.task(`node-${platform}-${arch}`) as task.Task,
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
+				// --- Start Positron ---
+				// The server's ai-lib code ships as one bundle, built before packaging. See ai-lib-server-bundle.ts.
+				aiLibServerBundleTask,
+				// --- End Positron ---
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName),
 				// --- Start Positron ---
 				// prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
