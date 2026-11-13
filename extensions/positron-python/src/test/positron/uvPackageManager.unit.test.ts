@@ -36,6 +36,9 @@ class UvPackageManagerTest extends UvPackageManager {
     }
 }
 
+const BUNDLE = '/ext/python_files/lib/ipykernel/py3';
+const SITE = '/env/lib/python3.12/site-packages';
+
 suite('UvPackageManager Tests', () => {
     let uvPackageManager: UvPackageManagerTest;
     let serviceContainer: IServiceContainer;
@@ -97,6 +100,38 @@ suite('UvPackageManager Tests', () => {
 
     teardown(() => {
         sinon.restore();
+    });
+
+    test('getPackages classifies bundled packages and drops kernel-only fields', async () => {
+        (session as { bundledIpykernelPaths?: string[] }).bundledIpykernelPaths = [BUNDLE];
+        session.callMethod = sinon
+            .stub()
+            .withArgs('getPackagesInstalled')
+            .resolves([
+                { id: 'pandas-2.2.0', name: 'pandas', displayName: 'pandas', version: '2.2.0', location: SITE },
+                {
+                    id: 'tornado-6.5.7',
+                    name: 'tornado',
+                    displayName: 'tornado',
+                    version: '6.5.7',
+                    location: BUNDLE,
+                    shadowed: [{ version: '6.4.0', location: SITE }],
+                },
+            ]);
+
+        const packages = await uvPackageManager.getPackages();
+
+        expect(packages).to.deep.equal([
+            { id: 'pandas-2.2.0', name: 'pandas', displayName: 'pandas', version: '2.2.0' },
+            {
+                id: 'tornado-6.5.7',
+                name: 'tornado',
+                displayName: 'tornado',
+                version: '6.5.7',
+                bundled: true,
+                environmentVersion: '6.4.0',
+            },
+        ]);
     });
 
     suite('_shouldUseProjectWorkflow Method', () => {
@@ -531,6 +566,42 @@ version = "0.1.0"`;
                 await uvPackageManager.uninstallPackages(['requests']);
 
                 expect(reqContent).to.equal('flask==2.2.0\n# removed by Positron: requests==2.28.2\n');
+            });
+
+            test('uninstallPackages comments out a package the bundle also provides', async () => {
+                (session as { bundledIpykernelPaths?: string[] }).bundledIpykernelPaths = [BUNDLE];
+                session.callMethod = sinon
+                    .stub()
+                    .withArgs('getPackagesInstalled')
+                    .resolves([
+                        { name: 'flask', location: SITE },
+                        { name: 'requests', version: '2.32.0', location: BUNDLE },
+                    ]);
+
+                await uvPackageManager.uninstallPackages(['requests']);
+
+                expect(reqContent).to.equal('flask==2.2.0\n# removed by Positron: requests==2.28.2\n');
+            });
+
+            test('installPackages adds a package that the bundle shadows', async () => {
+                (session as { bundledIpykernelPaths?: string[] }).bundledIpykernelPaths = [BUNDLE];
+                session.callMethod = sinon
+                    .stub()
+                    .withArgs('getPackagesInstalled')
+                    .resolves([
+                        { name: 'flask', location: SITE },
+                        { name: 'requests', location: SITE },
+                        {
+                            name: 'tornado',
+                            version: '6.5.7',
+                            location: BUNDLE,
+                            shadowed: [{ version: '6.4.0', location: SITE }],
+                        },
+                    ]);
+
+                await uvPackageManager.installPackages([{ name: 'tornado' }]);
+
+                expect(reqContent).to.equal('flask==2.2.0\nrequests==2.28.2\ntornado  # added by Positron\n');
             });
 
             test('updatePackages leaves requirements.txt alone', async () => {

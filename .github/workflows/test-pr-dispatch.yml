@@ -1,7 +1,7 @@
-name: "Test: PR"
+name: "Test: PR (dispatch)"
 
 # Positron's tests run in the private repo posit-dev/positron-builds. This job
-# dispatches that repo's pr-test.yml for the PR, waits for it, and reports its
+# dispatches that repo's test-pr.yml for the PR, waits for it, and reports its
 # conclusion as this PR's `required-tests` check. Secrets never reach PR code
 # here: the only secret used is the bot app key, in this job, and the tests run
 # in the other repo against the PR's merge commit with no credentials.
@@ -41,7 +41,7 @@ jobs:
         if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
         shell: bash
         run: |
-          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-positron-ref.yml) and merges with an admin override."
+          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-manual.yml) and merges with an admin override."
           echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
@@ -105,8 +105,8 @@ jobs:
         run: |
           set -euo pipefail
           for state in queued in_progress waiting pending; do
-            gh api --paginate "repos/posit-dev/positron-builds/actions/workflows/pr-test.yml/runs?branch=pr-lane&event=workflow_dispatch&status=$state&per_page=100" \
-              --jq ".workflow_runs[] | select((.display_title | startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
+            gh api --paginate "repos/posit-dev/positron-builds/actions/workflows/test-pr.yml/runs?branch=pr-lane&event=workflow_dispatch&status=$state&per_page=100" \
+              --jq ".workflow_runs[] | select((.display_title | startswith(\"pr #$PR :: \") or startswith(\"positron PR #$PR at \")) and .triggering_actor.login == \"positron-bot[bot]\") | .id"
           done | sort -u |
             while read -r id; do
               echo "Cancelling https://github.com/posit-dev/positron-builds/actions/runs/$id"
@@ -119,25 +119,35 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # The whole title stays within 72 characters, so it fits on one line in
+          # the positron-builds Actions run list.
+          prefix="pr #$PR :: "
+          suffix=" (${HEAD_SHA:0:7})"
+          room=$((72 - ${#prefix} - ${#suffix}))
+          subject=$PR_TITLE
+          if [ ${#PR_TITLE} -gt $room ]; then subject="${PR_TITLE:0:room-3}"; subject="${subject% }..."; fi
+          title="$prefix$subject$suffix"
           # pr-lane mirrors positron-builds main; PR runs use it so their build caches
           # stay in that branch's cache scope, away from the privileged main runs.
-          gh workflow run pr-test.yml -R posit-dev/positron-builds --ref pr-lane -f "pr_number=$PR" -f "head_sha=$HEAD_SHA"
-          # The dispatch API returns no run id; find the run by its run-name, and
-          # only among dispatches the bot itself started, so a same-named run pushed
-          # by someone else on positron-builds cannot stand in for it.
-          title="positron PR #$PR at $HEAD_SHA"
+          gh workflow run test-pr.yml -R posit-dev/positron-builds --ref pr-lane \
+            -f "pr_number=$PR" -f "head_sha=$HEAD_SHA" -f "title=$title"
+          # The dispatch API returns no run id; find the run by the start and end
+          # of its run-name (the PR title between them is only for show), and only
+          # among dispatches the bot itself started, so a same-named run pushed by
+          # someone else on positron-builds cannot stand in for it.
           id=""
           for i in $(seq 1 24); do
-            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=pr-lane&created=>=$since&per_page=20" \
-              --jq ".workflow_runs[] | select(.path == \".github/workflows/pr-test.yml\" and .display_title == \"$title\" and .triggering_actor.login == \"positron-bot[bot]\") | .id" | head -n 1)
+            id=$(gh api "repos/posit-dev/positron-builds/actions/runs?event=workflow_dispatch&branch=pr-lane&created=>=$since&per_page=20" |
+              jq -r --arg start "pr #$PR :: " --arg end " (${HEAD_SHA:0:7})" '.workflow_runs[] | select(.path == ".github/workflows/test-pr.yml" and (.display_title | startswith($start) and endswith($end)) and .triggering_actor.login == "positron-bot[bot]") | .id' | head -n 1)
             if [ -n "$id" ]; then break; fi
             sleep 5
           done
           if [ -z "$id" ]; then
-            echo "::error::Dispatched pr-test.yml but could not find its run within two minutes."
+            echo "::error::Dispatched test-pr.yml but could not find its run within two minutes."
             exit 1
           fi
           url="https://github.com/posit-dev/positron-builds/actions/runs/$id"

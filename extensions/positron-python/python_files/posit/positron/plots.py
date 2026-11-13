@@ -8,8 +8,9 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
+from .execute_request import PositronExecuteRequest
 from .plot_comm import (
     GetIntrinsicSizeRequest,
     GetMetadataRequest,
@@ -18,6 +19,7 @@ from .plot_comm import (
     PlotFrontendEvent,
     PlotMetadata,
     PlotOrigin,
+    PlotRange,
     PlotRenderFormat,
     PlotRenderSettings,
     PlotResult,
@@ -56,6 +58,32 @@ def _render_to_plot_result(
         mime_type=MIME_TYPE[settings.format.value],
         settings=settings,
     )
+
+
+def _current_execution() -> tuple[str, str, PlotOrigin | None]:
+    """Get the ID, code, and source origin of the execute_request currently being handled."""
+    # Imported lazily to avoid a circular import.
+    from .positron_ipkernel import PositronIPyKernel
+
+    kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
+    parent = kernel.get_parent("shell")
+    header: dict[str, Any] = cast("dict[str, Any]", parent.get("header", {}))
+    content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
+
+    code_location = PositronExecuteRequest.from_message(parent).code_location
+    origin = None
+    if code_location is not None:
+        origin = PlotOrigin(
+            uri=code_location.uri,
+            range=PlotRange(
+                start_line=code_location.range.start.line,
+                start_character=code_location.range.start.character,
+                end_line=code_location.range.end.line,
+                end_character=code_location.range.end.character,
+            ),
+        )
+
+    return header.get("msg_id", ""), content.get("code", ""), origin
 
 
 class Plot:
@@ -293,14 +321,11 @@ class PlotsService:
         render: Renderer,
         intrinsic_size: tuple[int, int],
         kind: str,
-        execution_id: str,
-        code: str,
         figure_num: int | str,
         on_close: Callable[[], None] | None = None,
-        origin: PlotOrigin | None = None,
     ) -> Plot:
         """
-        Create a plot.
+        Create a plot for the execute_request currently being handled.
 
         Parameters
         ----------
@@ -310,16 +335,10 @@ class PlotsService:
             The intrinsic size of the plot in inches.
         kind
             The kind of plot, e.g., 'Matplotlib', 'Seaborn', 'plotnine'.
-        execution_id
-            The ID of the execute_request that produced the plot.
-        code
-            The code fragment that produced the plot.
         figure_num
-            The matplotlib figure number, used for generating plot names.
+            The figure number, used for generating plot names.
         on_close
             An optional callback to invoke when the plot is closed.
-        origin
-            The origin (source file) of the plot, if known.
 
         See Also
         --------
@@ -346,6 +365,8 @@ class PlotsService:
                 open_data["pre_render"] = pre_render.dict()
             except Exception:
                 logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
+
+        execution_id, code, origin = _current_execution()
 
         plot_comm = PositronComm.create(self._target_name, comm_id, data=open_data or None)
         plot = Plot(

@@ -23,6 +23,7 @@ import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/w
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
+import { isRuntimeDataConnectionDriverId } from '../../positronConnections/common/runtimeDataConnections.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
 // its own key (`{prefix}{profileId}`) so updates rewrite only the changed profile, not the whole
@@ -36,6 +37,16 @@ const profileStorageKey = (profileId: string) =>
 // Builds the secret storage key for a given data connection secret profile/parameter pair.
 const secretKey = (profileId: string, parameterId: string) =>
 	`positron.dataConnections.secret.${profileId}.${parameterId}`;
+
+/**
+ * Builds the id of the ephemeral profile for a connection a driver discovered. Ids are namespaced
+ * by driver, so two drivers reporting a connection of the same id do not collide.
+ * @param driverId The id of the driver that discovered the connection.
+ * @param connectionId The id the driver gave the discovered connection.
+ */
+export function discoveredProfileId(driverId: string, connectionId: string): string {
+	return `discovered:${driverId}:${connectionId}`;
+}
 
 // The storage scopes data connection profiles are persisted in.
 type ProfileStorageScope = StorageScope.PROFILE | StorageScope.WORKSPACE;
@@ -126,6 +137,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when a connection should be shown in the Data Connections pane.
 	private readonly _onDidRequestRevealConnectionEmitter = this._register(new Emitter<void>());
+
+	// Fires with a profile id when the pane should re-fetch what it has loaded for that connection.
+	private readonly _onDidRequestRefreshEmitter = this._register(new Emitter<string>());
 
 	// The profile the pane has been asked to show and has not shown yet. Held because the pane's
 	// tree is built as the pane renders, so a request made while the pane was still opening has no
@@ -284,6 +298,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when a connection should be shown in the Data Connections pane.
 	readonly onDidRequestRevealConnection: Event<void> = this._onDidRequestRevealConnectionEmitter.event;
+
+	// Fires with a profile id when the pane should re-fetch what it has loaded for that connection.
+	readonly onDidRequestRefresh: Event<string> = this._onDidRequestRefreshEmitter.event;
+
+	/**
+	 * Asks the pane to re-fetch what it has loaded for a connection. See
+	 * {@link IPositronDataConnectionsService.requestRefresh}.
+	 * @param profileId The id of the profile whose contents changed.
+	 */
+	requestRefresh(profileId: string): void {
+		this._onDidRequestRefreshEmitter.fire(profileId);
+	}
 
 	/**
 	 * Asks the Data Connections pane to show a connection. See
@@ -831,7 +857,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Checked by id, not identity: a driver re-registered meanwhile still owns this live connection.
 		if (!this.driverManager.getDriver(driver.id)) {
-			await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after its driver was removed`);
+			if (isRuntimeDataConnectionDriverId(driver.id)) {
+				// Only released, as in _dropRuntimeInstance: closing a runtime comm runs the user's
+				// disconnect() in R or Python, which only an explicit Disconnect may do.
+				this._logService.warn(`[DataConnections] Runtime driver ${driver.id} was removed while connecting profile ${profileId}; releasing the handle and leaving the comm open`);
+				handle.release();
+			} else {
+				await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after its driver was removed`);
+			}
 			throw new Error(`Data connection driver '${driver.id}' was removed while connecting`);
 		}
 
@@ -952,10 +985,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Closes the profile's connection as soon as nothing is using it.
+	 * Closes the profile's connection as soon as nothing is using it. A runtime connection (one an
+	 * R or Python session opened) is left open: it closes only on an explicit disconnect, since
+	 * closing its comm runs the user's disconnect() in the session.
 	 */
 	disconnectWhenUnused(profileId: string): void {
-		if (this.getInstanceForProfile(profileId) === undefined) {
+		const instance = this.getInstanceForProfile(profileId);
+		if (instance === undefined || isRuntimeDataConnectionDriverId(instance.driverId)) {
 			return;
 		}
 
@@ -1059,7 +1095,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 					}
 
 					const profile: IDataConnectionProfile = {
-						id: `discovered:${driver.id}:${connection.id}`,
+						id: discoveredProfileId(driver.id, connection.id),
 						driverMetadata: {
 							id: driver.metadata.id,
 							name: driver.metadata.name,
@@ -1206,6 +1242,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * The row goes away with the discovery, and the row is the only place to disconnect from, so a
 	 * session left open here is one the user cannot reach or close. Closing it is also what the user
 	 * asked for: the connection they opened is the entry that is now gone.
+	 *
+	 * A runtime connection is dropped without being closed (see _dropRuntimeInstance): its discovery
+	 * goes away only once its comm has closed, and closing a comm that is somehow still open would
+	 * run the user's disconnect() in R or Python.
 	 */
 	private async _disconnectVanishedDiscoveries(): Promise<void> {
 		// Resolved against every current discovery: a discovery the user has saved is filtered out of
@@ -1216,6 +1256,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			&& !this._discoveredProfiles.some(profile => profile.id === instance.profileId));
 
 		await Promise.all(vanished.map(async instance => {
+			if (isRuntimeDataConnectionDriverId(instance.driverId)) {
+				await this._dropRuntimeInstance(instance, 'its discovery is no longer reported');
+				return;
+			}
 			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its discovered profile ${instance.profileId} is no longer reported`);
 			try {
 				await this.disconnect(instance.profileId);
@@ -1227,14 +1271,54 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Closes the live connections of any driver that is no longer registered; the extension host
-	 * leaves them open for the service to close.
+	 * leaves them open for the service to close. A runtime connection is dropped without being
+	 * closed instead (see _dropRuntimeInstance), since closing its comm would run the user's
+	 * disconnect() in R or Python.
 	 */
 	private _disconnectUnregisteredDrivers(): void {
 		const orphaned = this._instances.filter(instance => !this.driverManager.getDriver(instance.driverId));
 		for (const instance of orphaned) {
+			if (isRuntimeDataConnectionDriverId(instance.driverId)) {
+				void this._dropRuntimeInstance(instance, `its driver ${instance.driverId} was unregistered`);
+				continue;
+			}
 			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its driver ${instance.driverId} was unregistered`);
 			void this.disconnect(instance.profileId);
 		}
+	}
+
+	/**
+	 * Drops a runtime connection's instance without closing its comm, for the cleanup paths that
+	 * would otherwise disconnect it. The instance leaves _instances and the same change event as
+	 * disconnect() fires, but the handle is only released. A live runtime comm should never lose
+	 * its discovery or its driver, so a handle that still reports itself connected is logged.
+	 * @param instance The runtime connection instance to drop.
+	 * @param reason Why it is being dropped, for the log.
+	 */
+	private async _dropRuntimeInstance(instance: IDataConnectionInstance, reason: string): Promise<void> {
+		// Removed before any await, so a concurrent disconnect() finds nothing to close.
+		const index = this._instances.indexOf(instance);
+		if (index < 0) {
+			return;
+		}
+		this._instances.splice(index, 1);
+		this._previewedDatasetIds.delete(instance.profileId);
+		this._disconnectWhenUnused.delete(instance.profileId);
+
+		let connected = false;
+		try {
+			connected = await instance.connectionHandle.isConnected();
+		} catch (err) {
+			this._logService.error(`[DataConnections] isConnected() threw for runtime profile ${instance.profileId}: ${err}`);
+		}
+		if (connected) {
+			this._logService.warn(`[DataConnections] Dropping runtime profile ${instance.profileId} while its comm is still open (${reason}); leaving the comm open`);
+		} else {
+			this._logService.trace(`[DataConnections] Dropped runtime profile ${instance.profileId}: ${reason}`);
+		}
+
+		instance.connectionHandle.release();
+		this._onDidChangeInstancesEmitter.fire([...this._instances]);
 	}
 
 	/**

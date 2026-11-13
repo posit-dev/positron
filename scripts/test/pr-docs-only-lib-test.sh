@@ -46,7 +46,7 @@ check extensions/positron-python/CHANGELOG.md true
 # Workflows here never run the tests; positron-builds has its own.
 check .github/workflows/claude.yml true
 check .github/workflows/test-unit.yml true
-check .github/workflows/pr-dispatch.yml true
+check .github/workflows/test-pr-dispatch.yml true
 
 # Non-workflow files beside them, and every local action: positron-builds
 # calls the actions, and nothing here tracks which ones.

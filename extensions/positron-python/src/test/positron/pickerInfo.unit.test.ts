@@ -128,6 +128,31 @@ suite('pickerInfo', () => {
         assert.strictEqual(pickerGroupOf(pyenvVirtualenv, context, false), PythonPickerGroup.Global);
     });
 
+    test('createPythonPickerInfo orders rows by environment type, then installer', () => {
+        const info = (interpreter: PythonEnvironment, runtimeSource: EnvironmentType, supported: boolean) =>
+            createPythonPickerInfo({
+                interpreter,
+                runtimeSource,
+                envName: '',
+                pythonVersion: interpreter.version!.raw,
+                supported,
+                context,
+                externallyManaged: false,
+            });
+        const rows = [
+            info(env(p('/usr/bin/python3'), EnvironmentType.System, '3.12.0'), EnvironmentType.System, true),
+            info(projectVenv, EnvironmentType.Uv, true),
+            info(pyenv, EnvironmentType.Pyenv, true),
+            info(homebrew, EnvironmentType.System, true),
+            info(condaNamed, EnvironmentType.Conda, true),
+            info(pythonOrg, EnvironmentType.System, true),
+        ];
+        assert.deepEqual(
+            rows.sort((a, b) => a.rowOrder! - b.rowOrder!).map((row) => row.label),
+            ['uv', 'conda', 'pyenv', 'Homebrew', 'python.org', 'Python 3.12.0'],
+        );
+    });
+
     test('createPythonPickerInfo builds the label and gray text', () => {
         const common = { context, externallyManaged: false };
         assert.deepEqual(
@@ -157,25 +182,43 @@ suite('pickerInfo', () => {
                     pythonVersion: '3.13.1',
                     supported: false,
                 }),
+                createPythonPickerInfo({
+                    ...common,
+                    interpreter: env(p('/usr/bin/python3'), EnvironmentType.System, '3.8.10'),
+                    runtimeSource: EnvironmentType.System,
+                    envName: '',
+                    pythonVersion: '3.8.10',
+                    supported: false,
+                }),
             ],
             [
                 {
                     group: 'Project environments',
                     groupOrder: 0,
-                    label: 'Python 3.12.4',
-                    description: 'uv: myproject',
+                    rowOrder: 10,
+                    label: 'uv: myproject',
+                    description: 'Python 3.12.4',
                 },
                 {
                     group: 'Externally managed',
                     groupOrder: 3,
-                    label: 'Python 3.13.2',
-                    description: 'Homebrew',
+                    rowOrder: 160,
+                    label: 'Homebrew',
+                    description: 'Python 3.13.2',
                 },
                 {
                     group: 'Unsupported',
                     groupOrder: 4,
-                    label: 'Python 3.13.1',
-                    description: 'pyenv',
+                    rowOrder: 110,
+                    label: 'pyenv',
+                    description: 'Python 3.13.1',
+                },
+                {
+                    group: 'Unsupported',
+                    groupOrder: 4,
+                    rowOrder: 164,
+                    label: 'Python 3.8.10',
+                    description: undefined,
                 },
             ],
         );

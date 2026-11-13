@@ -263,10 +263,113 @@ class _StubMetadata:
             return None
         return value if isinstance(value, list) else [value]
 
+    def __getitem__(self, key: str) -> Any:
+        return self.get(key)
+
 
 class _StubDist:
-    def __init__(self, **headers: Any) -> None:
+    def __init__(
+        self,
+        version: str = "1.0",
+        location: str | Exception | None = None,
+        **headers: Any,
+    ) -> None:
         self.metadata = _StubMetadata(headers)
+        self.version = version
+        self._location = location
+
+    def locate_file(self, path: str) -> Path:
+        if isinstance(self._location, Exception):
+            raise self._location
+        if self._location is None:
+            raise NotImplementedError
+        return Path(self._location) / path
+
+    def read_text(self, _filename: str) -> str | None:
+        return None
+
+
+def _packages_from(
+    kernel: PositronIPyKernel, monkeypatch: pytest.MonkeyPatch, dists: list[_StubDist]
+) -> list[dict[str, Any]]:
+    import importlib.metadata
+
+    from positron.ui import _get_packages_installed
+
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: iter(dists))
+    result = _get_packages_installed(kernel, [])
+    assert isinstance(result, list)
+    return result  # type: ignore[return-value]
+
+
+def test_get_packages_installed_location(
+    kernel: PositronIPyKernel, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Each entry reports the `sys.path` entry its distribution lives in."""
+    location = tmp_path / "site-packages"
+    [entry] = _packages_from(
+        kernel, monkeypatch, [_StubDist(Name="tornado", version="6.5.7", location=str(location))]
+    )
+    assert entry["location"] == str(location)
+
+
+def test_dist_location_is_the_import_path_entry(tmp_path: Path) -> None:
+    """A real dist-info distribution reports the import path entry that holds it.
+
+    The extension matches this against the bundled ipykernel paths, so it must
+    be the entry itself, not the dist-info directory inside it.
+    """
+    import importlib.metadata
+
+    from positron.ui import _dist_location
+
+    dist_info = tmp_path / "tornado-6.5.7.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: tornado\nVersion: 6.5.7\n")
+
+    [dist] = importlib.metadata.distributions(path=[str(tmp_path)])
+
+    assert _dist_location(dist) == str(tmp_path)
+
+
+def test_get_packages_installed_location_error(
+    kernel: PositronIPyKernel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A distribution whose location can't be found still yields an entry, without `location`."""
+    [entry] = _packages_from(
+        kernel, monkeypatch, [_StubDist(Name="oddball", location=RuntimeError("broken metadata"))]
+    )
+    assert entry["displayName"] == "oddball"
+    assert "location" not in entry
+
+
+def test_get_packages_installed_shadowed(
+    kernel: PositronIPyKernel, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A second copy of a name is reported as shadowed by the first, which stays the entry."""
+    bundle = tmp_path / "bundle"
+    env = tmp_path / "site-packages"
+    [entry] = _packages_from(
+        kernel,
+        monkeypatch,
+        [
+            _StubDist(Name="tornado", version="6.5.7", location=str(bundle)),
+            _StubDist(Name="Tornado", version="6.4.0", location=str(env)),
+        ],
+    )
+    assert entry["version"] == "6.5.7"
+    assert entry["location"] == str(bundle)
+    assert entry["shadowed"] == [{"version": "6.4.0", "location": str(env)}]
+
+
+def test_get_packages_installed_unique_has_no_shadowed(
+    kernel: PositronIPyKernel, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A name with one copy carries no `shadowed` key."""
+    [entry] = _packages_from(
+        kernel, monkeypatch, [_StubDist(Name="pandas", location=str(tmp_path))]
+    )
+    assert "shadowed" not in entry
 
 
 @pytest.mark.parametrize(

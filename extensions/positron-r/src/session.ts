@@ -1204,6 +1204,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (state === positron.RuntimeState.Ready) {
 			await this.startDap();
 		} else if (state === positron.RuntimeState.Exited) {
+			this._packageManager?.resetRepositoryIndex();
 			await Promise.all([
 				this.deactivateServices('session exited'),
 				this._dapComm?.then(dap => dap.dispose()),
