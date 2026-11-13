@@ -5,7 +5,12 @@
 
 import * as os from 'os';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
-import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
+import {
+    Commands,
+    MAXIMUM_PYTHON_VERSION_EXCLUSIVE,
+    MINIMUM_PYTHON_VERSION,
+    PVSC_EXTENSION_ID,
+} from '../../../common/constants';
 import { createDeferred } from '../../../common/utils/async';
 import { Common, CreateEnv } from '../../../common/utils/localize';
 import { traceError, traceInfo, traceLog, traceWarn } from '../../../logging';
@@ -38,8 +43,9 @@ export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
 /**
  * Runs `uv venv` in the workspace.
- * @param version The Python version to pass with `-p`. When undefined, uv picks the
- *   interpreter from the user's uv config (for example `python-preference`).
+ * @param version The Python version to pass with `-p`. When undefined, `-p` gets the range of
+ *   supported versions, and uv picks an interpreter in that range from the user's uv config
+ *   (for example `python-preference`).
  */
 export async function createUvVenv(
     workspace: WorkspaceFolder,
@@ -55,6 +61,8 @@ export async function createUvVenv(
     const argv = ['venv', targetDir, '--no-project', '--seed'];
     if (version) {
         argv.push('-p', version);
+    } else {
+        argv.push('-p', `>=${MINIMUM_PYTHON_VERSION.raw},<${MAXIMUM_PYTHON_VERSION_EXCLUSIVE.raw}`);
     }
 
     const deferred = createDeferred<string | undefined>();
@@ -151,8 +159,8 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
         workspaceStep.next = existingEnvStep;
 
         let version: string | undefined;
-        // 'auto' runs `uv venv` without -p, so uv picks the interpreter from the user's uv
-        // config (for example python-preference = "only-system"). See #16343.
+        // 'auto' runs `uv venv` with the supported range in -p, so uv picks the interpreter from
+        // the user's uv config (for example python-preference = "only-system"). See #16343.
         let letUvPickVersion = false;
         let installDeps = options?.installPackages ?? false;
         const versionStep = new MultiStepNode(
@@ -168,7 +176,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     existingVenvAction === ExistingVenvAction.Create
                 ) {
                     try {
-                        version = await pickPythonVersion();
+                        version = await pickPythonVersion(undefined, workspace?.uri.fsPath);
                     } catch (ex) {
                         if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
                             return ex;

@@ -516,9 +516,14 @@ export interface UvAvailablePython {
  * Filters out pre-release versions and returns stable versions only.
  * @param options.managedOnly When true (the default), list only uv-managed Pythons. Pass false
  *   to follow the user's uv config (for example `python-preference = "only-system"`).
+ * @param options.cwd The directory to run `uv python list` in. Pass the workspace folder, so
+ *   that uv reads a `uv.toml` or `pyproject.toml` in the workspace, as `uv venv` does.
  * @returns Array of available Python versions, sorted by version descending
  */
-export async function getAvailablePythonVersions(options?: { managedOnly?: boolean }): Promise<UvAvailablePython[]> {
+export async function getAvailablePythonVersions(options?: {
+    managedOnly?: boolean;
+    cwd?: string;
+}): Promise<UvAvailablePython[]> {
     const managedOnly = options?.managedOnly ?? true;
     try {
         // Use `uv python list` to get available versions
@@ -540,7 +545,7 @@ export async function getAvailablePythonVersions(options?: { managedOnly?: boole
         if (isWindowsArm64()) {
             args.push('--all-arches');
         }
-        const result = await execLocatedUv(args, { throwOnStdErr: false });
+        const result = await execLocatedUv(args, { throwOnStdErr: false, cwd: options?.cwd });
         const output = result?.stdout.trim();
 
         if (!output) {
