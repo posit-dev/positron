@@ -8,7 +8,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { GroupModelChangeKind } from '../../../../common/editor.js';
+import { GroupIdentifier, GroupModelChangeKind } from '../../../../common/editor.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IGroupModelChangeEvent } from '../../../../common/editor/editorGroupModel.js';
 import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -71,20 +71,25 @@ describe('positron.assistantWindow.enter', () => {
 
 describe('AssistantWindowGuard', () => {
 	const assistantGroupChanges = new Emitter<IGroupModelChangeEvent>();
+	const sideGroupChanges = new Emitter<IGroupModelChangeEvent>();
 	const canvasGroupChanges = new Emitter<IGroupModelChangeEvent>();
 	const mainGroup = stubInterface<IEditorGroup>({});
 
-	function windowGroup(panelType: string, changes: Emitter<IGroupModelChangeEvent>, file: EditorInput) {
-		const panel = new TestEditorInput(URI.file(`/${panelType}`), panelType);
-		return stubInterface<IEditorGroup>({ onDidModelChange: changes.event, count: 2, editors: [panel, file], contains: () => true, moveEditor: vi.fn() });
+	function group(changes: Emitter<IGroupModelChangeEvent>, editors: EditorInput[]) {
+		return stubInterface<IEditorGroup>({ onDidModelChange: changes.event, count: editors.length, editors, contains: () => true, moveEditor: vi.fn() });
 	}
+	const panel = (type: string) => new TestEditorInput(URI.file(`/${type}`), type);
 
 	const assistantFile = new TestEditorInput(URI.file('/assistant-window/notes.txt'), 'file');
+	const sideFile = new TestEditorInput(URI.file('/assistant-window/side.txt'), 'file');
 	const canvasFile = new TestEditorInput(URI.file('/canvas-window/notes.txt'), 'file');
-	const assistantGroup = windowGroup(WINDOW_PANEL, assistantGroupChanges, assistantFile);
-	const canvasGroup = windowGroup(CANVAS_PANEL, canvasGroupChanges, canvasFile);
+	const assistantGroup = group(assistantGroupChanges, [panel(WINDOW_PANEL), assistantFile]);
+	// A group added beside the locked panel group by an "open to the side".
+	const sideGroup = group(sideGroupChanges, [sideFile]);
+	const canvasGroup = group(canvasGroupChanges, [panel(CANVAS_PANEL), canvasFile]);
 	const mainPart = stubInterface<IEditorPart>({ activeGroup: mainGroup });
-	const auxiliaryPart = stubInterface<IEditorPart>({ windowId: 2 });
+	const assistantPart = stubInterface<IEditorPart>({ windowId: 2, groups: [assistantGroup, sideGroup] });
+	const canvasPart = stubInterface<IEditorPart>({ windowId: 3, groups: [canvasGroup] });
 	// Both windows are locked compact, like real Assistant and Canvas windows.
 	const lockedCompactWindows = stubInterface<IAuxiliaryWindowService>({
 		getWindow: () => stubInterface<IAuxiliaryWindow>({ createState: () => ({ lockCompact: true }) }),
@@ -92,9 +97,9 @@ describe('AssistantWindowGuard', () => {
 
 	const ctx = createLightTestContainer()
 		.stub(IEditorGroupsService, {
-			groups: [assistantGroup, canvasGroup],
+			groups: [assistantGroup, sideGroup, canvasGroup],
 			mainPart,
-			getPart: () => auxiliaryPart,
+			getPart: (g: IEditorGroup | GroupIdentifier) => g === canvasGroup ? canvasPart : assistantPart,
 			onDidAddGroup: Event.None,
 			onDidRemoveGroup: Event.None,
 		})
@@ -114,6 +119,13 @@ describe('AssistantWindowGuard', () => {
 		await nextTick();
 
 		expect(assistantGroup.moveEditor).toHaveBeenCalledWith(assistantFile, mainGroup);
+	});
+
+	it('moves an editor opened to the side, in a new group of the Assistant window', async () => {
+		sideGroupChanges.fire({ kind: GroupModelChangeKind.EDITOR_OPEN, editor: sideFile });
+		await nextTick();
+
+		expect(sideGroup.moveEditor).toHaveBeenCalledWith(sideFile, mainGroup);
 	});
 
 	it('leaves a Canvas window alone', async () => {

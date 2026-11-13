@@ -23,16 +23,20 @@ import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/com
 export const ASSISTANT_WINDOW_ENTER_COMMAND_ID = 'positron.assistantWindow.enter';
 
 /**
- * Whether a group is in a dedicated Assistant window: a locked-compact auxiliary window that
- * holds an Assistant window panel (other than `ignore`). Canvas windows are locked-compact too,
- * but hold a Canvas panel.
+ * Whether a group is in a dedicated Assistant window: a locked-compact auxiliary window where any
+ * group holds an Assistant window panel (other than `ignore`). Checks the whole window, since an
+ * "open to the side" adds a second group next to the panel's. Canvas windows are locked-compact
+ * too, but hold a Canvas panel.
  */
 function isInAssistantWindow(group: IEditorGroup, editorGroupsService: IEditorGroupsService, auxiliaryWindowService: IAuxiliaryWindowService, ignore?: EditorInput): boolean {
-	if (!group.editors.some(editor => editor !== ignore && isAssistantWindowEditor(editor))) {
+	const part = editorGroupsService.getPart(group);
+	if (part === editorGroupsService.mainPart) {
 		return false;
 	}
-	const part = editorGroupsService.getPart(group);
-	return part !== editorGroupsService.mainPart && auxiliaryWindowService.getWindow(part.windowId)?.createState().lockCompact === true;
+	if (!part.groups.some(g => g.editors.some(editor => editor !== ignore && isAssistantWindowEditor(editor)))) {
+		return false;
+	}
+	return auxiliaryWindowService.getWindow(part.windowId)?.createState().lockCompact === true;
 }
 
 /**
@@ -68,9 +72,9 @@ CommandsRegistry.registerCommand(ASSISTANT_WINDOW_ENTER_COMMAND_ID, async (acces
 
 /**
  * Keeps a dedicated Assistant window to its one panel. The group lock only stops editors opened
- * "in the active group"; one opened in the window's column, dropped onto it, or opened by another
- * extension would sit hidden behind the chat, since the window has no tabs. Those move to the
- * main window.
+ * "in the active group"; one opened in the window's column or to its side, dropped onto it, or
+ * opened by another extension would sit hidden in a window with no tabs. Those move to the main
+ * window.
  */
 export class AssistantWindowGuard extends Disposable implements IWorkbenchContribution {
 
@@ -95,7 +99,7 @@ export class AssistantWindowGuard extends Disposable implements IWorkbenchContri
 		const store = new DisposableStore();
 		store.add(group.onDidModelChange(e => {
 			const editor = e.editor;
-			if (e.kind !== GroupModelChangeKind.EDITOR_OPEN || !editor || group.count < 2) {
+			if (e.kind !== GroupModelChangeKind.EDITOR_OPEN || !editor) {
 				return;
 			}
 			if (!isInAssistantWindow(group, this.editorGroupsService, this.auxiliaryWindowService, editor)) {
