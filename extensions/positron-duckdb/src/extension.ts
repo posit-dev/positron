@@ -2676,12 +2676,6 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			const message = download ?
 				vscode.l10n.t('Could not download the "{0}" DuckDB extension needed to open {1}.', name, fileName) :
 				vscode.l10n.t('Could not load the "{0}" DuckDB extension needed to open {1}.', name, fileName);
-			const showLogs = vscode.l10n.t('Show Logs');
-			vscode.window.showErrorMessage(message, showLogs).then(choice => {
-				if (choice === showLogs) {
-					this.log.show();
-				}
-			});
 			throw new Error(message);
 		} finally {
 			clearTimeout(progressTimer);
