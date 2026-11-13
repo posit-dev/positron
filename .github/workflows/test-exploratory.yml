@@ -886,29 +886,19 @@ jobs:
           echo "timed_out=$timed_out" >> "$GITHUB_OUTPUT"
 
       # A missing file means that model failed, so the download never stops the job.
-      - name: Download the result files
+      - name: Download the result and report URL files
         if: always() && steps.dispatch.outputs.run_id != ''
         continue-on-error: true
-        uses: actions/download-artifact@v7
-        with:
-          repository: posit-dev/positron-builds
-          run-id: ${{ steps.dispatch.outputs.run_id }}
-          github-token: ${{ steps.final-token.outputs.token }}
-          pattern: explore-result-*
-          merge-multiple: true
-          path: ${{ runner.temp }}/explore-results
-
-      - name: Download the report URL files
-        if: always() && steps.dispatch.outputs.run_id != ''
-        continue-on-error: true
-        uses: actions/download-artifact@v7
-        with:
-          repository: posit-dev/positron-builds
-          run-id: ${{ steps.dispatch.outputs.run_id }}
-          github-token: ${{ steps.final-token.outputs.token }}
-          pattern: explore-report-url-*
-          merge-multiple: true
-          path: ${{ runner.temp }}/explore-results
+        env:
+          GH_TOKEN: ${{ steps.final-token.outputs.token }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          DEST: ${{ runner.temp }}/explore-results
+        run: |
+          status=0
+          for glob in 'explore-result-*' 'explore-report-url-*'; do
+            .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$DEST" "$glob" || status=1
+          done
+          exit "$status"
 
       - name: Collect the results
         id: collect
@@ -1024,13 +1014,11 @@ jobs:
       - name: Download run directory
         if: steps.builds-token.outcome == 'success'
         continue-on-error: true
-        uses: actions/download-artifact@v7
-        with:
-          name: exploratory-run-${{ steps.result.outputs.model }}
-          path: /tmp/run-artifact
-          repository: posit-dev/positron-builds
-          run-id: ${{ needs.dispatch.outputs.run_id }}
-          github-token: ${{ steps.builds-token.outputs.token }}
+        env:
+          GH_TOKEN: ${{ steps.builds-token.outputs.token }}
+          RUN_ID: ${{ needs.dispatch.outputs.run_id }}
+          MODEL: ${{ steps.result.outputs.model }}
+        run: .harness/.github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" /tmp/run-artifact "exploratory-run-$MODEL"
 
       # The artifact root is the common parent of what matched, so the run dir
       # is nested when code.log or the workspace was uploaded too and at the
