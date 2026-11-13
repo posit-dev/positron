@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { showHiddenDataConnections } from '../positronDataConnectionsInspectActions.js';
+import { showHiddenDataConnections } from '../showHiddenDataConnections.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';

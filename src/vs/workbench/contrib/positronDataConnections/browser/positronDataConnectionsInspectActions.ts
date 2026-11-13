@@ -15,6 +15,7 @@ import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickin
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { getDataConnectionCode, getDataConnectionLineage, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
+import { showHiddenDataConnections } from './showHiddenDataConnections.js';
 
 // The Command Palette category these actions appear under.
 const CATEGORY = localize2('positron.dataConnections.category', 'Data Connections');
@@ -347,47 +348,11 @@ export class ShowDataConnectionLineageAction extends Action2 {
 	}
 }
 
-/**
- * Offers the hidden detected connections and shows the ones the user picks again. Says so when
- * nothing is hidden.
- * @param dataConnectionsService The data connections service.
- * @param quickInputService The quick input service.
- * @param notificationService The notification service.
- */
-export async function showHiddenDataConnections(
-	dataConnectionsService: IPositronDataConnectionsService,
-	quickInputService: IQuickInputService,
-	notificationService: INotificationService,
-): Promise<void> {
-	const hidden = dataConnectionsService.getHiddenDiscoveredProfiles();
-	if (hidden.length === 0) {
-		notificationService.info(localize('positron.dataConnections.showHiddenConnections.none', "No data connections are hidden."));
-		return;
-	}
-
-	const picks = await quickInputService.pick<IDataConnectionProfilePickItem>(
-		hidden.map(profile => ({
-			label: profile.connectionName,
-			description: profile.driverMetadata.name,
-			detail: profile.description,
-			profileId: profile.id,
-		})),
-		{
-			canPickMany: true,
-			placeHolder: localize('positron.dataConnections.showHiddenConnections.pick', "Select the connections to show again"),
-		});
-	if (!picks || picks.length === 0) {
-		return;
-	}
-
-	dataConnectionsService.unhideDiscoveredProfiles(picks.map(pick => pick.profileId));
-}
-
 export const SHOW_HIDDEN_DATA_CONNECTIONS_COMMAND_ID = 'positronDataConnections.showHiddenConnections';
 
 /**
  * Command Palette entry that shows hidden detected connections again. Not an inspect action: it
- * lives here to reuse CATEGORY, PRECONDITION and IDataConnectionProfilePickItem.
+ * lives here to reuse CATEGORY and PRECONDITION.
  */
 class ShowHiddenDataConnectionsAction extends Action2 {
 	constructor() {
