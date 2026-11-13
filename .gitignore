@@ -109,6 +109,8 @@ dist
 .rebuild-trash.*
 # Posit Assistant plans, which are local working notes rather than repo content
 .posit/assistant/plans/
+# Review files the positron-review skill saves
+/reviews/
 # CI secret scan marker
 secret-scan/
 # --- End Positron ---
