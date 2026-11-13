@@ -1,4 +1,4 @@
-name: "Test: Merge"
+name: "Test: Merge (dispatch)"
 
 # Positron's tests run in the private repo posit-dev/positron-builds. After a
 # push to main, prerelease/**, or release/**, this job dispatches that repo's

@@ -1,4 +1,4 @@
-name: "Test: PR"
+name: "Test: PR (dispatch)"
 
 # Positron's tests run in the private repo posit-dev/positron-builds. This job
 # dispatches that repo's test-pr.yml for the PR, waits for it, and reports its
