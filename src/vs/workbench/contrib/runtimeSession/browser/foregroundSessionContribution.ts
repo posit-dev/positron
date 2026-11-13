@@ -40,7 +40,7 @@ import { INotebookEditorService } from '../../notebook/browser/services/notebook
  * - Regular file focused -> console session for that language becomes foreground
  *
  * Notebook Session Lifecycle (onDidStartRuntime, onDidChangeRuntimeState):
- * - Notebook session starts -> becomes foreground if its notebook is the active editor
+ * - Notebook session starts or is starting -> becomes foreground if its notebook is the active editor
  * - Notebook session becomes ready (e.g., after restart) -> becomes foreground if its notebook is the active editor
  *
  * Console session foreground changes are handled directly by:
@@ -90,9 +90,14 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 			this._handleNotebookSessionStartedOrReady(session);
 		}));
 
-		// Listen for notebook sessions becoming ready (e.g., after a restart)
+		// Listen for notebook sessions starting, so the interpreter picker shows a
+		// notebook's session while it starts, and becoming ready (e.g., after a
+		// restart). The first state change comes after every onWillStartSession
+		// listener has run, so other services already know about the session.
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState((event) => {
-			if (event.new_state === RuntimeState.Ready) {
+			if (event.new_state === RuntimeState.Initializing ||
+				event.new_state === RuntimeState.Starting ||
+				event.new_state === RuntimeState.Ready) {
 				const session = this._runtimeSessionService.getSession(event.session_id);
 				if (session) {
 					this._handleNotebookSessionStartedOrReady(session);

@@ -160,6 +160,26 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(runtimeSessionService.foregroundSession?.sessionId).toBe(session.sessionId);
 		});
 
+		// With no console running, a notebook in a preview tab has no session to
+		// show, so the interpreter picker stays on "Start Session".
+		it('leaves no foreground session when no sessions exist and a sessionless notebook is active', () => {
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(runtimeSessionService.foregroundSession).toBe(undefined);
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBe(undefined);
+		});
+
+		it('keeps the console as foreground when a sessionless notebook is active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
 		it('uses cached session info when notebook has no active session', async () => {
 			// Start and exit a notebook session to create cached display info
 			const session = await startNotebookSession();
@@ -315,6 +335,53 @@ describe('Positron - ForegroundSessionContribution', () => {
 			session.setRuntimeState(RuntimeState.Ready);
 
 			expect(getForegroundSessionId()).toBe(session.sessionId);
+		});
+
+		/**
+		 * Starts a notebook session whose start stays pending until the returned
+		 * `finish` is called. Resolves once the session reports Starting.
+		 */
+		async function startHeldNotebookSession(uri: URI = notebookUri) {
+			let finish!: () => void;
+			const finished = new Promise<void>(resolve => finish = resolve);
+			let reportStarting!: (session: TestLanguageRuntimeSession) => void;
+			const startingReported = new Promise<TestLanguageRuntimeSession>(resolve => reportStarting = resolve);
+			const originalStart = TestLanguageRuntimeSession.prototype.start;
+			vi.spyOn(TestLanguageRuntimeSession.prototype, 'start').mockImplementationOnce(async function (this: TestLanguageRuntimeSession) {
+				this.setRuntimeState(RuntimeState.Starting);
+				reportStarting(this);
+				await finished;
+				return originalStart.call(this);
+			});
+			const started = startNotebookSession(uri);
+			const session = await startingReported;
+			return { session, finish: async () => { finish(); await started; } };
+		}
+
+		it('a starting notebook session becomes foreground when its notebook is active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			const { session, finish } = await startHeldNotebookSession();
+
+			// It is foreground while it starts, so the picker shows it starting.
+			expect(getForegroundSessionId()).toBe(session.sessionId);
+			await finish();
+			expect(getForegroundSessionId()).toBe(session.sessionId);
+		});
+
+		it('a starting notebook session does not take foreground when its notebook is not active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			activeEditor = createNotebookEditorInput(URI.file('/path/to/other.ipynb'));
+			onDidActiveEditorChange.fire();
+
+			const { finish } = await startHeldNotebookSession();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+			await finish();
 		});
 	});
 
