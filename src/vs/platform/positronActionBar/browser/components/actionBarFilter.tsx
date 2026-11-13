@@ -15,6 +15,8 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
 import { Icon as IconType } from '../../../action/common/action.js';
 import { Icon } from './icon.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { IHoverManager } from '../../../hover/browser/hoverManager.js';
+import { usePositronHoverManager } from '../usePositronHoverManager.js';
 
 /**
  * ActionBarFilterSize type.
@@ -41,9 +43,16 @@ interface ActionBarFilterProps {
 	 */
 	onFilterButtonPressed?: (anchorElement: HTMLElement) => void;
 	/**
-	 * Tooltip for the filter button. Only used when onFilterButtonPressed is provided.
+	 * Tooltip for the filter button. Only used when onFilterButtonPressed is provided. Defaults to
+	 * "Filter options".
 	 */
 	filterButtonTooltip?: string;
+	/**
+	 * Optional hover manager used to show the tooltips of the clear and filter buttons. Pass the
+	 * parent's hover manager so the buttons share it with their siblings. Without one, the hover
+	 * manager from context is used, or failing that the filter creates its own.
+	 */
+	hoverManager?: IHoverManager;
 }
 
 export interface ActionBarFilterHandle {
@@ -60,6 +69,10 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 	const filterButtonRef = useRef<HTMLButtonElement>(null);
+	const clearButtonRef = useRef<HTMLButtonElement>(null);
+
+	// Hover manager hooks. Uses the parent's hover manager when given, else the context's, else its own.
+	const hoverManager = usePositronHoverManager(props.hoverManager);
 
 	// State hooks.
 	const [focused, setFocused] = useState(false);
@@ -71,8 +84,14 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		props.onFilterTextChanged(e.target.value);
 	};
 
+	// The tooltips for the clear and filter buttons.
+	const clearButtonTooltip = localize('positronClearFilter', "Clear filter");
+	const filterOptionsLabel = localize('positronFilterOptions', "Filter options");
+	const filterButtonTooltip = props.filterButtonTooltip ?? filterOptionsLabel;
+
 	// Button clear click handler.
 	const buttonClearClickHandler = () => {
+		hoverManager?.hideHover();
 		inputRef.current.value = '';
 		setFilterText('');
 		props.onFilterTextChanged('');
@@ -90,6 +109,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 
 	// Filter button click handler.
 	const filterButtonClickHandler = () => {
+		hoverManager?.hideHover();
 		if (filterButtonRef.current) {
 			props.onFilterButtonPressed?.(filterButtonRef.current);
 		}
@@ -143,11 +163,14 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				/>
 				{(filterText !== '' || props.showClearAlways) && (
 					<button
-						aria-label={localize('positronClearFilter', "Clear filter")}
+						ref={clearButtonRef}
+						aria-label={clearButtonTooltip}
 						className='clear-button'
 						disabled={props.disabled || filterText === ''}
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
+						onMouseEnter={() => hoverManager?.showHover(clearButtonRef.current!, clearButtonTooltip)}
+						onMouseLeave={() => hoverManager?.hideHover()}
 					>
 						<Icon icon={props.clearButtonIcon ?? Codicon.clearAll} />
 					</button>
@@ -156,12 +179,13 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					<button
 						ref={filterButtonRef}
 						aria-haspopup='menu'
-						aria-label={localize('positronFilterOptions', "Filter options")}
+						aria-label={filterOptionsLabel}
 						className='filter-button'
 						disabled={props.disabled}
-						title={props.filterButtonTooltip}
 						onClick={filterButtonClickHandler}
 						onKeyDown={filterButtonKeyDownHandler}
+						onMouseEnter={() => hoverManager?.showHover(filterButtonRef.current!, filterButtonTooltip)}
+						onMouseLeave={() => hoverManager?.hideHover()}
 					>
 						<Icon icon={Codicon.filter} />
 					</button>

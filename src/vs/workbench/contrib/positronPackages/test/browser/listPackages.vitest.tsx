@@ -17,6 +17,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ListPackages } from '../../browser/components/listPackages.js';
 import { PackagesItemSize } from '../../browser/positronPackagesContextKeys.js';
@@ -64,6 +65,7 @@ describe('ListPackages', () => {
 	});
 
 	const showContextMenu = vi.fn();
+	const showInstantHover = vi.fn();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -78,6 +80,7 @@ describe('ListPackages', () => {
 		// command; stub it so these flash/select tests don't emit unhandled rejections.
 		.stub(ICommandService, { executeCommand: vi.fn() })
 		.stub(IContextMenuService, { showContextMenu })
+		.stub(IHoverService, { showInstantHover, hideHover: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -107,6 +110,17 @@ describe('ListPackages', () => {
 	// the outer .positron-list-row carries the selection class.
 	const itemRow = (name: string) => screen.getByText(name).closest('.packages-list-item');
 	const listRow = (name: string) => screen.getByText(name).closest('.positron-list-row');
+
+	// The filter box only shows its tooltips when the list hands it a hover manager.
+	it('shows the filter button tooltip when hovering it', async () => {
+		renderList();
+		const user = userEvent.setup();
+		await user.hover(screen.getByRole('button', { name: 'Filter options' }));
+		await waitFor(() => expect(showInstantHover).toHaveBeenCalledWith(
+			expect.objectContaining({ content: 'Filter options' }),
+			false
+		));
+	});
 
 	it('flashes and selects a single installed or updated package', async () => {
 		renderList();
