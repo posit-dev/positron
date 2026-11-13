@@ -22,10 +22,12 @@ const { installPackageMock, updatePackageMock } = vi.hoisted(() => ({
 	installPackageMock: vi.fn(),
 	updatePackageMock: vi.fn(),
 }));
-vi.mock('../../browser/positronPackagesQuickPick.js', () => ({
+vi.mock('../../browser/positronPackagesQuickPick.js', async (importOriginal) => ({
 	installPackage: installPackageMock,
 	updatePackage: updatePackageMock,
 	uninstallPackage: vi.fn(),
+	// Real, so the package list a picker is handed can be checked.
+	environmentPackageCandidates: (await importOriginal<typeof import('../../browser/positronPackagesQuickPick.js')>()).environmentPackageCandidates,
 }));
 
 const { InstallPackageAction, UninstallPackageAction, UpdatePackageAction } = await import('../../browser/positronPackages.contribution.js');
@@ -66,7 +68,7 @@ describe('packages install and update commands', () => {
 			searchPackageVersions,
 			resolveLatestVersion,
 			searchPackages: vi.fn().mockResolvedValue([]),
-			refreshPackages: vi.fn().mockResolvedValue([]),
+			refreshPackages: vi.fn(async () => installedPackages),
 			// A getter so a test can change what is installed after the stub is
 			// built, which is how the post-install read-back is exercised.
 			get activePackagesInstance(): IPositronPackagesInstance {
@@ -466,6 +468,21 @@ describe('packages install and update commands', () => {
 			expect(error).not.toHaveBeenCalled();
 		});
 
+		it('says a bundled-only package has no environment copy, rather than no newer version', async () => {
+			resolveLatestVersion.mockResolvedValue(undefined);
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true }];
+
+			const result = await runUpdate('tornado', 'latest');
+
+			expect(result).toEqual({
+				updated: false,
+				name: 'tornado',
+				message: `'tornado' is bundled with Positron, and your environment has no copy of it to update.`,
+			});
+			expect(updatePackages).not.toHaveBeenCalled();
+			expect(error).not.toHaveBeenCalled();
+		});
+
 		it('reports a failed \'latest\' lookup as a failure', async () => {
 			resolveLatestVersion.mockRejectedValue(new Error('network down'));
 
@@ -539,6 +556,19 @@ describe('packages install and update commands', () => {
 
 			expect(updatePackages).not.toHaveBeenCalled();
 			expect(results.every(r => r.updated === false)).toBe(true);
+		});
+
+		it('does not offer a bundled-only package in the update picker', async () => {
+			installedPackages = [
+				installedPackage('dplyr', '1.9'),
+				{ ...installedPackage('tornado', '6.5.7'), bundled: true },
+				{ ...installedPackage('six', '1.17.0'), bundled: true, environmentVersion: '1.16.0' },
+			];
+
+			await runUpdate();
+
+			const performSearch = updatePackageMock.mock.calls[0][1] as (q: string) => Promise<{ name: string }[]>;
+			expect(await performSearch('')).toEqual([{ name: 'dplyr' }, { name: 'six' }]);
 		});
 
 		it('returns the outcome of an update chosen in the quick-pick', async () => {

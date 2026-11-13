@@ -37,7 +37,7 @@ import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING } from './packageVulnerabilityLookup.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
-import { installPackage, uninstallCandidates, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { environmentPackageCandidates, installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { bundledUninstallMessage } from './positronPackagesInstance.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
@@ -269,8 +269,19 @@ async function resolveLatestForUpdate(
 	}
 
 	if (!latest) {
-		// Not an error, and deliberately not notified as one: the usual reason is
-		// that the installed version is already the newest available.
+		// Not an error, and deliberately not notified as one. The lookup just
+		// reloaded the list, so it says whether the package is bundled only:
+		// then there is no environment copy for a newer version to replace.
+		const listed = service.activePackagesInstance?.packages
+			.find((pkg) => pkg.name.toLowerCase() === name.toLowerCase());
+		if (listed && isBundledOnly(listed)) {
+			return {
+				ok: false,
+				message: nls.localize('positronPackages.updateBundledOnly', "'{0}' is bundled with Positron, and your environment has no copy of it to update.", name)
+			};
+		}
+		// Otherwise the usual reason is that the installed version is already
+		// the newest available.
 		return {
 			ok: false,
 			message: nls.localize('positronPackages.noNewerVersion', "No newer version of '{0}' is available to this session.", name)
@@ -587,7 +598,7 @@ export class UninstallPackageAction extends Action2 {
 		try {
 			const performSearch = async () => {
 				const packages = await service.refreshPackages(cts.token);
-				return uninstallCandidates(packages);
+				return environmentPackageCandidates(packages);
 			};
 
 			const performUninstall = async (pkg: string): Promise<void> => {
@@ -696,10 +707,7 @@ export class UpdatePackageAction extends Action2 {
 		try {
 			const performSearch = async () => {
 				const packages = await service.refreshPackages(cts.token);
-				return packages
-					.map((x) => ({
-						name: x.name
-					}));
+				return environmentPackageCandidates(packages);
 			};
 
 			const performSearchVersions = async (pkg: string) => {

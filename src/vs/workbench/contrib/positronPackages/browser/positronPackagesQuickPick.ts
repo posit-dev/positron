@@ -143,10 +143,11 @@ export const updatePackage = async (
 };
 
 /**
- * The installed packages the uninstall picker offers: every one except those
- * only Positron's bundle provides, which have no environment copy to remove.
+ * The installed packages the update and uninstall pickers offer: every one
+ * except those only Positron's bundle provides, which have no environment copy
+ * to update or remove.
  */
-export function uninstallCandidates(packages: readonly ILanguageRuntimePackage[]): { name: string }[] {
+export function environmentPackageCandidates(packages: readonly ILanguageRuntimePackage[]): { name: string }[] {
 	return packages.filter((pkg) => !isBundledOnly(pkg)).map((pkg) => ({ name: pkg.name }));
 }
 
