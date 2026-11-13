@@ -21,25 +21,21 @@ export function parseResultComment(body) {
 	return sha && base && run ? { shortSha: sha, reportBase: base, run, trigger } : null;
 }
 
-/** Whether `comment` is a result comment the workflow posted, not a quote of one. */
-export function isResultComment(comment) {
-	return comment.user?.login === 'github-actions[bot]' && parseResultComment(comment.body) !== null;
-}
-
 /**
- * The run ids of the result comments posted at or after `since` in a list of repo comments, by PR. The list API's own
- * `since` goes by when a comment was last edited, so an older one edited later is left out here. Comments on issues are left out too.
+ * The results the workflow posted at or after `since`, by PR, each with its `postedAt`. Quotes by people and comments on
+ * issues are left out. The list API's own `since` goes by when a comment was last edited, so it is checked again here.
  */
-export function resultRuns(comments, since) {
+export function resultsByPr(comments, since) {
 	const from = new Date(since).getTime();
-	const runs = new Map();
+	const results = new Map();
 	for (const c of comments) {
 		const pr = Number(c.html_url?.match(/\/pull\/(\d+)#/)?.[1]);
-		if (pr && new Date(c.created_at).getTime() >= from && isResultComment(c)) {
-			runs.set(pr, [...(runs.get(pr) ?? []), parseResultComment(c.body).run]);
+		const parsed = c.user?.login === 'github-actions[bot]' ? parseResultComment(c.body) : null;
+		if (pr && parsed && new Date(c.created_at).getTime() >= from) {
+			results.set(pr, [...(results.get(pr) ?? []), { ...parsed, postedAt: c.created_at }]);
 		}
 	}
-	return runs;
+	return results;
 }
 
 /**
@@ -220,14 +216,15 @@ const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
 /**
  * Whether reading `pr` again can't change its saved rows: it is merged, every run on it has saved rows, and every row is
- * in `settled`. A run with no rows (a report that failed to load, or one with no findings) keeps the PR read. Origins
- * set by hand and the PR's closing issues aren't read again, so a change to either needs a --recheck.
+ * in `settled` with the origin `overrides` sets for it, if any. A run with no rows (a report that failed to load, or one
+ * with no findings) keeps the PR read. A removed override and the PR's closing issues aren't seen, so they need a --recheck.
  */
-export function prSettled(rows, settled, pr, runs) {
+export function prSettled(rows, settled, overrides, pr, runs) {
 	const own = rows.filter(r => r.pr === pr);
 	return own.length > 0
 		&& runs.every(run => own.some(r => r.run === run))
-		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`));
+		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`)
+			&& (overrides[`${r.run}#${r.finding}`]?.origin ?? r.origin) === r.origin);
 }
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
