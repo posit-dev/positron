@@ -64,6 +64,15 @@
 	background: color-mix(in srgb, var(--vscode-charts-green) 18%, var(--vscode-editor-background));
 }
 
+.package-detail-bundled-pill {
+	font-size: 0.8em;
+	line-height: 1.4;
+	padding: 1px 8px;
+	border-radius: 10px;
+	color: var(--vscode-descriptionForeground);
+	background: color-mix(in srgb, var(--vscode-descriptionForeground) 18%, var(--vscode-editor-background));
+}
+
 /*
  * Buttons are anchored with `.positron-button` (two-class specificity) so these
  * colours win over the base `.positron-button` rule, exactly as the Packages
@@ -126,6 +135,15 @@
 	border-radius: 4px;
 	background: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
 	border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-panel-border));
+}
+
+.package-detail-bundled-note {
+	margin-top: 12px;
+	padding: 8px 12px;
+	border-radius: 4px;
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .package-detail-tabs {
@@ -238,6 +256,10 @@
 }
 
 /* Attribution under the advisory list: which instance reported, and when. */
+.package-detail-security-bundled {
+	margin-top: 14px;
+}
+
 .package-detail-security-source {
 	color: var(--vscode-descriptionForeground);
 	font-size: 11px;
@@ -289,6 +311,25 @@
 }
 
 .package-detail-vulnerability-link.positron-button:hover {
+	text-decoration: underline;
+}
+
+/*
+ * The setting name inside a sentence, as a link that opens the setting. The
+ * button's user agent padding and font would otherwise set it apart from the
+ * surrounding text.
+ */
+.package-detail-setting-link.positron-button {
+	display: inline;
+	padding: 0;
+	margin: 0;
+	font: inherit;
+	line-height: inherit;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.package-detail-setting-link.positron-button:hover {
 	text-decoration: underline;
 }
 

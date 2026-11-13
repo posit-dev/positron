@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { IVariableItem } from '../../../positronVariables/common/interfaces/variableItem.js';
 import { IPositronDataExplorerInstance } from '../../browser/interfaces/positronDataExplorerInstance.js';
@@ -180,19 +179,16 @@ describe('viewVariableItem', () => {
 describe('canViewVariableItem', () => {
 	createLightTestContainer().build();
 
+	// A connection's view opens a connection comm, which becomes a row in Data Connections, so it is
+	// viewable like any other kind (Decision 9).
 	it.each([
-		{ kind: 'table', hasViewer: true, enabled: undefined, expected: true },
-		{ kind: 'table', hasViewer: false, enabled: undefined, expected: false },
-		{ kind: 'connection', hasViewer: true, enabled: undefined, expected: true },
-		{ kind: 'connection', hasViewer: true, enabled: true, expected: false },
-		{ kind: 'connection', hasViewer: true, enabled: false, expected: true },
-		{ kind: 'connection', hasViewer: false, enabled: false, expected: false },
-	])('returns $expected for a $kind with hasViewer=$hasViewer when dataConnections.enabled is $enabled', ({ kind, hasViewer, enabled, expected }) => {
-		const configurationService = new TestConfigurationService(
-			enabled === undefined ? {} : { dataConnections: { enabled } },
-		);
+		{ kind: 'table', hasViewer: true, expected: true },
+		{ kind: 'table', hasViewer: false, expected: false },
+		{ kind: 'connection', hasViewer: true, expected: true },
+		{ kind: 'connection', hasViewer: false, expected: false },
+	])('returns $expected for a $kind with hasViewer=$hasViewer', ({ kind, hasViewer, expected }) => {
 		const item = makeItem({ kind, hasViewer });
 
-		expect(canViewVariableItem(item, configurationService)).toBe(expected);
+		expect(canViewVariableItem(item)).toBe(expected);
 	});
 });

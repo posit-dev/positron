@@ -69,7 +69,6 @@ export class PositronDataExplorerClickToViewContribution extends Disposable impl
 				model,
 				position,
 				{
-					configurationService: this._configurationService,
 					languageService: this._languageService,
 					runtimeSessionService: this._runtimeSessionService,
 					variablesService: this._variablesService,
