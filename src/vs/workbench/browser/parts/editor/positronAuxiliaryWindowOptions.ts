@@ -14,6 +14,20 @@ import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/b
 const ASSISTANT_WEBVIEW_VIEW_TYPE = 'posit-assistant';
 
 /**
+ * Webview view type of a Posit Assistant window panel: an Assistant editor that shows its own
+ * conversation tabs and lives in a dedicated Assistant window. Cross-repo contract, like the
+ * view type above.
+ */
+const ASSISTANT_WINDOW_VIEW_TYPE = 'posit-assistant.window';
+
+/**
+ * Whether an editor is a Posit Assistant window panel.
+ */
+export function isAssistantWindowEditor(editor: EditorInput): boolean {
+	return editor.editorId === `mainThreadWebview-${ASSISTANT_WINDOW_VIEW_TYPE}`;
+}
+
+/**
  * The single definition of the "dedicated window" look: native OS title bar,
  * compact chrome, sized to (and opening over) the window the editor leaves.
  * `extraTraits` may add traits but never replace the shape -- the dedicated
@@ -45,4 +59,12 @@ export function getAuxiliaryWindowOptionsForEditors(editors: readonly EditorInpu
 		return dedicatedWindowOptions(sourceWindow);
 	}
 	return undefined;
+}
+
+/**
+ * The dedicated Assistant window: the dedicated look, with compact mode locked on so a stray
+ * editor or menu action can't bring Positron's chrome back, as Canvas does.
+ */
+export function assistantWindowOptions(sourceWindow: Window): IAuxiliaryWindowOpenOptions {
+	return dedicatedWindowOptions(sourceWindow, { lockCompact: true });
 }
