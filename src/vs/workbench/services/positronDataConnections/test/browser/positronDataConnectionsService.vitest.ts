@@ -1258,6 +1258,24 @@ describe('PositronDataConnectionsService', () => {
 				expect(disconnect).toHaveBeenCalledTimes(1);
 			});
 
+			// The hidden set is shared across windows, but saving is not: this window shows the
+			// connection as a saved row, so another window hiding the discovery leaves it alone here.
+			it('keeps a connection this window saved when another window hides its discovery', async () => {
+				const { disconnect } = await registerConnectableDriver();
+				await service.connect(pagilaId);
+				service.saveDiscoveredProfile(pagilaId);
+
+				const changed = Event.toPromise(service.onDidChangeDiscoveredProfiles);
+				storageService.store(hiddenKey, JSON.stringify([pagilaId]), StorageScope.PROFILE, StorageTarget.MACHINE, true);
+				await changed;
+
+				expect({
+					instances: service.getInstances().map(instance => instance.profileId),
+					resolves: service.getProfile(pagilaId)?.id,
+					disconnects: disconnect.mock.calls.length,
+				}).toEqual({ instances: [pagilaId], resolves: pagilaId, disconnects: 0 });
+			});
+
 			it('refuses to connect to a hidden discovery', async () => {
 				const { connect } = await registerConnectableDriver();
 				service.hideDiscoveredProfile(pagilaId);

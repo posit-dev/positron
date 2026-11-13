@@ -775,7 +775,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// A hidden discovery has no row to disconnect from, so opening one would leave a connection
 		// the user cannot reach. Checked before the live-instance reuse below, which would otherwise
 		// hand back a connection that hiding is still closing.
-		if (this._hiddenDiscoveryIds.has(profileId)) {
+		if (this._isHiddenHere(profileId)) {
 			throw new Error(`Data connection '${profileId}' is hidden`);
 		}
 
@@ -836,7 +836,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		}
 
 		// Hiding disconnects by profile, which found no instance while this connect was in flight.
-		if (this._hiddenDiscoveryIds.has(profileId)) {
+		if (this._isHiddenHere(profileId)) {
 			await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after it was hidden`);
 			throw new Error(`Data connection '${profileId}' was hidden while connecting`);
 		}
@@ -1104,7 +1104,17 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param id The discovered profile id.
 	 */
 	private _findVisibleDiscovery(id: string): IDataConnectionProfile | undefined {
-		return this._hiddenDiscoveryIds.has(id) ? undefined : this._discoveredProfiles.find(p => p.id === id);
+		return this._isHiddenHere(id) ? undefined : this._discoveredProfiles.find(p => p.id === id);
+	}
+
+	/**
+	 * Whether a discovery is hidden in this window. The hidden set is shared by every window on the
+	 * profile, but a discovery a saved profile stands in for has no row of its own here, so another
+	 * window hiding it does not hide the saved connection (or the instance it backs) in this one.
+	 * @param id The discovered profile id.
+	 */
+	private _isHiddenHere(id: string): boolean {
+		return this._hiddenDiscoveryIds.has(id) && this._unsavedDiscoveries().some(discovered => discovered.id === id);
 	}
 
 	/**
@@ -1167,7 +1177,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return;
 		}
 		for (const id of this._hiddenDiscoveryIds) {
-			if (!previous.has(id) && this.getInstanceForProfile(id) !== undefined) {
+			if (!previous.has(id) && this._isHiddenHere(id) && this.getInstanceForProfile(id) !== undefined) {
 				void this.disconnect(id);
 			}
 		}
