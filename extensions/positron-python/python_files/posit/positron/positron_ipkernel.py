@@ -712,7 +712,7 @@ class PositronIPyKernel(IPythonKernel):
         )
 
         # Patch holoviews to use our custom notebook extension.
-        set_holoviews_extension(self.ui_service)
+        set_holoviews_extension(self.ui_service, self.session_mode)
         handle_bokeh_output(self.session_mode)
 
         # Patch bokeh to generate html in tempfile
