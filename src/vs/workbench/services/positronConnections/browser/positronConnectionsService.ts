@@ -203,13 +203,15 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	}
 
 	/**
-	 * Opens the Data Connections pane and reveals a runtime row in it.
+	 * Opens the Data Connections pane and reveals a runtime row in it, without taking keyboard
+	 * focus: the user is typing in the Console when the runtime opens a connection, as the legacy
+	 * Connections pane assumed.
 	 * @param profileId The row's discovered profile id.
 	 */
 	private async revealRuntimeConnection(profileId: string) {
 		try {
 			await this.viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
-			this.dataConnectionsService.revealConnection(profileId);
+			this.dataConnectionsService.revealConnection(profileId, { preserveFocus: true });
 		} catch (e) {
 			this.logService.error(`Error while revealing runtime connection ${profileId}`, e);
 		}

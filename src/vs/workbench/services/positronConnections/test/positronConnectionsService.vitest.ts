@@ -446,14 +446,15 @@ describe('Positron - Connections Service', () => {
 				connectHeld.complete();
 
 				await vi.waitFor(() => expect(revealConnection).toHaveBeenCalled());
+				// Neither the view nor the row takes focus from the Console the user is typing in.
 				expect({
 					order,
-					views: openView.mock.calls.map(([id]) => id).filter(id => id === POSITRON_DATA_CONNECTIONS_VIEW_ID),
-					revealed: revealConnection.mock.calls.map(([id]) => id),
+					views: openView.mock.calls.filter(([id]) => id === POSITRON_DATA_CONNECTIONS_VIEW_ID),
+					revealed: revealConnection.mock.calls,
 				}).toEqual({
 					order: ['openView', 'reveal connected'],
-					views: [POSITRON_DATA_CONNECTIONS_VIEW_ID],
-					revealed: [profileId],
+					views: [[POSITRON_DATA_CONNECTIONS_VIEW_ID, false]],
+					revealed: [[profileId, { preserveFocus: true }]],
 				});
 			});
 
@@ -465,7 +466,10 @@ describe('Positron - Connections Service', () => {
 
 				client.receiveData(focusEvent());
 
-				await vi.waitFor(() => expect(revealConnection.mock.calls.map(([id]) => id)).toEqual([profileId, profileId]));
+				await vi.waitFor(() => expect(revealConnection.mock.calls).toEqual([
+					[profileId, { preserveFocus: true }],
+					[profileId, { preserveFocus: true }],
+				]));
 			});
 
 			// Real Python sends focus whenever the pane should show; the reveal follows the event.
