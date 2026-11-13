@@ -57,6 +57,11 @@ def set_holoviews_extension(ui_service: UiService, session_mode: SessionMode) ->
                     # that it can clear stored messages for the session.
                     ui_service.clear_webview_preloads()
 
+                    if session_mode != SessionMode.NOTEBOOK and (
+                        "matplotlib" in args or "matplotlib" in kwargs
+                    ):
+                        _allow_positron_matplotlib_backend()
+
                     super().__call__(*args, **kwargs)
 
             holoviews.extension = PositronNotebookExtension
@@ -100,6 +105,27 @@ def set_holoviews_extension(ui_service: UiService, session_mode: SessionMode) ->
 
         if session_mode != SessionMode.NOTEBOOK:
             _patch_static_image_components()
+
+
+def _allow_positron_matplotlib_backend() -> None:
+    """
+    Keep Positron's matplotlib backend when HoloViews loads its matplotlib extension.
+
+    HoloViews switches matplotlib to the non-interactive `agg` backend unless the current backend
+    is in its allowlist, which would stop later matplotlib plots from reaching the Plots pane.
+    Positron's backend doesn't open plots for HoloViews' own figures (see `console.py`).
+    """
+    try:
+        from holoviews.plotting.mpl import renderer
+    except ImportError:
+        # matplotlib is an optional HoloViews dependency
+        return
+
+    from ..matplotlib_backend.backend import Backend
+
+    for name in (Backend.CONSOLE.short_name, Backend.CONSOLE.full_name):
+        if name not in renderer._MPL_BACKENDS_ALLOWLIST:  # noqa: SLF001
+            renderer._MPL_BACKENDS_ALLOWLIST.append(name)  # noqa: SLF001
 
 
 def _patch_static_image_components() -> None:
@@ -148,7 +174,9 @@ def display_holoviews(obj: Dimensioned) -> None:
 
     data, metadata = obj._repr_mimebundle_()
     # Show nothing if HoloViews displayed nothing, unless no HoloViews extension is loaded.
-    if data or not Store.renderers:
+    # `hv.extension` registers the display hooks; importing a renderer alone (e.g. via `hv.save`)
+    # does not.
+    if data or not Store._display_hooks:  # noqa: SLF001
         # Include the text repr like IPython would. The frontend also requires it to recognize
         # interactive HoloViews plots.
         publish_display_data({"text/plain": repr(obj), **data}, metadata)

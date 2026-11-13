@@ -4,6 +4,7 @@
 #
 
 import io
+from collections import defaultdict
 from collections.abc import Iterator
 from importlib.util import find_spec
 
@@ -58,6 +59,38 @@ def test_matplotlib_backend_shows_in_plots_pane(
 
     rendered = plots[0]._render(PlotSize(width=400, height=300), 2.0, "png")  # noqa: SLF001
     assert Image.open(io.BytesIO(rendered)).size == (800, 600)
+
+
+def test_matplotlib_plots_after_extension(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Loading the holoviews matplotlib extension keeps Positron's backend for later plots."""
+    shell.run_cell('import holoviews as hv; hv.extension("matplotlib")').raise_error()
+
+    shell.run_cell("hv.Curve([1, 2, 3])").raise_error()
+    shell.run_cell("import matplotlib.pyplot as plt; plt.figure(); plt.plot([1, 2])").raise_error()
+
+    assert [plot._kind for plot in plots_service._plots] == ["HoloViews", "matplotlib"]  # noqa: SLF001
+
+
+def test_text_repr_without_extension(
+    shell: PositronShell,
+    session: MockSession,
+    plots_service: PlotsService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A renderer loaded without `hv.extension`, e.g. by `hv.save`, still shows the text repr."""
+    from holoviews import Store
+
+    # Other tests' `hv.extension` calls register display hooks for the whole process.
+    monkeypatch.setattr(Store, "_display_hooks", defaultdict(dict))
+    shell.run_cell("import holoviews as hv; import holoviews.plotting.mpl").raise_error()
+    session.messages.clear()
+
+    shell.run_cell("hv.Curve([1, 2])").raise_error()
+
+    assert plots_service._plots == []  # noqa: SLF001
+    assert _displayed_data(session) == [{"text/plain": ":Curve   [x]   (y)"}]
 
 
 def test_bokeh_backend_is_unchanged(
