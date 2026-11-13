@@ -101,16 +101,18 @@ Compare `git diff refs/vscode-python/START refs/vscode-python/END -- .github/` w
 
 Draft the PR body as a markdown file in the working directory. Do not post it without asking. Include: the upstream range and issue link, the user's decisions on High items, the MAJOR dependency jumps, the manual validation areas from step 1, and e2e tags (use the positron-pr-helper skill).
 
-### 9. Full Suite run
+### 9. Full suite run
 
-PR CI runs only the tagged e2e tests and the Positron-only extension-host driver. An upstream merge needs the "Test: Full Suite" workflow as well. After the branch is pushed and the PR is open, ask the user, then start it:
+PR CI runs only the tagged e2e tests, without credentials. An upstream merge needs a full run as well. The tests run in the private repo `posit-dev/positron-builds`, through its manual lane (`test-positron-ref.yml`). After the branch is pushed and the PR is open, ask the user, then start it:
 
 ```bash
-gh workflow run test-full-suite.yml --ref "$(git branch --show-current)" \
-  -f run_name="Test: Full Suite (PR #<number>)"
+gh workflow run test-positron-ref.yml --repo posit-dev/positron-builds --ref pr-lane \
+  -f positron_ref="$(git branch --show-current)" \
+  -f grep='' \
+  -f run_e2e_web=true -f run_e2e_windows=true
 ```
 
-The defaults cover e2e on Ubuntu, Windows, and Chromium, plus extension-host tests on Linux and Windows. If step 1 found risk in those areas, add `-f run_e2e_jupyter=true` (notebooks) or `-f run_e2e_pyrefly=true` (language server). Get the run ID and URL with `gh run list --workflow test-full-suite.yml --branch <branch> --limit 1 --json databaseId,url`, and put the URL in the PR description or a PR comment.
+An empty `grep` runs every e2e test of each lane. The defaults also run the unit and extension-host suites, so this covers unit, extension host, and e2e on Ubuntu (Electron and Chromium) and Windows. `--ref pr-lane` is necessary because the branch is not on `main`; the run gets no credentials, so tests that need one skip. The manual lane has no Jupyter, Pyrefly, or Windows extension-host lane at this time. If step 1 found risk in those areas, say so in the PR. Get the run ID and URL with `gh run list --repo posit-dev/positron-builds --workflow test-positron-ref.yml --branch pr-lane --limit 5 --json databaseId,url,createdAt`, and put the URL in the PR description or a PR comment.
 
 The run is not a required PR check, so nothing blocks the merge if it fails. Watch it in the background (`gh run watch <id> --exit-status`; it takes tens of minutes) and report the result to the user. Do not call the PR ready to merge until the run passes, or until the user has triaged each failure (use the e2e-failure-analyzer skill) as unrelated or fixed.
 
@@ -120,5 +122,5 @@ The run is not a required PR check, so nothing blocks the merge if it fails. Wat
 - Taking upstream startup or performance shortcuts (timeouts, cached or last-known values, listeners that do nothing in VS Code) without checking callers in `src/client/positron/`. Positron starts runtime sessions from interpreter events, which VS Code does not do.
 - Leaving the commented-out upstream copy inside a Positron block stale.
 - Formatting extension files with the repo-root formatter.
-- Merging on PR CI alone, without a Full Suite run (step 9).
+- Merging on PR CI alone, without a full suite run (step 9).
 - Bundling ipykernel or ipython major bumps without kernel tests and e2e coverage (Console, Variables, Plots, Help, debugging).
