@@ -449,7 +449,9 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: list[JsonData]
             packages_dict[canonical] = entry
     for canonical, shadowed_copies in shadowed_by_name.items():
         packages_dict[canonical]["shadowed"] = shadowed_copies
-    return sorted(packages_dict.values(), key=lambda p: str(p["displayName"]))
+    packages = sorted(packages_dict.values(), key=lambda p: str(p["displayName"]))
+    # list is invariant, so Pyright does not accept list[dict[str, JsonData]] as JsonData.
+    return cast("JsonData", packages)
 
 
 # Evaluate Requires-Python specifiers against this kernel's interpreter.
