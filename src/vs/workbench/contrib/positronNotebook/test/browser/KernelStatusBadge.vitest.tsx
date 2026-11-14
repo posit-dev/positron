@@ -16,7 +16,6 @@ import {
 } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import {
 	ILanguageRuntimeSession,
-	IRuntimeSessionDisplayInfo,
 	IRuntimeSessionMetadata,
 	IRuntimeSessionService,
 } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -33,7 +32,6 @@ const NOTEBOOK_URI = URI.file('/tmp/notebook.ipynb');
 describe('KernelStatusBadge', () => {
 	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
 	let displayState: RuntimeState | undefined;
-	let lastSessionInfo: IRuntimeSessionDisplayInfo | undefined;
 
 	function makeSession(initial: RuntimeState, sessionId = 's1'): { session: ILanguageRuntimeSession; emitter: Emitter<RuntimeState> } {
 		const stateEmitter = new Emitter<RuntimeState>();
@@ -80,14 +78,9 @@ describe('KernelStatusBadge', () => {
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
 			getDisplayRuntimeState: () => displayState,
-			getLastNotebookSessionInfo: () => lastSessionInfo,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
-
-	beforeEach(() => {
-		lastSessionInfo = undefined;
-	});
 
 	function renderBadge(instance: IPositronNotebookInstance) {
 		return rtl.render(
@@ -160,17 +153,6 @@ describe('KernelStatusBadge', () => {
 		displayState = undefined;
 		const kernel = makeKernel('Python 3.12', 'python-3.12');
 		renderBadge(makeInstance(NotebookKernelStatus.Exited, kernel));
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
-		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
-	});
-
-	// A notebook whose kernel was shut down and which was then closed and
-	// reopened gets a new instance with no session, like a preview tab.
-	it('shows disconnected icon when a session ran for the notebook and has ended', () => {
-		displayState = undefined;
-		lastSessionInfo = stubInterface<IRuntimeSessionDisplayInfo>({ sessionState: RuntimeState.Exited });
-		const kernel = makeKernel('Python 3.12', 'python-3.12');
-		renderBadge(makeInstance(NotebookKernelStatus.Unselected, kernel));
 		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});

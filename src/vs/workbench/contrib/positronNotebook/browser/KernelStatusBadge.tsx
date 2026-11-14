@@ -55,8 +55,8 @@ export function KernelStatusBadge() {
 	// The icon reflects session connection state: a live session drives it
 	// via runtimeState. A session is attached before it starts, while it is
 	// still Uninitialized, so that state shows as Active. Without a session, a
-	// kernel that ran and stopped is Disconnected and one that never started
-	// (e.g. in a preview tab) is NotStarted.
+	// kernel that ran and stopped in this editor is Disconnected, and one that
+	// hasn't started (e.g. in a preview tab, or after reopening) is NotStarted.
 	// The two overrides (Switching, Discovering) show Active to communicate a
 	// transition the user kicked off or the app is working through, even
 	// though no session is attached during those windows.
@@ -70,11 +70,7 @@ export function KernelStatusBadge() {
 	} else if (kernelStatus === NotebookKernelStatus.Discovering) {
 		runtimeStatus = RuntimeStatus.Active;
 	} else if (kernelStatus === NotebookKernelStatus.Unselected) {
-		// A reopened notebook gets a new instance with no session, so ask
-		// whether a session ran for it earlier in this window.
-		runtimeStatus = services.runtimeSessionService.getLastNotebookSessionInfo(notebookInstance.uri)
-			? RuntimeStatus.Disconnected
-			: RuntimeStatus.NotStarted;
+		runtimeStatus = RuntimeStatus.NotStarted;
 	} else {
 		runtimeStatus = RuntimeStatus.Disconnected;
 	}
