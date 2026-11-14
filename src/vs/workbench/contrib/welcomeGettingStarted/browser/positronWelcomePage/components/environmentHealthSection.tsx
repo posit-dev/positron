@@ -15,7 +15,7 @@ import { status } from '../../../../../../base/browser/ui/aria/aria.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { useEventState } from '../../../../../../base/browser/ui/react/useEventState.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { usePositronActionBarHoverManager } from '../../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
+import { usePositronHoverManager } from '../../../../../../platform/positronActionBar/browser/usePositronHoverManager.js';
 import { WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY } from '../../../common/positronWelcomePageConfiguration.js';
 import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthService } from '../environmentHealthService.js';
@@ -54,7 +54,7 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 		language.state.kind === 'result' && language.state.result.items.every(item => item.status === 'pass'));
 
 	// Follows the workbench's hover delay and styling rather than being a title attribute.
-	const hoverManager = usePositronActionBarHoverManager();
+	const hoverManager = usePositronHoverManager();
 
 	// The busy indicator is not a live region -- a screen reader reads it only if
 	// the user navigates onto it -- so starting a run would otherwise be silent.
