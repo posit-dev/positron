@@ -180,8 +180,13 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
 		});
 
-		it('uses cached session info when notebook has no active session', async () => {
-			// Start and exit a notebook session to create cached display info
+		// A notebook whose earlier session ended has no session now, so the
+		// foreground stays where it was.
+		it('keeps the console as foreground when a notebook whose session ended becomes active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+
+			// Start and exit a notebook session, so the service remembers it
 			const session = await startNotebookSession();
 			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
 			session.setRuntimeState(RuntimeState.Exited);
@@ -192,10 +197,8 @@ describe('Positron - ForegroundSessionContribution', () => {
 			activeEditor = createNotebookEditorInput(notebookUri);
 			onDidActiveEditorChange.fire();
 
-			// No live session, foreground should be cleared
-			expect(runtimeSessionService.foregroundSession).toBe(undefined);
-			// Cached display info should be set so the interpreter picker shows what was last used
-			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached info').toBeDefined();
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+			expect(runtimeSessionService.foregroundSessionDisplayInfo?.sessionMode).toBe(LanguageRuntimeSessionMode.Console);
 		});
 	});
 
@@ -383,6 +386,33 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
 			await finish();
 		});
+
+		it('a focus event while a previously run notebook starts does not clear the foreground', async () => {
+			// Run and end a session, so the service remembers the notebook
+			const oldSession = await startNotebookSession();
+			const exitedPromise = waitForRuntimeState(oldSession, RuntimeState.Exited);
+			oldSession.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(oldSession.sessionId);
+
+			const onDidFocusWidget = ctx.disposables.add(new Emitter<void>());
+			const instance = {
+				getId: () => 'instance-1',
+				uri: notebookUri,
+				onDidFocusWidget: onDidFocusWidget.event,
+			} as unknown as IPositronNotebookInstance;
+			notebookInstances = [instance];
+			onDidAddNotebookInstance.fire(instance);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			const { session, finish } = await startHeldNotebookSession();
+			// The new session is not in the notebook session map until it has started.
+			onDidFocusWidget.fire();
+
+			expect(getForegroundSessionId()).toBe(session.sessionId);
+			await finish();
+		});
 	});
 
 	describe('notebook instance removed', () => {
@@ -517,9 +547,11 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 	});
 
-	describe('Quarto editor cached session info', () => {
-		it('uses cached session info when Quarto file has no active session', async () => {
+	describe('Quarto editor whose session ended', () => {
+		it('keeps the console as foreground when a Quarto file whose session ended becomes active', async () => {
 			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
 
 			const quartoUri = URI.file('/path/to/doc.qmd');
 
@@ -536,10 +568,8 @@ describe('Positron - ForegroundSessionContribution', () => {
 			activeCodeEditor = codeEditor;
 			onDidActiveEditorChange.fire();
 
-			// No live session, foreground should be cleared
-			expect(runtimeSessionService.foregroundSession).toBe(undefined);
-			// Cached display info should be set
-			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached Quarto session info').toBeDefined();
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+			expect(runtimeSessionService.foregroundSessionDisplayInfo?.sessionMode).toBe(LanguageRuntimeSessionMode.Console);
 		});
 	});
 
