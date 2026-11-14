@@ -43,7 +43,7 @@ describe('DataExplorerMocks', () => {
 
 		const filter = mocks.getCompareFilter(schema.columns[2], FilterComparisonOp.Gt, '1234');
 		expect(filter.filter_type).toBe(RowFilterType.Compare);
-		expect(filter.column_schema.column_index).toBe(2);
+		expect(filter.column_schema?.column_index).toBe(2);
 
 		const params = filter.params as FilterComparison;
 
@@ -54,7 +54,7 @@ describe('DataExplorerMocks', () => {
 	it('Test getIsNullFilter', () => {
 		const schema = mocks.getTableSchema(1000, 10);
 		let filter = mocks.getIsNullFilter(schema.columns[3]);
-		expect(filter.column_schema.column_index).toBe(3);
+		expect(filter.column_schema?.column_index).toBe(3);
 		expect(filter.filter_type).toBe(RowFilterType.IsNull);
 
 		filter = mocks.getNotNullFilter(schema.columns[3]);
@@ -65,7 +65,7 @@ describe('DataExplorerMocks', () => {
 		const schema = mocks.getTableSchema(1000, 10);
 		const filter = mocks.getTextSearchFilter(schema.columns[5], 'needle',
 			TextSearchType.Contains, false);
-		expect(filter.column_schema.column_index).toBe(5);
+		expect(filter.column_schema?.column_index).toBe(5);
 		expect(filter.filter_type).toBe(RowFilterType.Search);
 
 		const params = filter.params as FilterTextSearch;
@@ -79,7 +79,7 @@ describe('DataExplorerMocks', () => {
 		const schema = mocks.getTableSchema(1000, 10);
 		const set_values = ['need1', 'need2'];
 		const filter = mocks.getSetMemberFilter(schema.columns[6], set_values, true);
-		expect(filter.column_schema.column_index).toBe(6);
+		expect(filter.column_schema?.column_index).toBe(6);
 		expect(filter.filter_type).toBe(RowFilterType.SetMembership);
 
 		const params = filter.params as FilterSetMembership;

@@ -8,7 +8,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
 import { DataExplorerClientInstance, DataExplorerClientStatus } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ArraySelection, ColumnSchema, ColumnSelection, ColumnValue, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -66,6 +66,8 @@ export enum DataCellKind {
 export interface DataCell {
 	formatted: string;
 	kind: DataCellKind;
+	/** Whether the backend reported that the cell matched the active global search. */
+	searchMatch?: boolean;
 }
 
 const SpecialValues: Record<number, [DataCellKind, string]> = {
@@ -91,6 +93,14 @@ function decodeSpecialValue(value: number) {
 			formatted: 'UNKNOWN'
 		};
 	}
+}
+
+/**
+ * Converts a column value into a data cell.
+ * @param value The column value.
+ */
+export function toDataCell(value: ColumnValue): DataCell {
+	return typeof value === 'number' ? decodeSpecialValue(value) : { formatted: value, kind: DataCellKind.NON_NULL };
 }
 
 /**
@@ -180,9 +190,9 @@ export class TableDataCache extends Disposable {
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * Gets the row label cache.
+	 * Gets the row label cache, holding each label and whether it matched the active global search.
 	 */
-	private readonly _rowLabelCache = new Map<number, string>();
+	private readonly _rowLabelCache = new Map<number, { label: string; searchMatch?: boolean }>();
 
 	/**
 	 * Gets the data column cache.
@@ -346,15 +356,7 @@ export class TableDataCache extends Disposable {
 					const value = tableData.columns[column][row];
 
 					// Convert the cell value into a data cell.
-					let dataCell: DataCell;
-					if (typeof value === 'number') {
-						dataCell = decodeSpecialValue(value);
-					} else {
-						dataCell = {
-							formatted: value,
-							kind: DataCellKind.NON_NULL
-						};
-					}
+					const dataCell = toDataCell(value);
 
 					// Calculate the column value width.
 					const columnValueWidth = pinToRange(
@@ -647,14 +649,10 @@ export class TableDataCache extends Disposable {
 					const value = tableData.columns[column][row];
 
 					// Convert the cell value into a data cell.
-					let dataCell: DataCell;
-					if (typeof value === 'number') {
-						dataCell = decodeSpecialValue(value);
-					} else {
-						dataCell = {
-							formatted: value,
-							kind: DataCellKind.NON_NULL
-						};
+					const dataCell = toDataCell(value);
+					const searchMatch = tableData.search_matches?.[column]?.[row];
+					if (searchMatch !== undefined) {
+						dataCell.searchMatch = searchMatch;
 					}
 
 					// Set the row index.
@@ -696,7 +694,10 @@ export class TableDataCache extends Disposable {
 						}
 
 						// Cache the row label.
-						this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
+						this._rowLabelCache.set(rowIndex, {
+							label: tableRowLabels.row_labels[0][row],
+							searchMatch: tableRowLabels.search_matches?.[0]?.[row]
+						});
 					}
 				} catch (error) {
 					// Log and continue; the cell data above is already loaded. The headers stop
@@ -777,12 +778,21 @@ export class TableDataCache extends Disposable {
 
 		// A labeled table's labels are fetched separately, so this one may not have arrived yet.
 		if (this._hasRowLabels) {
-			return this._rowLabelCache.get(rowIndex);
+			return this._rowLabelCache.get(rowIndex)?.label;
 		}
 
 		// An unlabeled table's rows are identified by their number, which is known for every row
 		// as soon as the shape is.
 		return `${rowIndex}`;
+	}
+
+	/**
+	 * Gets whether the row label for the specified row index matched the active global search.
+	 * @param rowIndex The row index.
+	 * @returns false for an unlabeled table, or undefined if the backend did not say.
+	 */
+	getRowLabelSearchMatch(rowIndex: number): boolean | undefined {
+		return this._hasRowLabels ? this._rowLabelCache.get(rowIndex)?.searchMatch : false;
 	}
 
 	/**

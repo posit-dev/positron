@@ -14,7 +14,8 @@ import {
 	TableSchema,
 	RowFilterCondition,
 	ColumnDisplayType,
-	FilterComparisonOp
+	FilterComparisonOp,
+	FormatOptions
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 const exampleTypes: [string, ColumnDisplayType, object][] = [
@@ -24,6 +25,13 @@ const exampleTypes: [string, ColumnDisplayType, object][] = [
 	['double', ColumnDisplayType.Floating, {}],
 	['timestamp', ColumnDisplayType.Datetime, { timezone: 'America/New_York' }]
 ];
+
+/**
+ * Returns the format options the data explorer client formats data values with by default.
+ */
+export function getFormatOptions(): FormatOptions {
+	return { large_num_digits: 2, small_num_digits: 4, max_integral_digits: 7, max_value_length: 1000, thousands_sep: '' };
+}
 
 export function getTableSchema(numRows: number = 100, numColumns: number = 10): TableSchema {
 	const columns = [];

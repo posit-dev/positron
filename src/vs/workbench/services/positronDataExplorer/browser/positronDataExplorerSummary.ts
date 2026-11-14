@@ -21,6 +21,8 @@ export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
 export const DATA_EXPLORER_ENABLE_PREVIEW_KEY =
 	'dataExplorer.enablePreview';
+export const DATA_EXPLORER_SEARCH_MAX_CELLS_KEY =
+	'dataExplorer.search.maxCells';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
@@ -93,6 +95,21 @@ configurationRegistry.registerConfiguration({ // for preview mode
 			markdownDescription: localize(
 				'positron.dataExplorerEnablePreview',
 				'Controls whether preview mode is used for Data Explorer and Object Explorer tabs, similar to `#workbench.editor.enablePreview#` for regular editors. Preview tabs are shown in italics and are replaced by the next preview tab opened. Double-clicking or clicking the \'Keep Open\' option in its label context menu pins the tab.'
+			),
+		},
+	},
+});
+configurationRegistry.registerConfiguration({ // for search
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[DATA_EXPLORER_SEARCH_MAX_CELLS_KEY]: {
+			type: 'integer',
+			default: 10_000_000,
+			minimum: 0,
+			markdownDescription: localize(
+				'positron.dataExplorerSearchMaxCells',
+				"Maximum number of cells the search across all columns scans. Larger tables are searched over their leading rows only, and the status bar offers to search the rest. Set to 0 for no limit."
 			),
 		},
 	},

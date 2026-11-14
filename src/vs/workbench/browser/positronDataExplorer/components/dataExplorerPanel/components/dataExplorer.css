@@ -56,6 +56,7 @@
 .data-explorer-panel .data-explorer .left-column .data-grid-container {
 	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
 	min-height: 0;
+	position: relative;
 	grid-row: data-grid / end-rows;
 }
 
@@ -151,5 +152,6 @@
 .data-explorer-panel .data-explorer .right-column .data-grid-container {
 	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
 	min-height: 0;
+	position: relative;
 	grid-row: data-grid / end-rows;
 }

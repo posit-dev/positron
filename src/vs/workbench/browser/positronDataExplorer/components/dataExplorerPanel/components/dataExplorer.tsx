@@ -25,6 +25,7 @@ import { PositronDataExplorerLayout } from '../../../../../services/positronData
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
 import { SummaryProfilesNotice } from './summaryProfilesNotice/summaryProfilesNotice.js';
+import { NoSearchResults } from './noSearchResults.js';
 import { createBareFontInfoFromRawSettings } from '../../../../../../editor/common/config/fontInfoFromSettings.js';
 
 /**
@@ -407,6 +408,7 @@ export const DataExplorer = () => {
 							context.instance.tableDataDataGridInstance
 						}
 					/>
+					{layout !== PositronDataExplorerLayout.SummaryOnLeft && <NoSearchResults />}
 				</div>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
@@ -455,6 +457,7 @@ export const DataExplorer = () => {
 							context.instance.tableSchemaDataGridInstance
 						}
 					/>
+					{layout === PositronDataExplorerLayout.SummaryOnLeft && <NoSearchResults />}
 				</div>
 			</div>
 		</div >

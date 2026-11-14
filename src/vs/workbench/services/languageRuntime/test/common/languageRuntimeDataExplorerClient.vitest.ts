@@ -229,6 +229,24 @@ describe('DataExplorerClientInstance', () => {
 			]);
 		});
 
+		it('carries the global search over unchanged', async () => {
+			const search: RowFilter = {
+				filter_id: 'global-search',
+				filter_type: RowFilterType.GlobalSearch,
+				condition: RowFilterCondition.And,
+				params: { term: 'abc' },
+			};
+			const table = createTable({
+				columns: ['name'],
+				rowFilters: ([name]) => [filterOn(name), search],
+				columnsAfterRefresh: ['name'],
+			});
+
+			await table.client.refresh();
+
+			expect(table.client.cachedBackendState?.row_filters).toEqual([filterOn(columnsOf(['name'])[0]), search]);
+		});
+
 		it('applies a filter again once its column is back', async () => {
 			const [, age] = columnsOf(['name', 'age']);
 			const table = createTable({
