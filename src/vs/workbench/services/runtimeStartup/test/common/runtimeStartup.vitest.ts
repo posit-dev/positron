@@ -1506,6 +1506,43 @@ describe('RuntimeStartupService - reconnect after a reload', () => {
 				.toEqual([focusedLast.sessionId]);
 		});
 	});
+
+	/** The IDs of the sessions saved for the next reload. */
+	function savedSessionIds() {
+		const saved = ([...ephemeralState.values()][0] ?? []) as SerializedSessionMetadata[];
+		return saved.map(session => session.metadata.sessionId).sort();
+	}
+
+	/** Ends a session the way a lost extension host does. */
+	async function disconnect(session: TestLanguageRuntimeSession) {
+		session.setRuntimeState(RuntimeState.Exited);
+		session.endSession({ reason: RuntimeExitReason.ExtensionHost });
+		await timeout(0);
+	}
+
+	it('keeps a disconnected session in the saved sessions when another session starts', async () => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const disconnected = await startConsole(1);
+		await disconnect(disconnected);
+		expect(savedSessionIds()).toEqual([disconnected.sessionId]);
+
+		const other = await startConsole(2);
+
+		await vi.waitFor(() => expect(savedSessionIds())
+			.toEqual([disconnected.sessionId, other.sessionId].sort()));
+	});
+
+	it('removes an exited session from the saved sessions when it is no longer disconnected', async () => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const exited = await startConsole(1);
+		await disconnect(exited);
+		// The session service stops the wait when the kernel is gone.
+		vi.spyOn(ctx.get(IRuntimeSessionService), 'isSessionDisconnected').mockReturnValue(false);
+
+		const other = await startConsole(2);
+
+		await vi.waitFor(() => expect(savedSessionIds()).toEqual([other.sessionId]));
+	});
 });
 
 describe('RuntimeStartupService - restart after a crash', () => {

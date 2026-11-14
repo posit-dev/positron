@@ -1268,6 +1268,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Checks whether a session lost its extension host and waits to be
+	 * reconnected.
+	 */
+	isSessionDisconnected(sessionId: string): boolean {
+		return this._disconnectedSessions.has(sessionId);
+	}
+
+	/**
 	 * Gets the running runtimes.
 	 */
 	get activeSessions(): ILanguageRuntimeSession[] {
