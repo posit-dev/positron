@@ -38,6 +38,13 @@ vi.mock('../../../../../base/browser/positronModalReactRenderer.js', () => ({
 	},
 }));
 
+// The Hide confirmation is a dialog of its own, with its own tests. Mocking it lets these tests
+// read what the row asked it to show and answer it directly.
+const { showHideDataConnectionConfirmation } = vi.hoisted(() => ({ showHideDataConnectionConfirmation: vi.fn() }));
+vi.mock('../../browser/dialogs/hideDataConnectionConfirmation.js', () => ({
+	showHideDataConnectionConfirmation,
+}));
+
 const profile: IDataConnectionProfile = {
 	id: 'conn-1',
 	driverMetadata: {
@@ -300,13 +307,12 @@ describe('DataConnectionEntryRow', () => {
 	// lose it asks nothing first.
 	it('hides a discovered profile without a confirmation when no Data Explorers are open', async () => {
 		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
-		modalRender.mockClear();
 
 		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
 
 		expect({
 			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
-			dialogsShown: modalRender.mock.calls.length,
+			dialogsShown: showHideDataConnectionConfirmation.mock.calls.length,
 		}).toMatchInlineSnapshot(`
 			{
 			  "dialogsShown": 0,
@@ -321,17 +327,18 @@ describe('DataConnectionEntryRow', () => {
 	// asks first when it would close any.
 	it('confirms before hiding a discovered profile with open Data Explorers', async () => {
 		countOpenDataExplorers.mockReturnValueOnce(2);
+		let confirm: (confirmed: boolean) => void = () => { };
+		showHideDataConnectionConfirmation.mockReturnValueOnce(new Promise<boolean>(resolve => confirm = resolve));
 		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
-		modalRender.mockClear();
 
 		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
-		const dialogProps = modalRender.mock.lastCall?.[0].props;
+		const [connectionName, openDataExplorerCount] = showHideDataConnectionConfirmation.mock.lastCall ?? [];
 		const hiddenBeforeConfirm = hideDiscoveredProfile.mock.calls.length;
-		dialogProps.onConfirm();
+		confirm(true);
 		await vi.waitFor(() => expect(hideDiscoveredProfile).toHaveBeenCalled());
 
 		expect({
-			dialog: { connectionName: dialogProps.connectionName, openDataExplorerCount: dialogProps.openDataExplorerCount },
+			dialog: { connectionName, openDataExplorerCount },
 			hiddenBeforeConfirm,
 			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
 		}).toMatchInlineSnapshot(`
@@ -359,14 +366,14 @@ describe('DataConnectionEntryRow', () => {
 
 	it('does not hide a discovered profile when the confirmation is cancelled', async () => {
 		countOpenDataExplorers.mockReturnValueOnce(1);
+		showHideDataConnectionConfirmation.mockResolvedValueOnce(false);
 		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
-		modalRender.mockClear();
 
 		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
-		modalRender.mock.lastCall?.[0].props.onCancel();
-		// Let the cancelled confirmation settle before checking that nothing was hidden.
-		await Promise.resolve();
-		await Promise.resolve();
+		await vi.waitFor(() => expect(showHideDataConnectionConfirmation).toHaveBeenCalled());
+		// Wait a full task, so every microtask the row queues after the cancel has run, however many
+		// awaits it takes, before checking that nothing was hidden.
+		await new Promise(resolve => setTimeout(resolve, 0));
 
 		expect(hideDiscoveredProfile).not.toHaveBeenCalled();
 	});
