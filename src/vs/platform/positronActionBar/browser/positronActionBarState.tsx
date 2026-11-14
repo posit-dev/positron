@@ -12,7 +12,7 @@ import { IHoverManager } from '../../hover/browser/hoverManager.js';
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 import { Action, IAction, Separator } from '../../../base/common/actions.js';
 import { ContextKeyExpression } from '../../contextkey/common/contextkey.js';
-import { usePositronActionBarHoverManager } from './usePositronActionBarHoverManager.js';
+import { usePositronHoverManager } from './usePositronHoverManager.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
@@ -46,7 +46,7 @@ export const usePositronActionBarState = (): PositronActionBarState => {
 	const services = usePositronReactServicesContext();
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
-	const hoverManager = usePositronActionBarHoverManager();
+	const hoverManager = usePositronHoverManager();
 
 	/**
 	 * Appends a command action.

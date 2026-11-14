@@ -22,7 +22,7 @@ import { nodeReloadKey } from '../classes/dataConnectionNodeKey.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
+import { usePositronHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronHoverManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
 import { DataConnectionNodeDetailsEditorInput } from './dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -367,7 +367,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 
 	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
 	// takes the user there: it opens no details, and the tree takes focus.
-	const hoverManager = usePositronActionBarHoverManager();
+	const hoverManager = usePositronHoverManager();
 	const actions: IDataConnectionNodeDetailsActions = {
 		hoverManager,
 		revealInTree: treePath => reveal(

@@ -14,7 +14,7 @@ import { ConsoleTab } from './consoleTab.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { usePositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronActionBarHoverManager.js';
+import { usePositronHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronHoverManager.js';
 
 // ConsoleTabListProps interface.
 interface ConsoleTabListProps {
@@ -29,10 +29,10 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 
 	const tabListRef = useRef<HTMLDivElement>(null);
 
-	// One hover manager for the whole strip. Sharing it across the tabs is what
-	// makes moving from one tab to the next show the next name instantly instead
-	// of waiting out the hover delay again.
-	const hoverManager = usePositronActionBarHoverManager();
+	// One hover manager shared by every tab. Sharing it is what makes moving from
+	// one tab to the next show the next name instantly instead of waiting out the
+	// hover delay again.
+	const hoverManager = usePositronHoverManager();
 
 	// The sessions whose tab has no room left for its name. Names are hidden on
 	// every tab as soon as one of them runs out of room, so that the list
