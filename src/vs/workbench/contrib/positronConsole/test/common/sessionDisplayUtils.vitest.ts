@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getFittedSessionName } from '../../common/sessionDisplayUtils.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getFittedSessionName, getRuntimeStatus, RuntimeStatus } from '../../common/sessionDisplayUtils.js';
 
 /**
  * Stands in for measuring rendered text, giving every character the same width
@@ -73,5 +74,25 @@ describe('getFittedSessionName', () => {
 
 	it('returns an empty string when even the first character and the ellipsis will not fit', () => {
 		expect(getFittedSessionName('Python', 15, measureWidth)).toBe('');
+	});
+});
+
+describe('getRuntimeStatus', () => {
+	it('reports NotStarted when no session has started', () => {
+		expect(getRuntimeStatus(undefined)).toBe(RuntimeStatus.NotStarted);
+	});
+
+	it('maps a session runtime state to its display status', () => {
+		expect([
+			RuntimeState.Idle,
+			RuntimeState.Busy,
+			RuntimeState.Exited,
+			RuntimeState.Uninitialized,
+		].map(getRuntimeStatus)).toEqual([
+			RuntimeStatus.Idle,
+			RuntimeStatus.Active,
+			RuntimeStatus.Disconnected,
+			RuntimeStatus.Disconnected,
+		]);
 	});
 });

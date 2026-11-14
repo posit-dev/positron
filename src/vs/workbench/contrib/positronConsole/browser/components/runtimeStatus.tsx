@@ -7,7 +7,7 @@
 import './runtimeStatus.css';
 
 // Other dependencies.
-import { POSITRON_RUNTIME_STATE_ICON_ACTIVE, POSITRON_RUNTIME_STATE_ICON_DISCONNECTED, POSITRON_RUNTIME_STATE_ICON_IDLE } from '../../../../common/theme.js';
+import { POSITRON_RUNTIME_STATE_ICON_ACTIVE, POSITRON_RUNTIME_STATE_ICON_DISCONNECTED, POSITRON_RUNTIME_STATE_ICON_IDLE, POSITRON_RUNTIME_STATE_ICON_NOT_STARTED } from '../../../../common/theme.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../../platform/theme/common/iconRegistry.js';
@@ -34,16 +34,24 @@ const positronRuntimeStatusIdleIcon = registerIcon(
 	localize('positronRuntimeStatusIdleIcon', 'Icon to indicate the \'idle\' status of an interpreter session.')
 );
 
+const positronRuntimeStatusNotStartedIcon = registerIcon(
+	'positron-runtime-status-not-started',
+	Codicon.positronStatusIdle,
+	localize('positronRuntimeStatusNotStartedIcon', 'Icon to indicate that no interpreter session has started yet.')
+);
+
 const statusToIcon: Record<RuntimeStatus, ThemeIcon> = {
 	[RuntimeStatus.Active]: positronRuntimeStatusActiveIcon,
 	[RuntimeStatus.Disconnected]: positronRuntimeStatusDisconnectedIcon,
 	[RuntimeStatus.Idle]: positronRuntimeStatusIdleIcon,
+	[RuntimeStatus.NotStarted]: positronRuntimeStatusNotStartedIcon,
 };
 
 const statusToIconColor: Record<RuntimeStatus, ColorIdentifier> = {
 	[RuntimeStatus.Active]: POSITRON_RUNTIME_STATE_ICON_ACTIVE,
 	[RuntimeStatus.Disconnected]: POSITRON_RUNTIME_STATE_ICON_DISCONNECTED,
 	[RuntimeStatus.Idle]: POSITRON_RUNTIME_STATE_ICON_IDLE,
+	[RuntimeStatus.NotStarted]: POSITRON_RUNTIME_STATE_ICON_NOT_STARTED,
 };
 
 export interface RuntimeStatusIconProps {
