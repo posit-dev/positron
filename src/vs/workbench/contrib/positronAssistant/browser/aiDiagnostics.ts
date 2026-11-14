@@ -36,6 +36,7 @@ import { IOutputService, isMultiSourceOutputChannelDescriptor, isSingleSourceOut
 import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 import { ChatConfiguration } from '../../chat/common/constants.js';
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
+import { isAiSetting } from '../common/aiSettingKeys.js';
 import { NES_ENABLE_SETTING } from './nextEditSuggestionsDashboard.js';
 import { GIT_SUGGESTIONS_ENABLED_KEY } from './commitMessageAction.js';
 import { NOTEBOOK_AI_ENABLED_KEY } from '../../positronNotebook/common/positronNotebookConfig.js';
@@ -384,22 +385,6 @@ export function nestMarkdownHeadings(markdown: string, levels: number): string {
 		return '#'.repeat(depth) + match.groups.rest;
 	}).join('\n');
 }
-
-/** Setting-key prefixes that identify AI-related settings. */
-const AI_SETTING_PREFIXES = [
-	'ai.',
-	'notebook.ai.',
-	'nextEditSuggestions.',
-	'assistant.',
-	'positron.assistant.',
-	'authentication.',
-	'console.assistantActions.',
-	'git.suggestions.',
-	'github.copilot.',
-];
-
-/** AI-related settings that don't share one of the AI prefixes. */
-const AI_SETTING_EXACT_KEYS: string[] = [ChatConfiguration.AIDisabled];
 
 export { hasExplicitValue, REDACTED_VALUE };
 
@@ -770,7 +755,7 @@ export function collectAISettings(configurationService: IConfigurationService): 
 	const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
 	// Enforced keys may no longer be declared but still affect providers
 	const keys = [...new Set([...Object.keys(properties), ...configurationService.keys().policy])]
-		.filter(key => AI_SETTING_EXACT_KEYS.includes(key) || AI_SETTING_PREFIXES.some(prefix => key.startsWith(prefix)))
+		.filter(isAiSetting)
 		.sort();
 
 	const settings: IAIDiagnosticsSetting[] = [];
