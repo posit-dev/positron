@@ -11,6 +11,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
+import { IEditorCloseEvent } from '../../../../common/editor.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
@@ -28,6 +29,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	// --- Emitters for controllable service stubs (override preset defaults) ---
 	const onDidActiveEditorChange = new Emitter<void>();
+	const onDidCloseEditor = new Emitter<IEditorCloseEvent>();
 	const onDidAddNotebookInstance = new Emitter<IPositronNotebookInstance>();
 	const onDidRemoveNotebookInstance = new Emitter<IPositronNotebookInstance>();
 
@@ -36,6 +38,8 @@ describe('Positron - ForegroundSessionContribution', () => {
 	let activeCodeEditor: ICodeEditor | undefined;
 	let notebookInstances: IPositronNotebookInstance[] = [];
 	let quartoSessionForDocument: ILanguageRuntimeSession | undefined;
+	// Documents with no open editor. Every other document counts as open.
+	let closedUris: URI[] = [];
 
 	// Use withContributionServices() for Event.None defaults, then override
 	// the specific services this test needs to control via emitters/getters.
@@ -44,7 +48,11 @@ describe('Positron - ForegroundSessionContribution', () => {
 		.stub(IEditorService, {
 			get activeEditor() { return activeEditor; },
 			onDidActiveEditorChange: onDidActiveEditorChange.event,
-		} as IEditorService)
+			onDidCloseEditor: onDidCloseEditor.event,
+			findEditors: (uri: URI) => closedUris.some(closed => closed.toString() === uri.toString())
+				? []
+				: [{ editor: { resource: uri } }],
+		} as unknown as IEditorService)
 		.stub(IPositronNotebookService, {
 			onDidAddNotebookInstance: onDidAddNotebookInstance.event,
 			onDidRemoveNotebookInstance: onDidRemoveNotebookInstance.event,
@@ -72,6 +80,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 	afterAll(() => {
 		onDidActiveEditorChange.dispose();
+		onDidCloseEditor.dispose();
 		onDidAddNotebookInstance.dispose();
 		onDidRemoveNotebookInstance.dispose();
 	});
@@ -85,6 +94,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		activeCodeEditor = undefined;
 		notebookInstances = [];
 		quartoSessionForDocument = undefined;
+		closedUris = [];
 
 		// Reset Quarto config to avoid leakage between tests
 		configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, undefined);
@@ -180,20 +190,22 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
 		});
 
-		// A notebook whose earlier session ended has no session now, so the
-		// foreground stays where it was.
-		it('keeps the console as foreground when a notebook whose session ended becomes active', async () => {
+		// A reopened notebook whose earlier session ended has no session now, so
+		// the foreground stays where it was.
+		it('keeps the console as foreground when a reopened notebook whose session ended becomes active', async () => {
 			const consoleSession = await startConsoleSession();
 			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
 
-			// Start and exit a notebook session, so the service remembers it
+			// Start a notebook session, then close the notebook, which ends it
 			const session = await startNotebookSession();
+			closedUris = [notebookUri];
 			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
 			session.setRuntimeState(RuntimeState.Exited);
 			await exitedPromise;
 			await runtimeSessionService.deleteSession(session.sessionId);
+			closedUris = [];
 
-			// Set the notebook as active editor
+			// Open the notebook again
 			activeEditor = createNotebookEditorInput(notebookUri);
 			onDidActiveEditorChange.fire();
 
@@ -514,6 +526,81 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(runtimeSessionService.foregroundSessionDisplayInfo?.notebookUri?.toString()).toBe(notebookUri.toString());
 		});
 
+		it('shows the snapshot again when its notebook becomes active again while still open', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			await shutDownForegroundNotebook();
+
+			// Away to another document, which brings the console back
+			activeEditor = createNotebookEditorInput(URI.file('/path/to/other.ipynb'));
+			onDidActiveEditorChange.fire();
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+
+			// Back to the shut-down notebook
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(runtimeSessionService.foregroundSession).toBe(undefined);
+			const info = runtimeSessionService.foregroundSessionDisplayInfo;
+			expect([info?.notebookUri?.toString(), info?.sessionState]).toEqual([notebookUri.toString(), RuntimeState.Exited]);
+		});
+
+		it('shows the snapshot of a notebook that was shut down while another document was active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			const session = await startNotebookSession();
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			const info = runtimeSessionService.foregroundSessionDisplayInfo;
+			expect([info?.notebookUri?.toString(), info?.sessionState]).toEqual([notebookUri.toString(), RuntimeState.Exited]);
+		});
+
+		it('forgets the snapshot once the notebook is closed', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			await shutDownForegroundNotebook();
+
+			// Close it, then open it again
+			closedUris = [notebookUri];
+			onDidCloseEditor.fire({ editor: createNotebookEditorInput(notebookUri) } as IEditorCloseEvent);
+			activeEditor = createNotebookEditorInput(URI.file('/path/to/file.py'));
+			onDidActiveEditorChange.fire();
+			closedUris = [];
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
+		it('does not keep a snapshot for a notebook whose session ends after it was closed', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			const session = await startNotebookSession();
+
+			// Closing a notebook shuts its session down after the editor is gone
+			closedUris = [notebookUri];
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+			closedUris = [];
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
 		it('does not clear foreground when a console session is deleted', async () => {
 			const consoleSession = await startConsoleSession();
 			const notebookSession = await startNotebookSession();
@@ -593,21 +680,23 @@ describe('Positron - ForegroundSessionContribution', () => {
 	});
 
 	describe('Quarto editor whose session ended', () => {
-		it('keeps the console as foreground when a Quarto file whose session ended becomes active', async () => {
+		it('keeps the console as foreground when a reopened Quarto file whose session ended becomes active', async () => {
 			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 			const consoleSession = await startConsoleSession();
 			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
 
 			const quartoUri = URI.file('/path/to/doc.qmd');
 
-			// Start and exit a Quarto session to create cached info
+			// Start a Quarto session, then close the file, which ends it
 			const session = await startNotebookSession(quartoUri);
+			closedUris = [quartoUri];
 			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
 			session.setRuntimeState(RuntimeState.Exited);
 			await exitedPromise;
 			await runtimeSessionService.deleteSession(session.sessionId);
+			closedUris = [];
 
-			// Set Quarto file as active editor
+			// Open the Quarto file again
 			const codeEditor = createMockCodeEditor(quartoUri, 'quarto');
 			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
 			activeCodeEditor = codeEditor;
@@ -615,6 +704,27 @@ describe('Positron - ForegroundSessionContribution', () => {
 
 			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
 			expect(runtimeSessionService.foregroundSessionDisplayInfo?.sessionMode).toBe(LanguageRuntimeSessionMode.Console);
+		});
+
+		it('shows the stopped session of a Quarto file that stayed open', async () => {
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			const quartoUri = URI.file('/path/to/doc.qmd');
+
+			const session = await startNotebookSession(quartoUri);
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			onDidActiveEditorChange.fire();
+
+			expect(runtimeSessionService.foregroundSession).toBe(undefined);
+			const info = runtimeSessionService.foregroundSessionDisplayInfo;
+			expect([info?.notebookUri?.toString(), info?.sessionState]).toEqual([quartoUri.toString(), RuntimeState.Exited]);
 		});
 	});
 

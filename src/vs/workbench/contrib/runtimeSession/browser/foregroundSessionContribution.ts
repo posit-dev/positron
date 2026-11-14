@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ResourceMap } from '../../../../base/common/map.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -13,7 +14,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
 import {
 	isQuartoDocument,
@@ -60,6 +61,14 @@ import { INotebookEditorService } from '../../notebook/browser/services/notebook
 export class ForegroundSessionContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.foregroundSessionContribution';
 
+	/**
+	 * Snapshots of notebook and Quarto sessions that ended while their document
+	 * stayed open, so the interpreter picker can show the stopped session whenever
+	 * that document is active. Forgotten when the document closes or a new
+	 * session starts for it.
+	 */
+	private readonly _endedSessionSnapshots = new ResourceMap<IRuntimeSessionDisplayInfo>();
+
 	/** Tracks disposables for each Positron notebook instance's focus listener */
 	private readonly _positronNotebookDisposables = new Map<string, DisposableStore>();
 
@@ -102,8 +111,24 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				event.new_state === RuntimeState.Ready) {
 				const session = this._runtimeSessionService.getSession(event.session_id);
 				if (session) {
+					if (session.metadata.notebookUri) {
+						this._endedSessionSnapshots.delete(session.metadata.notebookUri);
+					}
 					this._handleNotebookSessionStartedOrReady(session);
 				}
+			} else if (event.new_state === RuntimeState.Exited) {
+				const session = this._runtimeSessionService.getSession(event.session_id);
+				if (session) {
+					this._recordEndedSession(session);
+				}
+			}
+		}));
+
+		// Forget a document's ended session once its last editor closes
+		this._register(this._editorService.onDidCloseEditor(({ editor }) => {
+			const uri = editor.resource;
+			if (uri && this._editorService.findEditors(uri).length === 0) {
+				this._endedSessionSnapshots.delete(uri);
 			}
 		}));
 
@@ -120,6 +145,7 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 			) {
 				this._runtimeSessionService.foregroundSession = undefined;
 				this._runtimeSessionService.foregroundSessionDisplayInfo =
+					this._endedSessionSnapshots.get(foregroundSession.metadata.notebookUri) ??
 					new RuntimeSessionDisplayInfo(foregroundSession, RuntimeState.Exited);
 			}
 		}));
@@ -298,9 +324,10 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			// No session, so the foreground session stays as it is. The
-			// document's kernel badge shows its status.
+			// No live session. Show the document's ended session if it had one,
+			// otherwise the foreground session stays as it is.
 			this._logService.trace(`[ForegroundSessionContribution] Positron notebook instance focused (${notebookName}) but no session found for URI`);
+			this._showDocumentWithoutSession(notebookUri);
 		}
 	}
 
@@ -368,9 +395,10 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			// No session, so the foreground session stays as it is. The
-			// document's kernel badge shows its status.
+			// No live session. Show the document's ended session if it had one,
+			// otherwise the foreground session stays as it is.
 			this._logService.trace(`[ForegroundSessionContribution] Legacy notebook editor focused (${notebookName}) but no session found for URI`);
+			this._showDocumentWithoutSession(notebookUri);
 		}
 	}
 
@@ -436,9 +464,10 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}), already the foreground session: ${session.sessionId}`);
 			}
 		} else {
-			// No session, so the foreground session stays as it is. The
-			// document's kernel badge shows its status.
+			// No live session. Show the document's ended session if it had one,
+			// otherwise the foreground session stays as it is.
 			this._logService.trace(`[ForegroundSessionContribution] Quarto editor focused (${fileName}) but no session found`);
+			this._showDocumentWithoutSession(uri);
 		}
 	}
 
@@ -525,10 +554,10 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 					this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// No session, so the foreground session stays as it is. The
-				// document's kernel badge shows its status.
+				// No live session. Show the document's ended session if it had one,
+				// otherwise the foreground session stays as it is.
 				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
-				this._dropStaleNotebookSnapshot(activeEditor.resource);
+				this._showDocumentWithoutSession(activeEditor.resource);
 			}
 			return;
 		}
@@ -561,10 +590,10 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 					this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}), but it is already the foreground session: ${session.sessionId}`);
 				}
 			} else {
-				// No session, so the foreground session stays as it is. The
-				// document's kernel badge shows its status.
+				// No live session. Show the document's ended session if it had one,
+				// otherwise the foreground session stays as it is.
 				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
-				this._dropStaleNotebookSnapshot(uri);
+				this._showDocumentWithoutSession(uri);
 			}
 			return;
 		}
@@ -592,9 +621,43 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 	}
 
 	/**
-	 * After a notebook's session is deleted while it is the foreground session,
-	 * the interpreter picker shows a snapshot of it. The snapshot only applies
-	 * while that notebook is active. Once another document is active, show the
+	 * Remembers a notebook or Quarto session that ended while its document is
+	 * open. A session that ends because its document closed is not remembered.
+	 */
+	private _recordEndedSession(session: ILanguageRuntimeSession): void {
+		const notebookUri = session.metadata.notebookUri;
+		if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook ||
+			!notebookUri ||
+			this._editorService.findEditors(notebookUri).length === 0) {
+			return;
+		}
+		this._endedSessionSnapshots.set(notebookUri, new RuntimeSessionDisplayInfo(session, RuntimeState.Exited));
+	}
+
+	/**
+	 * Updates the interpreter picker for an active notebook or Quarto document
+	 * with no live session. If its session ended while it stayed open, the
+	 * picker shows that stopped session. Otherwise the foreground session stays
+	 * as it is.
+	 *
+	 * @param uri The URI of the active document.
+	 */
+	private _showDocumentWithoutSession(uri: URI | undefined): void {
+		const snapshot = uri ? this._endedSessionSnapshots.get(uri) : undefined;
+		if (!snapshot) {
+			this._dropStaleNotebookSnapshot(uri);
+			return;
+		}
+		if (this._runtimeSessionService.foregroundSessionDisplayInfo !== snapshot) {
+			this._logService.trace(`[ForegroundSessionContribution] Showing the ended session for (${basename(snapshot.notebookUri!)})`);
+			this._runtimeSessionService.foregroundSession = undefined;
+			this._runtimeSessionService.foregroundSessionDisplayInfo = snapshot;
+		}
+	}
+
+	/**
+	 * The interpreter picker shows a stopped notebook or Quarto session only
+	 * while its document is active. Once another document is active, show the
 	 * last active console session instead, or nothing.
 	 *
 	 * @param activeUri The URI of the document that is now active.
