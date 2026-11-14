@@ -11,6 +11,7 @@ import * as positron from 'positron';
 import {
 	createRDataImporters,
 	escapeRString,
+	generateHavenImportCode,
 	generateJsonliteImportCode,
 	generateNanoparquetImportCode,
 	generateReadrImportCode,
@@ -380,6 +381,26 @@ suite('generateJsonliteImportCode', () => {
 	});
 });
 
+suite('generateHavenImportCode', () => {
+	test('generates a read_sas call with the comment directly above it', () => {
+		assert.strictEqual(
+			generateHavenImportCode({ pathLiteral: '"data/adsl.sas7bdat"', variableName: 'adsl' }).code,
+			[
+				'library(haven)',
+				'',
+				'# Load adsl data',
+				'adsl <- read_sas("data/adsl.sas7bdat")',
+				'',
+			].join('\n')
+		);
+	});
+
+	test('reads a transport file with read_xpt', () => {
+		const code = generateHavenImportCode({ pathLiteral: '"data/ADSL.XPT"', variableName: 'adsl' }).code;
+		assert.ok(code.includes('adsl <- read_xpt("data/ADSL.XPT")'));
+	});
+});
+
 suite('createRDataImporters', () => {
 	/** Runs the importer registered for a file's extension over that file. */
 	async function generate(
@@ -407,6 +428,7 @@ suite('createRDataImporters', () => {
 				['r', 'R (readxl)', ['xlsx']],
 				['r', 'R (nanoparquet)', ['parquet', 'parq']],
 				['r', 'R (jsonlite)', ['json']],
+				['r', 'R (haven)', ['sas7bdat', 'xpt']],
 			]
 		);
 	});
@@ -420,6 +442,8 @@ suite('createRDataImporters', () => {
 		['parquet', 'read_parquet('],
 		['parq', 'read_parquet('],
 		['json', 'read_json('],
+		['sas7bdat', 'read_sas('],
+		['xpt', 'read_xpt('],
 	];
 	for (const [extension, readCall] of readCalls) {
 		test(`reads a .${extension} file with ${readCall})`, async () => {

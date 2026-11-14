@@ -82,6 +82,7 @@ import * as zlib from 'zlib';
 import * as yauzl from 'yauzl';
 import { WorkerQueryRequest, WorkerQueryResponse } from './duckdbWorkerProtocol';
 import { createWorkerEnv } from './workerEnv.js';
+import { FileReader, findFileReader } from './fileReaders.js';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
@@ -190,6 +191,7 @@ export class DuckDBInstance {
 	private constructor(
 		private readonly workerPath: string,
 		private readonly idleShutdownMs: number,
+		private readonly workerArgs: string[],
 	) { }
 
 	/** Whether the worker child process is currently running. Exposed for tests. */
@@ -203,21 +205,23 @@ export class DuckDBInstance {
 	 * extension and constructing the instance costs nothing until a dataset is
 	 * actually opened.
 	 *
-	 * `workerPath` overrides the worker entry point and `idleShutdownMs` the
-	 * idle-shutdown cooldown; both exist only for tests (to exercise crash recovery
-	 * with a stub worker and idle shutdown without a two-minute wait).
+	 * `workerArgs` are passed to the worker (see `duckdbWorker.ts`). `workerPath`
+	 * overrides the worker entry point and `idleShutdownMs` the idle-shutdown
+	 * cooldown; both exist only for tests (to exercise crash recovery with a stub
+	 * worker and idle shutdown without a two-minute wait).
 	 */
-	static async create(
-		workerPath: string = DuckDBInstance.defaultWorkerPath,
-		idleShutdownMs: number = DuckDBInstance.IDLE_SHUTDOWN_MS,
-	): Promise<DuckDBInstance> {
-		return new DuckDBInstance(workerPath, idleShutdownMs);
+	static async create({
+		workerArgs = [],
+		workerPath = DuckDBInstance.defaultWorkerPath,
+		idleShutdownMs = DuckDBInstance.IDLE_SHUTDOWN_MS,
+	}: { workerArgs?: string[]; workerPath?: string; idleShutdownMs?: number } = {}): Promise<DuckDBInstance> {
+		return new DuckDBInstance(workerPath, idleShutdownMs, workerArgs);
 	}
 
 	private spawnWorker(): void {
 		// "advanced" serialization uses the V8 structured-clone algorithm, which
 		// preserves bigint and Date values returned by DuckDB.
-		const worker = fork(this.workerPath, [], {
+		const worker = fork(this.workerPath, this.workerArgs, {
 			serialization: 'advanced',
 			execArgv: [],
 			env: createWorkerEnv(),
@@ -1385,7 +1389,7 @@ export class DuckDBTableView {
 		readonly uri: vscode.Uri,
 		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
-		readonly db: DuckDBInstance,
+		public db: DuckDBInstance,
 		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
@@ -1398,11 +1402,19 @@ export class DuckDBTableView {
 		this._filteredShape = this._unfilteredShape;
 	}
 
-	async onFileUpdated(newTableName: string, newSchema: Array<SchemaEntry>) {
+	/**
+	 * Point the view at a re-imported table.
+	 * @param newTableName The name of the new table.
+	 * @param newSchema The new table's schema.
+	 * @param db The instance holding the new table, which may differ from the
+	 *   current one if `dataExplorer.fileReaders` changed since the last import.
+	 */
+	async onFileUpdated(newTableName: string, newSchema: Array<SchemaEntry>, db: DuckDBInstance) {
 		if (!this.isConnected) {
 			return;
 		}
 
+		this.db = db;
 		this.tableName = newTableName;
 		this.fullSchema = newSchema;
 
@@ -2311,8 +2323,15 @@ END`;
  * Metadata returned from importing a file into the DuckDB catalog.
  */
 interface CreateTableResult {
+	/** The instance holding the table. */
+	db: DuckDBInstance;
 	/** For Excel workbooks, the worksheet names (if they could be read). */
 	availableSheets?: string[];
+}
+
+/** Reads the `dataExplorer.fileReaders` setting. */
+function getFileReadersSetting(): unknown {
+	return vscode.workspace.getConfiguration('dataExplorer').get('fileReaders');
 }
 
 /**
@@ -2322,31 +2341,50 @@ interface CreateTableResult {
 export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	/**
-	 * Datasets with a currently-open data explorer, keyed by dataset URI. Distinct
-	 * from `_uriToTableView`, whose entries are dropped on a crash and lazily
-	 * rebuilt: this set tracks live clients so the worker can idle-shut-down once
-	 * the last explorer closes. Added in {@link openDataset}, removed in
+	 * The instance backing each dataset with a currently-open data explorer, keyed
+	 * by dataset URI. Distinct from `_uriToTableView`, whose entries are dropped on
+	 * a crash and lazily rebuilt: this map tracks live clients so each worker can
+	 * idle-shut-down once its last explorer closes. Added in {@link openDataset}, removed in
 	 * {@link closeDataset}.
 	 */
-	private readonly _openDatasets = new Set<string>();
+	private readonly _openDatasets = new Map<string, DuckDBInstance>();
 	private _tableIndex: number = 0;
 	private _watchers: vscode.Disposable[] = [];
-	private readonly _crashListener: vscode.Disposable;
+	private readonly _crashListeners: vscode.Disposable[];
+	/** In-flight reader extension installs, keyed by repository and extension name. */
+	private readonly _readerInstalls = new Map<string, Promise<void>>();
 
+	/**
+	 * @param db The instance for built-in formats and `duckdb:` tables.
+	 * @param signedDb The instance, with extension signature checks on, for files
+	 *   read by a DuckDB extension from `dataExplorer.fileReaders`.
+	 * @param sendUiEvent Sends UI events to the data explorer.
+	 * @param storageDir The extension's global storage directory.
+	 * @param log Where to log errors.
+	 * @param getFileReaders Reads the `dataExplorer.fileReaders` setting.
+	 */
 	constructor(
 		private readonly db: DuckDBInstance,
+		private readonly signedDb: DuckDBInstance,
 		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		private readonly storageDir: string,
+		private readonly log: vscode.LogOutputChannel,
+		private readonly getFileReaders: () => unknown = getFileReadersSetting,
 	) {
-		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
-		// are gone with it. Drop the cached table views so the next request for a
-		// dataset re-imports it into the freshly respawned worker.
-		this._crashListener = this.db.onDidCrash(() => this._uriToTableView.clear());
+		// If a DuckDB worker crashes (e.g. out of memory), its in-memory tables
+		// are gone with it. Drop the table views backed by that worker so the next
+		// request for those datasets re-imports them into the respawned worker.
+		this._crashListeners = [this.db, this.signedDb].map(db => db.onDidCrash(() => {
+			for (const [uri, tableView] of this._uriToTableView) {
+				if (tableView.db === db) {
+					this._uriToTableView.delete(uri);
+				}
+			}
+		}));
 	}
 
 	dispose() {
-		this._crashListener.dispose();
-		vscode.Disposable.from(...this._watchers).dispose();
+		vscode.Disposable.from(...this._crashListeners, ...this._watchers).dispose();
 	}
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
@@ -2355,6 +2393,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		try {
 			let tableName: string;
 			let createResult: CreateTableResult | undefined;
+			let db = this.db;
 			if (uri.scheme === 'duckdb') {
 				// We are querying a table in the transient in-memory database. We can modify this later
 				// to read from different .duckb database files
@@ -2366,10 +2405,11 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				// table view whose error message the data explorer displays, rather
 				// than rejecting open_dataset and leaving the explorer blank.
 				createResult = await this.createTableFromUri(uri, tableName);
+				db = createResult.db;
 			}
 
-			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db, this.sendUiEvent);
+			const result = await db.runQuery(`DESCRIBE ${tableName};`);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), db, this.sendUiEvent);
 			tableView.availableSheets = createResult?.availableSheets;
 
 			if (uri.scheme !== 'duckdb') {
@@ -2384,10 +2424,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 						const reload = async (importOptions?: DatasetImportOptions) => {
 							const newTableName = `positron_${this._tableIndex++}`;
 							const createResult = await this.createTableFromUri(uri, newTableName, importOptions);
-							const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+							const newSchema = (await createResult.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 							tableView.importOptions = importOptions;
 							tableView.availableSheets = createResult.availableSheets;
-							await tableView.onFileUpdated(newTableName, newSchema);
+							await tableView.onFileUpdated(newTableName, newSchema, createResult.db);
 						};
 
 						try {
@@ -2410,7 +2450,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 						// rejection here would surface unpredictably (e.g. failing an
 						// unrelated test). Log and leave the existing table in place.
 						const errorMessage = error instanceof Error ? error.message : String(error);
-						console.error(`Failed to reload dataset after file change (${uri.toString()}): ${errorMessage}`);
+						this.log.error(`Failed to reload dataset after file change (${uri.toString()}): ${errorMessage}`);
 					}
 				});
 				// Stop watching deleted files.
@@ -2424,26 +2464,26 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
-		// A dataset is open, so the worker has a live client: cancel any pending
-		// idle shutdown. (Re-imports after a crash pass through here too; the set
-		// add is idempotent.)
-		this._openDatasets.add(params.uri.toString());
+		// A dataset is open, so its worker has a live client: cancel any pending
+		// idle shutdown. (Re-imports after a crash pass through here too.)
+		this._openDatasets.set(params.uri.toString(), tableView.db);
 		debugLog(`Opened dataset ${params.uri.toString()}; open datasets: ${this._openDatasets.size}`);
-		this.db.cancelIdleShutdown();
+		tableView.db.cancelIdleShutdown();
 		return {};
 	}
 
 	/**
 	 * Called by the host when a data explorer for a dataset closes. Drops the
-	 * dataset's table view and, once no explorers remain open, asks the worker to
+	 * dataset's table view and, once no explorers on its worker remain open, asks that worker to
 	 * idle-shut-down after a cooldown so its native memory is reclaimed.
 	 */
 	closeDataset(uri: string): void {
 		this._uriToTableView.delete(uri);
+		const db = this._openDatasets.get(uri);
 		this._openDatasets.delete(uri);
 		debugLog(`Closed dataset ${uri}; open datasets: ${this._openDatasets.size}`);
-		if (this._openDatasets.size === 0) {
-			this.db.requestIdleShutdown();
+		if (db && ![...this._openDatasets.values()].includes(db)) {
+			db.requestIdleShutdown();
 		}
 	}
 
@@ -2452,13 +2492,18 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 * @param uri A URI, usually for a file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
 	 * @param importOptions Optional import options for delimited files and Excel workbooks.
-	 * @returns Metadata about the imported table (e.g. the Excel sheet names).
+	 * @returns The instance holding the table and metadata about it (e.g. the Excel sheet names).
 	 */
 	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions): Promise<CreateTableResult> {
 		// Lower-case the extension for all format detection below. The editor
 		// resolver routes files case-insensitively (e.g. REPORT.XLSX opens here),
 		// so the backend must recognize uppercase/mixed-case extensions too.
 		let fileExt = path.extname(uri.path).toLowerCase();
+		const reader = findFileReader(this.getFileReaders(), fileExt);
+		if (reader && fileExt === '.shp' && uri.scheme !== 'file') {
+			// A shapefile's data is spread over sibling files, which only exist next to a local file.
+			throw new Error('Shapefiles can only be opened from the local file system.');
+		}
 		// DuckDB transparently decompresses gzip/zstd-wrapped CSV/TSV by file
 		// extension, so we strip the compression extension to detect the inner
 		// format. Parquet is handled separately below (its reader can't unwrap an
@@ -2534,7 +2579,9 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			if (spillContents !== undefined) {
 				await fs.promises.writeFile(filePath, spillContents);
 			}
-			if (isParquet) {
+			if (reader) {
+				await this.importWithReader(filePath, catalogName, uri, reader);
+			} else if (isParquet) {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
 				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
 				await this.db.runQuery(query);
@@ -2550,7 +2597,92 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => { });
 			}
 		}
-		return { availableSheets };
+		return { db: reader ? this.signedDb : this.db, availableSheets };
+	}
+
+	/**
+	 * Import a file with a DuckDB extension's table function, in the signed instance.
+	 * @param filePath Resolved local path to the file.
+	 * @param catalogName The table name to use in the DuckDB catalog.
+	 * @param uri The original URI (for messages).
+	 * @param reader The reader from `dataExplorer.fileReaders`.
+	 */
+	private async importWithReader(filePath: string, catalogName: string, uri: vscode.Uri, reader: FileReader): Promise<void> {
+		await this.ensureReaderExtension(reader, path.basename(uri.path));
+		await this.signedDb.runQuery(`CREATE OR REPLACE TABLE ${catalogName} AS
+			SELECT * FROM ${reader.fn}('${quoteLiteral(filePath)}');`);
+
+		// The data explorer can't display GEOMETRY values (e.g. from `spatial`), so convert them to WKT text.
+		const geometryColumns = await this.signedDb.runQuery(`SELECT column_name FROM duckdb_columns()
+			WHERE table_name = '${catalogName}' AND data_type LIKE 'GEOMETRY%';`);
+		for (const column of geometryColumns.columnByName('column_name') ?? []) {
+			const name = quoteIdentifier(column);
+			await this.signedDb.runQuery(`ALTER TABLE ${catalogName} ALTER ${name} TYPE VARCHAR USING CAST(${name} AS VARCHAR);`);
+		}
+	}
+
+	/**
+	 * Ensure a reader's DuckDB extension is loaded in the signed instance,
+	 * downloading it the first time. Concurrent calls for the same extension
+	 * share one download.
+	 * @param reader The reader whose extension to load.
+	 * @param fileName The file being opened (for messages).
+	 */
+	private ensureReaderExtension(reader: FileReader, fileName: string): Promise<void> {
+		const key = `${reader.repo}/${reader.extension}`;
+		let install = this._readerInstalls.get(key);
+		if (!install) {
+			install = this.loadReaderExtension(reader, fileName).finally(() => this._readerInstalls.delete(key));
+			this._readerInstalls.set(key, install);
+		}
+		return install;
+	}
+
+	private async loadReaderExtension(reader: FileReader, fileName: string): Promise<void> {
+		const name = reader.extension;
+		const status = (await this.signedDb.runQuery(
+			`SELECT installed, loaded FROM duckdb_extensions() WHERE extension_name = '${name}';`)).toArray()[0];
+		if (status?.loaded) {
+			return;
+		}
+
+		const download = !status?.installed;
+		const load = this.signedDb.runQuery(download ? `INSTALL ${name} FROM ${reader.repo}; LOAD ${name};` : `LOAD ${name};`);
+
+		// Show progress if the download is slow. Cancelling abandons the open; the
+		// download itself finishes in the background so later opens can use it.
+		let cancelled = false;
+		let cancel = () => { };
+		const cancellation = new Promise<void>(resolve => cancel = resolve);
+		const progressTimer = download ? setTimeout(() => {
+			vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Downloading the "{0}" DuckDB extension to open {1}...', name, fileName),
+				cancellable: true,
+			}, (_progress, token) => {
+				token.onCancellationRequested(() => {
+					cancelled = true;
+					cancel();
+				});
+				return load.catch(() => { });
+			});
+		}, 1000) : undefined;
+
+		try {
+			await Promise.race([load, cancellation]);
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			this.log.error(`Failed to ${download ? 'install' : 'load'} DuckDB extension "${name}" from ${reader.repo}: ${detail}`);
+			const message = download ?
+				vscode.l10n.t('Could not download the "{0}" DuckDB extension needed to open {1}.', name, fileName) :
+				vscode.l10n.t('Could not load the "{0}" DuckDB extension needed to open {1}.', name, fileName);
+			throw new Error(message);
+		} finally {
+			clearTimeout(progressTimer);
+		}
+		if (cancelled) {
+			throw new Error(vscode.l10n.t('The download of the "{0}" DuckDB extension was cancelled.', name));
+		}
 	}
 
 	/**
@@ -2578,7 +2710,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			this._excelExtensionLoaded = true;
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
-			console.error(`Failed to load bundled DuckDB Excel extension (${extensionPath}): ${detail}`);
+			this.log.error(`Failed to load bundled DuckDB Excel extension (${extensionPath}): ${detail}`);
 			throw new Error('Could not load Excel support. Please report this issue if it persists.');
 		}
 	}
@@ -2703,14 +2835,14 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		try {
 			const createResult = await this.createTableFromUri(parsedUri, newTableName, params.options);
-			const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+			const newSchema = (await createResult.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 			// Only commit the new options once the reimport has succeeded. Storing
 			// them before validation would leave a bad selection (e.g. a sheet that
 			// doesn't exist) persisted on the table view, so the next file-change
 			// auto-reload would reuse it and fail again.
 			tableView.importOptions = params.options;
 			tableView.availableSheets = createResult.availableSheets;
-			await tableView.onFileUpdated(newTableName, newSchema);
+			await tableView.onFileUpdated(newTableName, newSchema, createResult.db);
 			return {};
 		} catch (error) {
 			// createTableFromUri already translates xlsx failures into user-facing
@@ -2790,9 +2922,15 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
  * @param context An ExtensionContext that contains the extension context.
  */
 export async function activate(context: vscode.ExtensionContext) {
-	// Create the native DuckDB database and close it when the extension unloads.
+	// Create the native DuckDB databases and close them when the extension unloads.
+	// The signed one reads files with DuckDB extensions downloaded from DuckDB's
+	// repositories, so it keeps DuckDB's extension signature check on.
 	const db = await DuckDBInstance.create();
-	context.subscriptions.push({ dispose: () => db.close() });
+	const signedDb = await DuckDBInstance.create({
+		workerArgs: [`--signed-extension-directory=${path.join(context.globalStorageUri.fsPath, 'duckdb-extensions')}`]
+	});
+	const log = vscode.window.createOutputChannel('DuckDB', { log: true });
+	context.subscriptions.push({ dispose: () => db.close() }, { dispose: () => signedDb.close() }, log);
 
 	// Register a simple command that runs a DuckDB query
 	context.subscriptions.push(
@@ -2813,7 +2951,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// registerRpcHandler returns below, so this must be `let` despite the single assignment.
 	// eslint-disable-next-line prefer-const
 	let session: positron.DataExplorerRpcSession | undefined;
-	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event), context.globalStorageUri.fsPath);
+	const dataExplorerHandler = new DataExplorerRpcHandler(db, signedDb, event => session?.sendUiEvent(event), context.globalStorageUri.fsPath, log);
 	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
 		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc),
 		// Notified when a data explorer closes so the worker can idle-shut-down

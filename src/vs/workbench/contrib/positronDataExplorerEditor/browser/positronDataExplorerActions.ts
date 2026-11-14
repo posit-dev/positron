@@ -28,7 +28,7 @@ import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_HAS_IMPORTER, POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -1203,12 +1203,11 @@ class PositronDataExplorerImportDataAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// Gated on the explorer being file-backed, which is the real test (the duckdb: client-id
-		// prefix) rather than the filename proxy, so Parquet is picked up too. Deliberately not
-		// gated on a sort or filter existing: loading an unfiltered file is the main case.
+		// Gated on an importer being able to read the backing file. Deliberately not gated on a
+		// sort or filter existing: loading an unfiltered file is the main case.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			POSITRON_DATA_EXPLORER_IS_FILE_BACKED
+			POSITRON_DATA_EXPLORER_HAS_IMPORTER
 		);
 		super({
 			id: PositronDataExplorerCommandId.ImportDataAction,
@@ -1285,14 +1284,14 @@ class PositronImportDataFromFileAction extends Action2 {
 	 */
 	constructor() {
 		// Match the file types the Data Explorer opens and an importer can read (.csv/.tsv/.xlsx/
-		// .parquet/.parq), and JSON, which opens in the Object Explorer instead. Compressed files
-		// (.gz) are deliberately absent: the importer registry matches only the final extension, so
+		// .parquet/.parq/.sas7bdat/.xpt), and JSON, which opens in the Object Explorer instead.
+		// Compressed files (.gz) are deliberately absent: the importer registry matches only the final extension, so
 		// gzip support is its own change.
 		// Scheme-gate to files a runtime session could plausibly open; a virtual-filesystem file
 		// names no path on the session's machine, so no menu item is offered for it.
 		const importableFile = ContextKeyExpr.and(
 			ExplorerFolderContext.toNegated(),
-			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|json)$/i),
+			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|sas7bdat|xpt|json)$/i),
 			ContextKeyExpr.or(
 				ResourceContextKey.Scheme.isEqualTo(Schemas.file),
 				ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeRemote)
@@ -1360,7 +1359,7 @@ class PositronImportDataFromFileAction extends Action2 {
 				defaultUri: await fileDialogService.defaultFilePath(),
 				filters: [{
 					name: localize('positronDataExplorer.importDataPickerFilter', "Data Files"),
-					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'json']
+					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'sas7bdat', 'xpt', 'json']
 				}]
 			});
 			fileUri = uris?.at(0);

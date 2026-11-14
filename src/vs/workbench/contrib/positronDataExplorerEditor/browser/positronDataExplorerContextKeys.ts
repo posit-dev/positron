@@ -71,10 +71,19 @@ export const POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW = new RawContextKey<bool
  * Context key for whether the Data Explorer is backed by a file on disk (the DuckDB extension
  * backend) rather than a kernel object. The real test is the duckdb: client-id prefix, read from
  * the instance's isFileBacked; the filename-based IS_PLAINTEXT key is only a proxy and misses
- * Parquet. Import Data shows on file-backed explorers; Convert to Code shows on the rest.
+ * Parquet. Convert to Code shows on explorers that are not file-backed.
  */
 export const POSITRON_DATA_EXPLORER_IS_FILE_BACKED = new RawContextKey<boolean>(
 	'positronDataExplorerIsFileBacked',
+	false
+);
+
+/**
+ * Context key for whether a registered data importer can read the file backing the Data Explorer.
+ * Import Data shows only when one can.
+ */
+export const POSITRON_DATA_EXPLORER_HAS_IMPORTER = new RawContextKey<boolean>(
+	'positronDataExplorerHasImporter',
 	false
 );
 

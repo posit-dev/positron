@@ -29,12 +29,23 @@ The extension uses the native `@duckdb/node-api` ("node neo") package, which wra
 
 ### Key Features
 
-- **File Support**: CSV, TSV, Parquet (including gzip/zstd-compressed versions, read natively from disk)
+- **File Support**: CSV, TSV, Parquet (including gzip/zstd-compressed versions, read natively from disk), XLSX (vendored `excel` extension), and any format mapped in the `dataExplorer.fileReaders` setting (see below)
 - **SQL Engine**: Full DuckDB SQL capabilities via native pre-built binaries
 - **Data Profiling**: Histograms, frequency tables, summary statistics
 - **Filtering & Sorting**: Row filters, column filters, sorting
 - **Data Export**: CSV, TSV, HTML export formats
 - **Schema Search**: Column name and type filtering
+
+## Two DuckDB Workers
+
+`activate()` creates two `DuckDBInstance`s, each a separate worker process (`duckdbWorker.ts`):
+
+- **`db`**: built-in formats, `duckdb:` tables, and the `positron-duckdb.runQuery` command. On macOS it runs with `allow_unsigned_extensions` so it can load the vendored, Apple-signed `excel` extension.
+- **`signedDb`**: files whose extension is a key in `dataExplorer.fileReaders` (e.g. `.sas7bdat`, `.xpt` via `read_stat`). Started with `--signed-extension-directory=<globalStorage>/duckdb-extensions`, it keeps DuckDB's signature check on, installs extensions there, and sets `lock_configuration` after startup.
+
+`createTableFromUri` picks the instance per file and returns it in `CreateTableResult.db`; the table view, `DESCRIBE`, reloads, and import options all use that instance. The setting's values (`[core|community/]extension[:function]`) are parsed in `fileReaders.ts` (unit tested in `fileReaders.vitest.ts`). `ensureReaderExtension` installs the extension on first use (one download shared by concurrent opens), shows a cancellable progress notification after 1s (cancelling fails the open; the download finishes in the background), and on failure logs to the "DuckDB" output channel and fails the open (the editor shows the error). `GEOMETRY` columns (from `spatial`) are converted to WKT text after import.
+
+The core editor resolver (`positronDataExplorerEditor.contribution.ts`) opens the built-in formats plus the setting's keys, and re-registers when the setting changes.
 
 ## File Structure
 
@@ -45,12 +56,16 @@ extensions/positron-duckdb/
 ├── src/
 │   ├── extension.ts      # Main extension logic
 │   │                     # (protocol types come from the positron-data-explorer-protocol package)
+│   ├── duckdbWorker.ts   # DuckDB child process (normal or signed mode)
+│   ├── fileReaders.ts    # Parses the dataExplorer.fileReaders setting
 │   └── test/
 │       ├── extension.test.ts  # Unit tests
 │       ├── README.md         # Test instructions
 │       └── data/             # Test datasets
 │           ├── flights.csv
-│           └── flights.parquet
+│           ├── flights.parquet
+│           ├── small.sas7bdat
+│           └── small.xpt
 ├── tsconfig.json         # TypeScript configuration
 └── esbuild.mts           # Build configuration
 ```
