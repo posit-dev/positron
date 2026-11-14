@@ -5,6 +5,7 @@
 
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
@@ -13,6 +14,7 @@ import { ICodeEditorService } from '../../../../editor/browser/services/codeEdit
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
 import {
 	isQuartoDocument,
 	usingQuartoInlineOutput,
@@ -106,8 +108,9 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 		}));
 
 		// When a notebook session is deleted (e.g. after kernel shutdown) and it
-		// was the foreground session, clear the foreground and show the cached display
-		// info so the interpreter picker continues showing the exited notebook info.
+		// was the foreground session, clear the foreground and show a snapshot of
+		// the session as exited, so the interpreter picker keeps showing the
+		// notebook while it stays active.
 		// Console session deletion is handled by positronConsoleService.deletePositronConsoleSession.
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
@@ -115,11 +118,9 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				&& foregroundSession.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook
 				&& foregroundSession.metadata.notebookUri
 			) {
-				const sessionInfo = this._runtimeSessionService.getLastNotebookSessionInfo(foregroundSession.metadata.notebookUri);
 				this._runtimeSessionService.foregroundSession = undefined;
-				if (sessionInfo) {
-					this._runtimeSessionService.foregroundSessionDisplayInfo = sessionInfo;
-				}
+				this._runtimeSessionService.foregroundSessionDisplayInfo =
+					new RuntimeSessionDisplayInfo(foregroundSession, RuntimeState.Exited);
 			}
 		}));
 
@@ -527,6 +528,7 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				// No session, so the foreground session stays as it is. The
 				// document's kernel badge shows its status.
 				this._logService.trace(`[ForegroundSessionContribution] Notebook editor focused (${notebookName}) but has no session yet`);
+				this._dropStaleNotebookSnapshot(activeEditor.resource);
 			}
 			return;
 		}
@@ -562,6 +564,7 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				// No session, so the foreground session stays as it is. The
 				// document's kernel badge shows its status.
 				this._logService.trace(`[ForegroundSessionContribution] Quarto file focused (${fileName}) but has no session yet`);
+				this._dropStaleNotebookSnapshot(uri);
 			}
 			return;
 		}
@@ -584,6 +587,32 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 			if (this._runtimeSessionService.foregroundSession?.metadata.notebookUri) {
 				this._runtimeSessionService.foregroundSession = undefined;
 			}
+			this._dropStaleNotebookSnapshot(uri);
+		}
+	}
+
+	/**
+	 * After a notebook's session is deleted while it is the foreground session,
+	 * the interpreter picker shows a snapshot of it. The snapshot only applies
+	 * while that notebook is active. Once another document is active, show the
+	 * last active console session instead, or nothing.
+	 *
+	 * @param activeUri The URI of the document that is now active.
+	 */
+	private _dropStaleNotebookSnapshot(activeUri: URI | undefined): void {
+		const displayInfo = this._runtimeSessionService.foregroundSessionDisplayInfo;
+		if (this._runtimeSessionService.foregroundSession ||
+			displayInfo?.sessionMode !== LanguageRuntimeSessionMode.Notebook ||
+			isEqual(displayInfo.notebookUri, activeUri)) {
+			return;
+		}
+
+		const consoleSession = this._runtimeSessionService.getLastActiveConsoleSession();
+		this._logService.trace(`[ForegroundSessionContribution] Dropping the exited notebook snapshot, showing: ${consoleSession?.sessionId ?? 'none'}`);
+		if (consoleSession) {
+			this._runtimeSessionService.foregroundSession = consoleSession;
+		} else {
+			this._runtimeSessionService.foregroundSessionDisplayInfo = undefined;
 		}
 	}
 }

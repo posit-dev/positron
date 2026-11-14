@@ -450,7 +450,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 	});
 
 	describe('notebook session deleted', () => {
-		it('cached display info and clears foreground when deleted session was the foreground notebook session', async () => {
+		it('shows a snapshot of the deleted session when it was the foreground notebook session', async () => {
 			const session = await startNotebookSession();
 			runtimeSessionService.foregroundSession = session;
 
@@ -463,10 +463,55 @@ describe('Positron - ForegroundSessionContribution', () => {
 			// Delete the session through the service
 			await runtimeSessionService.deleteSession(session.sessionId);
 
-			// The foreground should be cleared
+			// The foreground is cleared, and the picker shows the notebook as exited.
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
-			// Cached display info should be set so the interpreter picker shows last used runtime
-			expect(runtimeSessionService.foregroundSessionDisplayInfo, 'Expected foregroundSessionDisplayInfo to be set from cached info after deletion').toBeDefined();
+			const info = runtimeSessionService.foregroundSessionDisplayInfo;
+			expect([info?.notebookUri?.toString(), info?.sessionState]).toEqual([notebookUri.toString(), RuntimeState.Exited]);
+		});
+
+		/** Starts a notebook session for `notebookUri`, makes it foreground, then exits and deletes it. */
+		async function shutDownForegroundNotebook() {
+			const session = await startNotebookSession();
+			runtimeSessionService.foregroundSession = session;
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+		}
+
+		it('drops the snapshot for the console when a different sessionless notebook becomes active', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			await shutDownForegroundNotebook();
+
+			activeEditor = createNotebookEditorInput(URI.file('/path/to/other.ipynb'));
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
+		it('drops the snapshot when a file becomes active and no console exists', async () => {
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			await shutDownForegroundNotebook();
+
+			activeEditor = { typeId: 'text', resource: URI.file('/path/to/file.py') } as unknown as EditorInput;
+			activeCodeEditor = createMockCodeEditor(URI.file('/path/to/file.py'), 'python');
+			onDidActiveEditorChange.fire();
+
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBe(undefined);
+		});
+
+		it('keeps the snapshot while its notebook stays active', async () => {
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			await shutDownForegroundNotebook();
+
+			onDidActiveEditorChange.fire();
+
+			expect(runtimeSessionService.foregroundSessionDisplayInfo?.notebookUri?.toString()).toBe(notebookUri.toString());
 		});
 
 		it('does not clear foreground when a console session is deleted', async () => {
