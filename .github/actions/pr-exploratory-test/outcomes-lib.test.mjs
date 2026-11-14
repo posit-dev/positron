@@ -435,6 +435,8 @@ test('prPreview keeps what the PR card shows, dated by merge, close or open', ()
 	assert.equal(prPreview(pull({ merged_at: null })).state, 'closed');
 	const open = prPreview(pull({ state: 'open', merged_at: null, closed_at: null }));
 	assert.deepEqual([open.state, open.date], ['open', '2026-10-01T10:00:00Z']);
+	const draft = prPreview(pull({ state: 'open', draft: true, merged_at: null, closed_at: null }));
+	assert.deepEqual([draft.state, draft.date], ['draft', '2026-10-01T10:00:00Z']);
 	assert.equal(prPreview(pull({ body: null })).desc, '');
 });
 
