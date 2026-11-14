@@ -422,9 +422,10 @@ export function shippedVia(pr, via) {
 }
 
 export function prPreview(pr) {
-	const state = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
+	// A draft is an open PR to decideOutcome; only the card tells it apart.
+	const state = pr.merged_at ? 'merged' : pr.state === 'open' ? (pr.draft ? 'draft' : 'open') : 'closed';
 	return {
-		title: pr.title, author: pr.user?.login ?? '', state, date: pr.merged_at ?? (state === 'open' ? pr.created_at : pr.closed_at),
+		title: pr.title, author: pr.user?.login ?? '', state, date: pr.merged_at ?? (pr.state === 'open' ? pr.created_at : pr.closed_at),
 		additions: pr.additions, deletions: pr.deletions, files: pr.changed_files, desc: firstParagraph(pr.body),
 	};
 }
