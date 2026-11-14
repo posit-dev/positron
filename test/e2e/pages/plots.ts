@@ -89,20 +89,6 @@ export class Plots {
 		});
 	}
 
-	async expectPlotsPaneToBeExpanded(expanded: boolean) {
-		await test.step(`Expect the Plots pane to be ${expanded ? 'expanded' : 'collapsed'}`, async () => {
-			await expect(this.code.driver.currentPage.locator(PLOTS_SECTION)).toHaveAttribute('aria-expanded', String(expanded));
-		});
-	}
-
-	async expectPlotsPaneHeightToBeAtLeast(minHeight: number) {
-		await test.step(`Expect the Plots pane to be at least ${minHeight}px tall`, async () => {
-			const plotsContainer = this.code.driver.currentPage.locator('.positron-plots-container');
-			// Polled because the pane animates open.
-			await expect.poll(async () => (await plotsContainer.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(minHeight);
-		});
-	}
-
 	async waitForCurrentPlot({ timeout = 30000 }: { timeout?: number } = {}) {
 		await test.step('Wait for current plot to be visible', async () => {
 			await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).toBeVisible({ timeout });

@@ -147,9 +147,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		// Call the base class's constructor.
-		// The view is registered collapsed, so the first plot expands a pane that
-		// has no earlier height to return to. This is the height it opens at.
-		super({ ...options, openFromCollapsedSize: '50%' }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {

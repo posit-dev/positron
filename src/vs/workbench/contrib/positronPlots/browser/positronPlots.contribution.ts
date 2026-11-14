@@ -42,7 +42,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 				original: 'Plots'
 			},
 			ctorDescriptor: new SyncDescriptor(PositronPlotsViewPane),
-			collapsed: true,
+			collapsed: false,
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronPlotViewIcon,
