@@ -15,3 +15,71 @@
 	text-align: center;
 	margin: 8px 8px 0 8px;
 }
+
+.variables-empty.variables-empty-intro {
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	padding: 24px 16px 16px 16px;
+	text-align: center;
+	/*
+	 * Fills the pane. The view pane draws a focus outline on itself, and a
+	 * block that covered only its own text would hide the top of that outline
+	 * and leave the rest showing below it.
+	 */
+	min-height: 100%;
+}
+
+/*
+ * `.positron-variables` and `.codicon` are in the selector so the size wins
+ * over `.monaco-workbench .codicon[class*='codicon-']`, which sets 16px.
+ */
+.positron-variables .variables-empty .variables-empty-icon.codicon {
+	font-size: 64px;
+	opacity: 0.4;
+	color: var(--vscode-descriptionForeground);
+}
+
+.variables-empty .variables-empty-icon + .hint {
+	margin-top: 12px;
+}
+
+.variables-empty .hint {
+	margin-bottom: 4px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * Matches the Release Notes and View Documentation buttons on the empty editor
+ * watermark (editorgroupview.css), whose rules are scoped to the watermark.
+ */
+.variables-empty .variables-empty-action {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 12px;
+	padding: 4px 12px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border);
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.variables-empty .variables-empty-action:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+	/*
+	 * contrastActiveBorder is defined only in high-contrast themes, where
+	 * toolbar.hoverBackground is null and hover would otherwise show nothing.
+	 */
+	border-color: var(--vscode-contrastActiveBorder, var(--vscode-panel-border));
+}
+
+.variables-empty .variables-empty-action:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.positron-variables .variables-empty .variables-empty-action .variables-empty-action-icon.codicon {
+	font-size: 14px;
+}
