@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 // Other dependencies.
 import { unmnemonicLabel } from '../../../base/common/labels.js';
-import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 import { Action, IAction, Separator } from '../../../base/common/actions.js';
 import { ContextKeyExpression } from '../../contextkey/common/contextkey.js';
-import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
+import { usePositronHoverManager } from './usePositronHoverManager.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
@@ -32,7 +31,7 @@ export interface CommandAction {
 export interface PositronActionBarState {
 	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
-	hoverManager: IHoverManager;
+	hoverManager: IHoverManager | undefined;
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 	focusableComponents: Set<HTMLElement>;
@@ -47,23 +46,7 @@ export const usePositronActionBarState = (): PositronActionBarState => {
 	const services = usePositronReactServicesContext();
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
-	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
-
-	// Main use effect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Create the hover manager.
-		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(
-			true,
-			services.configurationService,
-			services.hoverService
-		)));
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [services.accessibilityService, services.configurationService, services.hoverService]);
+	const hoverManager = usePositronHoverManager();
 
 	/**
 	 * Appends a command action.
