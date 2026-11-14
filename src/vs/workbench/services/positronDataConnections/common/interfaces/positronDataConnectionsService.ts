@@ -192,13 +192,37 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * and editing it; and, for a connection the user configured by hand instead, a match on driver,
 	 * mechanism, name, and values. The name is part of that match because the secret values that
 	 * would otherwise distinguish two same-shaped data sources are held out of both profiles, so
-	 * without it, saving either one would hide both.
+	 * without it, saving either one would hide both. The third is the user hiding the discovery (see
+	 * {@link hideDiscoveredProfile}).
 	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
 	 * mechanism declares secret; those are held internally and merged back by
 	 * {@link getProfileWithSecrets}.
 	 * @returns The discovered data connection profiles.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Hides a discovered connection: it stops being returned by {@link getDiscoveredProfiles} and
+	 * {@link getAllProfiles}, its live connection (if any) is closed, and it can no longer be
+	 * connected to. The choice is stored with the user's profile, so it survives restarts and a
+	 * discovery that drops out and comes back. A no-op if the id is not a listed discovery: one
+	 * that is not current, or that a saved profile stands in for.
+	 * @param id The discovered profile id.
+	 */
+	hideDiscoveredProfile(id: string): void;
+
+	/**
+	 * Gets the discoveries the user has hidden that would otherwise be listed. A hidden discovery
+	 * that no longer exists, or that a saved profile already stands in for, is not included.
+	 * @returns The hidden discovered profiles.
+	 */
+	getHiddenDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Stops hiding discovered connections, so they are listed again.
+	 * @param ids The discovered profile ids to show again.
+	 */
+	unhideDiscoveredProfiles(ids: readonly string[]): void;
 
 	/**
 	 * Gets the full connection catalog: every saved profile followed by every discovered
@@ -245,6 +269,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets a data connection profile by id. The returned profile's parameterValues never contains
 	 * secret parameter values; use {@link getProfileWithSecrets} when those values are required.
+	 * A discovery the user has hidden is not found, so callers holding its id treat it as gone.
 	 * @param id The data connection profile id.
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */
@@ -253,7 +278,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets a data connection profile by id with its secret parameter values pulled from secret
 	 * storage. Callers should use it for an immediate operation and drop the reference right
-	 * afterward, not retain it.
+	 * afterward, not retain it. Like {@link getProfile}, a hidden discovery is not found.
 	 * @param id The data connection profile id.
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */

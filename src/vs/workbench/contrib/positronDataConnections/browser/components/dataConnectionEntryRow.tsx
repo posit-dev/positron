@@ -15,6 +15,7 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { ConfigureDataConnection } from '../dialogs/configureDataConnection.js';
 import { showConnectDataConnectionWith } from '../dialogs/connectDataConnectionWith.js';
+import { showHideDataConnectionConfirmation } from '../dialogs/hideDataConnectionConfirmation.js';
 import { showIncludeSecretsConfirmation } from '../dialogs/includeSecretsConfirmation.js';
 import { showRemoveDataConnectionConfirmation } from '../dialogs/removeDataConnectionConfirmation.js';
 import { showSaveDataConnectionConfirmation } from '../dialogs/saveDataConnectionConfirmation.js';
@@ -56,7 +57,8 @@ interface DataConnectionEntryRowProps {
  * connected, a live-status indicator. Twistie click (handled by PositronTree) opens the connection;
  * collapsing closes it only when nothing else is using it (see DataConnectionsTreeInstance). The
  * actions menu -- reachable from the actions button or by right-clicking the row -- exposes
- * refresh, edit, runtime-language connect options, and disconnect (when connected) / remove.
+ * refresh, edit, runtime-language connect options, and disconnect (when connected) / remove. A
+ * detected (discovered) row offers save and hide in place of remove.
  */
 export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMenuOpening, onRefresh }: DataConnectionEntryRowProps) => {
 	// Services.
@@ -182,6 +184,30 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 		);
 		if (confirmed) {
 			positronDataConnectionsService.removeProfile(profile.id);
+		}
+	};
+
+	/**
+	 * Hides this detected connection. Hiding closes the connection, and the Data Explorers previewed
+	 * from it with it; Show Hidden Connections brings the row back but not those grids. So confirm
+	 * first when any are open, and hide right away when none are.
+	 */
+	const confirmHideProfile = async () => {
+		try {
+			const openDataExplorerCount = positronDataConnectionsService.countOpenDataExplorers(profile.id);
+			if (openDataExplorerCount > 0 &&
+				!await showHideDataConnectionConfirmation(profile.connectionName, openDataExplorerCount)) {
+				return;
+			}
+			positronDataConnectionsService.hideDiscoveredProfile(profile.id);
+		} catch (error) {
+			// The menu that ran this has already closed, so nothing else would tell the user.
+			notificationService.error(localize(
+				'positron.dataConnections.hideFailed',
+				"Could not hide '{0}': {1}",
+				profile.connectionName,
+				error instanceof Error ? error.message : String(error)
+			));
 		}
 	};
 
@@ -376,16 +402,23 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 			}));
 		}
 
-		// A discovered connection is not the user's to remove -- it comes from the machine's own
-		// configuration and would simply reappear -- so it offers Save instead, which turns it into
-		// an ordinary saved connection that can then be edited and removed like any other. Only
-		// Remove is marked destructive; disconnecting gives up the connection but keeps the saved
-		// profile, and saving takes nothing away.
+		// A discovered connection is still not the user's to remove -- it comes from the machine's
+		// own configuration and would simply reappear -- so it offers Save (keep it, as an ordinary
+		// saved connection that can then be edited and removed like any other) and Hide (stop
+		// showing it). Only Remove is marked destructive; disconnecting gives up the connection but
+		// keeps the saved profile, saving takes nothing away, and hiding is reversible from the
+		// Show Hidden Connections quick pick. Hiding confirms only when it would close open Data
+		// Explorers.
 		if (profile.discovered) {
 			entries.push(new CustomContextMenuItem({
 				icon: 'save',
 				label: localize('positron.dataConnections.saveConnection', "Save Connection"),
 				onSelected: () => positronDataConnectionsService.saveDiscoveredProfile(profile.id),
+			}));
+			entries.push(new CustomContextMenuItem({
+				icon: 'eye-closed',
+				label: localize('positron.dataConnections.hide', "Hide"),
+				onSelected: () => void confirmHideProfile(),
 			}));
 		} else {
 			entries.push(new CustomContextMenuItem({

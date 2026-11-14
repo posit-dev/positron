@@ -336,7 +336,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// loaded children by id, so unaffected entries keep their state.
 		const refreshRoots = () => {
 			const entries = buildEntries(this._service);
-			this.setRoots(entries.map(wrapEntry));
+			const roots = entries.map(wrapEntry);
+			const nextRootIds = new Set(roots.map(root => root.id));
+			const rowWentAway = this.roots.some(root => !nextRootIds.has(root.id));
+			this.setRoots(roots);
+
+			// A row hidden or removed from its own actions menu holds the keyboard focus: the menu
+			// hands focus back to it as it closes. Left there, the focus goes away with the row and
+			// nothing is focused, so the next quick input has nowhere to return focus to and closes
+			// whatever opens after it. Keep the focus in the tree instead.
+			if (rowWentAway && this.focused) {
+				this.requestFocus();
+			}
 
 			// A loaded DTO subtree is only valid while its connection is open, so drop the subtree of
 			// any entry that no longer has a live instance.
