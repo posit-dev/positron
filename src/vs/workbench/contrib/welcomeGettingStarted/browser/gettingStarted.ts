@@ -1469,7 +1469,10 @@ export class GettingStartedPage extends EditorPane {
 		// --- Start Positron ---
 		// Removed the height-constrained class that hides the header so that product name and logo are always visible
 		this.container.classList.toggle('width-constrained', size.width <= 400);
-		this.container.classList.toggle('width-semi-constrained', size.width <= 950);
+		// Upstream switches to the stacked layout at 950. Positron's default layout
+		// leaves the editor narrower than that even with the primary side bar closed,
+		// so the side-by-side layout would never show on a default-sized window.
+		this.container.classList.toggle('width-semi-constrained', size.width <= 700);
 		// --- End Positron ---
 
 		this.categoriesPageScrollbar?.scanDomNode();
