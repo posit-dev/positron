@@ -379,7 +379,7 @@ jobs:
             $SHARD_ARG || true
 
       - name: Upload Blob Report
-        if: ${{ always() }}
+        if: ${{ always() && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
@@ -387,7 +387,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Test Logs
-        if: ${{ failure() }}
+        if: ${{ failure() && hashFiles('secret-scan/clean') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.project }}-macos-logs-${{ matrix.shard }}
@@ -395,17 +395,9 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-      # A native crash leaves a minidump in `.build/crashes` (electron.ts's
-      # `--crash-reporter-directory`); the job used to discard it. `always()`,
-      # not `failure()`: the Playwright step ends in `|| true`.
-      - name: Upload Crash Dumps
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.project }}-macos-crash-dumps-${{ matrix.shard }}
-          path: .build/crashes
-          retention-days: 7
-          if-no-files-found: ignore
+      - name: Fail if the secret scan did not pass
+        if: always()
+        uses: ./.github/actions/require-secret-scan
 
   merge-reports:
     name: ${{ inputs.display_name }}

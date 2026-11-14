@@ -1,1 +1,10 @@
 renderer/node_modules/**
+
+# The renderer loads only renderer/media/, which esbuild builds from renderer/src/.
+renderer/src/**
+renderer/esbuild.js
+renderer/tsconfig.json
+renderer/package.json
+renderer/package-lock.json
+renderer/.gitignore
+docs/**

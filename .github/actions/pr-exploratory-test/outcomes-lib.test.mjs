@@ -5,13 +5,42 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
-const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
+const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
 
 test('parseResultComment takes the short SHA, report base and run id from a result comment', () => {
 	assert.deepEqual(parseResultComment(RESULT), { shortSha: '78afc20', reportBase: BASE, run: '38443304195', trigger: 'explore' });
+});
+
+test('resultsByPr lists the results posted on each PR since the start, from the workflow only', () => {
+	const bot = { login: 'github-actions[bot]' };
+	const comment = (n, user, body, kind = 'pull', created_at = '2026-11-12T22:25:34Z') => ({ user, body, created_at, html_url: `https://github.com/posit-dev/positron/${kind}/${n}#issuecomment-1` });
+	const results = resultsByPr([
+		comment(17302, bot, RESULT),
+		comment(17282, bot, RESULT),
+		comment(17302, bot, RESULT.replace(/38443304195/g, '38443304196')),
+		comment(17290, { login: 'someone' }, RESULT),
+		comment(17291, bot, 'E2E Tests'),
+		comment(17292, bot, RESULT, 'issues'),
+		comment(17293, bot, '<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\nRunning…'),
+		comment(16000, bot, RESULT, 'pull', '2026-09-01T00:00:00Z'),
+	], '2026-09-15');
+	assert.deepEqual([...results].map(([pr, rs]) => [pr, rs.map(r => r.run)]), [[17302, ['38443304195', '38443304196']], [17282, ['38443304195']]]);
+	assert.equal(results.get(17282)[0].postedAt, '2026-11-12T22:25:34Z');
+});
+
+test('prSettled holds only for a merged PR whose runs all have rows and whose rows are all settled', () => {
+	const merged = { state: 'merged' };
+	const rows = [{ pr: 1, run: 'a', finding: 1, origin: 'introduced', prPreview: merged }, { pr: 1, run: 'a', finding: 2, origin: 'inherited', prPreview: merged }];
+	const settled = new Set(['a#1', 'a#2']);
+	assert.equal(prSettled(rows, settled, { 'a#2': { origin: 'inherited' } }, 1, ['a']), true, 'an override the row already has');
+	assert.equal(prSettled(rows, settled, {}, 1, ['a', 'b']), false, 'a run with no saved rows');
+	assert.equal(prSettled(rows, new Set(['a#1']), {}, 1, ['a']), false, 'a row not settled');
+	assert.equal(prSettled(rows.map(r => ({ ...r, prPreview: { state: 'closed' } })), settled, {}, 1, ['a']), false, 'not merged');
+	assert.equal(prSettled(rows, settled, { 'a#1': { origin: 'inherited' } }, 1, ['a']), false, 'a new override');
+	assert.equal(prSettled(rows, settled, {}, 2, []), false, 'no rows');
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
@@ -467,4 +496,18 @@ test('findingOrigin marks an inherited finding whose duplicate the PR closes as 
 	assert.equal(findingOrigin(null, dupe, [17021]), null);
 	// Related but a different bug: known, not a duplicate.
 	assert.equal(findingOrigin('inherited', { known: [17021] }, [17021]), 'inherited');
+});
+
+test('priorRows keeps every previous row for a PR, or one run on it, without duplicate marks', () => {
+	const prev = [
+		{ pr: 1, run: '10', finding: 1, outcome: 'pending', dupOf: '9#1' },
+		{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed', dupMaybe: '10#1' },
+		{ pr: 2, run: '12', finding: 1, outcome: 'fixed-in-pr' },
+	];
+	assert.deepEqual(priorRows(prev, 1), [
+		{ pr: 1, run: '10', finding: 1, outcome: 'pending' },
+		{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' },
+	]);
+	assert.deepEqual(priorRows(prev, 1, '11'), [{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' }]);
+	assert.deepEqual(priorRows(prev, 3), []);
 });

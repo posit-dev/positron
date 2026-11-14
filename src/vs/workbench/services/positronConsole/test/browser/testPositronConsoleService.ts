@@ -629,6 +629,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		// No-op for test implementation
 	}
 
+	cancelPendingExecution(executionId: string): boolean {
+		return false;
+	}
+
 	get onDidChangeCodeSubmissionInProgress(): Event<boolean> {
 		return this._onDidChangeCodeSubmissionInProgressEmitter.event;
 	}

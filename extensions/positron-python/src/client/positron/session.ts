@@ -204,6 +204,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return this._runtimeInfo;
     }
 
+    /** Positron's bundled ipykernel paths, or undefined when the session does not use the bundle. */
+    get bundledIpykernelPaths(): readonly string[] | undefined {
+        return this._ipykernelBundle.disabledReason ? undefined : this._ipykernelBundle.paths;
+    }
+
     /**
      * Synchronously gets the current runtime state of the session.
      *

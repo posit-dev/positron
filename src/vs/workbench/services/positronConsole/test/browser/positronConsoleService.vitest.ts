@@ -3,18 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
-import { CodeAttributionSource, USER_INITIATED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY, USER_INITIATED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
 import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../browser/positronConsoleService.js';
+import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendingInput.js';
 import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
 import { IViewsService } from '../../../views/common/viewsService.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
+import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 
 describe('PositronConsoleService', () => {
 
@@ -25,6 +30,7 @@ describe('PositronConsoleService', () => {
 		.stub(IConsoleFindWidgetFactory, {
 			createFindWidget: () => stubInterface<IConsoleFindWidget>({
 				onDidHide: Event.None,
+				refreshSearch: () => { },
 				dispose: () => { }
 			})
 		})
@@ -72,6 +78,55 @@ describe('PositronConsoleService', () => {
 		const { startReasonId: id, requestingExtensionId } = session.metadata;
 		expect({ id, requestingExtensionId }).toEqual(expected);
 		await executing.catch(() => { });
+	});
+
+	describe('completeness-verified code', () => {
+		// A boundary provider that never answers, like Ark's LSP while the requesting session is blocked.
+		async function startWithHungBoundaryProvider() {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			ctx.disposables.add(ctx.get(ILanguageFeaturesService).inputBoundaryProvider.register(
+				{ language: '*', scheme: 'inmemory' },
+				{ provideInputBoundaries: () => new Promise<IInputBoundary[]>(() => { }) }
+			));
+			// Code only goes through the completeness check when the runtime is idle or ready.
+			session.setRuntimeState(RuntimeState.Ready);
+			const executeSpy = vi.spyOn(session, 'execute');
+			return { consoleService, session, executeSpy };
+		}
+
+		function run(consoleService: PositronConsoleService, sessionId: string, languageId: string, verified: boolean) {
+			const attribution = {
+				source: CodeAttributionSource.Extension,
+				metadata: verified ? { [COMPLETENESS_VERIFIED_METADATA_KEY]: true } : undefined,
+			};
+			return consoleService.executeCode(languageId, sessionId, '1 + 1', attribution, false, false,
+				RuntimeCodeExecutionMode.Interactive, undefined, 'exec-1', undefined, undefined, true, false);
+		}
+
+		const pending = Symbol('pending');
+		const settle = <T>(promise: Promise<T>) =>
+			Promise.race([promise.then(() => 'resolved' as const), new Promise<typeof pending>(resolve => setTimeout(() => resolve(pending), 200))]);
+
+		it('runs without waiting on a boundary provider that never answers', async () => {
+			const { consoleService, session, executeSpy } = await startWithHungBoundaryProvider();
+
+			const outcome = await settle(run(consoleService, session.sessionId, session.runtimeMetadata.languageId, true));
+
+			expect({ outcome, executed: executeSpy.mock.calls.map(call => call[0]) }).toEqual({ outcome: 'resolved', executed: ['1 + 1'] });
+		});
+
+		it('waits on a boundary provider that never answers when the code is not marked verified', async () => {
+			const { consoleService, session, executeSpy } = await startWithHungBoundaryProvider();
+
+			const outcome = await settle(run(consoleService, session.sessionId, session.runtimeMetadata.languageId, false));
+
+			expect({ outcome, executed: executeSpy.mock.calls.length }).toEqual({ outcome: pending, executed: 0 });
+
+			// Cancel the stuck submission so its listeners do not outlive the test.
+			consoleService.positronConsoleInstances.find(instance => instance.sessionId === session.sessionId)?.cancelCodeSubmission();
+		});
 	});
 
 	describe('preserveActiveTab', () => {
@@ -177,6 +232,193 @@ describe('PositronConsoleService', () => {
 			await expect(consoleService.executeCode(notebook.runtimeMetadata.languageId, notebook.sessionId, '1 + 1',
 				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, true)).rejects.toThrow();
 			expect(consoleService.positronConsoleInstances.map(instance => instance.sessionId)).not.toContain(notebook.sessionId);
+		});
+	});
+
+	describe('activate: false', () => {
+		const attribution = { source: CodeAttributionSource.Extension };
+
+		// Two console sessions; the first is made the foreground and active console.
+		async function startTwoSessions() {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const first = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			const second = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			ctx.get(IRuntimeSessionService).foregroundSession = first;
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(first.sessionId);
+			const openViewSpy = vi.spyOn(ctx.get(IViewsService), 'openView');
+			return { consoleService, first, second, openViewSpy };
+		}
+
+		it.each([false, true])('runs code in a background session without changing the active console or foreground session (focus: %s)', async (focus) => {
+			const { consoleService, first, second, openViewSpy } = await startTwoSessions();
+			const firstEnqueueSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === first.sessionId)!, 'enqueueCode');
+			const secondEnqueueSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === second.sessionId)!, 'enqueueCode');
+
+			await consoleService.executeCode('test', second.sessionId, '1 + 1',
+				attribution, focus, true, undefined, undefined, 'exec-1', undefined, undefined, undefined, false);
+
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(first.sessionId);
+			expect(ctx.get(IRuntimeSessionService).foregroundSession?.sessionId).toBe(first.sessionId);
+			expect(openViewSpy).not.toHaveBeenCalled();
+			expect(secondEnqueueSpy).toHaveBeenCalledTimes(1);
+			expect(secondEnqueueSpy.mock.calls[0][0]).toBe('1 + 1');
+			expect(firstEnqueueSpy).not.toHaveBeenCalled();
+		});
+
+		it('remembers a generated execution id with preserveActiveTab so its plots do not switch tabs', async () => {
+			const { consoleService, second } = await startTwoSessions();
+			const secondEnqueueSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === second.sessionId)!, 'enqueueCode');
+
+			await consoleService.executeCode('test', second.sessionId, '1 + 1',
+				attribution, false, false, undefined, undefined, undefined, undefined, undefined, true, false);
+
+			const executionId = secondEnqueueSpy.mock.calls[0][5];
+			expect({
+				hasExecutionId: typeof executionId === 'string' && executionId.length > 0,
+				shouldPreserveActiveTab: executionId !== undefined && consoleService.shouldPreserveActiveTab(executionId),
+			}).toEqual({ hasExecutionId: true, shouldPreserveActiveTab: true });
+		});
+
+		it.each([undefined, ''])('rejects activate: false without a session id (%j)', async (sessionId) => {
+			const { consoleService, first } = await startTwoSessions();
+			const firstInstance = consoleService.positronConsoleInstances.find(instance => instance.sessionId === first.sessionId)!;
+			const enqueueSpy = vi.spyOn(firstInstance, 'enqueueCode');
+
+			await expect(consoleService.executeCode('test', sessionId, 'x',
+				attribution, false, true, undefined, undefined, 'exec-1', undefined, undefined, undefined, false)).rejects.toThrow();
+
+			expect(enqueueSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('no session id', () => {
+		it('prefers the last active console for the language over the newest one', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const older = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime });
+
+			// A newer console for the same language that never becomes active, like a background job.
+			// Wait (with margin for early timers) so that its creation timestamp is strictly newer.
+			await new Promise(resolve => setTimeout(resolve, 15));
+			const newerId = await ctx.get(IRuntimeSessionService).startNewRuntimeSession(
+				runtime.runtimeId, 'job', LanguageRuntimeSessionMode.Console, undefined,
+				{ id: SessionStartReasonId.CodeRequestedNewSession }, RuntimeStartMode.Starting, false,
+				{ owner: 'user', requireNewSession: true, takeForegroundIfEmpty: false });
+
+			ctx.disposables.add(ctx.get(IRuntimeSessionService).getSession(newerId)!);
+
+			// Make a console of another language the active one.
+			const otherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const otherLanguageRuntime = { ...otherRuntime, runtimeId: generateUuid(), languageId: 'other' };
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(otherLanguageRuntime));
+			const other = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: otherLanguageRuntime });
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(other.sessionId);
+
+			const olderSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === older.sessionId)!, 'enqueueCode').mockImplementation(async () => { });
+			const newerSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === newerId)!, 'enqueueCode').mockImplementation(async () => { });
+
+			await consoleService.executeCode('test', undefined, '1 + 1', { source: CodeAttributionSource.Extension }, false);
+
+			expect([olderSpy.mock.calls.length, newerSpy.mock.calls.length]).toEqual([1, 0]);
+		});
+
+		it('skips the last active console when it has exited and uses the newest running one', async () => {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const older = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime });
+
+			// A newer, running console for the same language that never becomes active.
+			await new Promise(resolve => setTimeout(resolve, 15));
+			const newerId = await ctx.get(IRuntimeSessionService).startNewRuntimeSession(
+				runtime.runtimeId, 'job', LanguageRuntimeSessionMode.Console, undefined,
+				{ id: SessionStartReasonId.CodeRequestedNewSession }, RuntimeStartMode.Starting, false,
+				{ owner: 'user', requireNewSession: true, takeForegroundIfEmpty: false });
+			ctx.disposables.add(ctx.get(IRuntimeSessionService).getSession(newerId)!);
+
+			// Make a console of another language the active one.
+			const otherRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const otherLanguageRuntime = { ...otherRuntime, runtimeId: generateUuid(), languageId: 'other' };
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(otherLanguageRuntime));
+			const other = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime: otherLanguageRuntime });
+			expect(consoleService.activePositronConsoleInstance?.sessionId).toBe(other.sessionId);
+
+			older.setRuntimeState(RuntimeState.Exited);
+
+			const olderSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === older.sessionId)!, 'enqueueCode').mockImplementation(async () => { });
+			const newerSpy = vi.spyOn(consoleService.positronConsoleInstances.find(instance => instance.sessionId === newerId)!, 'enqueueCode').mockImplementation(async () => { });
+
+			await consoleService.executeCode('test', undefined, '1 + 1', { source: CodeAttributionSource.Extension }, false);
+
+			expect([olderSpy.mock.calls.length, newerSpy.mock.calls.length]).toEqual([0, 1]);
+		});
+	});
+
+	describe('cancelPendingExecution', () => {
+		const attribution = { source: CodeAttributionSource.Extension };
+
+		async function startBusy() {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			session.setRuntimeState(RuntimeState.Busy);
+			vi.spyOn(session, 'getRuntimeState').mockReturnValue(RuntimeState.Busy);
+			const executeSpy = vi.spyOn(session, 'execute');
+			const instance = consoleService.positronConsoleInstances.find(i => i.sessionId === session.sessionId)!;
+			const run = (code: string, executionId: string) => consoleService.executeCode(
+				session.runtimeMetadata.languageId, session.sessionId, code, attribution, false, false,
+				undefined, undefined, executionId, undefined, undefined, false, false);
+			return { session, instance, executeSpy, run };
+		}
+
+		const pendingCode = (instance: IPositronConsoleInstance) =>
+			instance.runtimeItems.filter(item => item instanceof RuntimeItemPendingInput).map(item => item.code);
+
+		it('removes only the cancelled code from the queue', async () => {
+			const { session, instance, executeSpy, run } = await startBusy();
+			vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+			await run('a', 'exec-a');
+			await run('b', 'exec-b');
+			await run('c', 'exec-c');
+
+			expect(instance.cancelPendingExecution('exec-b')).toBe(true);
+			expect(instance.cancelPendingExecution('exec-b')).toBe(false);
+			expect(pendingCode(instance)).toEqual(['a\nc']);
+
+			session.setRuntimeState(RuntimeState.Idle);
+			await vi.waitFor(() => expect(executeSpy.mock.calls.map(call => call[0])).toEqual(['a', 'c']));
+		});
+
+		it('skips code cancelled while it is checked for completeness', async () => {
+			const { session, instance, executeSpy, run } = await startBusy();
+			const check = new DeferredPromise<RuntimeCodeFragmentStatus>();
+			vi.spyOn(session, 'isCodeFragmentComplete')
+				.mockReturnValueOnce(check.p)
+				.mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+			await run('a', 'exec-a');
+			await run('b', 'exec-b');
+
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(instance.cancelPendingExecution('exec-a')).toBe(true);
+			await check.complete(RuntimeCodeFragmentStatus.Complete);
+
+			await vi.waitFor(() => expect(executeSpy).toHaveBeenCalledTimes(1));
+			expect(executeSpy.mock.calls[0][0]).toBe('b');
+		});
+
+		it('detaches incomplete code waiting in the input without clearing it', async () => {
+			const { session, instance, run } = await startBusy();
+			vi.spyOn(session, 'isCodeFragmentComplete').mockResolvedValue(RuntimeCodeFragmentStatus.Incomplete);
+			await run('f(', 'exec-a');
+			const pending: (string | undefined)[] = [];
+			ctx.disposables.add(instance.onDidSetPendingCode(code => pending.push(code)));
+			session.setRuntimeState(RuntimeState.Idle);
+			await vi.waitFor(() => expect(pending).toEqual(['f(']));
+
+			expect([instance.cancelPendingExecution('exec-a'), instance.cancelPendingExecution('exec-a')]).toEqual([true, false]);
+			expect(pending).toEqual(['f(']);
 		});
 	});
 });

@@ -25,6 +25,7 @@ task.task(compilation.compileExtensionPointNamesTask);
 const require = createRequire(import.meta.url);
 
 // API proposal names
+task.task(compilation.checkApiProposalNamesTask);
 task.task(compilation.compileApiProposalNamesTask);
 task.task(compilation.watchApiProposalNamesTask);
 
@@ -47,7 +48,7 @@ task.task(transpileClientTask);
 
 // Fast compile for development time
 // Remove copy codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
-const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out', false)));
+const compileClientTask = task.define('compile-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, compilation.compileApiProposalNamesTask, compilation.compileExtensionPointNamesTask, compilation.compileTask('src', 'out')));
 task.task(compileClientTask);
 
 // Remove watch codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.

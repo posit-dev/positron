@@ -637,6 +637,24 @@ class ExecuteCodeParams(BaseModel):
     )
 
 
+class ExecuteCodeInNewSessionParams(BaseModel):
+    """
+    Execute code in a new session
+    """
+
+    language_id: StrictStr = Field(
+        description="The language ID of the code to execute",
+    )
+
+    code: StrictStr = Field(
+        description="The code to execute",
+    )
+
+    session_name: StrictStr = Field(
+        description="The name of the new session",
+    )
+
+
 class OpenWorkspaceParams(BaseModel):
     """
     Open a workspace
@@ -790,6 +808,8 @@ ExecuteCommandParams.update_forward_refs()
 EvaluateWhenClauseParams.update_forward_refs()
 
 ExecuteCodeParams.update_forward_refs()
+
+ExecuteCodeInNewSessionParams.update_forward_refs()
 
 OpenWorkspaceParams.update_forward_refs()
 

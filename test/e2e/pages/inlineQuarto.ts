@@ -5,7 +5,9 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Editor } from './editor';
 import { QuickAccess } from './quickaccess';
+import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 
 // --- Selectors ---
@@ -46,6 +48,7 @@ export class InlineQuarto {
 	private code: Code;
 	private quickaccess: QuickAccess;
 	private hotKeys: HotKeys;
+	private editor: Editor;
 
 	// --- Locators ---
 
@@ -77,10 +80,11 @@ export class InlineQuarto {
 	readonly truncationHeader: Locator;
 	readonly openInEditorLink: Locator;
 
-	constructor(code: Code, quickaccess: QuickAccess, hotKeys: HotKeys) {
+	constructor(code: Code, quickaccess: QuickAccess, hotKeys: HotKeys, editor: Editor) {
 		this.code = code;
 		this.quickaccess = quickaccess;
 		this.hotKeys = hotKeys;
+		this.editor = editor;
 		const page = code.driver.currentPage;
 
 		this.kernelStatusWidget = page.locator(KERNEL_STATUS_WIDGET);
@@ -151,6 +155,30 @@ export class InlineQuarto {
 			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
 			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
 			await this.code.driver.currentPage.keyboard.press('Enter');
+		});
+	}
+
+	/**
+	 * Appends `text` as a new line after `lineNumber` of `filename` and waits until
+	 * the editor shows it there. The Enter after Go to Line is dropped on CI when
+	 * the quick input is still closing (the text then lands on `lineNumber`), so
+	 * the edit waits for the editor to take focus first and is verified before
+	 * the caller runs the cell.
+	 */
+	async insertLineAfter(filename: string, lineNumber: number, text: string): Promise<void> {
+		await test.step(`Insert "${text}" after line ${lineNumber}`, async () => {
+			const page = this.code.driver.currentPage;
+			await this.gotoLine(lineNumber);
+			await expect(page.locator(QuickInput.QUICK_INPUT_INPUT)).toBeHidden({ timeout: 5000 });
+			await this.editor.waitForEditorFocus(filename, lineNumber);
+			await page.keyboard.press('End');
+			await page.keyboard.press('Enter');
+			await page.keyboard.type(text);
+			// Monaco renders spaces as no-break spaces.
+			await expect.poll(async () => (await this.editor.getLine(filename, lineNumber + 1)).replace(/\u00a0/g, ' '), {
+				message: `line ${lineNumber + 1} should hold the inserted text`,
+				timeout: 5000,
+			}).toBe(text);
 		});
 	}
 
@@ -566,6 +594,38 @@ export class InlineQuarto {
 	async expectPendingExecution({ timeout }: { timeout?: number } = { timeout: 5000 }): Promise<void> {
 		await test.step(`Expect cell is pending execution`, async () => {
 			await expect(this.toolbarCancelButton).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Expect the center pixel of an inline image output to have the given RGB
+	 * color (each channel within `tolerance`). Polls until the image has
+	 * loaded and the color matches, so a plot that is replaced by a later
+	 * update is checked against its final picture.
+	 */
+	async expectImageCenterColor(rgb: [number, number, number], { index = 0, tolerance = 10, timeout = 30000 }: { index?: number; tolerance?: number; timeout?: number } = {}): Promise<void> {
+		await test.step(`Expect inline image ${index} center color to be rgb(${rgb.join(', ')})`, async () => {
+			const image = this.imageOutput.nth(index);
+			await expect.poll(async () => {
+				const color = await image.evaluate((img: HTMLImageElement) => {
+					if (!img.complete || img.naturalWidth === 0) {
+						return undefined;
+					}
+					const canvas = document.createElement('canvas');
+					canvas.width = img.naturalWidth;
+					canvas.height = img.naturalHeight;
+					const context = canvas.getContext('2d');
+					if (!context) {
+						return undefined;
+					}
+					context.drawImage(img, 0, 0);
+					const [r, g, b] = context.getImageData(Math.floor(img.naturalWidth / 2), Math.floor(img.naturalHeight / 2), 1, 1).data;
+					return [r, g, b];
+				});
+				return color !== undefined && color.every((channel, i) => Math.abs(channel - rgb[i]) <= tolerance)
+					? 'match'
+					: `rgb(${color?.join(', ') ?? 'not loaded'})`;
+			}, { timeout }).toBe('match');
 		});
 	}
 }

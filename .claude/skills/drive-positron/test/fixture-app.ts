@@ -42,7 +42,8 @@ export function launchFixture(opts: { session: string; root: string; appArgs: st
 	cpSync(join(test, 'fixture'), ws, { recursive: true });
 	symlinkSync(join(repo, 'extensions/positron-python/.venv'), join(ws, '.venv'));
 	writeFileSync(join(root, 'seed/User/settings.json'), JSON.stringify({ 'quarto.inlineOutput.enabled': true, 'positron.notebook.enabled': true, 'workbench.startupEditor': 'none' }, null, '\t'));
-	const r = sh(root, [join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--', '--folder-uri', pathToFileURL(ws).href, ...appArgs], 600_000);
+	// Smoke clicks an error's Explain, which needs a chat model.
+	const r = sh(root, [join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--pass-env', 'ANTHROPIC_API_KEY', '--', '--folder-uri', pathToFileURL(ws).href, ...appArgs], 600_000);
 	if (!r.json?.cdpPort) { throw new Error(`launch.sh failed: ${r.stderr.trim().split('\n').slice(-5).join(' | ')}`); }
 	const app: App = { session, root, cdpPort: r.json.cdpPort, runDir: r.json.runDir! };
 	opts.onStarted?.(app);

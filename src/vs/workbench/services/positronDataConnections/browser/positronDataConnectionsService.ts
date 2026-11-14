@@ -23,6 +23,7 @@ import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/w
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
+import { isRuntimeDataConnectionDriverId } from '../../positronConnections/common/runtimeDataConnections.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
 // its own key (`{prefix}{profileId}`) so updates rewrite only the changed profile, not the whole
@@ -36,6 +37,16 @@ const profileStorageKey = (profileId: string) =>
 // Builds the secret storage key for a given data connection secret profile/parameter pair.
 const secretKey = (profileId: string, parameterId: string) =>
 	`positron.dataConnections.secret.${profileId}.${parameterId}`;
+
+/**
+ * Builds the id of the ephemeral profile for a connection a driver discovered. Ids are namespaced
+ * by driver, so two drivers reporting a connection of the same id do not collide.
+ * @param driverId The id of the driver that discovered the connection.
+ * @param connectionId The id the driver gave the discovered connection.
+ */
+export function discoveredProfileId(driverId: string, connectionId: string): string {
+	return `discovered:${driverId}:${connectionId}`;
+}
 
 // The storage scopes data connection profiles are persisted in.
 type ProfileStorageScope = StorageScope.PROFILE | StorageScope.WORKSPACE;
@@ -57,6 +68,10 @@ const DUCKDB_READ_ONLY_MIGRATION_KEY = 'positron.dataConnections.duckdbReadOnlyM
 // Nothing else in this service is driver-specific; keep it that way.
 const DUCKDB_DRIVER_ID = 'positron-data-driver-duckdb';
 const READ_ONLY_PARAMETER_ID = 'readOnly';
+
+// Storage key for the ids of the discovered connections the user has hidden, a JSON array of full
+// discovered ids. Stored with the user's profile, so the choice follows them across workspaces.
+const HIDDEN_DISCOVERIES_STORAGE_KEY = 'positron.dataConnections.hiddenDiscoveries';
 
 // How long openNodeInDataExplorer waits for the pane's tree when there is none yet. A pane opened
 // just now builds its tree as it renders, which takes a moment; one that doesn't render in this time
@@ -123,6 +138,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when a connection should be shown in the Data Connections pane.
 	private readonly _onDidRequestRevealConnectionEmitter = this._register(new Emitter<void>());
 
+	// Fires with a profile id when the pane should re-fetch what it has loaded for that connection.
+	private readonly _onDidRequestRefreshEmitter = this._register(new Emitter<string>());
+
 	// The profile the pane has been asked to show and has not shown yet. Held because the pane's
 	// tree is built as the pane renders, so a request made while the pane was still opening has no
 	// tree to hear it; the tree takes this when it is built. Cleared by takePendingRevealConnection.
@@ -138,6 +156,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Rebuilt whenever the registered drivers change and never persisted; see
 	// _refreshDiscoveredProfiles.
 	private _discoveredProfiles: IDataConnectionProfile[] = [];
+
+	// Ids of the discovered connections the user has hidden. Kept even when the discovery is gone,
+	// so one that comes back stays hidden. Persisted under HIDDEN_DISCOVERIES_STORAGE_KEY.
+	private _hiddenDiscoveryIds = new Set<string>();
 
 	// Incremented on every _refreshDiscoveredProfiles call, so a refresh that finishes after a
 	// newer one started discards its results rather than overwriting the newer ones.
@@ -195,6 +217,15 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		// Load data connection profiles from storage. Secret values stay in secret storage and are
 		// fetched on demand by getProfileWithSecrets.
 		this._loadProfiles();
+		this._hiddenDiscoveryIds = this._readHiddenDiscoveryIds();
+
+		// Another window hiding or unhiding a discovery changes what this window lists. Events this
+		// window caused are not external, and were already handled where they were made.
+		this._register(this._storageService.onDidChangeValue(StorageScope.PROFILE, HIDDEN_DISCOVERIES_STORAGE_KEY, this._store)(e => {
+			if (e.external) {
+				this._onHiddenDiscoveriesChangedExternally();
+			}
+		}));
 
 		// A closing editor may have been the last Data Explorer holding a connection open. The event
 		// fires after the editor leaves its group, so the count below already reflects the close.
@@ -267,6 +298,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	// Fires when a connection should be shown in the Data Connections pane.
 	readonly onDidRequestRevealConnection: Event<void> = this._onDidRequestRevealConnectionEmitter.event;
+
+	// Fires with a profile id when the pane should re-fetch what it has loaded for that connection.
+	readonly onDidRequestRefresh: Event<string> = this._onDidRequestRefreshEmitter.event;
+
+	/**
+	 * Asks the pane to re-fetch what it has loaded for a connection. See
+	 * {@link IPositronDataConnectionsService.requestRefresh}.
+	 * @param profileId The id of the profile whose contents changed.
+	 */
+	requestRefresh(profileId: string): void {
+		this._onDidRequestRefreshEmitter.fire(profileId);
+	}
 
 	/**
 	 * Asks the Data Connections pane to show a connection. See
@@ -345,12 +388,49 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * time, so saving or removing a profile takes effect without waiting for a re-discovery.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[] {
-		const savedFromIds = new Set(this._profiles
-			.map(saved => saved.discoveredFromId)
-			.filter((id): id is string => id !== undefined));
-		return this._discoveredProfiles.filter(discovered =>
-			!savedFromIds.has(discovered.id)
-			&& !this._profiles.some(saved => this._isSameConnection(saved, discovered)));
+		return this._unsavedDiscoveries().filter(discovered => !this._hiddenDiscoveryIds.has(discovered.id));
+	}
+
+	/**
+	 * Hides a discovered connection. See {@link IPositronDataConnectionsService.hideDiscoveredProfile}.
+	 * @param id The discovered profile id.
+	 */
+	hideDiscoveredProfile(id: string): void {
+		// Only a discovery that is listed can be hidden: one a saved profile stands in for has no row,
+		// and hiding it would store an id the Show Hidden Connections pick never offers back.
+		if (this._hiddenDiscoveryIds.has(id) || !this._isUnsavedDiscovery(id)) {
+			return;
+		}
+		this._hiddenDiscoveryIds.add(id);
+		this._storeHiddenDiscoveryIds();
+
+		// Like removeProfile, the row going away leaves the connection unreachable, so close it.
+		void this.disconnect(id);
+		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+	}
+
+	/**
+	 * Gets the hidden discoveries that would otherwise be listed.
+	 */
+	getHiddenDiscoveredProfiles(): readonly IDataConnectionProfile[] {
+		return this._unsavedDiscoveries().filter(discovered => this._hiddenDiscoveryIds.has(discovered.id));
+	}
+
+	/**
+	 * Stops hiding discovered connections. See
+	 * {@link IPositronDataConnectionsService.unhideDiscoveredProfiles}.
+	 * @param ids The discovered profile ids to show again.
+	 */
+	unhideDiscoveredProfiles(ids: readonly string[]): void {
+		const hidden = ids.filter(id => this._hiddenDiscoveryIds.has(id));
+		if (hidden.length === 0) {
+			return;
+		}
+		for (const id of hidden) {
+			this._hiddenDiscoveryIds.delete(id);
+		}
+		this._storeHiddenDiscoveryIds();
+		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
 	}
 
 	/**
@@ -383,6 +463,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		};
 
 		this.addUpdateProfile(profile);
+
+		// A saved discovery is no longer hidden. Leaving its id in the set would hide the row again
+		// if the saved profile were later removed.
+		if (this._hiddenDiscoveryIds.delete(id)) {
+			this._storeHiddenDiscoveryIds();
+		}
 
 		// The discovery is now shadowed by the saved profile, so the pane needs to drop its row.
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
@@ -488,8 +574,9 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 */
 	getProfile(id: string): IDataConnectionProfile | undefined {
 		// Discovered profiles are addressable by id too, so a caller holding an id from the pane can
-		// resolve it without caring whether the row it came from was saved or discovered.
-		return this._profiles.find(p => p.id === id) ?? this._discoveredProfiles.find(p => p.id === id);
+		// resolve it without caring whether the row it came from was saved or discovered. A hidden
+		// one is not: it has no row, so every by-id caller treats it as not found.
+		return this._profiles.find(p => p.id === id) ?? this._findVisibleDiscovery(id);
 	}
 
 	/**
@@ -507,7 +594,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			// values its driver reported were split out at discovery time and held in
 			// _discoveredSecretValues; merge them back so the connect gets the values the driver
 			// reported.
-			const discovered = this._discoveredProfiles.find(_ => _.id === id);
+			const discovered = this._findVisibleDiscovery(id);
 			if (!discovered) {
 				return undefined;
 			}
@@ -711,6 +798,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * connect for it is still in flight, returns that connect's result rather than starting another.
 	 */
 	async connect(profileId: string): Promise<IDataConnectionInstance> {
+		// A hidden discovery has no row to disconnect from, so opening one would leave a connection
+		// the user cannot reach. Checked before the live-instance reuse below, which would otherwise
+		// hand back a connection that hiding is still closing.
+		if (this._isHiddenHere(profileId)) {
+			throw new Error(`Data connection '${profileId}' is hidden`);
+		}
+
 		// If we already have a live instance for this profile, reuse it.
 		const existing = this.getInstanceForProfile(profileId);
 		if (existing) {
@@ -763,8 +857,21 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 		// Checked by id, not identity: a driver re-registered meanwhile still owns this live connection.
 		if (!this.driverManager.getDriver(driver.id)) {
-			await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after its driver was removed`);
+			if (isRuntimeDataConnectionDriverId(driver.id)) {
+				// Only released, as in _dropRuntimeInstance: closing a runtime comm runs the user's
+				// disconnect() in R or Python, which only an explicit Disconnect may do.
+				this._logService.warn(`[DataConnections] Runtime driver ${driver.id} was removed while connecting profile ${profileId}; releasing the handle and leaving the comm open`);
+				handle.release();
+			} else {
+				await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after its driver was removed`);
+			}
 			throw new Error(`Data connection driver '${driver.id}' was removed while connecting`);
+		}
+
+		// Hiding disconnects by profile, which found no instance while this connect was in flight.
+		if (this._isHiddenHere(profileId)) {
+			await closeDataConnectionHandle(handle, this._logService, `profile ${profileId} after it was hidden`);
+			throw new Error(`Data connection '${profileId}' was hidden while connecting`);
 		}
 
 		// Build the live instance. Active starts true; an onDidChangeStatus emitter is wired so
@@ -878,10 +985,13 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
-	 * Closes the profile's connection as soon as nothing is using it.
+	 * Closes the profile's connection as soon as nothing is using it. A runtime connection (one an
+	 * R or Python session opened) is left open: it closes only on an explicit disconnect, since
+	 * closing its comm runs the user's disconnect() in the session.
 	 */
 	disconnectWhenUnused(profileId: string): void {
-		if (this.getInstanceForProfile(profileId) === undefined) {
+		const instance = this.getInstanceForProfile(profileId);
+		if (instance === undefined || isRuntimeDataConnectionDriverId(instance.driverId)) {
 			return;
 		}
 
@@ -985,7 +1095,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 					}
 
 					const profile: IDataConnectionProfile = {
-						id: `discovered:${driver.id}:${connection.id}`,
+						id: discoveredProfileId(driver.id, connection.id),
 						driverMetadata: {
 							id: driver.metadata.id,
 							name: driver.metadata.name,
@@ -1024,22 +1134,132 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Finds a current discovery by id, unless the user has hidden it. Unlike
+	 * getDiscoveredProfiles, this still finds a discovery a saved profile stands in for: a
+	 * connection opened from it before it was saved is still backed by it.
+	 * @param id The discovered profile id.
+	 */
+	private _findVisibleDiscovery(id: string): IDataConnectionProfile | undefined {
+		return this._isHiddenHere(id) ? undefined : this._discoveredProfiles.find(p => p.id === id);
+	}
+
+	/**
+	 * Whether a discovery is hidden in this window. The hidden set is shared by every window on the
+	 * profile, but a discovery a saved profile stands in for has no row of its own here, so another
+	 * window hiding it does not hide the saved connection (or the instance it backs) in this one.
+	 * @param id The discovered profile id.
+	 */
+	private _isHiddenHere(id: string): boolean {
+		return this._hiddenDiscoveryIds.has(id) && this._isUnsavedDiscovery(id);
+	}
+
+	/**
+	 * Whether the id is a current discovery that no saved profile stands in for. Checks the one
+	 * discovery rather than building {@link _unsavedDiscoveries}, for callers asking about a single id.
+	 * @param id The discovered profile id.
+	 */
+	private _isUnsavedDiscovery(id: string): boolean {
+		const discovered = this._discoveredProfiles.find(p => p.id === id);
+		return discovered !== undefined && !this._isStoodInFor(discovered);
+	}
+
+	/**
+	 * Whether a saved profile stands in for a discovery: one saved from it, or one the user
+	 * configured by hand that matches it.
+	 * @param discovered The discovered profile.
+	 */
+	private _isStoodInFor(discovered: IDataConnectionProfile): boolean {
+		return this._profiles.some(saved =>
+			saved.discoveredFromId === discovered.id || this._isSameConnection(saved, discovered));
+	}
+
+	/**
+	 * The current discoveries that no saved profile stands in for, hidden or not.
+	 */
+	private _unsavedDiscoveries(): IDataConnectionProfile[] {
+		return this._discoveredProfiles.filter(discovered => !this._isStoodInFor(discovered));
+	}
+
+	/**
+	 * Reads the hidden discovery ids from storage. Missing or malformed data counts as none hidden.
+	 */
+	private _readHiddenDiscoveryIds(): Set<string> {
+		const raw = this._storageService.get(HIDDEN_DISCOVERIES_STORAGE_KEY, StorageScope.PROFILE);
+		if (!raw) {
+			return new Set();
+		}
+		try {
+			const parsed: unknown = JSON.parse(raw);
+			if (Array.isArray(parsed)) {
+				return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+			}
+		} catch {
+			// Falls through to the warning below.
+		}
+		this._logService.warn(`[DataConnections] Ignoring malformed hidden discoveries in storage.`);
+		return new Set();
+	}
+
+	/**
+	 * Persists the hidden discovery ids, removing the key when none are hidden.
+	 */
+	private _storeHiddenDiscoveryIds(): void {
+		if (this._hiddenDiscoveryIds.size === 0) {
+			this._storageService.remove(HIDDEN_DISCOVERIES_STORAGE_KEY, StorageScope.PROFILE);
+		} else {
+			this._storageService.store(
+				HIDDEN_DISCOVERIES_STORAGE_KEY,
+				JSON.stringify([...this._hiddenDiscoveryIds]),
+				StorageScope.PROFILE,
+				StorageTarget.MACHINE);
+		}
+	}
+
+	/**
+	 * Reloads the hidden discovery ids after another window changed them, closing the connections
+	 * of newly hidden discoveries since their rows are gone from this window too.
+	 */
+	private _onHiddenDiscoveriesChangedExternally(): void {
+		const previous = this._hiddenDiscoveryIds;
+		this._hiddenDiscoveryIds = this._readHiddenDiscoveryIds();
+		const changed = previous.size !== this._hiddenDiscoveryIds.size
+			|| [...this._hiddenDiscoveryIds].some(id => !previous.has(id));
+		if (!changed) {
+			return;
+		}
+		for (const id of this._hiddenDiscoveryIds) {
+			if (!previous.has(id) && this._isHiddenHere(id) && this.getInstanceForProfile(id) !== undefined) {
+				void this.disconnect(id);
+			}
+		}
+		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+	}
+
+	/**
 	 * Closes any live connection whose profile no longer exists -- a discovered connection the user
 	 * had open, whose entry was then renamed or removed from the file it was discovered in.
 	 *
 	 * The row goes away with the discovery, and the row is the only place to disconnect from, so a
 	 * session left open here is one the user cannot reach or close. Closing it is also what the user
 	 * asked for: the connection they opened is the entry that is now gone.
+	 *
+	 * A runtime connection is dropped without being closed (see _dropRuntimeInstance): its discovery
+	 * goes away only once its comm has closed, and closing a comm that is somehow still open would
+	 * run the user's disconnect() in R or Python.
 	 */
 	private async _disconnectVanishedDiscoveries(): Promise<void> {
-		// Resolved against the unfiltered discoveries, the same way getProfile resolves them: a
-		// discovery the user has saved is filtered out of getDiscoveredProfiles but still backs the
-		// instance opened from it.
+		// Resolved against every current discovery: a discovery the user has saved is filtered out of
+		// getDiscoveredProfiles but still backs the instance opened from it. A hidden one is not
+		// vanished; hiding closes its connection itself.
 		const vanished = this._instances.filter(instance =>
 			!this._profiles.some(profile => profile.id === instance.profileId)
 			&& !this._discoveredProfiles.some(profile => profile.id === instance.profileId));
 
 		await Promise.all(vanished.map(async instance => {
+			if (isRuntimeDataConnectionDriverId(instance.driverId)) {
+				await this._dropRuntimeInstance(instance, 'its discovery is no longer reported');
+				return;
+			}
 			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its discovered profile ${instance.profileId} is no longer reported`);
 			try {
 				await this.disconnect(instance.profileId);
@@ -1051,14 +1271,54 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 
 	/**
 	 * Closes the live connections of any driver that is no longer registered; the extension host
-	 * leaves them open for the service to close.
+	 * leaves them open for the service to close. A runtime connection is dropped without being
+	 * closed instead (see _dropRuntimeInstance), since closing its comm would run the user's
+	 * disconnect() in R or Python.
 	 */
 	private _disconnectUnregisteredDrivers(): void {
 		const orphaned = this._instances.filter(instance => !this.driverManager.getDriver(instance.driverId));
 		for (const instance of orphaned) {
+			if (isRuntimeDataConnectionDriverId(instance.driverId)) {
+				void this._dropRuntimeInstance(instance, `its driver ${instance.driverId} was unregistered`);
+				continue;
+			}
 			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its driver ${instance.driverId} was unregistered`);
 			void this.disconnect(instance.profileId);
 		}
+	}
+
+	/**
+	 * Drops a runtime connection's instance without closing its comm, for the cleanup paths that
+	 * would otherwise disconnect it. The instance leaves _instances and the same change event as
+	 * disconnect() fires, but the handle is only released. A live runtime comm should never lose
+	 * its discovery or its driver, so a handle that still reports itself connected is logged.
+	 * @param instance The runtime connection instance to drop.
+	 * @param reason Why it is being dropped, for the log.
+	 */
+	private async _dropRuntimeInstance(instance: IDataConnectionInstance, reason: string): Promise<void> {
+		// Removed before any await, so a concurrent disconnect() finds nothing to close.
+		const index = this._instances.indexOf(instance);
+		if (index < 0) {
+			return;
+		}
+		this._instances.splice(index, 1);
+		this._previewedDatasetIds.delete(instance.profileId);
+		this._disconnectWhenUnused.delete(instance.profileId);
+
+		let connected = false;
+		try {
+			connected = await instance.connectionHandle.isConnected();
+		} catch (err) {
+			this._logService.error(`[DataConnections] isConnected() threw for runtime profile ${instance.profileId}: ${err}`);
+		}
+		if (connected) {
+			this._logService.warn(`[DataConnections] Dropping runtime profile ${instance.profileId} while its comm is still open (${reason}); leaving the comm open`);
+		} else {
+			this._logService.trace(`[DataConnections] Dropped runtime profile ${instance.profileId}: ${reason}`);
+		}
+
+		instance.connectionHandle.release();
+		this._onDidChangeInstancesEmitter.fire([...this._instances]);
 	}
 
 	/**

@@ -10,15 +10,16 @@ import { QuickAccess } from './quickaccess.js';
 import {
 	ModelProvider,
 	LoginModelProviderOptions,
-	fillSecretValue,
 	getProviderAuthType,
 	providerRequiresBaseUrl,
 	getProviderBaseUrlEnvVarName,
 	getOAuthConfig,
 	getProviderEnvKey,
 	getProviderEnvVarName,
+	getMissingProviderEnv,
 	completeOAuthDeviceCodeLoginWithCode,
 } from './modelProviderShared.js';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
@@ -95,6 +96,10 @@ export class ProviderManager {
 
 	async loginModelProvider(provider: ModelProvider, options: LoginModelProviderOptions = {}) {
 		const { timeout = 15000 } = options;
+
+		// PR lanes run without the vault; in a beforeAll this skips the whole suite.
+		const missing = getMissingProviderEnv(provider, options);
+		test.skip(missing.length > 0, `${provider} sign-in needs ${missing.join(' and ')} in the environment`);
 
 		await test.step(`Connect to ${provider} in the provider manager`, async () => {
 			const frame = await this.open();

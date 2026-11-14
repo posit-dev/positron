@@ -67,8 +67,15 @@ result says nothing about the others):
 changes over time -- so don't reproduce on a project from that file without
 first confirming CI exercises it for this test:
 
+The lanes that produce CI history run in the private repo
+`posit-dev/positron-builds` (`test-pr.yml` and `test-merge.yml`), not in this
+repo's `.github/workflows/`:
+
 ```bash
-grep -rnw -- '<project>' .github/workflows/
+for wf in test-pr.yml test-merge.yml; do
+  gh api "repos/posit-dev/positron-builds/contents/.github/workflows/$wf" \
+    -H 'Accept: application/vnd.github.raw' | grep -nw -- '<project>'
+done
 ```
 
 No match means CI never runs it, so it produced none of the history you are

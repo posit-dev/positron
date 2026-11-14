@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { fillSecretValue } from '../utils/secretInput.js';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';
 const CONNECTIONS_ITEM = '.connections-item';
@@ -84,11 +85,20 @@ export class Connections {
 	async fillConnectionsInputs(fields: Record<string, string>) {
 		await test.step('Filling connection inputs', async () => {
 			for (const [labelText, value] of Object.entries(fields)) {
-				const label = this.code.driver.currentPage.locator('span.label-text', { hasText: labelText });
-				const input = label.locator('+ input.text-input');
-				await input.fill(value);
+				await this.connectionsInput(labelText).fill(value);
 			}
 		});
+	}
+
+	/** Fills one secret field (password) without putting the value in a step title. */
+	async fillSecretConnectionsInput(labelText: string, value: string) {
+		await test.step('Filling secret connection input', async () => {
+			await fillSecretValue(this.connectionsInput(labelText), value);
+		});
+	}
+
+	private connectionsInput(labelText: string): Locator {
+		return this.code.driver.currentPage.locator('span.label-text', { hasText: labelText }).locator('+ input.text-input');
 	}
 
 	async connect() {

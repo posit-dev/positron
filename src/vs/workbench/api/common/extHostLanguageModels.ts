@@ -7,7 +7,7 @@ import type * as vscode from 'vscode';
 import { AsyncIterableProducer, AsyncIterableSource, RunOnceScheduler } from '../../../base/common/async.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
-import { SerializedError, transformErrorForSerialization, transformErrorFromSerialization } from '../../../base/common/errors.js';
+import { SerializedError, transformErrorFromSerialization } from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Iterable } from '../../../base/common/iterator.js';
 import { DisposableMap, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
@@ -39,6 +39,18 @@ type LanguageModelProviderData = {
 };
 
 type LMResponsePart = vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart | vscode.LanguageModelDataPart | vscode.LanguageModelThinkingPart;
+
+const apiTypesFromApi = new Map<number, NonNullable<ILanguageModelChatMetadata['capabilities']>['apiType']>([
+	[extHostTypes.LanguageModelChatApiType.ChatCompletions, 'chatCompletions'],
+	[extHostTypes.LanguageModelChatApiType.Responses, 'responses'],
+	[extHostTypes.LanguageModelChatApiType.Messages, 'messages'],
+]);
+
+const apiTypesToApi = {
+	chatCompletions: extHostTypes.LanguageModelChatApiType.ChatCompletions,
+	responses: extHostTypes.LanguageModelChatApiType.Responses,
+	messages: extHostTypes.LanguageModelChatApiType.Messages,
+};
 
 
 class LanguageModelResponse {
@@ -203,6 +215,9 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			return [];
 		}
 		const modelInformation: vscode.LanguageModelChatInformation[] = await data.provider.provideLanguageModelChatInformation({ silent: options.silent, configuration: options.configuration }, token) ?? [];
+		if (this._languageModelProviders.get(vendor) !== data) {
+			return [];
+		}
 		const modelMetadataAndIdentifier: ILanguageModelChatMetadataAndIdentifier[] = modelInformation.map((m): ILanguageModelChatMetadataAndIdentifier => {
 			let auth;
 			if (m.requiresAuthorization && isProposedApiEnabled(data.extension, 'chatProvider')) {
@@ -213,6 +228,9 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			}
 			if (m.capabilities.editTools) {
 				checkProposedApiEnabled(data.extension, 'chatProvider');
+			}
+			if (m.capabilities.apiType !== undefined || m.capabilities.adaptiveThinking !== undefined) {
+				checkProposedApiEnabled(data.extension, 'languageModelCapabilities');
 			}
 
 			const isDefaultForLocation: { [K in ChatAgentLocation]?: boolean } = {};
@@ -256,6 +274,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					category: m.category,
 					maxInputTokens: m.maxInputTokens,
 					maxOutputTokens: m.maxOutputTokens,
+					maxContextWindowTokens: m.maxContextWindowTokens,
 					auth,
 					isDefaultForLocation,
 					isUserSelectable: m.isUserSelectable,
@@ -268,6 +287,8 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					capabilities: m.capabilities ? {
 						vision: m.capabilities.imageInput,
 						editTools: m.capabilities.editTools,
+						apiType: m.capabilities.apiType === undefined ? undefined : apiTypesFromApi.get(m.capabilities.apiType),
+						adaptiveThinking: m.capabilities.adaptiveThinking,
 						toolCalling: !!m.capabilities.toolCalling,
 						agentMode: !!m.capabilities.toolCalling
 					} : undefined,
@@ -369,9 +390,12 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			);
 
 		} catch (err) {
-			// synchronously failed
-			this._pendingCancelCTS.deleteAndDispose(requestId);
-			throw err;
+			// synchronously failed; rate limits are reported like rejections so `retryAfter` survives RPC
+			if (!(err instanceof extHostTypes.LanguageModelError && err.code === extHostTypes.LanguageModelError.RateLimited.name)) {
+				this._pendingCancelCTS.deleteAndDispose(requestId);
+				throw err;
+			}
+			value = Promise.reject(err);
 		}
 
 		Promise.resolve(value).then(() => {
@@ -381,7 +405,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		}, err => {
 			sendNow();
 			this._pendingCancelCTS.deleteAndDispose(requestId);
-			this._proxy.$reportResponseDone(requestId, transformErrorForSerialization(err));
+			this._proxy.$reportResponseDone(requestId, extHostTypes.serializeLanguageModelError(err));
 		});
 	}
 
@@ -447,7 +471,38 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			}
 		}
 
-		const model = this._localModels.get(modelId)!;
+		return this._createLanguageModelChatApi(extension, modelId);
+	}
+
+	/**
+	 * Resolves the model a chat request or tool invocation runs on. An explicit selection that cannot be resolved
+	 * fails rather than silently running on (and billing) the default model.
+	 */
+	async getLanguageModelForRequest(extension: IExtensionDescription, userSelectedModelId: string | undefined): Promise<vscode.LanguageModelChat> {
+		if (userSelectedModelId) {
+			const model = await this.getLanguageModelByIdentifier(extension, userSelectedModelId);
+			if (!model) {
+				throw extHostTypes.LanguageModelError.NotFound(localize('selectedModelUnavailable', "The selected model '{0}' is not available. Select a different model and try again.", userSelectedModelId));
+			}
+			return model;
+		}
+		const model = await this.getDefaultLanguageModel(extension);
+		if (!model) {
+			// --- Start Positron ---
+			throw new Error('No language models available for chat. Please ensure you have logged into a language model provider by running the command `Positron Assistant: Configure Language Model Providers` and authenticating with a provider.');
+			/*
+			throw new Error('Language model unavailable');
+			*/
+			// --- End Positron ---
+		}
+		return model;
+	}
+
+	private async _createLanguageModelChatApi(extension: IExtensionDescription, modelId: string): Promise<vscode.LanguageModelChat | undefined> {
+		const model = this._localModels.get(modelId);
+		if (!model) {
+			return undefined;
+		}
 
 		// make sure auth information is correct
 		if (this._isUsingAuth(extension.identifier, model.metadata)) {
@@ -476,6 +531,8 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				supportsImageToText: model.metadata.capabilities?.vision ?? false,
 				supportsToolCalling: !!model.metadata.capabilities?.toolCalling,
 				editToolsHint: model.metadata.capabilities?.editTools,
+				apiType: model.metadata.capabilities?.apiType === undefined ? undefined : apiTypesToApi[model.metadata.capabilities.apiType],
+				supportsAdaptiveThinking: model.metadata.capabilities?.adaptiveThinking,
 			},
 			maxInputTokens: model.metadata.maxInputTokens,
 			countTokens(text, token) {

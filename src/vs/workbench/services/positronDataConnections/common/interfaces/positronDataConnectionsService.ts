@@ -113,6 +113,10 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	// honors a request the same way whether it was already listening or has just been built.
 	onDidRequestRevealConnection: Event<void>;
 
+	// Fires with a profile id when that connection's contents changed and the pane should re-fetch
+	// what it has loaded for it. See requestRefresh.
+	readonly onDidRequestRefresh: Event<string>;
+
 	/**
 	 * Asks the Data Connections pane to show a connection: select it, and open it so its contents
 	 * can be browsed. Called by anything outside the pane that has just put the user's attention on
@@ -132,6 +136,15 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param options Where in the connection to go, and whether to open that node's details.
 	 */
 	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void;
+
+	/**
+	 * Asks the Data Connections pane to re-fetch what it has loaded for a connection, because the
+	 * connection's contents changed: an R or Python session reports an update after a change such
+	 * as DBI::dbWriteTable. A row with nothing loaded ignores the request, since its next expand
+	 * fetches fresh anyway.
+	 * @param profileId The id of the profile whose contents changed.
+	 */
+	requestRefresh(profileId: string): void;
 
 	/**
 	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree
@@ -179,13 +192,37 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * and editing it; and, for a connection the user configured by hand instead, a match on driver,
 	 * mechanism, name, and values. The name is part of that match because the secret values that
 	 * would otherwise distinguish two same-shaped data sources are held out of both profiles, so
-	 * without it, saving either one would hide both.
+	 * without it, saving either one would hide both. The third is the user hiding the discovery (see
+	 * {@link hideDiscoveredProfile}).
 	 * Like a saved profile's, the returned profiles' parameterValues never contain values the
 	 * mechanism declares secret; those are held internally and merged back by
 	 * {@link getProfileWithSecrets}.
 	 * @returns The discovered data connection profiles.
 	 */
 	getDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Hides a discovered connection: it stops being returned by {@link getDiscoveredProfiles} and
+	 * {@link getAllProfiles}, its live connection (if any) is closed, and it can no longer be
+	 * connected to. The choice is stored with the user's profile, so it survives restarts and a
+	 * discovery that drops out and comes back. A no-op if the id is not a listed discovery: one
+	 * that is not current, or that a saved profile stands in for.
+	 * @param id The discovered profile id.
+	 */
+	hideDiscoveredProfile(id: string): void;
+
+	/**
+	 * Gets the discoveries the user has hidden that would otherwise be listed. A hidden discovery
+	 * that no longer exists, or that a saved profile already stands in for, is not included.
+	 * @returns The hidden discovered profiles.
+	 */
+	getHiddenDiscoveredProfiles(): readonly IDataConnectionProfile[];
+
+	/**
+	 * Stops hiding discovered connections, so they are listed again.
+	 * @param ids The discovered profile ids to show again.
+	 */
+	unhideDiscoveredProfiles(ids: readonly string[]): void;
 
 	/**
 	 * Gets the full connection catalog: every saved profile followed by every discovered
@@ -232,6 +269,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets a data connection profile by id. The returned profile's parameterValues never contains
 	 * secret parameter values; use {@link getProfileWithSecrets} when those values are required.
+	 * A discovery the user has hidden is not found, so callers holding its id treat it as gone.
 	 * @param id The data connection profile id.
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */
@@ -240,7 +278,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Gets a data connection profile by id with its secret parameter values pulled from secret
 	 * storage. Callers should use it for an immediate operation and drop the reference right
-	 * afterward, not retain it.
+	 * afterward, not retain it. Like {@link getProfile}, a hidden discovery is not found.
 	 * @param id The data connection profile id.
 	 * @returns The matching data connection profile, or undefined if not found.
 	 */
@@ -363,6 +401,9 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * Data Explorers, otherwise once the last one is closed. Lets a caller give up its own use of a
 	 * connection without cutting off the Data Explorers still reading from it. No-op if the profile
 	 * has no live connection. Cancel a pending close with {@link cancelDisconnectWhenUnused}.
+	 *
+	 * No-op for a runtime connection (one an R or Python session opened): closing its comm runs the
+	 * user's disconnect() in the session, so it closes only on an explicit {@link disconnect}.
 	 * @param profileId The data connection profile id.
 	 */
 	disconnectWhenUnused(profileId: string): void;

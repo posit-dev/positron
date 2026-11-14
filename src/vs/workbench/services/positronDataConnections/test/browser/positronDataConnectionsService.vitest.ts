@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../../base/common/uri.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ISecretStorageService } from '../../../../../platform/secrets/common/secrets.js';
@@ -21,7 +21,7 @@ import { IViewsService } from '../../../views/common/viewsService.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
-import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
+import { discoveredProfileId, PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
 function createProfile(id: string): IDataConnectionProfile {
 	return {
@@ -51,6 +51,38 @@ function createDriverMetadata(): IDataConnectionDriverMetadata {
 			description: '',
 			parameters: [],
 		}],
+	};
+}
+
+/**
+ * A stub driver that discovers one live connection until `vanish` is called, the way a runtime
+ * driver reports a comm. Its handle still reports itself connected throughout, so the service
+ * dropping the discovery is the only thing that changes.
+ * @param driverId The driver id: 'runtime-r' for a runtime driver, anything else for a contrast.
+ */
+function createLiveConnectionDriver(driverId: string) {
+	let connections = [{ id: 's1:c1', name: 'mtcars.sqlite', mechanismId: 'live', parameterValues: { connectionId: 's1:c1' } }];
+	const handle = stubInterface<IDataConnectionHandle>({
+		handle: -1,
+		disconnect: vi.fn(async () => { }),
+		release: vi.fn(),
+		isConnected: async () => true,
+	});
+	const driver = stubInterface<IDataConnectionDriver>({
+		id: driverId,
+		metadata: {
+			...createDriverMetadata(),
+			id: driverId,
+			mechanisms: [{ id: 'live', label: 'Live', description: '', parameters: [] }],
+		},
+		discoverConnections: async () => connections,
+		connect: async () => handle,
+	});
+	return {
+		driver,
+		handle,
+		profileId: discoveredProfileId(driverId, 's1:c1'),
+		vanish: () => { connections = []; },
 	};
 }
 
@@ -533,6 +565,20 @@ describe('PositronDataConnectionsService', () => {
 
 				expect(() => service.disconnectWhenUnused('conn-1')).not.toThrow();
 			});
+
+			// Contrast for the runtime guard: runtime profiles are never closed implicitly, every
+			// other profile still is.
+			it('disconnectWhenUnused still closes a non-runtime profile with no previews', async () => {
+				await connectProfile([]);
+
+				service.disconnectWhenUnused('conn-1');
+
+				await vi.waitFor(() => expect(handleReleases).toBe(1));
+				expect({
+					connected: service.getInstanceForProfile('conn-1') !== undefined,
+					handleDisconnects,
+				}).toEqual({ connected: false, handleDisconnects: 1 });
+			});
 		});
 
 		describe('disconnect', () => {
@@ -685,6 +731,23 @@ describe('PositronDataConnectionsService', () => {
 				`);
 			});
 
+			// Closing a runtime comm runs the user's disconnect() in R or Python, and a live comm
+			// should never lose its driver, so the instance is dropped and the comm left open.
+			it('removing the runtime driver does not close the comm', async () => {
+				const { driver, handle, profileId } = createLiveConnectionDriver('runtime-r');
+				service.driverManager.registerDriver(driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([profileId]));
+				await service.connect(profileId);
+
+				service.driverManager.removeDriver('runtime-r');
+
+				await vi.waitFor(() => expect(handle.release).toHaveBeenCalled());
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 0 });
+			});
+
 			// Snowflake updates its driver in place (onDidChange) rather than re-registering; its
 			// connections are meant to survive that.
 			it('keeps the connection when the driver is replaced under the same id', async () => {
@@ -728,6 +791,31 @@ describe('PositronDataConnectionsService', () => {
 				}).toEqual({ connected: false, disconnects: 1, releases: 1 });
 			});
 
+			// The auto-connect bridge can be mid-connect when the runtime driver goes away. Closing
+			// the handle then would run the user's disconnect() in R or Python, so it is only released.
+			it('releases without closing a runtime connection that finishes opening after its driver was removed', async () => {
+				const { driver, handle, profileId } = createLiveConnectionDriver('runtime-r');
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				driver.connect = driverConnect;
+				service.driverManager.registerDriver(driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([profileId]));
+
+				const connecting = service.connect(profileId);
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.driverManager.removeDriver('runtime-r');
+				finishConnecting(handle);
+
+				await expect(connecting).rejects.toThrow('was removed while connecting');
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+					releases: vi.mocked(handle.release).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 0, releases: 1 });
+			});
+
 			// The ODBC driver unregisters and re-registers back to back. The connection itself is
 			// live, so one that lands after the driver is back keeps going.
 			it('keeps a connection that finishes opening after its driver was re-registered', async () => {
@@ -748,7 +836,7 @@ describe('PositronDataConnectionsService', () => {
 				});
 				service.driverManager.removeDriver('test-driver');
 				service.driverManager.registerDriver(driver);
-				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect }));
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect, release: () => { } }));
 
 				await connecting;
 				expect({
@@ -1033,6 +1121,47 @@ describe('PositronDataConnectionsService', () => {
 			expect(service.getProfiles()).toEqual([]);
 		});
 
+		describe('a live connection whose discovery goes away', () => {
+			/** Connects the driver's one discovery, then re-registers it reporting none. */
+			async function connectThenVanish(driverId: string) {
+				const live = createLiveConnectionDriver(driverId);
+				service.driverManager.registerDriver(live.driver);
+				await vi.waitFor(() => expect(service.getDiscoveredProfiles().map(p => p.id)).toEqual([live.profileId]));
+				await service.connect(live.profileId);
+
+				live.vanish();
+				service.driverManager.registerDriver(live.driver);
+				await vi.waitFor(() => expect(live.handle.release).toHaveBeenCalled());
+				return live;
+			}
+
+			// A runtime discovery should only go away once its comm has closed. If one goes while
+			// the comm is open, closing it would run the user's disconnect() in R or Python.
+			it('a refresh that drops a live runtime discovery does not close the comm', async () => {
+				const warn = vi.spyOn(ctx.get(ILogService), 'warn');
+
+				const { handle, profileId } = await connectThenVanish('runtime-r');
+
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+					releases: vi.mocked(handle.release).mock.calls.length,
+					warned: warn.mock.calls.some(([message]) => String(message).includes(profileId)),
+				}).toEqual({ connected: false, disconnects: 0, releases: 1, warned: true });
+			});
+
+			// Contrast: a discovery from a file the user edited is a connection the user no longer
+			// has a row for, so it is still closed.
+			it('a vanished non-runtime discovery is still disconnected', async () => {
+				const { handle, profileId } = await connectThenVanish('test-driver');
+
+				expect({
+					connected: service.getInstanceForProfile(profileId) !== undefined,
+					disconnects: vi.mocked(handle.disconnect).mock.calls.length,
+				}).toEqual({ connected: false, disconnects: 1 });
+			});
+		});
+
 		it('keeps other drivers\' discoveries when one driver\'s discovery fails', async () => {
 			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
 				id: 'broken-driver',
@@ -1042,6 +1171,277 @@ describe('PositronDataConnectionsService', () => {
 			await registerDiscoveringDriver([pagila]);
 
 			expect(service.getDiscoveredProfiles().map(profile => profile.connectionName)).toEqual(['Pagila']);
+		});
+
+		describe('hidden discoveries', () => {
+			const hiddenKey = 'positron.dataConnections.hiddenDiscoveries';
+			const pagilaId = 'discovered:test-driver:odbc-dsn:Pagila';
+			const otherId = 'discovered:test-driver:odbc-dsn:Other';
+			const other = { ...pagila, id: 'odbc-dsn:Other', name: 'Other', parameterValues: { dsn: 'Other' } };
+
+			// Counts onDidChangeDiscoveredProfiles fires.
+			const countDiscoveryChanges = () => {
+				const counter = { fires: 0 };
+				ctx.disposables.add(service.onDidChangeDiscoveredProfiles(() => counter.fires++));
+				return counter;
+			};
+
+			// Registers a driver that discovers Pagila and connects, returning its spies.
+			const registerConnectableDriver = async () => {
+				const disconnect = vi.fn(async () => { });
+				const connect = vi.fn(async () => stubInterface<IDataConnectionHandle>({ handle: 1, disconnect, release: () => { } }));
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+					connect,
+				}));
+				await vi.waitFor(() => {
+					expect(service.getDiscoveredProfiles().length).toBe(1);
+				});
+				return { connect, disconnect };
+			};
+
+			it('hiding a discovery removes it from getDiscoveredProfiles and getAllProfiles', async () => {
+				await registerDiscoveringDriver([pagila, other]);
+				const changes = countDiscoveryChanges();
+
+				service.hideDiscoveredProfile(pagilaId);
+
+				expect({
+					discovered: service.getDiscoveredProfiles().map(p => p.id),
+					all: service.getAllProfiles().map(p => p.id),
+					hidden: service.getHiddenDiscoveredProfiles().map(p => p.id),
+					fires: changes.fires,
+				}).toEqual({ discovered: [otherId], all: [otherId], hidden: [pagilaId], fires: 1 });
+			});
+
+			it('persists hidden ids to profile storage and reads them back', async () => {
+				await registerDiscoveringDriver([pagila]);
+
+				service.hideDiscoveredProfile(pagilaId);
+
+				expect(JSON.parse(storageService.get(hiddenKey, StorageScope.PROFILE)!)).toEqual([pagilaId]);
+
+				const reloaded = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+				ctx.disposables.add(reloaded);
+				const changed = Event.toPromise(reloaded.onDidChangeDiscoveredProfiles);
+				reloaded.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+				}));
+				await changed;
+				expect(reloaded.getDiscoveredProfiles()).toEqual([]);
+			});
+
+			it('treats malformed stored ids as none hidden', async () => {
+				storageService.store(hiddenKey, '{not json', StorageScope.PROFILE, StorageTarget.MACHINE);
+
+				const reloaded = ctx.instantiationService.createInstance(PositronDataConnectionsService);
+				ctx.disposables.add(reloaded);
+				const changed = Event.toPromise(reloaded.onDidChangeDiscoveredProfiles);
+				reloaded.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+				}));
+				await changed;
+
+				expect({
+					listed: reloaded.getDiscoveredProfiles().map(p => p.id),
+					hidden: reloaded.getHiddenDiscoveredProfiles(),
+				}).toEqual({ listed: [pagilaId], hidden: [] });
+			});
+
+			it('unhiding brings the discovery back and clears storage', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+
+				service.unhideDiscoveredProfiles([pagilaId]);
+
+				expect({
+					discovered: service.getDiscoveredProfiles().map(p => p.id),
+					hidden: service.getHiddenDiscoveredProfiles(),
+					stored: storageService.get(hiddenKey, StorageScope.PROFILE),
+				}).toEqual({ discovered: [pagilaId], hidden: [], stored: undefined });
+			});
+
+			it('keeps a hidden id hidden across a refresh that drops and restores it', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+
+				// Each registration triggers a refresh, which fires the discovery change event.
+				const register = async (discovered: typeof pagila[]) => {
+					const changed = Event.toPromise(service.onDidChangeDiscoveredProfiles);
+					service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+						id: 'test-driver',
+						metadata: createDriverMetadata(),
+						discoverConnections: async () => discovered,
+					}));
+					await changed;
+				};
+				await register([]);
+				await register([pagila]);
+
+				expect({
+					discovered: service.getDiscoveredProfiles(),
+					hidden: service.getHiddenDiscoveredProfiles().map(p => p.id),
+				}).toEqual({ discovered: [], hidden: [pagilaId] });
+			});
+
+			it('ignores an id that is not a current discovery', async () => {
+				await registerDiscoveringDriver([pagila]);
+				const changes = countDiscoveryChanges();
+
+				service.hideDiscoveredProfile('discovered:test-driver:nope');
+
+				expect({
+					stored: storageService.get(hiddenKey, StorageScope.PROFILE),
+					fires: changes.fires,
+				}).toEqual({ stored: undefined, fires: 0 });
+			});
+
+			it('resolves a hidden discovery by id as not found until it is shown again', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+				const whileHidden = {
+					profile: service.getProfile(pagilaId),
+					withSecrets: await service.getProfileWithSecrets(pagilaId),
+				};
+
+				service.unhideDiscoveredProfiles([pagilaId]);
+
+				expect({
+					whileHidden,
+					afterUnhide: {
+						profile: service.getProfile(pagilaId)?.id,
+						withSecrets: (await service.getProfileWithSecrets(pagilaId))?.id,
+					},
+				}).toEqual({
+					whileHidden: { profile: undefined, withSecrets: undefined },
+					afterUnhide: { profile: pagilaId, withSecrets: pagilaId },
+				});
+			});
+
+			it('ignores a discovery that a saved profile stands in for', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.saveDiscoveredProfile(pagilaId);
+				const changes = countDiscoveryChanges();
+
+				service.hideDiscoveredProfile(pagilaId);
+
+				expect({
+					stored: storageService.get(hiddenKey, StorageScope.PROFILE),
+					fires: changes.fires,
+				}).toEqual({ stored: undefined, fires: 0 });
+			});
+
+			it('stops hiding a discovery once it is saved, so removing the saved profile brings the row back', async () => {
+				await registerDiscoveringDriver([pagila]);
+				service.hideDiscoveredProfile(pagilaId);
+
+				const savedId = service.saveDiscoveredProfile(pagilaId)!;
+				const storedAfterSave = storageService.get(hiddenKey, StorageScope.PROFILE);
+				service.removeProfile(savedId);
+
+				expect({
+					storedAfterSave,
+					listed: service.getDiscoveredProfiles().map(p => p.id),
+				}).toEqual({ storedAfterSave: undefined, listed: [pagilaId] });
+			});
+
+			it('disconnects a hidden discovery that is connected', async () => {
+				const { disconnect } = await registerConnectableDriver();
+				await service.connect(pagilaId);
+
+				service.hideDiscoveredProfile(pagilaId);
+
+				await vi.waitFor(() => {
+					expect(service.getInstances()).toEqual([]);
+				});
+				expect(disconnect).toHaveBeenCalledTimes(1);
+			});
+
+			it('picks up hidden ids another window writes', async () => {
+				await registerDiscoveringDriver([pagila]);
+				const changes = countDiscoveryChanges();
+
+				storageService.store(hiddenKey, JSON.stringify([pagilaId]), StorageScope.PROFILE, StorageTarget.MACHINE, true);
+
+				expect({
+					discovered: service.getDiscoveredProfiles(),
+					fires: changes.fires,
+				}).toEqual({ discovered: [], fires: 1 });
+			});
+
+			it('disconnects a discovery another window hides', async () => {
+				const { disconnect } = await registerConnectableDriver();
+				await service.connect(pagilaId);
+
+				storageService.store(hiddenKey, JSON.stringify([pagilaId]), StorageScope.PROFILE, StorageTarget.MACHINE, true);
+
+				await vi.waitFor(() => {
+					expect(service.getInstances()).toEqual([]);
+				});
+				expect(disconnect).toHaveBeenCalledTimes(1);
+			});
+
+			// The hidden set is shared across windows, but saving is not: this window shows the
+			// connection as a saved row, so another window hiding the discovery leaves it alone here.
+			it('keeps a connection this window saved when another window hides its discovery', async () => {
+				const { disconnect } = await registerConnectableDriver();
+				await service.connect(pagilaId);
+				service.saveDiscoveredProfile(pagilaId);
+
+				const changed = Event.toPromise(service.onDidChangeDiscoveredProfiles);
+				storageService.store(hiddenKey, JSON.stringify([pagilaId]), StorageScope.PROFILE, StorageTarget.MACHINE, true);
+				await changed;
+
+				expect({
+					instances: service.getInstances().map(instance => instance.profileId),
+					resolves: service.getProfile(pagilaId)?.id,
+					disconnects: disconnect.mock.calls.length,
+				}).toEqual({ instances: [pagilaId], resolves: pagilaId, disconnects: 0 });
+			});
+
+			it('refuses to connect to a hidden discovery', async () => {
+				const { connect } = await registerConnectableDriver();
+				service.hideDiscoveredProfile(pagilaId);
+
+				await expect(service.connect(pagilaId)).rejects.toThrow(/is hidden/);
+				expect(connect).not.toHaveBeenCalled();
+			});
+
+			it('closes a connection that finishes opening after its discovery was hidden', async () => {
+				let finishConnecting!: (handle: IDataConnectionHandle) => void;
+				const driverConnect = vi.fn(() => new Promise<IDataConnectionHandle>(resolve => { finishConnecting = resolve; }));
+				service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+					id: 'test-driver',
+					metadata: createDriverMetadata(),
+					discoverConnections: async () => [pagila],
+					connect: driverConnect,
+				}));
+				await vi.waitFor(() => {
+					expect(service.getDiscoveredProfiles().length).toBe(1);
+				});
+				const disconnect = vi.fn(async () => { });
+				const release = vi.fn();
+
+				const connecting = service.connect(pagilaId);
+				await vi.waitFor(() => {
+					expect(driverConnect).toHaveBeenCalled();
+				});
+				service.hideDiscoveredProfile(pagilaId);
+				finishConnecting(stubInterface<IDataConnectionHandle>({ handle: 1, disconnect, release }));
+
+				await expect(connecting).rejects.toThrow('was hidden while connecting');
+				expect({
+					instances: service.getInstances(),
+					disconnects: disconnect.mock.calls.length,
+					releases: release.mock.calls.length,
+				}).toEqual({ instances: [], disconnects: 1, releases: 1 });
+			});
 		});
 	});
 	// Every parameter is offered to the driver for redaction, not only the ones the mechanism
@@ -1169,6 +1569,18 @@ describe('PositronDataConnectionsService', () => {
 			expect(takenWhileFiring).toBe('conn-1');
 		});
 	});
+
+	describe('refresh requests', () => {
+		it('requestRefresh fires onDidRequestRefresh with the profile id', () => {
+			const fired: string[] = [];
+			ctx.disposables.add(service.onDidRequestRefresh(profileId => fired.push(profileId)));
+
+			service.requestRefresh('conn-1');
+
+			expect(fired).toEqual(['conn-1']);
+		});
+	});
+
 	describe('revealNode', () => {
 		const PATH = [{ kind: DataConnectionNodeKind.Table, name: 'flights' }];
 

@@ -429,6 +429,15 @@ declare module 'positron' {
 
 		/** The identifier of the output to update */
 		output_id: string;
+
+		/**
+		 * Optional metadata about the output itself, keyed by MIME type. This is
+		 * distinct from {@link LanguageRuntimeMessage.metadata}, which describes
+		 * the message more generally. It corresponds to the `metadata` field of a
+		 * Jupyter `update_display_data` message, e.g.
+		 * `{ 'image/png': { width: 640, height: 480 } }`.
+		 */
+		outputMetadata?: Record<string, unknown>;
 	}
 
 	/**
@@ -1524,6 +1533,20 @@ declare module 'positron' {
 
 		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 		sourceRepository?: string;
+
+		/**
+		 * Whether the copy the session imports ships with Positron itself (e.g.
+		 * bundled ipykernel dependencies on the kernel's search path) rather than
+		 * being installed in the user's environment.
+		 */
+		bundled?: boolean;
+
+		/**
+		 * For a bundled package, the version also installed in the user's
+		 * environment, which the bundled copy shadows. Undefined when the
+		 * environment does not have the package.
+		 */
+		environmentVersion?: string;
 	}
 
 	/**

@@ -34,7 +34,8 @@
 			"ES2022.Array",
 			"ES2022.Error",
 			"ES2022.Object",
-			"ES2022.String"
+			"ES2022.String",
+			"ES2024.Promise"
 		],
 		"module": "commonjs",
 		"strict": true,

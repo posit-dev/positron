@@ -87,19 +87,22 @@ interface LicenseKey {
 }
 
 /**
- * A RSA-4096 public key used to verify license keys.
+ * A RSA-4096 public key used to verify license keys. Release builds replace
+ * every key block here with the product key.
  */
-
 const PublicKey = `-----BEGIN PUBLIC KEY-----
-MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA1z/rsyUtRNo6IpJav8GZ
-xSK5MLJ06KVALKdsIHuFriArKu0LZmO8E6uiT+YfJHOGLDqxIAoXs/3uMsKhQjKQ
-NBfY+1iIH1PQ+okuKF54jc0LMaBg0t3xyub5YDZ3Z4gLYzmiKzJxndUZxJoU31Sf
-7uAzZ61uKhs/8mQoiStr/IeLpFbVZ1STecHCFXpWLsl3ccw/HzfbmizyuTNYjwHN
-5rJyBf2gEKure+BOYrGL7CMcWzgDmApnroA3Gk/k4atRdVZ27BvpddljCdHJospE
-+zepasKVhGDQnz8gpHA1cAIo+r/o8i8gM1dcLHvp5lUmuaaQQjRkin2Edw0Z/rDL
-wLI1cjS6OIGq+tJ32cyvi3U+AwUnQ33+TsG1Si5g9txge8L7eGyfBUc3EL+tgo5p
-1R3nfIDAtkqGcbmI+dWOwQiOfaUTghS+YoF7Dyk5oNP+faOsHl6uc8SWQ65ZhVBf
-vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwI0ERDTlRd+tXj2n2Py4
+siKYrl2JDNBsiS8uNvaSPAcg+pIWb8GBctAtM+wv2XpnwX0ptuANhsAjqOrd2ZDh
+qrmDdC7LKv/xnNsVjgS8O1mwDFlWmqPXg/0MVO3BDagiJ3wG1cP+zRsVQZDqGugv
+ZThxnFoleghADmquZC+dtvra23jMEyM6phTZ7nU0DVSv2aonBd8T4PDOSRawMujZ
+hyl46E+ircnfKUJySrzwaKIoi9gM95wDrfOrktqPquZIlraNZWdrfYs7VMTlmDm1
+xH43lgIBT1r9iINtKdaG7Az70bY2B/bJZ1vDeCqByX2999KvZAjaMoEZk8GjknMR
+9A+rYmWseO4HaUXC1wRtZOp7TaMoNWOfx0EqKWmFzobYVMtixtFHOgf6fLEW6H0K
+lYmhKyWLnnZyVQCH/nPCgNSoYb0fnfXkLAcgZBgLOGhYc2gn7MtUFKcQek2TNqM3
+hznLOJ72oVQXHAnROllCpGIxfhdkKyksu8rup4q2TLwIUBubcl1lW/DRMU9ES7h6
+8H4HzOIUHmxFq3HRU9Bwx5+nYiTZ1pSOQZrpw77ypJQPj2nf2YWdXT5ZlqSUvqwG
++DqVM7citAUfeoA2BmLgI+SsWRE+MZKkGjLOInBHZN37Q8spFwcUUkQbBe4cPVKY
+GTHWCEHUc5hBIk8fq2aW/28CAwEAAQ==
 -----END PUBLIC KEY-----`;
 
 /**

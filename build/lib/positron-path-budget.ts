@@ -109,7 +109,8 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
 	['positron-python', 3_850], // about 3,100; about 3,500 on win32-x64
 	['positron-pdf-server', 450], // 407
 	['node_modules', 345], // about 312, with the shared DuckDB runtime (#14265)
-	['markdown-language-features', 190], // 167
+	['markdown-language-features', 365], // 322 (1.143 merge: code-split markdown editor webview)
+	['mermaid-markdown-features', 275], // 240 (1.143 merge: code-split Mermaid webviews)
 	['theme-modern-icons', 140], // 121
 ]);
 
@@ -179,6 +180,62 @@ export function isPrunedExtensionDependencyFile(relativePath: string): boolean {
 	const normalizedPath = relativePath.split(/[\\/]/).join('/');
 
 	return EXTENSION_NODE_MODULES_EXCLUDES.some(
+		pattern => minimatch(normalizedPath, pattern, { dot: true }));
+}
+
+/**
+ * Glob patterns for the `node_modules` files of the server builds (reh, reh-web,
+ * and reh-web-pwb) that Node never loads. Each pattern matches a path relative to
+ * the server root, so each one starts with `node_modules/`.
+ *
+ * `isPrunedServerDependencyFile` applies these patterns. Use that function
+ * instead of the patterns.
+ *
+ * Do not add `*.d.ts`. `build/.moduleignore` already removes most of them, and it
+ * re-includes some on purpose (`!vsda/index.d.ts`,
+ * `!@vscode/vsce-sign/src/main.d.ts`, `!typescript/lib/lib*.d.ts`).
+ */
+const SERVER_NODE_MODULES_EXCLUDES = [
+	// Source maps. Node reads them only with --enable-source-maps, which the
+	// server does not use.
+	'node_modules/**/*.map',
+	// Type declarations that the `**/*.ts` entry of .moduleignore does not match,
+	// because the file name ends in .cts or .mts.
+	'node_modules/**/*.d.cts',
+	'node_modules/**/*.d.mts',
+	// The ESM twins of `dist-cjs` in the AWS and Smithy SDKs. The `exports` field
+	// lists the `node` condition before `import`, and `main` is `dist-cjs`, so
+	// Node never resolves `dist-es`. These patterns name the two package scopes,
+	// because many other packages ship `dist-es` as their only build.
+	'node_modules/**/@aws-sdk/**/dist-es/**',
+	'node_modules/**/@smithy/**/dist-es/**',
+	// Builds for other runtimes. The conditions in `exports` never select them
+	// in Node.
+	'node_modules/**/@azure/*/dist/{browser,react-native,workerd}/**',
+	'node_modules/**/@typespec/*/dist/{browser,react-native}/**',
+	'node_modules/**/@azure/msal-common/dist-browser/**',
+	// Only the browser build of @azure/identity imports @azure/msal-browser.
+	'node_modules/**/@azure/msal-browser/**',
+	// Build inputs and metadata of the codicon font. The web client serves only
+	// `dist/`.
+	'node_modules/@vscode/codicons/{src,scripts,_iconCloud,build}/**',
+	'node_modules/@vscode/codicons/preview.png',
+];
+
+/**
+ * Whether a server build must leave out a file of `node_modules`, because Node
+ * never loads that file.
+ *
+ * `relativePath` is relative to the server root. The function accepts both
+ * separators, because the patterns use forward slashes.
+ *
+ * The packaging code and the tests share this one function, so that the
+ * normalization of a path and the match options cannot drift apart.
+ */
+export function isPrunedServerDependencyFile(relativePath: string): boolean {
+	const normalizedPath = relativePath.split(/[\\/]/).join('/');
+
+	return SERVER_NODE_MODULES_EXCLUDES.some(
 		pattern => minimatch(normalizedPath, pattern, { dot: true }));
 }
 

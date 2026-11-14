@@ -8,12 +8,8 @@ import { ModelProvider } from '../../pages/modelProviderShared';
 
 test.use({
 	suiteId: __filename,
-	// Launch the app with the auto-sign-in env vars unset so the API-key providers
-	// start disconnected and the test genuinely drives the provider manager's connect flow
-	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
-	// AWS Bedrock keeps its environment credential chain (it has no key to type and
-	// authenticates from the environment by design).
-	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
+	// appEnv keeps API keys out of the app's env, so the API-key providers start disconnected
+	// and the test drives the provider manager's connect flow (typing ANTHROPIC_KEY / OPENAI_KEY).
 });
 
 // Apart from the dev-build update in beforeAll, do not reach for a window reload. A
@@ -32,12 +28,18 @@ test.use({
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'anthropic',
 	'openai',
+	// Skipped below: see BEDROCK_SKIP_REASON before re-enabling.
 	'bedrock',
 	'positai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
 	// credentials path is covered separately in the workbench suite.
 	'ms-foundry',
 ];
+
+// Do not re-enable without security sign-off (SEC-3673). Bedrock signs in only from
+// AWS credentials in the app's own environment. CI no longer passes secrets into the
+// app, because app logs leaked them into uploaded test reports.
+const BEDROCK_SKIP_REASON = 'SEC-3673: needs AWS credentials in the app env, which CI no longer passes in';
 
 test.describe('Posit Assistant Sign-in', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
@@ -49,6 +51,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
+			test.skip(provider === 'bedrock', BEDROCK_SKIP_REASON);
 			await app.workbench.providerManager.loginModelProvider(provider);
 
 			try {

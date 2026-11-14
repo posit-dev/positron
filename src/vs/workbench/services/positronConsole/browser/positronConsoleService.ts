@@ -815,6 +815,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
 	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
 	 *   session. Ignored when `focus` is true.
+	 * @param activate Whether to activate the console that runs the code (open the Console view,
+	 *   make the console active, and make its session the foreground session). Defaults to true.
+	 *   When false, `focus` is ignored and `sessionId` is required.
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
@@ -828,15 +831,27 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		executionId?: string,
 		_documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		preserveActiveTab?: boolean): Promise<string> {
+		preserveActiveTab?: boolean,
+		activate?: boolean): Promise<string> {
+		// Without a session ID, the code would go to the active console or a new one.
+		if (activate === false && !sessionId) {
+			throw new Error('Cannot execute code without activating the console unless a session ID is provided.');
+		}
+		const shouldActivate = activate !== false;
+		focus = focus && shouldActivate;
+
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
 		preserveActiveTab = preserveActiveTab && !focus;
 		if (preserveActiveTab) {
 			executionId ??= generateUuid();
-			await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
-		} else {
-			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
+		if (shouldActivate) {
+			if (preserveActiveTab) {
+				await openViewPreservingActiveTab(POSITRON_CONSOLE_VIEW_ID, this._viewsService, this._viewDescriptorService);
+			} else {
+				await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+			}
 		}
 
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
@@ -887,9 +902,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}
 
-		// No session provided and the active console instance is not for the
-		// desired language, so look for *any* existing console instance for the
-		// desired language.
+		// Prefer the foreground or last active console for the language, so a
+		// background console that was never active (such as a job) is skipped.
+		if (!positronConsoleInstance) {
+			const consoleSession = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+			if (consoleSession && consoleSession.getRuntimeState() !== RuntimeState.Exited) {
+				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(consoleSession.sessionId);
+				sessionId = positronConsoleInstance?.sessionId;
+			}
+		}
+
+		// Last resort: look for *any* existing console instance for the desired
+		// language.
 		if (!positronConsoleInstance) {
 			const allInstances = Array.from(this._positronConsoleInstancesBySessionId.values());
 			// Sort the array by most recently used (MRU) so that we prefer the
@@ -941,7 +965,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Activate the Positron console instance, unless the caller asked to leave the user's
 		// active console alone.
-		if (positronConsoleInstance !== this._activePositronConsoleInstance &&
+		if (shouldActivate && positronConsoleInstance !== this._activePositronConsoleInstance &&
 			(!preserveActiveTab || !this._activePositronConsoleInstance)) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 
@@ -2197,6 +2221,33 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	shouldPreserveActiveTab(executionId: string): boolean {
 		return this._pendingPreserveActiveTabExecutionIds.has(executionId) || this._preserveActiveTabExecutionIds.has(executionId);
+	}
+
+	/**
+	 * Removes a queued execution before it is sent to the runtime.
+	 * @param executionId The execution ID.
+	 * @returns Whether the execution was removed.
+	 */
+	cancelPendingExecution(executionId: string): boolean {
+		if (this._pendingCodeQueue.some(item => item.executionId === executionId)) {
+			this._pendingCodeQueue = this._pendingCodeQueue.filter(item => item.executionId !== executionId);
+			this.updatePendingInputItem();
+			this._onDidChangeRuntimeItemsEmitter.fire();
+		} else {
+			// Incomplete code waiting in the input editor belongs to the user
+			// now; leave the input alone and just detach the execution ID.
+			const code = this._currentSubmission ? undefined :
+				Array.from(this._pendingExecutionIds).find(([, id]) => id === executionId)?.[0];
+			if (code === undefined) {
+				return false;
+			}
+			this._pendingExecutionIds.delete(code);
+		}
+
+		this._externalExecutionIds.delete(executionId);
+		this._externalExecutionLabels.delete(executionId);
+		this._pendingPreserveActiveTabExecutionIds.delete(executionId);
+		return true;
 	}
 
 	/**
@@ -4075,47 +4126,36 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			return;
 		}
 
-		// If there is a pending input runtime item, we need to recreate it with the concatenated code
-		// of all interactive items.
+		this.updatePendingInputItem();
+	}
+
+	/**
+	 * Recreates the pending input runtime item from the non-silent code in the queue.
+	 */
+	private updatePendingInputItem() {
 		if (this._runtimeItemPendingInput) {
-			// Remove the old pending input runtime item.
 			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
 			if (index > -1) {
 				this._runtimeItems.splice(index, 1);
 			}
-
-			// Concatenate only the interactive code fragments from the queue.
-			const interactiveCode = this._pendingCodeQueue
-				.filter(item => item.mode === RuntimeCodeExecutionMode.Interactive)
-				.map(item => item.code)
-				.join('\n');
-
-			// Create a new pending input runtime item with the concatenated interactive code.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session?.dynState.inputPrompt ?? '',
-				attribution,
-				executionId,
-				interactiveCode,
-				mode
-			);
-
-			// Add it back to the runtime items.
-			this.addRuntimeItem(this._runtimeItemPendingInput);
-		} else {
-			// Create the pending input runtime item for the first interactive code fragment.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session?.dynState.inputPrompt ?? '',
-				attribution,
-				executionId,
-				code,
-				mode
-			);
-
-			// Add the pending input runtime item.
-			this.addRuntimeItem(this._runtimeItemPendingInput);
+			this._runtimeItemPendingInput = undefined;
 		}
+
+		const visibleItems = this._pendingCodeQueue.filter(item => item.mode !== RuntimeCodeExecutionMode.Silent);
+		const lastItem = visibleItems.at(-1);
+		if (!lastItem) {
+			return;
+		}
+
+		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+			generateUuid(),
+			this._session?.dynState.inputPrompt ?? '',
+			lastItem.attribution,
+			lastItem.executionId,
+			visibleItems.map(item => item.code).join('\n'),
+			lastItem.mode
+		);
+		this.addRuntimeItem(this._runtimeItemPendingInput);
 	}
 
 	/**
@@ -4416,6 +4456,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 		// If we have been interrupted, then `clearPendingInput()` has cleared the queue.
 		if (this._pendingInputState === 'Interrupted') {
 			return;
+		}
+
+		// If the item was cancelled during the check, process the next one instead.
+		if (this._pendingCodeQueue[0] !== pendingItem) {
+			return this.processPendingInputImpl();
 		}
 
 		// If the code fragment is not complete, wait for more input.
