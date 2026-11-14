@@ -706,6 +706,52 @@ describe('Positron - ForegroundSessionContribution', () => {
 			expect(runtimeSessionService.foregroundSessionDisplayInfo?.sessionMode).toBe(LanguageRuntimeSessionMode.Console);
 		});
 
+		/** Opens a Quarto file with a running session, then shuts that session down. */
+		async function shutDownActiveQuartoFile(quartoUri: URI) {
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
+			const session = await startNotebookSession(quartoUri);
+			quartoSessionForDocument = session;
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			onDidActiveEditorChange.fire();
+			expect(getForegroundSessionId()).toBe(session.sessionId);
+
+			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
+			session.setRuntimeState(RuntimeState.Exited);
+			await exitedPromise;
+			await runtimeSessionService.deleteSession(session.sessionId);
+			quartoSessionForDocument = undefined;
+		}
+
+		/** Closes the given document, leaving no editor open. */
+		function closeLastEditor(uri: URI) {
+			closedUris = [uri];
+			onDidCloseEditor.fire({ editor: { resource: uri } } as IEditorCloseEvent);
+			activeEditor = undefined;
+			activeCodeEditor = undefined;
+			onDidActiveEditorChange.fire();
+		}
+
+		it('shows the console again when a stopped Quarto file closes as the last editor', async () => {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			const quartoUri = URI.file('/path/to/doc.qmd');
+			await shutDownActiveQuartoFile(quartoUri);
+
+			closeLastEditor(quartoUri);
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
+		it('clears the picker when a stopped Quarto file closes as the last editor and no console exists', async () => {
+			const quartoUri = URI.file('/path/to/doc.qmd');
+			await shutDownActiveQuartoFile(quartoUri);
+
+			closeLastEditor(quartoUri);
+
+			expect(runtimeSessionService.foregroundSessionDisplayInfo).toBe(undefined);
+		});
+
 		it('shows the stopped session of a Quarto file that stayed open', async () => {
 			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
 			const consoleSession = await startConsoleSession();

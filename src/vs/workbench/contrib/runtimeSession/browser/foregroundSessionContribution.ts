@@ -529,7 +529,8 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 		const activeEditor = this._editorService.activeEditor;
 
 		// If there are no editors, we need to make sure the foreground session is not
-		// set to a notebook session for a closed notebook file. We fallback to the last
+		// set to a notebook session for a closed notebook file, and the picker isn't
+		// left showing a closed document's stopped session. We fallback to the last
 		// active console session if there is one, otherwise it will be undefined.
 		if (!activeEditor) {
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
@@ -538,6 +539,7 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				this._logService.trace(`[ForegroundSessionContribution] No active editor, switching foreground session from notebook to: ${consoleSession?.sessionId ?? 'none'}`);
 				this._runtimeSessionService.foregroundSession = consoleSession;
 			}
+			this._dropStaleNotebookSnapshot(undefined);
 			return;
 		}
 
