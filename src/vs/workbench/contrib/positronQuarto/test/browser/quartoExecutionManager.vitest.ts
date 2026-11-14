@@ -14,6 +14,9 @@ import { Range } from '../../../../../editor/common/core/range.js';
 import type { IInputBoundary } from '../../../../../editor/common/languages.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
+import { ITextModel } from '../../../../../editor/common/model.js';
+import { ICodeLocation } from '../../../../services/positronConsole/common/codeLocation.js';
+import { IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { createModelServices } from '../../../../../editor/test/common/testTextModel.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -209,6 +212,150 @@ describe('QuartoExecutionManager', () => {
 				state: RuntimeOnlineState.Idle,
 			});
 			await executionPromise;
+		});
+	});
+
+	describe('Code location', () => {
+		// Ark accepts a code location only when the range spans one line per
+		// newline in the code and the end character is the last line's length
+		// in UTF-8 bytes (relative to the start on a one-line range). It drops
+		// any other location, so each expected range below satisfies that.
+
+		function rCell(id: string, codeStartLine: number, codeEndLine: number): QuartoCodeCell {
+			return {
+				id,
+				index: 0,
+				language: 'r',
+				startLine: codeStartLine - 1,
+				endLine: codeEndLine + 1,
+				codeStartLine,
+				codeEndLine,
+				label: undefined,
+				options: '',
+				contentHash: id,
+			};
+		}
+
+		/** Use a real text model with the given lines for the document. */
+		function useDocument(cells: QuartoCodeCell[], documentLines: string[], primaryLanguage = 'r'): void {
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel(cells, documentLines, primaryLanguage));
+			mockEditorService.textModel = ctx.disposables.add(modelService.createModel(documentLines.join('\n'), null));
+		}
+
+		function sentCode(code: string, attribution: IConsoleCodeAttribution | undefined): { code: string; range: ICodeLocation['range'] | undefined } {
+			const location: ICodeLocation | undefined = attribution?.metadata?.codeLocation;
+			return { code, range: location?.range };
+		}
+
+		/** Runs `run`, finishing each kernel execution, and returns what was sent. */
+		async function executeOnKernel(run: () => Promise<void>, executions = 1) {
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+			const promise = run();
+			for (let i = 0; i < executions; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+			await promise;
+			return executeSpy.mock.calls.map(([code, , , , attribution]) => sentCode(code, attribution));
+		}
+
+		it('sends the end of the last line for a whole cell, in UTF-8 bytes', async () => {
+			const cell = rCell('location-whole-cell', 2, 4);
+			useDocument([cell], ['```{r}', '#| echo: false', 'x <- 1', 'y <- "é"', '```']);
+
+			const sent = await executeOnKernel(() => executionManager.executeCell(URI.file('/location-whole-cell.qmd'), cell));
+
+			expect(sent).toEqual([{
+				code: 'x <- 1\ny <- "é"',
+				range: { start: { line: 2, character: 0 }, end: { line: 3, character: 9 } },
+			}]);
+		});
+
+		it('sends a valid range for a one-line cell', async () => {
+			const cell = rCell('location-one-line', 2, 2);
+			useDocument([cell], ['```{r}', 'plot(1:10)', '```']);
+
+			const sent = await executeOnKernel(() => executionManager.executeCell(URI.file('/location-one-line.qmd'), cell));
+
+			expect(sent).toEqual([{
+				code: 'plot(1:10)',
+				range: { start: { line: 1, character: 0 }, end: { line: 1, character: 10 } },
+			}]);
+		});
+
+		it('keeps the start column of a selection that starts mid-line', async () => {
+			const cell = rCell('location-selection', 2, 3);
+			useDocument([cell], ['```{r}', 'é <- f(a, b)', 'g(é)', '```']);
+
+			// Select from `f(` on the first line to the end of the second line.
+			const sent = await executeOnKernel(() => executionManager.executeInlineCells(
+				URI.file('/location-selection.qmd'), [new Range(2, 6, 3, 5)]));
+
+			expect(sent).toEqual([{
+				code: 'f(a, b)\ng(é)',
+				range: { start: { line: 1, character: 6 }, end: { line: 2, character: 5 } },
+			}]);
+		});
+
+		it('clamps a range that runs past the end of the document', async () => {
+			// The cell still claims line 3, but the document now ends at line 2,
+			// as when lines are deleted while the cell is queued.
+			const cell = rCell('location-stale', 2, 3);
+			useDocument([cell], ['```{r}', 'x <- 1']);
+
+			const sent = await executeOnKernel(() => executionManager.executeInlineCells(
+				URI.file('/location-stale.qmd'), [new Range(2, 1, 3, 1)]));
+
+			expect(sent).toEqual([{
+				code: 'x <- 1',
+				range: { start: { line: 1, character: 0 }, end: { line: 1, character: 6 } },
+			}]);
+		});
+
+		it('sends each statement its own range when a cell is split', async () => {
+			const cell = rCell('location-split', 2, 5);
+			useDocument([cell], ['```{r}', 'values <- list(', '  1', ')', 'values[[1]]', '```']);
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+				{ language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' },
+				{
+					provideInputBoundaries: () => [
+						{ kind: 'complete', range: { start: 0, end: 3 } },
+						{ kind: 'complete', range: { start: 3, end: 4 } },
+					],
+				}
+			));
+
+			const sent = await executeOnKernel(() => executionManager.executeCell(URI.file('/location-split.qmd'), cell), 2);
+
+			expect(sent).toEqual([
+				{
+					code: 'values <- list(\n  1\n)',
+					range: { start: { line: 1, character: 0 }, end: { line: 3, character: 1 } },
+				},
+				{
+					code: 'values[[1]]',
+					range: { start: { line: 4, character: 0 }, end: { line: 4, character: 11 } },
+				},
+			]);
+		});
+
+		it('sends a valid range for a cell run through the console', async () => {
+			const cell = rCell('location-console', 2, 3);
+			useDocument([cell], ['```{r}', 'x <- 1', 'print(x)', '```'], 'python');
+			mockRuntimeSessionService.setConsoleSessionForLanguage('r', mockSession);
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
+
+			const promise = executionManager.executeCell(URI.file('/location-console.qmd'), cell);
+			const executionId = await mockConsoleService.waitForExecution();
+			mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
+			await promise;
+
+			const sent = consoleSpy.mock.calls.map(([, , code, attribution]) => sentCode(code, attribution));
+			expect(sent).toEqual([{
+				code: 'x <- 1\nprint(x)',
+				range: { start: { line: 1, character: 0 }, end: { line: 2, character: 8 } },
+			}]);
 		});
 	});
 
@@ -2173,6 +2320,8 @@ class MockQuartoDocumentModel {
 
 class MockEditorService {
 	getValueInRangeCallback?: (range: unknown) => string;
+	/** A real text model to resolve instead of the stub, when set. */
+	textModel?: ITextModel;
 
 	findEditors(_resource: unknown): unknown[] {
 		const self = this;
@@ -2180,10 +2329,11 @@ class MockEditorService {
 			groupId: MOCK_EDITOR_GROUP_ID,
 			editor: {
 				resolve: async () => ({
-					textEditorModel: {
+					textEditorModel: self.textModel ?? {
 						getValue: () => 'test code',
 						getLineContent: (_line: number) => 'test code',
 						getLineMaxColumn: (_line: number) => 100,
+						validateRange: (range: unknown) => range,
 						getValueInRange: (range: unknown) => {
 							if (self.getValueInRangeCallback) {
 								return self.getValueInRangeCallback(range);
