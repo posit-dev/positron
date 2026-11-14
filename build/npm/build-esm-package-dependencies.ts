@@ -116,6 +116,25 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'destroyContext',
 			'domToCanvas',
 		],
+		// Pure ESM; listed so the importmap can resolve the bare specifiers. Services use
+		// only the React-free entries (vanilla, middleware); React components bind stores
+		// through the `zustand` and `zustand/react/shallow` entries, which share React's chunk.
+		'zustand/vanilla': [
+			'createStore',
+		],
+		'zustand/middleware': [
+			'persist',
+			'createJSONStorage',
+		],
+		'zustand/middleware/immer': [
+			'immer',
+		],
+		'zustand': [
+			'useStore',
+		],
+		'zustand/react/shallow': [
+			'useShallow',
+		],
 	};
 
 	// Derive entry points from the export map keys.
