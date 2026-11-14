@@ -34,11 +34,18 @@ import { fileURLToPath } from 'url';
  *       `export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots'`
  *       -- a pure literal search finds zero hits for that id even though it
  *       genuinely exists.
+ *
+ * Setting keys named by `{{setting:}}` directives get the same guard, against a
+ * wider net: a setting may be registered anywhere under `src/vs` (terminal
+ * settings live in `src/vs/platform`) or contributed by an extension's
+ * `package.json`, and both are scanned.
  */
 
 const TEST_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_FILE_DIR, '../../../../../../..');
-const WORKBENCH_SRC_ROOT = path.join(REPO_ROOT, 'src', 'vs', 'workbench');
+const VS_SRC_ROOT = path.join(REPO_ROOT, 'src', 'vs');
+const WORKBENCH_SRC_ROOT = path.join(VS_SRC_ROOT, 'workbench');
+const EXTENSIONS_ROOT = path.join(REPO_ROOT, 'extensions');
 const SKILLS_ROOT = path.join(REPO_ROOT, 'extensions', 'positron-skills', 'templates');
 
 /** Dotted-identifier shape, e.g. `workbench.action.foo` or `positron.help.lookupHelpTopic`. */
@@ -88,28 +95,23 @@ const KNOWN_EXTENSION_COMMANDS = new Set([
 	'posit.publisher.agent.troubleshootDeploymentFailure',
 ]);
 
-/**
- * Prefixes under which a dotted, `positron.`-prefixed prose token is a
- * *setting* key rather than a command id, so the command scan must skip it.
- * `positron.runApp.previewMode` and `positron.runApp.urlDetectionTimeout` are
- * contributed by the positron-run-app extension and are named in the
- * interactive-apps reference as settings to read, not commands to run.
- */
-const SETTING_PREFIXES = ['positron.runApp.'];
-
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Recursively collects every `.ts` file under `dir`, skipping directories named `test`. */
-function collectTsFiles(dir: string): string[] {
+/**
+ * Recursively collects every `.ts` file under `dir`, skipping directories named
+ * `test` and any directory in `skip`.
+ */
+function collectTsFiles(dir: string, skip: readonly string[] = []): string[] {
 	const result: string[] = [];
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			if (entry.name === 'test') {
+			const full = path.join(dir, entry.name);
+			if (entry.name === 'test' || skip.includes(full)) {
 				continue;
 			}
-			result.push(...collectTsFiles(path.join(dir, entry.name)));
+			result.push(...collectTsFiles(full, skip));
 		} else if (entry.isFile() && entry.name.endsWith('.ts')) {
 			result.push(path.join(dir, entry.name));
 		}
@@ -180,6 +182,9 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 	const candidates: Candidate[] = [];
 	const directivePattern = /\{\{command:([^}]+)\}\}/g;
 	const backtickPattern = /`([^`]+)`/g;
+	// A key a `{{setting:}}` directive names is a setting by definition, so its
+	// prose mentions are not command ids, whatever its prefix.
+	const settingKeys = new Set(extractSettingKeys(skills).map(candidate => candidate.id));
 	for (const skill of skills) {
 		let match: RegExpExecArray | null;
 		directivePattern.lastIndex = 0;
@@ -195,13 +200,74 @@ function extractCandidates(skills: readonly SkillFile[]): Candidate[] {
 			if (!ALLOWED_PREFIXES.some(prefix => token.startsWith(prefix))) {
 				continue;
 			}
-			if (SETTING_PREFIXES.some(prefix => token.startsWith(prefix))) {
+			if (settingKeys.has(token)) {
 				continue;
 			}
 			candidates.push({ id: token, skillName: skill.name });
 		}
 	}
 	return candidates;
+}
+
+/**
+ * Every setting key named by a `{{setting:<key>}}` directive, blank keys
+ * included so the drift test can reject them. The pattern mirrors
+ * `SETTING_DIRECTIVE` in `extensions/positron-skills/src/templateExpander.ts`;
+ * keep the two identical.
+ */
+function extractSettingKeys(skills: readonly SkillFile[]): Candidate[] {
+	return skills.flatMap(skill => [...skill.content.matchAll(/\{\{setting:(?<key>[^}]+)\}\}/g)]
+		.map(match => ({ id: (match.groups?.key ?? '').trim(), skillName: skill.name })));
+}
+
+/** The keys an extension manifest contributes under `contributes.configuration`. */
+function contributedSettingKeys(manifestPath: string): string[] {
+	interface Manifest {
+		readonly contributes?: {
+			readonly configuration?: { readonly properties?: Record<string, unknown> } | { readonly properties?: Record<string, unknown> }[];
+		};
+	}
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Manifest;
+	const configuration = manifest.contributes?.configuration;
+	const sections = Array.isArray(configuration) ? configuration : configuration ? [configuration] : [];
+	return sections.flatMap(section => Object.keys(section.properties ?? {}));
+}
+
+/**
+ * The setting keys in `keys` that are declared nowhere: not contributed by a
+ * built-in extension's `package.json`, and not written as a quoted literal in
+ * non-test source under `src/vs`, the way configuration registrations (and
+ * setting-id enums such as `TerminalSettingId`) spell them. A blank key is
+ * never declared.
+ *
+ * Like the command check, this is textual: it catches a key that disappears
+ * from the source, not a rename that leaves the old key behind as a literal (a
+ * settings migration, a localize id). The generator's warning at generation
+ * time covers that case.
+ */
+function undeclaredSettingKeys(keys: readonly string[]): Set<string> {
+	const isQuotedIn = (corpus: string, key: string) => corpus.includes(`'${key}'`) || corpus.includes(`"${key}"`);
+	const contributed = new Set<string>();
+	for (const entry of fs.readdirSync(EXTENSIONS_ROOT, { withFileTypes: true })) {
+		const manifestPath = path.join(EXTENSIONS_ROOT, entry.name, 'package.json');
+		if (entry.isDirectory() && fs.existsSync(manifestPath)) {
+			contributedSettingKeys(manifestPath).forEach(key => contributed.add(key));
+		}
+	}
+	const pending = new Set(keys.filter(key => key === '' || (!contributed.has(key) && !isQuotedIn(sourceCorpus, key))));
+	// Only keys the manifests and the workbench don't declare need the rest of
+	// src/vs, so it is read only when there are some.
+	if ([...pending].some(key => key !== '')) {
+		for (const file of collectTsFiles(VS_SRC_ROOT, [WORKBENCH_SRC_ROOT])) {
+			const text = fs.readFileSync(file, 'utf8');
+			for (const key of pending) {
+				if (key !== '' && isQuotedIn(text, key)) {
+					pending.delete(key);
+				}
+			}
+		}
+	}
+	return pending;
 }
 
 /** Every `export const NAME = '...'` (or `"..."`) binding found in the corpus, name -> string value. */
@@ -275,5 +341,27 @@ describe('agent skill / command drift', () => {
 		const referenced = new Set(extractCandidates(skillFiles).map(candidate => candidate.id));
 		const stale = [...KNOWN_EXTENSION_COMMANDS].filter(id => !referenced.has(id));
 		expect(stale).toEqual([]);
+	});
+});
+
+describe('agent skill / setting drift', () => {
+	it('every setting key named in a skill file is declared in source or an extension manifest', () => {
+		const candidates = extractSettingKeys(skillFiles);
+		const undeclared = undeclaredSettingKeys(candidates.map(candidate => candidate.id));
+		const unresolved = candidates.filter(candidate => undeclared.has(candidate.id));
+
+		if (unresolved.length > 0) {
+			const lines = unresolved.map(c => `  - \`${c.id}\` (from ${c.skillName})`);
+			expect.fail(
+				`${unresolved.length} setting key(s) named in a skill file are declared neither in src/vs ` +
+				`nor in any extension's package.json. This usually means a setting was renamed or ` +
+				`removed but the skill documenting it was not updated:\n${lines.join('\n')}`
+			);
+		}
+	});
+
+	// Guards against a broken path or pattern making the test above pass vacuously.
+	it('extracted the setting keys the templates name', () => {
+		expect(extractSettingKeys(skillFiles).length).toBeGreaterThanOrEqual(1);
 	});
 });

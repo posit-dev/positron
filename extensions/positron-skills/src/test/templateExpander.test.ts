@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AgentCommand, expandTemplate, TemplateFlags } from '../templateExpander';
+import { AgentCommand, AgentSetting, collectSettingKeys, expandTemplate, TemplateFlags } from '../templateExpander';
 
 const DESKTOP: TemplateFlags = { web: false, remote: false };
 const REMOTE_SSH: TemplateFlags = { web: false, remote: true };
@@ -29,6 +29,7 @@ suite('expandTemplate', () => {
 		assert.deepStrictEqual(result, {
 			text: 'Focuses the console.\n\n**Arguments:** None.\n\n**Returns:** None.',
 			unresolved: [],
+			unresolvedSettings: [],
 			problems: [],
 		});
 	});
@@ -69,6 +70,7 @@ suite('expandTemplate', () => {
 		assert.deepStrictEqual(result, {
 			text: '**Arguments:**\n- `topic` (string): Symbol to look up\n\n**Returns:** An object with `found` and `message`.',
 			unresolved: [],
+			unresolvedSettings: [],
 			problems: [],
 		});
 	});
@@ -106,8 +108,88 @@ suite('expandTemplate', () => {
 		assert.deepStrictEqual(result, {
 			text: '**Arguments:** None.\n\n**Returns:** None.',
 			unresolved: ['gone'],
+			unresolvedSettings: [],
 			problems: [],
 		});
+	});
+});
+
+suite('expandTemplate settings', () => {
+	function settings(...list: AgentSetting[]): ReadonlyMap<string, AgentSetting> {
+		return new Map(list.map(setting => [setting.key, setting]));
+	}
+
+	test('an enum setting renders its type, default, and allowed values as a list', () => {
+		const result = expandTemplate(
+			'Where apps preview.\n\n{{setting:runApp.previewMode}}',
+			commands(),
+			DESKTOP,
+			settings({ key: 'runApp.previewMode', type: 'string', default: 'viewer', enum: ['viewer', 'none'] }),
+		);
+		assert.deepStrictEqual(result, {
+			text: [
+				'Where apps preview.',
+				'',
+				'- **Type:** `string`',
+				'- **Default:** `"viewer"`',
+				'- **Allowed values:** `"viewer"`, `"none"`',
+			].join('\n'),
+			unresolved: [],
+			unresolvedSettings: [],
+			problems: [],
+		});
+	});
+
+	test('a numeric range is rendered as the allowed values', () => {
+		const render = (minimum?: number, maximum?: number) => expandTemplate(
+			'{{setting:timeout}}',
+			commands(),
+			DESKTOP,
+			settings({ key: 'timeout', type: 'integer', default: 25, minimum, maximum }),
+		).text.split('\n').at(-1);
+		assert.deepStrictEqual(
+			[render(1), render(undefined, 600), render(1, 600), render()],
+			[
+				'- **Allowed values:** at least `1`',
+				'- **Allowed values:** at most `600`',
+				'- **Allowed values:** `1` to `600`',
+				'- **Default:** `25`',
+			],
+		);
+	});
+
+	test('a deprecated setting says so, and a union type is joined', () => {
+		const result = expandTemplate(
+			'{{setting:old}}',
+			commands(),
+			DESKTOP,
+			settings({ key: 'old', type: ['string', 'null'], default: null, deprecated: 'Use new instead.' }),
+		);
+		assert.strictEqual(result.text, [
+			'- **Type:** `string | null`',
+			'- **Default:** `null`',
+			'- **Deprecated:** Use new instead.',
+		].join('\n'));
+	});
+
+	test('a setting with no facts points the model at findSettings and is reported as unresolved', () => {
+		const result = expandTemplate(' {{setting: gone }}', commands(), DESKTOP);
+		assert.deepStrictEqual(result, {
+			text: ' Positron did not report this setting\'s facts when this skill was generated. Look it up with `positronSettings.findSettings` before relying on it.',
+			unresolved: [],
+			unresolvedSettings: ['gone'],
+			problems: [],
+		});
+	});
+
+	test('a setting in a dropped block is not reported as unresolved', () => {
+		const result = expandTemplate('{{if:web}}\n{{setting:gone}}\n{{endif}}', commands(), DESKTOP);
+		assert.deepStrictEqual(result.unresolvedSettings, []);
+	});
+
+	test('collectSettingKeys lists each key once, including keys in any block', () => {
+		const template = '{{setting:a}}\n{{if:web}}\n{{setting: b }}\n{{endif}}\n{{setting:a}}\n{{command:c}}';
+		assert.deepStrictEqual(collectSettingKeys(template), ['a', 'b']);
 	});
 });
 
@@ -126,6 +208,7 @@ suite('expandTemplate blocks', () => {
 		assert.deepStrictEqual(expandTemplate(template, commands(), WEB), {
 			text: 'Before.\n\nOnly on web.\n\nAfter.',
 			unresolved: [],
+			unresolvedSettings: [],
 			problems: [],
 		});
 	});
@@ -157,7 +240,7 @@ suite('expandTemplate blocks', () => {
 
 	test('a command in a dropped block is not reported as unresolved', () => {
 		const result = expandTemplate('{{if:web}}\n{{command:gone}}\n{{endif}}', commands(), DESKTOP);
-		assert.deepStrictEqual(result, { text: '', unresolved: [], problems: [] });
+		assert.deepStrictEqual(result, { text: '', unresolved: [], unresolvedSettings: [], problems: [] });
 	});
 
 	test('other {{...}} text, such as Jinja, passes through untouched', () => {
@@ -173,6 +256,7 @@ suite('expandTemplate blocks', () => {
 		assert.deepStrictEqual(expandTemplate(crlf, commands(), DESKTOP), {
 			text: 'Before.\r\n\r\nAfter.',
 			unresolved: [],
+			unresolvedSettings: [],
 			problems: [],
 		});
 	});
@@ -197,7 +281,7 @@ suite('expandTemplate blocks', () => {
 			['Inline {{if:web}}text{{endif}}.', WEB, 'Inline text.', ['line 1: a block marker must be on a line of its own']],
 		];
 		for (const [input, flags, text, problems] of cases) {
-			assert.deepStrictEqual(expandTemplate(input, commands(), flags), { text, unresolved: [], problems }, input);
+			assert.deepStrictEqual(expandTemplate(input, commands(), flags), { text, unresolved: [], unresolvedSettings: [], problems }, input);
 		}
 	});
 });

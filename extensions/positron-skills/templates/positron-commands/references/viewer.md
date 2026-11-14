@@ -100,7 +100,7 @@ Tables come one row per line, at most 50 rows.
   chunk sent to the Viewer, such as a Plotly chart (outlined with its data) or
   an HTML table. It has no URL, and neither does a Quarto chunk's HTML
   (`kind="html"`). Its controls work with the action commands like an app's.
-- With `positron.runApp.previewMode` set to `editor`, `external` or `none` (or
+- With `positron.runApp.previewMode` set to anything other than `viewer` (or
   `shiny.previewType` for Shiny), the app isn't in the Viewer, so let the user
   confirm it's up.
 
