@@ -761,6 +761,8 @@ suite('Create Environment APIs', () => {
 
             assert.ok(pickPythonVersionStub.notCalled);
             assert.ok(createGlobalEnvironmentStub.calledOnceWithExactly('3.14'));
+            // Follow the uv config (for example python-preference = "only-system"). See #16343.
+            assert.ok(getAvailablePythonVersionsStub.calledOnceWithExactly({ managedOnly: false }));
         });
 
         test("A version of 'auto' with nothing available creates nothing", async () => {

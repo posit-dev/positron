@@ -14,11 +14,13 @@ const SUPPORTED_UV_PYTHON_VERSIONS = ['3.15', '3.14', '3.13', '3.12', '3.11', '3
 /**
  * Gets available Python versions for uv environments.
  * Dynamically fetches from uv if available, otherwise falls back to a static list.
+ * @param cwd The workspace folder, so that uv reads the uv config of the workspace.
  * @returns Object containing array of version strings
  */
-export async function getUvPythonVersions(): Promise<{ versions: string[] }> {
+export async function getUvPythonVersions(cwd?: string): Promise<{ versions: string[] }> {
     try {
-        const availableVersions = await getAvailablePythonVersions();
+        // Follow the user's uv config, so that system Pythons are listed when uv can use them.
+        const availableVersions = await getAvailablePythonVersions({ managedOnly: false, cwd });
         if (availableVersions.length > 0) {
             return {
                 versions: availableVersions.map((v) => v.version),
@@ -35,10 +37,11 @@ export async function getUvPythonVersions(): Promise<{ versions: string[] }> {
 /**
  * Shows a quick pick for selecting a Python version for uv environment creation.
  * @param token Cancellation token
+ * @param cwd The workspace folder, so that uv reads the uv config of the workspace.
  * @returns The selected version, or undefined if cancelled
  */
-export async function pickPythonVersion(token?: CancellationToken): Promise<string | undefined> {
-    const { versions } = await getUvPythonVersions();
+export async function pickPythonVersion(token?: CancellationToken, cwd?: string): Promise<string | undefined> {
+    const { versions } = await getUvPythonVersions(cwd);
     const items: QuickPickItem[] = versions.map((v) => ({
         label: 'Python',
         description: v,
