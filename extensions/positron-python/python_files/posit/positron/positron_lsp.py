@@ -505,6 +505,24 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         # Yield to parent implementation which handles workspace setup
         return (yield from super().lsp_initialize(params))
 
+    @lsp_method(types.EXIT)
+    def lsp_exit(self, *args) -> Generator[Any, Any, None]:
+        """
+        Handle the exit notification without calling sys.exit().
+
+        The base pygls handler calls sys.exit(), which is correct for a standalone
+        server process. Positron runs the server on a thread inside the kernel, so
+        SystemExit would escape the connection callback and asyncio would log it as
+        an unhandled exception. Instead, close the writer. The client connection
+        then closes and `start_tcp` tears down the server.
+        """
+        # Call the user handler first, the same as the base handler.
+        if (user_handler := self.fm.features.get(types.EXIT)) is not None:
+            yield user_handler, args, None
+
+        if self.writer is not None:
+            self.writer.close()
+
 
 class PositronLanguageServer(LanguageServer):
     """
