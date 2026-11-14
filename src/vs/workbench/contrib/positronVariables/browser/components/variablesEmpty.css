@@ -15,3 +15,14 @@
 	text-align: center;
 	margin: 8px 8px 0 8px;
 }
+
+/*
+ * Fills the pane. The view pane draws a focus outline on itself, and a block
+ * that covered only its own text would hide the top of that outline and leave
+ * the rest showing below it.
+ */
+.variables-empty.variables-empty-intro {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
