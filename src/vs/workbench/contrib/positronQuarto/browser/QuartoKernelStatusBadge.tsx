@@ -21,7 +21,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { runtimeStateToRuntimeStatus, RuntimeStatus } from '../../positronConsole/common/sessionDisplayUtils.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
-import { type ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { type ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -37,7 +37,7 @@ import { URI } from '../../../../base/common/uri.js';
  * fallback isn't needed.
  *
  * `None` is NotStarted here; the badge shows Disconnected instead when a
- * session already ran for the document and has ended.
+ * session ran for the document and ended while it stayed open.
  */
 const quartoStateToRuntimeStatus: Partial<Record<QuartoKernelState, RuntimeStatus>> = {
 	[QuartoKernelState.None]: RuntimeStatus.NotStarted,
@@ -99,7 +99,6 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	const menuService = accessor.get(IMenuService);
 	const contextKeyService = accessor.get(IContextKeyService);
 	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 	// The editor group this badge is rendered in. State is resolved from this
 	// group's active editor, not the globally active editor (see
@@ -177,7 +176,7 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 		? runtimeStateToRuntimeStatus[runtimeState]
 		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
 	if (runtimeStatus === RuntimeStatus.NotStarted &&
-		documentUri && runtimeSessionService.getLastNotebookSessionInfo(documentUri)) {
+		documentUri && quartoKernelManager.hasEndedSession(documentUri)) {
 		runtimeStatus = RuntimeStatus.Disconnected;
 	}
 	// Label priority:

@@ -7,7 +7,7 @@ import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
 import { EditorGroupContext } from '../../../../browser/parts/editor/editorGroupContext.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
@@ -23,7 +23,6 @@ describe('QuartoKernelStatusBadge', () => {
 	const registerRuntimeEmitter = new Emitter<ILanguageRuntimeMetadata>();
 	const startupPhaseEmitter = new Emitter<RuntimeStartupPhase>();
 	let displayState: RuntimeState | undefined;
-	let lastSessionInfo: IRuntimeSessionDisplayInfo | undefined;
 
 	const quartoUri = URI.file('/tmp/notebook.qmd');
 
@@ -43,6 +42,7 @@ describe('QuartoKernelStatusBadge', () => {
 		getKernelState: () => QuartoKernelState.None as QuartoKernelState,
 		getSessionForDocument: () => undefined as ILanguageRuntimeSession | undefined,
 		getPreferredRuntimeForDocument: () => undefined as ILanguageRuntimeMetadata | undefined,
+		hasEndedSession: () => false,
 	};
 
 	const ctx = createTestContainer()
@@ -51,7 +51,6 @@ describe('QuartoKernelStatusBadge', () => {
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
 			getDisplayRuntimeState: () => displayState,
-			getLastNotebookSessionInfo: () => lastSessionInfo,
 		})
 		.stub(ILanguageRuntimeService, {
 			onDidRegisterRuntime: registerRuntimeEmitter.event,
@@ -80,7 +79,7 @@ describe('QuartoKernelStatusBadge', () => {
 
 	beforeEach(() => {
 		displayState = undefined;
-		lastSessionInfo = undefined;
+		kernelManagerStub.hasEndedSession = () => false;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
 		kernelManagerStub.getPreferredRuntimeForDocument = () => undefined;
@@ -104,8 +103,8 @@ describe('QuartoKernelStatusBadge', () => {
 
 	it('shows disconnected icon when a session ran for the document and has ended', () => {
 		// QuartoKernelState.None also follows a session that ended. A session
-		// that ran before reads as disconnected, like an exited notebook kernel.
-		lastSessionInfo = stubInterface<IRuntimeSessionDisplayInfo>({ sessionState: RuntimeState.Exited });
+		// that ran in this editor reads as disconnected, like an exited notebook kernel.
+		kernelManagerStub.hasEndedSession = () => true;
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
 		renderBadge();
