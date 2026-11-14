@@ -123,7 +123,6 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined = undefined;
 	private readonly _onDidChangeForegroundSessionDisplayInfo = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
 	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfo.event;
-	getLastNotebookSessionInfo() { return undefined; }
 	implicitStartupSuppressed = false;
 
 	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {

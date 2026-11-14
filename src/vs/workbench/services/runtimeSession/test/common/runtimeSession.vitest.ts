@@ -15,6 +15,7 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId, IStartNewRuntimeSessionOptions } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, RuntimeSessionService, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
+import { RuntimeSessionDisplayInfo } from '../../common/runtimeSessionDisplayInfo.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
@@ -1614,20 +1615,15 @@ describe('Positron - RuntimeSessionService', () => {
 			).toBe(undefined);
 		});
 
-		it('can be set independently for cached notebook info', async () => {
+		it('can be set independently of the foreground session', async () => {
 			const session = await startNotebook(runtime);
-			const sessionNotebookUri = session.metadata.notebookUri!;
-
-			// Exit the session to create cached info
+			// Exit the session, then show a snapshot of it with no foreground session
 			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
 			session.setRuntimeState(RuntimeState.Exited);
 			await exitedPromise;
 
-			// Clear foreground and set cached display info directly
 			runtimeSessionService.foregroundSession = undefined;
-			const cachedInfo = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			expect(cachedInfo).toBeTruthy();
-			runtimeSessionService.foregroundSessionDisplayInfo = cachedInfo!;
+			runtimeSessionService.foregroundSessionDisplayInfo = new RuntimeSessionDisplayInfo(session);
 
 			// Display info should be set even though no foreground session
 			expect(runtimeSessionService.foregroundSession).toBe(undefined);
@@ -1635,44 +1631,6 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(
 				runtimeSessionService.foregroundSessionDisplayInfo!.sessionName,
 			).toBe(session.dynState.sessionName);
-		});
-	});
-
-	describe('getLastNotebookSessionInfo', () => {
-		it('returns undefined for an unknown notebook URI', () => {
-			const unknownUri = URI.file('/path/to/unknown.ipynb');
-			expect(
-				runtimeSessionService.getLastNotebookSessionInfo(unknownUri),
-				'Expected no session info for unknown URI'
-			).toBe(undefined);
-		});
-
-		it('returns cached display info after notebook session exits', async () => {
-			const session = await startNotebook(runtime);
-			const sessionNotebookUri = session.metadata.notebookUri!;
-
-			// Exit the session to trigger caching
-			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
-			session.setRuntimeState(RuntimeState.Exited);
-			await exitedPromise;
-
-			const info = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			expect(info, 'Expected cached session info after exit').toBeTruthy();
-			expect(info!.sessionName, 'Expected session name to match').toBe(session.dynState.sessionName);
-		});
-
-		it('persists after the session is deleted', async () => {
-			const session = await startNotebook(runtime);
-			const sessionNotebookUri = session.metadata.notebookUri!;
-
-			// Exit and delete the session
-			const exitedPromise = waitForRuntimeState(session, RuntimeState.Exited);
-			session.setRuntimeState(RuntimeState.Exited);
-			await exitedPromise;
-			await runtimeSessionService.deleteSession(session.sessionId);
-
-			const info = runtimeSessionService.getLastNotebookSessionInfo(sessionNotebookUri);
-			expect(info, 'Expected cached session info to persist after deletion').toBeTruthy();
 		});
 	});
 
