@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { showHiddenDataConnections } from '../showHiddenDataConnections.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -44,7 +45,7 @@ interface DataConnectionsPanelProps {
  */
 export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 	// Context.
-	const { configurationService, editorService, hoverService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { configurationService, editorService, hoverService, notificationService, positronDataConnectionsService, quickInputService } = usePositronReactServicesContext();
 
 	// Tree instance. Constructed once per mount; the instance subscribes to the service's
 	// onDidChangeInstances / onDidChangeProfiles internally and pushes new roots itself, so
@@ -68,11 +69,43 @@ export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 		return () => disposable.dispose();
 	}, [props.reactComponentContainer, treeInstance]);
 
+	// How many detected connections are hidden, kept current from the service.
+	const [hiddenCount, setHiddenCount] = useState(() => positronDataConnectionsService.getHiddenDiscoveredProfiles().length);
+	useEffect(() => {
+		const update = () => setHiddenCount(positronDataConnectionsService.getHiddenDiscoveredProfiles().length);
+		// Catch a hide or unhide that landed between the first render and this subscription.
+		update();
+		const discoveredDisposable = positronDataConnectionsService.onDidChangeDiscoveredProfiles(update);
+		const profilesDisposable = positronDataConnectionsService.onDidChangeProfiles(update);
+		return () => {
+			discoveredDisposable.dispose();
+			profilesDisposable.dispose();
+		};
+	}, [positronDataConnectionsService]);
+
 	// Left action bar actions.
 	const leftActions: DynamicActionBarAction[] = [];
 
 	// Right action bar actions.
 	const rightActions: DynamicActionBarAction[] = [];
+
+	// Show hidden connections, only while some are hidden. Pushed first so it sits left of Refresh All.
+	if (hiddenCount > 0) {
+		const showHidden = localize('positron.dataConnections.showHiddenConnectionsCount', "Show Hidden Connections ({0})", hiddenCount);
+		rightActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			separator: false,
+			component: (
+				<ActionBarButton
+					ariaLabel={showHidden}
+					disabled={false}
+					icon={ThemeIcon.fromId('eye')}
+					tooltip={showHidden}
+					onPressed={() => { void showHiddenDataConnections(positronDataConnectionsService, quickInputService, notificationService); }}
+				/>
+			)
+		});
+	}
 
 	// Refresh all. Pushed before Add Connection because the action bar lays each group out in array
 	// order, left to right, so this sits to its left.

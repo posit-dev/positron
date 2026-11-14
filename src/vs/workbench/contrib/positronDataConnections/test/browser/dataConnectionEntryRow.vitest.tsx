@@ -7,6 +7,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -101,6 +102,9 @@ describe('DataConnectionEntryRow', () => {
 	// Saving a discovered profile hands back the id of the ordinary profile it became, which the row
 	// then looks up. Declared here so the tests can assert against the calls.
 	const saveDiscoveredProfile = vi.fn((_id: string) => savedDiscoveredProfile.id);
+	const hideDiscoveredProfile = vi.fn((_id: string) => { });
+	const countOpenDataExplorers = vi.fn((_profileId: string) => 0);
+	const notifyError = vi.fn();
 	const getProfile = vi.fn((id: string) => id === savedDiscoveredProfile.id ? savedDiscoveredProfile : undefined);
 
 	const ctx = createTestContainer()
@@ -109,7 +113,10 @@ describe('DataConnectionEntryRow', () => {
 			driverManager: stubInterface<IDataConnectionsDriverManager>({ getDriver: () => driver }),
 			getProfile,
 			saveDiscoveredProfile,
+			hideDiscoveredProfile,
+			countOpenDataExplorers,
 		})
+		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -257,8 +264,8 @@ describe('DataConnectionEntryRow', () => {
 	});
 
 	// A discovered connection comes from the machine's own configuration, so removing it would only
-	// have it reappear on the next refresh. Saving is the way out of it instead.
-	it('offers Save Connection instead of Remove for a discovered profile', async () => {
+	// have it reappear on the next refresh. Saving keeps it and hiding stops showing it instead.
+	it('offers Save Connection and Hide instead of Remove for a discovered profile', async () => {
 		const { labels } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
 
 		expect(labels).toMatchInlineSnapshot(`
@@ -268,8 +275,100 @@ describe('DataConnectionEntryRow', () => {
 			  "Edit Connection",
 			  "---",
 			  "Save Connection",
+			  "Hide",
 			]
 		`);
+	});
+
+	it('offers Disconnect above Save Connection and Hide for a connected discovered profile', async () => {
+		const { labels } = await rightClickRow({ rowProfile: discoveredProfile });
+
+		expect(labels).toMatchInlineSnapshot(`
+			[
+			  "Refresh",
+			  "---",
+			  "Edit Connection",
+			  "---",
+			  "Disconnect",
+			  "Save Connection",
+			  "Hide",
+			]
+		`);
+	});
+
+	// Hiding is reversible from the Show Hidden Connections quick pick, so with no Data Explorers to
+	// lose it asks nothing first.
+	it('hides a discovered profile without a confirmation when no Data Explorers are open', async () => {
+		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+
+		expect({
+			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
+			dialogsShown: modalRender.mock.calls.length,
+		}).toMatchInlineSnapshot(`
+			{
+			  "dialogsShown": 0,
+			  "hiddenProfileIds": [
+			    "discovered-1",
+			  ],
+			}
+		`);
+	});
+
+	// Show Hidden Connections brings the row back but not the grids that closed with it, so hiding
+	// asks first when it would close any.
+	it('confirms before hiding a discovered profile with open Data Explorers', async () => {
+		countOpenDataExplorers.mockReturnValueOnce(2);
+		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+		const dialogProps = modalRender.mock.lastCall?.[0].props;
+		const hiddenBeforeConfirm = hideDiscoveredProfile.mock.calls.length;
+		dialogProps.onConfirm();
+		await vi.waitFor(() => expect(hideDiscoveredProfile).toHaveBeenCalled());
+
+		expect({
+			dialog: { connectionName: dialogProps.connectionName, openDataExplorerCount: dialogProps.openDataExplorerCount },
+			hiddenBeforeConfirm,
+			hiddenProfileIds: hideDiscoveredProfile.mock.calls.flat(),
+		}).toMatchInlineSnapshot(`
+			{
+			  "dialog": {
+			    "connectionName": "Discovered Connection",
+			    "openDataExplorerCount": 2,
+			  },
+			  "hiddenBeforeConfirm": 0,
+			  "hiddenProfileIds": [
+			    "discovered-1",
+			  ],
+			}
+		`);
+	});
+
+	it('reports a hide that fails', async () => {
+		hideDiscoveredProfile.mockImplementationOnce(() => { throw new Error('storage is full'); });
+		const { itemByLabel } = await rightClickRow({ connected: false, rowProfile: discoveredProfile });
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith(`Could not hide 'Discovered Connection': storage is full`));
+	});
+
+	it('does not hide a discovered profile when the confirmation is cancelled', async () => {
+		countOpenDataExplorers.mockReturnValueOnce(1);
+		const { itemByLabel } = await rightClickRow({ rowProfile: discoveredProfile });
+		modalRender.mockClear();
+
+		itemByLabel('Hide')?.options.onSelected({ altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+		modalRender.mock.lastCall?.[0].props.onCancel();
+		// Let the cancelled confirmation settle before checking that nothing was hidden.
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(hideDiscoveredProfile).not.toHaveBeenCalled();
 	});
 
 	it('saves a discovered profile before opening the edit dialog on it', async () => {
