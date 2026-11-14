@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
- * Separates the consequences of removing a connection into paragraphs. A gap rather than a margin on
- * the second paragraph, so nothing has to change when the dialog has only the first one (a connection
- * with no open Data Explorers).
+ * Separates the paragraphs of a confirmation. A gap rather than a margin, so nothing has to change
+ * when the dialog has only one paragraph.
  */
-.remove-data-connection-confirmation {
+.data-connection-confirmation {
 	display: flex;
 	gap: 12px;
 	flex-direction: column;
