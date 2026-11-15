@@ -188,7 +188,7 @@ function apiUrl(branch: string): string {
 /**
  * The container image the current run is measuring under, from the
  * `MEMORY_CONTAINER_IMAGE` workflow environment variable
- * (test-memory-metrics.yml). Both the publish side (`RunMeta.containerImage`,
+ * (positron-builds' test-memory-metrics.yml). Both the publish side (`RunMeta.containerImage`,
  * built by the spec) and the query side (`fetchBaseline` below) must read the
  * same variable with the same fallback: a baseline written under one
  * derivation and queried under another would never match, and the failure
