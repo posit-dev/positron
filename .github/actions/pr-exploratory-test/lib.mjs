@@ -259,7 +259,7 @@ export const ENVIRONMENT = [
 	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
 	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
 	'- Posit Assistant signed in with Anthropic, with its preview features available to turn on.',
-	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- Open internet: PyPI and CRAN install normally, and so does any extension on Open VSX, from the Extensions view.',
 	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`. That login is a fixed test value, not a secret, so connection code and forms that show it need no hiding.',
 	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
 	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
@@ -271,6 +271,7 @@ export const ENVIRONMENT = [
 	'- Posit AI and Bedrock as Assistant model providers (no sign-in for either). Posit Assistant itself is available, as above.',
 	'- GitHub sign-in, and so GitHub Copilot: the run has no GitHub account to sign in with.',
 	'- Windows and macOS.',
+	'- Extensions only on Microsoft\'s Marketplace, such as Pylance: Positron installs from Open VSX.',
 	'',
 	// #17356: an agent's PR said ggsql was unavailable where it worked, and the judge took that to mean this run.
 	'These lists describe this run. A PR description that says something was unavailable or could not be installed is about where its author worked, not about this run.',
