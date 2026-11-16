@@ -78,9 +78,9 @@ describe('createInterpreterVariant', () => {
 		expect(variant.runtimeId).toMatch(/^[0-9a-f]{32}$/);
 	});
 
-	it('relabels the base picker row with the definition label', () => {
-		const picker = { group: 'R', groupOrder: 0, label: 'R 4.4.3', description: 'System' };
-		expect(createInterpreterVariant({ ...base, picker }, xx).picker).toEqual({ ...picker, label: 'R 4.4.3 (XX libs)' });
+	it('relabels the base picker row and keeps the base label and description as the description', () => {
+		const picker = { group: 'R', groupOrder: 0, label: 'R 4.4.3', description: 'Conda: myenv' };
+		expect(createInterpreterVariant({ ...base, picker }, xx).picker).toEqual({ ...picker, label: 'R 4.4.3 (XX libs)', description: 'R 4.4.3 \u00B7 Conda: myenv' });
 		expect(createInterpreterVariant(base, xx).picker).toBeUndefined();
 	});
 
