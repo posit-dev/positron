@@ -472,6 +472,8 @@ export class PositronCanvasService extends Disposable implements IPositronCanvas
 	 * Whether this part's window carries the locked-compact trait that makes
 	 * a dedicated Canvas window chromeless. Only entry and restore create
 	 * such windows; a Canvas the user detached by hand lacks the trait.
+	 * Dedicated Assistant windows carry it too, which is fine because callers
+	 * only pass the part holding the Canvas editor.
 	 */
 	private isDedicatedCanvasWindow(part: IEditorPart): boolean {
 		if (part === this.editorGroupsService.mainPart) {
