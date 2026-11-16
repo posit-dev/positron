@@ -112,7 +112,7 @@ export default defineConfig<CustomTestOptions>({
 				'**/remote-wsl/**',
 				// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				...(process.env.ALLOW_PYREFLY === 'true' ? [] : ['**/lsp/**']),
-				// Set only by test-memory-metrics.yml, one scenario per matrix job.
+				// Set only by positron-builds' test-memory-metrics.yml, one scenario per matrix job.
 				// Ignored rather than skipped in-test because merge-to-main runs this
 				// lane ungrepped, so a skip would report a permanently skipped row.
 				...memorySpecsToIgnore(laneFromEnv(process.env.MEMORY_LANE), process.env.MEMORY_SCENARIO),

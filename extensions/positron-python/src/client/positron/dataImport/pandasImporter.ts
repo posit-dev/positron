@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { generatePandasImportCode, PYTHON_KEYWORDS } from './pandasCodeGenerator';
+import { generatePandasImportCode, generatePyreadstatImportCode, PYTHON_KEYWORDS } from './pandasCodeGenerator';
 
 /**
  * Builds the pandas data importer, which generates the code that loads a delimited file, Excel
@@ -34,7 +34,26 @@ export function createPandasDataImporter(): positron.DataImporter {
     };
 }
 
-/** Registers the pandas data importer with the Data Explorer. */
+/** Builds the pyreadstat data importer, which generates the code that loads a SAS data file. */
+export function createPyreadstatDataImporter(): positron.DataImporter {
+    return {
+        languageId: 'python',
+        displayName: 'Python (pyreadstat)',
+        fileExtensions: ['sas7bdat', 'xpt'],
+        reservedNames: [...PYTHON_KEYWORDS],
+        generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
+            generatePyreadstatImportCode({
+                pathLiteral: await positron.paths.formatPathForCode(request.fileUri.fsPath, {
+                    relativeTo: 'workspace',
+                }),
+                variableName: request.variableName,
+                view: request.view,
+            }),
+    };
+}
+
+/** Registers the pandas and pyreadstat data importers with the Data Explorer. */
 export function registerPandasDataImporter(disposables: vscode.Disposable[]): void {
     disposables.push(positron.dataExplorer.registerDataImporter(createPandasDataImporter()));
+    disposables.push(positron.dataExplorer.registerDataImporter(createPyreadstatDataImporter()));
 }

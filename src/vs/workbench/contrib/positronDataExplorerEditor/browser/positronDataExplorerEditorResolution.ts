@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { posix } from '../../../../base/common/path.js';
+import { extname } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
@@ -43,4 +45,33 @@ export function moveOpenDataExplorerEditorToGroup(
 	}
 	editorGroupsService.getGroup(openEditor.groupId)?.moveEditor(openEditor.editor, group);
 	return openEditor.editor;
+}
+
+/** File extensions DuckDB reads without a DuckDB extension download. */
+export const DUCKDB_BUILTIN_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz', 'xlsx'];
+
+/**
+ * Text formats a `dataExplorer.fileReaders` entry can read, but which people also edit as text.
+ * The Data Explorer is offered for these under Open With rather than as the default editor.
+ */
+export const DUCKDB_OPTIONAL_EXTENSIONS = ['geojson', 'json', 'kml', 'yaml', 'yml'];
+
+/**
+ * Whether the Data Explorer can open a file with DuckDB.
+ *
+ * @param resource The file.
+ * @param readerExtensions Extensions from `dataExplorer.fileReaders` (lower case, no dot).
+ */
+export function canOpenWithDuckDB(resource: URI, readerExtensions: readonly string[]): boolean {
+	// Editor registration globs match case-insensitively, so compare case-insensitively here too.
+	const fileExt = extname(resource).substring(1).toLowerCase();
+	if (readerExtensions.includes(fileExt)) {
+		return true;
+	}
+	if (fileExt === 'gz') {
+		// Strip the .gz and check the inner extension.
+		const innerExt = posix.extname(resource.path.slice(0, -3)).substring(1).toLowerCase();
+		return DUCKDB_BUILTIN_EXTENSIONS.includes(innerExt);
+	}
+	return DUCKDB_BUILTIN_EXTENSIONS.includes(fileExt);
 }
