@@ -324,8 +324,9 @@ When all 7 are `done` (success):
 - Remind the user that `posit-dev/positron-builds` pins the same tag and selectors in its
   own workflows, `dockerfiles/`, `dev/workbench/docker-compose.yml` and the defaults of
   `.github/actions/run-e2e-playwright-tests/action.yml`, and needs a follow-up PR. That
-  includes `test-memory-metrics.yml` (`MEMORY_CONTAINER_IMAGE` and the `*_VER_SEL` env),
-  which no script here bumps since it moved out of this repo.
+  includes `test-memory-metrics.yml` (`MEMORY_CONTAINER_IMAGE` and the `*_VER_SEL` env)
+  and `extensions-check-nightly.yml` (the container image and the `*_VER_SEL` env),
+  which no script here bumps since they moved out of this repo.
 
 If you stopped early on a stuck job, report exactly what's green, what's blocked, and the
 diagnosis, and leave the branch/PR in place for the user to take over.

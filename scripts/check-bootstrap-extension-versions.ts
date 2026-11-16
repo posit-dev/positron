@@ -11,6 +11,8 @@
 // win32-x64 build), and held back when nothing complete is newer than the
 // pin. See posit-dev/positron#16338.
 //
+// The nightly check in posit-dev/positron-builds runs this from main and reads its --json output.
+//
 // Usage:
 //   node scripts/check-bootstrap-extension-versions.ts [--json]
 //

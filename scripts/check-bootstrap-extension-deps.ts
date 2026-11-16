@@ -9,6 +9,8 @@
 // (posit-dev/positron#15118), so we want a heads-up before a nightly bump or a
 // user update walks into one. See posit-dev/positron#15124.
 //
+// The nightly check in posit-dev/positron-builds runs this from main and reads its --json output.
+//
 // The version audited is the one scripts/check-bootstrap-extension-versions.ts
 // picked, so the dependency verdict is about exactly the version the nightly
 // bumps to.
@@ -113,7 +115,7 @@ function buildIssueBody(id: string, version: string, pinnedVersion: string, bloc
 		'',
 		'Do not pin this version in `product.json`. Bootstrap extensions install from a bundled VSIX, which never reaches the gallery-side check added in posit-dev/positron#15474, so a pinned version with an unsatisfiable dependency ships to every user and never activates. Follow up with the extension maintainers, or ship a built-in that satisfies the dependency.',
 		'',
-		'Opened automatically by the `dependency-check` job in posit-dev/positron-builds, `.github/workflows/extensions-check-nightly.yml`.'
+		'Opened automatically by the `dependency-check` job of the nightly bootstrap extensions check.'
 	].join('\n');
 }
 
