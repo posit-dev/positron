@@ -202,12 +202,32 @@ jobs:
         if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
 
+      # AWS rejects role session names outside [\w+=,.@-], such as `positron-projects[bot]`.
+      - name: Sanitize role session name
+        id: session-name
+        if: steps.ack.outputs.duplicate != 'true'
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        if: steps.ack.outputs.duplicate != 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-1
+
       - name: Run Claude Code Action
         id: claude
         if: steps.ack.outputs.duplicate != 'true'
         uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_bedrock: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
@@ -366,10 +386,27 @@ jobs:
         with:
           extension: 'true'
 
+      - name: Sanitize role session name
+        id: session-name
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-1
+
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_bedrock: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"
