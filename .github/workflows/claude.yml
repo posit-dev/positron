@@ -228,8 +228,6 @@ jobs:
           ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
           use_bedrock: true
-          # TEMP: debugging the Bedrock failure; remove before merging.
-          show_full_output: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
