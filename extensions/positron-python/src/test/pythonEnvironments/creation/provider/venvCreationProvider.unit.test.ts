@@ -683,7 +683,7 @@ suite('venv Creation provider tests', () => {
             _complete!();
 
             assert.deepStrictEqual(await promise, {
-                path: path.join(linkDir, '.venv', 'bin', 'python'),
+                path: path.join(symlinkedWorkspace.uri.fsPath, '.venv', 'bin', 'python'),
                 workspaceFolder: symlinkedWorkspace,
             });
         } finally {
