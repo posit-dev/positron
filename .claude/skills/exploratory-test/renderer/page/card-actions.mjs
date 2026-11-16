@@ -79,7 +79,9 @@ function buildAgentPrompt(f, report, options = {}) {
 	const t = f.text;
 	const word = statusWord(f);
 	const title = capitalize(safeLinks(/[.!?]$/.test(f.title) ? f.title : `${f.title}.`));
-	const out = [`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, ''];
+	// On a PR the prompt is a comment for the @claude agent there, so the ask leads.
+	const out = report.pr ? [CLAUDE_ASK, ''] : [];
+	out.push(`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, '');
 	const status = [
 		word && `Status: ${capitalize(word)}`,
 		f.reproduced && `Reproduced: ${f.reproduced}`,
@@ -124,9 +126,17 @@ function buildAgentPrompt(f, report, options = {}) {
 	const [branch, sha] = report.chips;
 	section('Context', [report.pr && `PR: ${report.pr.url}`, branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
 		.filter(Boolean).join('\n'));
-	out.push('Please investigate this finding using the repository and the evidence above.');
-	return out.join('\n');
+	if (!report.pr) {
+		out.push('Please investigate this finding using the repository and the evidence above.');
+	} else if (/^https?:\/\//i.test(base ?? '')) {
+		// The report is on the team's private network, which the agent on GitHub cannot reach.
+		out.push('The links above are on a private network you cannot reach; work from the text and the repository.');
+	}
+	return out.join('\n').trimEnd();
 }
+
+/** The first line of the comment the button copies when the report is for a PR. */
+export const CLAUDE_ASK = '@claude Please investigate this finding from the exploratory test of this PR, and fix it on this branch if it is real.';
 
 // A fence longer than any backtick run inside, so a log line starting with
 // ``` cannot close the block early.
@@ -136,9 +146,17 @@ function fenced(text, lang = '') {
 	return `${fence}${lang}\n${text}\n${fence}`;
 }
 
-export function renderCopyButton(f) {
-	return `<button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
-		+ `${ICON.copy}${ICON.copied}</button>`;
+/**
+ * Copies the finding as a prompt. On a PR it is an @claude comment, and the
+ * click also opens the PR to paste it into.
+ */
+export function renderCopyButton(f, report = {}) {
+	// Only a GitHub PR link is opened.
+	const pr = /^https:\/\/github\.com\//.test(report.pr?.url ?? '') ? report.pr : null;
+	const attrs = pr
+		? `data-tip="Copy for @claude and open the PR" data-open="${escapeHtml(pr.url)}" aria-label="Copy an @claude comment for finding ${f.n} and open PR #${pr.number}"`
+		: `data-tip="Copy agent prompt" aria-label="Copy prompt for an agent: finding ${f.n}"`;
+	return `<button type="button" class="cp-btn" ${attrs} data-prompt="prompt-f${f.n}">${ICON.copy}${ICON.copied}</button>`;
 }
 
 export function renderLinkButton(f) {

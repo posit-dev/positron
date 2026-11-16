@@ -1083,7 +1083,7 @@ function renderFindingCard(f, report, options) {
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
 		+ renderIssueButton(f, issue, unreported)
-		+ (prompts ? renderCopyButton(f) : '')
+		+ (prompts ? renderCopyButton(f, report) : '')
 		+ renderLinkButton(f)
 		+ '</div>';
 
