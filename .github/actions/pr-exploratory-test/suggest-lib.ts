@@ -210,14 +210,15 @@ export function renderSuggestComment(reason) {
  * run it anyway. Without it the PR shows nothing, and a wrong call goes unseen.
  */
 export function renderDeclinedComment(reason, headSha = '') {
-	const at = headSha ? ` at ${String(headSha).slice(0, 7)}` : '';
+	// GitHub links a short SHA in code to the commit.
+	const at = headSha ? ` at \`${String(headSha).slice(0, 7)}\`` : '';
 	return [
 		DECLINED_MARKER,
 		'> [!NOTE]',
 		`> Exploratory testing did not run automatically on this PR${at}. ${reasonSentence(reason)}`,
-		'>',
+		'',
 		// A plain /explore goes through the worthiness check, which can say no too.
-		'> If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted as a comment on this PR.',
+		'If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted on this PR.',
 		'',
 	].join('\n');
 }
