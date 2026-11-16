@@ -95,8 +95,6 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 		let disposed = false;
-		// Set while we switch the policy ourselves, so that change isn't treated as a user pick.
-		let fallingBack = false;
 
 		// The frontend shoudn't send invalid sizes so be defensive. Sometimes the
 		// plot container is in a strange state when it's hidden.
@@ -114,34 +112,14 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
 		const render = async (policy: IPositronPlotSizingPolicy, reportErrors = false) => {
-			let plotSize = policy.getPlotSize({
-				height: props.height,
-				width: props.width
-			});
-
+			const viewportSize = { height: props.height, width: props.width };
 			try {
 				const intrinsicSize = await props.plotClient.getIntrinsicSize();
 
-				// If using the intrinsic sizing policy, and the plot has no intrinsic size,
-				// fall back to the auto sizing policy.
-				if (policy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize) {
-					fallingBack = true;
-					try {
-						services.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
-					} finally {
-						fallingBack = false;
-					}
-					plotSize = services.positronPlotsService.selectedSizingPolicy.getPlotSize({
-						height: props.height,
-						width: props.width
-					});
-				}
-
-				const result = await props.plotClient.renderWithSizingPolicy(
-					plotSize,
-					ratio
-				);
-
+				// With no intrinsic size, draw at the auto size without changing any plot's setting.
+				const result = policy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize ?
+					await props.plotClient.render(new PlotSizingPolicyAuto().getPlotSize(viewportSize), ratio) :
+					await props.plotClient.renderWithSizingPolicy(policy.getPlotSize(viewportSize), ratio);
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);
@@ -181,7 +159,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(props.plotClient.onDidChangeSizingPolicy((policy) => {
-			render(policy, !fallingBack);
+			render(policy, true);
 		}));
 
 		let progressBar: ProgressBar | undefined;
@@ -242,7 +220,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			disposed = true;
 			disposables.dispose();
 		};
-	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService, services.notificationService, services.commandService]);
+	}, [props.plotClient, props.height, props.width, services.logService, services.notificationService, services.commandService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {

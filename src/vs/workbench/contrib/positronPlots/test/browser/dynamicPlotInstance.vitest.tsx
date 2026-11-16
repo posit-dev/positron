@@ -37,6 +37,7 @@ describe('DynamicPlotInstance', () => {
 	const promptNotification = vi.fn();
 	const executeCommand = vi.fn();
 	const logWarn = vi.fn();
+	const selectSizingPolicy = vi.fn();
 	// Describe-level so each plot client stub shares the same event.
 	const onDidChangeSizingPolicy = new Emitter<IPositronPlotSizingPolicy>();
 
@@ -45,15 +46,12 @@ describe('DynamicPlotInstance', () => {
 		.stub(INotificationService, { prompt: promptNotification })
 		.stub(ICommandService, { executeCommand })
 		.stub(ILogService, Object.assign(new NullLogService(), { warn: logWarn }))
-		// The intrinsic fallback switches the selected plot to auto, which notifies the plot.
-		.stub(IPositronPlotsService, {
-			selectSizingPolicy: () => onDidChangeSizingPolicy.fire(new PlotSizingPolicyAuto()),
-			selectedSizingPolicy: new PlotSizingPolicyAuto(),
-		})
+		.stub(IPositronPlotsService, { selectSizingPolicy })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const renderWithSizingPolicy = vi.fn();
+	const renderAtSize = vi.fn();
 	const earlierRender: IRenderedPlot = { uri: 'data:image/png;base64,earlier', pixel_ratio: 1, renderTimeMs: 0 };
 
 	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
@@ -65,6 +63,7 @@ describe('DynamicPlotInstance', () => {
 			intrinsicSize: undefined,
 			getIntrinsicSize: () => Promise.resolve(undefined),
 			renderWithSizingPolicy,
+			render: renderAtSize,
 			onDidCompleteRender: Event.None,
 			onDidChangeSizingPolicy: onDidChangeSizingPolicy.event,
 			onDidChangeState: Event.None,
@@ -198,11 +197,20 @@ describe('DynamicPlotInstance', () => {
 			expect(screen.getByText(/plot area is too small/)).toBeInTheDocument();
 		});
 
-		it('stays quiet when a plot with no intrinsic size falls back to auto', async () => {
-			renderPlot(makeFailingPlotClient(earlierRender, undefined, new PlotSizingPolicyIntrinsic()));
+		it.each([
+			['it starts on', false],
+			['the user picks', true],
+		])('draws a plot with no intrinsic size at the auto size when %s intrinsic, without changing any plot\'s setting', async (_label, picked) => {
+			const intrinsic = new PlotSizingPolicyIntrinsic();
+			renderAtSize.mockResolvedValue({ uri: 'data:image/png;base64,auto', pixel_ratio: 1, renderTimeMs: 0 });
+			renderPlot(makeFailingPlotClient(earlierRender, undefined, picked ? undefined : intrinsic));
+			if (picked) {
+				act(() => onDidChangeSizingPolicy.fire(intrinsic));
+			}
 
-			// One render for intrinsic (falling back to auto) and one for the switch to auto.
-			await vi.waitFor(() => expect(logWarn).toHaveBeenCalledTimes(2));
+			expect(await screen.findByRole('img', { name: 'My Plot' })).toHaveAttribute('src', 'data:image/png;base64,auto');
+			expect(renderAtSize).toHaveBeenCalledWith(new PlotSizingPolicyAuto().getPlotSize({ width: 525, height: 325 }), expect.any(Number));
+			expect(selectSizingPolicy).not.toHaveBeenCalled();
 			expect(promptNotification).not.toHaveBeenCalled();
 		});
 
