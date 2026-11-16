@@ -10,8 +10,8 @@
 
 set -euo pipefail
 
-# --resolve-only prints the tag and stops. The memory-metrics workflow resolves
-# once in a prep job and hands the literal tag to all seven matrix jobs, so a
+# --resolve-only prints the tag and stops. positron-builds' test-memory-metrics.yml
+# calls it: it resolves once in a prep job and hands the literal tag to every matrix job, so a
 # prerelease published mid-run cannot split the matrix across two builds; that
 # prep job must not pay to download a build it will never use.
 RESOLVE_ONLY=0

@@ -237,11 +237,53 @@ test('a finding that also happened on main is its own group, left out of the % f
 	const html = render([row('fixed-in-pr'), row('not-fixed'), row('not-fixed', { origin: 'inherited', title: 'Also on main' }), row('fixed-later', { origin: 'inherited', title: 'Fixed elsewhere' }), row('not-fixed', { origin: 'introduced' }), row('pending')]);
 	assert.match(text(html), /Developers fixed 1 of 3 findings \(33%\)/);
 	assert.match(text(section(html, 'all-h')), /Findings by outcome \? Outcome known 3 Not counted 3/);
-	assert.match(text(section(html, 'ev-h')), /All 6 Fixed 1 Not fixed 2 Already on main 2 No outcome yet 1 Expand all/);
+	assert.match(text(section(html, 'ev-h')), /All 6 Fixed 1 Not fixed 2 No outcome yet 1 Already on main 2 Expand all/);
 	assert.match(html, /<div class="group" data-group="on-main">/);
 	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
-	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'on-main', 'pending']);
-	assert.match(text(section(html, 'ev-h')), /Already on main 2 It also happened on main, and the PR didn't fix it\. .*Outcome Not fixed .*Outcome Fixed later/);
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'not-fixed', 'pending', 'on-main']);
+	assert.match(text(section(html, 'ev-h')), /Already on main 2 The bug was on main before this PR\. .*Outcome Not fixed .*Outcome Fixed later/);
+});
+
+test('a finding that reproduces on main is Already on main, not counted, and last in the bar, the filters and the groups', () => {
+	const html = render([row('not-fixed', { origin: 'inherited', title: 'Old bug' }), row('didnt-ship', { decidedBy: 'dropped' }), row('pending'), row('unclear'), row('no-paths'), row('wont-fix'), row('fixed-in-pr')]);
+	const s = summarize([row('not-fixed', { origin: 'inherited' }), row('not-fixed')]);
+	assert.equal(s.counts['on-main'], 1);
+	assert.equal(s.counted, 1);
+	assert.equal(s.notCounted, 1);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.deepEqual([...bar.matchAll(/class="seg o-([a-z-]+)"/g)].map(m => m[1]), ['fixed-in-pr', 'wont-fix', 'didnt-ship', 'pending', 'unclear', 'no-paths', 'on-main']);
+	assert.deepEqual([...markup(html).matchAll(/class="filter" data-filter="([a-z-]+)"/g)].map(m => m[1]), ['all', 'fixed', 'wont-fix', 'didnt-ship', 'open', 'on-main']);
+	assert.deepEqual([...markup(html).matchAll(/<div class="group" data-group="([a-z-]+)">/g)].map(m => m[1]).slice(-1), ['on-main']);
+	assert.match(text(html), /1 Already on main The bug was already on main before this PR, so the PR didn't cause it\./);
+});
+
+test('not counted styles: only PR still open is dashed, Already on main is the lightest fill, and nothing is dotted', () => {
+	const css = render([row('not-fixed')]).match(/<style>([\s\S]*?)<\/style>/)[1];
+	assert.match(css, /\.o-didnt-ship\{background:#F5F4F0;color:#5A5751;border:1\.5px solid #B5B1A7\}/);
+	assert.match(css, /\.o-pending\{background:#F5F4F0;color:#5A5751;border:1\.5px dashed #B5B1A7\}/);
+	assert.match(css, /\.o-unclear\{background:#E6E2D9;color:#5A5751\}/);
+	assert.match(css, /\.o-no-paths\{background:#E6E2D9;color:#5A5751\}/);
+	assert.match(css, /\.o-on-main\{background:#EFECE6;color:#7A766F\}/);
+	assert.equal(css.match(/\.o-[\w-]+\{[^}]*dashed/g).length, 1);
+	assert.doesNotMatch(css, /border[^;}]*dotted/);
+	// Swatches keep the fill, with a 1px outline.
+	assert.match(css, /i\[class\^=o-\]\{[^}]*border-width:1px\}/);
+});
+
+test('a 1-finding segment shows only its count with no padding, so the 3px gaps on both sides stay visible', () => {
+	const html = render([...[...Array(9)].map(() => row('fixed-in-pr')), row('unclear'), ...[...Array(9)].map(() => row('not-fixed', { origin: 'inherited' }))]);
+	const bar = html.match(/<div class="bar big">([\s\S]*?)<\/div>/)[1];
+	assert.match(bar, /data-key="unclear"[^>]*>1<\/a>/);
+	assert.match(bar, /data-key="on-main"[^>]*>9<span>Already on main<\/span><\/a>/);
+	assert.match(html, /\.bar\.big \.seg\{[^}]*padding:0;/);
+	assert.match(html, /\.bar\.big \.seg:has\(span\)\{justify-content:flex-start;padding:0 12px\}/);
+	assert.match(html, /\.all\{display:grid;column-gap:3px;/);
+});
+
+test('the PR card is placed from its own link: below it, or directly above it near the bottom of the viewport', () => {
+	const html = render([row('fixed-in-pr')]);
+	assert.match(html, /const r = a\.getBoundingClientRect\(\);/);
+	assert.match(html, /card\.style\.top = scrollY \+ \(above \? r\.top - 8 - card\.offsetHeight : r\.bottom \+ 8\) \+ 'px';/);
 });
 
 test('a finding already on main shows what became of it on its row: its issue, fixed later, or won\'t fix', () => {
@@ -396,7 +438,7 @@ test('a finding filed as an issue links to that issue on the triage page', () =>
 });
 
 test('runUrl: the Actions run when built there, else the workflow page', () => {
-	const workflow = 'https://github.com/posit-dev/positron/actions/workflows/exploratory-outcomes.yml';
+	const workflow = 'https://github.com/posit-dev/positron-builds/actions/workflows/explore-outcomes.yml';
 	assert.equal(runUrl({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '42' }), 'https://github.com/o/r/actions/runs/42');
 	assert.equal(runUrl({}), workflow);
 	assert.equal(runUrl({ GITHUB_REPOSITORY: 'o/r' }), workflow);
@@ -503,7 +545,25 @@ test('the PR card shows state and date, title, author, size and the description'
 	assert.match(prCard(7, preview()), /Plots: &lt;one&gt; name/);
 	assert.match(prCard(7, preview()), /<span class="pill merged">/);
 	assert.match(text(prCard(8, preview({ state: 'open', date: '2026-10-01T10:00:00Z' }))), /^ ?Open opened Oct 1, 2026 #8/);
-	assert.match(text(prCard(9, preview({ state: 'closed' }))), /^ ?Closed without merging Oct 3, 2026/);
+	assert.match(text(prCard(9, preview({ state: 'closed' }))), /^ ?Closed Oct 3, 2026 #9/);
+	assert.match(prCard(10, preview({ state: 'draft' })), /<span class="pill draft">Draft<\/span>opened Oct 3, 2026/);
 	assert.match(text(prCard(7, preview({ files: 1, desc: '' }))), /~ 1 file $/);
 	assert.ok(!prCard(7, preview({ desc: '' })).includes('<p>'));
+});
+
+test('PR card pills: tinted in GitHub state colours, with no dot or border', () => {
+	const css = render([row('fixed-in-pr')]).match(/<style>([\s\S]*?)<\/style>/)[1];
+	assert.match(css, /\.pill\{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:500\}/);
+	assert.match(css, /\.pill\.merged\{background:#EFE9F8;color:#5E3FA3\}/);
+	assert.match(css, /\.pill\.open\{background:#E6F0E8;color:#2F6B42\}/);
+	assert.match(css, /\.pill\.draft\{background:#ECE9E2;color:#5A5751\}/);
+	assert.match(css, /\.pill\.closed\{background:#F5E6E2;color:#8A3F31\}/);
+	assert.doesNotMatch(css, /\.pill[^{]*\{[^}]*border:|\.pill i\b/);
+	assert.ok(!prCard(7, preview()).includes('<i>'));
+});
+
+test('a finding on a draft PR is still PR still open', () => {
+	const html = render([row('pending', { decidedBy: 'pr-open', prPreview: preview({ state: 'draft' }) })]);
+	assert.match(text(section(html, 'all-h')), /Not counted 1/);
+	assert.match(html, /data-key="pending"/);
 });

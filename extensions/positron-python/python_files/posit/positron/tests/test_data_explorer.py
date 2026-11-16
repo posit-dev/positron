@@ -21,6 +21,7 @@ import pytest
 import pytz
 from packaging import version as pkg_version
 
+from .._data_explorer_search import SearchTerm, numeric_mask, parse_search_term
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
 from ..data_explorer import (
@@ -1899,6 +1900,307 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
+def _global_search_filter(term, max_cells=None, format_options=None):
+    params = {"term": term}
+    if max_cells is not None:
+        params["max_cells"] = max_cells
+    if format_options is not None:
+        params["format_options"] = format_options
+    return _filter("global_search", None, params=params)
+
+
+@pytest.mark.parametrize(
+    ("term", "bounds"),
+    [
+        ("3", (3, 4, True, False)),
+        ("3.", (3, 4, True, False)),
+        ("3.1", (3.1, 3.2, True, False)),
+        ("3.10", (3.1, 3.11, True, False)),
+        ("-3", (-4, -3, False, True)),
+        ("0", (-1, 1, False, False)),
+        (".5", (0.5, 0.6, True, False)),
+        ("1,234", (1234, 1235, True, False)),
+        ("+2", (2, 3, True, False)),
+        ("  3", (3, 4, True, False)),
+        ("1e3", None),
+        ("1,23", None),
+        ("Inf", None),
+        ("NaN", None),
+        ("-", None),
+        ("3 4", None),
+        ("0x10", None),
+        ("abc", None),
+    ],
+)
+def test_parse_search_term(term, bounds):
+    parsed = parse_search_term(term)
+    assert parsed is not None
+    assert parsed.text == term.lower()
+    if bounds is None:
+        assert parsed.bounds is None
+    else:
+        assert parsed.bounds is not None
+        np.testing.assert_allclose(parsed.bounds[:2], bounds[:2], rtol=0, atol=1e-6)
+        assert parsed.bounds[2:] == bounds[2:]
+
+
+def test_parse_search_term_special():
+    assert parse_search_term("") is None
+    markers = ["null", "NA", " none ", "NaN", "NaT", "<NA>"]
+    terms = [*markers, "nu", "n", "Inf", "nullable"]
+    assert [parse_search_term(t) for t in terms] == [
+        SearchTerm(t.lower(), t in markers, None, None, None) for t in terms
+    ]
+
+
+@pytest.mark.parametrize(
+    ("term", "matches", "non_matches"),
+    [
+        ("3", [3, 3.0, 3.5, 3.999, 2.9999999999], [2.9, 4, -3, 3.9999999999]),
+        ("3.", [3, 3.5], [4]),
+        ("3.1", [3.1, 3.14159, 3.19], [3.0999, 3.2, 3]),
+        ("3.10", [3.10, 3.105], [3.11, 3.1999]),
+        ("-3", [-3, -3.5, -3.999], [-4, -2.9, 3]),
+        ("0", [0, 0.5, -0.5, 0.999], [1, -1]),
+        (".5", [0.5, 0.55], [0.6, 0.49]),
+        ("1,234", [1234, 1234.9], [12340, 1233]),
+        ("+2", [2, 2.5], [3]),
+        ("1", [1], [np.inf, -np.inf, np.nan]),
+    ],
+)
+def test_search_numeric_mask(term, matches, non_matches):
+    parsed = parse_search_term(term)
+    assert parsed is not None
+    floating = ColumnDisplayType.Floating
+    assert numeric_mask(np.array(matches, dtype=float), floating, parsed).all()
+    assert not numeric_mask(np.array(non_matches, dtype=float), floating, parsed).any()
+
+
+# Displayed with these options: 2.996 as 3.00, 0.99996 as 1.0000, 0.12346 as
+# 0.1235, and 1234567890.5 and 0.00001 in scientific notation
+@pytest.mark.parametrize(
+    ("term", "matches", "non_matches"),
+    [
+        ("3.00", [2.996, 3.004], [2.994]),
+        ("3", [2.996], [2.994]),
+        ("2.99", [2.994], [2.996]),
+        ("-3", [-2.996], [-2.994]),
+        ("1.0000", [0.99996], [0.99994]),
+        ("0.1235", [0.12346], [0.12344]),
+        ("0.12346", [], [0.12346]),
+        ("1234567890", [], [1234567890.5]),
+        ("0", [0, 0.0049], [0.00001, np.nan]),
+    ],
+)
+def test_search_numeric_mask_display_rounding(term, matches, non_matches):
+    options = FormatOptions(
+        large_num_digits=2, small_num_digits=4, max_integral_digits=7, max_value_length=100
+    )
+    parsed = parse_search_term(term, options)
+    assert parsed is not None
+    floating = ColumnDisplayType.Floating
+    assert numeric_mask(np.array(matches, dtype=float), floating, parsed).all()
+    assert not numeric_mask(np.array(non_matches, dtype=float), floating, parsed).any()
+    # Values of other display types are not rounded
+    rounded = parse_search_term("3.00", options)
+    assert rounded is not None
+    assert not numeric_mask(np.array([2.996]), ColumnDisplayType.Decimal, rounded).any()
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_filter_global_search_display_rounding(dxf: DataExplorerFixture, backend):
+    data = {"float": [2.996, 2.994, 0.5], "int": [9007199254740993, 9007199254740992, 1]}
+    df = pd.DataFrame(data) if backend == "pandas" else pl.DataFrame(data)
+    options = {
+        "large_num_digits": 2,
+        "small_num_digits": 4,
+        "max_integral_digits": 7,
+        "max_value_length": 100,
+    }
+    for term, rows in [("3.00", [0]), ("2.99", [1]), ("9007199254740993", [0])]:
+        filters = [_global_search_filter(term, format_options=options)]
+        dxf.check_filter_case(df, filters, _take_rows(df, rows))
+
+
+def _search_mixed_frames():
+    dates = [
+        datetime.datetime(*args) if args else None  # noqa: DTZ001
+        for args in [(2024, 1, 1), (2024, 2, 2, 12), None, (2024, 1, 1), (2024, 1, 5)]
+    ]
+    data = {
+        "int": [3, 4, -3, 0, 1234],
+        "float": [3.5, np.nan, 2.9999999999, -0.5, np.inf],
+        "str": ["Apple", "v3.2", None, "nullable", "École"],
+        "bool": [True, False, True, False, True],
+        "cat": ["red", "green", None, "red", "blue"],
+        "obj": [None, MyData(5), MyData("xyz"), None, MyData("q")],
+    }
+    pandas_df = pd.DataFrame(
+        {
+            **data,
+            "dt": pd.to_datetime(dates),
+            "cat": pd.Categorical(data["cat"]),
+            "nullable": pd.array([1, None, 7, 8, 9], dtype="Int64"),
+        }
+    )
+    polars_df = pl.DataFrame(
+        {
+            **data,
+            "dt": dates,
+            "cat": pl.Series(data["cat"], dtype=pl.Categorical),
+            "obj": pl.Series(data["obj"], dtype=pl.Object),
+            "nullable": [1, None, 7, 8, 9],
+        }
+    )
+    return pandas_df, polars_df
+
+
+def _take_rows(table, rows):
+    if isinstance(table, pl.DataFrame):
+        return table.filter(pl.Series([i in rows for i in range(len(table))]))
+    return table.iloc[rows]
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+@pytest.mark.parametrize(
+    ("term", "rows"),
+    [
+        ("apple", [0]),
+        ("APPLE", [0]),
+        ("écol", [4]),
+        ("3", [0, 1, 2]),
+        ("  3", [0, 2]),
+        ("-3", [2]),
+        ("0", [0, 1, 3, 4]),
+        ("1,234", [4]),
+        ("5", [1, 4]),
+        ("true", [0, 2, 4]),
+        ("xyz", [2]),
+        ("red", [0, 3]),
+        ("2024-01-01", [0, 3]),
+        ("null", [0, 1, 2, 3]),
+        ("NaN", [0, 1, 2, 3]),
+        ("nu", [3]),
+        ("inf", []),
+        ("zzz", []),
+    ],
+)
+def test_filter_global_search(dxf: DataExplorerFixture, backend, term, rows):
+    pandas_df, polars_df = _search_mixed_frames()
+    df = pandas_df if backend == "pandas" else polars_df
+    dxf.check_filter_case(df, [_global_search_filter(term)], _take_rows(df, rows))
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_filter_global_search_stacking(dxf: DataExplorerFixture, backend):
+    pandas_df, polars_df = _search_mixed_frames()
+    df = pandas_df if backend == "pandas" else polars_df
+    schema = dxf.get_schema_for(df)
+    compare = _compare_filter(schema[0], ">", 0)
+    search = _global_search_filter("3")
+    expected = _take_rows(df, [0, 1])
+    dxf.check_filter_case(df, [compare, search], expected)
+    dxf.check_filter_case(df, [search, compare], expected)
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_filter_global_search_max_cells(dxf: DataExplorerFixture, backend):
+    data = {"a": list(range(10)), "b": [f"x{i}" for i in range(10)]}
+    df = pd.DataFrame(data) if backend == "pandas" else pl.DataFrame(data)
+    dxf.register_table("search_limit", df)
+    schema = dxf.get_schema("search_limit")
+
+    # 2 searched columns, so only the first 5 candidate rows are scanned
+    result = dxf.set_row_filters("search_limit", [_global_search_filter("x", max_cells=10)])
+    assert result["selected_num_rows"] == 5
+    assert dxf.get_state("search_limit")["global_search_rows_scanned"] == 5
+
+    # Candidates are the rows that pass the column filters
+    filters = [_compare_filter(schema[0], ">=", 4), _global_search_filter("x", max_cells=6)]
+    result = dxf.set_row_filters("search_limit", filters)
+    assert result["selected_num_rows"] == 3
+    state = dxf.get_state("search_limit")
+    assert state["global_search_rows_scanned"] == 3
+    assert dxf.get_data_values("search_limit", columns=_select_all(3, 1))["columns"] == [
+        ["4", "5", "6"]
+    ]
+
+    dxf.set_row_filters("search_limit", [_global_search_filter("x", max_cells=0)])
+    assert dxf.get_state("search_limit")["global_search_rows_scanned"] is None
+    dxf.set_row_filters("search_limit", [_global_search_filter("x", max_cells=20)])
+    assert dxf.get_state("search_limit")["global_search_rows_scanned"] is None
+    dxf.set_row_filters("search_limit", [_global_search_filter("x", max_cells=10)])
+    dxf.set_row_filters("search_limit", [])
+    assert dxf.get_state("search_limit")["global_search_rows_scanned"] is None
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_global_search_matches(dxf: DataExplorerFixture, backend):
+    pandas_df, polars_df = _search_mixed_frames()
+    df = pandas_df if backend == "pandas" else polars_df
+    dxf.register_table("search_matches", df)
+    columns = _select_all(3, df.shape[1])
+
+    assert "search_matches" not in dxf.get_data_values("search_matches", columns=columns)
+
+    dxf.set_row_filters("search_matches", [_global_search_filter("3")])
+    result = dxf.get_data_values("search_matches", columns=columns)
+    assert [len(c) for c in result["search_matches"]] == [len(c) for c in result["columns"]]
+    by_name = dict(zip(df.columns, result["search_matches"], strict=True))
+    assert by_name["int"] == [True, False, False]
+    assert by_name["float"] == [True, False, True]
+    assert by_name["str"] == [False, True, False]
+    assert not any(by_name["dt"] + by_name["obj"] + by_name["nullable"])
+
+    # Cell indices selections are relative to the view
+    selection = [{"column_index": 2, "spec": {"indices": [2, 1]}}]
+    result = dxf.get_data_values("search_matches", columns=selection)
+    assert result["search_matches"] == [[False, True]]
+
+    dxf.set_row_filters("search_matches", [_global_search_filter("null")])
+    result = dxf.get_data_values("search_matches", columns=_select_all(4, df.shape[1]))
+    by_name = dict(zip(df.columns, result["search_matches"], strict=True))
+    assert by_name["str"] == [False, False, True, True]
+    assert by_name["float"] == [False, True, False, False]
+
+
+def test_pandas_global_search_row_labels(dxf: DataExplorerFixture):
+    labeled = pd.DataFrame({"x": [10, 20]}, index=pd.Index(["alpha", "beta"]))
+    dxf.check_filter_case(labeled, [_global_search_filter("BET")], labeled.iloc[[1]])
+
+    unlabeled = pd.DataFrame({"x": ["a", "b"]})
+    dxf.check_filter_case(unlabeled, [_global_search_filter("1")], unlabeled.iloc[[]])
+
+
+def test_pandas_global_search_row_label_matches(dxf: DataExplorerFixture):
+    labels = {"first_index": 0, "last_index": 2}
+    labeled = pd.DataFrame({"x": ["a", "beta", "c"]}, index=pd.Index(["alpha", "beta", "c"]))
+    dxf.register_table("labeled", labeled)
+    assert "search_matches" not in dxf.get_row_labels("labeled", labels)
+    dxf.set_row_filters("labeled", [_global_search_filter("a")])
+    assert dxf.get_row_labels("labeled", labels)["search_matches"] == [[True, True]]
+
+    # Default numbering is not searched
+    unlabeled = pd.DataFrame({"x": ["a", "b1", "c1"]})
+    dxf.register_table("unlabeled", unlabeled)
+    dxf.set_row_filters("unlabeled", [_global_search_filter("1")])
+    assert dxf.get_row_labels("unlabeled", labels)["search_matches"] == [[False, False]]
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars"])
+def test_global_search_live_update(dxf: DataExplorerFixture, backend):
+    data = {"a": [1, 2, 3], "c": ["x3", "y", "z"]}
+    df = pd.DataFrame(data) if backend == "pandas" else pl.DataFrame(data)
+    dxf.assign_and_open_viewer("search_df", df)
+    dxf.set_row_filters("search_df", [_global_search_filter("3")])
+    assert dxf.get_state("search_df")["table_shape"]["num_rows"] == 2
+
+    dxf.execute_code("search_df = search_df[['a']]")
+    state = dxf.get_state("search_df")
+    assert state["table_shape"]["num_rows"] == 1
+    assert state["row_filters"][0]["is_valid"]
+
+
 def _replicate_df_columns(test_df, new_width):
     # Create a "wide" version of the data frame by replicating its
     # columns and appending an index suffix to make the column names
@@ -3735,6 +4037,12 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     features = state["supported_features"]
     assert features["search_schema"]["support_status"] == SupportStatus.Unsupported
     assert features["set_row_filters"]["support_status"] == SupportStatus.Supported
+    assert (
+        RowFilterTypeSupportStatus(
+            row_filter_type=RowFilterType.GlobalSearch, support_status=SupportStatus.Supported
+        )
+        in features["set_row_filters"]["supported_types"]
+    )
 
     column_filters = features["set_column_filters"]
     assert column_filters["support_status"] == SupportStatus.Unsupported

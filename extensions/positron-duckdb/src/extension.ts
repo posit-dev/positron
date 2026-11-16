@@ -40,6 +40,8 @@ import {
 	FilterBetween,
 	FilterComparison,
 	FilterComparisonOp,
+	FilterGlobalSearch,
+	FormatOptions,
 	FilterMatchDataTypes,
 	FilterResult,
 	FilterSetMembership,
@@ -420,8 +422,119 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 	[FilterComparisonOp.LtEq, '<=']
 ]);
 
-function makeWhereExpr(rowFilter: RowFilter): string {
+/** Search terms that also match null (and NaN) cells, compared trimmed and lowercased. */
+const NULL_MARKERS = new Set(['null', 'na', 'nan', 'none', 'nat', '<na>']);
+
+/**
+ * Parses a global search term as a number, allowing grouped thousands
+ * separators. Returns the number without separators, its value, and the number
+ * of digits after the decimal point, or undefined when the term is text.
+ */
+function parseNumericTerm(term: string): { text: string; value: number; decimals: number } | undefined {
+	let text = term.trim();
+	if (/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?$/.test(text)) {
+		text = text.replace(/,/g, '');
+	}
+	if (!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)) {
+		return undefined;
+	}
+	text = text.replace(/\.$/, '');
+	const dot = text.indexOf('.');
+	return { text, value: Number(text), decimals: dot < 0 ? 0 : text.length - dot - 1 };
+}
+
+/**
+ * Returns SQL conditions on a float column selecting how getDataValues displays
+ * its values: in scientific notation, or with small_num_digits decimals. Other
+ * values are displayed with large_num_digits decimals.
+ */
+function floatDisplayConditions(quotedName: string, options: FormatOptions) {
+	return {
+		scientific: `abs(${quotedName}) >= 1${'0'.repeat(options.max_integral_digits)}`,
+		small: `abs(${quotedName}) < 1 AND abs(${quotedName}) > 0`
+	};
+}
+
+/**
+ * Returns a SQL predicate on a numeric column matching values that, as
+ * displayed, truncate toward zero to the numeric term at its implied
+ * precision, or undefined for text terms. Floats are rounded as displayed when
+ * the format options are known; those in scientific notation do not match.
+ */
+function makeNumericSearchExpr(quotedName: string, type: string, term: string, options: FormatOptions | undefined): string | undefined {
+	const numeric = parseNumericTerm(term);
+	if (!numeric) {
+		return undefined;
+	}
+	if (isInteger(type) && numeric.decimals === 0) {
+		// Compare exactly; integers can exceed the precision of a double.
+		return `${quotedName} = ${BigInt(numeric.text)}`;
+	}
+	let x = quotedName;
+	if (isFloating(type) && options) {
+		const { scientific, small } = floatDisplayConditions(quotedName, options);
+		x = `(CASE WHEN ${scientific} THEN NULL
+WHEN ${small} THEN ROUND(${quotedName}, ${options.small_num_digits})
+ELSE ROUND(${quotedName}, ${options.large_num_digits}) END)`;
+	}
+	const t = numeric.value;
+	const step = Math.pow(10, -numeric.decimals);
+	const eps = step * 1e-9;
+	if (t > 0) {
+		return `(${x} >= ${t - eps} AND ${x} < ${t + step - eps})`;
+	} else if (t < 0) {
+		return `(${x} > ${t - step + eps} AND ${x} <= ${t + eps})`;
+	} else {
+		return `(${x} > ${-step + eps} AND ${x} < ${step - eps})`;
+	}
+}
+
+/**
+ * Returns a SQL predicate matching the global search term in one column, or
+ * undefined when the column cannot match the term (nested types, or numeric
+ * columns with a text term).
+ */
+function makeColumnSearchExpr(entry: SchemaEntry, search: FilterGlobalSearch): string | undefined {
+	const term = search.term;
+	const type = entry.column_type;
+	if (/^(?:STRUCT|MAP|UNION)\(|\[\d*\]$/.test(type)) {
+		return undefined;
+	}
+	const quotedName = quoteIdentifier(entry.column_name);
+	const exprs: string[] = [];
+	if (isNumeric(type) || type.startsWith('DECIMAL')) {
+		const numericExpr = makeNumericSearchExpr(quotedName, type, term, search.format_options);
+		if (numericExpr) {
+			exprs.push(numericExpr);
+		}
+	} else {
+		const text = type === 'VARCHAR' ? quotedName : `CAST(${quotedName} AS VARCHAR)`;
+		exprs.push(`contains(lower(${text}), lower('${quoteLiteral(term)}'))`);
+	}
+	if (NULL_MARKERS.has(term.trim().toLowerCase())) {
+		exprs.push(isFloating(type) ? `(${quotedName} IS NULL OR isnan(${quotedName}))` : `${quotedName} IS NULL`);
+	}
+	return exprs.length ? exprs.join(' OR ') : undefined;
+}
+
+/** Returns a SQL predicate matching rows where any column matches the global search term. */
+function makeGlobalSearchExpr(search: FilterGlobalSearch, schema: Array<SchemaEntry>): string {
+	if (search.term === '') {
+		return 'TRUE';
+	}
+	const exprs = schema.map(entry => makeColumnSearchExpr(entry, search)).filter(expr => expr !== undefined);
+	return exprs.length ? `(${exprs.join(' OR ')})` : 'FALSE';
+}
+
+function makeWhereExpr(rowFilter: RowFilter, fullSchema: Array<SchemaEntry>): string {
+	if (rowFilter.filter_type === RowFilterType.GlobalSearch) {
+		// max_cells is ignored: DuckDB scans the whole table off the extension host thread.
+		return makeGlobalSearchExpr(rowFilter.params as FilterGlobalSearch, fullSchema);
+	}
 	const schema = rowFilter.column_schema;
+	if (!schema) {
+		throw new Error(`Row filter ${rowFilter.filter_type} requires a column`);
+	}
 	const quotedName = quoteIdentifier(schema.column_name);
 	switch (rowFilter.filter_type) {
 		case RowFilterType.Compare: {
@@ -456,7 +569,8 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 		case RowFilterType.Search: {
 			const params = rowFilter.params as FilterTextSearch;
 			const searchArg = params.case_sensitive ? quotedName : `lower(${quotedName})`;
-			const searchTerm = params.case_sensitive ? `'${params.term}'` : `lower('${params.term}')`;
+			const quotedTerm = `'${quoteLiteral(params.term)}'`;
+			const searchTerm = params.case_sensitive ? quotedTerm : `lower(${quotedTerm})`;
 
 			switch (params.search_type) {
 				case TextSearchType.Contains:
@@ -468,8 +582,8 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 				case TextSearchType.EndsWith:
 					return `${searchArg} LIKE '%' || ${searchTerm}`;
 				case TextSearchType.RegexMatch: {
-					const options = params.case_sensitive ? ', \'i\'' : '';
-					return `regexp_matches(${searchArg}, \'${params.term}\'${options})`;
+					const options = params.case_sensitive ? '' : ', \'i\'';
+					return `regexp_matches(${quotedName}, ${quotedTerm}${options})`;
 				}
 			}
 		}
@@ -1597,7 +1711,6 @@ export class DuckDBTableView {
 		const largeNumDigits = params.format_options.large_num_digits;
 
 		const thousandsSep = params.format_options.thousands_sep;
-		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
 		const varcharLimit = params.format_options.max_value_length;
 
 		let smallFloatFormat, largeFloatFormat;
@@ -1608,6 +1721,10 @@ export class DuckDBTableView {
 			largeFloatFormat = `'{:.${largeNumDigits}f}'`;
 			smallFloatFormat = `'{:.${smallNumDigits}f}'`;
 		}
+
+		const globalSearch = this.rowFilters.find(filter => filter.filter_type === RowFilterType.GlobalSearch);
+		const search = globalSearch?.params as FilterGlobalSearch | undefined;
+		const matchSelectors = [];
 
 		const columnSelectors = [];
 		const selectedColumns = [];
@@ -1648,6 +1765,7 @@ export class DuckDBTableView {
 					break;
 				case 'FLOAT':
 				case 'DOUBLE': {
+					const display = floatDisplayConditions(quotedName, params.format_options);
 					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
 					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
 					if (thousandsSep && thousandsSep !== ',') {
@@ -1658,8 +1776,8 @@ export class DuckDBTableView {
 WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
 WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
 WHEN isnan(${quotedName}) THEN 'NaN'
-WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
-WHEN abs(${quotedName}) < 1 AND abs(${quotedName}) > 0 THEN ${smallFormatter}
+WHEN ${display.scientific} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
+WHEN ${display.small} THEN ${smallFormatter}
 ELSE ${largeFormatter}
 END`;
 					break;
@@ -1676,6 +1794,10 @@ END`;
 			}
 			selectedColumns.push(quotedName);
 			columnSelectors.push(`${columnSelector} AS formatted_${columnSelectors.length} `);
+			if (search?.term) {
+				const matchExpr = makeColumnSearchExpr(columnSchema, search) ?? 'FALSE';
+				matchSelectors.push(`COALESCE(${matchExpr}, FALSE) AS match_${matchSelectors.length}`);
+			}
 		}
 
 		let numRows = 0;
@@ -1695,7 +1817,7 @@ END`;
 
 		// For some reason, DuckDB performs better if you do your sort/limit/offset in a subquery
 		// and then format that small selection.
-		const query = `SELECT\n${columnSelectors.join(',\n    ')}
+		const query = `SELECT\n${[...columnSelectors, ...matchSelectors].join(',\n    ')}
 		FROM (
 			SELECT ${selectedColumns.join(', ')} FROM
 			${this.tableName}${this._whereClause}${this._sortClause}
@@ -1706,12 +1828,13 @@ END`;
 		const queryResult = await this.db.runQuery(query);
 
 		// Sanity check
-		if (queryResult.numCols !== params.columns.length) {
+		if (queryResult.numCols !== columnSelectors.length + matchSelectors.length) {
 			throw new Error('Incorrect number of columns in query result');
 		}
 
 		const result: TableData = {
-			columns: []
+			columns: [],
+			...(search?.term ? { search_matches: [] } : {})
 		};
 
 		const floatAdapter = (field: any[], i: number) => {
@@ -1736,12 +1859,12 @@ END`;
 			return value === null || value === undefined ? SENTINEL_NULL : value;
 		};
 
-		for (let i = 0; i < queryResult.numCols; i++) {
+		for (let i = 0; i < params.columns.length; i++) {
 			const column = params.columns[i];
 			const spec = column.spec;
 			const field = queryResult.columnAt(i);
 
-			const fetchValues = (adapter: (field: any[], i: number) => ColumnValue) => {
+			const fetchValues = <T>(adapter: (field: any[], i: number) => T, field: any[]) => {
 				if (isSelectionRange(spec)) {
 					// There may be fewer rows available than what was requested
 					const lastIndex = Math.min(
@@ -1749,7 +1872,7 @@ END`;
 						spec.first_index + queryResult.numRows - 1
 					);
 
-					const columnValues: Array<string | number> = [];
+					const columnValues: Array<T> = [];
 					// Value range, we need to extract the actual slice requested
 					for (let i = spec.first_index; i <= lastIndex; ++i) {
 						columnValues.push(adapter(field, i));
@@ -1765,13 +1888,17 @@ END`;
 			switch (columnSchema.column_type) {
 				case 'DOUBLE':
 				case 'FLOAT':
-					result.columns.push(fetchValues(floatAdapter));
+					result.columns.push(fetchValues<ColumnValue>(floatAdapter, field));
 					break;
 				default:
-					result.columns.push(fetchValues(defaultAdapter));
+					result.columns.push(fetchValues<ColumnValue>(defaultAdapter, field));
 					break;
 			}
 
+			if (result.search_matches) {
+				const matches = queryResult.columnAt(columnSelectors.length + i);
+				result.search_matches.push(fetchValues((m, i) => m[i - lowerLimit] === true, matches));
+			}
 		}
 
 		return result;
@@ -1941,6 +2068,10 @@ END`;
 						{
 							row_filter_type: RowFilterType.SetMembership,
 							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.GlobalSearch,
+							support_status: SupportStatus.Supported
 						}
 					]
 				},
@@ -2098,7 +2229,7 @@ END`;
 			return { selected_num_rows: unfilteredShape[0] };
 		}
 
-		const whereExprs = this.rowFilters.map(makeWhereExpr);
+		const whereExprs = this.rowFilters.map(filter => makeWhereExpr(filter, this.fullSchema));
 		this._whereClause = `\nWHERE ${whereExprs.join(' AND ')}`;
 		this._filteredShape = this._getShape(this._whereClause);
 	}
