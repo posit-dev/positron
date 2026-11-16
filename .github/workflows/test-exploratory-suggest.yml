@@ -7,8 +7,10 @@ name: "Test: Exploratory Suggest"
 # Auto-run experiment (#16610): when the author is on the
 # EXPLORE_AUTO_RUN_AUTHORS repo variable, post starts test-exploratory.yml
 # instead of posting the tip. That run posts to the PR only if its own gate
-# passes it. Listing positron-projects[bot] auto-runs claude.yml's agent PRs;
-# no other bot gets through. Empty the variable to end the experiment. The full list of when
+# passes it. When the judge says no to such a PR, post says why on the PR, so
+# a wrong call can be overridden with `/explore`. Listing
+# positron-projects[bot] auto-runs claude.yml's agent PRs; no other bot gets
+# through. Empty the variable to end the experiment. The full list of when
 # a PR gets a run is in the exploratory-test skill's CONTRIBUTING.md.
 #
 # pull_request_target, not pull_request: the judge job holds the positron-bot
@@ -120,6 +122,8 @@ jobs:
       contents: read
     outputs:
       suggest: ${{ steps.verdict.outputs.suggest }}
+      # A plain "no", as opposed to no verdict, which stays silent.
+      declined: ${{ steps.verdict.outputs.declined }}
       reason: ${{ steps.verdict.outputs.reason }}
     steps:
       - uses: actions/checkout@v7
@@ -161,17 +165,23 @@ jobs:
           reason=${reason:0:1000}
           if [ "$suggest" = "true" ]; then
             { echo "suggest=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+          elif [ "$suggest" = "false" ] && [ -n "$reason" ]; then
+            { echo "suggest=false"; echo "declined=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
           else
             echo "suggest=false" >> "$GITHUB_OUTPUT"
             [ "$suggest" = "false" ] || echo "::warning::The judge gave no verdict, so nothing is suggested."
           fi
           echo "**#$PR_NUMBER** judge: ${suggest:-no verdict}${reason:+. $reason}${RUN_ID:+ ([details](https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID))}" >> "$GITHUB_STEP_SUMMARY"
 
-  # The only job that can write, and it runs no model.
+  # The only job that can write, and it runs no model. A "no" is posted only
+  # for an auto-run author: anyone else expects no tip, so silence says enough.
   post:
     name: post
     needs: [precheck, judge]
-    if: needs.judge.outputs.suggest == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+    if: >-
+      (needs.judge.outputs.suggest == 'true' ||
+        (needs.judge.outputs.declined == 'true' && needs.precheck.outputs.auto == 'true')) &&
+      !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -203,6 +213,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REASON: ${{ needs.judge.outputs.reason }}
+          DECLINED: ${{ needs.judge.outputs.declined }}
           AUTO_RUN: ${{ needs.precheck.outputs.auto }}
           # Always main: test-exploratory.yml refuses runs off main, since its
           # dispatch job holds the positron-bot key.

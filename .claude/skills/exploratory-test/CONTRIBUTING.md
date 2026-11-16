@@ -69,7 +69,10 @@ about cost:
    see or do with edge cases a reviewer reading the diff would miss, and no
    when unsure. An error means no. The call runs in posit-dev/positron-builds
    (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
-   `suggest.ts`.
+   `suggest.ts`. When it says no to an auto-run author's PR, the PR gets a
+   note with the reason and says to comment `/explore` to run it anyway. A
+   later "no" edits that note, and a later "yes" removes it. Other authors
+   get no note.
 
 Every run, however it started, then goes through the worthiness check
 (`gate.mjs`, run in positron-builds by `explore-gate.yml`) unless a focus was

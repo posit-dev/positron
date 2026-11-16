@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMMENT_MARKER } from './lib.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, renderDeclinedComment, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
 
 test('isRunCommand accepts every alias as the first word of the first non-blank line', () => {
 	for (const body of ['/explore', '/test', '/exploratory-test', '\r\n\r\n/explore the plots pane\r\n', '  /test 20m']) {
@@ -151,6 +151,19 @@ test('renderSuggestComment is the marker then a tip callout', () => {
 		'> Comment `/explore` to run an exploratory test. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n'));
+});
+
+test('renderDeclinedComment gives the reason and the override, and is not a prior use', () => {
+	const body = renderDeclinedComment('Reaching the change needs the ggsql extension. More detail.');
+	assert.equal(body, [
+		DECLINED_MARKER,
+		'> [!NOTE]',
+		'> Exploratory testing did not run automatically on this PR. Reaching the change needs the ggsql extension.',
+		'>',
+		'> If that is wrong, comment `/explore` to run it anyway. Results will be posted as a comment on this PR.',
+		'',
+	].join('\n'));
+	assert.equal(findPriorUse([{ id: 7, body }]), null);
 });
 
 test('renderDiff puts product files first and names what does not fit', () => {

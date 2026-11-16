@@ -12,6 +12,12 @@ import { COMMENT_MARKER, ENVIRONMENT, isProductPath, renderPrBody } from './lib.
 /** Labels the suggestion. Not COMMENT_MARKER: a suggestion is not a run. */
 export const SUGGEST_MARKER = '<!-- exploratory-testing:candidate -->';
 
+/**
+ * Labels the note that an auto-run author's PR was judged not worth a run.
+ * findPriorUse ignores it, so a later review request judges the PR again.
+ */
+export const DECLINED_MARKER = '<!-- exploratory-testing:declined -->';
+
 /** Every name test-exploratory.yml's resolve job accepts. */
 export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
 
@@ -137,14 +143,12 @@ export function parseVerdict(text) {
 }
 
 /**
- * The model's reason as the rest of a sentence that starts "This PR". One
- * sentence, capped, with no markup and no @-mentions: the author wrote what
- * the model read, and this is posted as the bot.
+ * The model's reason as one plain sentence, capped, with no markup and no
+ * @-mentions: the author wrote what the model read, and this is posted as the bot.
  */
-export function reasonClause(reason, max = 300) {
+export function reasonSentence(reason, max = 300) {
 	// Whole tags and comments first, then any stray bracket left unmatched.
 	let text = String(reason ?? '').replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
-	text = text.replace(/^this pr\s+/i, '');
 	const sentence = text.match(/^.+?[.!?](?=\s|$)/);
 	if (sentence) {
 		text = sentence[0];
@@ -154,11 +158,17 @@ export function reasonClause(reason, max = 300) {
 	}
 	// Zero-width space after @ so a handle in the reason does not ping anyone.
 	text = text.replace(/@(?=\w)/g, '@\u200b');
+	return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+/** The model's reason as the rest of a sentence that starts "This PR". */
+export function reasonClause(reason, max = 300) {
+	let text = reasonSentence(String(reason ?? '').trim().replace(/^this pr\s+/i, ''), max);
 	// "Changes how..." reads as "This PR changes how...", but "UI" stays "UI".
 	if (/^[A-Z][a-z]/.test(text)) {
 		text = text[0].toLowerCase() + text.slice(1);
 	}
-	return /[.!?]$/.test(text) ? text : `${text}.`;
+	return text;
 }
 
 export function renderSuggestComment(reason) {
@@ -168,6 +178,21 @@ export function renderSuggestComment(reason) {
 		`> This PR ${reasonClause(reason)}`,
 		'>',
 		'> Comment `/explore` to run an exploratory test. Results will be posted as a comment on this PR.',
+		'',
+	].join('\n');
+}
+
+/**
+ * The note for an auto-run author's PR the judge turned down: why, and how to
+ * run it anyway. Without it the PR shows nothing, and a wrong call goes unseen.
+ */
+export function renderDeclinedComment(reason) {
+	return [
+		DECLINED_MARKER,
+		'> [!NOTE]',
+		`> Exploratory testing did not run automatically on this PR. ${reasonSentence(reason)}`,
+		'>',
+		'> If that is wrong, comment `/explore` to run it anyway. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n');
 }
@@ -240,8 +265,8 @@ export function buildSuggestPrompt({ title, body, files }) {
 		'',
 		'or',
 		'',
-		'SUGGEST: NO - <a few words on why not>',
+		'SUGGEST: NO - <one sentence on why not>',
 		'',
-		'The YES sentence is shown to the author, so make it specific to this PR, plain, and under 30 words.',
+		'Either sentence may be shown to the author, so make it specific to this PR, plain, and under 30 words.',
 	].join('\n');
 }

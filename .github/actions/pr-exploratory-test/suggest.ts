@@ -10,12 +10,14 @@
 //   post      re-checks the thread and posts the suggestion, or for an author
 //             on the auto-run list (#16610), starts test-exploratory.yml
 //             instead. That run posts to the PR only if its gate passes it.
+//             When the judge says no to a listed author's PR, it posts why,
+//             so a wrong call can be overridden with /explore.
 // DRY_RUN=true runs every step's logic but posts nothing, and judges a PR the
 // precheck would skip, so verdicts can be read on any PR.
 
 import { appendFileSync } from 'node:fs';
 import { postOrEditComment } from './comment.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderDeclinedComment, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -136,11 +138,22 @@ async function judge() {
 
 async function post() {
 	const token = mustEnv('GH_TOKEN');
+	const comments = await ghGet(token, `/repos/${REPO}/issues/${PR_NUMBER}/comments`);
 	// Someone may have run /explore while the model was deciding.
-	const prior = findPriorUse(await ghGet(token, `/repos/${REPO}/issues/${PR_NUMBER}/comments`));
+	const prior = findPriorUse(comments);
 	if (prior) {
 		console.log(`[suggest] not posting: exploratory testing already ${prior.kind} (comment ${prior.id})`);
 		return;
+	}
+	// One note per PR: a later "no" edits it, a later "yes" removes it.
+	const declined = comments.find(c => String(c?.body ?? '').includes(DECLINED_MARKER));
+	if (process.env.DECLINED === 'true') {
+		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON) });
+		console.log(`[suggest] ${action} the declined note, comment ${id}`);
+		return;
+	}
+	if (declined) {
+		await deleteComment(token, declined.id);
 	}
 	// Anything wrong on the auto-run path falls back to the tip, so the PR still hears.
 	if (process.env.AUTO_RUN === 'true') {
@@ -153,6 +166,14 @@ async function post() {
 	}
 	const { id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, body: renderSuggestComment(mustEnv('REASON')) });
 	console.log(`[suggest] posted comment ${id}`);
+}
+
+async function deleteComment(token, id) {
+	const res = await fetch(`${API}/repos/${REPO}/issues/comments/${id}`, {
+		method: 'DELETE',
+		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+	});
+	console.log(`[suggest] ${res.ok ? 'removed' : `could not remove (${res.status})`} the earlier declined note, comment ${id}`);
 }
 
 /**
