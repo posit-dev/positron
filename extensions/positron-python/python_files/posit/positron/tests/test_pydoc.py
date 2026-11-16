@@ -183,7 +183,8 @@ def _test_getdoc_sphinx_roles() -> None:
     Returns
     -------
     `~.contour.QuadContourSet`
-        Same as ``~x.in_(y)``.
+        Same as ``~x.in_(y)``. See `~.pydoc.render_markdown`, not `~.pydoc.getdoc`,
+        for `.csv` files.
     """
 
 
@@ -196,7 +197,8 @@ Uses <a href="get?key=copy.copy"><code>copy.copy</code></a> and <code>color</cod
 </ul>
 <h4>Returns</h4>
 <p><code>.contour.QuadContourSet</code>
-Same as <code>~x.in_(y)</code>.</p>
+Same as <code>~x.in_(y)</code>. See <a href="get?key=positron.pydoc.render_markdown"><code>positron.pydoc.render_markdown</code></a>, not <code>.pydoc.getdoc</code>,
+for <code>.csv</code> files.</p>
 """
 
 
@@ -586,7 +588,7 @@ def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
             _TEST_GETDOC_MULTI_NAME_ARGS_SECTION_OUTPUT,
         ),
         # Strips unknown Sphinx roles and the leading "~" of cross-references, but not of
-        # inline code.
+        # inline code. Relative cross-references link to their full path.
         (
             _test_getdoc_sphinx_roles,
             _TEST_GETDOC_SPHINX_ROLES_OUTPUT,
