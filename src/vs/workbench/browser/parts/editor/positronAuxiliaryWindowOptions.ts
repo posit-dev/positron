@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IAuxiliaryWindowOpenOptions } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
+import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 
 /**
  * Webview view type of a Posit Assistant chat tab. Cross-repo contract: the Assistant registers
@@ -19,6 +21,29 @@ const ASSISTANT_WEBVIEW_VIEW_TYPE = 'posit-assistant';
  * view type above.
  */
 const ASSISTANT_WINDOW_VIEW_TYPE = 'posit-assistant.window';
+
+/**
+ * Registered by Posit Assistant (cross-repo contract): moves the active Assistant chat tab's
+ * conversation into a window panel in the dedicated Assistant window, and closes the tab. Resolves
+ * `false` when it did nothing.
+ */
+const ASSISTANT_MOVE_TO_WINDOW_COMMAND_ID = 'posit-assistant.moveToWindow';
+
+/**
+ * "Move (or Copy) Editor into New Window" for a single Posit Assistant chat tab: has Posit
+ * Assistant move it into the dedicated Assistant window, where its conversation shows Assistant's
+ * own tabs. Resolves `true` when Assistant handled it; `false` (an older Assistant, or anything
+ * but a single chat tab) means the caller moves the editors itself.
+ */
+export async function moveAssistantTabToWindow(commandService: ICommandService, group: IEditorGroup, editors: readonly EditorInput[]): Promise<boolean> {
+	if (editors.length !== 1 || editors[0].editorId !== `mainThreadWebview-${ASSISTANT_WEBVIEW_VIEW_TYPE}` || !CommandsRegistry.getCommand(ASSISTANT_MOVE_TO_WINDOW_COMMAND_ID)) {
+		return false;
+	}
+	// Assistant moves the active tab, the same contract as `positron.assistantWindow.enter`.
+	await group.openEditor(editors[0]);
+	group.focus();
+	return await commandService.executeCommand<boolean>(ASSISTANT_MOVE_TO_WINDOW_COMMAND_ID) === true;
+}
 
 /**
  * Whether an editor is a Posit Assistant window panel.

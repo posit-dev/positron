@@ -44,7 +44,7 @@ import { resolveCommandsContext } from './editorCommandsContext.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { prepareMoveCopyEditors } from './editor.js';
 // --- Start Positron ---
-import { getAuxiliaryWindowOptionsForEditors } from './positronAuxiliaryWindowOptions.js';
+import { getAuxiliaryWindowOptionsForEditors, moveAssistantTabToWindow } from './positronAuxiliaryWindowOptions.js';
 // --- End Positron ---
 
 class ExecuteCommandAction extends Action2 {
@@ -2630,6 +2630,9 @@ abstract class BaseMoveCopyEditorToNewWindowAction extends Action2 {
 		const editorGroupsService = accessor.get(IEditorGroupsService);
 		const editorService = accessor.get(IEditorService);
 		const listService = accessor.get(IListService);
+		// --- Start Positron ---
+		const commandService = accessor.get(ICommandService);
+		// --- End Positron ---
 
 		const resolvedContext = resolveCommandsContext(args, editorService, editorGroupsService, listService);
 		if (!resolvedContext.groupedEditors.length) {
@@ -2643,6 +2646,12 @@ abstract class BaseMoveCopyEditorToNewWindowAction extends Action2 {
 		const { group, editors } = resolvedContext.groupedEditors[0]; // only single group supported for move/copy for now
 
 		// --- Start Positron ---
+		// A single Posit Assistant chat tab goes to the dedicated Assistant window, when Posit
+		// Assistant can do that (it can't be copied, so Copy moves it too).
+		if (await moveAssistantTabToWindow(commandService, group, editors)) {
+			return;
+		}
+
 		// Use compact mode for plot editors and Posit Assistant tabs
 		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(
 			getAuxiliaryWindowOptionsForEditors(editors, getWindowById(group.windowId, true).window)

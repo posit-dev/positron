@@ -50,7 +50,7 @@ function isInAssistantWindow(group: IEditorGroup, editorGroupsService: IEditorGr
  * Opens an empty dedicated Assistant window and resolves its editor column (as an extension's
  * `ViewColumn`), for Assistant to create its window panel in. The group is locked at once: opening
  * into an explicit column still works, but stray "active group" opens go elsewhere. Assistant only
- * calls this when it's about to create a panel, then calls `enter`.
+ * calls this when it's about to create a panel; a panel created there needs no `enter`.
  */
 CommandsRegistry.registerCommand(ASSISTANT_WINDOW_OPEN_COMMAND_ID, async (accessor: ServicesAccessor): Promise<number> => {
 	const editorGroupsService = accessor.get(IEditorGroupsService);
