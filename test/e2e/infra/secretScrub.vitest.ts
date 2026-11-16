@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { createWriteStream, existsSync, mkdtempSync, mkdirSync, promises, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { describe, expect, it } from 'vitest';
-import { encodedForms, scrubBuffer, scrubDirectory } from './secretScrub';
+import { describe, expect, it, vi } from 'vitest';
+import yazl from 'yazl';
+import { encodedForms, readZipEntries, scrubBuffer, scrubDirectory, scrubZip } from './secretScrub';
 
 const SECRET = 'fake"va/lu+e-123456';
 const secrets = [{ name: 'FAKE_SECRET', value: SECRET }];
@@ -80,6 +81,22 @@ describe('secretScrub', () => {
 		}
 	});
 
+	it('scrubDirectory skips a file that disappears mid-scrub', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'scrub-'));
+		const readFile = promises.readFile;
+		const spy = vi.spyOn(promises, 'readFile').mockImplementation((file, ...rest) =>
+			String(file).endsWith('gone.txt') ? Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })) : readFile(file, ...rest));
+		try {
+			writeFileSync(join(dir, 'gone.txt'), `token=${SECRET}`);
+			writeFileSync(join(dir, 'log.txt'), `token=${SECRET}`);
+			expect(await scrubDirectory(dir, secrets)).toBe(1);
+			expect(readFileSync(join(dir, 'log.txt'), 'utf8')).toBe('token=***');
+		} finally {
+			spy.mockRestore();
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	it('scrubDirectory does not write through a symlink', async () => {
 		const dir = mkdtempSync(join(tmpdir(), 'scrub-'));
 		const outside = mkdtempSync(join(tmpdir(), 'scrub-out-'));
@@ -92,5 +109,68 @@ describe('secretScrub', () => {
 			rmSync(dir, { recursive: true, force: true });
 			rmSync(outside, { recursive: true, force: true });
 		}
+	});
+
+	describe('scrubZip', () => {
+		async function writeZip(path: string, entries: Record<string, Buffer>): Promise<void> {
+			const zip = new yazl.ZipFile();
+			for (const [name, data] of Object.entries(entries)) {
+				zip.addBuffer(data, name);
+			}
+			await new Promise<void>((resolve, reject) => {
+				zip.outputStream.pipe(createWriteStream(path)).on('close', resolve).on('error', reject);
+				zip.end();
+			});
+		}
+
+		it('rewrites the entries that hold a secret and keeps the rest', async () => {
+			const dir = mkdtempSync(join(tmpdir(), 'scrub-zip-'));
+			try {
+				const zipPath = join(dir, 'trace.zip');
+				const binary = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+				await writeZip(zipPath, {
+					'trace.trace': Buffer.from(`{"type":"before","params":{"value":${JSON.stringify(SECRET)}}}\n`),
+					'resources/snapshot.html': Buffer.from(`<input __playwright_value_="${SECRET}">`),
+					'resources/image.png': binary,
+				});
+				expect(await scrubZip(zipPath, secrets)).toBe(2);
+				const entries = Object.fromEntries((await readZipEntries(readFileSync(zipPath), 'trace.zip')).map(e => [e.path, e.data]));
+				expect(Object.keys(entries).sort()).toEqual(['resources/image.png', 'resources/snapshot.html', 'trace.trace']);
+				expect(entries['trace.trace'].toString()).toBe('{"type":"before","params":{"value":"***"}}\n');
+				expect(entries['resources/snapshot.html'].toString()).toBe('<input __playwright_value_="***">');
+				expect(entries['resources/image.png'].equals(binary)).toBe(true);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		it('scrubDirectory scrubs inside zips and removes one it cannot read', async () => {
+			const dir = mkdtempSync(join(tmpdir(), 'scrub-zip-'));
+			try {
+				await writeZip(join(dir, 'logs.zip'), { 'main.log': Buffer.from(`key=${SECRET}`) });
+				writeFileSync(join(dir, 'broken.zip'), 'not a zip');
+				writeFileSync(join(dir, 'plain.log'), `key=${SECRET}`);
+				expect(await scrubDirectory(dir, secrets)).toBe(2);
+				const [entry] = await readZipEntries(readFileSync(join(dir, 'logs.zip')), 'logs.zip');
+				expect(entry.data.toString()).toBe('key=***');
+				expect(readFileSync(join(dir, 'plain.log'), 'utf8')).toBe('key=***');
+				expect(existsSync(join(dir, 'broken.zip'))).toBe(false);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		it('leaves a clean zip untouched', async () => {
+			const dir = mkdtempSync(join(tmpdir(), 'scrub-zip-'));
+			try {
+				const zipPath = join(dir, 'trace.zip');
+				await writeZip(zipPath, { 'trace.trace': Buffer.from('nothing here') });
+				const before = readFileSync(zipPath);
+				expect(await scrubZip(zipPath, secrets)).toBe(0);
+				expect(readFileSync(zipPath).equals(before)).toBe(true);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		});
 	});
 });

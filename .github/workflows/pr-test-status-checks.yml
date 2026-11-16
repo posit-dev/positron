@@ -1,0 +1,41 @@
+name: "PR Test Status: Checks"
+
+# Runs the pr-test-status action's own tests on a PR that changes it. Nothing
+# else in CI runs them.
+#
+# Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/pr-test-status/**"
+      - ".github/workflows/pr-test-status-checks.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Sparse: the tests need only this folder and the Node version.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .nvmrc
+            .github/actions/pr-test-status
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test the action
+        working-directory: .github/actions/pr-test-status
+        run: node --test

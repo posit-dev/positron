@@ -14,7 +14,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { FileService } from '../../../files/common/fileService.js';
 import { InMemoryFileSystemProvider } from '../../../files/common/inMemoryFilesystemProvider.js';
 import { NullLogService } from '../../../log/common/log.js';
-import { McpServerType } from '../../../mcp/common/mcpPlatformTypes.js';
+import { IMcpServerConfiguration, McpServerType } from '../../../mcp/common/mcpPlatformTypes.js';
+import { toCopilotMcpServerConfiguration } from '../../../mcp/common/mcpCopilotConfiguration.js';
 import { toSdkInstructionDirectories, toSdkMcpServers, toSdkCustomAgents, toSdkSessionCustomAgents, toSdkSkillDirectories, parsedPluginsEqual, toSdkHooks, type IPluginAgentsForSdk } from '../../node/copilot/copilotPluginConverters.js';
 import { PluginFormat, type IMcpServerDefinition, type INamedPluginResource, type IParsedHookGroup, type IParsedPlugin, type IParsedSkill } from '../../../agentPlugins/common/pluginParsers.js';
 import { CustomizationType, McpServerStatus, type HookCustomization, type McpServerCustomization, type SkillCustomization } from '../../common/state/protocol/state.js';
@@ -46,6 +47,18 @@ suite('copilotPluginConverters', () => {
 
 	suite('toSdkMcpServers', () => {
 
+		test('matches persistent Copilot configuration conversion', () => {
+			const configurations: IMcpServerConfiguration[] = [
+				{ type: McpServerType.LOCAL, command: 'node', args: ['server.js'], cwd: '/workspace', env: { PORT: 3000, OMIT: null, TOKEN: '$TOKEN' } },
+				{ type: McpServerType.REMOTE, url: 'https://example.com/mcp', headers: { Authorization: '$TOKEN' }, oauth: { clientId: 'client' } },
+				{ type: McpServerType.REMOTE, transport: 'sse', url: 'https://example.com/sse' },
+			];
+			const defs = configurations.map((configuration, index): IMcpServerDefinition => ({
+				name: String(index), uri: URI.file('/plugin'), configuration, customization: stubMcpCustomization(String(index)),
+			}));
+			assert.deepStrictEqual(toSdkMcpServers(defs), Object.fromEntries(defs.map(def => [def.name, toCopilotMcpServerConfiguration(def.configuration)])));
+		});
+
 		test('converts local server definitions', () => {
 			const defs: IMcpServerDefinition[] = [{
 				name: 'test-server',
@@ -63,7 +76,7 @@ suite('copilotPluginConverters', () => {
 			const result = toSdkMcpServers(defs);
 			assert.deepStrictEqual(result, {
 				'test-server': {
-					type: 'local',
+					type: 'stdio',
 					command: 'node',
 					args: ['server.js', '--port', '3000'],
 					tools: ['*'],
@@ -157,7 +170,7 @@ suite('copilotPluginConverters', () => {
 			}];
 
 			const result = toSdkMcpServers(defs);
-			assert.strictEqual(result['minimal'].type, 'local');
+			assert.strictEqual(result['minimal'].type, 'stdio');
 			assert.deepStrictEqual((result['minimal'] as { args?: string[] }).args, []);
 			assert.strictEqual(Object.hasOwn(result['minimal'], 'env'), false);
 			assert.strictEqual(Object.hasOwn(result['minimal'], 'cwd'), false);
@@ -452,45 +465,31 @@ suite('copilotPluginConverters', () => {
 			await fileService.writeFile(agentUri, VSBuffer.fromString('Loose agent'));
 
 			const plugins: IPluginAgentsForSdk[] = [{ agents: [{ uri: agentUri, name: 'helper' }] }];
-			const result = await toSdkSessionCustomAgents(plugins, undefined, fileService);
+			const result = await toSdkSessionCustomAgents(plugins, fileService);
 
 			assert.deepStrictEqual(result, [{ name: 'helper', tools: null, prompt: 'Loose agent' }]);
 		});
 
-		test('excludes file-dir plugin agents when none is selected', async () => {
-			const agentUri = URI.from({ scheme: Schemas.inMemory, path: '/plugin/inbox.md' });
-			await fileService.writeFile(agentUri, VSBuffer.fromString('Inbox agent'));
+		test('includes all agents from file-dir plugins', async () => {
+			const parentUri = URI.from({ scheme: Schemas.inMemory, path: '/plugin/parent.md' });
+			const siblingUri = URI.from({ scheme: Schemas.inMemory, path: '/plugin/sibling.md' });
+			await Promise.all([
+				fileService.writeFile(parentUri, VSBuffer.fromString('Parent agent')),
+				fileService.writeFile(siblingUri, VSBuffer.fromString('Sibling agent')),
+			]);
 
 			const plugins: IPluginAgentsForSdk[] = [{
-				pluginDir: URI.file('/plugins/inbox'),
-				agents: [{ uri: agentUri, name: 'Inbox' }],
+				agents: [
+					{ uri: parentUri, name: 'parent' },
+					{ uri: siblingUri, name: 'sibling' },
+				],
 			}];
-			const result = await toSdkSessionCustomAgents(plugins, undefined, fileService);
+			const result = await toSdkSessionCustomAgents(plugins, fileService);
 
-			assert.deepStrictEqual(result, []);
-		});
-
-		test('forces the selected file-dir plugin agent into customAgents', async () => {
-			const agentUri = URI.from({ scheme: Schemas.inMemory, path: '/plugin/inbox.md' });
-			await fileService.writeFile(agentUri, VSBuffer.fromString('Inbox agent'));
-
-			const plugins: IPluginAgentsForSdk[] = [{
-				pluginDir: URI.file('/plugins/inbox'),
-				agents: [{ uri: agentUri, name: 'Inbox' }],
-			}];
-			const result = await toSdkSessionCustomAgents(plugins, 'Inbox', fileService);
-
-			assert.deepStrictEqual(result, [{ name: 'Inbox', tools: null, prompt: 'Inbox agent' }]);
-		});
-
-		test('does not duplicate the selected agent when already present', async () => {
-			const agentUri = URI.from({ scheme: Schemas.inMemory, path: '/loose/helper.md' });
-			await fileService.writeFile(agentUri, VSBuffer.fromString('Loose agent'));
-
-			const plugins: IPluginAgentsForSdk[] = [{ agents: [{ uri: agentUri, name: 'helper' }] }];
-			const result = await toSdkSessionCustomAgents(plugins, 'helper', fileService);
-
-			assert.deepStrictEqual(result, [{ name: 'helper', tools: null, prompt: 'Loose agent' }]);
+			assert.deepStrictEqual(result, [
+				{ name: 'parent', tools: null, prompt: 'Parent agent' },
+				{ name: 'sibling', tools: null, prompt: 'Sibling agent' },
+			]);
 		});
 	});
 

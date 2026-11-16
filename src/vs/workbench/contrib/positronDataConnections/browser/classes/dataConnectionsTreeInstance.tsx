@@ -304,6 +304,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// _scrollToCursorWhenLaidOut.
 	private readonly _pendingScrollToCursor = this._register(new MutableDisposable());
 
+	// Entries whose refresh request arrived while their children were loading or reloading. The
+	// fetch in flight may have read the old contents, so each one reloads once it settles.
+	private readonly _refreshAfterLoad = new Set<string>();
+
 	// Shared by every row so moving between rows' buttons re-hovers instantly, and so a row
 	// unmounting doesn't dispose a manager (which hides every hover in the workbench).
 	private readonly _hoverManager: PositronActionBarHoverManager;
@@ -332,7 +336,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// loaded children by id, so unaffected entries keep their state.
 		const refreshRoots = () => {
 			const entries = buildEntries(this._service);
-			this.setRoots(entries.map(wrapEntry));
+			const roots = entries.map(wrapEntry);
+			const nextRootIds = new Set(roots.map(root => root.id));
+			const rowWentAway = this.roots.some(root => !nextRootIds.has(root.id));
+			this.setRoots(roots);
+
+			// A row hidden or removed from its own actions menu holds the keyboard focus: the menu
+			// hands focus back to it as it closes. Left there, the focus goes away with the row and
+			// nothing is focused, so the next quick input has nowhere to return focus to and closes
+			// whatever opens after it. Keep the focus in the tree instead.
+			if (rowWentAway && this.focused) {
+				this.requestFocus();
+			}
 
 			// A loaded DTO subtree is only valid while its connection is open, so drop the subtree of
 			// any entry that no longer has a live instance.
@@ -350,6 +365,32 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		const revealRequested = () => { void this._revealRequestedConnection(); };
 		this._register(this._service.onDidRequestRevealConnection(revealRequested));
 		revealRequested();
+
+		// A connection whose contents changed (an R session reports one after DBI::dbWriteTable, say)
+		// re-fetches what is loaded for it. reload keeps an expanded row's expansion and drops a
+		// collapsed row's children, so its next expand fetches fresh rather than asking a possibly
+		// busy session now. A collapsed runtime row stays connected and keeps its subtree, so this is
+		// what keeps that subtree from going stale. A row with nothing loaded has nothing to refresh.
+		// A request that arrives during a load or reload waits for it, since a reload in flight
+		// would only be joined, and the fetch may already have read the old contents.
+		this._register(this._service.onDidRequestRefresh(profileId => {
+			const id = entryNodeId(profileId);
+			if (this.isLoading(id) || this.isRefreshing(id)) {
+				this._refreshAfterLoad.add(id);
+			} else if (this.hasLoadedChildren(id)) {
+				void this.reload(id);
+			}
+		}));
+		this._register(this.onDidChangeLoading(() => {
+			for (const id of this._refreshAfterLoad) {
+				if (!this.isLoading(id) && !this.isRefreshing(id)) {
+					this._refreshAfterLoad.delete(id);
+					if (this.hasLoadedChildren(id)) {
+						void this.reload(id);
+					}
+				}
+			}
+		}));
 
 		// Track both indent settings live -- the workbench one matters even while this view's own is
 		// set, since clearing the latter back to 0 has to fall through to it. Indent takes effect

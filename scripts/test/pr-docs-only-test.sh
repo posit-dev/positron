@@ -24,7 +24,7 @@ assert_eq() {
 }
 
 # The stub gh prints FAKE_PR_FILES (tsv of filename and previous name) for the
-# files API and FAKE_PR_COUNT for the PR itself, or fails when FAKE_GH_FAIL is set.
+# files API and FAKE_PR_COUNT and FAKE_PR_HEAD (default abc) for the PR itself, or fails when FAKE_GH_FAIL is set.
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/gh" <<'SH'
 #!/usr/bin/env bash
@@ -32,7 +32,7 @@ cat > "$TMP/bin/gh" <<'SH'
 if [[ "$*" == */files* ]]; then
 	printf '%b\n' "$FAKE_PR_FILES"
 else
-	echo "$FAKE_PR_COUNT"
+	echo "$FAKE_PR_COUNT ${FAKE_PR_HEAD:-abc}"
 fi
 SH
 chmod +x "$TMP/bin/gh"
@@ -45,15 +45,11 @@ git -C "$ORIGIN" config user.name test
 git -C "$ORIGIN" config uploadpack.allowFilter true
 git -C "$ORIGIN" config uploadpack.allowAnySHA1InWant true
 
-mkdir -p "$ORIGIN/scripts/lib" "$ORIGIN/.github/workflows" "$ORIGIN/src"
+mkdir -p "$ORIGIN/scripts/lib" "$ORIGIN/.github/workflows" "$ORIGIN/.github/actions/a" "$ORIGIN/src"
 cp "$SRC/pr-docs-only.sh" "$ORIGIN/scripts/"
 cp "$SRC/lib/pr-docs-only-lib.sh" "$ORIGIN/scripts/lib/"
-printf 'jobs:\n  unit:\n    uses: ./.github/workflows/test-unit.yml\n' > "$ORIGIN/.github/workflows/test-pull-request.yml"
-printf 'jobs:\n  unit:\n    uses: ./.github/workflows/test-unit.yml\n  win:\n    uses: ./.github/workflows/merge-only.yml\n' \
-	> "$ORIGIN/.github/workflows/test-merge.yml"
-printf 'jobs: {}\n' > "$ORIGIN/.github/workflows/merge-only.yml"
-printf 'jobs: {}\n' > "$ORIGIN/.github/workflows/test-unit.yml"
-printf 'jobs: {}\n' > "$ORIGIN/.github/workflows/unrelated.yml"
+printf 'jobs: {}\n' > "$ORIGIN/.github/workflows/some.yml"
+printf 'runs: {}\n' > "$ORIGIN/.github/actions/a/action.yml"
 printf 'x\n' > "$ORIGIN/src/a.ts"
 printf 'x\n' > "$ORIGIN/README.md"
 
@@ -77,7 +73,7 @@ run() {
 	git -C "$clone" remote add origin "file://$ORIGIN"
 	git -C "$clone" fetch -q --depth=1 origin "$head"
 	git -C "$clone" checkout -q FETCH_HEAD
-	env CI_WORKFLOW=.github/workflows/test-merge.yml GITHUB_OUTPUT= "$@" \
+	env GITHUB_OUTPUT= "$@" \
 		PATH="$TMP/bin:$PATH" GITHUB_REPOSITORY=o/r \
 		bash "$clone/scripts/pr-docs-only.sh" 2>/dev/null | sed -n 's/^docs_only=//p'
 }
@@ -88,18 +84,13 @@ printf 'y\n' >> "$ORIGIN/README.md"
 DOCS=$(commit "docs only")
 assert_eq "docs-only push -> true" true "$(run "$DOCS" BEFORE_SHA="$BASE")"
 
-printf 'y\n' >> "$ORIGIN/.github/workflows/unrelated.yml"
-UNRELATED=$(commit "workflow the merge run doesn't call")
-assert_eq "uncalled workflow -> true" true "$(run "$UNRELATED" BEFORE_SHA="$DOCS")"
+printf 'y\n' >> "$ORIGIN/.github/workflows/some.yml"
+WORKFLOW=$(commit "workflow")
+assert_eq "workflow -> true" true "$(run "$WORKFLOW" BEFORE_SHA="$DOCS")"
 
-printf 'y\n' >> "$ORIGIN/.github/workflows/test-unit.yml"
-CALLED=$(commit "workflow the merge run calls")
-assert_eq "called workflow -> false" false "$(run "$CALLED" BEFORE_SHA="$UNRELATED")"
-
-# The PR-mode section checks the same file comes out true there.
-printf 'y\n' >> "$ORIGIN/.github/workflows/merge-only.yml"
-MERGE_ONLY=$(commit "workflow only the merge run calls")
-assert_eq "workflow only the merge run calls -> false" false "$(run "$MERGE_ONLY" BEFORE_SHA="$CALLED")"
+printf 'y\n' >> "$ORIGIN/.github/actions/a/action.yml"
+ACTION=$(commit "action")
+assert_eq "action -> false" false "$(run "$ACTION" BEFORE_SHA="$WORKFLOW")"
 
 # A push is judged on its own commits: a docs-only push after a code push
 # skips, but one push carrying both runs the tests.
@@ -108,7 +99,7 @@ CODE=$(commit "code")
 printf 'z\n' >> "$ORIGIN/README.md"
 DOCS_AFTER_CODE=$(commit "docs after code")
 assert_eq "docs-only push after a code push -> true" true "$(run "$DOCS_AFTER_CODE" BEFORE_SHA="$CODE")"
-assert_eq "one push with code and docs commits -> false" false "$(run "$DOCS_AFTER_CODE" BEFORE_SHA="$MERGE_ONLY")"
+assert_eq "one push with code and docs commits -> false" false "$(run "$DOCS_AFTER_CODE" BEFORE_SHA="$ACTION")"
 
 # A rename lists the old name too, so moving source into docs is not docs-only.
 git -C "$ORIGIN" mv src/a.ts NOTES.md
@@ -116,24 +107,25 @@ RENAME=$(commit "move source to docs")
 assert_eq "rename from source into docs -> false" false "$(run "$RENAME" BEFORE_SHA="$DOCS_AFTER_CODE")"
 
 # Every failure runs the tests.
-assert_eq "no CI_WORKFLOW -> false" false "$(run "$DOCS" BEFORE_SHA="$BASE" CI_WORKFLOW=)"
 assert_eq "branch creation (zero SHA) -> false" false "$(run "$DOCS" BEFORE_SHA=0000000000000000000000000000000000000000)"
 assert_eq "unfetchable base -> false" false "$(run "$DOCS" BEFORE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef)"
 assert_eq "base is HEAD (no changes) -> false" false "$(run "$DOCS" BEFORE_SHA="$DOCS")"
 
 # --- PR mode -------------------------------------------------------------------
 
-# pr <count> <files>: runs PR mode against the stub API. CI_WORKFLOW is unset,
-# so the PR workflow's list applies.
+# pr <count> <files>: runs PR mode against the stub API.
 pr() {
-	run "$DOCS" PR_NUMBER=1 CI_WORKFLOW= FAKE_PR_COUNT="$1" FAKE_PR_FILES="$2" "${@:3}"
+	run "$DOCS" PR_NUMBER=1 FAKE_PR_COUNT="$1" FAKE_PR_FILES="$2" "${@:3}"
 }
 
 assert_eq "PR: docs only -> true" true "$(pr 2 'README.md\t\n.claude/x.md\t')"
 assert_eq "PR: docs and source -> false" false "$(pr 2 'README.md\t\nsrc/a.ts\t')"
 assert_eq "PR: rename from source into docs -> false" false "$(pr 1 'NOTES.md\tsrc/a.ts')"
-assert_eq "PR: workflow only the merge run calls -> true" true "$(pr 1 '.github/workflows/merge-only.yml\t')"
+assert_eq "PR: workflow -> true" true "$(pr 1 '.github/workflows/some.yml\t')"
+assert_eq "PR: action -> false" false "$(pr 1 '.github/actions/a/action.yml\t')"
 assert_eq "PR: truncated file list -> false" false "$(pr 3 'README.md\t\nNOTES.md\t')"
 assert_eq "PR: API failure -> false" false "$(pr 1 'README.md\t' FAKE_GH_FAIL=1)"
+assert_eq "PR: head matches HEAD_SHA -> true" true "$(pr 1 'README.md\t' HEAD_SHA=abc)"
+assert_eq "PR: head moved past HEAD_SHA -> false" false "$(pr 1 'README.md\t' HEAD_SHA=def)"
 
 exit "$fail"

@@ -33,10 +33,14 @@ jobs:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          # The action uses this token only to read and write the signatures file.
+          repositories: ${{ secrets.CLA_ASSISTANT_REPO }}
+          permission-contents: write
 
       - name: "CLA Assistant"
-        if: (steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
-        uses: posit-dev/cla-assistant-github-action@v2.5.1
+        # The action locks the PR on any close, merged or not; skip unmerged closes.
+        if: ((steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target') && !(github.event.action == 'closed' && !github.event.pull_request.merged)
+        uses: posit-dev/cla-assistant-github-action@f41946747f85d28e9a738f4f38dbcc74b69c7e0e # v2.5.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN: ${{ steps.access-token.outputs.token }}

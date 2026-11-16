@@ -19,13 +19,13 @@ description: "Generates a unique REPORT_DIR/REPORT_URL and optionally appends to
 #
 # Outputs (set as environment variables):
 #   REPORT_DIR  - Directory name (e.g., "playwright-report-123456-1-electron-ubuntu-x64")
-#   REPORT_URL  - Full URL (e.g., "https://...cloudfront.net/playwright-report-.../index.html")
+#   REPORT_URL  - Full URL (e.g., "https://positron-reports.tail00da2.ts.net/playwright-report-.../index.html")
 
 inputs:
   bucket-url:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
-    default: "https://d38p2avprg8il3.cloudfront.net"
+    default: "https://positron-reports.tail00da2.ts.net"
   identifier:
     description: "Report identifier. For sharded workflows, pass the same value to all shards. Defaults to github.job."
     required: false

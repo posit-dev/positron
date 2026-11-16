@@ -177,7 +177,7 @@ as unknown:
 Searches every setting this build registers, configured or not: what a setting
 does, its type, default, current value, allowed values, and its tags. This is
 the command for questions `getConfiguredSettings` cannot answer -- settings the
-user has *not* set, defaults, enum values, and the preview/experimental
+user has *not* set, defaults, enum values or allowed ranges, and the preview/experimental
 listing.
 
 No precondition. All arguments are optional, but an unfiltered call returns an

@@ -95,8 +95,12 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * recommendation. Older entries are `Implicit`, and a cache hit replays them
  * as-is. Changing the startup behavior an extension gives its discovered
  * runtimes means bumping this version.
+ *
+ * v7: Python's picker rows lead with the tool or environment name and carry a
+ * `rowOrder`. Older entries show the version as the label and have no
+ * `rowOrder`, so they would sort above freshly discovered rows.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 6;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 7;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema

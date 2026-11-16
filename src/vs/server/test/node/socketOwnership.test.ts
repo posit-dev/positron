@@ -24,8 +24,8 @@ import { getListeningPortUid, isProcTcpAvailable, isProxyPortOwnershipEnforced, 
 
 			assert.deepStrictEqual(
 				{
-					listenerUid: getListeningPortUid(port),
-					unusedPort: getListeningPortUid(0),
+					listenerUid: await getListeningPortUid(port),
+					unusedPort: await getListeningPortUid(0),
 				},
 				{
 					listenerUid: process.getuid!(),
@@ -49,7 +49,7 @@ import { getListeningPortUid, isProcTcpAvailable, isProxyPortOwnershipEnforced, 
 				server.listen(0, '127.0.0.2', () => resolve((server.address() as net.AddressInfo).port));
 			});
 
-			assert.strictEqual(getListeningPortUid(port), undefined);
+			assert.strictEqual(await getListeningPortUid(port), undefined);
 		} finally {
 			await new Promise<void>(resolve => server.close(() => resolve()));
 		}
@@ -75,12 +75,12 @@ import { getListeningPortUid, isProcTcpAvailable, isProxyPortOwnershipEnforced, 
 			});
 	});
 
-	test('capability probe and enforcement gating', () => {
+	test('capability probe and enforcement gating', async () => {
 		assert.deepStrictEqual(
 			{
-				available: isProcTcpAvailable(),
-				enforcedForUser: isProxyPortOwnershipEnforced(process.getuid!()),
-				enforcedForRoot: isProxyPortOwnershipEnforced(0),
+				available: await isProcTcpAvailable(),
+				enforcedForUser: await isProxyPortOwnershipEnforced(process.getuid!()),
+				enforcedForRoot: await isProxyPortOwnershipEnforced(0),
 			},
 			{
 				available: true,

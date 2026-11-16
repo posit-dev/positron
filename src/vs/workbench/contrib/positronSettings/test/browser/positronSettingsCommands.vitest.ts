@@ -71,6 +71,13 @@ const TEST_CONFIGURATION: IConfigurationNode = {
 			default: 'auto',
 			enum: ['auto', 'always', 'never'],
 		},
+		'testSettings.timeout': {
+			type: 'integer',
+			scope: ConfigurationScope.WINDOW,
+			default: 25,
+			minimum: 1,
+			maximum: 600,
+		},
 		'testSettings.envMap': {
 			type: 'object',
 			scope: ConfigurationScope.WINDOW,
@@ -882,6 +889,14 @@ describe('findSettings', () => {
 		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.choice']).settings;
 
 		expect(setting.enum).toEqual(['auto', 'always', 'never']);
+	});
+
+	it('carries the allowed range for a numeric setting that declares one', () => {
+		stubConfiguration();
+
+		const [setting] = findSettings(ctx.instantiationService, undefined, ['testSettings.timeout']).settings;
+
+		expect({ minimum: setting.minimum, maximum: setting.maximum }).toEqual({ minimum: 1, maximum: 600 });
 	});
 
 	it('redacts credential-shaped properties inside an object value', () => {

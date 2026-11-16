@@ -56,6 +56,9 @@ interface ConfiguredAgent {
 
 	/** The command line the entry was written with, if one was recorded. */
 	launch?: McpLaunch;
+
+	/** The folder a CLI wrote the entry for; see {@link cliEntryOutdated}. */
+	directory?: string;
 }
 
 /** Where an installed entry landed, for the message that says so. */
@@ -65,6 +68,12 @@ interface InstallResult {
 
 	/** The file Positron wrote, when it wrote one rather than running a CLI. */
 	file?: vscode.Uri;
+
+	/** The folder's `fsPath`, when a CLI wrote the entry. */
+	directory?: string;
+
+	/** Why the CLI could not write the entry under every spelling, when it wrote it under some. */
+	partialFailure?: string;
 }
 
 /**
@@ -99,12 +108,17 @@ export async function configureAgent(
 
 	let result: InstallResult;
 	try {
-		result = await installAgent(agent, launch);
+		const record = loadConfiguredAgents(context).find(configured => configured.id === agent.id);
+		result = await installAgent(agent, launch, record);
 	} catch (err) {
 		await vscode.window.showErrorMessage(summarizeError(err));
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	await recordConfiguredAgent(context, agent, launch, result.directory);
+	if (result.partialFailure) {
+		await vscode.window.showErrorMessage(result.partialFailure);
+		return;
+	}
 
 	const open = vscode.l10n.t("Open File");
 	const choice = await vscode.window.showInformationMessage(
@@ -183,18 +197,28 @@ async function autoConfigureClaudeCode(
 		return;
 	}
 
+	let result: InstallResult;
 	try {
-		const { description } = await installAgent(agent, launch);
-		log(`Configured ${agent.label} to use Positron's MCP server in ${description}`);
+		result = await installAgent(agent, launch);
+		log(`Configured ${agent.label} to use Positron's MCP server in ${result.description}`);
 	} catch (err) {
 		log(`Could not configure ${agent.label}: ${summarizeError(err)}`);
 		return;
 	}
-	await recordConfiguredAgent(context, agent, launch);
+	logPartialFailure(agent, result, log);
+	await recordConfiguredAgent(context, agent, launch, result.directory);
+}
+
+/** Logs that a CLI wrote an entry under only some spellings of the folder. */
+function logPartialFailure(agent: McpAgent, result: InstallResult, log: (message: string) => void): void {
+	if (result.partialFailure) {
+		log(`Could not write ${agent.label}'s MCP entry under every drive letter case: ${result.partialFailure}`);
+	}
 }
 
 /**
- * Rewrite the entries written with another command line.
+ * Rewrite the entries written with another command line or, for a CLI
+ * harness, from another directory.
  *
  * @param context The extension context, which remembers what we configure.
  * @param launch The command line that starts the bridge.
@@ -206,21 +230,36 @@ async function refreshConfiguredAgents(
 	log: (message: string) => void,
 ): Promise<void> {
 	const records = loadConfiguredAgents(context);
+	const folder = fileWorkspaceFolder();
 	let changed = false;
 	for (const record of records) {
 		const agent = findMcpAgent(record.id);
-		if (!agent || sameLaunch(record.launch, launch)) {
+		if (!agent) {
 			continue;
 		}
+		const isCli = agent.install.kind === 'cli';
+		const launchChanged = !sameLaunch(record.launch, launch);
+		if (!launchChanged && !(isCli && folder && cliEntryOutdated(record, folder.fsPath))) {
+			continue;
+		}
+		// A CLI that is gone took its configuration with it.
+		if (isCli && (!folder || !installExecutable(agent))) {
+			continue;
+		}
+		let result: InstallResult;
 		try {
-			await installAgent(agent, launch);
+			result = await installAgent(agent, launch, record);
 		} catch (err) {
 			log(`Could not update ${agent.label}'s MCP entry: ${summarizeError(err)}`);
 			continue;
 		}
 		record.launch = launch;
+		record.directory = result.directory;
 		changed = true;
-		log(`Updated ${agent.label}'s MCP entry to start ${launch.command}`);
+		log(launchChanged
+			? `Updated ${agent.label}'s MCP entry in ${result.description} to start ${launch.command}`
+			: `Rewrote ${agent.label}'s MCP entry for ${result.description}, which was missing a drive letter case or written for another folder`);
+		logPartialFailure(agent, result, log);
 	}
 	if (changed) {
 		await saveConfiguredAgents(context, records);
@@ -254,7 +293,7 @@ export async function removeConfiguredAgents(
 			continue;
 		}
 		try {
-			await uninstallAgent(agent);
+			await uninstallAgent(agent, record);
 			log(`Removed Positron from ${agent.label}`);
 		} catch (err) {
 			log(`Could not remove Positron from ${agent.label}: ${summarizeError(err)}`);
@@ -292,6 +331,98 @@ export function agentCliCommand(
 		return { command: 'cmd.exe', args: ['/c', executable, ...args] };
 	}
 	return { command: executable, args: [...args] };
+}
+
+/**
+ * The spellings of a workspace folder an agent CLI may be started in.
+ *
+ * Claude Code keys an entry by the exact text of its working directory, and
+ * on Windows that keeps whichever drive letter case the process was started
+ * with: terminals use `C:\`, while `cd c:\` in cmd and anything started from a
+ * folder's `fsPath` use `c:\` (#17217). So the entry is written under both.
+ *
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+function agentCliDirectories(
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): string[] {
+	if (platform !== 'win32' || !/^[a-zA-Z]:/.test(folderPath)) {
+		return [folderPath];
+	}
+	const rest = folderPath.slice(1);
+	return [folderPath[0].toLowerCase() + rest, folderPath[0].toUpperCase() + rest];
+}
+
+/**
+ * Whether a CLI harness's entry is not everywhere it belongs, so it should be
+ * written again.
+ *
+ * A record with no directory comes from a build that wrote the entry only
+ * under the folder's `fsPath`. A recorded directory differs when the first
+ * folder changed.
+ *
+ * @param recorded What was recorded for the harness.
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+export function cliEntryOutdated(
+	recorded: { readonly directory?: string },
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): boolean {
+	return recorded.directory === undefined
+		? agentCliDirectories(folderPath, platform).length > 1
+		: recorded.directory !== folderPath;
+}
+
+/** One run of a harness's CLI. */
+export interface AgentCliRun {
+	readonly args: readonly string[];
+
+	/** The working directory, which the CLI keys its configuration by. */
+	readonly directory: string;
+}
+
+/**
+ * The runs that take Positron's entry out of a CLI harness's configuration,
+ * including from a folder it was written for before.
+ *
+ * @param install The harness's CLI install.
+ * @param recorded What was recorded for the harness, if anything was.
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+export function agentCliRemoves(
+	install: McpCliInstall,
+	recorded: { readonly directory?: string } | undefined,
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): AgentCliRun[] {
+	const previous = recorded?.directory;
+	return [
+		...(previous && previous !== folderPath ? agentCliDirectories(previous, platform) : []),
+		...agentCliDirectories(folderPath, platform),
+	].map(directory => ({ args: install.remove, directory }));
+}
+
+/**
+ * The runs that write Positron's entry into a CLI harness's configuration.
+ *
+ * @param install The harness's CLI install.
+ * @param launch The command line that starts the bridge.
+ * @param folderPath The folder's `fsPath`.
+ * @param platform The platform, which only matters on Windows.
+ */
+export function agentCliAdds(
+	install: McpCliInstall,
+	launch: McpLaunch,
+	folderPath: string,
+	platform: NodeJS.Platform = os.platform(),
+): AgentCliRun[] {
+	return agentCliDirectories(folderPath, platform)
+		.map(directory => ({ args: install.add(launch), directory }));
 }
 
 /**
@@ -354,12 +485,17 @@ function sameLaunch(a: McpLaunch | undefined, b: McpLaunch): boolean {
  *
  * @param agent The harness being configured.
  * @param launch The command line that starts the bridge.
+ * @param record What was recorded when Positron last configured it, if it has.
  * @returns Where the entry landed.
  * @throws An error whose message is fit to show the user.
  */
-async function installAgent(agent: McpAgent, launch: McpLaunch): Promise<InstallResult> {
+async function installAgent(
+	agent: McpAgent,
+	launch: McpLaunch,
+	record?: ConfiguredAgent,
+): Promise<InstallResult> {
 	return agent.install.kind === 'cli'
-		? installViaCli(agent, agent.install, launch)
+		? installViaCli(agent, agent.install, launch, record)
 		: installViaFile(agent.install, launch);
 }
 
@@ -368,6 +504,7 @@ async function installViaCli(
 	agent: McpAgent,
 	install: McpCliInstall,
 	launch: McpLaunch,
+	record: ConfiguredAgent | undefined,
 ): Promise<InstallResult> {
 	const folder = fileWorkspaceFolder();
 	if (!folder) {
@@ -385,14 +522,39 @@ async function installViaCli(
 	// Remove any entry of ours first: the CLI refuses to add a server that is
 	// already there, and one written by an older Positron may be wrong rather
 	// than merely present.
-	try {
-		await runAgentCli(executable, install.remove, folder);
-	} catch {
-		// There was nothing of ours to remove, which is the common case.
-	}
-	await runAgentCli(executable, install.add(launch), folder);
+	await removeViaCli(executable, agentCliRemoves(install, record, folder.fsPath));
 
-	return { description: vscode.workspace.asRelativePath(folder) };
+	// Try every spelling even when one fails, so an entry that was written is
+	// recorded and can be removed again.
+	const adds = agentCliAdds(install, launch, folder.fsPath);
+	const failures: unknown[] = [];
+	for (const add of adds) {
+		try {
+			await runAgentCli(executable, add);
+		} catch (err) {
+			failures.push(err);
+		}
+	}
+	if (failures.length === adds.length) {
+		throw failures[0];
+	}
+
+	return {
+		description: vscode.workspace.asRelativePath(folder),
+		directory: folder.fsPath,
+		partialFailure: failures.length ? summarizeError(failures[0]) : undefined,
+	};
+}
+
+/** Run each of the removes from {@link agentCliRemoves}. */
+async function removeViaCli(executable: string, removes: readonly AgentCliRun[]): Promise<void> {
+	for (const remove of removes) {
+		try {
+			await runAgentCli(executable, remove);
+		} catch {
+			// The CLI fails when there is no entry to remove, the common case.
+		}
+	}
 }
 
 /** Add the entry by editing the harness's configuration file. */
@@ -422,10 +584,11 @@ async function installViaFile(
  * it as it was.
  *
  * @param agent The harness to clear.
+ * @param record What was recorded when Positron configured it.
  * @throws An error when a configuration file could not be rewritten, so the
  *  harness stays on the list and is tried again.
  */
-async function uninstallAgent(agent: McpAgent): Promise<void> {
+async function uninstallAgent(agent: McpAgent, record: ConfiguredAgent): Promise<void> {
 	if (agent.install.kind === 'cli') {
 		const folder = fileWorkspaceFolder();
 		const executable = installExecutable(agent);
@@ -433,13 +596,7 @@ async function uninstallAgent(agent: McpAgent): Promise<void> {
 			// The CLI is gone, and with it the configuration it kept.
 			return;
 		}
-		try {
-			await runAgentCli(executable, agent.install.remove, folder);
-		} catch {
-			// The CLI reports an entry that is not there as a failure, and it
-			// is the only authority on a configuration it owns, so there is
-			// nothing to tell apart and nothing left to try.
-		}
+		await removeViaCli(executable, agentCliRemoves(agent.install, record, folder.fsPath));
 		return;
 	}
 
@@ -455,20 +612,14 @@ async function uninstallAgent(agent: McpAgent): Promise<void> {
 }
 
 /**
- * Run a harness's CLI in a workspace folder.
+ * Run a harness's CLI.
  *
  * @param executable The full path to the CLI.
- * @param args The arguments to pass to it.
- * @param folder The directory to run in, which is what the CLI keys its
- *  configuration by.
+ * @param run The arguments, and the directory to run in.
  */
-async function runAgentCli(
-	executable: string,
-	args: readonly string[],
-	folder: vscode.Uri,
-): Promise<void> {
-	const command = agentCliCommand(executable, args);
-	await execFileAsync(command.command, command.args, { cwd: folder.fsPath });
+async function runAgentCli(executable: string, run: AgentCliRun): Promise<void> {
+	const command = agentCliCommand(executable, run.args);
+	await execFileAsync(command.command, command.args, { cwd: run.directory });
 }
 
 /** The harness's CLI, when its row installs through one and it is on the path. */
@@ -519,14 +670,16 @@ function saveConfiguredAgents(
  * @param context The extension context.
  * @param agent The harness that was configured.
  * @param launch The command line its entry was written with.
+ * @param directory The directory a CLI wrote its entry from, if one did.
  */
 function recordConfiguredAgent(
 	context: vscode.ExtensionContext,
 	agent: McpAgent,
 	launch: McpLaunch,
+	directory: string | undefined,
 ): Thenable<void> {
 	const records = loadConfiguredAgents(context).filter(record => record.id !== agent.id);
-	records.push({ id: agent.id, launch });
+	records.push({ id: agent.id, launch, directory });
 	return saveConfiguredAgents(context, records);
 }
 

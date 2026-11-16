@@ -7,7 +7,7 @@ import './media/chatStatus.css';
 import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
-import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, ShowTooltipCommand, StatusbarAlignment, StatusbarEntryKind } from '../../../../services/statusbar/browser/statusbar.js';
+import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment, StatusbarEntryKind, ToggleTooltipCommand } from '../../../../services/statusbar/browser/statusbar.js';
 import { ChatEntitlement, ChatEntitlementContextKeys, ChatEntitlementService, getQuotaReset, IChatEntitlementService, isProUser } from '../../../../services/chat/common/chatEntitlementService.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { disposableLongTimeout, disposableTimeout } from '../../../../../base/common/async.js';
@@ -34,6 +34,10 @@ import { ChatConfiguration } from '../../common/constants.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 // --- End Positron ---
+import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';
+import { ChatStatusPromo } from './chatStatusPromo.js';
+import { ILifecycleService, LifecyclePhase } from '../../../../services/lifecycle/common/lifecycle.js';
+import { onUnexpectedError } from '../../../../../base/common/errors.js';
 
 /**
  * Tracks whether Copilot is currently blocked by a reached quota limit, has
@@ -120,6 +124,7 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private readonly activeCodeEditorListener = this._register(new MutableDisposable());
 	private readonly entryAnchor = h('span');
+	private promo: ChatStatusPromo | undefined;
 
 	private quotaResumeState: ChatQuotaResumeState;
 	private readonly quotaResetTimer = this._register(new MutableDisposable());
@@ -135,6 +140,8 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		@IInlineCompletionsService private readonly completionsService: IInlineCompletionsService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IStorageService private readonly storageService: IStorageService,
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
+		@ILifecycleService lifecycleService: ILifecycleService,
 		// --- Start Positron ---
 		@IAiProviderService private readonly aiProviderService: IAiProviderService,
 		// --- End Positron ---
@@ -142,6 +149,23 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		super();
 
 		this.quotaResumeState = this.readPersistedQuotaResumeState();
+		lifecycleService.when(LifecyclePhase.Restored).then(() => {
+			if (!this._store.isDisposed) {
+				this.promo = this._register(this.instantiationService.createInstance(ChatStatusPromo));
+				this._register(this.promo.onDidChange(() => this.update()));
+				this.update();
+			}
+		}).catch(onUnexpectedError);
+		this._register(this.statusbarService.onDidChangeEntryVisibility(e => {
+			if (e.id === 'chat.statusBarEntry') {
+				this.update();
+			}
+		}));
+		this._register(this.layoutService.onDidChangePartVisibility(e => {
+			if (e.partId === Parts.STATUSBAR_PART) {
+				this.update();
+			}
+		}));
 
 		this.update();
 
@@ -229,6 +253,19 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	}
 
 	// --- Start Positron ---
+	// One stable tooltip per mode, matching upstream's single `dashboardTooltip`, so
+	// re-rendering an entry does not replace an open hover.
+	private readonly dashboardTooltips = new Map<boolean, IStatusbarEntry['tooltip']>();
+
+	private getDashboardTooltip(completionsOnly: boolean): IStatusbarEntry['tooltip'] {
+		let tooltip = this.dashboardTooltips.get(completionsOnly);
+		if (!tooltip) {
+			tooltip = this.createDashboardTooltip(completionsOnly);
+			this.dashboardTooltips.set(completionsOnly, tooltip);
+		}
+		return tooltip;
+	}
+
 	// Builds the status dashboard tooltip. In completions-only mode (chat hidden,
 	// inline completions available) it passes `disableChatSections` so the dashboard
 	// suppresses the chat usage/setup rows and keeps the completions controls.
@@ -366,6 +403,12 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		let text = '$(copilot)';
 		let ariaLabel = localize('chatStatusAria', "Copilot status");
 		let kind: StatusbarEntryKind | undefined;
+		// --- Start Positron ---
+		// In completions-only mode, suppress the chat usage/setup rows and keep the
+		// completions controls (settings, model, snooze, quota).
+		// let tooltip = this.dashboardTooltip;
+		let tooltip = this.getDashboardTooltip(completionsOnly);
+		// --- End Positron ---
 
 		// --- Start Positron ---
 		// When the GitHub Copilot provider is disabled in the catalog, Copilot
@@ -439,21 +482,27 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				text = '$(copilot-snooze)';
 				ariaLabel = localize('completionsSnoozedStatus', "Inline suggestions snoozed");
 			}
+
+			else {
+				const promo = this.promo?.getEntryProps(this.layoutService.isVisible(Parts.STATUSBAR_PART, mainWindow)
+					&& this.statusbarService.isEntryVisible('chat.statusBarEntry'));
+				if (promo) {
+					text = promo.showPip ? '$(copilot-dot)' : '$(copilot)';
+					ariaLabel = promo.ariaLabel;
+					tooltip = promo.tooltip;
+				}
+			}
 		}
 
 		const baseResult = {
 			name: localize('chatStatus', "Copilot Status"),
 			text,
 			ariaLabel,
-			command: ShowTooltipCommand,
+			command: ToggleTooltipCommand,
 			showInAllWindows: true,
 			kind,
 			content: this.entryAnchor,
-			// --- Start Positron ---
-			// In completions-only mode, suppress the chat usage/setup rows and keep the
-			// completions controls (settings, model, snooze, quota).
-			tooltip: this.createDashboardTooltip(completionsOnly)
-			// --- End Positron ---
+			tooltip
 		} satisfies IStatusbarEntry;
 
 		return baseResult;

@@ -15,6 +15,8 @@ import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../
 import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionLineageRequest, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { renderLineageLines } from '../../../services/positronDataConnections/common/dataConnectionLineageSummary.js';
+import { isRuntimeDataConnectionDriverId, RUNTIME_CONNECTION_ID_PARAMETER } from '../../../services/positronConnections/common/runtimeDataConnections.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Whether the data connections commands should produce a payload at all: they go quiet when the
@@ -92,10 +94,11 @@ const SUMMARY_UNSAFE_CHARACTERS = '|,=';
  *     name=<connectionName> | driver=<driverId> | mechanism=<mechanismId> | discovered=true | description=<text> | languages=<id>, ... | parameters=<key>=<value>, ...
  *
  * `discovered=true` marks a connection the driver detected on this machine (e.g. an ODBC data
- * source) rather than one the user saved; the field is absent for saved profiles, so its absence
- * means "saved" without spending a token on every ordinary profile. `description` is the driver's
- * own one-line summary of where a discovered connection points, present only when the driver
- * supplied one (and only ever on discovered connections).
+ * source), or one an R or Python session opened, rather than one the user saved; the field is
+ * absent for saved profiles, so its absence means "saved" without spending a token on every
+ * ordinary profile. `description` is the driver's own one-line summary of where a discovered
+ * connection points (for a session's connection, the session name and host), present only when the
+ * driver supplied one (and only ever on discovered connections).
  *
  * The keys are spelled out rather than left positional so the line stays self-describing if it is
  * ever read out of context (a truncated payload, a log line). The driver's display name is left
@@ -246,8 +249,9 @@ async function getLanguagePayloads(
 
 /**
  * Builds the getDataConnections payload: the catalog of every saved data connection profile, plus
- * the connections drivers discovered on this machine (e.g. ODBC data sources), for cold-start
- * Assistant awareness (no live connection required). Discovered connections come after the saved
+ * the connections drivers discovered on this machine (e.g. ODBC data sources) and the connections
+ * R and Python sessions have open, for cold-start Assistant awareness (no live connection
+ * required). Discovered connections come after the saved
  * profiles, matching the pane's ordering, and are marked `discovered=true` in their summary line.
  * Their ids work everywhere a saved profile's id does -- getConnectionCode, getSchema, and the
  * connect it performs all resolve them -- so a caller doesn't need to treat them differently. The
@@ -313,12 +317,16 @@ export interface IDataConnectionCodeCommandArgs {
  *   activated yet -- so there is nothing to generate code with.
  * - `no-code`: the driver is registered but produced no code. Either the caller named a language it
  *   doesn't support, or code generation failed for the profile's current parameters.
+ * - `runtime-connection`: the connection is already open in an R or Python session, which is
+ *   named. The caller should use that session's existing connection object rather than open a new
+ *   one. No code is given: what the session recorded can hold the user's credentials (Decision 7).
  */
 export type DataConnectionCodeUnavailableReason =
 	| 'disabled'
 	| 'not-found'
 	| 'no-driver'
-	| 'no-code';
+	| 'no-code'
+	| 'runtime-connection';
 
 /**
  * What getConnectionCode returns in place of code. `available: false` is the discriminant against
@@ -332,6 +340,13 @@ export interface IDataConnectionCodeUnavailableResult {
 	// The languages the driver does support, present when `reason` is `no-code`. Turns a dead end
 	// into a retry when the caller simply named the wrong language.
 	supportedLanguageIds?: string[];
+
+	// The name of the session the connection is open in, present when `reason` is
+	// `runtime-connection`.
+	sessionName?: string;
+
+	// What to do instead, present when `reason` is `runtime-connection`.
+	message?: string;
 }
 
 /**
@@ -385,6 +400,22 @@ export async function getDataConnectionCode(
 		return { available: false, reason: 'not-found' };
 	}
 
+	// A connection an R or Python session opened is already live there, and the code its package
+	// recorded can carry the user's credentials, so the reply names the session instead.
+	if (isRuntimeDataConnectionDriverId(profile.driverMetadata.id)) {
+		const sessionName = runtimeConnectionSessionName(accessor.get(IRuntimeSessionService), profile);
+		return {
+			available: false,
+			reason: 'runtime-connection',
+			sessionName,
+			message: localize(
+				'positron.dataConnections.getConnectionCode.runtimeConnection',
+				"This connection is already open in the session '{0}'. Use that session's existing connection object instead of opening a new connection.",
+				sessionName
+			),
+		};
+	}
+
 	const driver = dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
 	if (!driver) {
 		logService.warn(`[DataConnections] getConnectionCode: driver ${profile.driverMetadata.id} is not registered.`);
@@ -404,6 +435,20 @@ export async function getDataConnectionCode(
 	}
 
 	return { profileId: profile.id, languages };
+}
+
+/**
+ * Gets the name of the session a runtime connection is open in. The connection id is
+ * `<sessionId>:<clientId>`, so the session is the active one whose id prefixes it. Read live, so a
+ * renamed session is named as it is now; falls back to the description the driver gave the row,
+ * which starts with the session name.
+ * @param runtimeSessionService The runtime session service.
+ * @param profile The runtime connection's discovered profile.
+ */
+function runtimeConnectionSessionName(runtimeSessionService: IRuntimeSessionService, profile: IDataConnectionProfile): string {
+	const connectionId = String(profile.parameterValues[RUNTIME_CONNECTION_ID_PARAMETER]);
+	const session = runtimeSessionService.activeSessions.find(candidate => connectionId.startsWith(`${candidate.sessionId}:`));
+	return session?.dynState.sessionName ?? profile.description ?? profile.connectionName;
 }
 
 /**
@@ -970,13 +1015,13 @@ CommandsRegistry.registerCommand({
 		title: localize('positron.dataConnections.getConnections.title', "Get Data Connections"),
 		description: localize(
 			'positron.dataConnections.getConnections.description',
-			"Read the data connections the user has configured or that were detected on this machine, whether or not they are currently connected."
+			"Read the data connections the user has configured, that were detected on this machine, or that an R or Python session has open, whether or not they are currently connected."
 		),
 		// Advertise this command to AI agents (positron.ai.getAgentAllowedCommands).
 		agentCompatible: true,
 		// Read-only, so an agent may run it without asking; see the note above the registrations.
 		readOnly: true,
-		returns: 'An array of connection profiles -- the user\'s saved connections first, then connections detected on this machine (e.g. ODBC data sources) -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a detected connection points>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with every value the driver can redact shown in that redacted form and a secret it cannot redact left out. discovered=true marks a detected connection; its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it -- so re-read this catalog rather than reusing a stored one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code. Empty when no connection is configured or detected, or when the dataConnections.enabled setting is off.',
+		returns: 'An array of connection profiles -- the user\'s saved connections first, then discovered connections: those detected on this machine (e.g. ODBC data sources) and those an R or Python session opened -- without connection code (ask positronDataConnections.getConnectionCode for that, once you know which profile you want). Each entry has profileId, connected, and a one-line summary of the rest: name=<name> | driver=<id> | mechanism=<id>[ | discovered=true][ | description=<one line on where a discovered connection points; for a session\'s connection, the session name and host>] | languages=<languageId>, ... | parameters=<key>=<value>, ... -- the driver\'s own parameters all nest inside the single parameters= field (split it at its first = only), with every value the driver can redact shown in that redacted form and a secret it cannot redact left out. discovered=true marks a discovered connection: one detected on this machine, or one an R or Python session opened (driver=runtime-r or runtime-python). Its profileId works with getConnectionCode and getSchema just like a saved one, but it is ephemeral -- it stops resolving when the user saves that connection (the saved profile gets a fresh profileId) or the driver stops reporting it, and a session\'s connection disappears when the session closes it or ends -- so re-read this catalog rather than reusing a stored one. A session\'s connection is always connected and has no code: use the session\'s existing connection object rather than opening a new one. `languages` is absent when the driver\'s extension is not installed or has not activated, and present but empty when the driver generates no code (as for a session\'s connection). Empty when no connection is configured or discovered, or when the dataConnections.enabled setting is off.',
 	},
 });
 
@@ -1002,7 +1047,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile to generate connection code for, as reported by positronDataConnections.getConnections (saved or discovered).',
+						description: 'The profile to generate connection code for, as reported by positronDataConnections.getConnections (saved or discovered; a connection an R or Python session opened gives no code).',
 					},
 					languageId: {
 						type: 'string',
@@ -1011,7 +1056,7 @@ CommandsRegistry.registerCommand({
 				},
 			},
 		}],
-		returns: 'The profileId, plus the connection code per language under languages[<languageId>].code and the variable that code binds under .variableName. The code is meant to be run verbatim, and omits every parameter the connection stores as a secret -- so code for a connection with a stored password needs the user to supply it before it will run. When there is no code to give, an object with available: false and a reason of \'disabled\', \'not-found\', \'no-driver\', or \'no-code\' -- the last of which also lists supportedLanguageIds, in case the language asked for was simply the wrong one.',
+		returns: 'The profileId, plus the connection code per language under languages[<languageId>].code and the variable that code binds under .variableName. The code is meant to be run verbatim, and omits every parameter the connection stores as a secret -- so code for a connection with a stored password needs the user to supply it before it will run. When there is no code to give, an object with available: false and a reason of \'disabled\', \'not-found\', \'no-driver\', \'no-code\', or \'runtime-connection\'. \'no-code\' also lists supportedLanguageIds, in case the language asked for was simply the wrong one. \'runtime-connection\' means the connection is already open in an R or Python session: it names that session in sessionName, and you should use the session\'s existing connection object instead of opening a new connection.',
 	},
 });
 
@@ -1080,7 +1125,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile to summarize, as reported by positronDataConnections.getConnections (saved or discovered); it is connected automatically when it is not live yet. Optional when exactly one connection is live, or when nothing is live and exactly one connection is saved or discovered.',
+						description: 'The profile to summarize, as reported by positronDataConnections.getConnections (saved or discovered, including a connection an R or Python session opened); it is connected automatically when it is not live yet. Optional when exactly one connection is live, or when nothing is live and exactly one connection is saved or discovered.',
 					},
 					maxDepth: {
 						type: 'number',
@@ -1123,7 +1168,7 @@ CommandsRegistry.registerCommand({
 				properties: {
 					profileId: {
 						type: 'string',
-						description: 'The profile whose connection to read from, as reported by positronDataConnections.getConnections (saved or discovered); it is connected automatically when it is not live yet. Optional on the same terms as for positronDataConnections.getSchema.',
+						description: 'The profile whose connection to read from, as reported by positronDataConnections.getConnections (saved or discovered, including a connection an R or Python session opened); it is connected automatically when it is not live yet. Optional on the same terms as for positronDataConnections.getSchema.',
 					},
 					objectName: {
 						type: 'string',

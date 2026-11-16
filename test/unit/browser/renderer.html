@@ -102,6 +102,27 @@
 			}
 		}
 
+		// --- Start Positron ---
+
+		// React and other external dependencies, built as ESM into
+		// out/esm-package-dependencies. Mirrors test/unit/electron/renderer.html.
+		const addModule = (packageName) => {
+			importMap.imports[packageName] = new URL(`../../../${out}/esm-package-dependencies/${packageName}.js`, baseUrl).href;
+		};
+
+		addModule('he');
+		addModule('react');
+		addModule('react/jsx-runtime');
+		addModule('react-dom');
+		addModule('react-dom/client');
+		addModule('react-window');
+		addModule('@dnd-kit/core');
+		addModule('@dnd-kit/sortable');
+		addModule('@dnd-kit/utilities');
+		addModule('modern-screenshot');
+
+		// --- End Positron ---
+
 		// ---- CSS tricks
 
 		const cssDataBase64 = urlParams.get('_devCssData');

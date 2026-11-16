@@ -100,6 +100,17 @@
 
 			const vscodePostMessageFuncName = "__vscode_post_message__";
 
+			// The host (webviewElement.ts) drops a 'webview-ready' handshake that
+			// doesn't echo the mountId it was loaded with and carry a non-empty
+			// keyEventToken, so send both, as index.html does. This shell doesn't
+			// forward key events, so the token is only needed for the handshake.
+			function createKeyEventToken() {
+				const bytes = new Uint8Array(16);
+				crypto.getRandomValues(bytes);
+				return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+			}
+			const keyEventToken = createKeyEventToken();
+
 			const defaultStyles = document.createElement("style");
 			defaultStyles.id = "_defaultStyles";
 			defaultStyles.textContent = `
@@ -338,7 +349,11 @@
 				async signalReady() {
 					const start = (/** @type {string} */ parentOrigin) => {
 						window.parent.postMessage(
-							{ target: ID, channel: "webview-ready", data: {} },
+							{
+								target: ID,
+								channel: "webview-ready",
+								data: { keyEventToken, mountId: searchParams.get("mountId") },
+							},
 							parentOrigin,
 							[this.channel.port2],
 						);

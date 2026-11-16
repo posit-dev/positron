@@ -1,0 +1,56 @@
+{
+	"numTotalTestSuites": 3,
+	"numPassedTestSuites": 2,
+	"numFailedTestSuites": 1,
+	"numPendingTestSuites": 0,
+	"numTotalTests": 3,
+	"numPassedTests": 1,
+	"numFailedTests": 1,
+	"numPendingTests": 1,
+	"numTodoTests": 0,
+	"success": false,
+	"testResults": [
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": [
+						"isNavigableSourceUri"
+					],
+					"fullName": "isNavigableSourceUri is navigable for text documents (scripts and Quarto)",
+					"status": "passed",
+					"title": "is navigable for text documents (scripts and Quarto)",
+					"failureMessages": [],
+					"meta": {},
+					"tags": []
+				},
+				{
+					"ancestorTitles": [
+						"isNavigableSourceUri"
+					],
+					"fullName": "isNavigableSourceUri is not navigable for notebook documents",
+					"status": "pending",
+					"title": "is not navigable for notebook documents",
+					"failureMessages": [],
+					"meta": {},
+					"tags": []
+				},
+				{
+					"ancestorTitles": [
+						"isNavigableSourceUri"
+					],
+					"fullName": "isNavigableSourceUri is not navigable for notebook cell URIs",
+					"status": "failed",
+					"title": "is not navigable for notebook cell URIs",
+					"failureMessages": [
+						"AssertionError: expected true to be false"
+					],
+					"meta": {},
+					"tags": []
+				}
+			],
+			"status": "failed",
+			"message": "",
+			"name": "/home/runner/work/positron/positron/src/vs/workbench/contrib/positronPlots/test/browser/plotUtils.vitest.ts"
+		}
+	]
+}

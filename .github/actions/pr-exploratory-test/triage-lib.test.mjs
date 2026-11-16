@@ -67,6 +67,16 @@ test('issueRow leaves out what it cannot read', () => {
 	assert.equal(row.source, 'local');
 });
 
+test('issueRow keeps the last page\'s severity and version only when the report and stats are gone', () => {
+	const previous = { sev: 'moderate', skillVersion: '1.40' };
+	const gone = issueRow(issue(), { base: BASE, finding: 3 }, { previous });
+	assert.equal(gone.sev, 'moderate');
+	assert.equal(gone.skillVersion, '1.40');
+	const read = issueRow(issue(), { base: BASE, finding: 3 }, { report: { findings: [{ n: 3, severity: 'major' }] }, stats: { version: '1.58' }, previous });
+	assert.equal(read.sev, 'major');
+	assert.equal(read.skillVersion, '1.58');
+});
+
 test('matchedLinks keeps matched issues that mention the PR, once each, and not ones already linked', () => {
 	const r = (number, extra = {}) => ({ reportUrl: `${BASE}/index.html`, finding: 2, issue: { number, mentionsPr: true }, ...extra });
 	const rows = [

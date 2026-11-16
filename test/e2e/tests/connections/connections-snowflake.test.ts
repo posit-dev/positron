@@ -14,9 +14,9 @@ test.use({
 	enableDataConnections: false,
 });
 
-const account = process.env.SNOWFLAKE_ACCOUNT || 'testaccount';
-const user = process.env.SNOWFLAKE_USER || 'testuser';
-const password = process.env.SNOWFLAKE_PASSWORD || 'testpassword';
+const account = process.env.SNOWFLAKE_ACCOUNT;
+const user = process.env.SNOWFLAKE_USER;
+const password = process.env.SNOWFLAKE_PASSWORD;
 
 // Holds the password file Python reads, so the password is never typed into the console.
 let passwordDir: string | undefined;
@@ -32,6 +32,8 @@ test.describe('Snowflake Connection', {
 	});
 
 	test('Python - Can establish a Snowflake connection', { tag: [tags.PYTHON] }, async function ({ python, packages, app }) {
+		test.skip(!account || !user || !password,
+			'Snowflake connection needs SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER and SNOWFLAKE_PASSWORD');
 
 		await packages.manage('snowflake', 'install');
 
@@ -56,15 +58,18 @@ test.describe('Snowflake Connection', {
 	});
 });
 
+// The password never lands in a session variable: the Variables pane would send its
+// value over the comm, which the supervisor logs in full at the e2e log level.
 const connectionCode = (passwordPath: string) => `import snowflake.connector
-with open(${JSON.stringify(passwordPath)}) as f:
-	_snowflake_password = f.read().strip()
-con = snowflake.connector.connect(
-	account='${account}',
-	user='${user}',
-	password=_snowflake_password,
-	warehouse="DEFAULT_WH"
-)
-del _snowflake_password
+def _snowflake_connect(path):
+	with open(path) as f:
+		return snowflake.connector.connect(
+			account='${account}',
+			user='${user}',
+			password=f.read().strip(),
+			warehouse="DEFAULT_WH"
+		)
+con = _snowflake_connect(${JSON.stringify(passwordPath)})
+del _snowflake_connect
 
 %connection_show con`;

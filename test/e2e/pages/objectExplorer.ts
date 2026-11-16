@@ -58,6 +58,15 @@ export class ObjectExplorer {
 		});
 	}
 
+	async openRowContextMenu(name: string): Promise<Locator> {
+		return test.step(`Open context menu for row "${name}"`, async () => {
+			await this.row(name).getByTestId('object-explorer-name').click({ button: 'right' });
+			const popup = this.page.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible();
+			return popup;
+		});
+	}
+
 	async expectStatus(text: string): Promise<void> {
 		await expect(this.statusLabel).toHaveText(text);
 	}

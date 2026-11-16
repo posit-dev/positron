@@ -8,9 +8,9 @@
 // PR until the run is over.
 
 import { appendFileSync } from 'node:fs';
-import { parseTimeLimit, renderSummaryTarget } from './lib.mjs';
+import { exploreRepo, parseTimeLimit, renderSummaryTarget } from './lib.mjs';
 
-const line = renderSummaryTarget(process.env.BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, process.env.FOCUS, parseTimeLimit(process.env.TIME_LIMIT));
+const line = renderSummaryTarget(process.env.BRANCH, exploreRepo(process.env), process.env.PR_NUMBER, process.env.FOCUS, parseTimeLimit(process.env.TIME_LIMIT));
 console.log(line.trim() || 'No target to summarize');
 if (line && process.env.GITHUB_STEP_SUMMARY) {
 	appendFileSync(process.env.GITHUB_STEP_SUMMARY, line);

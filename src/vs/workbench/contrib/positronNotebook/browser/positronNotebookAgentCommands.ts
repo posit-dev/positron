@@ -35,7 +35,7 @@ import {
  * Agent-callable notebook commands: create/read/edit/run cells of a live
  * Jupyter notebook via `positron.notebooks.*`'s underlying operations
  * (`notebookAgentOperations.ts`), flagged `agentCompatible` so MCP
- * (`run_positron_command`) and Assistant's generic `positronCommand` tool can
+ * (`run_privileged_positron_command`) and Assistant's generic `positronCommand` tool can
  * discover and call them with no further code on either side.
  *
  * Registered through CommandsRegistry rather than registerAction2, so none

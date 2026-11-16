@@ -56,7 +56,7 @@ export interface IAgentSdkPackage {
 	/**
 	 * Brand display name for user-facing progress, e.g. `'Claude'`, `'Codex'`.
 	 * The downloader puts this on {@link IAgentSdkDownloadProgress.displayName}
-	 * so clients can build a localized "Downloading {displayName} agent" label.
+	 * so clients can build a localized "Downloading {displayName} Agent" label.
 	 */
 	readonly displayName: string;
 	/** Env var that, when set, becomes the SDK root and short-circuits the download. */
@@ -216,6 +216,9 @@ export interface IAgentSdkDownloader {
 	 * before the user has asked for anything.
 	 */
 	isSdkResolvableWithoutDownload(pkg: IAgentSdkPackage): Promise<boolean>;
+
+	/** Returns an existing SDK root without downloading or repairing its cache. */
+	resolveInstalledSdkRoot(pkg: IAgentSdkPackage): Promise<string | undefined>;
 }
 
 // #endregion
@@ -325,19 +328,24 @@ export class AgentSdkDownloader extends Disposable implements IAgentSdkDownloade
 	}
 
 	async isSdkResolvableWithoutDownload(pkg: IAgentSdkPackage): Promise<boolean> {
-		if (process.env[pkg.devOverrideEnvVar]) {
-			return true;
+		return (await this.resolveInstalledSdkRoot(pkg)) !== undefined;
+	}
+
+	async resolveInstalledSdkRoot(pkg: IAgentSdkPackage): Promise<string | undefined> {
+		const override = process.env[pkg.devOverrideEnvVar];
+		if (override) {
+			return override;
 		}
 		const config = this._productService.agentSdks?.[pkg.id];
 		if (!config) {
-			return false;
+			return undefined;
 		}
 		const sdkTarget = resolveSdkTarget(pkg);
 		if (!sdkTarget) {
-			return false;
+			return undefined;
 		}
-		const sentinel = URI.joinPath(URI.file(this._cacheDir(pkg.id, config.version, sdkTarget)), '.complete');
-		return this._fileService.exists(sentinel);
+		const root = this._cacheDir(pkg.id, config.version, sdkTarget);
+		return await this._fileService.exists(URI.joinPath(URI.file(root), '.complete')) ? root : undefined;
 	}
 
 	async loadSdkRoot(pkg: IAgentSdkPackage, token: CancellationToken): Promise<string> {

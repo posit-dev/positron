@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as crypto from 'crypto';
-import { stripMachOTrailingData, verifyExtensionHash } from '../excelExtensionInstallUtils';
+import { resolveDuckDBPlatform, stripMachOTrailingData, verifyExtensionHash } from '../excelExtensionInstallUtils';
 
 // Mach-O constants and structure offsets, mirrored from the values
 // stripMachOTrailingData parses (see its implementation for layout details).
@@ -48,6 +48,27 @@ function buildMachO(commands: FakeCommand[], totalLength: number, magic = MH_MAG
 }
 
 suite('excelExtensionInstallUtils', () => {
+	suite('resolveDuckDBPlatform', () => {
+		test('maps each platform and target arch to the DuckDB platform name', () => {
+			const targets: Array<[string, string]> = [
+				['darwin', 'arm64'],
+				['darwin', 'x64'],
+				['linux', 'arm64'],
+				['linux', 'x64'],
+				['win32', 'arm64'],
+				['win32', 'x64'],
+			];
+			assert.deepStrictEqual(
+				targets.map(([osPlatform, targetArch]) => resolveDuckDBPlatform(osPlatform, targetArch)),
+				['osx_arm64', 'osx_amd64', 'linux_arm64', 'linux_amd64', 'windows_arm64', 'windows_amd64']
+			);
+		});
+
+		test('throws for an unsupported platform', () => {
+			assert.throws(() => resolveDuckDBPlatform('freebsd', 'x64'), /Unsupported platform.*freebsd/);
+		});
+	});
+
 	suite('stripMachOTrailingData', () => {
 		test('truncates to the segment image end when trailing data is present', () => {
 			// One segment ending at byte 200, then 56 trailing footer bytes.

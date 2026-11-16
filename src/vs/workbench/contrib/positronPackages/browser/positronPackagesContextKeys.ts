@@ -18,6 +18,9 @@ export const PACKAGES_ENABLED_LEGACY_KEY = 'positron.packages.enable';
 export const POSITRON_PACKAGES_HAS_ACTIVE_SESSION = new RawContextKey<boolean>('positronPackages.hasActiveSession', false);
 export const POSITRON_PACKAGES_IS_BUSY = new RawContextKey<boolean>('positronPackages.isBusy', false);
 export const POSITRON_PACKAGES_SELECTED_PACKAGE = new RawContextKey<string>('positronPackages.selectedPackage', '');
+// Whether only Positron's bundle provides the selected package, so there is
+// no environment copy to update or uninstall.
+export const POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY = new RawContextKey<boolean>('positronPackages.selectedPackageBundledOnly', false);
 
 // Item size mode for the packages list: 'card' or 'row'.
 export type PackagesItemSize = 'card' | 'row';

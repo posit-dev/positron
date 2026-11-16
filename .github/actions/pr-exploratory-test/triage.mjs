@@ -6,8 +6,9 @@
 // Where each ai-discovered issue that links to an exploratory-test report
 // stands today, for triage-page.mjs. With --outcomes, the PR outcomes
 // rows, it adds the issues filed by hand that they matched to a finding and
-// that mention its PR. No model calls.
-//   node triage.mjs [--outcomes rows.jsonl] --out triage.json
+// that mention its PR. With --previous, the last published triage.json, a row
+// whose report can't be read keeps its severity and skill version. No model calls.
+//   node triage.mjs [--outcomes rows.jsonl] [--previous triage.json] --out triage.json
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ import { fetchReport } from './outcomes-lib.mjs';
 import { issueRow, matchedLinks, reportLink } from './triage-lib.mjs';
 
 const REPO = 'posit-dev/positron';
-const { values: args } = parseArgs({ options: { out: { type: 'string' }, outcomes: { type: 'string' } } });
+const { values: args } = parseArgs({ options: { out: { type: 'string' }, outcomes: { type: 'string' }, previous: { type: 'string' } } });
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 
 async function gh(path) {
@@ -53,6 +54,8 @@ const run = base => {
 
 const issues = (await gh(`/repos/${REPO}/issues?labels=ai-discovered&state=all&per_page=100`)).filter(i => !i.pull_request);
 const linked = issues.map(i => [i, reportLink(i.body)]).filter(([, link]) => link);
+const previousText = args.previous ? readFileSync(args.previous, 'utf8') : '';
+const previous = new Map((previousText.trim() ? JSON.parse(previousText).rows : []).map(r => [r.num, r]));
 const outcomeRows = args.outcomes ? readFileSync(args.outcomes, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 // A matched issue that can't be read, deleted say, is left out rather than failing the page.
 const matched = (await Promise.all(matchedLinks(outcomeRows, new Set(linked.map(([i]) => i.number)))
@@ -63,7 +66,7 @@ const matched = (await Promise.all(matchedLinks(outcomeRows, new Set(linked.map(
 const toRow = via => async ([issue, link]) => {
 	const [report, stats] = await run(link.base);
 	const events = issue.milestone?.title === 'Future' && issue.state === 'open' ? await gh(`/repos/${REPO}/issues/${issue.number}/events?per_page=100`) : [];
-	return issueRow(issue, link, { report, stats, events, via });
+	return issueRow(issue, link, { report, stats, events, via, previous: previous.get(issue.number) });
 };
 const rows = [...await Promise.all(linked.map(toRow('linked'))), ...await Promise.all(matched.map(toRow('matched')))];
 const data = { rows: rows.sort((a, b) => b.num - a.num) };

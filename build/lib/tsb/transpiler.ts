@@ -311,6 +311,7 @@ export class ESBuildTranspiler implements ITranspiler {
 	private readonly _logFn: (topic: string, message: string) => void;
 	private readonly _onError: (err: any) => void;
 	private readonly _cmdLine: ts.ParsedCommandLine;
+	private readonly _isExtension: boolean;
 
 	constructor(
 		logFn: (topic: string, message: string) => void,
@@ -327,28 +328,23 @@ export class ESBuildTranspiler implements ITranspiler {
 		// Determine whether this project is a built-in extension by looking for an `extensions`
 		// path *segment* (not a substring, so a checkout/worktree folder whose name merely contains
 		// "extensions" is not mistaken for the `extensions/` directory).
-		const isExtension = configFilePath.split(path.sep).includes('extensions');
+		this._isExtension = configFilePath.split(path.sep).includes('extensions');
 
 		const target = getTargetStringFromTsConfig(configFilePath);
 
 		this._transformOpts = {
 			target: [target],
-			format: isExtension ? 'cjs' : 'esm',
-			platform: isExtension ? 'node' : undefined,
+			platform: this._isExtension ? 'node' : undefined,
 			loader: 'ts',
 			sourcemap: 'inline',
 			tsconfigRaw: JSON.stringify({
 				compilerOptions: {
 					...this._cmdLine.options,
-					...{
-						module: isExtension ? ts.ModuleKind.CommonJS : undefined
-					} satisfies ts.CompilerOptions
 				}
 			}),
 			supported: {
 				'class-static-blocks': false, // SEE https://github.com/evanw/esbuild/issues/3823,
-				'dynamic-import': !isExtension, // see https://github.com/evanw/esbuild/issues/1281
-				'class-field': !isExtension
+				'class-field': !this._isExtension
 			}
 		};
 	}
@@ -364,6 +360,8 @@ export class ESBuildTranspiler implements ITranspiler {
 			throw Error('file.contents must be a Buffer');
 		}
 		const t1 = Date.now();
+		const format = this.getModuleFormat(file.path);
+		const nodeModules = this._cmdLine.options.module === ts.ModuleKind.Node16 || this._cmdLine.options.module === ts.ModuleKind.NodeNext;
 		// --- Start Positron ---
 		// `.tsx` files need esbuild's `tsx` loader so JSX is parsed (the shared `ts` loader
 		// does not parse JSX), plus the automatic JSX runtime to match tsconfig's
@@ -372,9 +370,11 @@ export class ESBuildTranspiler implements ITranspiler {
 		this._jobs.push(esbuild.transform(file.contents, {
 			...this._transformOpts,
 			...(isTsx ? { loader: 'tsx', jsx: 'automatic', jsxImportSource: 'react' } : {}),
+			// --- End Positron ---
+			format,
+			supported: { ...this._transformOpts.supported, 'dynamic-import': format !== 'cjs' || nodeModules },
 			sourcefile: file.path,
 		}).then(result => {
-		// --- End Positron ---
 
 			// check if output of a DTS-files isn't just "empty" and iff so
 			// skip this file
@@ -396,6 +396,23 @@ export class ESBuildTranspiler implements ITranspiler {
 		}).catch(err => {
 			this._onError(err);
 		}));
+	}
+
+	private getModuleFormat(filePath: string): 'cjs' | 'esm' {
+		if (!this._isExtension) {
+			return 'esm';
+		}
+		if (filePath.endsWith('.mts')) {
+			return 'esm';
+		}
+		if (filePath.endsWith('.cts')) {
+			return 'cjs';
+		}
+		const moduleKind = this._cmdLine.options.module ?? ts.ModuleKind.CommonJS;
+		if (moduleKind === ts.ModuleKind.Node16 || moduleKind === ts.ModuleKind.NodeNext) {
+			return ts.getImpliedNodeFormatForFile(filePath, undefined, ts.sys, this._cmdLine.options) === ts.ModuleKind.CommonJS ? 'cjs' : 'esm';
+		}
+		return moduleKind === ts.ModuleKind.CommonJS ? 'cjs' : 'esm';
 	}
 }
 

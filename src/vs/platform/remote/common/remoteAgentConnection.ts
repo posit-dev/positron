@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancelablePromise, createCancelablePromise, promiseWithResolvers } from '../../../base/common/async.js';
+import { CancelablePromise, createCancelablePromise, ProcessTimeRunOnceScheduler, promiseWithResolvers } from '../../../base/common/async.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { isCancellationError, onUnexpectedError } from '../../../base/common/errors.js';
@@ -626,6 +626,17 @@ export abstract class PersistentConnection extends Disposable {
 
 	private readonly _onDidStateChange = this._register(new Emitter<PersistentConnectionEvent>());
 	public readonly onDidStateChange = this._onDidStateChange.event;
+	private _connectionState = PersistentConnectionEventType.ConnectionGain;
+
+	/** Whether the transport is currently connected, including for late subscribers. */
+	public get isConnected(): boolean {
+		return this._connectionState === PersistentConnectionEventType.ConnectionGain && !this._isDisposed && !this._isPermanentFailure;
+	}
+
+	private _fireStateChange(event: PersistentConnectionEvent): void {
+		this._connectionState = event.type;
+		this._onDidStateChange.fire(event);
+	}
 
 	private _permanentFailure: boolean = false;
 	private get _isPermanentFailure(): boolean {
@@ -649,7 +660,7 @@ export abstract class PersistentConnection extends Disposable {
 		super();
 
 
-		this._onDidStateChange.fire(new ConnectionGainEvent(this.reconnectionToken, 0, 0));
+		this._fireStateChange(new ConnectionGainEvent(this.reconnectionToken, 0, 0));
 
 		this._register(protocol.onSocketClose((e) => {
 			const logPrefix = commonLogPrefix(this._connectionType, this.reconnectionToken, true);
@@ -719,7 +730,7 @@ export abstract class PersistentConnection extends Disposable {
 		}
 		const logPrefix = commonLogPrefix(this._connectionType, this.reconnectionToken, true);
 		this._options.logService.info(`${logPrefix} starting reconnecting loop. You can get more information with the trace log level.`);
-		this._onDidStateChange.fire(new ConnectionLostEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData()));
+		this._fireStateChange(new ConnectionLostEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData()));
 		const TIMES = [0, 5, 5, 10, 10, 10, 10, 10, 30];
 		const graceTime = this._reconnectionGraceTime;
 		this._options.logService.info(`${logPrefix} starting reconnection with grace time: ${graceTime}ms (${Math.floor(graceTime / 1000)}s)`);
@@ -728,7 +739,9 @@ export abstract class PersistentConnection extends Disposable {
 			this._onReconnectionPermanentFailure(this.protocol.getMillisSinceLastIncomingData(), 0, false);
 			return;
 		}
-		const loopStartTime = Date.now();
+		let graceTimeExpired = false;
+		const graceTimeScheduler = new ProcessTimeRunOnceScheduler(() => graceTimeExpired = true, graceTime);
+		graceTimeScheduler.schedule();
 		let attempt = -1;
 		do {
 			attempt++;
@@ -739,7 +752,7 @@ export abstract class PersistentConnection extends Disposable {
 			try {
 				if (waitTime > 0) {
 					const sleepPromise = sleep(waitTime);
-					this._onDidStateChange.fire(new ReconnectionWaitEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), waitTime, sleepPromise));
+					this._fireStateChange(new ReconnectionWaitEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), waitTime, sleepPromise));
 
 					this._options.logService.info(`${logPrefix} waiting for ${waitTime} seconds before reconnecting...`);
 					// --- Start PWB: login-aware reconnection backoff: retry as soon as the user logs back in ---
@@ -761,7 +774,7 @@ export abstract class PersistentConnection extends Disposable {
 				}
 
 				// connection was lost, let's try to re-establish it
-				this._onDidStateChange.fire(new ReconnectionRunningEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), attempt + 1));
+				this._fireStateChange(new ReconnectionRunningEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), attempt + 1));
 				this._options.logService.info(`${logPrefix} resolving connection...`);
 				const simpleOptions = await resolveConnectionOptions(this._options, this.reconnectionToken, this.protocol);
 				this._options.logService.info(`${logPrefix} connecting to ${simpleOptions.connectTo}...`);
@@ -774,7 +787,7 @@ export abstract class PersistentConnection extends Disposable {
 				}
 				// --- End PWB ---
 				this._options.logService.info(`${logPrefix} reconnected!`);
-				this._onDidStateChange.fire(new ConnectionGainEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), attempt + 1));
+				this._fireStateChange(new ConnectionGainEvent(this.reconnectionToken, this.protocol.getMillisSinceLastIncomingData(), attempt + 1));
 
 				break;
 			} catch (err) {
@@ -784,7 +797,7 @@ export abstract class PersistentConnection extends Disposable {
 					this._onReconnectionPermanentFailure(this.protocol.getMillisSinceLastIncomingData(), attempt + 1, false);
 					break;
 				}
-				if (Date.now() - loopStartTime >= graceTime) {
+				if (graceTimeExpired) {
 					const graceSeconds = Math.round(graceTime / 1000);
 					this._options.logService.error(`${logPrefix} An error occurred while reconnecting, but it will be treated as a permanent error because the reconnection grace time (${graceSeconds}s) has expired! Will give up now! Error:`);
 					this._options.logService.error(err);
@@ -821,6 +834,7 @@ export abstract class PersistentConnection extends Disposable {
 				break;
 			}
 		} while (!this._isPermanentFailure && !this._isDisposed);
+		graceTimeScheduler.dispose();
 	}
 
 	private _onReconnectionPermanentFailure(millisSinceLastIncomingData: number, attempt: number, handled: boolean): void {
@@ -835,7 +849,7 @@ export abstract class PersistentConnection extends Disposable {
 		// --- Start PWB: Abort an in-flight reconnect attempt once the connection has permanently failed ---
 		this._pwbPermanentFailureCts.cancel();
 		// --- End PWB ---
-		this._onDidStateChange.fire(new ReconnectionPermanentFailureEvent(this.reconnectionToken, millisSinceLastIncomingData, attempt, handled));
+		this._fireStateChange(new ReconnectionPermanentFailureEvent(this.reconnectionToken, millisSinceLastIncomingData, attempt, handled));
 		safeDisposeProtocolAndSocket(this.protocol);
 	}
 

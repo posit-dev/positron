@@ -35,6 +35,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 export interface SavePlotOptions {
 	uri: string;
 	path: URI;
+	format?: PlotRenderFormat;
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -47,12 +48,14 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
+ * @param suggestedFormat the pre-selected format
  */
 export const showSavePlotModalDialog = (
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
+	suggestedFormat?: PlotRenderFormat,
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
@@ -65,6 +68,7 @@ export const showSavePlotModalDialog = (
 			plotSize={plotClient.lastRender?.size}
 			renderer={renderer}
 			savePlotCallback={savePlotCallback}
+			suggestedFormat={suggestedFormat}
 			suggestedPath={suggestedPath}
 		/>
 	);
@@ -78,6 +82,7 @@ interface SavePlotModalDialogProps {
 	plotClient: PlotClientInstance;
 	savePlotCallback: (options: SavePlotOptions) => void;
 	suggestedPath?: URI;
+	suggestedFormat?: PlotRenderFormat;
 }
 
 interface DirectoryState {
@@ -89,7 +94,7 @@ interface DirectoryState {
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: props.plotClient.metadata.name ?? props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
-	const [format, setFormat] = React.useState(PlotRenderFormat.Png);
+	const [format, setFormat] = React.useState(props.suggestedFormat ?? PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
 	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
@@ -186,7 +191,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 			generatePreview(format)
 				.then(async (plotResult) => {
-					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
+					props.savePlotCallback({ uri: plotResult.uri, path: filePath, format });
 				})
 				.catch((error) => {
 					props.renderer.services.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
