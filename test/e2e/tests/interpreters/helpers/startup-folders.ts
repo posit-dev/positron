@@ -63,9 +63,23 @@ export async function expectNoSession(app: Application): Promise<void> {
 	await test.step('Expect no session to start', async () => {
 		const { console, sessions } = app.workbench;
 		await sessions.expectDiscoveryToComplete();
-		await sessions.expectSessionCountToBe(0);
+		try {
+			await sessions.expectSessionCountToBe(0);
+		} catch (error) {
+			throw new Error(`${await describeUnexpectedSession(app)}\n${error}`);
+		}
 		await expect(console.emptyConsole).toBeVisible();
 	});
+}
+
+// An unexpected start looks the same on screen whatever started it; the start reason tells them apart.
+async function describeUnexpectedSession(app: Application): Promise<string> {
+	try {
+		const { name, state, startReasonId } = await app.workbench.sessions.getMetadata();
+		return `Expected no session, but "${name}" is ${state} (start reason: ${startReasonId ?? 'unknown'}).`;
+	} catch {
+		return 'Expected no session, but one started, and its metadata could not be read.';
+	}
 }
 
 /** Checks that exactly one console is running and ready, and which interpreter and start reason it has. */
