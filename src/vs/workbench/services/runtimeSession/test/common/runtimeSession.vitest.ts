@@ -1935,6 +1935,17 @@ describe('Positron - RuntimeSessionService', () => {
 				return { service, session, extensionCameBack };
 			}
 
+			it('reports a session as disconnected until the extension comes back', async () => {
+				const { service, session, extensionCameBack } = await disconnectedSession();
+				vi.spyOn(manager, 'validateSession').mockResolvedValue(false);
+				const before = service.isSessionDisconnected(session.sessionId);
+
+				extensionCameBack();
+
+				expect({ before, after: service.isSessionDisconnected(session.sessionId) })
+					.toEqual({ before: true, after: false });
+			});
+
 			it('reconnects a session whose kernel is still alive', async () => {
 				const { service, session, extensionCameBack } = await disconnectedSession();
 

@@ -22,7 +22,6 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILifecycleService } from '../../lifecycle/common/lifecycle.js';
-import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { toUtcDay } from '../../../../platform/update/common/positronUpdateUtils.js';
@@ -360,7 +359,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
 		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -471,23 +469,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 		));
-
-		// Changing the application storage scope causes disconnected sessions
-		// to become unusable, since the information needed to reconnect to them
-		// is stored in the old scope.
-		this._register(this._storageService.onDidChangeTarget((e) => {
-			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
-				this._logService.debug(`Application storage scope changed; ` +
-					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
-
-				// Clear map and fire deletion events to update
-				// console session service consumers.
-				this._disconnectedSessions.forEach(value => {
-					this._onDidDeleteRuntimeSessionEmitter.fire(value.session.sessionId);
-				});
-				this._disconnectedSessions.clear();
-			}
-		}));
 
 		this.scheduleUpdateActiveLanguages(25 * 1000);
 	}
@@ -1265,6 +1246,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined {
 		return this._activeSessionsBySessionId.get(sessionId);
+	}
+
+	/**
+	 * Checks whether a session lost its extension host and waits to be
+	 * reconnected.
+	 */
+	isSessionDisconnected(sessionId: string): boolean {
+		return this._disconnectedSessions.has(sessionId);
 	}
 
 	/**
