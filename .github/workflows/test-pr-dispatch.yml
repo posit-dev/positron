@@ -10,7 +10,7 @@ name: "Test: PR (dispatch)"
 # never runs PR code, so a PR cannot edit this file to point the bot key at
 # something else. Fork PRs fail with a message instead of skipping, because a
 # skipped required check would count as passing. A maintainer tests a fork PR
-# through the manual lane in positron-builds and merges with an admin override.
+# through the trusted Full Suite lane in positron-builds and merges with an admin override.
 
 on:
   pull_request_target:
@@ -41,7 +41,7 @@ jobs:
         if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
         shell: bash
         run: |
-          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-manual.yml) and merges with an admin override."
+          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-full-suite-trusted.yml) and merges with an admin override."
           echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
