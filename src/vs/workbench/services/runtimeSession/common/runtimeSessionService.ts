@@ -1075,6 +1075,12 @@ export interface IRuntimeSessionService {
 	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined;
 
 	/**
+	 * Checks whether a session lost its extension host and waits to be
+	 * reconnected.
+	 */
+	isSessionDisconnected(sessionId: string): boolean;
+
+	/**
 	 * Gets the last created console session by runtime identifier
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined;

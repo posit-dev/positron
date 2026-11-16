@@ -7,6 +7,7 @@ import React, { createContext, useContext } from 'react';
 
 // Other dependencies.
 import { PositronReactServices } from './positronReactServices.js';
+import { PositronHoverManagerProvider } from '../../platform/positronActionBar/browser/usePositronHoverManager.js';
 
 /**
  * PositronReactServicesContext.
@@ -15,12 +16,14 @@ export const PositronReactServicesContext = createContext<PositronReactServices>
 
 /**
  * PositronReactServicesProvider component.
- * Provides the Positron React services context to children.
+ * Provides the Positron React services context, and a shared hover manager, to children.
  */
 export const PositronReactServicesProvider = ({ children }: { children: React.ReactNode }) => {
 	return (
 		<PositronReactServicesContext.Provider value={PositronReactServices.services}>
-			{children}
+			<PositronHoverManagerProvider>
+				{children}
+			</PositronHoverManagerProvider>
 		</PositronReactServicesContext.Provider>
 	);
 };

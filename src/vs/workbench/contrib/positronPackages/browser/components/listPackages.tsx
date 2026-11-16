@@ -38,6 +38,7 @@ import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey, usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { showPackageHelp } from '../packageHelp.js';
 import { canUninstallSelection, canUpdateSelection, copyPackagesLabel } from '../packageSelection.js';
+import { usePositronHoverManager } from '../../../../../platform/positronActionBar/browser/usePositronHoverManager.js';
 import { maxVulnerabilityScore, PACKAGES_VULNERABILITIES_ENABLED_SETTING, severityBand, severityBandLabel, worstVulnerability } from '../packageVulnerabilities.js';
 
 const positronUninstallPackage = localize(
@@ -76,6 +77,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		activeInstance,
 	} = usePositronPackagesContext();
 	const services = usePositronReactServicesContext();
+	const hoverManager = usePositronHoverManager();
 
 	// Whether the pane is too narrow to spend width on the item's fixed-size controls.
 	const isNarrow = props.width < NARROW_WIDTH_THRESHOLD;
@@ -522,6 +524,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<Button
 					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
 					className='packages-list-item-action-button packages-list-item-help'
+					hoverManager={hoverManager}
 					tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
 					onPressed={() => { void showHelpForPackage(name); }}
 				>
@@ -533,6 +536,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<Button
 					ariaLabel={localize('positronPackages.openUrlAriaLabel', "Open website for {0}", name)}
 					className='packages-list-item-action-button packages-list-item-url'
+					hoverManager={hoverManager}
 					tooltip={localize('positronPackages.openUrlTooltip', "Open website for {0}", name)}
 					onPressed={() => { void services.openerService.open(URI.parse(url!), { openExternal: true }); }}
 				>
@@ -617,6 +621,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									<Button
 										ariaLabel={localize('positronPackages.updatePackageAria', "Update {0} to {1}", name, latestVersion)}
 										className='packages-list-item-update-button'
+										hoverManager={hoverManager}
 										tooltip={updateTooltip}
 										onPressed={() => services.commandService.executeCommand('positronPackages.updatePackage', name)}
 									>
@@ -632,7 +637,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds, vulnerabilitiesEnabled]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, isNarrow, showHelpForPackage, showPackageContextMenu, flashedIds, vulnerabilitiesEnabled, hoverManager]);
 
 	// Sync the selected packages' names into the packages service. onDidUpdate fires for any
 	// instance change (selection, cursor, scroll), so we dedupe before pushing. When the
@@ -819,6 +824,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					ref={filterRef}
 					showClearAlways
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
+					hoverManager={hoverManager}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'
 					onFilterButtonPressed={showFilterMenu}
