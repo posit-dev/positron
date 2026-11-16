@@ -143,12 +143,22 @@ export function parseVerdict(text) {
 }
 
 /**
- * The model's reason as one plain sentence, capped, with no markup and no
- * @-mentions: the author wrote what the model read, and this is posted as the bot.
+ * The model's reason with no markup, links or @-mentions: the author wrote
+ * what the model read, and this is posted as the bot.
  */
-export function reasonSentence(reason, max = 300) {
-	// Whole tags and comments first, then any stray bracket left unmatched.
-	let text = String(reason ?? '').replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+function cleanReason(reason) {
+	return String(reason ?? '')
+		// Whole tags and comments first, then any stray bracket left unmatched.
+		.replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '')
+		// Images go; a link keeps its text; a bare URL goes.
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\bhttps?:\/\/\S+/gi, ' ')
+		// Zero-width space after @ so a handle in the reason does not ping anyone.
+		.replace(/@(?=\w)/g, '@\u200b')
+		.replace(/\s+/g, ' ').trim();
+}
+
+/** Clean text cut to its first sentence, capped, and ending in a stop. */
+function firstSentence(text, max) {
 	const sentence = text.match(/^.+?[.!?](?=\s|$)/);
 	if (sentence) {
 		text = sentence[0];
@@ -156,19 +166,25 @@ export function reasonSentence(reason, max = 300) {
 	if (text.length > max) {
 		text = `${text.slice(0, max).replace(/\s+\S*$/, '')}...`;
 	}
-	// Zero-width space after @ so a handle in the reason does not ping anyone.
-	text = text.replace(/@(?=\w)/g, '@\u200b');
 	return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+/** The model's reason as one sentence that stands alone. */
+export function reasonSentence(reason, max = 300) {
+	const text = firstSentence(cleanReason(reason), max);
+	return text[0].toUpperCase() + text.slice(1);
 }
 
 /** The model's reason as the rest of a sentence that starts "This PR". */
 export function reasonClause(reason, max = 300) {
-	let text = reasonSentence(String(reason ?? '').trim().replace(/^this pr\s+/i, ''), max);
+	const text = firstSentence(cleanReason(reason).replace(/^this pr\s+/i, ''), max);
 	// "Changes how..." reads as "This PR changes how...", but "UI" stays "UI".
-	if (/^[A-Z][a-z]/.test(text)) {
-		text = text[0].toLowerCase() + text.slice(1);
-	}
-	return text;
+	return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
+}
+
+/** The note posted when the judge turned down an auto-run author's PR, or undefined. */
+export function findDeclinedNote(comments) {
+	return comments.find(c => String(c?.body ?? '').includes(DECLINED_MARKER));
 }
 
 export function renderSuggestComment(reason) {

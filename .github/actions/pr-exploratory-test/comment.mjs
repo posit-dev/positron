@@ -26,7 +26,8 @@ async function gh(fetchImpl, token, path, init = {}) {
 	if (!res.ok) {
 		throw new Error(`GitHub ${init.method || 'GET'} ${path} failed: ${res.status} ${await res.text()}`);
 	}
-	return res.json();
+	// A DELETE answers 204 with no body.
+	return res.status === 204 ? null : res.json();
 }
 
 /**
@@ -42,6 +43,11 @@ export async function postOrEditComment({ fetchImpl, token, repo, prNumber, comm
 	}
 	const created = await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments`, { method: 'POST', ...payload });
 	return { action: 'created', id: created.id };
+}
+
+/** Deletes a PR comment. Throws when GitHub refuses. */
+export async function deleteComment({ fetchImpl, token, repo, commentId }) {
+	await gh(fetchImpl, token, `/repos/${repo}/issues/comments/${commentId}`, { method: 'DELETE' });
 }
 
 /** The run's report.json, or null when the build failed first or the agent never wrote one. */

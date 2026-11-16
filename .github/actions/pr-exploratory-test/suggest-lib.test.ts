@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMMENT_MARKER } from './lib.mjs';
-import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, renderDeclinedComment, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findDeclinedNote, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, reasonSentence, renderDeclinedComment, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
 
 test('isRunCommand accepts every alias as the first word of the first non-blank line', () => {
 	for (const body of ['/explore', '/test', '/exploratory-test', '\r\n\r\n/explore the plots pane\r\n', '  /test 20m']) {
@@ -164,6 +164,17 @@ test('renderDeclinedComment gives the reason and the override, and is not a prio
 		'',
 	].join('\n'));
 	assert.equal(findPriorUse([{ id: 7, body }]), null);
+	assert.equal(findDeclinedNote([{ id: 6, body: renderSuggestComment('x') }, { id: 7, body }])?.id, 7);
+});
+
+test('reasonSentence starts with a capital and drops links, images and URLs', () => {
+	assert.equal(reasonSentence('docs only'), 'Docs only.');
+	assert.equal(reasonSentence('See [the fix](https://evil.example) ![x](https://e.x/a.png) or https://evil.example/y now.'), 'See the fix or now.');
+});
+
+test('reasonClause drops "This PR" even behind markup', () => {
+	assert.equal(reasonClause('<b>This PR</b> changes restart.'), 'changes restart.');
+	assert.equal(reasonClause('<!-- note -->This PR changes restart.'), 'changes restart.');
 });
 
 test('renderDiff puts product files first and names what does not fit', () => {

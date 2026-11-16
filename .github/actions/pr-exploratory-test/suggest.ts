@@ -16,8 +16,8 @@
 // precheck would skip, so verdicts can be read on any PR.
 
 import { appendFileSync } from 'node:fs';
-import { postOrEditComment } from './comment.mjs';
-import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderDeclinedComment, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { deleteComment, postOrEditComment } from './comment.mjs';
+import { autoRunName, buildSuggestPrompt, findDeclinedNote, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderDeclinedComment, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -146,14 +146,20 @@ async function post() {
 		return;
 	}
 	// One note per PR: a later "no" edits it, a later "yes" removes it.
-	const declined = comments.find(c => String(c?.body ?? '').includes(DECLINED_MARKER));
+	const declined = findDeclinedNote(comments);
 	if (process.env.DECLINED === 'true') {
 		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON) });
 		console.log(`[suggest] ${action} the declined note, comment ${id}`);
 		return;
 	}
+	// A note left behind is only stale; it must not cost the PR its run or tip.
 	if (declined) {
-		await deleteComment(token, declined.id);
+		try {
+			await deleteComment({ fetchImpl: fetch, token, repo: REPO, commentId: declined.id });
+			console.log(`[suggest] removed the earlier declined note, comment ${declined.id}`);
+		} catch (err) {
+			console.log(`[suggest] could not remove the earlier declined note, comment ${declined.id}: ${err}`);
+		}
 	}
 	// Anything wrong on the auto-run path falls back to the tip, so the PR still hears.
 	if (process.env.AUTO_RUN === 'true') {
@@ -166,14 +172,6 @@ async function post() {
 	}
 	const { id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, body: renderSuggestComment(mustEnv('REASON')) });
 	console.log(`[suggest] posted comment ${id}`);
-}
-
-async function deleteComment(token, id) {
-	const res = await fetch(`${API}/repos/${REPO}/issues/comments/${id}`, {
-		method: 'DELETE',
-		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
-	});
-	console.log(`[suggest] ${res.ok ? 'removed' : `could not remove (${res.status})`} the earlier declined note, comment ${id}`);
 }
 
 /**
