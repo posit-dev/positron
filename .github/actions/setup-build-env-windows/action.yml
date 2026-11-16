@@ -3,7 +3,7 @@ description: "Restores build caches, installs the VS 2022 C++ build tools, insta
 
 # Windows counterpart of setup-build-env, shared by every job that builds
 # Positron from source on Windows (test-e2e-windows-run.yml,
-# test-ext-host-windows.yml, extensions-check-nightly.yml). It stops before
+# test-ext-host-windows.yml). It stops before
 # compiling so each workflow keeps its compile step, and its timing, as a step
 # of its own.
 #

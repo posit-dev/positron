@@ -113,7 +113,7 @@ function buildIssueBody(id: string, version: string, pinnedVersion: string, bloc
 		'',
 		'Do not pin this version in `product.json`. Bootstrap extensions install from a bundled VSIX, which never reaches the gallery-side check added in posit-dev/positron#15474, so a pinned version with an unsatisfiable dependency ships to every user and never activates. Follow up with the extension maintainers, or ship a built-in that satisfies the dependency.',
 		'',
-		'Opened automatically by the `dependency-check` job in `.github/workflows/extensions-check-nightly.yml`.'
+		'Opened automatically by the `dependency-check` job in posit-dev/positron-builds, `.github/workflows/extensions-check-nightly.yml`.'
 	].join('\n');
 }
 
