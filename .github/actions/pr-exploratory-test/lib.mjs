@@ -508,7 +508,9 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 		return comment(['Off exploring, back soon\u2026', run]);
 	}
 	if (state === 'declined') {
-		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
+		// Nobody asked for an auto-run, so say how to get one: a focus skips the check.
+		const override = autoRun ? ['', 'If that is wrong, comment `/explore <what to test>` to run it anyway. Naming what to test skips this check.'] : [];
+		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run, ...override]);
 	}
 	if (state === 'refused') {
 		return comment([`Not run: ${reason || 'the pre-flight check refused this run.'}`, run]);

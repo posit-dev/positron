@@ -78,8 +78,9 @@ Every run, however it started, then goes through the worthiness check
 (`gate.mjs`, run in positron-builds by `explore-gate.yml`) unless a focus was
 given. It is lenient the other way: it
 declines only a change it can name a blocker for. On a `/explore` run it says
-why in the PR. An automatic run posts nothing until the check passes, so a
-decline leaves the PR untouched.
+why in the PR. An automatic run posts nothing until the check passes. If the
+check declines it, the PR gets the same "Not run" comment, with how to run it
+anyway: comment `/explore <what to test>`, since a focus skips the check.
 
 So a PR gets at most one tip or one automatic run, ever. Commenting
 `/explore` runs it again after new pushes. A plain `/explore` while a plain

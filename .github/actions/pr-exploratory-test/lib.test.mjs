@@ -416,6 +416,13 @@ test('renderPrComment says a declined run was not run, and why', () => {
 	assert.doesNotMatch(body, /failed before/);
 });
 
+test('renderPrComment tells an auto-run author how to run a declined change anyway', () => {
+	const body = renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'needs ggsql', autoRun: true });
+	assert.match(body, /^If that is wrong, comment `\/explore <what to test>` to run it anyway\./m);
+	assert.match(body, /Started automatically/);
+	assert.doesNotMatch(renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'needs ggsql' }), /run it anyway/);
+});
+
 test('renderSummaryTarget names the branch and links the PR', () => {
 	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12'), 'PR [#12](https://github.com/o/r/pull/12) · `fix/x`\n\n');
 });
