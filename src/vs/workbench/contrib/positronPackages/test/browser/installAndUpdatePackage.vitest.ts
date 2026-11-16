@@ -5,10 +5,12 @@
 
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProgress, IProgressService, IProgressStep, Progress } from '../../../../../platform/progress/common/progress.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
@@ -20,13 +22,15 @@ const { installPackageMock, updatePackageMock } = vi.hoisted(() => ({
 	installPackageMock: vi.fn(),
 	updatePackageMock: vi.fn(),
 }));
-vi.mock('../../browser/positronPackagesQuickPick.js', () => ({
+vi.mock('../../browser/positronPackagesQuickPick.js', async (importOriginal) => ({
 	installPackage: installPackageMock,
 	updatePackage: updatePackageMock,
 	uninstallPackage: vi.fn(),
+	// Real, so the package list a picker is handed can be checked.
+	environmentPackageCandidates: (await importOriginal<typeof import('../../browser/positronPackagesQuickPick.js')>()).environmentPackageCandidates,
 }));
 
-const { InstallPackageAction, UpdatePackageAction } = await import('../../browser/positronPackages.contribution.js');
+const { InstallPackageAction, UninstallPackageAction, UpdatePackageAction } = await import('../../browser/positronPackages.contribution.js');
 
 describe('packages install and update commands', () => {
 	const ctx = createTestContainer()
@@ -39,6 +43,7 @@ describe('packages install and update commands', () => {
 	let resolveLatestVersion: ReturnType<typeof vi.fn<IPositronPackagesService['resolveLatestVersion']>>;
 	let error: ReturnType<typeof vi.fn<INotificationService['error']>>;
 	let prompt: ReturnType<typeof vi.fn<INotificationService['prompt']>>;
+	let info: ReturnType<typeof vi.fn<INotificationService['info']>>;
 
 	/**
 	 * What the session reports as installed. An unversioned install reads the
@@ -63,14 +68,14 @@ describe('packages install and update commands', () => {
 			searchPackageVersions,
 			resolveLatestVersion,
 			searchPackages: vi.fn().mockResolvedValue([]),
-			refreshPackages: vi.fn().mockResolvedValue([]),
+			refreshPackages: vi.fn(async () => installedPackages),
 			// A getter so a test can change what is installed after the stub is
 			// built, which is how the post-install read-back is exercised.
 			get activePackagesInstance(): IPositronPackagesInstance {
 				return stubInterface<IPositronPackagesInstance>({ packages: installedPackages });
 			},
 		}));
-		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, prompt }));
+		ctx.instantiationService.stub(INotificationService, stubInterface<INotificationService>({ error, prompt, info }));
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			restartSession: vi.fn(),
 		}));
@@ -107,6 +112,7 @@ describe('packages install and update commands', () => {
 		installedPackages = [installedPackage('dplyr', '1.9')];
 		error = vi.fn<INotificationService['error']>();
 		prompt = vi.fn<INotificationService['prompt']>();
+		info = vi.fn<INotificationService['info']>();
 		installPackageMock.mockReset().mockResolvedValue(undefined);
 		updatePackageMock.mockReset().mockResolvedValue(undefined);
 		stubServices(stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }));
@@ -227,6 +233,25 @@ describe('packages install and update commands', () => {
 			expect(prompt).toHaveBeenCalled();
 		});
 
+		it('reports the environment copy it installed when a bundled copy shadows it', async () => {
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }];
+
+			const result = await runInstall('tornado', 'latest');
+
+			expect(result).toEqual({ installed: true, name: 'tornado', version: '6.4.0' });
+		});
+
+		it('says the console keeps importing the bundled copy instead of suggesting a restart', async () => {
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }];
+
+			await runInstall('tornado', '6.4.0');
+
+			// A restart would not change what the console imports, so the user
+			// is told why the install has no effect in the console.
+			expect(prompt).not.toHaveBeenCalled();
+			expect(info).toHaveBeenCalledWith('Package "tornado" was installed in your environment. The console still imports the copy bundled with Positron.');
+		});
+
 		it('does not suggest a restart when there is no active session', async () => {
 			stubServices(undefined);
 
@@ -302,6 +327,84 @@ describe('packages install and update commands', () => {
 		});
 	});
 
+	describe('UninstallPackageAction', () => {
+		let uninstallPackages: ReturnType<typeof vi.fn<IPositronPackagesService['uninstallPackages']>>;
+		let confirm: ReturnType<typeof vi.fn<IDialogService['confirm']>>;
+
+		/**
+		 * Wires the uninstall command's services. `cached` is the list the pane
+		 * last showed; `fresh` is what a refresh reports now.
+		 */
+		function stubUninstall(cached: ILanguageRuntimePackage[], fresh: ILanguageRuntimePackage[]): void {
+			uninstallPackages = vi.fn<IPositronPackagesService['uninstallPackages']>().mockResolvedValue(undefined);
+			confirm = vi.fn<IDialogService['confirm']>().mockResolvedValue({ confirmed: true });
+			ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
+				activeSession: stubInterface<ILanguageRuntimeSession>({
+					sessionId: 'session-1',
+					runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
+				}),
+				uninstallPackages,
+				refreshPackages: vi.fn().mockResolvedValue(fresh),
+				get activePackagesInstance(): IPositronPackagesInstance {
+					return stubInterface<IPositronPackagesInstance>({ packages: cached });
+				},
+			}));
+			ctx.instantiationService.stub(IDialogService, stubInterface<IDialogService>({ confirm }));
+		}
+
+		async function runUninstall(name: string) {
+			const action = new UninstallPackageAction();
+			return ctx.instantiationService.invokeFunction(accessor => action.run(accessor, name));
+		}
+
+		it('reports a bundled-only package as blocked without asking to confirm or uninstalling', async () => {
+			const tornado = { ...installedPackage('tornado', '6.5.7'), bundled: true };
+			stubUninstall([tornado], [tornado]);
+
+			await runUninstall('tornado');
+
+			expect(error).toHaveBeenCalledWith(expect.stringMatching(/^tornado is bundled with Positron/));
+			expect(confirm).not.toHaveBeenCalled();
+			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('checks a fresh list before asking to confirm when the pane has never loaded one', async () => {
+			// Nothing has loaded the list yet, so the cached list says nothing
+			// about the package.
+			stubUninstall([], [{ ...installedPackage('tornado', '6.5.7'), bundled: true }]);
+
+			await runUninstall('tornado');
+
+			expect(error).toHaveBeenCalledWith(expect.stringMatching(/^tornado is bundled with Positron/));
+			expect(confirm).not.toHaveBeenCalled();
+		});
+
+		it('uninstalls a package that was bundled only when listed but now has an environment copy', async () => {
+			// An environment copy was installed from a terminal since the pane
+			// last refreshed, so the cached list is out of date.
+			stubUninstall(
+				[{ ...installedPackage('tornado', '6.5.7'), bundled: true }],
+				[{ ...installedPackage('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }],
+			);
+
+			await runUninstall('tornado');
+
+			expect(error).not.toHaveBeenCalled();
+			expect(confirm).toHaveBeenCalled();
+			expect(uninstallPackages).toHaveBeenCalledWith(['tornado'], expect.anything());
+		});
+		it('says the environment copy was removed and the console keeps the bundled copy', async () => {
+			// After the uninstall the list shows tornado as bundled only.
+			const tornado = { ...installedPackage('tornado', '6.5.7'), bundled: true };
+			stubUninstall([tornado], [{ ...tornado, environmentVersion: '6.4.0' }]);
+
+			await runUninstall('tornado');
+
+			expect(info).toHaveBeenCalledWith('Package "tornado" was removed from your environment. The console still imports the copy bundled with Positron.');
+			expect(prompt).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('UpdatePackageAction', () => {
 		it('updates to an exact version without opening a picker or looking up versions', async () => {
 			const result = await runUpdate('dplyr', '1.1.4');
@@ -370,6 +473,21 @@ describe('packages install and update commands', () => {
 				updated: false,
 				name: 'dplyr',
 				message: `No newer version of 'dplyr' is available to this session.`,
+			});
+			expect(updatePackages).not.toHaveBeenCalled();
+			expect(error).not.toHaveBeenCalled();
+		});
+
+		it('says a bundled-only package has no environment copy, rather than no newer version', async () => {
+			resolveLatestVersion.mockResolvedValue(undefined);
+			installedPackages = [{ ...installedPackage('tornado', '6.5.7'), bundled: true }];
+
+			const result = await runUpdate('tornado', 'latest');
+
+			expect(result).toEqual({
+				updated: false,
+				name: 'tornado',
+				message: `'tornado' is bundled with Positron, and your environment has no copy of it to update.`,
 			});
 			expect(updatePackages).not.toHaveBeenCalled();
 			expect(error).not.toHaveBeenCalled();
@@ -448,6 +566,19 @@ describe('packages install and update commands', () => {
 
 			expect(updatePackages).not.toHaveBeenCalled();
 			expect(results.every(r => r.updated === false)).toBe(true);
+		});
+
+		it('does not offer a bundled-only package in the update picker', async () => {
+			installedPackages = [
+				installedPackage('dplyr', '1.9'),
+				{ ...installedPackage('tornado', '6.5.7'), bundled: true },
+				{ ...installedPackage('six', '1.17.0'), bundled: true, environmentVersion: '1.16.0' },
+			];
+
+			await runUpdate();
+
+			const performSearch = updatePackageMock.mock.calls[0][1] as (q: string) => Promise<{ name: string }[]>;
+			expect(await performSearch('')).toEqual([{ name: 'dplyr' }, { name: 'six' }]);
 		});
 
 		it('returns the outcome of an update chosen in the quick-pick', async () => {

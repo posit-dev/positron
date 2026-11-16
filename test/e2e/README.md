@@ -285,7 +285,7 @@ New tests are not complete until they run successfully in Github Actions. The te
 
 There are three lanes:
 
-- **PR lane.** The [Test: PR](https://github.com/posit-dev/positron/actions/workflows/pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the manual lane.
+- **PR lane.** The [Test: PR (dispatch)](https://github.com/posit-dev/positron/actions/workflows/test-pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the manual lane.
 - **Merge lane.** Each push to `main`, `prerelease/**`, or `release/**` runs the full suite with credentials.
 - **Manual lane.** Posit staff can run the tests against a branch, tag, commit, or PR.
 
@@ -294,7 +294,7 @@ There are three lanes:
 Use the manual lane to run your new tests against a branch before merge, or to run more tests than the PR lane selects. You need access to `posit-dev/positron-builds`.
 
 ```shell
-gh workflow run test-positron-ref.yml --repo posit-dev/positron-builds --ref pr-lane \
+gh workflow run test-manual.yml --repo posit-dev/positron-builds --ref pr-lane \
   -f positron_ref=<branch, tag, SHA, or refs/pull/<n>/merge> \
   -f grep='@:critical' \
   -f run_unit=false -f run_ext_host=false

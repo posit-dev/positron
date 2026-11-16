@@ -15,6 +15,7 @@ import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickin
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { getDataConnectionCode, getDataConnectionLineage, getDataConnectionSchema, getDataConnections } from './positronDataConnectionsCommands.js';
+import { showHiddenDataConnections } from './showHiddenDataConnections.js';
 
 // The Command Palette category these actions appear under.
 const CATEGORY = localize2('positron.dataConnections.category', 'Data Connections');
@@ -347,7 +348,33 @@ export class ShowDataConnectionLineageAction extends Action2 {
 	}
 }
 
+export const SHOW_HIDDEN_DATA_CONNECTIONS_COMMAND_ID = 'positronDataConnections.showHiddenConnections';
+
+/**
+ * Command Palette entry that shows hidden detected connections again. Not an inspect action: it
+ * lives here to reuse CATEGORY and PRECONDITION.
+ */
+class ShowHiddenDataConnectionsAction extends Action2 {
+	constructor() {
+		super({
+			id: SHOW_HIDDEN_DATA_CONNECTIONS_COMMAND_ID,
+			title: localize2('positron.dataConnections.showHiddenConnections', "Show Hidden Connections..."),
+			category: CATEGORY,
+			f1: true,
+			precondition: PRECONDITION,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		await showHiddenDataConnections(
+			accessor.get(IPositronDataConnectionsService),
+			accessor.get(IQuickInputService),
+			accessor.get(INotificationService));
+	}
+}
+
 registerAction2(ShowDataConnectionsAction);
 registerAction2(ShowDataConnectionCodeAction);
 registerAction2(ShowDataConnectionSchemaAction);
 registerAction2(ShowDataConnectionLineageAction);
+registerAction2(ShowHiddenDataConnectionsAction);

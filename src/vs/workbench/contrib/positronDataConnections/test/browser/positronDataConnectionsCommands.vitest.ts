@@ -13,6 +13,12 @@ import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionLineageRes
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionLineage, getDataConnectionSchema, getDataConnections, revealDataConnectionNode } from '../../browser/positronDataConnectionsCommands.js';
+import { ConnectionsClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeConnectionsClient.js';
+import { RuntimeClientState, RuntimeClientType } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
+import { RuntimeDataConnectionDriver } from '../../../../services/positronConnections/browser/runtimeDataConnectionDriver.js';
+import { discoveredProfileId } from '../../../../services/positronDataConnections/browser/positronDataConnectionsService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -1007,5 +1013,100 @@ describe('revealDataConnectionNode', () => {
 		await done;
 
 		expect(revealNode).not.toHaveBeenCalled();
+	});
+});
+
+// A connection an R session opened, as the pane and Assistant see it: held by the real runtime
+// driver, whose comm metadata records the user's literal connect call, password included.
+describe('runtime rows', () => {
+	const ctx = createLightTestContainer().build();
+
+	// What the package that opened the connection recorded as its code. Must never reach Assistant.
+	const SECRET_CODE = 'con <- DBI::dbConnect(odbc::odbc(), dsn = "warehouse", pwd = "secret")';
+
+	async function createRuntimeRow() {
+		const driver = ctx.disposables.add(new RuntimeDataConnectionDriver('r', () => { }));
+		const testClient = ctx.disposables.add(new TestRuntimeClientInstance('c1', RuntimeClientType.Connection));
+		testClient.setClientState(RuntimeClientState.Connected);
+		const client = ctx.disposables.add(new ConnectionsClientInstance(testClient));
+		driver.addConnection({
+			sessionId: 's1',
+			sessionName: 'R 4.5.1',
+			client,
+			metadata: { name: 'warehouse', language_id: 'r', host: 'db.example.com', code: SECRET_CODE },
+		});
+
+		// The ephemeral profile the service publishes for the driver's discovery.
+		const [discovery] = await driver.discoverConnections();
+		const profile: IDataConnectionProfile = {
+			id: discoveredProfileId(driver.id, discovery.id),
+			driverMetadata: driver.metadata,
+			connectionName: discovery.name,
+			mechanismId: discovery.mechanismId,
+			parameterValues: discovery.parameterValues,
+			description: discovery.description,
+			discovered: true,
+		};
+		return { driver, profile };
+	}
+
+	function stubServices(dataConnectionsService: IPositronDataConnectionsService) {
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': true,
+		}));
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, dataConnectionsService);
+		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			activeSessions: [stubInterface<ILanguageRuntimeSession>({
+				sessionId: 's1',
+				dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'R 4.5.1' }),
+			})],
+		}));
+	}
+
+	// Decision 6: what the user's session is connected to is part of what Assistant should see.
+	// Decision 7: but the row offers no code, so its languages field is present and empty.
+	it('lists a runtime row for Assistant', async () => {
+		const { driver, profile } = await createRuntimeRow();
+		stubServices(createDataConnectionsService({
+			profiles: [],
+			discoveredProfiles: [profile],
+			driver,
+			connectedProfileIds: [profile.id],
+		}));
+
+		const result = await getDataConnections(ctx.instantiationService);
+
+		expect(result).toEqual([{
+			profileId: 'discovered:runtime-r:s1:c1',
+			connected: true,
+			summary: 'name=warehouse | driver=runtime-r | mechanism=live | discovered=true | description=R 4.5.1 \u00B7 db.example.com | languages= | parameters=connectionId=s1:c1',
+		}]);
+	});
+
+	// Runtime rows are always live, so one next to a live saved connection leaves an unnamed call
+	// with two connections the user has open. Both are offered rather than one picked.
+	it('an unnamed call is ambiguous with a runtime row and a saved connection both live', async () => {
+		const { profile } = await createRuntimeRow();
+		stubServices(createInstancesService([
+			createInstance('conn-a', 1, ['employees']),
+			createInstance(profile.id, -1, ['mtcars']),
+		], { profiles: [createProfile({ id: 'conn-a' })], discoveredProfiles: [profile] }));
+
+		expect(await getDataConnectionSchema(ctx.instantiationService)).toEqual({
+			connected: false,
+			reason: 'ambiguous',
+			candidateProfileIds: ['conn-a', 'discovered:runtime-r:s1:c1'],
+		});
+	});
+
+	it('getConnectionCode reports no code for a runtime row', async () => {
+		const { driver, profile } = await createRuntimeRow();
+		stubServices(createDataConnectionsService({ profiles: [], discoveredProfiles: [profile], driver }));
+
+		const result = await getDataConnectionCode(ctx.instantiationService, { profileId: profile.id, languageId: 'r' });
+
+		expect(JSON.stringify(result)).not.toContain('secret');
+		expect(result).toMatchObject({ available: false, reason: 'runtime-connection', sessionName: 'R 4.5.1' });
 	});
 });

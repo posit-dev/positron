@@ -31,14 +31,15 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { withDelayedNotificationProgress } from '../../../common/positron/positronNotificationUtils.js';
 import { PackageEditor } from './packageEditor.js';
 import { PackageEditorInput } from './packageEditorInput.js';
-import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, IRuntimeSessionService, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING } from './packageVulnerabilityLookup.js';
-import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
-import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { PACKAGES_CAN_RUN_ACTION, PACKAGES_ENABLED_KEY, PACKAGES_ENABLED_LEGACY_KEY, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ENABLED, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
+import { environmentPackageCandidates, installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { bundledUninstallMessage } from './positronPackagesInstance.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -269,8 +270,19 @@ async function resolveLatestForUpdate(
 	}
 
 	if (!latest) {
-		// Not an error, and deliberately not notified as one: the usual reason is
-		// that the installed version is already the newest available.
+		// Not an error, and deliberately not notified as one. The lookup just
+		// reloaded the list, so it says whether the package is bundled only:
+		// then there is no environment copy for a newer version to replace.
+		const listed = service.activePackagesInstance?.packages
+			.find((pkg) => pkg.name.toLowerCase() === name.toLowerCase());
+		if (listed && isBundledOnly(listed)) {
+			return {
+				ok: false,
+				message: nls.localize('positronPackages.updateBundledOnly', "'{0}' is bundled with Positron, and your environment has no copy of it to update.", name)
+			};
+		}
+		// Otherwise the usual reason is that the installed version is already
+		// the newest available.
 		return {
 			ok: false,
 			message: nls.localize('positronPackages.noNewerVersion', "No newer version of '{0}' is available to this session.", name)
@@ -280,13 +292,29 @@ async function resolveLatestForUpdate(
 }
 
 /**
+ * Formats package names for a notification: each one quoted, at most three
+ * shown, and a count of the rest.
+ * @param packageNames The package names.
+ */
+function formatPackageList(packageNames: string[]): string {
+	const visiblePackages = packageNames.slice(0, 3).map(name => `"${name}"`);
+	if (packageNames.length > 3) {
+		const remainingCount = packageNames.length - 3;
+		visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
+	}
+	return visiblePackages.join(', ');
+}
+
+/**
  * Shows a notification suggesting the user restart their session after a package operation.
+ * A bundled package gets a note instead: a restart doesn't change what the console imports
+ * for it, because the bundled copy still comes first on the import path.
  *
  * @param notifications The notification service
  * @param runtimeSessionService The runtime session service
  * @param commandService The command service
  * @param packagesService The packages service
- * @param operation The operation that was performed (e.g., 'installed', 'uninstalled', 'updated')
+ * @param operation The operation that was performed
  * @param packageNames The names of the packages that were operated on
  */
 function showRestartSessionNotification(
@@ -294,7 +322,7 @@ function showRestartSessionNotification(
 	runtimeSessionService: IRuntimeSessionService,
 	commandService: ICommandService,
 	packagesService: IPositronPackagesService,
-	operation: string,
+	operation: 'installed' | 'uninstalled' | 'updated',
 	packageNames: string[]
 ): void {
 	const session = packagesService.activeSession;
@@ -302,29 +330,67 @@ function showRestartSessionNotification(
 		return;
 	}
 
-	const packageList = packageNames.length === 1
-		? `"${packageNames[0]}"`
-		: (() => {
-			const visiblePackages = packageNames.slice(0, 3).map(name => `"${name}"`);
-			if (packageNames.length > 3) {
-				const remainingCount = packageNames.length - 3;
-				visiblePackages.push(nls.localize('positronPackages.morePackages', "and {0} more", remainingCount));
-			}
-			return visiblePackages.join(', ');
-		})();
+	// The list was refreshed before this runs, so it describes the result.
+	const installed = packagesService.activePackagesInstance?.packages ?? [];
+	const isBundled = (name: string) =>
+		installed.some((pkg) => pkg.bundled && pkg.name.toLowerCase() === name.toLowerCase());
+	const bundledNames = packageNames.filter(isBundled);
+	const restartNames = packageNames.filter((name) => !isBundled(name));
 
-	const message = packageNames.length === 1
+	const operationText = operation === 'installed'
+		? nls.localize('positronPackages.operationInstalled', 'installed')
+		: operation === 'uninstalled'
+			? nls.localize('positronPackages.operationUninstalled', 'uninstalled')
+			: nls.localize('positronPackages.operationUpdated', 'updated');
+
+	if (bundledNames.length > 0) {
+		const bundledList = formatPackageList(bundledNames);
+		// Uninstall has its own sentence: the copy leaves the environment,
+		// which "uninstalled in your environment" does not say naturally.
+		const bundledMessage = operation === 'uninstalled'
+			? (bundledNames.length === 1
+				? nls.localize(
+					'positronPackages.bundledUninstalledSingular',
+					'Package {0} was removed from your environment. The console still imports the copy bundled with Positron.',
+					bundledList
+				)
+				: nls.localize(
+					'positronPackages.bundledUninstalledPlural',
+					'Packages {0} were removed from your environment. The console still imports the copies bundled with Positron.',
+					bundledList
+				))
+			: (bundledNames.length === 1
+				? nls.localize(
+					'positronPackages.bundledOperationSingular',
+					'Package {0} was {1} in your environment. The console still imports the copy bundled with Positron.',
+					bundledList,
+					operationText
+				)
+				: nls.localize(
+					'positronPackages.bundledOperationPlural',
+					'Packages {0} were {1} in your environment. The console still imports the copies bundled with Positron.',
+					bundledList,
+					operationText
+				));
+		notifications.info(bundledMessage);
+	}
+
+	if (restartNames.length === 0) {
+		return;
+	}
+
+	const message = restartNames.length === 1
 		? nls.localize(
 			'positronPackages.restartSessionSingular',
 			'Package {0} was {1}. A session restart may be required for changes to take effect.',
-			packageList,
-			operation
+			formatPackageList(restartNames),
+			operationText
 		)
 		: nls.localize(
 			'positronPackages.restartSessionPlural',
 			'Packages {0} were {1}. A session restart may be required for changes to take effect.',
-			packageList,
-			operation
+			formatPackageList(restartNames),
+			operationText
 		);
 
 	notifications.prompt(
@@ -459,15 +525,18 @@ export class InstallPackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationInstalled', 'installed'),
+							'installed',
 							[pkg]
 						);
 						// With no version requested, the package manager chose one.
 						// Read back what it actually installed rather than
 						// predicting it: installPackages refreshes the list before
 						// it resolves, so the version is already there.
-						const installedVersion = version ?? service.activePackagesInstance?.packages
-							.find((installed) => installed.name.toLowerCase() === pkg.toLowerCase())?.version;
+						// For a bundled package, the install produced the
+						// environment's copy, not the bundled one the console imports.
+						const installedPackage = service.activePackagesInstance?.packages
+							.find((installed) => installed.name.toLowerCase() === pkg.toLowerCase());
+						const installedVersion = version ?? installedPackage?.environmentVersion ?? installedPackage?.version;
 						outcome = { installed: true, name: pkg, version: installedVersion };
 					} catch (e) {
 						if (isCancellationError(e) || cts.token.isCancellationRequested) {
@@ -520,7 +589,7 @@ export class InstallPackageAction extends Action2 {
 	}
 }
 
-class UninstallPackageAction extends Action2 {
+export class UninstallPackageAction extends Action2 {
 	constructor() {
 		super({
 			id: PACKAGES_UNINSTALL_COMMAND_ID,
@@ -542,10 +611,7 @@ class UninstallPackageAction extends Action2 {
 		try {
 			const performSearch = async () => {
 				const packages = await service.refreshPackages(cts.token);
-				return packages
-					.map((x) => ({
-						name: x.name
-					}));
+				return environmentPackageCandidates(packages);
 			};
 
 			const performUninstall = async (pkg: string): Promise<void> => {
@@ -557,7 +623,7 @@ class UninstallPackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUninstalled', 'uninstalled'),
+							'uninstalled',
 							[pkg]
 						);
 					} catch (e) {
@@ -568,6 +634,22 @@ class UninstallPackageAction extends Action2 {
 
 			const argPackage = args.at(0) as string | undefined;
 			if (argPackage) {
+				// Don't ask to confirm an uninstall that will be rejected. The
+				// instance's guard stays the authority; this only saves the prompt.
+				// The list is checked fresh when nothing has loaded it yet, or when
+				// it lists the package as bundled only: an environment copy may
+				// have been installed from a terminal since the last refresh.
+				const find = (packages: readonly ILanguageRuntimePackage[]) =>
+					packages.find((pkg) => pkg.name.toLowerCase() === argPackage.toLowerCase());
+				const cached = service.activePackagesInstance?.packages ?? [];
+				const listed = find(cached);
+				if (cached.length === 0 || (listed && isBundledOnly(listed))) {
+					const fresh = find(await service.refreshPackages(cts.token));
+					if (fresh && isBundledOnly(fresh)) {
+						notifications.error(bundledUninstallMessage([fresh.name], service.activeSession?.runtimeMetadata.languageId ?? ''));
+						return;
+					}
+				}
 				const res = await dialogService.confirm({
 					message: nls.localize('positronPackages.confirmUninstallPackage', "Are you sure you want to uninstall the package '{0}'?", argPackage)
 				});
@@ -633,10 +715,7 @@ export class UpdatePackageAction extends Action2 {
 		try {
 			const performSearch = async () => {
 				const packages = await service.refreshPackages(cts.token);
-				return packages
-					.map((x) => ({
-						name: x.name
-					}));
+				return environmentPackageCandidates(packages);
 			};
 
 			const performSearchVersions = async (pkg: string) => {
@@ -656,7 +735,7 @@ export class UpdatePackageAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUpdated', 'updated'),
+							'updated',
 							[pkg]
 						);
 						outcome = { updated: true, name: pkg, version };
@@ -760,7 +839,7 @@ class UpdateAllPackagesAction extends Action2 {
 							runtimeSessionService,
 							commandService,
 							service,
-							nls.localize('positronPackages.operationUpdated', 'updated'),
+							'updated',
 							updated
 						);
 					}
@@ -784,7 +863,7 @@ class UpdateSelectedPackageAction extends Action2 {
 			id: 'positronPackages.updateSelectedPackage',
 			title: nls.localize2('updatePackage', 'Update Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.negate()),
 			menu: {
 				id: MenuId.ViewTitle,
 				when: PACKAGES_VIEW_VISIBLE,
@@ -811,7 +890,7 @@ class UninstallSelectedPackageAction extends Action2 {
 			id: 'positronPackages.uninstallSelectedPackage',
 			title: nls.localize2('uninstallPackage', 'Uninstall Package'),
 			category: PACKAGES_CATEGORY,
-			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION),
+			precondition: ContextKeyExpr.and(POSITRON_PACKAGES_ENABLED, PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.negate()),
 			menu: {
 				id: MenuId.ViewTitle,
 				when: PACKAGES_VIEW_VISIBLE,

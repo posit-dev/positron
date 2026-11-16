@@ -1533,6 +1533,20 @@ declare module 'positron' {
 
 		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 		sourceRepository?: string;
+
+		/**
+		 * Whether the copy the session imports ships with Positron itself (e.g.
+		 * bundled ipykernel dependencies on the kernel's search path) rather than
+		 * being installed in the user's environment.
+		 */
+		bundled?: boolean;
+
+		/**
+		 * For a bundled package, the version also installed in the user's
+		 * environment, which the bundled copy shadows. Undefined when the
+		 * environment does not have the package.
+		 */
+		environmentVersion?: string;
 	}
 
 	/**

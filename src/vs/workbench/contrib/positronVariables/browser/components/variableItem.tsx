@@ -144,7 +144,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
-	const hasViewer = canViewVariableItem(props.variableItem, services.configurationService);
+	const hasViewer = canViewVariableItem(props.variableItem);
 
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer

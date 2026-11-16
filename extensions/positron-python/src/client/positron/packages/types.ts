@@ -21,6 +21,12 @@ export interface PackageSession {
     metadata: { sessionId: string };
     /** Call an RPC method on the session */
     callMethod(method: string, ...args: unknown[]): Thenable<unknown>;
+    /**
+     * Positron's bundled ipykernel paths on the kernel's import path, or
+     * undefined when the session does not use the bundle. Read on every access:
+     * the session replaces the bundle when the kernel starts.
+     */
+    readonly bundledIpykernelPaths?: readonly string[];
 }
 
 /**

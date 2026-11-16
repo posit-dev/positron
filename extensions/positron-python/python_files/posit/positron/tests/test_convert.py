@@ -26,6 +26,7 @@ from .test_data_explorer import (
     _between_filter,
     _compare_filter,
     _filter,
+    _global_search_filter,
     _not_between_filter,
     _search_filter,
 )
@@ -332,12 +333,27 @@ def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
         )
 
 
+def test_convert_pandas_skips_global_search(dxf: DataExplorerConvertFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+    filters = [_compare_filter(schema[0], ">", 2), _global_search_filter("foo")]
+    dxf.check_conversion_case(
+        test_df, test_df[test_df["a"] > 2], row_filters=filters, code_syntax_name="pandas"
+    )
+    dxf.check_conversion_case(
+        test_df,
+        test_df,
+        row_filters=[_global_search_filter("foo")],
+        code_syntax_name="pandas",
+    )
+
+
 def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     test_df = pd.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "date": pd.date_range("2000-01-01", periods=5, tz="America/New_York"),
         }
     )
     dxf.register_table("dtz", test_df)
@@ -658,13 +674,22 @@ def test_convert_polars_filter_compare(dxf: DataExplorerConvertFixture):
         )
 
 
+def test_convert_polars_skips_global_search(dxf: DataExplorerConvertFixture):
+    test_df = SIMPLE_POLARS_DF
+    schema = dxf.get_schema("simple")
+    filters = [_compare_filter(schema[0], ">", 2), _global_search_filter("foo")]
+    dxf.check_conversion_case(
+        test_df, test_df.filter(pl.col("a") > 2), row_filters=filters, code_syntax_name="polars"
+    )
+
+
 def test_convert_polars_filter_datetimetz(dxf: DataExplorerConvertFixture):
     test_df = pl.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern").to_list(),
+            "date": pd.date_range("2000-01-01", periods=5, tz="America/New_York").to_list(),
         }
     )
-    tz = pytz.timezone("US/Eastern")
+    tz = pytz.timezone("America/New_York")
 
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")

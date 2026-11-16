@@ -268,7 +268,7 @@ test('renderPrComment counts the findings the page shows, not the ones it lists 
 });
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled', 'job-timeout', 'scan-failed']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'refused', 'outdated', 'cancelled', 'job-timeout', 'scan-failed']) {
 		const body = renderPrComment({ state, report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -299,6 +299,11 @@ test('renderPrComment running state names the head and links the run', () => {
 test('renderPrComment on a cancelled run says it was cancelled', () => {
 	const body = renderPrComment({ state: 'cancelled', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment on a refused run says why', () => {
+	const body = renderPrComment({ state: 'refused', runUrl: RUN_URL, headSha: SHA, reason: 'PR #1 has new commits.' });
+	assert.match(body, /^Not run: PR #1 has new commits\.$/m);
 });
 
 test('renderPrComment on an outdated branch says why and what to do', () => {

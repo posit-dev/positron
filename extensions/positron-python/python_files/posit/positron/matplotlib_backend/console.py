@@ -21,14 +21,13 @@ import hashlib
 import inspect
 import io
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from ..execute_request import PositronExecuteRequest
 from .backend import Backend
 from .registry import registry
 
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..plot_comm import PlotSize
+    from ..plots import Plot
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,11 @@ logger = logging.getLogger(__name__)
 # High-level libraries that build on matplotlib. A figure produced by one of these is
 # attributed to that library (used for the plot's display name and, for seaborn,
 # detached after each cell; see `detach_library_figures`).
-_LIBRARY_MODULE_ROOTS = ("seaborn", "plotnine")
+_LIBRARY_MODULE_ROOTS = ("seaborn", "plotnine", "holoviews")
+
+# Kinds whose figures don't get a plot from this backend. HoloViews opens its own plot in the
+# Plots pane (see `patch/holoviews.py`), and also creates figures for `hv.save`.
+_NO_PLOT_KINDS = frozenset({"holoviews"})
 
 # Kinds whose figures are detached from matplotlib's global registry after each
 # interactive cell. Limited to seaborn: its axes-level functions (heatmap,
@@ -130,33 +134,11 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
-        from ..plot_comm import PlotOrigin, PlotRange
         from ..positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
 
         kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
-
-        # Get the execution context from the current shell message
-        parent = kernel.get_parent("shell")
-        header: dict[str, Any] = cast("dict[str, Any]", parent.get("header", {}))
-        content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
-        execution_id: str = header.get("msg_id", "")
-        code: str = content.get("code", "")
-
-        # Extract code_location from the positron metadata, if present
-        code_location = PositronExecuteRequest.from_message(parent).code_location
-        origin: PlotOrigin | None = None
-        if code_location is not None:
-            origin = PlotOrigin(
-                uri=code_location.uri,
-                range=PlotRange(
-                    start_line=code_location.range.start.line,
-                    start_character=code_location.range.start.character,
-                    end_line=code_location.range.end.line,
-                    end_character=code_location.range.end.character,
-                ),
-            )
 
         # Detect which plotting library was used. Stored so `detach_library_figures`
         # can decide whether this figure should be detached after each cell.
@@ -165,16 +147,11 @@ class FigureManagerPositron(FigureManagerBase):
 
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
-        self._plot = self._plots_service.create_plot(
-            canvas.render,
-            canvas.intrinsic_size,
-            kind,
-            execution_id,
-            code,
-            num,
-            self._on_close,
-            origin,
-        )
+        self._plot: Plot | None = None
+        if kind not in _NO_PLOT_KINDS:
+            self._plot = self._plots_service.create_plot(
+                canvas.render, canvas.intrinsic_size, kind, num, self._on_close
+            )
 
     def _on_close(self) -> None:
         """
@@ -192,11 +169,12 @@ class FigureManagerPositron(FigureManagerBase):
 
     @property
     def closed(self) -> bool:
-        return self._plot.closed
+        return self._plot is not None and self._plot.closed
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
-        self._plot.show()
+        if self._plot is not None:
+            self._plot.show()
 
     def destroy(self) -> None:
         """Called by matplotlib after a figure is closed via `plt.close()`.
@@ -218,7 +196,8 @@ class FigureManagerPositron(FigureManagerBase):
 
         Called by the canvas when a figure is drawn and its contents have changed.
         """
-        self._plot.update()
+        if self._plot is not None:
+            self._plot.update()
 
 
 class FigureCanvasPositron(FigureCanvasAgg):

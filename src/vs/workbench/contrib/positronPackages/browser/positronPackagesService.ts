@@ -12,12 +12,12 @@ import { IContextKey, IContextKeyService } from '../../../../platform/contextkey
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PackageMetadataCache } from './packageMetadataCache.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
-import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
+import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
@@ -44,6 +44,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
 	private readonly _selectedPackageContextKey: IContextKey<string>;
+	private readonly _selectedPackageBundledOnlyContextKey: IContextKey<boolean>;
 	private readonly _itemSizeContextKey: IContextKey<PackagesItemSize>;
 
 	// Disposables for tracking busy state of the active instance
@@ -96,6 +97,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
+		this._selectedPackageBundledOnlyContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
 
 		// Seed the item-size context key from persisted storage so the user's preferred
@@ -155,8 +157,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._activeInstanceDisposables.clear();
 		this._isBusyContextKey.set(false);
 
+		this._updateSelectedPackageBundledOnly();
+
 		// Set up busy state tracking for the new instance
 		if (instance) {
+			// A refresh can find (or lose) an environment copy of the selected package.
+			this._activeInstanceDisposables.add(instance.onDidRefreshPackagesInstance(() => {
+				this._updateSelectedPackageBundledOnly();
+			}));
+
 			// Track all loading states to determine if the instance is busy
 			let refreshLoading = false;
 			let installLoading = false;
@@ -222,6 +231,15 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	setSelectedPackage(packageName: string | undefined): void {
 		this._selectedPackageContextKey.set(packageName ?? '');
+		this._updateSelectedPackageBundledOnly();
+	}
+
+	private _updateSelectedPackageBundledOnly(): void {
+		const name = this.selectedPackage?.toLowerCase();
+		const selected = name === undefined
+			? undefined
+			: this._activeInstance?.packages.find((pkg) => pkg.name.toLowerCase() === name);
+		this._selectedPackageBundledOnlyContextKey.set(selected !== undefined && isBundledOnly(selected));
 	}
 
 	get itemSize(): PackagesItemSize {

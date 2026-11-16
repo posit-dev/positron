@@ -103,16 +103,16 @@ Draft the PR body as a markdown file in the working directory. Do not post it wi
 
 ### 9. Full suite run
 
-PR CI runs only the tagged e2e tests, without credentials. An upstream merge needs a full run as well. The tests run in the private repo `posit-dev/positron-builds`, through its manual lane (`test-positron-ref.yml`). After the branch is pushed and the PR is open, ask the user, then start it:
+PR CI runs only the tagged e2e tests, without credentials. An upstream merge needs a full run as well. The tests run in the private repo `posit-dev/positron-builds`, through its manual lane (`test-manual.yml`). After the branch is pushed and the PR is open, ask the user, then start it:
 
 ```bash
-gh workflow run test-positron-ref.yml --repo posit-dev/positron-builds --ref pr-lane \
+gh workflow run test-manual.yml --repo posit-dev/positron-builds --ref pr-lane \
   -f positron_ref="$(git branch --show-current)" \
   -f grep='' \
   -f run_e2e_web=true -f run_e2e_windows=true
 ```
 
-An empty `grep` runs every e2e test of each lane. The defaults also run the unit and extension-host suites, so this covers unit, extension host, and e2e on Ubuntu (Electron and Chromium) and Windows. `--ref pr-lane` is necessary because the branch is not on `main`; the run gets no credentials, so tests that need one skip. The manual lane has no Jupyter, Pyrefly, or Windows extension-host lane at this time. If step 1 found risk in those areas, say so in the PR. Get the run ID and URL with `gh run list --repo posit-dev/positron-builds --workflow test-positron-ref.yml --branch pr-lane --limit 5 --json databaseId,url,createdAt`, and put the URL in the PR description or a PR comment.
+An empty `grep` runs every e2e test of each lane. The defaults also run the unit and extension-host suites, so this covers unit, extension host, and e2e on Ubuntu (Electron and Chromium) and Windows. `--ref pr-lane` is necessary because the branch is not on `main`; the run gets no credentials, so tests that need one skip. The manual lane has no Jupyter, Pyrefly, or Windows extension-host lane at this time. If step 1 found risk in those areas, say so in the PR. Get the run ID and URL with `gh run list --repo posit-dev/positron-builds --workflow test-manual.yml --branch pr-lane --limit 5 --json databaseId,url,createdAt`, and put the URL in the PR description or a PR comment.
 
 The run is not a required PR check, so nothing blocks the merge if it fails. Watch it in the background (`gh run watch <id> --exit-status`; it takes tens of minutes) and report the result to the user. Do not call the PR ready to merge until the run passes, or until the user has triaged each failure (use the e2e-failure-analyzer skill) as unrelated or fixed.
 

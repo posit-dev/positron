@@ -67,10 +67,13 @@ about cost:
 3. **The judge** (`buildSuggestPrompt`). One model call with no tools reads
    the title, description and diff. It says yes only for a change a user can
    see or do with edge cases a reviewer reading the diff would miss, and no
-   when unsure. An error means no.
+   when unsure. An error means no. The call runs in posit-dev/positron-builds
+   (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
+   `suggest.ts`.
 
 Every run, however it started, then goes through the worthiness check
-(`gate.mjs`) unless a focus was given. It is lenient the other way: it
+(`gate.mjs`, run in positron-builds by `explore-gate.yml`) unless a focus was
+given. It is lenient the other way: it
 declines only a change it can name a blocker for. On a `/explore` run it says
 why in the PR. An automatic run posts nothing until the check passes, so a
 decline leaves the PR untouched.
@@ -147,7 +150,7 @@ Hovering or focusing a PR link shows a card with the PR's title, author, size
 and the first paragraph of its description, saved on each row (`prPreview`)
 when the rows are built, so the page makes no GitHub calls.
 
-`exploratory-outcomes.yml` does both every night and deploys the page to
+positron-builds' `explore-outcomes.yml` does both every night and deploys the page to
 Posit Connect with `outcomes-publish.mjs`. The content was made once with
 `CONNECT_API_KEY=<your key> node outcomes-publish.mjs create`, which prints
 its GUID; that went in the `EXPLORE_OUTCOMES_CONNECT_GUID` repo variable. Only
@@ -223,7 +226,7 @@ holds the text helpers and the ledger parser.
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |
-| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`, `exploratory-outcomes.yml` |
+| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`; in positron-builds, `explore-pr.yml`, `explore-gate.yml`, `explore-suggest.yml`, `explore-outcomes.yml` |
 
 Launching and driving the app belongs to drive-positron. See its
 [CONTRIBUTING.md](../drive-positron/CONTRIBUTING.md).

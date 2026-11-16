@@ -25,7 +25,7 @@ import { localize } from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { matchesSomeScheme, Schemas } from '../../../../../base/common/network.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, isBundledOnly } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -48,6 +48,9 @@ const positronUpdatePackage = localize(
 	'positronUpdatePackage',
 	'Update Package',
 );
+
+const positronBundled = localize('positronPackages.bundled', "Bundled");
+const positronBundledWithPositron = localize('positronPackages.bundledTooltip', "Bundled with Positron");
 
 // Row heights for each item size mode.
 const ROW_ITEM_HEIGHT = 26;
@@ -341,6 +344,9 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		anchor: { x: number; y: number } | HTMLElement
 	) => {
 		const { name, version, url } = pkg;
+		// Only Positron's bundle provides the package, so there is no
+		// environment copy to update or uninstall.
+		const canModify = !isBundledOnly(pkg);
 		// Validate the kernel-provided URL in core: only surface http(s) links so a malformed or
 		// non-web scheme (file:, javascript:, ...) coming from the runtime can never reach the
 		// opener.
@@ -390,7 +396,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					label: positronUpdatePackage,
 					tooltip: positronUpdatePackage,
 					class: undefined,
-					enabled: true,
+					enabled: canModify,
 					run: () => services.commandService.executeCommand('positronPackages.updatePackage', name)
 
 				},
@@ -399,7 +405,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					label: positronUninstallPackage,
 					tooltip: positronUninstallPackage,
 					class: undefined,
-					enabled: true,
+					enabled: canModify,
 					run: () => services.commandService.executeCommand('positronPackages.uninstallPackage', name)
 				}
 			],
@@ -412,7 +418,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached, outdated, description, url } = pkg;
+			const { name, displayName, version, latestVersion, attached, outdated, description, url, bundled } = pkg;
 			// Validate the kernel-provided URL in core: only surface http(s) links
 			// so a malformed or non-web scheme (file:, javascript:, ...) coming from
 			// the runtime can never reach the opener.
@@ -421,12 +427,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			// package is outdated *and* we know which version to advertise. The
 			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
 			// tooltip; without it we'd render "Update available: undefined".
-			const hasUpdate = outdated === true && !!latestVersion;
+			// A bundled-only package has no environment copy for outdated state
+			// to describe.
+			const hasUpdate = outdated === true && !!latestVersion && !isBundledOnly(pkg);
 			// Card mode advertises an update with a ~60px "Update" button on the description row,
 			// which is more width than a narrow pane can spare. Below the threshold it falls back
 			// to the compact arrow that row mode already uses; updating is still a right-click away.
 			const showUpdateButton = hasUpdate && itemSize === 'card' && !isNarrow;
 			const showUpdateIndicator = hasUpdate && !showUpdateButton;
+			// The row shows the bundled version the console imports, so an update
+			// for the environment's copy has to say which copy it acts on.
+			const updateTooltip = pkg.environmentVersion !== undefined
+				? localize('positronPackages.updateAvailableEnvironment', "Environment copy {0}, update available: {1}", pkg.environmentVersion, latestVersion)
+				: localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion);
 
 			// Vulnerability badge: rendered only when the runtime reported
 			// advisories for the installed version and the feature is enabled.
@@ -528,11 +541,23 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						<div className='packages-list-item-header'>
 							<div className='packages-list-item-name'>{displayName}</div>
 							<div className='packages-list-item-version'>{version}</div>
+							{/* Hidden in a narrow pane, where it would squeeze the name; the
+								detail view still says the package is bundled. */}
+							{bundled && !isNarrow && (
+								<span
+									aria-label={positronBundledWithPositron}
+									className='packages-list-item-bundled'
+									role='img'
+									title={positronBundledWithPositron}
+								>
+									{positronBundled}
+								</span>
+							)}
 							{vulnerabilityBadge}
 							{showUpdateIndicator && (
 								<div
 									className='packages-list-item-update'
-									title={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+									title={updateTooltip}
 								>
 									&#x2191;
 								</div>
@@ -548,7 +573,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									<Button
 										ariaLabel={localize('positronPackages.updatePackageAria', "Update {0} to {1}", name, latestVersion)}
 										className='packages-list-item-update-button'
-										tooltip={localize('positronPackages.updateAvailable', "Update available: {0}", latestVersion)}
+										tooltip={updateTooltip}
 										onPressed={() => services.commandService.executeCommand('positronPackages.updatePackage', name)}
 									>
 										{localize('positronPackages.update', "Update")}

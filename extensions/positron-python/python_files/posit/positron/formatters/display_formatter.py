@@ -15,6 +15,8 @@ from IPython.core.formatters import (
     IPythonDisplayFormatter,
 )
 
+from ..patch.holoviews import display_holoviews
+from ..session_mode import SessionMode
 from .data_explorer_formatter import create_data_explorer_formatter
 from .object_explorer_formatter import create_object_explorer_formatter
 
@@ -36,6 +38,11 @@ class PositronDisplayFormatter(DisplayFormatter):
 
         # Override plotnine ggplot display
         formatter.for_type("plotnine.ggplot.ggplot", display_plotnine_ggplot)
+
+        # Override holoviews display in the console, where static plots are shown in the Plots
+        # pane instead of the console. See `patch/holoviews.py`.
+        if self.parent.session_mode != SessionMode.NOTEBOOK:
+            formatter.for_type("holoviews.core.dimension.Dimensioned", display_holoviews)
 
         return formatter
 
