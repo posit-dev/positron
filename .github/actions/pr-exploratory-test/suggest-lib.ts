@@ -7,16 +7,12 @@
 // worth it. Kept apart from lib.mjs: a change there counts as a change to the
 // explorer's instructions and needs a skill version bump.
 
-import { COMMENT_MARKER, ENVIRONMENT, isProductPath, renderPrBody } from './lib.mjs';
+import { cleanReason, COMMENT_MARKER, DECLINED_MARKER, ENVIRONMENT, isProductPath, renderPrBody } from './lib.mjs';
+
+export { DECLINED_MARKER, findDeclinedNote } from './lib.mjs';
 
 /** Labels the suggestion. Not COMMENT_MARKER: a suggestion is not a run. */
 export const SUGGEST_MARKER = '<!-- exploratory-testing:candidate -->';
-
-/**
- * Labels the note that an auto-run author's PR was judged not worth a run.
- * findPriorUse ignores it, so a later review request judges the PR again.
- */
-export const DECLINED_MARKER = '<!-- exploratory-testing:declined -->';
 
 /** Every name test-exploratory.yml's resolve job accepts. */
 export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
@@ -142,24 +138,6 @@ export function parseVerdict(text) {
 	return suggest && !reason ? null : { suggest, reason };
 }
 
-/**
- * The model's reason with no markup, links or @-mentions: the author wrote
- * what the model read, and this is posted as the bot.
- */
-function cleanReason(reason) {
-	return String(reason ?? '')
-		// Whole tags and comments first, then any stray bracket left unmatched.
-		.replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '')
-		// Images go; a link keeps its text; a URL, www host or email goes.
-		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-		.replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ').replace(/\S+@\S+\.\w+/g, ' ')
-		// An issue or PR reference would link, and a cross-repo one notifies that repo.
-		.replace(/[\w.-]*(?:\/[\w.-]+)?#(?=\d)/g, 'number ')
-		// Zero-width space after @ so a handle in the reason does not ping anyone.
-		.replace(/@(?=\w)/g, '@\u200b')
-		.replace(/\s+/g, ' ').trim();
-}
-
 /** Clean text cut to its first sentence, capped, and ending in a stop. */
 function firstSentence(text, max) {
 	const sentence = text.match(/^.+?[.!?](?=\s|$)/);
@@ -183,15 +161,6 @@ export function reasonClause(reason, max = 300) {
 	const text = firstSentence(cleanReason(reason).replace(/^this pr\s+/i, ''), max);
 	// "Changes how..." reads as "This PR changes how...", but "UI" stays "UI".
 	return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
-}
-
-/**
- * The note post left when the judge turned down an auto-run author's PR, or
- * undefined. Only a bot's: post edits or deletes it, and must never touch a
- * person's comment that quotes the marker.
- */
-export function findDeclinedNote(comments) {
-	return comments.find(c => c?.user?.type === 'Bot' && String(c?.body ?? '').includes(DECLINED_MARKER));
 }
 
 export function renderSuggestComment(reason) {

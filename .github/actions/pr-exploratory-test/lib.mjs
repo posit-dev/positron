@@ -415,6 +415,39 @@ export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, r
 export const COMMENT_MARKER = '<!-- exploratory-test -->';
 
 /**
+ * Labels the note that an auto-run author's PR was judged not worth a run.
+ * findPriorUse ignores it, so a later review request judges the PR again.
+ */
+export const DECLINED_MARKER = '<!-- exploratory-testing:declined -->';
+
+/**
+ * The note the suggest workflow left when the judge turned down an auto-run
+ * author's PR, or undefined. Only a bot's: callers edit or delete it, and must
+ * never touch a person's comment that quotes the marker.
+ */
+export function findDeclinedNote(comments) {
+	return comments.find(c => c?.user?.type === 'Bot' && String(c?.body ?? '').includes(DECLINED_MARKER));
+}
+
+/**
+ * A model's reason with no markup, links or @-mentions: the PR author wrote
+ * what the model read, and this is posted as the bot.
+ */
+export function cleanReason(reason) {
+	return String(reason ?? '')
+		// Whole tags and comments first, then any stray bracket left unmatched.
+		.replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '')
+		// Images go; a link keeps its text; a URL, www host or email goes.
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ').replace(/\S+@\S+\.\w+/g, ' ')
+		// An issue or PR reference would link, and a cross-repo one notifies that repo.
+		.replace(/[\w.-]*(?:\/[\w.-]+)?#(?=\d)/g, 'number ')
+		// Zero-width space after @ so a handle in the reason does not ping anyone.
+		.replace(/@(?=\w)/g, '@​')
+		.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * How the explore pass ended. `partial` and `timed-out` win over a written
  * report: a run cut off at the turn cap or the time limit covered less than it
  * meant to, and a reviewer should know that before trusting a short findings
@@ -514,7 +547,8 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 	if (state === 'declined') {
 		// Nobody asked for an auto-run, so say how to get one: a focus skips the check.
 		const override = autoRun ? ['', 'If that is wrong, comment `/explore <what to test>` to run it anyway. Naming what to test skips this check.'] : [];
-		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run, ...override]);
+		// The gate's model read the PR's own text, and this is posted as the bot.
+		return comment([`Not run: the pre-flight check declined this change: ${cleanReason(reason) || 'no reason recorded.'}`, run, ...override]);
 	}
 	if (state === 'refused') {
 		return comment([`Not run: ${reason || 'the pre-flight check refused this run.'}`, run]);

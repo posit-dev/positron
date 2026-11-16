@@ -105,7 +105,8 @@ async function precheck() {
 		skip = prior ? `auto-run already started (${prior.html_url})` : null;
 	}
 	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${auto ? ' (author is on the auto-run list)' : ''}`);
-	output({ proceed: !skip || DRY_RUN, reason: skip || '', auto });
+	// head_sha labels a declined note with the commit the judge is about to read.
+	output({ proceed: !skip || DRY_RUN, reason: skip || '', auto, head_sha: pr.head?.sha ?? '' });
 }
 
 async function judge() {
@@ -145,25 +146,20 @@ async function post() {
 		console.log(`[suggest] not posting: exploratory testing already ${prior.kind} (comment ${prior.id})`);
 		return;
 	}
-	// One note per PR: a later "no" edits it, a later "yes" removes it.
+	// One note per PR: a later "no" edits it. A later "yes" leaves it to
+	// whatever speaks next: the tip below, or the auto-run's own comment.
 	const declined = findDeclinedNote(comments);
 	// The workflow runs post on a "no" only for an auto-run author, with its reason.
 	if (process.env.SUGGEST !== 'true') {
-		const pr = await ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}`);
-		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON, pr.head?.sha) });
+		// HEAD_SHA is the head precheck saw before the judge read the diff, not
+		// whatever was pushed while it ran.
+		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON, process.env.HEAD_SHA) });
 		console.log(`[suggest] ${action} the declined note, comment ${id}`);
 		return;
 	}
-	// A note left behind is only stale; it must not cost the PR its run or tip.
-	if (declined) {
-		try {
-			await deleteComment({ fetchImpl: fetch, token, repo: REPO, commentId: declined.id });
-			console.log(`[suggest] removed the earlier declined note, comment ${declined.id}`);
-		} catch (err) {
-			console.log(`[suggest] could not remove the earlier declined note, comment ${declined.id}: ${err}`);
-		}
-	}
 	// Anything wrong on the auto-run path falls back to the tip, so the PR still hears.
+	// The note stays until the run posts: a run the gate refuses posts nothing,
+	// and the note is then all the PR has. test-exploratory.yml removes it.
 	if (process.env.AUTO_RUN === 'true') {
 		try {
 			await startAutoRun(token);
@@ -174,6 +170,15 @@ async function post() {
 	}
 	const { id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, body: renderSuggestComment(mustEnv('REASON')) });
 	console.log(`[suggest] posted comment ${id}`);
+	// The tip supersedes the note. A note left behind is only stale.
+	if (declined) {
+		try {
+			await deleteComment({ fetchImpl: fetch, token, repo: REPO, commentId: declined.id });
+			console.log(`[suggest] removed the earlier declined note, comment ${declined.id}`);
+		} catch (err) {
+			console.log(`[suggest] could not remove the earlier declined note, comment ${declined.id}: ${err}`);
+		}
+	}
 }
 
 /**

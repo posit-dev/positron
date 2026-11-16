@@ -423,6 +423,11 @@ test('renderPrComment tells an auto-run author how to run a declined change anyw
 	assert.doesNotMatch(renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'needs ggsql' }), /run it anyway/);
 });
 
+test('renderPrComment cleans the gate\'s decline reason before the bot posts it', () => {
+	const body = renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'Ask @someone, see [docs](https://e.x) and other-org/repo#12.', autoRun: true });
+	assert.match(body, /declined this change: Ask @\u200bsomeone, see docs and number 12\.$/m);
+});
+
 test('renderSummaryTarget names the branch and links the PR', () => {
 	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12'), 'PR [#12](https://github.com/o/r/pull/12) · `fix/x`\n\n');
 });

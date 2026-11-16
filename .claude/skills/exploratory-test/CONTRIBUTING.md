@@ -71,8 +71,9 @@ about cost:
    (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
    `suggest.ts`. When it says no to an auto-run author's PR, the PR gets a
    note with the reason and says to comment `/explore <what to test>` to run
-   it anyway. A
-   later "no" edits that note, and a later "yes" removes it. Other authors
+   it anyway. A later "no" edits that note. The note goes once something
+   newer speaks for the PR: a tip, or any run's first comment on it. An
+   auto-run the gate refuses posts nothing, so the note stays. Other authors
    get no note.
 
 Every run, however it started, then goes through the worthiness check
