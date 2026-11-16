@@ -132,7 +132,9 @@ export function getMatchingDefinitions(definitions: readonly IInterpreterDefinit
  * from the base ID and label, so it is stable across windows and distinct per
  * definition. Variants share their base's runtimePath, which keys the discovery
  * cache, so they are never cached. Variants are always shown, even when their
- * base is definition-only.
+ * base is definition-only. The variant's picker row takes the definition
+ * label; a base row with no description keeps its label (e.g. its version)
+ * as the description.
  */
 export function createInterpreterVariant(base: ILanguageRuntimeMetadata, definition: IInterpreterDefinition): ILanguageRuntimeMetadata {
 	const sha = new StringSHA1();
@@ -142,7 +144,7 @@ export function createInterpreterVariant(base: ILanguageRuntimeMetadata, definit
 		runtimeId: sha.digest().substring(0, 32),
 		runtimeName: definition.label,
 		interpreterDefinition: definition.label,
-		picker: base.picker && { ...base.picker, label: definition.label },
+		picker: base.picker && { ...base.picker, label: definition.label, description: base.picker.description || base.picker.label },
 		definitionOnly: false,
 		cacheable: false,
 	};

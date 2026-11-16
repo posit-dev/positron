@@ -84,6 +84,11 @@ describe('createInterpreterVariant', () => {
 		expect(createInterpreterVariant(base, xx).picker).toBeUndefined();
 	});
 
+	it('keeps the base label as the description when the base row has none', () => {
+		const picker = { group: 'R', groupOrder: 0, label: 'R 4.4.3' };
+		expect(createInterpreterVariant({ ...base, picker }, xx).picker).toEqual({ ...picker, label: 'R 4.4.3 (XX libs)', description: 'R 4.4.3' });
+	});
+
 	it('derives a stable ID that differs per label and per base', () => {
 		const id = createInterpreterVariant(base, xx).runtimeId;
 		expect(createInterpreterVariant(base, xx).runtimeId).toBe(id);
