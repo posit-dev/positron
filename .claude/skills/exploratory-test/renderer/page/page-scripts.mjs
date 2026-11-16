@@ -190,7 +190,7 @@ text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);
 // The @claude button opens the PR to paste into, once the text is on the clipboard.
-if(b.dataset.open){window.open(b.dataset.open,'_blank','noopener');}}
+if(b.dataset.prUrl){window.open(b.dataset.prUrl,'_blank','noopener');}}
 ${copyScript('text', 'done')}});});`;
 
 // Copy link: this page's URL with the finding's anchor. The address bar

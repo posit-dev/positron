@@ -154,7 +154,7 @@ export function renderCopyButton(f, report = {}) {
 	// Only a GitHub PR link is opened.
 	const pr = /^https:\/\/github\.com\//.test(report.pr?.url ?? '') ? report.pr : null;
 	const attrs = pr
-		? `data-tip="Copy for @claude and open the PR" data-open="${escapeHtml(pr.url)}" aria-label="Copy an @claude comment for finding ${f.n} and open PR #${pr.number}"`
+		? `data-tip="Copy for @claude and open the PR" data-pr-url="${escapeHtml(pr.url)}" aria-label="Copy an @claude comment for finding ${f.n} and open PR #${pr.number}"`
 		: `data-tip="Copy agent prompt" aria-label="Copy prompt for an agent: finding ${f.n}"`;
 	return `<button type="button" class="cp-btn" ${attrs} data-prompt="prompt-f${f.n}">${ICON.copy}${ICON.copied}</button>`;
 }
