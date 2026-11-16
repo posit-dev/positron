@@ -15,7 +15,7 @@ import { accordion, day, FONTS, footer, inlineJson, inlineScript, PAGES, rangeTe
 
 export { resolveRange, runUrl };
 
-// In this order everywhere, counted outcomes first. `group` is the evidence filter: fixed, filed, won't fix, not fixed, not merged, or no outcome yet;
+// In this order everywhere, counted outcomes first and Already on main last. `group` is the evidence filter: fixed, filed, won't fix, not fixed, not merged, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
 const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
@@ -24,12 +24,12 @@ const OUTCOMES = [
 	{ key: 'wont-fix', label: 'Won\'t fix', group: 'wont-fix', def: 'A matching issue was closed as not planned, so the team chose to leave it.', brief: 'Its issue was closed as not planned.' },
 	{ key: 'not-fixed', label: 'Not fixed', group: 'not', def: 'The PR merged with no fix. Moves to Filed as issue or Fixed later if that happens afterwards.', brief: 'Merged without a fix.' },
 	{ key: 'didnt-ship', label: 'Not merged', group: 'didnt-ship', def: 'The code this finding was about never reached main: the PR closed, or merged without it.', brief: 'The code it was about never reached main.' },
-	{ key: 'on-main', label: 'Already on main', group: 'on-main', def: 'It also happened on a build of main, so the PR didn\'t bring it, and the PR didn\'t fix it. Left out whatever happened to it, unless it is the bug the PR says it fixes.', brief: 'It also happened on main, and the PR didn\'t fix it.' },
 	{ key: 'pending', label: 'PR still open', group: 'open', def: 'The PR hasn\'t merged or closed yet.', brief: 'Waiting for the PR to merge or close.' },
 	{ key: 'unclear', label: 'Unclear', group: 'open', def: 'A check failed or the model couldn\'t say.', brief: 'Couldn\'t tell from the diff.' },
 	{ key: 'no-paths', label: 'No files named', group: 'open', def: 'The finding names no file, so main couldn\'t be checked.', brief: 'No files named, so main couldn\'t be checked.' },
+	{ key: 'on-main', label: 'Already on main', group: 'on-main', def: 'The bug was already on main before this PR, so the PR didn\'t cause it. If the PR fixed it anyway, it counts as Fixed in the PR.', brief: 'The bug was on main before this PR.' },
 ];
-const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['wont-fix', 'Won\'t fix'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['on-main', 'Already on main'], ['open', 'No outcome yet']];
+const FILTERS = [['fixed', 'Fixed'], ['filed', 'Filed as issue'], ['wont-fix', 'Won\'t fix'], ['not', 'Not fixed'], ['didnt-ship', 'Not merged'], ['open', 'No outcome yet'], ['on-main', 'Already on main']];
 const DECIDED_BY = {
 	'diff+model': 'The diff, read by the model',
 	'issue+model': 'A matching issue, confirmed by the model',
@@ -45,7 +45,7 @@ const DECIDED_BY = {
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };
 // The checks each finding goes through, in decideOutcome's order, behind the ? next to the bar's heading.
 const STEPS = [
-	[['on-main'], 'Did the finding also happen on a build of main? Then the PR didn\'t cause it, so it isn\'t counted. Two cases still count: a commit on the PR fixed it (its row says Already on main), or it is the bug the PR was meant to fix (its row says Fix didn\'t hold).'],
+	[['on-main'], 'Does the finding reproduce on main without the PR? Then the PR didn\'t cause it, so it isn\'t counted. Two cases still count: a commit on the PR fixed it (its row says Already on main), or it is the bug the PR was meant to fix (its row says Fix didn\'t hold).'],
 	[['pending'], 'Is the PR still open? Then nothing is decided yet. It\'s checked again on the next build.'],
 	[['fixed-in-pr'], 'Did the PR merge with commits pushed after the /explore run? The model reads that diff against the finding and decides whether it fixes it.'],
 	[['fixed-later'], 'After the PR merged or closed, did a commit on main change the files the finding names, and does the model judge it a fix? Or was the finding\'s issue closed as completed?'],
@@ -60,7 +60,7 @@ const HERO_COLOR = { 'fixed-in-pr': '#3B7D4F', 'not-fixed': '#7D7568' };
 const INK = '#2B2A27';
 const SEP = ' &middot; ';
 // The PR card's state pill, and what goes before its date.
-const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], closed: ['Closed without merging', ''] };
+const PR_STATE = { merged: ['Merged', ''], open: ['Open', 'opened '], draft: ['Draft', 'opened '], closed: ['Closed', ''] };
 
 const pct = (a, b) => `${Math.round(a / b * 100)}%`;
 const codeSpans = text => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -251,7 +251,7 @@ function evidence(own, s) {
 export function prCard(n, p) {
 	const [label, lead] = PR_STATE[p.state] ?? PR_STATE.closed;
 	const dot = '<span class="pc-dot" aria-hidden="true">&middot;</span>';
-	return `<div class="pc-state"><span class="pill ${PR_STATE[p.state] ? p.state : 'closed'}"><i></i>${label}</span>${p.date ? lead + day(p.date, true) : ''}</div>`
+	return `<div class="pc-state"><span class="pill ${PR_STATE[p.state] ? p.state : 'closed'}">${label}</span>${p.date ? lead + day(p.date, true) : ''}</div>`
 		+ `<div class="pc-title"><span class="mono">#${Number(n)}</span> ${escapeHtml(p.title ?? '')}</div>`
 		+ `<div class="pc-meta"><span>@${escapeHtml(p.author ?? '')}</span>${dot}<span class="mono"><span class="add">+${Number(p.additions)}</span> <span class="del">&minus;${Number(p.deletions)}</span></span>${dot}<span>${plural(Number(p.files), 'file')}</span></div>`
 		+ (p.desc ? `<p>${escapeHtml(p.desc)}</p>` : '');
@@ -291,18 +291,19 @@ const CSS = `
 .o-filed-issue{background:repeating-linear-gradient(135deg,#CFC8BB 0 8px,#C5BEB0 8px 10px);color:#2B2A27}
 .o-not-fixed{background:#7D7568;color:#FFF}
 .o-pending{background:#F5F4F0;color:#5A5751;border:1.5px dashed #B5B1A7}
-.o-unclear{background:#EEEBE4;color:#3A3833}
+.o-unclear{background:#E6E2D9;color:#5A5751}
 .o-no-paths{background:#E6E2D9;color:#5A5751}
 .o-didnt-ship{background:#F5F4F0;color:#5A5751;border:1.5px solid #B5B1A7}
-.o-on-main{background:#F5F4F0;color:#5A5751;border:1.5px dotted #8F8A80}
+.o-on-main{background:#EFECE6;color:#7A766F}
 .o-wont-fix{background:#A89F91;color:#2B2A27}
 .how-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;border-top:1px solid #2B2A27}
 .how-steps li{display:grid;grid-template-columns:22px minmax(150px,190px) minmax(0,1fr);gap:14px;align-items:baseline;padding:10px 0;border-bottom:1px solid #E4E1D9;line-height:1.5}
 .how-steps li:last-child{border-bottom:0}
 .how-steps .step{font-variant-numeric:tabular-nums;font-weight:600;color:#7A766F}
 .how-steps .outs{display:flex;flex-direction:column;gap:4px}.how-steps .outs span{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:#2B2A27}
-.how-steps i{flex:0 0 auto;border-width:1px}
-i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box}
+.how-steps i{flex:0 0 auto}
+/* Swatches: outlines drop to 1px at this size. */
+i[class^=o-]{display:inline-block;width:12px;height:12px;border-radius:2px;box-sizing:border-box;border-width:1px}
 .n{color:#7A766F;font-weight:400}
 .group[hidden],.detail[hidden]{display:none}
 .rows{display:flex;flex-direction:column;border-top:1px solid #2B2A27}
@@ -347,10 +348,12 @@ code.chip{background:#ECE9E2;border:0}
 .pr-card{position:absolute;z-index:30;width:340px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:16px;background:#FBFAF7;border:1px solid #E4E1D9;border-radius:10px;box-shadow:0 8px 24px rgba(43,42,39,.14);display:flex;flex-direction:column;gap:10px;font-size:13px;color:#2B2A27}
 .pr-card[hidden]{display:none}.pr-card.passive{pointer-events:none}
 .pc-state{display:flex;align-items:center;gap:8px;font-size:12px;color:#6B6862}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;font-weight:500}.pill i{width:6px;height:6px;border-radius:50%}
-.pill.merged{background:#ECE9E2;color:#2B2A27}.pill.merged i{background:#2B2A27}
-.pill.open{border:1px solid #D6D2C8;color:#3A3833}.pill.open i{background:#B5B1A7}
-.pill.closed{background:#EEEBE4;color:#6B6862}.pill.closed i{background:#7D7568}
+.pill{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:500}
+/* GitHub's state colours, softened to a tint. */
+.pill.merged{background:#EFE9F8;color:#5E3FA3}
+.pill.open{background:#E6F0E8;color:#2F6B42}
+.pill.draft{background:#ECE9E2;color:#5A5751}
+.pill.closed{background:#F5E6E2;color:#8A3F31}
 .pc-title{font-size:15px;line-height:1.4;font-weight:600}.pc-title .mono{font-weight:500;color:#6B6862}
 .pc-meta{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;color:#6B6862}.pc-dot{color:#D6D2C8}.add{color:#3B7D4F}.del{color:#7D7568}
 .pr-card p{margin:0;padding-top:10px;border-top:1px solid #E4E1D9;line-height:1.5;color:#3A3833;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}

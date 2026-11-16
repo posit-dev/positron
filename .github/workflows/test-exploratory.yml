@@ -484,82 +484,143 @@ jobs:
     # Runs when no focus is named, on a comment or on a dispatch that leaves it
     # on: the gate rules on the diff, and a named feature is the person's call.
     # resolve decides which, and announce reads the same output to say why
-    # this job was skipped. Behind resolve, because it checks out the PR and
-    # gives an agent a shell in it.
-    if: needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness == 'run'
+    # this job was skipped.
+    #
+    # The check runs in posit-dev/positron-builds (explore-gate.yml), which
+    # holds the Anthropic key, checks out the PR and gives an agent a shell in
+    # it. This job holds only the bot key: it cuts a branch for the check,
+    # dispatches it, waits, and reads back the verdict. Like dispatch, only
+    # main may hand its harness SHA to positron-builds.
+    #
+    # Fails open, as the check itself does: a check that never ran or wrote no
+    # verdict means explore runs.
+    if: >-
+      needs.resolve.outputs.ok == 'true' && needs.resolve.outputs.worthiness == 'run' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
-      pull-requests: read
     outputs:
-      testable: ${{ steps.gate.outputs.testable }}
-      reason: ${{ steps.gate.outputs.reason }}
+      testable: ${{ steps.verdict.outputs.testable }}
+      refused: ${{ steps.verdict.outputs.refused }}
+      reason: ${{ steps.verdict.outputs.reason }}
+    env:
+      POSITRON_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+      LANE: explore-gate/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.resolve.outputs.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      # The checkout above is the branch under test, and it is the code this job
-      # builds and drives. It is not where the job's own tooling comes from.
-      # `./.github/actions/...` resolves against the workspace root, so every
-      # local action would be whichever version that branch happens to carry:
-      # missing entirely for one this branch adds, and stale for one it changes.
-      # Take the actions and the skill from the ref the workflow was dispatched
-      # from, so a run is driven by this version whatever it is pointed at.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           path: .harness
-          sparse-checkout: |
-            .github/actions
-            .claude/skills/exploratory-test
-          sparse-checkout-cone-mode: false
+          sparse-checkout: .github/actions/pr-exploratory-test
           persist-credentials: false
 
-      - name: Resolve diff base
-        id: base
-        shell: bash
-        env:
-          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
-        run: |
-          set -euo pipefail
-          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
-            echo "::error::Base branch '$BASE_REF' not found on origin"
-            exit 1
-          fi
-          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
-          echo "base=$BASE" >> "$GITHUB_OUTPUT"
-          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      # A blocker such as an unmerged companion PR is often named only in the
-      # description. Best effort: no PR, or a failed lookup, writes no file and
-      # the gate rules on the diff alone.
-      - name: Fetch the PR description
-        id: pr-body
-        if: needs.resolve.outputs.pr_number != ''
-        continue-on-error: true
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ needs.resolve.outputs.pr_number }}
-        run: |
-          set -euo pipefail
-          OUT="$RUNNER_TEMP/pr-body.md"
-          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '.body // ""' > "$OUT"
-          echo "file=$OUT" >> "$GITHUB_OUTPUT"
-
-      - name: Rule on the change
-        id: gate
-        uses: ./.harness/.github/actions/pr-exploratory-test
+      - name: Mint a token for positron-builds
+        id: token
+        uses: actions/create-github-app-token@v3
         with:
-          mode: gate
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          pr-body-file: ${{ steps.pr-body.outputs.file }}
-          base-sha: ${{ steps.base.outputs.base }}
-          head-sha: ${{ steps.base.outputs.head }}
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+          permission-contents: write
+
+      # positron-builds runs a bot check only from its own branch cut from
+      # main, so a cache the PR's code saves is never restored by another run.
+      - name: Cut the check branch
+        id: cut
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          main_sha=$(gh api repos/posit-dev/positron-builds/git/ref/heads/main --jq '.object.sha')
+          gh api repos/posit-dev/positron-builds/git/refs -f "ref=refs/heads/$LANE" -f "sha=$main_sha" > /dev/null
+          echo "Cut $LANE at $main_sha"
+
+      - name: Run the check in positron-builds
+        id: run
+        if: steps.cut.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          REF: ${{ needs.resolve.outputs.ref }}
+          PR: ${{ needs.resolve.outputs.pr_number }}
+          BASE_REF: ${{ needs.resolve.outputs.base_ref || 'main' }}
+          HARNESS_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PR" ]; then title="explore gate #$PR ($POSITRON_RUN)"; else title="explore gate $REF ($POSITRON_RUN)"; fi
+          args=(-f "positron_run=$POSITRON_RUN" -f "sha=$SHA" -f "base=$BASE_REF" -f "harness_sha=$HARNESS_SHA")
+          if [ -n "$PR" ]; then args+=(-f "pr_number=$PR"); else args+=(-f "branch=$REF"); fi
+          bash .harness/.github/actions/pr-exploratory-test/run-builds.sh \
+            explore-gate.yml "$LANE" "$title" 1800 "$RUNNER_TEMP/gate" explore-gate "${args[@]}"
+
+      # report shows the reason on the PR, so it is held to one line. A
+      # refusal (the PR moved on, a fork, a bad request) stops the run like a
+      # decline; only a check that wrote nothing fails open.
+      - name: Read the verdict
+        id: verdict
+        env:
+          FILE: ${{ runner.temp }}/gate/explore-gate.json
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: |
+          set -uo pipefail
+          url=""
+          if [ -n "$RUN_ID" ]; then url="https://github.com/posit-dev/positron-builds/actions/runs/$RUN_ID"; fi
+          status=$(jq -r '.status // ""' "$FILE" 2>/dev/null) || status=""
+          testable=$(jq -r '.testable // ""' "$FILE" 2>/dev/null) || testable=""
+          reason=$(jq -r '.reason // ""' "$FILE" 2>/dev/null | tr '\r\n\t' '   ' | tr -s ' ' | sed 's/^ //; s/ $//') || reason=""
+          reason=${reason:0:1000}
+          if [ "$status" = "refused" ]; then
+            { echo "testable=false"; echo "refused=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+            echo "::warning::The worthiness check refused the run: $reason"
+            printf '**Worthiness check refused the run.**\n\n%s\n\n[Details](%s)\n' "$reason" "$url" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$testable" = "false" ]; then
+            { echo "testable=false"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+            printf '**Worthiness check declined the run.**\n\n%s\n\n[Details](%s)\n' "$reason" "$url" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$testable" = "true" ]; then
+            echo "testable=true" >> "$GITHUB_OUTPUT"
+            printf '**Worthiness check passed**, explore will run. [Details](%s)\n' "$url" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "testable=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::The worthiness check gave no verdict, so explore runs."
+            printf '**Worthiness check gave no verdict**, explore will run.%s\n' "${url:+ [Details]($url)}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The check gives an agent a shell in PR code, so it must not outlive
+      # this run: cancel it when this run is cancelled, or when it was
+      # dispatched but never found.
+      - name: Cancel the check
+        if: >-
+          ${{ always() && steps.cut.outcome == 'success' &&
+          (cancelled() || (steps.run.outcome == 'failure' && steps.run.outputs.run_id == '')) }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: |
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh api "repos/posit-dev/positron-builds/actions/workflows/explore-gate.yml/runs?event=workflow_dispatch&branch=$LANE" \
+              --jq ".workflow_runs[] | select((.display_title | endswith(\" ($POSITRON_RUN)\")) and .triggering_actor.login == \"positron-bot[bot]\") | .id" \
+              | head -n 1) || RUN_ID=""
+          fi
+          if [ -z "$RUN_ID" ]; then
+            echo "Found no check run to cancel."
+            exit 0
+          fi
+          gh run cancel "$RUN_ID" -R posit-dev/positron-builds || echo "::warning::Could not cancel check run $RUN_ID."
+
+      - name: Delete the check branch
+        if: always() && steps.cut.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          gh api -X DELETE "repos/posit-dev/positron-builds/git/refs/heads/$LANE" > /dev/null \
+            || echo "::warning::Could not delete $LANE; the next run's sweep removes it."
 
   # announce's running comment for an auto-run, after the gate rather than
   # alongside it: nobody asked for this run, so a declined one says nothing on
@@ -666,7 +727,7 @@ jobs:
           permission-contents: write
 
       # A run whose cleanup failed leaves its branch behind; remove those whose
-      # positron run has finished.
+      # positron run has finished. explore-gate/ branches are worthiness's.
       - name: Remove finished runs' branches
         continue-on-error: true
         env:
@@ -674,13 +735,17 @@ jobs:
           REPO_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          refs=$(gh api --paginate "repos/posit-dev/positron-builds/git/matching-refs/heads/explore-run/" --jq '.[].ref') || {
-            echo "::warning::Could not list explore-run branches."
-            exit 0
-          }
+          refs=""
+          for prefix in explore-run explore-gate; do
+            found=$(gh api --paginate "repos/posit-dev/positron-builds/git/matching-refs/heads/$prefix/" --jq '.[].ref') || {
+              echo "::warning::Could not list $prefix branches."
+              continue
+            }
+            refs="$refs $found"
+          done
           for ref in $refs; do
             name=${ref#refs/heads/}
-            run=${name#explore-run/}
+            run=${name#*/}
             [[ "$run" =~ ^[0-9]+-[0-9]+$ ]] || continue
             status=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run%%-*}" --jq '.status' 2>/dev/null) || continue
             if [ "$status" = "completed" ]; then
@@ -979,6 +1044,7 @@ jobs:
         id: result
         env:
           DECLINED: ${{ needs.worthiness.outputs.testable == 'false' }}
+          REFUSED: ${{ needs.worthiness.outputs.refused == 'true' }}
           MODEL: ${{ needs.resolve.outputs.model == 'sonnet' && 'sonnet' || 'opus' }}
           RESULTS: ${{ needs.dispatch.outputs.results }}
           SCAN_URLS: ${{ needs.dispatch.outputs.scan_urls }}
@@ -987,7 +1053,9 @@ jobs:
           state=failed
           report_url=""
           scan_url=""
-          if [ "$DECLINED" = "true" ]; then
+          if [ "$REFUSED" = "true" ]; then
+            state=refused
+          elif [ "$DECLINED" = "true" ]; then
             state=declined
           elif [ -n "$RESULTS" ]; then
             state=$(jq -r --arg m "$MODEL" '.[$m].state // "failed"' <<<"$RESULTS" 2>/dev/null) || state=failed
