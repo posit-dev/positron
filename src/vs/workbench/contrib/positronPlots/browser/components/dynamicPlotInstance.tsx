@@ -10,14 +10,57 @@ import React, { useEffect, useState } from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { isCancellationError } from '../../../../../base/common/errors.js';
 import { localize } from '../../../../../nls.js';
+import Severity from '../../../../../base/common/severity.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PanZoomImage } from './panZoomImage.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
+
+// Errors R raises when the plot area is too small for the plot's margins (#8049).
+// R prints these in English even under other locales, so matching the text is safe.
+const PLOT_TOO_SMALL_ERRORS = [
+	'invalid graphics state',
+	'figure margins too large',
+	'figure region too large',
+	'plot region too large',
+];
+
+const isPlotTooSmallError = (message: string) =>
+	PLOT_TOO_SMALL_ERRORS.some(error => message.includes(error));
+
+/**
+ * A failed render: whether it failed because the plot area is too small.
+ */
+interface RenderError {
+	tooSmall: boolean;
+	// Set for a custom size, which ignores the pane size, so enlarging the pane won't help.
+	customSize?: string;
+}
+
+/**
+ * The message for a failed render. The popup names the size the user picked.
+ */
+const renderErrorMessage = (error: RenderError, pickedSize?: string) => {
+	if (!error.tooSmall) {
+		return pickedSize === undefined ?
+			localize('positronPlots.renderError', "Couldn't render this plot.") :
+			localize('positronPlots.renderErrorAtPolicy', "Couldn't render this plot at the '{0}' size.", pickedSize);
+	}
+	if (error.customSize !== undefined) {
+		return localize('positronPlots.renderTooSmallAtCustomSize', "Couldn't render this plot at the '{0}' size because it's too small. Choose a larger size from the sizing menu.", error.customSize);
+	}
+	return pickedSize === undefined ?
+		localize('positronPlots.renderTooSmall', "Couldn't render this plot because the plot area is too small. Try making it larger.") :
+		localize('positronPlots.renderTooSmallAtPolicy', "Couldn't render this plot at the '{0}' size because the plot area is too small.", pickedSize);
+};
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -44,13 +87,16 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState('');
-	const [error, setError] = useState('');
+	const [error, setError] = useState<RenderError | undefined>(undefined);
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const plotName = props.plotClient.metadata.name ? props.plotClient.metadata.name : 'Plot ' + props.plotClient.id;
 
 	useEffect(() => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
+		let disposed = false;
+		// Set while we switch the policy ourselves, so that change isn't treated as a user pick.
+		let fallingBack = false;
 
 		// The frontend shoudn't send invalid sizes so be defensive. Sometimes the
 		// plot container is in a strange state when it's hidden.
@@ -59,7 +105,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 
 		// Clear any message from an earlier size; this render may succeed.
-		setError('');
+		setError(undefined);
 
 		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
@@ -79,7 +125,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				// If using the intrinsic sizing policy, and the plot has no intrinsic size,
 				// fall back to the auto sizing policy.
 				if (policy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize) {
-					services.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+					fallingBack = true;
+					try {
+						services.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+					} finally {
+						fallingBack = false;
+					}
 					plotSize = services.positronPlotsService.selectedSizingPolicy.getPlotSize({
 						height: props.height,
 						width: props.width
@@ -96,17 +147,26 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				setUri(result.uri);
 
 			} catch (e) {
-				if (e.name === 'Canceled' || e.message === 'Canceled') {
+				// A render from an earlier size or plot finished after we moved on.
+				if (disposed || isCancellationError(e)) {
 					return;
 				}
 				// Renders run on every resize, so log instead of notifying; the last
 				// good image (if any) stays visible.
-				services.logService.warn(`Error rendering plot to '${policy.getName(props.plotClient)}' size: ${e.message}`);
-				setError(localize('positronPlots.renderError', "Couldn't render this plot. Try making the plot area larger, or see the Window log in the Output panel for details."));
+				const policyName = policy.getName(props.plotClient);
+				services.logService.warn(`Error rendering plot to '${policyName}' size: ${e.message}${e.code !== undefined ? ` (${e.code})` : ''}`);
+				const renderError: RenderError = {
+					tooSmall: isPlotTooSmallError(String(e.message)),
+					customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
+				};
+				setError(renderError);
 				// A sizing change is usually picked by the user, and the old image
 				// would hide the failure, so tell them.
-				if (reportErrors) {
-					services.notificationService.warn(localize('positronPlots.renderErrorAtPolicy', "Couldn't render this plot at the '{0}' size. See the Window log in the Output panel for details.", policy.getName(props.plotClient)));
+				if (reportErrors && props.plotClient.lastRender) {
+					services.notificationService.prompt(Severity.Warning, renderErrorMessage(renderError, policyName), [{
+						label: localize('positronPlots.showLogs', "Show Logs"),
+						run: () => services.commandService.executeCommand(showWindowLogActionId)
+					}]);
 				}
 			}
 		};
@@ -121,7 +181,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(props.plotClient.onDidChangeSizingPolicy((policy) => {
-			render(policy, true);
+			render(policy, !fallingBack);
 		}));
 
 		let progressBar: ProgressBar | undefined;
@@ -179,9 +239,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			}
 		}));
 		return () => {
+			disposed = true;
 			disposables.dispose();
 		};
-	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService, services.notificationService]);
+	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.logService, services.notificationService, services.commandService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {
@@ -194,20 +255,28 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		/>;
 	};
 
-	// Render method for the placeholder
-	const placeholderImage = (text: string) => {
+	// Render method for the placeholder, which shows progress or the render error.
+	const placeholderImage = () => {
 		const style = {
 			width: props.width + 'px',
 			height: props.height + 'px'
 		};
 
-		text = text.length ? text : `Rendering plot`;
+		if (!error) {
+			return <div className='image-placeholder' style={style}>
+				<div className='image-placeholder-text'>Rendering plot</div>
+			</div>;
+		}
 
-		// display error here
+		const text = renderErrorMessage(error);
 		return <div className='image-placeholder' style={style}>
-			<div className='image-placeholder-text'>
-				{text}
-			</div>
+			<div className='image-placeholder-text'>{text}</div>
+			<Button
+				className='image-placeholder-link'
+				onPressed={() => services.commandService.executeCommand(showWindowLogActionId)}
+			>
+				{localize('positronPlots.showLogs', "Show Logs")}
+			</Button>
 		</div>;
 	};
 
@@ -217,7 +286,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		<div className='plot-instance dynamic-plot-instance'>
 			<div ref={progressRef}></div>
 			{uri && renderedImage()}
-			{!uri && placeholderImage(error)}
+			{!uri && placeholderImage()}
 		</div>
 	);
 };
