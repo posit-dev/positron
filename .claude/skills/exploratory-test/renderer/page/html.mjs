@@ -13,7 +13,7 @@
 
 // escapeHtml is shared with the model rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
@@ -1648,5 +1648,24 @@ export async function writeRunPage(out, report, options) {
 	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), shown.report.severityCounts)
 		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
 		: undefined;
-	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage }));
+	const promptTexts = new Map();
+	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage, promptTexts }));
+	if (options.promptDir) {
+		writePromptFiles(options.promptDir, promptTexts);
+	}
+}
+
+/**
+ * Each finding's prompt as `finding-<n>.md`, for `@claude fix finding <n>` on
+ * the PR to read. Emptied first, so a finding a later render dropped is gone.
+ */
+export function writePromptFiles(dir, promptTexts) {
+	rmSync(dir, { recursive: true, force: true });
+	if (!promptTexts.size) {
+		return;
+	}
+	mkdirSync(dir, { recursive: true });
+	for (const [n, text] of promptTexts) {
+		writeFileSync(join(dir, `finding-${n}.md`), `${text}\n`);
+	}
 }

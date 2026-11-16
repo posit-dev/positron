@@ -218,7 +218,7 @@ holds the text helpers and the ledger parser.
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |
-| A finding card's agent prompt, GitHub issue and feedback links | `renderer/page/card-actions.mjs` |
+| A finding card's agent prompt (also saved as `findings/finding-<n>.md` for `@claude fix finding <n>`), GitHub issue and feedback links | `renderer/page/card-actions.mjs` |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
 | Publishing a local run | `renderer/publish.sh` |

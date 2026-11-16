@@ -13,7 +13,8 @@
 // --check lints the ledger alone, for a mid-run check, and exits 1 only on
 // errors; lint-json.mjs checks the report.
 // A local run's first render, with the passes' cost in report.json, records
-// its stats.json and usage.
+// its stats.json and usage. Each render without --out also writes each
+// finding's agent prompt to findings/finding-<n>.md.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -132,6 +133,8 @@ await writeRunPage(out, parsed, {
 	changeBase,
 	mainBuild,
 	shown,
+	// The run's own render only: a publish's --out render leaves the run alone.
+	promptDir: flags.out ? undefined : join(dir, 'findings'),
 });
 console.log(out);
 

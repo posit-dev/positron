@@ -13,7 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
@@ -2024,4 +2024,26 @@ test('an issue closed for a reason the saved preview does not record is not call
 	const html = dupes(DUPES, { issueRefs: refs });
 	assert.doesNotMatch(findingRow(html, 4), /Regressed/);
 	assert.match(findingRow(html, 4), /Dupe\?/);
+});
+
+test('a render saves each finding\'s copy-button text as findings/finding-<n>.md, and drops stale ones', () => {
+	withLogsRun(({ dir, report, render }) => {
+		const findings = join(dir, 'findings');
+		mkdirSync(findings, { recursive: true });
+		writeFileSync(join(findings, 'finding-99.md'), 'from an earlier render');
+		assert.equal(render(report).status, 0);
+		const html = readFileSync(join(dir, 'index.html'), 'utf8');
+		const blocks = [...html.matchAll(/<script type="text\/plain" id="prompt-f(\d+)">([\s\S]*?)<\/script>/g)];
+		assert.ok(blocks.length > 0);
+		assert.deepEqual(readdirSync(findings).sort(), blocks.map(([, n]) => `finding-${n}.md`).sort());
+		const [, n, text] = blocks[0];
+		assert.equal(readFileSync(join(findings, `finding-${n}.md`), 'utf8'), `${text.replace(/<\\(?=\/script|!--)/gi, '<')}\n`);
+	});
+});
+
+test('a render with --out leaves the run\'s findings folder alone', () => {
+	withLogsRun(({ dir, report, render }) => {
+		assert.equal(render(report, '--out', join(dir, 'published.html')).status, 0);
+		assert.ok(!existsSync(join(dir, 'findings')));
+	});
 });
