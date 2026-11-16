@@ -68,8 +68,8 @@ const ARK_SIDECARS = ['VERSION', 'SUBMODULE_COMMIT'] as const;
  * failing here would cost the measurement to gain nothing.
  */
 export function readArkVersion(buildRoot: string = process.env.BUILD || process.cwd()): string | undefined {
-	// `BUILD` is only set on the memory lane plus two hardcoded remote lanes
-	// (test-memory-metrics.yml), but the performance client decides prod vs.
+	// `BUILD` is only set on the memory lane (positron-builds' test-memory-metrics.yml)
+	// plus two hardcoded remote lanes, but the performance client decides prod vs.
 	// local by branch, not by `BUILD` (api.ts) -- so the nightly full suite that
 	// produces every performance row has no `BUILD` and would never resolve an
 	// ark version without a further fallback. That fallback is the checkout
