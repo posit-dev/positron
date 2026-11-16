@@ -15,7 +15,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { codeFragmentsFromBoundaries, IInputBoundaryFragment, IInputBoundaryFragments, provideInputBoundaries } from '../../../../editor/contrib/positronInputBoundaries/browser/provideInputBoundaries.js';
 import { IInputBoundary } from '../../../../editor/common/languages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IViewDescriptorService } from '../../../common/views.js';
@@ -47,7 +47,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleExecutionSessionProvider, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -470,6 +470,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	private _consoleWidthDebounceTimer: Timeout | undefined;
 
+	/**
+	 * The registered execution session providers, by language ID. The most recent registration
+	 * for a language is last.
+	 */
+	private readonly _executionSessionProviders = new Map<string, IConsoleExecutionSessionProvider[]>();
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -829,13 +835,20 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		_documentUri?: URI,
+		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
 		preserveActiveTab?: boolean,
 		activate?: boolean): Promise<string> {
 		// Without a session ID, the code would go to the active console or a new one.
 		if (activate === false && !sessionId) {
 			throw new Error('Cannot execute code without activating the console unless a session ID is provided.');
+		}
+
+		// Code from a document, with no session named: a language whose session depends on the
+		// document (such as SQL, which runs on the file's data connection) chooses the session.
+		// Asked before the Console is revealed, because the provider can decline to run the code.
+		if (!sessionId && documentUri) {
+			sessionId = await this.provideExecutionSession(languageId, documentUri);
 		}
 		const shouldActivate = activate !== false;
 		focus = focus && shouldActivate;
@@ -982,6 +995,51 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata, preserveActiveTab);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	/**
+	 * Registers a provider that chooses the session that runs code from a document.
+	 * @param languageId The language of the code.
+	 * @param provider The provider.
+	 * @returns A disposable that unregisters the provider.
+	 */
+	registerExecutionSessionProvider(languageId: string, provider: IConsoleExecutionSessionProvider): IDisposable {
+		const providers = this._executionSessionProviders.get(languageId) ?? [];
+		providers.push(provider);
+		this._executionSessionProviders.set(languageId, providers);
+		return toDisposable(() => {
+			const current = this._executionSessionProviders.get(languageId);
+			const index = current?.indexOf(provider) ?? -1;
+			if (current && index >= 0) {
+				current.splice(index, 1);
+				if (current.length === 0) {
+					this._executionSessionProviders.delete(languageId);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Asks the execution session provider for a language which session runs code from a document.
+	 * @param languageId The language of the code.
+	 * @param documentUri The document that the code comes from.
+	 * @returns The session ID, or undefined if there is no provider or the provider has no answer.
+	 *   Rejects if the provider rejects, which stops the execution.
+	 */
+	private async provideExecutionSession(languageId: string, documentUri: URI): Promise<string | undefined> {
+		const provider = this._executionSessionProviders.get(languageId)?.at(-1);
+		if (!provider) {
+			return undefined;
+		}
+		const sessionId = await provider.provideSession(documentUri);
+		if (sessionId && !this._positronConsoleInstancesBySessionId.has(sessionId) &&
+			!this._runtimeSessionService.getSession(sessionId)) {
+			// Not a session that this service can run code in. Use the usual lookup instead.
+			this._logService.warn(`The execution session provider for ${languageId} returned ` +
+				`unknown session ${sessionId} for ${documentUri.toString()}.`);
+			return undefined;
+		}
+		return sessionId || undefined;
 	}
 
 	shouldPreserveActiveTab(executionId: string): boolean {

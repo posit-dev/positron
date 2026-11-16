@@ -1733,6 +1733,9 @@ export class MainThreadLanguageRuntime
 	/** Tracks disposables for picker contributions by handle, for cleanup on unregister */
 	private readonly _pickerContributionDisposables: Map<number, IDisposable> = new Map();
 
+	/** Tracks disposables for execution session providers by handle, for cleanup on unregister */
+	private readonly _executionSessionProviderDisposables: Map<number, IDisposable> = new Map();
+
 	/** Per-session evaluation queues for $evaluateCode */
 	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
 
@@ -2628,6 +2631,10 @@ export class MainThreadLanguageRuntime
 		this._pickerContributionDisposables.forEach((disposable) => disposable.dispose());
 		this._pickerContributionDisposables.clear();
 
+		// Dispose any remaining execution session providers
+		this._executionSessionProviderDisposables.forEach(disposable => disposable.dispose());
+		this._executionSessionProviderDisposables.clear();
+
 		// Dispose any proxy session event forwarding subscriptions
 		this._proxySessionSubscriptions.forEach((store) => store.dispose());
 		this._proxySessionSubscriptions.clear();
@@ -2776,6 +2783,30 @@ export class MainThreadLanguageRuntime
 			this._pickerContributionDisposables.delete(handle);
 			this._logService.trace(`Picker contribution with handle ${handle} unregistered`);
 		}
+	}
+
+	/**
+	 * Register an execution session provider from an extension.
+	 *
+	 * @param handle The handle for this provider
+	 * @param languageId The language of the code the provider chooses a session for
+	 */
+	$registerExecutionSessionProvider(handle: number, languageId: string): void {
+		const disposable = this._positronConsoleService.registerExecutionSessionProvider(languageId, {
+			provideSession: documentUri =>
+				this._proxy.$provideExecutionSession(handle, documentUri, CancellationToken.None),
+		});
+		this._executionSessionProviderDisposables.set(handle, disposable);
+	}
+
+	/**
+	 * Unregister an execution session provider.
+	 *
+	 * @param handle The handle of the provider to unregister
+	 */
+	$unregisterExecutionSessionProvider(handle: number): void {
+		this._executionSessionProviderDisposables.get(handle)?.dispose();
+		this._executionSessionProviderDisposables.delete(handle);
 	}
 
 	/**

@@ -2244,6 +2244,33 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Chooses the session that runs code from a document, for a language whose
+	 * session depends on the document rather than on the language alone. For
+	 * example, SQL runs in a ggsql session that is connected to the file's
+	 * data connection.
+	 */
+	export interface ExecutionSessionProvider {
+		/**
+		 * Return the ID of the session that runs code from this document. The
+		 * provider can start or connect a session first.
+		 *
+		 * Positron asks the provider when code in the provider's language runs
+		 * from a document in the Console (for example, with Cmd/Ctrl+Enter) and
+		 * no session is named.
+		 *
+		 * Return undefined to use the usual session lookup for the language.
+		 * Throw a {@link vscode.CancellationError} to stop the execution, when
+		 * the provider has already told the user why the code did not run.
+		 *
+		 * @param document The document that the code comes from.
+		 * @param token A cancellation token.
+		 * @return The session ID, or undefined.
+		 */
+		provideSession(document: vscode.TextDocument,
+			token: vscode.CancellationToken): vscode.ProviderResult<string>;
+	}
+
+	/**
 	 * The range of a statement, plus optionally the code for the range.
 	 */
 	export interface StatementRange {
@@ -3370,6 +3397,18 @@ declare module 'positron' {
 		export function registerHelpTopicProvider(
 			selector: vscode.DocumentSelector,
 			provider: HelpTopicProvider): vscode.Disposable;
+
+		/**
+		 * Register an execution session provider. If more than one provider is
+		 * registered for a language, the most recent one is used.
+		 *
+		 * @param languageId The language of the code that the provider chooses a session for.
+		 * @param provider An execution session provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerExecutionSessionProvider(
+			languageId: string,
+			provider: ExecutionSessionProvider): vscode.Disposable;
 	}
 
 	/**

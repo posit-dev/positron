@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Event } from '../../../../../base/common/event.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -353,6 +354,75 @@ describe('PositronConsoleService', () => {
 			await consoleService.executeCode('test', undefined, '1 + 1', { source: CodeAttributionSource.Extension }, false);
 
 			expect([olderSpy.mock.calls.length, newerSpy.mock.calls.length]).toEqual([0, 1]);
+		});
+	});
+
+	describe('execution session provider', () => {
+		const documentUri = URI.file('/project/query.sql');
+
+		async function startWithConsole() {
+			const consoleService = ctx.disposables.add(
+				ctx.instantiationService.createInstance(PositronConsoleService));
+			const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+			const instance = consoleService.positronConsoleInstances.find(instance => instance.sessionId === session.sessionId)!;
+			const enqueueSpy = vi.spyOn(instance, 'enqueueCode').mockImplementation(async () => { });
+			return { consoleService, session, enqueueSpy };
+		}
+
+		it('runs code from a document in the session the provider chooses, for a language with no runtime', async () => {
+			const { consoleService, session, enqueueSpy } = await startWithConsole();
+			const provideSession = vi.fn(async () => session.sessionId);
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider('sql', { provideSession }));
+
+			const sessionId = await consoleService.executeCode('sql', undefined, 'SELECT 1', { source: CodeAttributionSource.Script }, false,
+				undefined, undefined, undefined, undefined, documentUri);
+
+			expect({ sessionId, asked: provideSession.mock.calls, runs: enqueueSpy.mock.calls.length })
+				.toEqual({ sessionId: session.sessionId, asked: [[documentUri]], runs: 1 });
+		});
+
+		it('does not ask the provider when a session ID is given or there is no document', async () => {
+			const { consoleService, session } = await startWithConsole();
+			const provideSession = vi.fn(async () => undefined);
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider('test', { provideSession }));
+
+			await consoleService.executeCode('test', session.sessionId, '1', { source: CodeAttributionSource.Script }, false,
+				undefined, undefined, undefined, undefined, documentUri);
+			await consoleService.executeCode('test', undefined, '1', { source: CodeAttributionSource.Script }, false);
+
+			expect(provideSession).not.toHaveBeenCalled();
+		});
+
+		it('uses the usual lookup when the provider has no answer', async () => {
+			const { consoleService, session, enqueueSpy } = await startWithConsole();
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider(session.runtimeMetadata.languageId,
+				{ provideSession: async () => undefined }));
+
+			const sessionId = await consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
+				{ source: CodeAttributionSource.Script }, false, undefined, undefined, undefined, undefined, documentUri);
+
+			expect({ sessionId, runs: enqueueSpy.mock.calls.length }).toEqual({ sessionId: session.sessionId, runs: 1 });
+		});
+
+		it('does not run the code when the provider rejects', async () => {
+			const { consoleService, session, enqueueSpy } = await startWithConsole();
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider(session.runtimeMetadata.languageId,
+				{ provideSession: async () => { throw new CancellationError(); } }));
+
+			await expect(consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
+				{ source: CodeAttributionSource.Script }, false, undefined, undefined, undefined, undefined, documentUri))
+				.rejects.toBeInstanceOf(CancellationError);
+			expect(enqueueSpy).not.toHaveBeenCalled();
+		});
+
+		it('stops asking a provider once it is disposed', async () => {
+			const { consoleService, session } = await startWithConsole();
+			const provideSession = vi.fn(async () => session.sessionId);
+			consoleService.registerExecutionSessionProvider('sql', { provideSession }).dispose();
+
+			await expect(consoleService.executeCode('sql', undefined, 'SELECT 1', { source: CodeAttributionSource.Script }, false,
+				undefined, undefined, undefined, undefined, documentUri)).rejects.toThrow(/no registered runtime/);
+			expect(provideSession).not.toHaveBeenCalled();
 		});
 	});
 

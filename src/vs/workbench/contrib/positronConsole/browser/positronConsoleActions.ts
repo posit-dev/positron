@@ -5,6 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -146,9 +147,21 @@ async function executeCodeInConsole(
 	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
-	// this will rip focus away from the editor.
-	if (!await positronConsoleService.executeCode(
-		languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+	// this will rip focus away from the editor. The document URI lets an execution session
+	// provider for the language (such as SQL's) choose the session for this document.
+	let sessionId: string;
+	try {
+		sessionId = await positronConsoleService.executeCode(
+			languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior,
+			undefined /* executionId */, documentUri);
+	} catch (error) {
+		// The execution session provider declined to run the code and has told the user why.
+		if (isCancellationError(error)) {
+			return false;
+		}
+		throw error;
+	}
+	if (!sessionId) {
 		const languageName = languageService.getLanguageName(languageId);
 		notificationService.notify({
 			severity: Severity.Info,

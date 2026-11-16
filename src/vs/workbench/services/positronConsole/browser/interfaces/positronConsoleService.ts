@@ -50,6 +50,24 @@ export const enum CodeSubmissionResult {
 }
 
 /**
+ * Chooses the session that runs code from a document, for a language that has no runtime of
+ * its own or whose sessions depend on the document (for example, SQL runs in a ggsql session
+ * that is on the file's data connection).
+ */
+export interface IConsoleExecutionSessionProvider {
+	/**
+	 * Gets the session that runs code from a document. The provider can start or connect a
+	 * session first.
+	 *
+	 * @param documentUri The document that the code comes from.
+	 * @returns The session ID, or undefined to use the usual session lookup for the language.
+	 *   A rejection stops the execution. Reject with a cancellation error when the provider
+	 *   has already told the user why the code did not run.
+	 */
+	provideSession(documentUri: URI): Promise<string | undefined>;
+}
+
+/**
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
@@ -170,7 +188,9 @@ export interface IPositronConsoleService {
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
 	 * @param documentUri Optional document URI when code is executed from a file. When provided,
-	 *   the backend will be notified that this is the source of code execution.
+	 *   the backend will be notified that this is the source of code execution. When no session
+	 *   ID is given, the execution session provider for the language (if any) chooses the
+	 *   session for this document.
 	 * @param executionMetadata Optional metadata to pass to the language runtime.
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
 	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
@@ -193,6 +213,17 @@ export interface IPositronConsoleService {
 		executionMetadata?: Record<string, unknown>,
 		preserveActiveTab?: boolean,
 		activate?: boolean): Promise<string>;
+
+	/**
+	 * Registers a provider that chooses the session that runs code from a document, for one
+	 * language. {@link executeCode} asks it when it gets a document URI and no session ID.
+	 * If more than one provider is registered for a language, the most recent one is used.
+	 *
+	 * @param languageId The language of the code.
+	 * @param provider The provider.
+	 * @returns A disposable that unregisters the provider.
+	 */
+	registerExecutionSessionProvider(languageId: string, provider: IConsoleExecutionSessionProvider): IDisposable;
 
 	/**
 	 * Whether an execution was started with `preserveActiveTab`, so views it

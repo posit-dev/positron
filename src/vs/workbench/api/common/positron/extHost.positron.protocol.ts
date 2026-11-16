@@ -131,6 +131,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 	$registerRuntimePickerContribution(handle: number, languageId: string): void;
 	$unregisterRuntimePickerContribution(handle: number): void;
+	$registerExecutionSessionProvider(handle: number, languageId: string): void;
+	$unregisterExecutionSessionProvider(handle: number): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -191,6 +193,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
+	$provideExecutionSession(handle: number, documentUri: UriComponents, token: CancellationToken): Promise<string | undefined>;
 }
 
 // This is the interface that the main process exposes to the extension host
