@@ -268,6 +268,8 @@ export const copyrightFilter = Object.freeze<string[]>([
 	// --- Start Positron ---
 	'!extensions/positron-r/resources/testing/**',
 	`!**/*.jsonl`,
+	// Binary SAS data files
+	'!**/*.{sas7bdat,xpt}',
 	// The SQL analyzer's Cargo manifest and lock file are generated and edited by the Rust
 	// toolchain, which has no reason to preserve a header.
 	'!extensions/positron-sql/sql-analyzer/Cargo.toml',

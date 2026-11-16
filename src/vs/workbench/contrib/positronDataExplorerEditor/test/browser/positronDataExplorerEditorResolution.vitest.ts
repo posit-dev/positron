@@ -12,7 +12,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { PositronDataExplorerUri } from '../../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { duckDBClientId } from '../../../../services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { moveOpenDataExplorerEditorToGroup } from '../../browser/positronDataExplorerEditorResolution.js';
+import { canOpenWithDuckDB, moveOpenDataExplorerEditorToGroup } from '../../browser/positronDataExplorerEditorResolution.js';
 
 describe('moveOpenDataExplorerEditorToGroup', () => {
 	const RESOURCE = PositronDataExplorerUri.generate(duckDBClientId(URI.file('/tmp/bikes.csv')));
@@ -63,5 +63,24 @@ describe('moveOpenDataExplorerEditorToGroup', () => {
 	it('reuses the editor in the target group without moving one from another group', () => {
 		// The Data Explorer is split across groups 2 and 1; opening it in group 1 keeps the split.
 		expect(resolve([2, 1], 1)).toEqual({ returned: 1, moves: [] });
+	});
+});
+
+describe('canOpenWithDuckDB', () => {
+	const canOpen = (path: string, readerExtensions: string[] = []) => canOpenWithDuckDB(URI.file(path), readerExtensions);
+
+	it('opens built-in formats in any case, including gzipped ones', () => {
+		expect(canOpen('/tmp/DATA.CSV')).toBe(true);
+		expect(canOpen('/tmp/data.tsv.gz')).toBe(true);
+		expect(canOpen('/tmp/data.txt.gz')).toBe(false);
+	});
+
+	it('opens extensions from dataExplorer.fileReaders in any case', () => {
+		expect(canOpen('/tmp/ADSL.XPT', ['xpt'])).toBe(true);
+		expect(canOpen('/tmp/adsl.xpt')).toBe(false);
+	});
+
+	it('does not unwrap gzipped reader formats', () => {
+		expect(canOpen('/tmp/adsl.xpt.gz', ['xpt'])).toBe(false);
 	});
 });

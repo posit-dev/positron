@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -204,6 +205,9 @@ export const IPositronDataImporterRegistry = createDecorator<IPositronDataImport
 export interface IPositronDataImporterRegistry {
 	readonly _serviceBrand: undefined;
 
+	/** Fires when an importer is registered or unregistered. */
+	readonly onDidChangeImporters: Event<void>;
+
 	/**
 	 * Registers an importer.
 	 * @param importer The importer to register.
@@ -217,4 +221,11 @@ export interface IPositronDataImporterRegistry {
 	 * @param fileExtension The extension to match, with or without a leading dot; case-insensitive.
 	 */
 	getImporters(fileExtension: string): Promise<IDataImporter[]>;
+
+	/**
+	 * Returns whether a registered importer can read a file extension. Unlike {@link getImporters},
+	 * does not activate contributing extensions.
+	 * @param fileExtension The extension to match, with or without a leading dot; case-insensitive.
+	 */
+	hasImporter(fileExtension: string): boolean;
 }
