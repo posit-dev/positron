@@ -4,7 +4,8 @@ name: "Release Screenshots (dispatch)"
 # (test-release-screenshots.yml), which holds the test credentials and the bot
 # token that opens the positron-website PR. When a release/* branch is created,
 # this job dispatches a publish run there for the branch's first commit. It does
-# not wait for the run. The nightly and manual runs start in positron-builds.
+# not wait for the run. A first commit off main fails positron-builds' ref
+# check; an approver then re-runs it by hand. The nightly and manual runs start in positron-builds.
 # The only secret here is the bot app key.
 
 on:
@@ -41,5 +42,5 @@ jobs:
         run: |
           set -euo pipefail
           gh workflow run test-release-screenshots.yml -R posit-dev/positron-builds --ref main \
-            -f "release_branch=$BRANCH" -f "positron_ref=$SHA"
+            -f mode=publish -f "release_branch=$BRANCH" -f "positron_ref=$SHA"
           echo "Dispatched release screenshots for \`$BRANCH\` (\`${SHA:0:10}\`): https://github.com/posit-dev/positron-builds/actions/workflows/test-release-screenshots.yml" >> "$GITHUB_STEP_SUMMARY"
