@@ -245,20 +245,11 @@ export class StatementRunner {
 		connection: ConnectionRef,
 		query: string,
 	): Promise<ExecutionOutcome> {
-		const connect = await this._api.getConnectCode(connection.profileId);
-		if (connect.kind !== 'code') {
-			this._log.warn(`No ggsql connection code for ${connection.name}: ${connect.kind}.`);
-			return connect;
+		const session = await this.sessionFor(connection);
+		if (session.kind !== 'ready') {
+			return session;
 		}
-
-		let sessionId = await this._sessionOn(connect.code);
-		if (!sessionId) {
-			const started = await this._startOn(connection, connect.code);
-			if (started.kind !== 'connected') {
-				return started;
-			}
-			sessionId = started.sessionId;
-		}
+		const sessionId = session.sessionId;
 
 		this._log.info(`Running a statement from ${document.uri.toString(true)} against`
 			+ ` ${connection.name} in ggsql session ${sessionId}.`);
@@ -270,6 +261,33 @@ export class StatementRunner {
 				+ ` session ${sessionId}: ${errorMessage(error)}`);
 		});
 		return { kind: 'executed', sessionId };
+	}
+
+	/**
+	 * The ggsql console session on the connection's database, started and connected first if
+	 * there is none, or why there is none.
+	 *
+	 * This is the part of a run that the Console's own run commands need: they run the code
+	 * themselves once they know the session. See `ExecutionSessionProvider` in session.ts.
+	 *
+	 * @param connection The connection the file is written against.
+	 */
+	public async sessionFor(connection: ConnectionRef): Promise<SessionOutcome> {
+		const connect = await this._api.getConnectCode(connection.profileId);
+		if (connect.kind !== 'code') {
+			this._log.warn(`No ggsql connection code for ${connection.name}: ${connect.kind}.`);
+			return connect;
+		}
+
+		const sessionId = await this._sessionOn(connect.code);
+		if (sessionId) {
+			return { kind: 'ready', sessionId };
+		}
+		const started = await this._startOn(connection, connect.code);
+		if (started.kind !== 'connected') {
+			return started;
+		}
+		return { kind: 'ready', sessionId: started.sessionId };
 	}
 
 	/** The ggsql console already on the database, if there is one. */
@@ -367,6 +385,14 @@ export class StatementRunner {
 		}
 	}
 }
+
+/**
+ * What {@link StatementRunner.sessionFor} settled on: a ggsql session on the database, or why
+ * there is none. Every case other than `ready` is one of the ways a run does not happen.
+ */
+export type SessionOutcome =
+	| { readonly kind: 'ready'; readonly sessionId: string }
+	| Exclude<ExecutionOutcome, { kind: 'executed' }>;
 
 /** What {@link StatementRunner._startOn} settled on, or why it did not. */
 type StartOutcome =

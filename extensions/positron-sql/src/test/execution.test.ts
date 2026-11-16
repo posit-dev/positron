@@ -90,6 +90,25 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('sessionFor finds or starts the console on the database without running anything else', async () => {
+		// The Console's run commands ask for the session and send the code themselves.
+		const api = new FakeApi();
+		const run = runner(api);
+
+		const first = await run.sessionFor(CONNECTION);
+		const second = await run.sessionFor(CONNECTION);
+
+		assert.deepStrictEqual(
+			{ first, second, started: api.started, executed: api.executed },
+			{
+				first: { kind: 'ready', sessionId: 'new-1' },
+				second: { kind: 'ready', sessionId: 'new-1' },
+				started: 1,
+				executed: [['new-1', SHOP]],
+			},
+		);
+	});
+
 	test('a notebook session on the database is passed over', async () => {
 		const api = new FakeApi();
 		api.addSession('nb', SHOP, positron.LanguageRuntimeSessionMode.Notebook);

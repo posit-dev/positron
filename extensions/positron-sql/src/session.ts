@@ -10,7 +10,7 @@ import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
+import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, SessionOutcome, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -36,11 +36,12 @@ const DATA_CONNECTIONS_ENABLED_SETTING = 'dataConnections.enabled';
 const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
 
 /**
- * The command bound to cmd/ctrl+enter in a SQL editor, which runs one statement.
+ * The command that runs one statement, from the Command Palette.
  *
- * It takes the binding over the Console's own Execute Code, which cannot serve a SQL file: that
- * command resolves a console from the document's language id, and there is no runtime for `sql`.
- * The statement runs in a ggsql console instead; see `execution.ts`.
+ * The keys go to the Console's own run commands (Cmd/Ctrl+Enter, Alt+Enter, run to or from the
+ * cursor), which send the code to the session the execution session provider chooses; see
+ * {@link SqlSession._provideSession}. Both end in a ggsql console on the file's database; see
+ * `execution.ts`.
  */
 const RUN_STATEMENT_COMMAND = 'sql.runStatement';
 
@@ -198,6 +199,15 @@ export class SqlSession implements vscode.Disposable {
 	private _running = false;
 
 	/**
+	 * The last session lookup for the Console's run commands, so that the next waits for it.
+	 *
+	 * The same reason as {@link _running}: a second keypress while a ggsql session starts must find
+	 * that session on the database, not start another. The Console's commands cannot be dropped
+	 * the way a second `sql.runStatement` is, since each carries code to run, so they queue.
+	 */
+	private _providing: Promise<unknown> = Promise.resolve();
+
+	/**
 	 * Profiles already tried this session, so a connection that cannot be opened is attempted once
 	 * rather than on every file that names it.
 	 *
@@ -274,6 +284,12 @@ export class SqlSession implements vscode.Disposable {
 					document => this._dialectFor(document),
 				),
 			),
+
+			// SQL has no runtime of its own, so the Console asks here which session runs code from
+			// a SQL document: the ggsql console on the file's database.
+			positron.languages.registerExecutionSessionProvider('sql', {
+				provideSession: document => this._provideSession(document),
+			}),
 
 			vscode.languages.registerCompletionItemProvider(
 				SQL_DOCUMENTS,
@@ -693,7 +709,7 @@ export class SqlSession implements vscode.Disposable {
 	private async _runStatement(): Promise<void> {
 		const editor = activeSqlEditor();
 		if (!editor || this._running) {
-			// The keybinding is scoped to SQL editors, but the command is still reachable by hand.
+			// The command is enabled only for SQL editors, but it is still reachable by hand.
 			return;
 		}
 
@@ -746,6 +762,55 @@ export class SqlSession implements vscode.Disposable {
 		} finally {
 			this._running = false;
 		}
+	}
+
+	/**
+	 * The session that runs code from a SQL document when the Console runs it: the ggsql console
+	 * on the file's database, started and connected first if there is none.
+	 *
+	 * The Console's run commands find the code and run it; this is only where. When there is no
+	 * such session, this says why, as {@link _runStatement} does, and rejects with a cancellation
+	 * so that the Console does not also look for a `sql` runtime and say there is none.
+	 */
+	private _provideSession(document: vscode.TextDocument): Promise<string> {
+		const result = this._providing.then(() => this._sessionForDocument(document));
+		this._providing = result.then(undefined, () => undefined);
+		return result;
+	}
+
+	private async _sessionForDocument(document: vscode.TextDocument): Promise<string> {
+		let connection: ConnectionRef;
+		let outcome: SessionOutcome;
+		try {
+			const chosen = await this._connectionToRunAgainst(document);
+			if (!chosen || this._disposed) {
+				// No connection chosen. The picker, or the notification that there is nothing to
+				// pick, has already said so.
+				throw new vscode.CancellationError();
+			}
+			connection = chosen;
+			outcome = await this._runner.sessionFor(connection);
+		} catch (error) {
+			if (error instanceof vscode.CancellationError) {
+				throw error;
+			}
+			this._log.error(`Could not find a ggsql session for ${document.uri.toString(true)}:`
+				+ ` ${errorMessage(error)}`);
+			if (!this._disposed) {
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"The statement was not run: {0}",
+					errorMessage(error),
+				));
+			}
+			throw new vscode.CancellationError();
+		}
+		if (outcome.kind === 'ready') {
+			this._log.info(`Running code from ${document.uri.toString(true)} against`
+				+ ` ${connection.name} in ggsql session ${outcome.sessionId}.`);
+			return outcome.sessionId;
+		}
+		this._reportNotRun(outcome, connection);
+		throw new vscode.CancellationError();
 	}
 
 	/**
