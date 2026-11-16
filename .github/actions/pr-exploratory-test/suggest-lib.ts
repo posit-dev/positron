@@ -210,8 +210,7 @@ export function renderSuggestComment(reason) {
  * run it anyway. Without it the PR shows nothing, and a wrong call goes unseen.
  */
 export function renderDeclinedComment(reason, headSha = '') {
-	// GitHub links a short SHA in code to the commit.
-	const at = headSha ? ` at \`${String(headSha).slice(0, 7)}\`` : '';
+	const at = headSha ? ` at ${String(headSha).slice(0, 7)}` : '';
 	return [
 		DECLINED_MARKER,
 		'> [!NOTE]',

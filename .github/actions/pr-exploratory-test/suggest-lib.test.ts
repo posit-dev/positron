@@ -158,7 +158,7 @@ test('renderDeclinedComment gives the reason and the override, and is not a prio
 	assert.equal(body, [
 		DECLINED_MARKER,
 		'> [!NOTE]',
-		'> Exploratory testing did not run automatically on this PR at `abc1234`. Reaching the change needs the ggsql extension.',
+		'> Exploratory testing did not run automatically on this PR at abc1234. Reaching the change needs the ggsql extension.',
 		'',
 		'If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted on this PR.',
 		'',
