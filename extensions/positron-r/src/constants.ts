@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Probe for #17358; this PR is not meant to merge.
 import * as path from 'path';
 import * as fs from 'fs-extra';
 
