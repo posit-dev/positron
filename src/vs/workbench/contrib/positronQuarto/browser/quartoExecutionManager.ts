@@ -111,10 +111,10 @@ interface QuartoCodeFragments {
 	readonly fragments: string[];
 	/**
 	 * 0-based [start, end) line offsets, relative to the first line of the
-	 * executed code range, for each fragment. Aligned with `fragments`. Only
-	 * present when the code was split into more than one fragment at statement
-	 * boundaries; undefined when the whole range is executed as one fragment
-	 * (in which case the whole-cell running treatment should be used).
+	 * executed code range, for each fragment. Aligned with `fragments`. Present
+	 * when the code was split at statement boundaries, even into a single
+	 * statement (which can leave out blank lines around it); undefined when
+	 * the whole range is executed as one fragment.
 	 */
 	readonly lineRanges?: { readonly start: number; readonly end: number }[];
 }
@@ -780,13 +780,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
 
-				// When the code was split into individual statements, compute the
-				// absolute document line range for each fragment so the gutter can
-				// show per-statement progress as execution advances.
-				const fragmentRanges = lineRanges?.map(({ start, end }) => new Range(
-					codeRange.startLineNumber + start, 1,
-					codeRange.startLineNumber + end - 1, 1,
-				));
+				// When the code was split into more than one statement, compute
+				// the absolute document line range for each fragment so the gutter
+				// can show per-statement progress as execution advances. A single
+				// statement gets the whole-cell running treatment instead.
+				const fragmentRanges = codeFragments.length > 1
+					? lineRanges?.map(({ start, end }) => new Range(
+						codeRange.startLineNumber + start, 1,
+						codeRange.startLineNumber + end - 1, 1,
+					))
+					: undefined;
 
 				for (let index = 0; index < codeFragments.length; index++) {
 					// Stop dispatching fragments if execution was cancelled between
@@ -1772,19 +1775,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return { fragments: [code] };
 		}
 
-		const result = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
-		if (!result) {
-			return { fragments: [code] };
-		}
-
-		// Only expose per-fragment line ranges (used for granular gutter
-		// progress) when the code was actually split into multiple statements.
-		// A single fragment covers the whole range, which is indistinguishable
-		// from the whole-cell running treatment.
-		if (result.fragments.length > 1) {
-			return result;
-		}
-		return { fragments: result.fragments };
+		return await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token)
+			?? { fragments: [code] };
 	}
 
 	/**

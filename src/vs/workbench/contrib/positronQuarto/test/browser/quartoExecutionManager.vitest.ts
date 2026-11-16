@@ -340,6 +340,28 @@ describe('QuartoExecutionManager', () => {
 			]);
 		});
 
+		it('sends the statement range for a single statement between blank lines', async () => {
+			const cell = rCell('location-single-statement', 2, 4);
+			useDocument([cell], ['```{r}', '', 'plot(1:10)', '', '```']);
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(
+				{ language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' },
+				{
+					provideInputBoundaries: () => [
+						{ kind: 'whitespace', range: { start: 0, end: 1 } },
+						{ kind: 'complete', range: { start: 1, end: 2 } },
+						{ kind: 'whitespace', range: { start: 2, end: 3 } },
+					],
+				}
+			));
+
+			const sent = await executeOnKernel(() => executionManager.executeCell(URI.file('/location-single-statement.qmd'), cell));
+
+			expect(sent).toEqual([{
+				code: 'plot(1:10)',
+				range: { start: { line: 2, character: 0 }, end: { line: 2, character: 10 } },
+			}]);
+		});
+
 		it('sends a valid range for a cell run through the console', async () => {
 			const cell = rCell('location-console', 2, 3);
 			useDocument([cell], ['```{r}', 'x <- 1', 'print(x)', '```'], 'python');
