@@ -271,6 +271,9 @@ export const ENVIRONMENT = [
 	'- Posit AI and Bedrock as Assistant model providers (no sign-in for either). Posit Assistant itself is available, as above.',
 	'- GitHub sign-in, and so GitHub Copilot: the run has no GitHub account to sign in with.',
 	'- Windows and macOS.',
+	'',
+	// #17356: an agent's PR said ggsql was unavailable where it worked, and the judge took that to mean this run.
+	'These lists describe this run. A PR description that says something was unavailable or could not be installed is about where its author worked, not about this run.',
 ].join('\n');
 
 const PR_BODY_MAX = 4000;

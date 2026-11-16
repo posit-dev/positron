@@ -539,6 +539,10 @@ test('renderPrBody is empty for no description, or one that is only template com
 	}
 });
 
+test('ENVIRONMENT says a PR description\'s environment is not this run\'s', () => {
+	assert.match(ENVIRONMENT, /about where its author worked, not about this run/);
+});
+
 test('ENVIRONMENT lists GitHub and Copilot sign-in as unavailable', () => {
 	const unavailable = ENVIRONMENT.split('Not available')[1];
 	assert.match(unavailable, /GitHub sign-in, and so GitHub Copilot/);
