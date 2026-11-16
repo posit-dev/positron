@@ -87,7 +87,9 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
  * @param position The position in the editor where the code originated
  * @param model The text model containing the code
  * @param opts Options for code execution
- * @returns A promise that resolves to true if the execution was successful, false otherwise
+ * @returns A promise that resolves to 'executed' if the code was sent to a session,
+ *   'declined' if an execution session provider declined to run it (and told the user why),
+ *   or 'failed' otherwise.
  */
 async function executeCodeInConsole(
 	code: string,
@@ -108,7 +110,7 @@ async function executeCodeInConsole(
 		mode?: RuntimeCodeExecutionMode;
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
-): Promise<boolean> {
+): Promise<'executed' | 'declined' | 'failed'> {
 	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
 
 	// Ensure we have a target language.
@@ -119,7 +121,7 @@ async function executeCodeInConsole(
 			message: localize('positron.executeCode.noLanguage', "Cannot execute code. Unable to detect input language."),
 			sticky: false
 		});
-		return false;
+		return 'failed';
 	}
 
 	// Whether to allow incomplete code to be executed.
@@ -157,7 +159,7 @@ async function executeCodeInConsole(
 	} catch (error) {
 		// The execution session provider declined to run the code and has told the user why.
 		if (isCancellationError(error)) {
-			return false;
+			return 'declined';
 		}
 		throw error;
 	}
@@ -168,9 +170,9 @@ async function executeCodeInConsole(
 			message: localize('positron.executeCode.noRuntime', "Cannot execute code. Unable to start a runtime for the {0} language.", languageName),
 			sticky: false
 		});
-		return false;
+		return 'failed';
 	}
-	return true;
+	return 'executed';
 }
 
 /**
@@ -699,7 +701,7 @@ export function registerPositronConsoleActions() {
 			};
 
 			// Use the helper function to execute the code
-			await executeCodeInConsole(
+			const result = await executeCodeInConsole(
 				code,
 				cursorLocation,
 				codeLocation,
@@ -718,6 +720,19 @@ export function registerPositronConsoleActions() {
 					mode: opts.mode,
 					errorBehavior: opts.errorBehavior
 				});
+
+			// The cursor advanced before the code was sent, so the editor stays
+			// responsive while a runtime starts. If an execution session provider
+			// declined to run the code (for example, the user dismissed SQL's
+			// connection picker), nothing ran: put the cursor back, unless the user
+			// moved it in the meantime.
+			if (result === 'declined') {
+				if (editor && selection && nextPosition && editor.getPosition()?.equals(nextPosition)) {
+					editor.setSelection(selection);
+					editor.revealPositionInCenterIfOutsideViewport(selection.getPosition());
+				}
+				return undefined;
+			}
 			return nextPosition;
 		}
 
