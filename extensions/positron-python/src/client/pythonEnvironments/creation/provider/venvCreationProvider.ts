@@ -35,6 +35,7 @@ import { shouldDisplayEnvCreationProgress } from './hideEnvCreation';
 import { noop } from '../../../common/utils/misc';
 // --- Start Positron ---
 import { reusedEnvironmentResult } from '../reusedEnvironment';
+import { toWorkspacePathSpelling } from '../workspacePathSpelling';
 // --- End Positron ---
 
 interface IVenvCommandArgs {
@@ -160,7 +161,12 @@ async function createVenv(
                         `Failed to create virtual environment with exitCode: ${proc?.exitCode}`,
                 );
             } else {
-                deferred.resolve(venvPath);
+                // --- Start Positron ---
+                // The script reports the symlink-resolved path. Use the workspace spelling so the
+                // environment matches the one the file watcher registered.
+                // deferred.resolve(venvPath);
+                deferred.resolve(venvPath ? toWorkspacePathSpelling(venvPath, workspace.uri.fsPath) : venvPath);
+                // --- End Positron ---
             }
         },
     );

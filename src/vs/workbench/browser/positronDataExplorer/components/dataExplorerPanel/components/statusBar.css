@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,4 +17,55 @@
 .status-bar
 .label {
 	opacity: 80%;
+}
+
+.data-explorer-panel
+.status-bar
+.search-limit {
+	/* Lay out the button, then the label, right to left on one visible line, so the label wraps out of view when it does not fit. */
+	flex: 1;
+	height: 18px;
+	contain: inline-size;
+	display: flex;
+	overflow: hidden;
+	flex-wrap: wrap;
+	padding-left: 8px;
+	padding-right: 4px;
+	align-items: center;
+	flex-direction: row-reverse;
+}
+
+.data-explorer-panel
+.status-bar
+.search-limit
+.label {
+	white-space: nowrap;
+}
+
+.data-explorer-panel
+.status-bar
+.search-all-button {
+	height: 18px;
+	order: -1;
+	display: flex;
+	flex-shrink: 0;
+	white-space: nowrap;
+	padding: 0 4px;
+	cursor: pointer;
+	margin-left: 4px;
+	border-radius: 3px;
+	align-items: center;
+	color: var(--vscode-textLink-foreground);
+}
+
+.data-explorer-panel
+.status-bar
+.search-all-button:hover {
+	background-color: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.data-explorer-panel
+.status-bar
+.search-all-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
 }

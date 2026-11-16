@@ -135,10 +135,7 @@ test.describe('Autocomplete with Notebook Console', {
 			// and running it. This avoids typing into the console
 			// input where the suggest widget can intercept Enter.
 			await editors.selectTab('console_test.rmd');
-			await inlineQuarto.gotoLine(11);
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('quux2345 <- mtcars', { delay: 0 });
+			await inlineQuarto.insertLineAfter('console_test.rmd', 11, 'quux2345 <- mtcars');
 			await inlineQuarto.runCurrentCell();
 			await sessions.expectAllSessionsToBeReady();
 
@@ -154,7 +151,7 @@ test.describe('Autocomplete with Notebook Console', {
 
 			// Clear the console input and type the prefix.
 			await console.clearInput();
-			await keyboard.type('quux', { delay: 250 });
+			await console.typeToConsole('quux', false, 250);
 
 			// Trigger completions and verify we see quux2345 (from the
 			// notebook session). If the console LSP is incorrectly
@@ -248,10 +245,7 @@ test.describe('Autocomplete with Notebook Console', {
 			// and running it. This avoids typing into the console
 			// input where the suggest widget can intercept Enter.
 			await editors.selectTab('console_test_py.qmd');
-			await inlineQuarto.gotoLine(11);
-			await keyboard.press('End');
-			await keyboard.press('Enter');
-			await keyboard.type('quux2345 = 99', { delay: 0 });
+			await inlineQuarto.insertLineAfter('console_test_py.qmd', 11, 'quux2345 = 99');
 			await inlineQuarto.runCurrentCell();
 			await sessions.expectAllSessionsToBeReady();
 
@@ -267,7 +261,7 @@ test.describe('Autocomplete with Notebook Console', {
 
 		// Clear the console input and type the prefix.
 		await console.clearInput();
-		await keyboard.type('quux', { delay: 250 });
+		await console.typeToConsole('quux', false, 250);
 
 		// Trigger completions and verify we see quux2345 (from the
 		// notebook session). If the console LSP is incorrectly

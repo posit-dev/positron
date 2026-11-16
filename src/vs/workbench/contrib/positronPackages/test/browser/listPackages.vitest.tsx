@@ -17,6 +17,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ListPackages } from '../../browser/components/listPackages.js';
 import { PackagesItemSize } from '../../browser/positronPackagesContextKeys.js';
@@ -64,6 +65,7 @@ describe('ListPackages', () => {
 	});
 
 	const showContextMenu = vi.fn();
+	const showInstantHover = vi.fn();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -78,6 +80,7 @@ describe('ListPackages', () => {
 		// command; stub it so these flash/select tests don't emit unhandled rejections.
 		.stub(ICommandService, { executeCommand: vi.fn() })
 		.stub(IContextMenuService, { showContextMenu })
+		.stub(IHoverService, { showInstantHover, hideHover: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -107,6 +110,17 @@ describe('ListPackages', () => {
 	// the outer .positron-list-row carries the selection class.
 	const itemRow = (name: string) => screen.getByText(name).closest('.packages-list-item');
 	const listRow = (name: string) => screen.getByText(name).closest('.positron-list-row');
+
+	// The filter box only shows its tooltips when the list hands it a hover manager.
+	it('shows the filter button tooltip when hovering it', async () => {
+		renderList();
+		const user = userEvent.setup();
+		await user.hover(screen.getByRole('button', { name: 'Filter options' }));
+		await waitFor(() => expect(showInstantHover).toHaveBeenCalledWith(
+			expect.objectContaining({ content: 'Filter options' }),
+			false
+		));
+	});
 
 	it('flashes and selects a single installed or updated package', async () => {
 		renderList();
@@ -469,5 +483,115 @@ describe('ListPackages vulnerability indicators', () => {
 		expect(screen.getByText('urllib3')).toBeInTheDocument();
 		expect(screen.getByText('commonmark')).toBeInTheDocument();
 		expect(screen.queryByText('localbuild')).not.toBeInTheDocument();
+	});
+});
+
+describe('ListPackages bundled packages', () => {
+	// tornado is bundled only; six is bundled and also in the environment;
+	// numpy is an ordinary environment package.
+	const installed: ILanguageRuntimePackage[] = [
+		{ ...pkg('tornado', '6.5.7'), bundled: true, outdated: true, latestVersion: '6.5.10' },
+		{ ...pkg('six', '1.17.0'), bundled: true, environmentVersion: '1.16.0', outdated: true, latestVersion: '1.17.0' },
+		pkg('numpy', '1.26.0'),
+	];
+
+	const fakeInstance = stubInterface<IPositronPackagesInstance>({
+		packages: installed,
+		attachRuntime: () => { },
+		detachRuntime: () => { },
+		onDidRefreshPackagesInstance: Event.None,
+		onDidChangePackages: Event.None,
+	});
+
+	const showContextMenu = vi.fn();
+
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronPackagesService, {
+			activePackagesInstance: fakeInstance,
+			onDidChangeActivePackagesInstance: Event.None,
+			itemSize: 'row',
+			onDidChangeItemSize: Event.None,
+			setSelectedPackage: vi.fn(),
+		})
+		.stub(ICommandService, { executeCommand: vi.fn() })
+		.stub(IContextMenuService, { showContextMenu })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	const reactComponentContainer = stubInterface<IReactComponentContainer>({});
+
+	let restoreLayout: () => void;
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		restoreLayout();
+	});
+
+	// Stubbed per render so a narrow render's grid measurements match its width prop.
+	function renderList(width = VIEWPORT_WIDTH) {
+		restoreLayout = stubGridLayoutWithSize(width, VIEWPORT_HEIGHT);
+		rtl.render(
+			<PositronPackagesContextProvider reactComponentContainer={reactComponentContainer}>
+				<ListPackages height={VIEWPORT_HEIGHT} reactComponentContainer={reactComponentContainer} width={width} />
+			</PositronPackagesContextProvider>
+		);
+	}
+
+	async function menuFor(name: string): Promise<IAction[]> {
+		const user = userEvent.setup();
+		await user.pointer({ keys: '[MouseRight]', target: screen.getByText(name).closest('.packages-list-item') as HTMLElement });
+		const delegate = showContextMenu.mock.calls.at(-1)![0] as { getActions: () => IAction[] };
+		return delegate.getActions();
+	}
+
+	const enabledById = (actions: IAction[]) => Object.fromEntries(
+		actions.filter(action => action.id === 'updatePackage' || action.id === 'uninstallPackage').map(action => [action.id, action.enabled]));
+
+	it('tags every bundled row', async () => {
+		renderList();
+		expect(await screen.findByText('tornado')).toBeInTheDocument();
+
+		expect(screen.getAllByRole('img', { name: 'Bundled with Positron' })).toHaveLength(2);
+		expect(within(screen.getByText('numpy').closest('.packages-list-item') as HTMLElement)
+			.queryByRole('img', { name: 'Bundled with Positron' })).not.toBeInTheDocument();
+	});
+
+	// Like the row actions, the tag would squeeze the name at narrow widths.
+	it('drops the bundled tag below the narrow-width threshold', async () => {
+		renderList(NARROW_VIEWPORT_WIDTH);
+		expect(await screen.findByText('tornado')).toBeInTheDocument();
+
+		expect(screen.queryByRole('img', { name: 'Bundled with Positron' })).not.toBeInTheDocument();
+	});
+
+	it('shows no update indicator for a bundled-only package', async () => {
+		renderList();
+		expect(await screen.findByText('tornado')).toBeInTheDocument();
+
+		const tornadoRow = screen.getByText('tornado').closest('.packages-list-item') as HTMLElement;
+		expect(within(tornadoRow).queryByTitle(/update available/i)).not.toBeInTheDocument();
+	});
+
+	it('words the update for the environment copy of a bundled package', async () => {
+		renderList();
+		expect(await screen.findByText('six')).toBeInTheDocument();
+
+		// The row shows the bundled version, so an update offer must say which
+		// copy it acts on, or 1.17.0 next to "1.17.0" reads as a no-op.
+		expect(screen.getByTitle('Environment copy 1.16.0, update available: 1.17.0')).toBeInTheDocument();
+	});
+
+	it('disables Update and Uninstall in the context menu for a bundled-only package', async () => {
+		renderList();
+		expect(await screen.findByText('tornado')).toBeInTheDocument();
+
+		expect(enabledById(await menuFor('tornado'))).toEqual({ updatePackage: false, uninstallPackage: false });
+	});
+
+	it('keeps Update and Uninstall for a bundled package the environment also has', async () => {
+		renderList();
+		expect(await screen.findByText('six')).toBeInTheDocument();
+
+		expect(enabledById(await menuFor('six'))).toEqual({ updatePackage: true, uninstallPackage: true });
 	});
 });

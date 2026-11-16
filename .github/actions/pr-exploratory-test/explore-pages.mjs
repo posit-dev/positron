@@ -93,7 +93,7 @@ export function topRow(current, range, dates, now) {
 /** The workflow run building the page, or the workflow's page outside Actions. */
 export function runUrl(env) {
 	const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: id } = env;
-	return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : `${REPO_URL}/actions/workflows/exploratory-outcomes.yml`;
+	return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : 'https://github.com/posit-dev/positron-builds/actions/workflows/explore-outcomes.yml';
 }
 
 /** "Oct 14, 9:05 AM" in UTC; the script switches it to the reader's time. */

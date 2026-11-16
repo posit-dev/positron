@@ -203,7 +203,7 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 
 	// Compute (async) for the active resource and refresh when it changes.
 	useEffect(() => {
-		if (!resource) {
+		if (!resource || !warnEnabled) {
 			setResult(undefined);
 			return;
 		}
@@ -232,7 +232,7 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 			disposed = true;
 			disposables.dispose();
 		};
-	}, [resource, missingPackagesService]);
+	}, [resource, warnEnabled, missingPackagesService]);
 
 	// Track the warn-in-editor setting.
 	useEffect(() => {

@@ -255,4 +255,22 @@ describe('TableDataCache', () => {
 
 		expect(getRowLabels).not.toHaveBeenCalled();
 	});
+
+	it('records the per-cell search matches the backend reports', async () => {
+		ensureNoLeakedDisposables();
+
+		getDataValues
+			.mockResolvedValueOnce({ columns: [['a', 'b'], ['c', 'd']], search_matches: [[true, false], [false, true]] })
+			.mockResolvedValueOnce({ columns: [['a', 'b'], ['c', 'd']] });
+		const matches = () => [[0, 0], [0, 1], [1, 0], [1, 1]].map(([column, row]) => cache.getDataCell(column, row)?.searchMatch);
+
+		await cache.update({ invalidateCache: InvalidateCacheFlags.Data, columnIndices: [0, 1], rowIndices: [0, 1] });
+		const reported = matches();
+		await cache.update({ invalidateCache: InvalidateCacheFlags.Data, columnIndices: [0, 1], rowIndices: [0, 1] });
+
+		expect({ reported, omitted: matches() }).toEqual({
+			reported: [true, false, false, true],
+			omitted: [undefined, undefined, undefined, undefined],
+		});
+	});
 });

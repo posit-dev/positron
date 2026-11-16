@@ -13,6 +13,7 @@ import { createLightTestContainer } from '../../../../test/vitest/lightTestConta
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
+import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
@@ -23,19 +24,57 @@ import { DeferredPromise } from '../../../../base/common/async.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { IViewsService } from '../../views/common/viewsService.js';
+import { IEditorService } from '../../editor/common/editorService.js';
+import { IEditorCloseEvent } from '../../../common/editor.js';
+import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { discoveredProfileId, PositronDataConnectionsService } from '../../positronDataConnections/browser/positronDataConnectionsService.js';
+import { isRuntimeDataConnectionDriverId } from '../common/runtimeDataConnections.js';
+import { RuntimeDataConnectionDriver } from '../browser/runtimeDataConnectionDriver.js';
 
 
 describe('Positron - Connections Service', () => {
+
+	// Fires when an editor closes, which is when the Data Connections service closes connections
+	// waiting on their last Data Explorer.
+	const onDidCloseEditor = new Emitter<IEditorCloseEvent>();
 
 	const ctx = createLightTestContainer()
 		.withRuntimeServices()
 		.stub(ISecretStorageService, new TestSecretStorageService())
 		// The service only handles runtime connections when Data Connections is off.
 		.stub(IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': false }))
+		.stub(IViewsService, { openView: async () => null })
+		.stub(IEditorService, {
+			onDidCloseEditor: onDidCloseEditor.event,
+			findEditors: () => [],
+			closeEditors: async () => { },
+		})
 		.build();
 	let connectionsService: IPositronConnectionsService;
 
+	// Records every client a test session opens, so teardown can close them. Registered after
+	// build(), so its afterEach runs before the leak check's.
+	const spyOnOpenedClients = () => vi.spyOn(TestLanguageRuntimeSession.prototype, 'receiveClientCreatedMessage');
+	let openedClients: ReturnType<typeof spyOnOpenedClients>;
+	beforeEach(() => {
+		openedClients = spyOnOpenedClients();
+	});
+
+	// A session closes its comms when it ends, and a kept comm's wrapper is released when its comm
+	// closes. Test sessions do neither, so the comms are closed here. Tests make their own
+	// assertions about closing before this runs.
+	afterEach(() => {
+		for (const [client] of openedClients.mock.calls) {
+			client.setClientState(RuntimeClientState.Closed);
+		}
+	});
+
 	beforeEach(async () => {
+		// The real Data Connections service, which runtime connections are shown in.
+		ctx.instantiationService.stub(IPositronDataConnectionsService, ctx.disposables.add(
+			ctx.instantiationService.createInstance(PositronDataConnectionsService)
+		));
 		connectionsService = ctx.disposables.add(ctx.instantiationService.createInstance(
 			PositronConnectionsService
 		));
@@ -219,6 +258,255 @@ describe('Positron - Connections Service', () => {
 
 			expect({ r: await openUnnamed('r'), ggsql: await openUnnamed('ggsql'), test: await openUnnamed('test') })
 				.toEqual({ r: false, ggsql: true, test: false });
+		});
+
+		describe('shown in Data Connections', () => {
+			const dataConnections = () => ctx.get(IPositronDataConnectionsService);
+			const runtimeProfiles = () => dataConnections().getDiscoveredProfiles()
+				.filter(profile => isRuntimeDataConnectionDriverId(profile.driverMetadata.id));
+
+			function focusEvent(): IRuntimeClientOutput<unknown> {
+				return { data: { method: 'focus', params: {} }, buffers: [] };
+			}
+
+			/** Opens a comm and returns it with the id of the row it should become. */
+			async function openRuntimeComm(languageId = 'r') {
+				const service = createDataConnectionsModeService();
+				const session = ctx.disposables.add(await createSession());
+				const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, metadataIn(languageId)));
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const profileId = discoveredProfileId(`runtime-${languageId}`, `${session.sessionId}:${client.getClientId()}`);
+				return { service, session, client, disposeSpy, profileId };
+			}
+
+			/** Opens a comm and waits for its row to connect. */
+			async function openConnectedRow(languageId = 'r') {
+				const opened = await openRuntimeComm(languageId);
+				await vi.waitFor(() => expect(dataConnections().getInstanceForProfile(opened.profileId)).toBeDefined());
+				return opened;
+			}
+
+			/** Waits until no runtime row is discovered or connected. */
+			async function waitForNoRuntimeRows() {
+				await vi.waitFor(() => expect({
+					discovered: runtimeProfiles().length,
+					connected: dataConnections().getInstances().length,
+				}).toEqual({ discovered: 0, connected: 0 }));
+			}
+
+			it('shows a kept R comm as a connected row', async () => {
+				const { disposeSpy, profileId } = await openConnectedRow('r');
+
+				expect({
+					rows: runtimeProfiles().map(profile => [profile.id, profile.driverMetadata.id, profile.connectionName]),
+					disposed: disposeSpy.mock.calls.length,
+				}).toEqual({
+					rows: [[profileId, 'runtime-r', 'mtcars.sqlite']],
+					disposed: 0,
+				});
+			});
+
+			// Disconnect closes the comm, which removes the discovery; nothing may reopen it.
+			it('does not reconnect after the user disconnects', async () => {
+				const connectSpy = vi.spyOn(RuntimeDataConnectionDriver.prototype, 'connect');
+				const { disposeSpy, profileId } = await openConnectedRow('r');
+
+				await dataConnections().disconnect(profileId);
+				await waitForNoRuntimeRows();
+
+				expect({
+					disposed: disposeSpy.mock.calls.length,
+					connects: connectSpy.mock.calls.length,
+					connected: dataConnections().getInstanceForProfile(profileId) !== undefined,
+				}).toEqual({ disposed: 1, connects: 1, connected: false });
+			});
+
+			// Disconnect disposes the wrapper, and the comm's close must still reach the service's
+			// release listener, which disposes the wrapper a second time as it lets it go.
+			it('releases the wrapper when the user disconnects', async () => {
+				const { client, profileId } = await openConnectedRow('r');
+				// The real client reports Closed while it is disposed; the test client does not.
+				ctx.disposables.add(client.onDidDispose(() => client.setClientState(RuntimeClientState.Closed)));
+				const wrapperDispose = vi.spyOn(ConnectionsClientInstance.prototype, 'dispose');
+
+				await dataConnections().disconnect(profileId);
+
+				expect(wrapperDispose).toHaveBeenCalledTimes(2);
+			});
+
+			// A comm that opens between subscribing and listing arrives on both paths.
+			it('a comm seen on both paths makes one row', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const listed = new DeferredPromise<void>();
+				const listClients = session.listClients.bind(session);
+				vi.spyOn(session, 'listClients').mockImplementation(async type => {
+					await listed.p;
+					return listClients(type);
+				});
+				const onDidStartRuntime = ctx.disposables.add(new Emitter<ILanguageRuntimeSession>());
+				const instantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+					[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })],
+					[IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+						onDidStartRuntime: onDidStartRuntime.event,
+						onDidDeleteRuntimeSession: Event.None,
+					})],
+				)));
+				ctx.disposables.add(instantiationService.createInstance(PositronConnectionsService));
+
+				onDidStartRuntime.fire(session);
+				const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, metadataIn('r')));
+				client.rpcHandler = async () => ({ data: { result: metadataIn('r') } });
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				listed.complete();
+				const profileId = discoveredProfileId('runtime-r', `${session.sessionId}:${client.getClientId()}`);
+				await vi.waitFor(() => expect(dataConnections().getInstanceForProfile(profileId)).toBeDefined());
+				// Let the startup path finish with the same comm.
+				await vi.waitFor(() => expect(vi.mocked(session.listClients)).toHaveReturned());
+				await new Promise(resolve => setTimeout(resolve, 20));
+
+				expect({
+					rows: runtimeProfiles().map(profile => profile.id),
+					instances: dataConnections().getInstances().map(instance => instance.profileId),
+					disposed: disposeSpy.mock.calls.length,
+				}).toEqual({ rows: [profileId], instances: [profileId], disposed: 0 });
+			});
+
+			// The startup path is waiting on metadata when the same comm arrives as new, so the
+			// driver keeps the new path's wrapper. The startup wrapper must still be released.
+			it('releases the startup wrapper of a comm that also arrived as new', async () => {
+				const session = ctx.disposables.add(await createSession());
+				const client = ctx.disposables.add(new TestRuntimeClientInstance('connection-1', RuntimeClientType.Connection));
+				client.setClientState(RuntimeClientState.Connected);
+				session.receiveClientCreatedMessage(client, { data: metadataIn('r') });
+				const metadataAnswered = new DeferredPromise<void>();
+				const metadataAsked = new DeferredPromise<void>();
+				client.rpcHandler = async () => {
+					metadataAsked.complete();
+					await metadataAnswered.p;
+					return { data: { result: metadataIn('r') } };
+				};
+				const onDidStartRuntime = ctx.disposables.add(new Emitter<ILanguageRuntimeSession>());
+				const instantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+					[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })],
+					[IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+						onDidStartRuntime: onDidStartRuntime.event,
+						onDidDeleteRuntimeSession: Event.None,
+					})],
+				)));
+				ctx.disposables.add(instantiationService.createInstance(PositronConnectionsService));
+				const wrapperDispose = vi.spyOn(ConnectionsClientInstance.prototype, 'dispose');
+
+				onDidStartRuntime.fire(session);
+				await metadataAsked.p;
+				session.receiveClientCreatedMessage(client, { data: metadataIn('r') });
+				metadataAnswered.complete();
+				await new Promise(resolve => setTimeout(resolve, 20));
+				expect(wrapperDispose).not.toHaveBeenCalled();
+
+				client.setClientState(RuntimeClientState.Closed);
+
+				expect(wrapperDispose).toHaveBeenCalledTimes(2);
+			});
+
+			it('removes the row when the session ends', async () => {
+				const { session } = await openConnectedRow('r');
+
+				await session.shutdown(RuntimeExitReason.Shutdown);
+
+				await waitForNoRuntimeRows();
+			});
+
+			it('reveals a row whose focus arrived before it connected', async () => {
+				const openView = vi.spyOn(ctx.get(IViewsService), 'openView');
+				const revealConnection = vi.spyOn(dataConnections(), 'revealConnection');
+				const order: string[] = [];
+				// The legacy-mode service the top-level beforeEach creates opens its own view on focus.
+				openView.mockImplementation(async id => {
+					if (id === POSITRON_DATA_CONNECTIONS_VIEW_ID) {
+						order.push('openView');
+					}
+					return null;
+				});
+				revealConnection.mockImplementation(profileId => {
+					order.push(dataConnections().getInstanceForProfile(profileId) ? 'reveal connected' : 'reveal unconnected');
+				});
+
+				// The connect is held until after the focus, so the focus takes the pending path.
+				const connectHeld = new DeferredPromise<void>();
+				const realConnect = RuntimeDataConnectionDriver.prototype.connect;
+				const connectSpy = vi.spyOn(RuntimeDataConnectionDriver.prototype, 'connect').mockImplementation(async function (this: RuntimeDataConnectionDriver, mechanismId, params) {
+					await connectHeld.p;
+					return realConnect.call(this, mechanismId, params);
+				});
+
+				const { client, profileId } = await openRuntimeComm('r');
+				await vi.waitFor(() => expect(connectSpy).toHaveBeenCalled());
+				expect(dataConnections().getInstanceForProfile(profileId)).toBeUndefined();
+				client.receiveData(focusEvent());
+				connectHeld.complete();
+
+				await vi.waitFor(() => expect(revealConnection).toHaveBeenCalled());
+				// Neither the view nor the row takes focus from the Console the user is typing in.
+				expect({
+					order,
+					views: openView.mock.calls.filter(([id]) => id === POSITRON_DATA_CONNECTIONS_VIEW_ID),
+					revealed: revealConnection.mock.calls,
+				}).toEqual({
+					order: ['openView', 'reveal connected'],
+					views: [[POSITRON_DATA_CONNECTIONS_VIEW_ID, false]],
+					revealed: [[profileId, { preserveFocus: true }]],
+				});
+			});
+
+			it('reveals a connected row on a later focus event', async () => {
+				const revealConnection = vi.spyOn(dataConnections(), 'revealConnection');
+				const { client, profileId } = await openConnectedRow('r');
+				client.receiveData(focusEvent());
+				await vi.waitFor(() => expect(revealConnection).toHaveBeenCalledTimes(1));
+
+				client.receiveData(focusEvent());
+
+				await vi.waitFor(() => expect(revealConnection.mock.calls).toEqual([
+					[profileId, { preserveFocus: true }],
+					[profileId, { preserveFocus: true }],
+				]));
+			});
+
+			// Real Python sends focus whenever the pane should show; the reveal follows the event.
+			it('does not reveal a row on open without a focus event', async () => {
+				const revealConnection = vi.spyOn(dataConnections(), 'revealConnection');
+
+				await openConnectedRow('python');
+				await new Promise(resolve => setTimeout(resolve, 20));
+
+				expect(revealConnection).not.toHaveBeenCalled();
+			});
+
+			// Ark sends update after a change such as DBI::dbWriteTable, so the row's loaded
+			// subtree is re-fetched.
+			it('refreshes the row on an update event', async () => {
+				const requestRefresh = vi.spyOn(dataConnections(), 'requestRefresh');
+				const { client, profileId } = await openConnectedRow('r');
+
+				client.receiveData({ data: { method: 'update', params: {} }, buffers: [] });
+
+				await vi.waitFor(() => expect(requestRefresh.mock.calls).toEqual([[profileId]]));
+			});
+
+			// Collapsing a row calls disconnectWhenUnused; for a runtime row that would run the
+			// user's disconnect() in R.
+			it('disconnectWhenUnused leaves a runtime profile connected', async () => {
+				const { disposeSpy, profileId } = await openConnectedRow('r');
+
+				dataConnections().disconnectWhenUnused(profileId);
+				onDidCloseEditor.fire(stubInterface<IEditorCloseEvent>({}));
+				await new Promise(resolve => setTimeout(resolve, 20));
+
+				expect({
+					connected: dataConnections().getInstanceForProfile(profileId) !== undefined,
+					disposed: disposeSpy.mock.calls.length,
+				}).toEqual({ connected: true, disposed: 0 });
+			});
 		});
 	});
 
@@ -423,6 +711,25 @@ describe('Positron - Connections Service', () => {
 
 				await waitUntilOk(() => expect(service.getSessionConnectionCode(session.sessionId)).toBe(metadata.code));
 				await waitUntilOk(() => expect(disposeSpy).toHaveBeenCalled());
+			});
+
+			it('adopts an R comm already open at startup', async () => {
+				const metadata = { name: 'mtcars.sqlite', language_id: 'r', code: 'con <- dbConnect(RSQLite::SQLite(), "mtcars.sqlite")' };
+				const session = ctx.disposables.add(await createSession());
+				const { client, reply } = await openStartupComm(session, metadata);
+				const disposeSpy = vi.spyOn(client, 'dispose');
+				const { onDidStartRuntime } = createServiceWatchingStarts();
+				const dataConnections = ctx.get(IPositronDataConnectionsService);
+				const profileId = discoveredProfileId('runtime-r', `${session.sessionId}:${client.getClientId()}`);
+
+				onDidStartRuntime.fire(session);
+				reply.complete();
+
+				await vi.waitFor(() => expect(dataConnections.getInstanceForProfile(profileId)).toBeDefined());
+				expect({
+					name: dataConnections.getProfile(profileId)?.connectionName,
+					disposed: disposeSpy.mock.calls.length,
+				}).toEqual({ name: 'mtcars.sqlite', disposed: 0 });
 			});
 
 			it('keeps an R session\'s startup comm whose metadata read fails', async () => {

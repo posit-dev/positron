@@ -100,10 +100,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.11.6",
+			"version": "2026.12.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "2fb457c63d579c357c37840f5ddd8f83aa5dde2315f016f0296283dbdd5a1b65",
+			"sha256": "748795fa2eed67e04105d02019b16b4b14e442ea96a99daceb01b118d6423b25",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -122,7 +122,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.94.0",
+			"version": "2026.96.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -296,8 +296,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.166.1",
-			"sha256": "898a1f264e5d49067815df5ba04f6340addeb89e55c949a2995c3181d8c05249",
+			"version": "0.172.0",
+			"sha256": "d9d33f849416dab4aefdc5553bc89d02b193f8610e59a49b4cd61a5a0b2d5107",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -310,8 +310,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.11.1",
-			"sha256": "334b3bc4eb7f727967662e7b2b87deaf6b3453119e336fd397a03c77e2e27a51",
+			"version": "1.12.0",
+			"sha256": "434324444f68c7bf5d85d7127a4fb5455b4e64149cb8324aae712ea5e0a6e76b",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

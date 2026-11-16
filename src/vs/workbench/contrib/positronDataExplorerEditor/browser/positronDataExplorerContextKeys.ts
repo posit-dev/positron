@@ -59,6 +59,22 @@ export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean
 );
 
 /**
+ * Context key for whether a search across all columns is active.
+ */
+export const POSITRON_DATA_EXPLORER_IS_SEARCHING = new RawContextKey<boolean>(
+	'positronDataExplorerIsSearching',
+	false
+);
+
+/**
+ * Context key for whether the backend supports searching across all columns.
+ */
+export const POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH = new RawContextKey<boolean>(
+	'positronDataExplorerSupportsSearch',
+	false
+);
+
+/**
  * Context key for whether has header row option is enabled (default true).
  * Only meaningful for delimited text files (CSV/TSV) opened with DuckDB backend.
  */
@@ -71,10 +87,19 @@ export const POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW = new RawContextKey<bool
  * Context key for whether the Data Explorer is backed by a file on disk (the DuckDB extension
  * backend) rather than a kernel object. The real test is the duckdb: client-id prefix, read from
  * the instance's isFileBacked; the filename-based IS_PLAINTEXT key is only a proxy and misses
- * Parquet. Import Data shows on file-backed explorers; Convert to Code shows on the rest.
+ * Parquet. Convert to Code shows on explorers that are not file-backed.
  */
 export const POSITRON_DATA_EXPLORER_IS_FILE_BACKED = new RawContextKey<boolean>(
 	'positronDataExplorerIsFileBacked',
+	false
+);
+
+/**
+ * Context key for whether a registered data importer can read the file backing the Data Explorer.
+ * Import Data shows only when one can.
+ */
+export const POSITRON_DATA_EXPLORER_HAS_IMPORTER = new RawContextKey<boolean>(
+	'positronDataExplorerHasImporter',
 	false
 );
 

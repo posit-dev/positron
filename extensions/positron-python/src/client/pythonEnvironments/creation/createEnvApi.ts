@@ -212,7 +212,8 @@ async function createGlobalEnvironmentFromCommand(uvPythonVersion?: string): Pro
 
         if (uvPythonVersion) {
             if (uvPythonVersion === 'auto') {
-                const versions = await getAvailablePythonVersions();
+                // Follow the user's uv config (for example python-preference = "only-system").
+                const versions = await getAvailablePythonVersions({ managedOnly: false });
                 if (versions.length === 0) {
                     traceError('No Python versions available from uv for auto-selection.');
                     return undefined;

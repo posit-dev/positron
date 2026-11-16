@@ -16,7 +16,7 @@ import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/lan
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from '../../browser/packageMetadataCache.js';
 import { IPackageVulnerabilityResult, PackageVulnerabilityLookup } from '../../browser/packageVulnerabilityLookup.js';
-import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
+import { bundledUninstallMessage, PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const RUNTIME_ID = 'py-3.11';
@@ -679,6 +679,186 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(await fired).toEqual([['numpy']]);
 	});
 
+	describe('bundled packages', () => {
+		const bundledOnly = (name: string, version: string): ILanguageRuntimePackage => ({ ...pkg(name, version), bundled: true });
+		const bundledWithEnv = (name: string, version: string, environmentVersion: string): ILanguageRuntimePackage =>
+			({ ...pkg(name, version), bundled: true, environmentVersion });
+
+		it('rejects uninstalling a bundled-only package without calling the package manager', async () => {
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			const uninstallPackages = vi.fn(async () => undefined);
+			packageManager.uninstallPackages = uninstallPackages;
+
+			const instance = makeInstance();
+			await instance.refreshPackages();
+
+			await expect(instance.uninstallPackages(['Tornado'], CancellationToken.None)).rejects.toThrow(/tornado .*start a new Python session\.$/);
+			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('names every blocked package, with plural wording and no Markdown, when several are bundled only', async () => {
+			getPackages.mockResolvedValue([bundledOnly('six', '1.17.0'), bundledOnly('tornado', '6.5.7')]);
+			const instance = makeInstance();
+			await instance.refreshPackages();
+
+			const error = await instance.uninstallPackages(['six', 'tornado'], CancellationToken.None).catch((e: Error) => e);
+
+			expect((error as Error).message).toMatch(/^six, tornado are bundled with Positron/);
+			// Shown as plain text in a notification, so Markdown would show literally.
+			expect((error as Error).message).not.toContain('`');
+			// A restart keeps the session's bundled import path; only a new
+			// session picks up the setting change.
+			expect((error as Error).message).toMatch(/start a new Python session\.$/);
+		});
+
+		it('gives Python advice only for a Python session', () => {
+			expect(bundledUninstallMessage(['tornado'], 'python')).toContain('python.useBundledIpykernel');
+			expect(bundledUninstallMessage(['tornado'], 'r')).toBe('tornado is bundled with Positron and can\'t be uninstalled from the Packages pane.');
+			expect(bundledUninstallMessage(['a', 'b'], 'r')).toBe('a, b are bundled with Positron and can\'t be uninstalled from the Packages pane.');
+		});
+
+		it('rejects a bundled-only package even when the list was never loaded', async () => {
+			getPackages.mockResolvedValue([bundledOnly('tornado', '6.5.7')]);
+			const uninstallPackages = vi.fn(async () => undefined);
+			packageManager.uninstallPackages = uninstallPackages;
+
+			const instance = makeInstance();
+
+			await expect(instance.uninstallPackages(['tornado'], CancellationToken.None)).rejects.toThrow(/tornado/);
+			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('loads the list for the guard without a metadata fetch the uninstall refresh would supersede', async () => {
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			const instance = makeInstance();
+
+			await instance.uninstallPackages(['numpy'], CancellationToken.None);
+			await new Promise(resolve => setTimeout(resolve, 20));
+
+			// Only the refresh after the uninstall fetches metadata.
+			expect(getPackageMetadata).toHaveBeenCalledTimes(1);
+		});
+
+		it('fetches metadata for the list the recheck loads, even when the uninstall is blocked', async () => {
+			getPackages.mockResolvedValue([bundledOnly('tornado', '6.5.7')]);
+			const instance = makeInstance();
+			await instance.refreshPackages();
+			// numpy was installed from a terminal since the last refresh.
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			getPackageMetadata.mockClear();
+			getPackageMetadata.mockResolvedValue(new Map([['numpy', { outdated: false }]]));
+
+			const stage2 = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+			await instance.uninstallPackages(['tornado'], CancellationToken.None).catch(() => undefined);
+			await stage2;
+
+			expect(getPackageMetadata).toHaveBeenCalledWith(['numpy'], expect.anything());
+		});
+
+		it('uninstalls a package that the recheck finds also installed in the environment', async () => {
+			getPackages.mockResolvedValue([bundledOnly('tornado', '6.5.7')]);
+			const uninstallPackages = vi.fn(async () => undefined);
+			packageManager.uninstallPackages = uninstallPackages;
+
+			const instance = makeInstance();
+			await instance.refreshPackages();
+			// An env copy was installed from a terminal since the last refresh.
+			getPackages.mockResolvedValue([bundledWithEnv('tornado', '6.5.7', '6.4.0')]);
+
+			await instance.uninstallPackages(['tornado'], CancellationToken.None);
+
+			expect(uninstallPackages).toHaveBeenCalledWith(['tornado'], expect.anything());
+		});
+
+		it('leaves bundled-only packages out of the outdated fetch, so a second refresh makes no outdated call', async () => {
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			getPackageMetadata.mockResolvedValue(new Map([['numpy', { outdated: false }]]));
+
+			const instance = makeInstance();
+			const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+			await instance.refreshPackages();
+			await fires;
+			expect(getPackageMetadata).toHaveBeenCalledWith(['numpy'], expect.anything());
+
+			getPackageMetadata.mockClear();
+			await instance.refreshPackages();
+			await new Promise(resolve => setTimeout(resolve, 10));
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+		});
+
+		it('leaves bundled-only packages out of the snapshot outdated stage', async () => {
+			getPackages.mockResolvedValue([pkg('numpy', '1.26.0'), bundledOnly('tornado', '6.5.7')]);
+			getPackageMetadata.mockResolvedValue(new Map([['numpy', { outdated: false }]]));
+
+			const instance = makeInstance();
+			await instance.getPackagesSnapshot();
+			getPackageMetadata.mockClear();
+			const snapshot = await instance.getPackagesSnapshot();
+
+			expect(getPackageMetadata).not.toHaveBeenCalled();
+			expect(snapshot.metadataStatus).toBe('cached');
+		});
+
+		it('never applies outdated state to a bundled-only package', async () => {
+			seed({ tornado: { version: '6.5.7', outdated: false, latestVersion: '6.5.7' } }, 1 * HOUR_MS);
+			getPackages.mockResolvedValue([bundledOnly('tornado', '6.5.7')]);
+
+			const instance = makeInstance();
+			const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 1);
+			await instance.refreshPackages();
+			const [stage1] = await fires;
+
+			expect(stage1[0]).toEqual(bundledOnly('tornado', '6.5.7'));
+		});
+
+		it('ignores a cached entry with no environment version for a bundled package the environment also has', async () => {
+			// What a cache written before bundled packages were classified holds:
+			// outdated state for the environment copy, anchored only to the bundled
+			// version. It must not be trusted, without needing a schema bump.
+			seed({
+				tornado: { version: '6.5.7', outdated: true, latestVersion: '6.5.9', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			}, 1 * HOUR_MS);
+			getPackages.mockResolvedValue([bundledWithEnv('tornado', '6.5.7', '6.4.0')]);
+
+			const instance = makeInstance();
+			const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 1);
+			await instance.refreshPackages();
+			const [stage1] = await fires;
+
+			expect(stage1[0].latestVersion).toBeUndefined();
+			expect(getPackageMetadata).toHaveBeenCalledWith(['tornado'], expect.anything());
+		});
+
+		it('drops a cached entry when the environment version changes under an unchanged bundled version', async () => {
+			seed({
+				tornado: { version: '6.5.7', environmentVersion: '6.4.0', outdated: true, latestVersion: '6.5.7', vulnerabilitiesCheckedAt: SOURCE.fetchedAt },
+			}, 1 * HOUR_MS);
+			getPackages.mockResolvedValue([bundledWithEnv('tornado', '6.5.7', '6.5.7')]);
+			getPackageMetadata.mockResolvedValue(new Map([['tornado', { outdated: false }]]));
+
+			const instance = makeInstance();
+			const fires = waitForEvents(instance.onDidRefreshPackagesInstance, 2);
+			await instance.refreshPackages();
+			const [stage1, stage2] = await fires;
+
+			expect(stage1[0].latestVersion).toBeUndefined();
+			expect(getPackageMetadata).toHaveBeenCalledWith(['tornado'], expect.anything());
+			expect(stage2[0].outdated).toBe(false);
+			expect(cache.get(RUNTIME_ID)?.packages.tornado).toMatchObject({ version: '6.5.7', environmentVersion: '6.5.7', outdated: false });
+		});
+
+		it('reports a package as updated by updateAll when only its environment version changed', async () => {
+			getPackages.mockResolvedValue([bundledWithEnv('tornado', '6.5.7', '6.4.0')]);
+			const instance = makeInstance();
+			await instance.refreshPackages();
+			getPackages.mockResolvedValue([bundledWithEnv('tornado', '6.5.7', '6.5.2')]);
+
+			const updated = await instance.updateAllPackages(CancellationToken.None);
+
+			expect(updated).toEqual(['tornado']);
+		});
+	});
+
 	describe('resolveLatestVersion', () => {
 		it('returns the version the package manager reports as latest', async () => {
 			const instance = makeInstance();
@@ -695,6 +875,21 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 
 			expect(await instance.resolveLatestVersion('numpy', CancellationToken.None)).toBe('2.1.0');
 			expect(getPackages).toHaveBeenCalled();
+		});
+
+		it('resolves a package whose environment copy was installed since the last refresh', async () => {
+			// Listed as bundled only, which leaves it out of the outdated fetch.
+			// An older environment copy installed from a terminal since then
+			// makes it a package with a version to resolve.
+			getPackages.mockResolvedValue([{ ...pkg('tornado', '6.5.7'), bundled: true }]);
+			const instance = makeInstance();
+			await instance.refreshPackages();
+			getPackages.mockResolvedValue([{ ...pkg('tornado', '6.5.7'), bundled: true, environmentVersion: '6.4.0' }]);
+			getPackageMetadata.mockResolvedValue(new Map<string, Partial<ILanguageRuntimePackage>>([
+				['tornado', { outdated: true, latestVersion: '6.5.10' }],
+			]));
+
+			expect(await instance.resolveLatestVersion('tornado', CancellationToken.None)).toBe('6.5.10');
 		});
 
 		it('matches the package name case-insensitively', async () => {

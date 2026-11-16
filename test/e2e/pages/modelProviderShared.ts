@@ -179,6 +179,34 @@ export function getProviderEnvKey(provider: ModelProvider): string | undefined {
 	return process.env[getProviderEnvVarName(provider)];
 }
 
+/**
+ * Env var names `loginModelProvider` would need for `provider` that are unset and not
+ * covered by `options`, so a test can skip instead of fail on a lane without the vault.
+ */
+export function getMissingProviderEnv(provider: ModelProvider, options: LoginModelProviderOptions = {}): string[] {
+	const missing: string[] = [];
+	const needs = (name: string, provided?: string) => {
+		if (!provided && !process.env[name]) {
+			missing.push(name);
+		}
+	};
+	switch (getProviderAuthType(provider)) {
+		case 'apiKey':
+			needs(getProviderEnvVarName(provider), options.apiKey);
+			if (providerRequiresBaseUrl(provider)) {
+				needs(getProviderBaseUrlEnvVarName(provider), options.baseUrl);
+			}
+			break;
+		case 'oauth': {
+			const { envVars } = getOAuthConfig(provider);
+			needs(envVars.username);
+			needs(envVars.password);
+			break;
+		}
+	}
+	return missing;
+}
+
 async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationUrl: string): Promise<void> {
 	const email = process.env[config.envVars.username];
 	const password = process.env[config.envVars.password];

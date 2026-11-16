@@ -8,6 +8,7 @@
 import asyncio
 import contextlib
 import gc
+import logging
 import os
 import socket
 import sys
@@ -2087,3 +2088,29 @@ class TestServerLifecycle:
             gc.collect()
 
         assert not any("GeneratorExit" in message for message in unraisables), unraisables
+
+    def test_exit_notification_does_not_raise_system_exit(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """An LSP `exit` notification shuts down without a SystemExit traceback.
+
+        The LSP runs on a thread inside the kernel, so the `exit` handler must
+        not call sys.exit(). See https://github.com/posit-dev/positron/issues/15046.
+        """
+        with caplog.at_level(logging.ERROR, logger="asyncio"):
+            server, port = self._start_ready_server()
+            thread = server._server_thread  # noqa: SLF001
+
+            body = b'{"jsonrpc": "2.0", "method": "exit"}'
+            client = socket.create_connection(("127.0.0.1", port), timeout=10)
+            try:
+                client.sendall(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+
+                assert thread is not None
+                thread.join(timeout=10)
+                assert not thread.is_alive()
+            finally:
+                client.close()
+
+        asyncio_errors = [r for r in caplog.records if r.name == "asyncio"]
+        assert asyncio_errors == []

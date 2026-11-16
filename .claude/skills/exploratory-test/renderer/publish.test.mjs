@@ -61,7 +61,7 @@ test('uploads a redacted copy, rendered for its URL, without actions.log, instan
 	const { r, run, out, dest } = fixture();
 	assert.equal(r.status, 0, r.stderr);
 	assert.match(dest(), /^s3:\/\/positron-test-reports\/exploratory-report-local-\d{8}-\d{6}-[0-9a-f]{8}$/);
-	const url = `https://d38p2avprg8il3.cloudfront.net/${dest().replace('s3://positron-test-reports/', '')}`;
+	const url = `https://positron-reports.tail00da2.ts.net/${dest().replace('s3://positron-test-reports/', '')}`;
 	assert.equal(r.stdout.trim().split('\n').at(-1), `${url}/index.html`);
 	// The uploaded page links its issues back to itself; the local one is left alone.
 	assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes(encodeURIComponent(`(${url}/index.html#f1)`)));

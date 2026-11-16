@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { DEFAULT_EDITOR_ASSOCIATION, EditorResourceAccessor, IEditorPane } from '../../../common/editor.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
@@ -12,7 +12,6 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IsDevelopmentContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { RemoteNameContext, ResourceContextKey } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -29,7 +28,7 @@ import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_HAS_IMPORTER, POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_SEARCHING, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_IS_REFRESHING, POSITRON_DATA_EXPLORER_SUPPORTS_REFRESH } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -88,6 +87,8 @@ export const enum PositronDataExplorerCommandId {
 	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
 	ViewDataFrameAtCursorAction = 'workbench.action.positronDataExplorer.viewDataFrameAtCursor',
 	ViewDataFrameByVariableAction = 'workbench.action.positronDataExplorer.viewDataFrameByVariable',
+	FocusSearchAction = 'workbench.action.positronDataExplorer.focusSearch',
+	ClearSearchAction = 'workbench.action.positronDataExplorer.clearSearch',
 }
 
 /**
@@ -1195,6 +1196,49 @@ class PositronDataExplorerFileOptionsAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerFocusSearchAction action. Focuses the search across all columns.
+ */
+class PositronDataExplorerFocusSearchAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.FocusSearchAction,
+			title: localize2('positron.dataExplorer.focusSearch', "Search All Columns"),
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH),
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib + 1,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
+				when: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_FOCUSED, POSITRON_DATA_EXPLORER_SUPPORTS_SEARCH)
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		(await getPositronDataExplorerInstance(accessor))?.tableDataDataGridInstance.focusSearch();
+	}
+}
+
+/**
+ * PositronDataExplorerClearSearchAction action. Clears the search across all columns.
+ */
+class PositronDataExplorerClearSearchAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ClearSearchAction,
+			title: localize2('positron.dataExplorer.clearSearch', "Clear Search"),
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_SEARCHING)
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await (await getPositronDataExplorerInstance(accessor))?.tableDataDataGridInstance.setSearchTerm('');
+	}
+}
+
+/**
  * PositronDataExplorerImportDataAction action.
  * Opens the Import Data dialog for the file backing the active Data Explorer, which generates the
  * code that loads it into a variable in a console session.
@@ -1204,12 +1248,11 @@ class PositronDataExplorerImportDataAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
-		// Gated on the explorer being file-backed, which is the real test (the duckdb: client-id
-		// prefix) rather than the filename proxy, so Parquet is picked up too. Deliberately not
-		// gated on a sort or filter existing: loading an unfiltered file is the main case.
+		// Gated on an importer being able to read the backing file. Deliberately not gated on a
+		// sort or filter existing: loading an unfiltered file is the main case.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			POSITRON_DATA_EXPLORER_IS_FILE_BACKED
+			POSITRON_DATA_EXPLORER_HAS_IMPORTER
 		);
 		super({
 			id: PositronDataExplorerCommandId.ImportDataAction,
@@ -1286,14 +1329,14 @@ class PositronImportDataFromFileAction extends Action2 {
 	 */
 	constructor() {
 		// Match the file types the Data Explorer opens and an importer can read (.csv/.tsv/.xlsx/
-		// .parquet/.parq), and JSON, which opens in the Object Explorer instead. Compressed files
-		// (.gz) are deliberately absent: the importer registry matches only the final extension, so
+		// .parquet/.parq/.sas7bdat/.xpt), and JSON, which opens in the Object Explorer instead.
+		// Compressed files (.gz) are deliberately absent: the importer registry matches only the final extension, so
 		// gzip support is its own change.
 		// Scheme-gate to files a runtime session could plausibly open; a virtual-filesystem file
 		// names no path on the session's machine, so no menu item is offered for it.
 		const importableFile = ContextKeyExpr.and(
 			ExplorerFolderContext.toNegated(),
-			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|json)$/i),
+			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|sas7bdat|xpt|json)$/i),
 			ContextKeyExpr.or(
 				ResourceContextKey.Scheme.isEqualTo(Schemas.file),
 				ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeRemote)
@@ -1361,7 +1404,7 @@ class PositronImportDataFromFileAction extends Action2 {
 				defaultUri: await fileDialogService.defaultFilePath(),
 				filters: [{
 					name: localize('positronDataExplorer.importDataPickerFilter', "Data Files"),
-					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'json']
+					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'sas7bdat', 'xpt', 'json']
 				}]
 			});
 			fileUri = uris?.at(0);
@@ -1609,7 +1652,6 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
 		const notificationService = accessor.get(INotificationService);
 		const services: IDataFrameResolutionServices = {
-			configurationService: accessor.get(IConfigurationService),
 			languageService: accessor.get(ILanguageService),
 			runtimeSessionService: accessor.get(IRuntimeSessionService),
 			variablesService: accessor.get(IPositronVariablesService),
@@ -1781,4 +1823,6 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerShowCellContextMenuAction);
 	registerAction2(PositronDataExplorerViewDataFrameAtCursorAction);
 	registerAction2(PositronDataExplorerViewDataFrameByVariableAction);
+	registerAction2(PositronDataExplorerFocusSearchAction);
+	registerAction2(PositronDataExplorerClearSearchAction);
 }

@@ -139,7 +139,7 @@ jobs:
         id: build-jq
         run: sudo apt-get update && sudo apt-get install -y jq lsof
 
-      # A from-source build bundles no Quarto CLI (see release-screenshots.yml).
+      # A from-source build bundles no Quarto CLI (see test-release-screenshots.yml in posit-dev/positron-builds).
       - name: Set up Quarto
         id: build-quarto
         uses: quarto-dev/quarto-actions/setup@v2

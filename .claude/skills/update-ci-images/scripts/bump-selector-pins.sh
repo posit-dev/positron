@@ -32,7 +32,6 @@ ENTRIES=(
   ".github/workflows/test-e2e-ubuntu.yml:$PRIMARY"
   ".github/workflows/test-e2e-ubuntu-run.yml:$PRIMARY"
   ".github/workflows/test-e2e-workbench-linux.yml:$PRIMARY"
-  ".github/workflows/test-memory-metrics.yml:$PRIMARY"
   ".github/workflows/test-e2e-remote-ssh-ubuntu.yml:$REMOTE"
   "docker/environments/arm-local/setup-test-env.sh:$PRIMARY"
   ".devcontainer/ci-arm/devcontainer.json:$PRIMARY"

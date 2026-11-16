@@ -384,6 +384,18 @@ def _get_package_vignette(_kernel: "PositronIPyKernel", params: list[JsonData]) 
     return get_package_vignette(*_string_params(params, (2,), "a package and vignette name"))
 
 
+def _dist_location(dist: importlib.metadata.Distribution) -> str | None:
+    """The `sys.path` entry that holds a distribution, or None if it can't be found.
+
+    The extension compares this against Positron's bundled ipykernel paths to tell
+    bundled packages from ones installed in the user's environment.
+    """
+    try:
+        return str(dist.locate_file(""))
+    except Exception:
+        return None
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: list[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -399,14 +411,22 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: list[JsonData]
             if module_name:
                 user_top_levels.add(module_name.partition(".")[0])
 
-    packages_dict = {}
+    packages_dict: dict[str, dict[str, JsonData]] = {}
+    shadowed_by_name: dict[str, list[JsonData]] = {}
     for dist in importlib.metadata.distributions():
         name = dist.metadata["Name"]
         if name is None:
             continue
         canonical = canonicalize_name(name)
-        # Dedupe by canonical name - keeps first occurrence (the one that would be imported)
-        if canonical not in packages_dict:
+        location = _dist_location(dist)
+        # Dedupe by canonical name - keeps first occurrence (the one that would be
+        # imported) and records later copies as shadowed by it.
+        if canonical in packages_dict:
+            shadowed: dict[str, JsonData] = {"version": dist.version}
+            if location:
+                shadowed["location"] = location
+            shadowed_by_name.setdefault(canonical, []).append(shadowed)
+        else:
             import_names = _import_names_for_dist(dist, canonical)
             attached = any(import_name in user_top_levels for import_name in import_names)
             # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the
@@ -424,8 +444,14 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: list[JsonData]
             url = _best_package_url(dist)
             if url:
                 entry["url"] = url
+            if location:
+                entry["location"] = location
             packages_dict[canonical] = entry
-    return sorted(packages_dict.values(), key=lambda p: p["displayName"])
+    for canonical, shadowed_copies in shadowed_by_name.items():
+        packages_dict[canonical]["shadowed"] = shadowed_copies
+    packages = sorted(packages_dict.values(), key=lambda p: str(p["displayName"]))
+    # list is invariant, so Pyright does not accept list[dict[str, JsonData]] as JsonData.
+    return cast("JsonData", packages)
 
 
 # Evaluate Requires-Python specifiers against this kernel's interpreter.

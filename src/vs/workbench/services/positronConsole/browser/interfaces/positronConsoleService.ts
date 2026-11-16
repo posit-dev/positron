@@ -589,6 +589,14 @@ export interface IPositronConsoleInstance {
 	interrupt(code?: string): void;
 
 	/**
+	 * Removes a queued execution before it is sent to the runtime.
+	 * @param executionId The execution ID.
+	 * @returns `true` if the execution was removed; `false` if it is not queued
+	 *   (for example, because it has already started).
+	 */
+	cancelPendingExecution(executionId: string): boolean;
+
+	/**
 	 * Whether a code submission (completeness check) is currently in flight.
 	 */
 	readonly codeSubmissionInProgress: boolean;
