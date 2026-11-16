@@ -167,7 +167,7 @@ jobs:
 
       # positron-builds is a separate private repo, so the job's default
       # GITHUB_TOKEN cannot see it and every gh call there 404s. Same app token
-      # test-merge-dispatch.yml mints to reach positron-builds.
+      # release-screenshots.yml mints for the same download.
       - name: Generate POSITRON_BOT token
         id: bot-token
         uses: actions/create-github-app-token@v3
@@ -212,7 +212,7 @@ jobs:
       # rest). Measured without this, launch 0 read 60 MB high with a settle a
       # second longer than the other two, which is a systematic artifact in the
       # variance figure this workflow exists to produce. This spec waits for that
-      # install; the release screenshots (positron-builds) use it the same way. Its own result is
+      # install; release-screenshots.yml uses it the same way. Its own result is
       # incidental here, but it is left strict: if warming fails, launch 0 is
       # skewed and we want to know rather than quietly publish it.
       - name: Warm the extensions dir
