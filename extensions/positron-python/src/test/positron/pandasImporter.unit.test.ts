@@ -99,7 +99,7 @@ suite('pandasImporter Tests', () => {
 suite('pyreadstatImporter Tests', () => {
     setup(() => {
         when(mockedPositronNamespaces.paths!.formatPathForCode(anything(), anything())).thenCall((filePath: string) =>
-            Promise.resolve(`"${filePath}"`),
+            Promise.resolve(`"${filePath.replace(/\\/g, '/')}"`),
         );
     });
 
