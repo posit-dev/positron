@@ -170,6 +170,14 @@ export interface BackendState {
 	 */
 	total_num_rows?: number;
 
+	/**
+	 * Set when the active global_search filter was limited by max_cells: the
+	 * number of leading candidate rows that were scanned. Rows beyond it are
+	 * treated as not matching. Absent when every row was searched or no
+	 * search is active.
+	 */
+	global_search_rows_scanned?: number;
+
 }
 
 /**
@@ -242,6 +250,13 @@ export interface TableData {
 	 */
 	columns: Array<Array<ColumnValue>>;
 
+	/**
+	 * For each requested cell, whether it matched the active global_search
+	 * filter. Parallel to columns. Omitted when no global search is active
+	 * or the backend does not compute per-cell matches.
+	 */
+	search_matches?: Array<Array<boolean>>;
+
 }
 
 /**
@@ -252,6 +267,13 @@ export interface TableRowLabels {
 	 * Zero or more arrays of row labels
 	 */
 	row_labels: Array<Array<string>>;
+
+	/**
+	 * For each row label, whether it matched the active global_search
+	 * filter. Parallel to row_labels. Omitted when no global search is
+	 * active or the backend does not compute per-label matches.
+	 */
+	search_matches?: Array<Array<boolean>>;
 
 }
 
@@ -318,7 +340,8 @@ export interface TableShape {
 }
 
 /**
- * Specifies a table row filter based on a single column's values
+ * Specifies a table row filter based on a single column's values, or on
+ * all columns for the global_search filter type
  */
 export interface RowFilter {
 	/**
@@ -332,9 +355,10 @@ export interface RowFilter {
 	filter_type: RowFilterType;
 
 	/**
-	 * Column to apply filter to
+	 * Column to apply filter to. Absent for filter types that span all
+	 * columns (global_search)
 	 */
-	column_schema: ColumnSchema;
+	column_schema?: ColumnSchema;
 
 	/**
 	 * The binary condition to use to combine with preceding row filters
@@ -420,6 +444,34 @@ export interface FilterSetMembership {
 	 * Filter by including only values passed (true) or excluding (false)
 	 */
 	inclusive: boolean;
+
+}
+
+/**
+ * Parameters for the 'global_search' filter type, which matches a row
+ * when any searched column matches the term
+ */
+export interface FilterGlobalSearch {
+	/**
+	 * Text to search for; see the data explorer search semantics for how
+	 * numeric terms are matched
+	 */
+	term: string;
+
+	/**
+	 * Upper bound on the number of cells to scan. When the table exceeds it,
+	 * only the leading floor(max_cells / searched_columns) candidate rows
+	 * are scanned and the backend reports global_search_rows_scanned in its
+	 * state. Absent or 0 means unlimited.
+	 */
+	max_cells?: number;
+
+	/**
+	 * The options the frontend formats data values with, so numeric terms
+	 * match floating point values as they are displayed. Absent means
+	 * numeric terms match the values unrounded.
+	 */
+	format_options?: FormatOptions;
 
 }
 
@@ -1165,7 +1217,7 @@ export interface DatasetImportOptions {
 export type ColumnValue = number | string;
 
 /// Union of row filter parameters
-export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearch | FilterSetMembership;
+export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearch | FilterSetMembership | FilterGlobalSearch;
 
 /// Union of column filter type-specific parameters
 export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
@@ -1231,7 +1283,8 @@ export enum RowFilterType {
 	NotEmpty = 'not_empty',
 	NotNull = 'not_null',
 	Search = 'search',
-	SetMembership = 'set_membership'
+	SetMembership = 'set_membership',
+	GlobalSearch = 'global_search'
 }
 
 /**

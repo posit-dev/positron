@@ -5,8 +5,9 @@
 
 import {
 	BackendState, ColumnSortKey, FilterBetween, FilterComparison, FilterSetMembership,
-	FilterTextSearch, RowFilter, RowFilterCondition, RowFilterType, TableSchema,
+	FilterTextSearch, RowFilterCondition, RowFilterType, TableSchema,
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnRowFilter, splitRowFilters } from './dataExplorerSearch.js';
 import {
 	IDataImportRowFilter, IDataImportSortKey, IDataImportView,
 } from './positronDataImporterRegistry.js';
@@ -14,9 +15,10 @@ import {
 /**
  * Builds the importer-facing view of a Data Explorer's current filters and sorts from its
  * wire-shaped backend state. Row filters the backend marked invalid are excluded, because they
- * are not applied to the on-screen data either. Sort keys name columns by index on the wire; the
- * generated code operates on the loaded dataframe, where names are the only stable handle, so
- * they are resolved through the schema here rather than by each generator.
+ * are not applied to the on-screen data either. The global search is excluded too; it has no code
+ * form. Sort keys name columns by index on the wire; the generated code operates on the loaded
+ * dataframe, where names are the only stable handle, so they are resolved through the schema here
+ * rather than by each generator.
  *
  * @param state The filter and sort arrays from the cached backend state.
  * @param getSchema Resolves absolute column indexes to their schemas.
@@ -27,7 +29,7 @@ export async function buildDataImportView(
 	state: Pick<BackendState, 'row_filters' | 'sort_keys'>,
 	getSchema: (columnIndices: number[]) => Promise<TableSchema>
 ): Promise<IDataImportView | undefined> {
-	const rowFilters = state.row_filters
+	const rowFilters = splitRowFilters(state.row_filters).columnFilters
 		.filter(filter => filter.is_valid !== false)
 		.map(toImportRowFilter);
 	const sortKeys = await resolveSortKeys(state.sort_keys, getSchema);
@@ -44,7 +46,7 @@ export async function buildDataImportView(
 	return { rowFilters, sortKeys };
 }
 
-function toImportRowFilter(filter: RowFilter): IDataImportRowFilter {
+function toImportRowFilter(filter: ColumnRowFilter): IDataImportRowFilter {
 	const base = {
 		columnName: filter.column_schema.column_name,
 		columnType: filter.column_schema.type_display as string,
