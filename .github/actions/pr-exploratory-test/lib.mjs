@@ -259,7 +259,7 @@ export const ENVIRONMENT = [
 	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
 	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
 	'- Posit Assistant signed in with Anthropic, with its preview features available to turn on.',
-	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- Open internet: PyPI and CRAN install normally, and so do extensions from the Extensions view, which installs from Posit Package Manager\'s Open VSX mirror.',
 	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`. That login is a fixed test value, not a secret, so connection code and forms that show it need no hiding.',
 	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
 	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
@@ -271,6 +271,10 @@ export const ENVIRONMENT = [
 	'- Posit AI and Bedrock as Assistant model providers (no sign-in for either). Posit Assistant itself is available, as above.',
 	'- GitHub sign-in, and so GitHub Copilot: the run has no GitHub account to sign in with.',
 	'- Windows and macOS.',
+	'- Extensions only on Microsoft\'s Marketplace, such as Pylance: Positron installs from the Open VSX mirror instead.',
+	'',
+	// #17356: an agent's PR said ggsql was unavailable where it worked, and the judge took that to mean this run.
+	'These lists describe this run. A PR description that says something was unavailable or could not be installed is about where its author worked, not about this run.',
 ].join('\n');
 
 const PR_BODY_MAX = 4000;
@@ -411,6 +415,39 @@ export function resolveDispatchOutcome({ runConclusion, timedOutModels, model, r
 export const COMMENT_MARKER = '<!-- exploratory-test -->';
 
 /**
+ * Labels the note that an auto-run author's PR was judged not worth a run.
+ * findPriorUse ignores it, so a later review request judges the PR again.
+ */
+export const DECLINED_MARKER = '<!-- exploratory-testing:declined -->';
+
+/**
+ * The note the suggest workflow left when the judge turned down an auto-run
+ * author's PR, or undefined. Only a bot's: callers edit or delete it, and must
+ * never touch a person's comment that quotes the marker.
+ */
+export function findDeclinedNote(comments) {
+	return comments.find(c => c?.user?.type === 'Bot' && String(c?.body ?? '').includes(DECLINED_MARKER));
+}
+
+/**
+ * A model's reason with no markup, links or @-mentions: the PR author wrote
+ * what the model read, and this is posted as the bot.
+ */
+export function cleanReason(reason) {
+	return String(reason ?? '')
+		// Whole tags and comments first, then any stray bracket left unmatched.
+		.replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '')
+		// Images go; a link keeps its text; a URL, www host or email goes.
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ').replace(/\S+@\S+\.\w+/g, ' ')
+		// An issue or PR reference would link, and a cross-repo one notifies that repo.
+		.replace(/[\w.-]*(?:\/[\w.-]+)?#(?=\d)/g, 'number ')
+		// Zero-width space after @ so a handle in the reason does not ping anyone.
+		.replace(/@(?=\w)/g, '@​')
+		.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * How the explore pass ended. `partial` and `timed-out` win over a written
  * report: a run cut off at the turn cap or the time limit covered less than it
  * meant to, and a reviewer should know that before trusting a short findings
@@ -508,7 +545,10 @@ export function renderPrComment({ state, report, demoted = [], baseUrl, runUrl, 
 		return comment(['Off exploring, back soon\u2026', run]);
 	}
 	if (state === 'declined') {
-		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
+		// Nobody asked for an auto-run, so say how to get one: a focus skips the check.
+		const override = autoRun ? ['', 'If that is wrong, comment `/explore <what to test>` to run it anyway. Naming what to test skips this check.'] : [];
+		// The gate's model read the PR's own text, and this is posted as the bot.
+		return comment([`Not run: the pre-flight check declined this change: ${cleanReason(reason) || 'no reason recorded.'}`, run, ...override]);
 	}
 	if (state === 'refused') {
 		return comment([`Not run: ${reason || 'the pre-flight check refused this run.'}`, run]);

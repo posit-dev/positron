@@ -69,14 +69,20 @@ about cost:
    see or do with edge cases a reviewer reading the diff would miss, and no
    when unsure. An error means no. The call runs in posit-dev/positron-builds
    (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
-   `suggest.ts`.
+   `suggest.ts`. When it says no to an auto-run author's PR, the PR gets a
+   note with the reason and says to comment `/explore <what to test>` to run
+   it anyway. A later "no" edits that note. The note goes once something
+   newer speaks for the PR: a tip, or any run's first comment on it. An
+   auto-run the gate refuses posts nothing, so the note stays. Other authors
+   get no note.
 
 Every run, however it started, then goes through the worthiness check
 (`gate.mjs`, run in positron-builds by `explore-gate.yml`) unless a focus was
 given. It is lenient the other way: it
 declines only a change it can name a blocker for. On a `/explore` run it says
-why in the PR. An automatic run posts nothing until the check passes, so a
-decline leaves the PR untouched.
+why in the PR. An automatic run posts nothing until the check passes. If the
+check declines it, the PR gets the same "Not run" comment, with how to run it
+anyway: comment `/explore <what to test>`, since a focus skips the check.
 
 So a PR gets at most one tip or one automatic run, ever. Commenting
 `/explore` runs it again after new pushes. A plain `/explore` while a plain

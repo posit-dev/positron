@@ -81,8 +81,8 @@ on:
         default: true
         type: boolean
       # Set by test-exploratory-suggest.yml for the auto-run experiment
-      # (#16610). The run then posts to this PR like a `/explore`, but only
-      # once the worthiness check passes it: a decline stays off the PR.
+      # (#16610). The run then posts to this PR like a `/explore`, once the
+      # worthiness check rules: a decline says why, a refusal stays off the PR.
       auto_run_pr:
         description: "Auto-run: PR to post results on"
         required: false
@@ -623,8 +623,9 @@ jobs:
             || echo "::warning::Could not delete $LANE; the next run's sweep removes it."
 
   # announce's running comment for an auto-run, after the gate rather than
-  # alongside it: nobody asked for this run, so a declined one says nothing on
-  # the PR. No reaction, since there is no comment to react to.
+  # alongside it: nobody asked for this run, so a declined one gets no
+  # "running" comment, only report's "Not run" result. No reaction, since
+  # there is no comment to react to.
   ack-auto:
     name: ack-auto
     needs: [resolve, worthiness]
@@ -1012,12 +1013,16 @@ jobs:
   # for the same reason as announce. always(): a failed build must still replace
   # "running" with the truth.
   # A /explore's result, or an auto-run's once ack-auto has said it is running.
+  # An auto-run the gate declined also posts, so the PR says why and how to run
+  # it anyway; one it refused (say, the PR moved on) stays silent.
   report:
     name: report
     needs: [resolve, worthiness, announce, ack-auto, dispatch]
     if: >-
       ${{ always() && needs.resolve.outputs.ok == 'true' &&
-      (github.event_name == 'issue_comment' || (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
+      (github.event_name == 'issue_comment' ||
+        (inputs.auto_run_pr != '' && (needs.ack-auto.result == 'success' ||
+          (needs.worthiness.outputs.testable == 'false' && needs.worthiness.outputs.refused != 'true')))) }}
     runs-on: ubuntu-latest
     permissions:
       # actions: read lets the comment name the step a failed run broke at.
