@@ -285,25 +285,30 @@ New tests are not complete until they run successfully in Github Actions. The te
 
 There are three lanes:
 
-- **PR lane.** The [Test: PR (dispatch)](https://github.com/posit-dev/positron/actions/workflows/test-pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the manual lane.
+- **PR lane.** The [Test: PR (dispatch)](https://github.com/posit-dev/positron/actions/workflows/test-pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the trusted Full Suite lane.
 - **Merge lane.** Each push to `main`, `prerelease/**`, or `release/**` runs the full suite with credentials.
-- **Manual lane.** Posit staff can run the tests against a branch, tag, commit, or PR.
+- **Full Suite lane.** Posit staff can run the tests against a branch, tag, commit, or PR.
 
-### Running the Manual Lane (Posit-internal)
+### Running the Full Suite Lane (Posit-internal)
 
-Use the manual lane to run your new tests against a branch before merge, or to run more tests than the PR lane selects. You need access to `posit-dev/positron-builds`.
+Use the Full Suite lane to run your new tests against a branch before merge, or to run more tests than the PR lane selects. You need access to `posit-dev/positron-builds`.
 
 ```shell
-gh workflow run test-manual.yml --repo posit-dev/positron-builds --ref pr-lane \
+gh workflow run test-full-suite.yml --repo posit-dev/positron-builds --ref pr-lane \
   -f positron_ref=<branch, tag, SHA, or refs/pull/<n>/merge> \
   -f grep='@:critical' \
-  -f run_unit=false -f run_ext_host=false
+  -f run_e2e_web=false -f run_e2e_windows=false -f run_ext_host=false \
+  -f notify_on=never
 ```
 
 - `--ref pr-lane` is necessary for a ref that is not on `main`. Such a run gets no credentials.
-- `grep` accepts tags (comma-separated), test titles, or file names.
-- `run_unit` and `run_ext_host` are on by default. Set them to `false` to get e2e results more quickly.
-- `run_e2e_web=true` adds the browser lane, and `run_e2e_windows=true` adds the Windows lane.
+- With no inputs but `positron_ref`, the lane runs every e2e test on Ubuntu (Electron and Chromium) and Windows, and the extension host suites. That is the full suite, and it uses many runners.
+- `grep` accepts tags (comma-separated), test titles, or file names. Set it to run fewer tests.
+- `run_e2e`, `run_e2e_web`, `run_e2e_windows` and `run_ext_host` are on by default. Set the ones you do not need to `false`.
+- `run_unit` is off by default. Set it to `true` to add the unit suites.
+- `notify_on` is `failures_only` by default, which posts a failed run to Slack. Use `never` for a run that is only for you.
+
+To run with credentials, use `test-full-suite-trusted.yml` with `--ref main`. It accepts `main`, a release tag, or a commit on `main`. Any other commit runs only when a listed approver starts it with the full SHA.
 
 ### Github Actions Test Artifacts
 
