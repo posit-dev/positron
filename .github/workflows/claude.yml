@@ -200,6 +200,7 @@ jobs:
           permission-actions: read
 
       # The artifact is kept 90 days; runs from before it existed have none.
+      # Its folder holds finding-<n>.md files and too-large.txt, the ones skipped for size.
       - name: Download the findings
         id: findings-download
         if: steps.builds-token.outcome == 'success'
@@ -213,10 +214,14 @@ jobs:
       - name: Write the findings prompt
         id: findings
         if: steps.findings-ask.outputs.asked != ''
+        continue-on-error: true
         env:
           ASKED: ${{ steps.findings-ask.outputs.asked }}
           RUN: ${{ steps.findings-ask.outputs.run }}
           REPORT: ${{ steps.findings-ask.outputs.report }}
+          SHA: ${{ steps.findings-ask.outputs.sha }}
+          PROBLEM: ${{ steps.findings-ask.outputs.problem }}
+          TOKEN: ${{ steps.builds-token.outcome }}
           DOWNLOADED: ${{ steps.findings-download.outcome }}
           DIR: ${{ runner.temp }}/explore-findings
         run: node .github/actions/pr-exploratory-test/claude-findings.mjs prompt

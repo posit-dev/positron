@@ -1635,7 +1635,9 @@ export function missingFiles(parsed, fileExists) {
 
 /**
  * Writes the page to `out`, with its link card beside it when `base` is a URL:
- * chat apps need an absolute one to fetch the image from.
+ * chat apps need an absolute one to fetch the image from. Each finding's
+ * prompt goes to `promptDir`, by default the `findings` folder beside the
+ * page; `promptDir: false` leaves it alone.
  *
  * @param {string} out
  * @param {{ severityCounts: object }} report reportFromJson's model
@@ -1650,8 +1652,8 @@ export async function writeRunPage(out, report, options) {
 		: undefined;
 	const promptTexts = new Map();
 	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage, promptTexts }));
-	if (options.promptDir) {
-		writePromptFiles(options.promptDir, promptTexts);
+	if (options.promptDir !== false) {
+		writePromptFiles(options.promptDir ?? join(dirname(out), 'findings'), promptTexts);
 	}
 }
 

@@ -134,7 +134,7 @@ await writeRunPage(out, parsed, {
 	mainBuild,
 	shown,
 	// The run's own render only: a publish's --out render leaves the run alone.
-	promptDir: flags.out ? undefined : join(dir, 'findings'),
+	promptDir: flags.out ? false : join(dir, 'findings'),
 });
 console.log(out);
 
