@@ -21,6 +21,8 @@ export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
 export const DATA_EXPLORER_ENABLE_PREVIEW_KEY =
 	'dataExplorer.enablePreview';
+export const DATA_EXPLORER_SEARCH_MAX_CELLS_KEY =
+	'dataExplorer.search.maxCells';
 export const DATA_EXPLORER_FILE_READERS_KEY =
 	'dataExplorer.fileReaders';
 
@@ -154,6 +156,21 @@ configurationRegistry.registerConfiguration({ // for DuckDB extension file reade
 			markdownDescription: localize(
 				'positron.dataExplorerFileReaders',
 				'Maps a file extension (without the dot) to the DuckDB extension that reads it in the Data Explorer, as `[repository/]extension[:function]`. The repository is `community` (default) or `core`, and the function defaults to the extension name. The extension is downloaded the first time a matching file is opened. Set a value to an empty string to turn off a default reader.'
+			),
+		},
+	},
+});
+configurationRegistry.registerConfiguration({ // for search
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[DATA_EXPLORER_SEARCH_MAX_CELLS_KEY]: {
+			type: 'integer',
+			default: 10_000_000,
+			minimum: 0,
+			markdownDescription: localize(
+				'positron.dataExplorerSearchMaxCells',
+				"Maximum number of cells the search across all columns scans. Larger tables are searched over their leading rows only, and the status bar offers to search the rest. Set to 0 for no limit."
 			),
 		},
 	},

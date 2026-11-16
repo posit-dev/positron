@@ -6,12 +6,16 @@
 // CSS.
 import './tableDataRowHeader.css';
 
+// Other dependencies.
+import { findMatchSpan, SearchTerm } from '../../common/dataExplorerSearch.js';
+
 /**
  * TableDataRowHeaderProps interface.
  */
 interface TableDataRowHeaderProps {
 	unavailable?: boolean;
 	value?: string;
+	search?: SearchTerm;
 }
 
 /**
@@ -32,10 +36,18 @@ export const TableDataRowHeader = (props: TableDataRowHeaderProps) => {
 		return <div className={`${placeholderClass} label-placeholder`} />;
 	}
 
+	// Highlight the first occurrence of the search term.
+	const match = props.search ? findMatchSpan(props.value, props.search) : undefined;
+	const content = !match ? props.value : <>
+		{props.value.slice(0, match[0])}
+		<mark className='search-match-text'>{props.value.slice(match[0], match[1])}</mark>
+		{props.value.slice(match[1])}
+	</>;
+
 	// Render.
 	return (
 		<div className='text'>
-			{props.value}
+			{content}
 		</div>
 	);
 };

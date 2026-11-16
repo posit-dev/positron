@@ -26,6 +26,7 @@ from .test_data_explorer import (
     _between_filter,
     _compare_filter,
     _filter,
+    _global_search_filter,
     _not_between_filter,
     _search_filter,
 )
@@ -330,6 +331,21 @@ def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
         dxf.check_conversion_case(
             test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
         )
+
+
+def test_convert_pandas_skips_global_search(dxf: DataExplorerConvertFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+    filters = [_compare_filter(schema[0], ">", 2), _global_search_filter("foo")]
+    dxf.check_conversion_case(
+        test_df, test_df[test_df["a"] > 2], row_filters=filters, code_syntax_name="pandas"
+    )
+    dxf.check_conversion_case(
+        test_df,
+        test_df,
+        row_filters=[_global_search_filter("foo")],
+        code_syntax_name="pandas",
+    )
 
 
 def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
@@ -656,6 +672,15 @@ def test_convert_polars_filter_compare(dxf: DataExplorerConvertFixture):
         dxf.check_conversion_case(
             test_df, expected_df, row_filters=[filt], code_syntax_name="polars"
         )
+
+
+def test_convert_polars_skips_global_search(dxf: DataExplorerConvertFixture):
+    test_df = SIMPLE_POLARS_DF
+    schema = dxf.get_schema("simple")
+    filters = [_compare_filter(schema[0], ">", 2), _global_search_filter("foo")]
+    dxf.check_conversion_case(
+        test_df, test_df.filter(pl.col("a") > 2), row_filters=filters, code_syntax_name="polars"
+    )
 
 
 def test_convert_polars_filter_datetimetz(dxf: DataExplorerConvertFixture):
