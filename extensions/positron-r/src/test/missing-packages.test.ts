@@ -16,13 +16,12 @@ function makePackage(name: string): positron.LanguageRuntimePackage {
 
 /**
  * Builds a minimal RPackageManager stub: `installed` are reported as installed,
- * and `available` are the packages the repository search can find by exact name.
+ * and `available` are the packages the repositories offer.
  */
 function makeManager(installed: string[], available: string[]): RPackageManager {
 	return {
 		getPackages: async () => installed.map(makePackage),
-		searchPackages: async (query: string) =>
-			available.includes(query) ? [makePackage(query)] : [],
+		filterAvailable: async (names: string[]) => names.filter((name) => available.includes(name)),
 	} as unknown as RPackageManager;
 }
 
@@ -39,6 +38,20 @@ suite('parseRPackageReferences', () => {
 		assert.deepStrictEqual(
 			parseRPackageReferences(code).sort(),
 			['data.table', 'dplyr', 'ggplot2', 'jsonlite', 'stringr'].sort(),
+		);
+	});
+
+	test('ignores commented-out code but not # inside strings', () => {
+		const code = [
+			'# library(AnnotationDbi)',
+			'library(dplyr) # library(org.Hs.eg.db)',
+			'x <- "# not a comment"; library(tibble)',
+			'y <- "a \\" # b"; stringr::str_pad("a", 3)',
+		].join('\n');
+
+		assert.deepStrictEqual(
+			parseRPackageReferences(code).sort(),
+			['dplyr', 'stringr', 'tibble'],
 		);
 	});
 });

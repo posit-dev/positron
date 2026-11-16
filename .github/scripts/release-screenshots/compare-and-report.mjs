@@ -267,19 +267,21 @@ export function formatChangedRatio(ratio) {
 	return `${pct.toFixed(1)}%`;
 }
 
-function htmlCard(name, info, screenshotBaseUrl) {
+// report.html is uploaded next to the images, so relative paths keep it
+// working on any host and when opened from the downloaded artifact.
+function relativeUrl(fileName) {
+	return `./${encodeURIComponent(fileName)}`;
+}
+
+function htmlCard(name, info) {
 	const docsRef = info.docsName ?? name;
 	const beforeUrl = `${DOCS_IMAGE_BASE_URL}/${docsRef}`;
-	const afterUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/${name}` : null;
+	const afterUrl = relativeUrl(name);
 	const beforeFig = info.status === 'new'
 		? '<div class="empty">— (not on positron.posit.co yet)</div>'
 		: `<a href="${htmlEscape(beforeUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(beforeUrl)}" alt="current"></a>`;
-	const afterFig = afterUrl
-		? `<a href="${htmlEscape(afterUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(afterUrl)}" alt="new"></a>`
-		: '<div class="empty">—</div>';
-	const diffUrl = (info.diffName && screenshotBaseUrl)
-		? `${screenshotBaseUrl}/${info.diffName}`
-		: null;
+	const afterFig = `<a href="${htmlEscape(afterUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${htmlEscape(afterUrl)}" alt="new"></a>`;
+	const diffUrl = info.diffName ? relativeUrl(info.diffName) : null;
 	const ratioTag = info.changedRatio !== undefined
 		? ` <span class="ratio-badge">${formatChangedRatio(info.changedRatio)} pixels changed</span>`
 		: '';
@@ -310,13 +312,13 @@ function htmlCard(name, info, screenshotBaseUrl) {
 </div>`;
 }
 
-function htmlSection(status, entries, screenshotBaseUrl, openByDefault) {
+function htmlSection(status, entries, openByDefault) {
 	const filtered = entries.filter(([, info]) => info.status === status);
 	if (filtered.length === 0) {
 		return '';
 	}
 	const label = HTML_STATUS_LABEL[status];
-	const cards = filtered.map(([name, info]) => htmlCard(name, info, screenshotBaseUrl)).join('\n');
+	const cards = filtered.map(([name, info]) => htmlCard(name, info)).join('\n');
 	return `
 <details data-status="${status}"${openByDefault ? ' open' : ''}>
 	<summary>${label} <span class="section-count">(${filtered.length})</span></summary>
@@ -325,7 +327,6 @@ function htmlSection(status, entries, screenshotBaseUrl, openByDefault) {
 }
 
 export function formatHtml(classification, opts = {}) {
-	const screenshotBaseUrl = opts.screenshotBaseUrl ?? process.env.SCREENSHOT_BASE_URL;
 	const version = opts.version ?? process.env.POSITRON_VERSION;
 	const entries = Object.entries(classification).sort(([a], [b]) => a.localeCompare(b));
 	const counts = { unchanged: 0, changed: 0, new: 0 };
@@ -333,9 +334,9 @@ export function formatHtml(classification, opts = {}) {
 		counts[info.status]++;
 	}
 	const sections = [
-		htmlSection('new', entries, screenshotBaseUrl, true),
-		htmlSection('changed', entries, screenshotBaseUrl, true),
-		htmlSection('unchanged', entries, screenshotBaseUrl, false),
+		htmlSection('new', entries, true),
+		htmlSection('changed', entries, true),
+		htmlSection('unchanged', entries, false),
 	].filter(Boolean).join('\n');
 
 	return `<!DOCTYPE html>
@@ -437,8 +438,7 @@ async function main() {
 	const htmlPath = join(generatedDir, 'report.html');
 	await writeFile(htmlPath, html);
 
-	const screenshotBaseUrl = process.env.SCREENSHOT_BASE_URL;
-	const reportUrl = screenshotBaseUrl ? `${screenshotBaseUrl}/report.html` : null;
+	const reportUrl = process.env.SCREENSHOT_REPORT_URL || null;
 	const summary = formatSummary(result, { reportUrl });
 	const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 	if (summaryPath) {

@@ -302,6 +302,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		this._logService.debug(`[QuartoKernelManager] Adopting existing session for ${documentUri.toString()}`);
 
+		// Stop listening to a tracked session that this one replaces, such as
+		// an exited session.
+		const previous = this._documentKernels.get(documentUri);
+		if (previous && previous.session !== session) {
+			previous.disposables.dispose();
+		}
+
 		// Create tracking info for this session
 		const info: DocumentKernelInfo = {
 			session: session,
@@ -751,7 +758,13 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		if (info?.session) {
 			const sessionId = info.session.sessionId;
 			this._logService.debug(`[QuartoKernelManager] Restarting kernel for ${documentUri.toString()}`);
-			await this._runtimeSessionService.restartSession(sessionId, 'Quarto kernel restart');
+			const restarted = await this._runtimeSessionService.restartSession(sessionId, 'Quarto kernel restart');
+			if (!restarted) {
+				// The session did not restart: either the user declined to
+				// interrupt it, or another session took over the document's
+				// notebook while it was exited. Use whichever session is usable.
+				return this.ensureKernelForDocument(documentUri, token);
+			}
 			return info.session;
 		}
 
@@ -1021,7 +1034,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 			info.session = session;
 
-			// Set up session event listeners
+			// Drop the listeners of a session this one replaces, such as an
+			// exited session.
+			info.disposables.clear();
 			this._setupSessionListeners(documentUri, session, info);
 
 			// Wait for session to be ready

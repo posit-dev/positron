@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,8 @@
 	display: grid;
 	grid-row: filter-bar / data-explorer;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
-	grid-template-columns: [icon] 24px [gutter] 8px [filters] 1fr [end];
+	column-gap: 8px;
+	grid-template-columns: [icon] 24px [filters] 1fr [search] auto [end];
 	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
@@ -22,7 +23,7 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
-	grid-column: icon / gutter;
+	grid-column: icon / filters;
 	border: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataExplorer-background);
 }
@@ -73,7 +74,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	flex-direction: row;
-	grid-column: filters / end;
+	grid-column: filters / search;
 }
 
 .data-explorer-panel .row-filter-bar .filter-entries .add-row-filter-button {

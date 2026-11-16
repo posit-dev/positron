@@ -11,8 +11,9 @@ import { IProgress, IProgressService, IProgressStep, Progress } from '../../../.
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from '../../browser/interfaces/positronPackagesService.js';
+import { IPositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 import { PACKAGES_CAN_UNINSTALL_SELECTION, PACKAGES_CAN_UPDATE_SELECTION, POSITRON_PACKAGES_ENABLED } from '../../browser/positronPackagesContextKeys.js';
 
 const { UpdateSelectedPackageAction, UninstallSelectedPackageAction } = await import('../../browser/positronPackages.contribution.js');
@@ -32,9 +33,19 @@ describe('selected package actions', () => {
 	/** When set, the progress notification's Cancel is clicked before the task runs. */
 	let cancelProgress: boolean;
 
-	function stubServices(selectedPackages: readonly string[]): void {
+	function pkg(name: string, extra: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
+		return { id: `${name}-1`, name, displayName: name, version: '1', ...extra };
+	}
+
+	/**
+	 * @param selectedPackages The names the list has selected.
+	 * @param packages The active session's installed packages. Defaults to an ordinary package
+	 * for each selected name.
+	 */
+	function stubServices(selectedPackages: readonly string[], packages: readonly ILanguageRuntimePackage[] = selectedPackages.map(name => pkg(name))): void {
 		ctx.instantiationService.stub(IPositronPackagesService, stubInterface<IPositronPackagesService>({
 			activeSession: stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }),
+			activePackagesInstance: stubInterface<IPositronPackagesInstance>({ packages: [...packages] }),
 			selectedPackages,
 			selectedPackage: selectedPackages.length === 1 ? selectedPackages[0] : undefined,
 			updateOutdatedPackages,
@@ -242,5 +253,38 @@ describe('selected package actions', () => {
 
 		expect(confirm.mock.calls[0][0].message).toContain('4 packages');
 		expect(confirm.mock.calls[0][0].message).not.toMatch(/\u0027a\u0027/);
+	});
+
+	// A package only Positron's bundle provides has no environment copy to remove, and the
+	// instance rejects an uninstall that names one, so the batch must leave it out.
+	describe('with a package only Positron bundles in the selection', () => {
+		it('leaves it out of the confirmation and the uninstall', async () => {
+			stubServices(['a', 'tornado', 'b'], [pkg('a'), pkg('tornado', { bundled: true }), pkg('b')]);
+
+			await runUninstall();
+
+			expect(confirm.mock.calls[0][0].message).toContain('\u0027a\u0027, \u0027b\u0027');
+			expect(confirm.mock.calls[0][0].message).not.toContain('tornado');
+			expect(uninstallPackages.mock.calls[0][0]).toEqual(['a', 'b']);
+			expect(promptMessage()).not.toContain('tornado');
+		});
+
+		it('says so, and uninstalls nothing, when every selected package is only bundled', async () => {
+			stubServices(['tornado', 'traitlets'], [pkg('tornado', { bundled: true }), pkg('traitlets', { bundled: true })]);
+
+			await runUninstall();
+
+			expect(info).toHaveBeenCalledWith('None of the selected packages can be uninstalled.');
+			expect(confirm).not.toHaveBeenCalled();
+			expect(uninstallPackages).not.toHaveBeenCalled();
+		});
+
+		it('keeps a bundled package the environment also has', async () => {
+			stubServices(['tornado', 'a'], [pkg('tornado', { bundled: true, environmentVersion: '0.9' }), pkg('a')]);
+
+			await runUninstall();
+
+			expect(uninstallPackages.mock.calls[0][0]).toEqual(['tornado', 'a']);
+		});
 	});
 });

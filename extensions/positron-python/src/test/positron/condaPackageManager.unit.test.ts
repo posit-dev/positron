@@ -17,6 +17,9 @@ import { CondaPackageManager } from '../../client/positron/packages/condaPackage
 import { MessageEmitter, PackageSession } from '../../client/positron/packages/types';
 import { mock } from './utils';
 
+const BUNDLE = '/ext/python_files/lib/ipykernel/py3';
+const SITE = '/env/lib/python3.12/site-packages';
+
 suite('Conda Package Manager', () => {
     let condaPackageManager: CondaPackageManager;
     let serviceContainer: IServiceContainer;
@@ -82,6 +85,38 @@ suite('Conda Package Manager', () => {
 
     teardown(() => {
         sinon.restore();
+    });
+
+    test('getPackages classifies bundled packages and drops kernel-only fields', async () => {
+        (session as { bundledIpykernelPaths?: string[] }).bundledIpykernelPaths = [BUNDLE];
+        session.callMethod = sinon
+            .stub()
+            .withArgs('getPackagesInstalled')
+            .resolves([
+                { id: 'pandas-2.2.0', name: 'pandas', displayName: 'pandas', version: '2.2.0', location: SITE },
+                {
+                    id: 'tornado-6.5.7',
+                    name: 'tornado',
+                    displayName: 'tornado',
+                    version: '6.5.7',
+                    location: BUNDLE,
+                    shadowed: [{ version: '6.4.0', location: SITE }],
+                },
+            ]);
+
+        const packages = await condaPackageManager.getPackages();
+
+        assert.deepStrictEqual(packages, [
+            { id: 'pandas-2.2.0', name: 'pandas', displayName: 'pandas', version: '2.2.0' },
+            {
+                id: 'tornado-6.5.7',
+                name: 'tornado',
+                displayName: 'tornado',
+                version: '6.5.7',
+                bundled: true,
+                environmentVersion: '6.4.0',
+            },
+        ]);
     });
 
     suite('installPackages', () => {

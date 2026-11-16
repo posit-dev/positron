@@ -87,24 +87,10 @@ interface LicenseKey {
 }
 
 /**
- * A RSA-4096 public key used to verify license keys.
+ * A RSA-4096 public key used to verify license keys. Release builds replace
+ * every key block here with the product key.
  */
-
 const PublicKey = `-----BEGIN PUBLIC KEY-----
-MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA1z/rsyUtRNo6IpJav8GZ
-xSK5MLJ06KVALKdsIHuFriArKu0LZmO8E6uiT+YfJHOGLDqxIAoXs/3uMsKhQjKQ
-NBfY+1iIH1PQ+okuKF54jc0LMaBg0t3xyub5YDZ3Z4gLYzmiKzJxndUZxJoU31Sf
-7uAzZ61uKhs/8mQoiStr/IeLpFbVZ1STecHCFXpWLsl3ccw/HzfbmizyuTNYjwHN
-5rJyBf2gEKure+BOYrGL7CMcWzgDmApnroA3Gk/k4atRdVZ27BvpddljCdHJospE
-+zepasKVhGDQnz8gpHA1cAIo+r/o8i8gM1dcLHvp5lUmuaaQQjRkin2Edw0Z/rDL
-wLI1cjS6OIGq+tJ32cyvi3U+AwUnQ33+TsG1Si5g9txge8L7eGyfBUc3EL+tgo5p
-1R3nfIDAtkqGcbmI+dWOwQiOfaUTghS+YoF7Dyk5oNP+faOsHl6uc8SWQ65ZhVBf
-vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
------END PUBLIC KEY-----`;
-
-// Second development key, issued 2026-11-09 while the first is retired (SEC-3673).
-// Release builds replace every key block here with the product key.
-const PublicKey2026 = `-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwI0ERDTlRd+tXj2n2Py4
 siKYrl2JDNBsiS8uNvaSPAcg+pIWb8GBctAtM+wv2XpnwX0ptuANhsAjqOrd2ZDh
 qrmDdC7LKv/xnNsVjgS8O1mwDFlWmqPXg/0MVO3BDagiJ3wG1cP+zRsVQZDqGugv
@@ -298,7 +284,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 	}
 
 	// Try each supplied public key; accept the license if any key verifies.
-	const keysToTry = publicKeys ?? [PublicKey, PublicKey2026];
+	const keysToTry = publicKeys ?? [PublicKey];
 	const signature = Buffer.from(licenseKey.signature, 'base64');
 	let signatureValid = false;
 	for (const keyPem of keysToTry) {

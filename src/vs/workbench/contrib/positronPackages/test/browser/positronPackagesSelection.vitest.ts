@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from '../../../../../base/common/event.js';
+import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -13,13 +14,19 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../.
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronPackagesService } from '../../browser/positronPackagesService.js';
-import { POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from '../../browser/positronPackagesContextKeys.js';
+import { PACKAGES_CAN_UNINSTALL_SELECTION, PACKAGES_CAN_UPDATE_SELECTION, POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from '../../browser/positronPackagesContextKeys.js';
 
-function pkg(name: string, outdated: boolean): ILanguageRuntimePackage {
+function pkg(name: string, outdated: boolean, extra: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
 	return {
 		id: `${name}-1.0`, name, displayName: name, version: '1.0',
 		...(outdated ? { outdated: true, latestVersion: '2.0' } : {}),
+		...extra,
 	};
+}
+
+/** A package only Positron's bundle provides: no copy in the user's environment. */
+function bundledOnly(name: string, outdated = false): ILanguageRuntimePackage {
+	return pkg(name, outdated, { bundled: true });
 }
 
 describe('PositronPackagesService selection', () => {
@@ -54,11 +61,18 @@ describe('PositronPackagesService selection', () => {
 		const instance = service.activePackagesInstance!;
 		return {
 			service, instance,
+			/**
+			 * Whether an action's precondition expression holds for the service's current keys.
+			 * Evaluated directly, because the mock context key service's own `contextMatchesRules`
+			 * is a stub that always answers false.
+			 */
+			matches: (expression: ContextKeyExpression | undefined) => !!expression?.evaluate({ getValue: key => contextKeyService.getContextKeyValue(key) }),
 			setBackend: (packages: ILanguageRuntimePackage[]) => { current = packages; },
 			keys: () => ({
 				count: contextKeyService.getContextKeyValue(POSITRON_PACKAGES_SELECTION_COUNT.key),
 				selected: contextKeyService.getContextKeyValue(POSITRON_PACKAGES_SELECTED_PACKAGE.key),
 				hasUpdatable: contextKeyService.getContextKeyValue(POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE.key),
+				hasUninstallable: contextKeyService.getContextKeyValue(POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE.key),
 			}),
 		};
 	}
@@ -83,7 +97,7 @@ describe('PositronPackagesService selection', () => {
 		service.setSelectedPackages(['a']);
 		service.setSelectedPackages([]);
 		expect(service.selectedPackage).toBeUndefined();
-		expect(keys()).toEqual({ count: 0, selected: '', hasUpdatable: false });
+		expect(keys()).toEqual({ count: 0, selected: '', hasUpdatable: false, hasUninstallable: false });
 	});
 
 	it('hasUpdatable is true only when a selected package is updatable', async () => {
@@ -103,5 +117,50 @@ describe('PositronPackagesService selection', () => {
 		setBackend([pkg('a', true), pkg('b', false)]);
 		await instance.refreshPackages();
 		expect(keys().hasUpdatable).toBe(true);
+	});
+
+	it('hasUpdatable ignores a package only Positron bundles, even one that looks outdated', async () => {
+		const { service, instance, keys } = makeService([bundledOnly('tornado', true), pkg('a', false)]);
+		await instance.refreshPackages();
+		service.setSelectedPackages(['tornado', 'a']);
+		expect(keys().hasUpdatable).toBe(false);
+	});
+
+	it('hasUninstallable is true only when a selected package has an environment copy', async () => {
+		const { service, instance, keys } = makeService([bundledOnly('tornado'), pkg('a', false)]);
+		await instance.refreshPackages();
+		service.setSelectedPackages(['tornado']);
+		expect(keys().hasUninstallable).toBe(false);
+		service.setSelectedPackages(['tornado', 'a']);
+		expect(keys().hasUninstallable).toBe(true);
+	});
+
+	describe('whether Update and Uninstall are available', () => {
+		const installed = [
+			pkg('current', false),
+			pkg('outdated', true),
+			bundledOnly('tornado'),
+			bundledOnly('traitlets'),
+		];
+
+		it.each([
+			['nothing selected', [], false, false],
+			['one up-to-date package', ['current'], true, true],
+			['one outdated package', ['outdated'], true, true],
+			['one package only Positron bundles', ['tornado'], false, false],
+			['several packages, none outdated', ['current', 'tornado'], false, true],
+			['several packages, one outdated', ['current', 'outdated'], true, true],
+			['several packages that are all only bundled', ['tornado', 'traitlets'], false, false],
+			['a bundled package alongside an outdated one', ['tornado', 'outdated'], true, true],
+		])('%s', async (_label, selection, canUpdate, canUninstall) => {
+			const { service, instance, matches } = makeService(installed);
+			await instance.refreshPackages();
+			service.setSelectedPackages(selection);
+
+			expect({
+				update: matches(PACKAGES_CAN_UPDATE_SELECTION),
+				uninstall: matches(PACKAGES_CAN_UNINSTALL_SELECTION),
+			}).toEqual({ update: canUpdate, uninstall: canUninstall });
+		});
 	});
 });

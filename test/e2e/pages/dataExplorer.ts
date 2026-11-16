@@ -34,6 +34,7 @@ export class DataExplorer {
 	private _convertToCodeModal: ConvertToCodeModal;
 	private _importDataModal: ImportDataModal;
 	private _summaryPanel: SummaryPanel;
+	private _search: Search;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this._filters = new Filters(this.code, this.workbench);
@@ -42,6 +43,7 @@ export class DataExplorer {
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
 		this._importDataModal = new ImportDataModal(this.workbench);
 		this._summaryPanel = new SummaryPanel(this.code, this.workbench);
+		this._search = new Search(this.code);
 		this.statusBar = this.code.driver.currentPage.locator(STATUS_BAR);
 		this.idleStatus = this.code.driver.currentPage.locator('.status-bar-indicator .icon.idle');
 	}
@@ -95,6 +97,42 @@ export class DataExplorer {
 
 	get summaryPanel(): SummaryPanel {
 		return this._summaryPanel;
+	}
+
+	get search(): Search {
+		return this._search;
+	}
+}
+
+// -------------------
+//    Search
+// -------------------
+export class Search {
+	input: Locator;
+	private matchedCells: Locator;
+
+	constructor(private code: Code) {
+		this.input = this.code.driver.currentPage.getByRole('textbox', { name: /^Search all columns/ });
+		this.matchedCells = this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} .text-container.search-match`);
+	}
+
+	async type(term: string): Promise<void> {
+		await test.step(`Search all columns: ${term}`, async () => {
+			await this.input.fill(term);
+			await this.input.press('Enter');
+		});
+	}
+
+	async clear(): Promise<void> {
+		await test.step('Clear search', async () => {
+			await this.code.driver.currentPage.locator('.search-all-columns').getByRole('button', { name: 'Clear search' }).click();
+		});
+	}
+
+	async expectMatchedCellsToBe(texts: string[]): Promise<void> {
+		await test.step(`Expect matched cells: ${texts}`, async () => {
+			await expect(this.matchedCells).toHaveText(texts);
+		});
 	}
 }
 

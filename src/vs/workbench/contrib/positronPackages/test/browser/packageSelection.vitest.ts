@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { canUninstallSelection, canUpdateSelection, copyPackagesLabel, getUpdatablePackages, isPackageUpdatable } from '../../browser/packageSelection.js';
+import { canUninstallSelection, canUpdateSelection, copyPackagesLabel, getUninstallablePackages, getUpdatablePackages, isPackageUninstallable, isPackageUpdatable } from '../../browser/packageSelection.js';
 
 function pkg(name: string, extra: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
 	return { id: `${name}-1`, name, displayName: name, version: '1', ...extra };
@@ -26,6 +26,28 @@ describe('packageSelection', () => {
 
 		it('is false when outdated is undefined', () => {
 			expect(isPackageUpdatable(pkg('a'))).toBe(false);
+		});
+
+		it('is false for a package only Positron bundles, even if it looks outdated', () => {
+			expect(isPackageUpdatable(pkg('a', { outdated: true, latestVersion: '2', bundled: true }))).toBe(false);
+		});
+
+		it('is true for a bundled package the environment also has', () => {
+			expect(isPackageUpdatable(pkg('a', { outdated: true, latestVersion: '2', bundled: true, environmentVersion: '1' }))).toBe(true);
+		});
+	});
+
+	describe('isPackageUninstallable', () => {
+		it('is true for an ordinary package', () => {
+			expect(isPackageUninstallable(pkg('a'))).toBe(true);
+		});
+
+		it('is false for a package only Positron bundles', () => {
+			expect(isPackageUninstallable(pkg('a', { bundled: true }))).toBe(false);
+		});
+
+		it('is true for a bundled package the environment also has', () => {
+			expect(isPackageUninstallable(pkg('a', { bundled: true, environmentVersion: '1' }))).toBe(true);
 		});
 	});
 
@@ -51,24 +73,63 @@ describe('packageSelection', () => {
 		});
 	});
 
+	describe('getUninstallablePackages', () => {
+		const packages = [pkg('Alpha'), pkg('beta', { bundled: true }), pkg('gamma')];
+
+		it('leaves out packages only Positron bundles, in list order', () => {
+			const result = getUninstallablePackages(packages, ['gamma', 'beta', 'alpha']);
+			expect(result.map(p => p.name)).toEqual(['Alpha', 'gamma']);
+		});
+	});
+
 	describe('canUpdateSelection', () => {
-		it.each([
-			[1, false, true],
-			[2, false, false],
-			[2, true, true],
-			[0, true, false],
-		])('(%i, %s) -> %s', (count, hasUpdatable, expected) => {
-			expect(canUpdateSelection(count, hasUpdatable)).toBe(expected);
+		const outdated = pkg('a', { outdated: true, latestVersion: '2' });
+		const current = pkg('b');
+		const bundledOnly = pkg('c', { bundled: true });
+
+		it('is false for an empty selection', () => {
+			expect(canUpdateSelection([])).toBe(false);
+		});
+
+		it('is true for one package even when it is not outdated, since Update opens a version picker', () => {
+			expect(canUpdateSelection([current])).toBe(true);
+		});
+
+		it('is false for one package only Positron bundles', () => {
+			expect(canUpdateSelection([bundledOnly])).toBe(false);
+		});
+
+		it('is true for several packages when at least one is updatable', () => {
+			expect(canUpdateSelection([current, outdated])).toBe(true);
+		});
+
+		it('is false for several packages when none is updatable', () => {
+			expect(canUpdateSelection([current, bundledOnly])).toBe(false);
 		});
 	});
 
 	describe('canUninstallSelection', () => {
-		it.each([
-			[0, false],
-			[1, true],
-			[3, true],
-		])('%i -> %s', (count, expected) => {
-			expect(canUninstallSelection(count)).toBe(expected);
+		const ordinary = pkg('a');
+		const bundledOnly = pkg('b', { bundled: true });
+
+		it('is false for an empty selection', () => {
+			expect(canUninstallSelection([])).toBe(false);
+		});
+
+		it('is true for one ordinary package', () => {
+			expect(canUninstallSelection([ordinary])).toBe(true);
+		});
+
+		it('is false for one package only Positron bundles', () => {
+			expect(canUninstallSelection([bundledOnly])).toBe(false);
+		});
+
+		it('is true for several packages when at least one can be uninstalled', () => {
+			expect(canUninstallSelection([bundledOnly, ordinary])).toBe(true);
+		});
+
+		it('is false for several packages that are all only bundled', () => {
+			expect(canUninstallSelection([bundledOnly, pkg('c', { bundled: true })])).toBe(false);
 		});
 	});
 });

@@ -167,7 +167,7 @@ export class Workbench {
 		this.providerManager = new ProviderManager(code, this.toasts, this.quickaccess);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.objectExplorer = new ObjectExplorer(code.driver.currentPage);
-		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
+		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys, this.editor);
 		this.publisher = new Publisher(this.quickInput);
 		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts, this.help);
 		this.suggestWidget = new SuggestWidget(code);

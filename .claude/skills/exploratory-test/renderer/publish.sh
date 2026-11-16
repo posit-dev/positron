@@ -22,7 +22,7 @@ set -euo pipefail
 RUN=${1:?usage: publish.sh <run dir>}
 AWS=${AWS_CLI:-aws}
 BUCKET=positron-test-reports
-CDN=https://d38p2avprg8il3.cloudfront.net
+CDN=https://positron-reports.tail00da2.ts.net
 
 # The page is rendered here, for its URL, so only the report has to exist.
 [ -f "$RUN/report.json" ] || { echo "publish: no report.json in $RUN." >&2; exit 1; }

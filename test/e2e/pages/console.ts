@@ -126,8 +126,6 @@ export class Console {
 			const maximizeConsole = options?.maximizeConsole ?? true;
 
 			await expect(async () => {
-				// Kind of hacky, but activate console in case focus was previously lost
-				await this.focus();
 				await this.hotKeys.executeCodeInConsole();
 				await this.quickinput.waitForQuickInputOpened();
 				await this.quickinput.type(languageName);

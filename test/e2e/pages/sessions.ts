@@ -37,8 +37,8 @@ export const DEPRIORITIZED_PYTHON_SOURCES: (string | RegExp)[] = [
 	// Notebook kernel pickers label rows with runtimeName ("Python 3.10.12 (Pyenv)").
 	'(Pyenv', '(Global', '(System', '(Unknown',
 	// The session picker's aria-label is "<label>, <gray text>, <path>". A base install's
-	// gray text is just its tool; an environment's adds its name ("uv: .venv").
-	/, (pyenv|uv|Homebrew|Xcode|Command Line Tools|python\.org)( \u00B7 [^,]*)?, /,
+	// label is just its tool; an environment's adds its name ("uv: .venv").
+	/^(pyenv|uv|Homebrew|Xcode|Command Line Tools|python\.org), /,
 	// A base install with no known tool has no gray text: the label runs into the path.
 	/^Python [^,]*, (\/|[A-Za-z]:\\)/,
 ];
@@ -556,9 +556,9 @@ export class Sessions {
 				// uv base install) over the intended interpreter of the same version.
 				await this.quickinput.waitForInterpreterDiscoveryToComplete();
 
-				// The interpreter picker shows the source in "3.12.10 (Conda)" as gray
-				// text after the label, and its search matches one field at a time, so
-				// type the bare version and match the source in the row's aria-label.
+				// The interpreter picker labels a row with its source (e.g. "conda: myenv")
+				// and shows the version as gray text, and its search matches one field at
+				// a time, so type the bare version and match the source in the row's aria-label.
 				// python.setInterpreter's picker still labels rows "Python 3.12.10 (Conda)".
 				const sourced = version && triggerMode !== 'quickaccess' ? splitVersionSource(version) : undefined;
 				let input = language;
@@ -576,7 +576,7 @@ export class Sessions {
 				// may include additional items above the desired interpreter string.
 				try {
 					const rowText = sourced?.source
-						? `${language} ${sourced.version}, ${sourced.source}`
+						? [`${language} ${sourced.version}`, sourced.source]
 						: `${language} ${version}`;
 					await this.quickinput.selectQuickInputElementContaining(rowText, {
 						timeout: 2000,

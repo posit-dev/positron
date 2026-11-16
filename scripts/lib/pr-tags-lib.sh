@@ -341,7 +341,7 @@ positron_dir_of() {
 		*/out/*|*/node_modules/*) return 0 ;;
 		src/vs/base/*|src/vs/workbench/api/*|src/positron-dts/*) return 0 ;;
 	esac
-	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' <<<"$dir" && return 0
 	printf '%s\n' "$dir"
 }
 
@@ -372,7 +372,7 @@ owner_root_dir_of() {
 		*) return 0 ;;
 	esac
 	[[ -z "$dir" ]] && return 0
-	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' <<<"$dir" && return 0
 	printf '%s\n' "$dir"
 }
 
@@ -385,7 +385,7 @@ owner_root_dir_of() {
 is_posit_owned_file() {
 	local file="$1"
 	[[ -f "$file" ]] || { echo false; return 0; }
-	if head -20 "$file" 2>/dev/null | grep -qi "Copyright.*Posit"; then
+	if grep -qi "Copyright.*Posit" <<<"$(head -20 "$file" 2>/dev/null)"; then
 		echo true
 	else
 		echo false
@@ -439,7 +439,7 @@ split_valid_invalid_tags() {
 	valid_set="$(valid_enum_tags "$enum_file")"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
-		if printf '%s\n' "$valid_set" | grep -qxF "$tag"; then
+		if grep -qxF "$tag" <<<"$valid_set"; then
 			valid+=("$tag")
 		else
 			invalid+=("$tag")
@@ -507,9 +507,9 @@ build_tag_reasons() {
 		[[ -z "$tag" ]] && continue
 		if [[ "$tag" == "@:critical" ]]; then
 			code="required"
-		elif printf '%s\n' "$author_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$author_nl"; then
 			code="body"
-		elif printf '%s\n' "$map_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$map_nl"; then
 			code="files"
 		elif [[ ( "$tag" == "@:ark" || "$tag" == "@:win" || "$tag" == "@:web" ) && "$ark" == "true" ]]; then
 			# An ark bump injects @:ark plus @:win/@:web together (see
@@ -517,13 +517,13 @@ build_tag_reasons() {
 			# the test-win/test-web branches, so a bump wins over a coincidental
 			# tags.WIN/WEB add in the same PR.
 			code="ark"
-		elif auto_code="$(printf '%s\n' "${auto_reasons//,/$'\n'}" | awk -F'|' -v t="$tag" '$1 == t { print $2; exit }')" && [[ -n "$auto_code" ]]; then
+		elif auto_code="$(awk -F'|' -v t="$tag" '$1 == t { print $2; exit }' <<<"${auto_reasons//,/$'\n'}")" && [[ -n "$auto_code" ]]; then
 			code="$auto_code"
 		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
-		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
+		elif grep -qxF "$tag" <<<"$test_change_nl"; then
 			code="test-changed"
 		else
 			code="auto"

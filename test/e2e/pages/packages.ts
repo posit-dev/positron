@@ -384,17 +384,7 @@ export class Packages {
 	 * @param packageName The name of a selected package whose row to right-click.
 	 */
 	async updateSelectedPackages(packageName: string): Promise<void> {
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.listRow(packageName),
-			menuItemLabel: 'Update Packages',
-			menuTriggerButton: 'right',
-			exact: true
-		});
-
-		// Best-effort wait for the "Updating Packages..." toast, as installPackage does:
-		// a fast update can raise and clear it before it is observed.
-		await this.toasts.waitForAppear('Updating Packages...', { timeout: 30000 }).catch(() => { });
-		await this.toasts.waitForDisappear('Updating Packages...', { timeout: 60000 }).catch(() => { });
+		await this.clickSelectionMenuItem(packageName, 'Update Packages');
 	}
 
 	/**
@@ -405,12 +395,27 @@ export class Packages {
 	 * @param packageName The name of a selected package whose row to right-click.
 	 */
 	async uninstallSelectedPackages(packageName: string): Promise<void> {
-		await this.contextMenu.triggerAndClick({
-			menuTrigger: this.listRow(packageName),
-			menuItemLabel: 'Uninstall Packages',
-			menuTriggerButton: 'right',
-			exact: true
-		});
+		await this.clickSelectionMenuItem(packageName, 'Uninstall Packages');
+	}
+
+	/**
+	 * Right-clicks a selected row and clicks an item in the context menu. The items are
+	 * disabled while the pane is busy, which it is for a moment after a previous operation
+	 * (and while the selection's outdated state is still arriving), and triggerAndClick gives
+	 * up on a disabled item after 10s, so retry until the item is enabled.
+	 *
+	 * There is no wait for the operation's progress toast: since the toast now appears only
+	 * after 10s, a quick operation never shows one. Assert the outcome instead.
+	 */
+	private async clickSelectionMenuItem(packageName: string, menuItemLabel: string): Promise<void> {
+		await expect(async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.listRow(packageName),
+				menuItemLabel,
+				menuTriggerButton: 'right',
+				exact: true
+			});
+		}).toPass({ timeout: 90_000 });
 	}
 
 	/**

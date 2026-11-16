@@ -29,10 +29,16 @@ interface ActionBarFilterProps {
 	disabled?: boolean;
 	initialFilterText?: string;
 	placeholder?: string;
+	ariaLabel?: string;
+	clearButtonAriaLabel?: string;
 	clearButtonIcon?: IconType;
 	showClearAlways?: boolean;
 	size?: ActionBarFilterSize;
 	onFilterTextChanged: (filterText: string) => void;
+	/**
+	 * Optional handler for key presses in the input that the filter does not handle itself.
+	 */
+	onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 	/**
 	 * Optional handler invoked when the filter button is pressed. When provided,
 	 * a filter icon button is rendered to the right of the clear button. The
@@ -49,6 +55,7 @@ interface ActionBarFilterProps {
 export interface ActionBarFilterHandle {
 	setFilterText: (text: string) => void;
 	focus: () => void;
+	select: () => void;
 }
 
 /**
@@ -109,6 +116,8 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 			e.preventDefault();
 			e.stopPropagation();
 			buttonClearClickHandler();
+		} else {
+			props.onKeyDown?.(e);
 		}
 	};
 
@@ -120,6 +129,9 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		},
 		focus: () => {
 			inputRef.current.focus();
+		},
+		select: () => {
+			inputRef.current.select();
 		}
 	}));
 
@@ -131,6 +143,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 			<div className={positronClassNames('action-bar-filter-input', sizeClassName, { 'focused': focused })}>
 				<input
 					ref={inputRef}
+					aria-label={props.ariaLabel}
 					className='text-input'
 					disabled={props.disabled}
 					placeholder={props.placeholder ?? localize('positronFilterPlaceholder', "Filter")}
@@ -143,7 +156,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				/>
 				{(filterText !== '' || props.showClearAlways) && (
 					<button
-						aria-label={localize('positronClearFilter', "Clear filter")}
+						aria-label={props.clearButtonAriaLabel ?? localize('positronClearFilter', "Clear filter")}
 						className='clear-button'
 						disabled={props.disabled || filterText === ''}
 						onClick={buttonClearClickHandler}

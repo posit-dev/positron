@@ -7,8 +7,11 @@ import { Delayer } from '../../../../base/common/async.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IMissingPackagesService } from '../common/missingPackagesService.js';
+import { WARN_MISSING_IN_EDITOR } from './missingPackagesBadge.js';
+import { CONFIRM_MISSING_ON_RUN } from './missingPackagesPreflightService.js';
 
 /** Debounce window before precomputing, so we don't recompute on every keystroke. */
 const PRECOMPUTE_DELAY_MS = 750;
@@ -29,6 +32,7 @@ export class MissingPackagesPrecomputeContribution extends Disposable {
 		@IEditorService private readonly _editorService: IEditorService,
 		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@IMissingPackagesService private readonly _missingPackagesService: IMissingPackagesService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 
@@ -53,7 +57,7 @@ export class MissingPackagesPrecomputeContribution extends Disposable {
 	}
 
 	private _schedule(resource: URI | undefined): void {
-		if (!resource) {
+		if (!resource || !this._isNeeded(resource)) {
 			return;
 		}
 		this._delayer.trigger(async () => {
@@ -63,5 +67,11 @@ export class MissingPackagesPrecomputeContribution extends Disposable {
 				// Precompute is best-effort; failures surface when a consumer asks.
 			}
 		});
+	}
+
+	/** The cache only serves the editor badge and the run preflight; skip when both are off. */
+	private _isNeeded(resource: URI): boolean {
+		return this._configurationService.getValue<boolean>(WARN_MISSING_IN_EDITOR, { resource }) === true ||
+			this._configurationService.getValue<boolean>(CONFIRM_MISSING_ON_RUN, { resource }) === true;
 	}
 }

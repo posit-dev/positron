@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -400,5 +400,118 @@ describe('PackageDetail while detail fetch is pending', () => {
 		expect(screen.getAllByTestId('package-detail-loading')).toHaveLength(2);
 		// The Overview (and its detail-only rows) stays hidden until the fetch resolves.
 		expect(screen.queryByText('MIT')).not.toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail for bundled packages', () => {
+	const executeCommand = vi.fn();
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function tornado(overrides: Partial<ILanguageRuntimePackage> = {}): ILanguageRuntimePackage {
+		return { id: 'tornado', name: 'tornado', displayName: 'tornado', version: '6.5.7', bundled: true, ...overrides };
+	}
+
+	function renderPackage(pkg: ILanguageRuntimePackage) {
+		const instance = makeInstance([pkg]);
+		const packagesService = stubInterface<IPositronPackagesService>({
+			getInstances: () => [instance],
+			activePackagesInstance: instance,
+			onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+			onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+		});
+		rtl.render(
+			<PackageDetail languageId='python' packageName='tornado' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+	}
+
+	it('labels a bundled-only package, explains it, and offers no Update or Uninstall', async () => {
+		renderPackage(tornado({ outdated: false }));
+
+		expect(screen.getByText('Bundled with Positron')).toBeInTheDocument();
+		// Rendered as plain text, so Markdown backticks would show literally.
+		expect(screen.getByText(/ships with Positron and can't be uninstalled from the Packages pane/)).not.toHaveTextContent('`');
+		// A restart keeps the session's bundled import path; only a new session
+		// picks up the setting change.
+		expect(screen.getByText(/ships with Positron/)).toHaveTextContent(/start a new Python session\.$/);
+		expect(screen.getByText('python.useBundledIpykernel', { selector: 'code' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /uninstall/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /update/i })).not.toBeInTheDocument();
+		// The version is the bundled copy's, never "(latest)": outdated state
+		// describes the environment, which has no copy.
+		expect(await screen.findByText('6.5.7, bundled')).toBeInTheDocument();
+		expect(screen.queryByText(/\(latest\)/)).not.toBeInTheDocument();
+	});
+
+	it('gives no Python advice for a bundled package in another language', async () => {
+		const instance = makeInstance([tornado({ vulnerabilities: [{ id: 'CVE-2025-0001', osvId: 'GHSA-xxxx-yyyy-zzzz', score: 7.5, scoreVersion: 'v3' }] })]);
+		const packagesService = stubInterface<IPositronPackagesService>({
+			getInstances: () => [instance],
+			activePackagesInstance: instance,
+			onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+			onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+		});
+		rtl.render(
+			<PackageDetail languageId='r' packageName='tornado' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+
+		expect(screen.getByText('This package ships with Positron and can\'t be uninstalled from the Packages pane.')).toBeInTheDocument();
+		await userEvent.setup().click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+		expect(screen.getByText('A fix for the bundled copy comes with a Positron update.')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /useBundledIpykernel/ })).not.toBeInTheDocument();
+	});
+
+	it('opens the bundled ipykernel setting from the explanation', async () => {
+		renderPackage(tornado());
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('button', { name: 'Open the python.useBundledIpykernel setting' }));
+
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'python.useBundledIpykernel');
+	});
+
+	it('explains that the console imports the bundled copy when the environment also has one', async () => {
+		renderPackage(tornado({ environmentVersion: '6.5.10', outdated: false }));
+
+		expect(screen.getByText('Bundled with Positron')).toBeInTheDocument();
+		expect(screen.getByText('Your environment has 6.5.10, but the console imports the bundled 6.5.7. Update and Uninstall act on the environment copy.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Uninstall' })).toBeEnabled();
+		// "(latest)" attaches to the environment copy, not the bundled one.
+		expect(await screen.findByText('6.5.10 (latest)')).toBeInTheDocument();
+		expect(screen.getByText('6.5.7, bundled')).toBeInTheDocument();
+	});
+
+	it('offers to update the environment copy when it is outdated', () => {
+		renderPackage(tornado({ environmentVersion: '6.4.0', outdated: true, latestVersion: '6.5.10' }));
+
+		expect(screen.getByRole('button', { name: 'Update to 6.5.10' })).toBeEnabled();
+	});
+
+	it('says updating the environment copy does not fix an advisory on the bundled copy', async () => {
+		renderPackage(tornado({
+			environmentVersion: '6.4.0',
+			outdated: true,
+			latestVersion: '6.5.10',
+			vulnerabilities: [{ id: 'CVE-2025-0001', osvId: 'GHSA-xxxx-yyyy-zzzz', score: 7.5, scoreVersion: 'v3' }],
+		}));
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
+		expect(screen.getByText(/These advisories are for the bundled 6.5.7 the console imports\. Updating the environment copy does not fix them/)).toBeInTheDocument();
+	});
+
+	it('says a fix for a bundled-only advisory comes with a Positron update', async () => {
+		renderPackage(tornado({
+			vulnerabilities: [{ id: 'CVE-2025-0001', osvId: 'GHSA-xxxx-yyyy-zzzz', score: 7.5, scoreVersion: 'v3' }],
+		}));
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole('tab', { name: 'Security, 1 known vulnerability' }));
+
+		expect(screen.getByText(/A fix for the bundled copy comes with a Positron update/)).not.toHaveTextContent('`');
+		const advisoryNote = screen.getByText(/A fix for the bundled copy/);
+		expect(advisoryNote).toHaveTextContent(/start a new Python session\.$/);
+		expect(within(advisoryNote).getByText('python.useBundledIpykernel', { selector: 'code' })).toBeInTheDocument();
 	});
 });

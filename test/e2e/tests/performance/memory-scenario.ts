@@ -100,7 +100,7 @@ export function defineMemoryScenario(options: {
 			// timeout could fire and fail that step alone.
 			test.setTimeout(SETTLE_CAP_MS + SAMPLING_CAP_MS + HEAP_CAPTURE_BUDGET_MS + MEASURE_OVERHEAD_MS);
 
-			// Only test-memory-metrics.yml collects these specs, and it always sets
+			// Only positron-builds' test-memory-metrics.yml collects these specs, and it always sets
 			// BUILD. A missing one means the workflow is broken, not that the spec
 			// ran somewhere it should not have.
 			const buildRoot = process.env.BUILD;

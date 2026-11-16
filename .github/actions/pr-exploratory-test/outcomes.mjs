@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, priorRows, pickPrCheck, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -34,29 +34,47 @@ const SHIPPED_VIA = new Map([[16866, 16878]]);
 // PRs read at once. Git runs synchronously, so only the GitHub and model calls overlap.
 const PR_CONCURRENCY = 6;
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, api: { type: 'boolean', default: false }, previous: { type: 'string' }, recheck: { type: 'boolean', default: false }, out: { type: 'string' } } });
-const PREVIOUS = args.previous && !args.recheck ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+// Every saved row, even with --recheck: a report that can't be read keeps its rows instead of dropping them.
+const PRIOR = args.previous ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
+const PREVIOUS = args.recheck ? [] : PRIOR;
 const SETTLED = settledRows(PREVIOUS);
 // Origins set by hand, keyed by run#finding, for findings from before main was replayed.
+// A PR that isn't read again keeps its saved origins, so run with --recheck after removing an entry.
 const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const SAVED_REPLIES = savedReplies(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
+async function ghFetch(url) {
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github+json' } });
+	if (!res.ok) {
+		throw new Error(`GitHub GET ${url.slice(API.length)} failed: ${res.status}`);
+	}
+	return res;
+}
+
+/** A GitHub object, or every page of a list. Numbered pages are read a few at a time; a list paged by cursor, one after another. */
 async function gh(path) {
-	let url = `${API}${path}`;
-	let all = null;
-	while (url) {
-		const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github+json' } });
-		if (!res.ok) {
-			throw new Error(`GitHub GET ${path} failed: ${res.status}`);
-		}
-		const data = await res.json();
-		if (!Array.isArray(data)) {
-			return data;
-		}
-		all = [...(all ?? []), ...data];
-		url = res.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+	let res = await ghFetch(`${API}${path}`);
+	const data = await res.json();
+	const last = Number(res.headers.get('link')?.match(/[?&]page=(\d+)>;\s*rel="last"/)?.[1]);
+	if (!Array.isArray(data)) {
+		return data;
+	}
+	if (last) {
+		const pageUrl = page => {
+			const url = new URL(`${API}${path}`);
+			url.searchParams.set('page', String(page));
+			return url.href;
+		};
+		const rest = await mapLimit(Array.from({ length: last - 1 }, (_, i) => i + 2), PR_CONCURRENCY, async page => (await ghFetch(pageUrl(page))).json());
+		return [data, ...rest].flat();
+	}
+	const all = [...data];
+	for (let next = res.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1]; next; next = res.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1]) {
+		res = await ghFetch(next);
+		all.push(...await res.json());
 	}
 	return all;
 }
@@ -70,12 +88,18 @@ async function fetchJson(url) {
 	return res.ok ? res.json() : null;
 }
 
-async function prNumbers() {
+/** The results on each PR since --since, or every result on the PR --pr names. */
+async function prResults() {
 	if (args.pr) {
-		return [Number(args.pr)];
+		return resultsByPr(await gh(`/repos/${REPO}/issues/${args.pr}/comments?per_page=100`), 0);
 	}
-	const q = encodeURIComponent(`repo:${REPO} is:pr "View report" "Exploratory testing" in:comments created:>=${args.since}`);
-	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number).filter(n => !SKIPPED_PRS.has(n));
+	// The repo's comment list rather than search: search is slow to index a new comment and misses some for good.
+	const since = new Date(args.since);
+	if (Number.isNaN(since.getTime())) {
+		throw new Error(`--since ${args.since} is not a date`);
+	}
+	const results = resultsByPr(await gh(`/repos/${REPO}/issues/comments?since=${since.toISOString()}&per_page=100`), since);
+	return new Map([...results].filter(([n]) => !SKIPPED_PRS.has(n)).sort(([a], [b]) => a - b));
 }
 
 let anthropic = null;
@@ -256,7 +280,7 @@ async function closingIssues(number) {
 	}
 }
 
-async function prRows(number) {
+async function prRows(number, results) {
 	const viaNumber = SHIPPED_VIA.get(number);
 	const pr = shippedVia(await gh(`/repos/${REPO}/pulls/${number}`), viaNumber && await gh(`/repos/${REPO}/pulls/${viaNumber}`));
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
@@ -265,7 +289,6 @@ async function prRows(number) {
 		git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
 	}
 	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
-	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
 	// A failed timeline leaves the title search, rather than skipping the PR.
 	const timeline = await gh(`/repos/${REPO}/issues/${number}/timeline?per_page=100`).catch(err => {
 		console.error(`[outcomes] #${number} timeline failed, issues that mention the PR not checked: ${err}`);
@@ -275,14 +298,15 @@ async function prRows(number) {
 	const mergedFiles = prState === 'merged' ? (await gh(`/repos/${REPO}/pulls/${viaNumber ?? number}/files?per_page=100`)).map(f => f.filename) : [];
 	const closes = await closingIssues(number);
 	const rows = [];
-	for (const comment of comments) {
-		const parsed = parseResultComment(comment.body);
-		if (!parsed) {
-			continue;
-		}
-		const report = await fetchReport(parsed.reportBase);
+	for (const parsed of results) {
+		const report = await fetchReport(parsed.reportBase).catch(err => {
+			console.error(`[outcomes] #${number} run ${parsed.run}: report fetch failed: ${err}`);
+			return null;
+		});
 		if (!report) {
-			console.error(`[outcomes] #${number} run ${parsed.run}: no report, skipped`);
+			const prior = priorRows(PRIOR, number, parsed.run);
+			rows.push(...prior);
+			console.error(`[outcomes] #${number} run ${parsed.run}: no report, kept ${prior.length} previous rows`);
 			continue;
 		}
 		const stats = await fetchJson(`${parsed.reportBase}/stats.json`);
@@ -306,7 +330,7 @@ async function prRows(number) {
 			const replies = {};
 			const { inPr, later } = await usedReplies.run(replies, async () => ({
 				inPr: saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null),
-				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, comment.created_at, timeline),
+				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, parsed.postedAt, timeline),
 			}));
 			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
 			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
@@ -315,7 +339,7 @@ async function prRows(number) {
 				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended, inherited: findingOrig === 'inherited' })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
-				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: comment.created_at, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
+				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: parsed.postedAt, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
 				origin: findingOrig, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
@@ -327,21 +351,30 @@ async function prRows(number) {
 	return rows;
 }
 
-const numbers = await prNumbers();
+const results = await prResults();
+const numbers = [...results.keys()];
+// A merged PR whose rows can't change isn't read again, which saves several GitHub calls each. A PR shipped through
+// another is decided again every time, and one asked for with --pr is always read.
+const settledPrs = new Set(args.pr ? [] : numbers.filter(n => !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, ORIGIN_OVERRIDES, n, results.get(n).map(r => r.run))));
+console.error(`[outcomes] ${settledPrs.size} settled PRs kept without reading, ${numbers.length - settledPrs.size} to read`);
 // One fetch for every PR rather than one each; if it fails, each PR fetches its own.
 let FETCHED_ALL = false;
 try {
-	git('fetch', '-q', 'origin', 'main', ...numbers.map(n => `refs/pull/${n}/head`));
+	git('fetch', '-q', 'origin', 'main', ...numbers.filter(n => !settledPrs.has(n)).map(n => `refs/pull/${n}/head`));
 	FETCHED_ALL = true;
 } catch (err) {
 	console.error(`[outcomes] fetching every PR at once failed, fetching each instead: ${err}`);
 }
 const rows = (await mapLimit(numbers, PR_CONCURRENCY, async number => {
+	if (settledPrs.has(number)) {
+		return priorRows(PREVIOUS, number);
+	}
 	try {
-		return await prRows(number);
+		return await prRows(number, results.get(number));
 	} catch (err) {
-		console.error(`[outcomes] #${number} failed, skipped: ${err}`);
-		return [];
+		const prior = priorRows(PRIOR, number);
+		console.error(`[outcomes] #${number} failed, kept ${prior.length} previous rows: ${err}`);
+		return prior;
 	}
 })).flat();
 const marked = markDuplicates(rows);

@@ -12,13 +12,13 @@ import { IContextKey, IContextKeyService } from '../../../../platform/contextkey
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PackageMetadataCache } from './packageMetadataCache.js';
-import { getUpdatablePackages } from './packageSelection.js';
+import { getSelectedPackages, isPackageUninstallable, isPackageUpdatable } from './packageSelection.js';
 import { PACKAGES_VULNERABILITIES_ENABLED_SETTING } from './packageVulnerabilities.js';
 import { PACKAGES_VULNERABILITIES_SOURCE_SETTING, PackageVulnerabilityLookup } from './packageVulnerabilityLookup.js';
-import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from './positronPackagesContextKeys.js';
+import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE, POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY, POSITRON_PACKAGES_SELECTION_COUNT, POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE, POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
 const TIMEOUT_REFRESH_MS = 5_000; // 5 seconds
@@ -45,8 +45,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	private readonly _hasActiveSessionContextKey: IContextKey<boolean>;
 	private readonly _isBusyContextKey: IContextKey<boolean>;
 	private readonly _selectedPackageContextKey: IContextKey<string>;
+	private readonly _selectedPackageBundledOnlyContextKey: IContextKey<boolean>;
 	private readonly _selectionCountContextKey: IContextKey<number>;
 	private readonly _selectionHasUpdatableContextKey: IContextKey<boolean>;
+	private readonly _selectionHasUninstallableContextKey: IContextKey<boolean>;
 	private readonly _itemSizeContextKey: IContextKey<PackagesItemSize>;
 
 	private _selectedPackages: readonly string[] = [];
@@ -101,8 +103,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
 		this._isBusyContextKey = POSITRON_PACKAGES_IS_BUSY.bindTo(this._contextKeyService);
 		this._selectedPackageContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE.bindTo(this._contextKeyService);
+		this._selectedPackageBundledOnlyContextKey = POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.bindTo(this._contextKeyService);
 		this._selectionCountContextKey = POSITRON_PACKAGES_SELECTION_COUNT.bindTo(this._contextKeyService);
 		this._selectionHasUpdatableContextKey = POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE.bindTo(this._contextKeyService);
+		this._selectionHasUninstallableContextKey = POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE.bindTo(this._contextKeyService);
 		this._itemSizeContextKey = POSITRON_PACKAGES_ITEM_SIZE.bindTo(this._contextKeyService);
 
 		// Seed the item-size context key from persisted storage so the user's preferred
@@ -164,6 +168,13 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 		// Set up busy state tracking for the new instance
 		if (instance) {
+			// The keys derived from the selection depend on the instance's package list, which can
+			// change without the selection changing: a refresh can find (or lose) an environment
+			// copy of a selected package, or learn that one is outdated.
+			this._activeInstanceDisposables.add(instance.onDidRefreshPackagesInstance(() => {
+				this._updateSelectionContextKeys();
+			}));
+
 			// Track all loading states to determine if the instance is busy
 			let refreshLoading = false;
 			let installLoading = false;
@@ -197,14 +208,8 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 				uninstallLoading = isLoading;
 				updateBusy();
 			}));
-
-			// Whether the selection is updatable depends on the instance's package
-			// list, which can change without the selection changing.
-			this._activeInstanceDisposables.add(instance.onDidRefreshPackagesInstance(() => {
-				this.updateSelectionHasUpdatable();
-			}));
 		}
-		this.updateSelectionHasUpdatable();
+		this._updateSelectionContextKeys();
 
 		this._onDidChangeActivePackagesInstance.fire(instance);
 	}
@@ -242,7 +247,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		this._selectedPackages = [...names];
 		this._selectedPackageContextKey.set(this.selectedPackage ?? '');
 		this._selectionCountContextKey.set(names.length);
-		this.updateSelectionHasUpdatable();
+		this._updateSelectionContextKeys();
 	}
 
 	get itemSize(): PackagesItemSize {
@@ -354,11 +359,19 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 
 	//#region Private Methods
 
-	private updateSelectionHasUpdatable(): void {
+	/**
+	 * Recomputes the context keys derived from the selection and the instance's packages.
+	 * The bundled-only key is about a single selected package (it is false for several); the
+	 * other two say whether anything in the selection can be updated or uninstalled, so that a
+	 * multi-selection's actions are disabled only when every package in it would be skipped.
+	 */
+	private _updateSelectionContextKeys(): void {
 		const packages = this._activeInstance?.packages ?? [];
-		this._selectionHasUpdatableContextKey.set(
-			getUpdatablePackages(packages, this._selectedPackages).length > 0
-		);
+		const selected = getSelectedPackages(packages, this._selectedPackages);
+		const single = this._selectedPackages.length === 1 ? selected[0] : undefined;
+		this._selectedPackageBundledOnlyContextKey.set(single !== undefined && isBundledOnly(single));
+		this._selectionHasUpdatableContextKey.set(selected.some(isPackageUpdatable));
+		this._selectionHasUninstallableContextKey.set(selected.some(isPackageUninstallable));
 	}
 
 	getInstances(): IPositronPackagesInstance[] {

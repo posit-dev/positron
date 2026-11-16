@@ -4,13 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ILanguageRuntimePackage } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
- * A package can be updated when it is outdated and a latest version is known.
+ * A package can be updated when it is outdated, a latest version is known, and the user's
+ * environment has a copy of it (a package only Positron's bundle provides has nothing to update).
  */
 export function isPackageUpdatable(pkg: ILanguageRuntimePackage): boolean {
-	return pkg.outdated === true && !!pkg.latestVersion;
+	return pkg.outdated === true && !!pkg.latestVersion && !isBundledOnly(pkg);
+}
+
+/**
+ * A package can be uninstalled unless only Positron's bundle provides it, in which case the
+ * user's environment has no copy to remove.
+ */
+export function isPackageUninstallable(pkg: ILanguageRuntimePackage): boolean {
+	return !isBundledOnly(pkg);
+}
+
+/**
+ * Returns the packages whose names (case-insensitive) are in `names`, preserving the order of
+ * `packages`.
+ */
+export function getSelectedPackages(packages: readonly ILanguageRuntimePackage[], names: readonly string[]): ILanguageRuntimePackage[] {
+	const wanted = new Set(names.map(name => name.toLowerCase()));
+	return packages.filter(pkg => wanted.has(pkg.name.toLowerCase()));
 }
 
 /**
@@ -18,23 +36,32 @@ export function isPackageUpdatable(pkg: ILanguageRuntimePackage): boolean {
  * preserving the order of `packages`.
  */
 export function getUpdatablePackages(packages: readonly ILanguageRuntimePackage[], names: readonly string[]): ILanguageRuntimePackage[] {
-	const wanted = new Set(names.map(name => name.toLowerCase()));
-	return packages.filter(pkg => wanted.has(pkg.name.toLowerCase()) && isPackageUpdatable(pkg));
+	return getSelectedPackages(packages, names).filter(isPackageUpdatable);
 }
 
 /**
- * Update is available for a single selection, or for a multi-selection that
- * contains at least one updatable package.
+ * Returns the uninstallable packages whose names (case-insensitive) are in `names`,
+ * preserving the order of `packages`.
  */
-export function canUpdateSelection(count: number, hasUpdatable: boolean): boolean {
-	return count === 1 || (count >= 2 && hasUpdatable);
+export function getUninstallablePackages(packages: readonly ILanguageRuntimePackage[], names: readonly string[]): ILanguageRuntimePackage[] {
+	return getSelectedPackages(packages, names).filter(isPackageUninstallable);
 }
 
 /**
- * Uninstall is available for any non-empty selection.
+ * With one package selected, Update is available unless only Positron's bundle provides it (it
+ * opens a version picker, so the package need not be outdated). With several, it is available
+ * when at least one of them is updatable; the rest are skipped.
  */
-export function canUninstallSelection(count: number): boolean {
-	return count >= 1;
+export function canUpdateSelection(items: readonly ILanguageRuntimePackage[]): boolean {
+	return items.length === 1 ? isPackageUninstallable(items[0]) : items.some(isPackageUpdatable);
+}
+
+/**
+ * Uninstall is available when at least one selected package can be uninstalled; packages only
+ * Positron's bundle provides are skipped.
+ */
+export function canUninstallSelection(items: readonly ILanguageRuntimePackage[]): boolean {
+	return items.some(isPackageUninstallable);
 }
 
 /**

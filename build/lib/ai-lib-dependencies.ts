@@ -3,10 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import es from 'event-stream';
 import * as fs from 'fs';
 import * as path from 'path';
-import { gulp, rename } from './gulp/facade.ts';
 
 const REPO_ROOT = fs.realpathSync(path.dirname(path.dirname(import.meta.dirname)));
 
@@ -16,15 +14,18 @@ const REPO_ROOT = fs.realpathSync(path.dirname(path.dirname(import.meta.dirname)
  * `ai-config` backs the AI provider catalog and `ai-provider-bridge` backs the
  * headless language model engine; both are registered in `serverServices.ts`.
  * The engine reaches its package through a bare dynamic import
- * (`ai-provider-bridge/headless`), which in turn loads `ai-config/node`, so both
- * packages have to exist in the server's `node_modules` at runtime.
+ * (`ai-provider-bridge/headless`), which in turn loads `ai-config/node`. The
+ * server bundle includes `ai-config`, so only `ai-provider-bridge` ships in the
+ * server's `node_modules`; this list seeds the closure that the bundle's notices
+ * are cross-checked against.
  *
  * They are consumed from the ai-lib submodule as `file:` dependencies of the
  * *root* package.json, which is why `getProductionDependencies('remote')` never
- * sees them: nothing under `remote/` depends on them. Without the explicit copy
- * below the imports fail with ERR_MODULE_NOT_FOUND on the remote host, which
- * silently empties the provider catalog (posit-dev/positron#15306) and disables
- * headless model egress.
+ * sees them: nothing under `remote/` depends on them. The server build ships
+ * them as one bundle instead (see ai-lib-server-bundle.ts). Without it, the
+ * imports fail with ERR_MODULE_NOT_FOUND on the remote host, which silently
+ * empties the provider catalog (posit-dev/positron#15306) and disables headless
+ * model egress.
  */
 export const AI_LIB_SERVER_PACKAGES = ['ai-config', 'ai-provider-bridge'];
 
@@ -70,7 +71,7 @@ function toRepoRelative(moduleDir: string): string {
 	return relative.split(path.sep).join('/');
 }
 
-/** A module to copy: where it is installed, and where the server loads it from. */
+/** A module in the closure: where it is installed, and where the server would load it from. */
 export interface AiLibServerModule {
 	/** Repository-relative directory of the installed module. */
 	source: string;
@@ -80,12 +81,11 @@ export interface AiLibServerModule {
 
 /**
  * The production dependency closure of {@link AI_LIB_SERVER_PACKAGES}, as
- * source/destination pairs.
+ * source/destination pairs. The server ships a bundle, not these modules (see
+ * ai-lib-server-bundle.ts); the bundle cross-checks its notices against this list.
  *
  * Each dependency is resolved from the directory that declares it, so a version
- * npm had to nest (ai-config's zod 4 against the server's zod 3, the bridge's
- * `@github/copilot-sdk` 0.2 against the server's 1.x) is reported at its nested
- * path and keeps winning over the hoisted copy once shipped. Dev and peer
+ * npm had to nest for a conflict is reported at its nested path. Dev and peer
  * dependencies are not walked: the packages ship prebuilt `dist/` output, and
  * their only peer (`vscode`) comes from the host at runtime.
  *
@@ -138,16 +138,14 @@ export function getAiLibServerModules(packageNames: string[] = AI_LIB_SERVER_PAC
  * `ai-lib/packages/` into `node_modules/`, which is the layout the desktop app
  * ships.
  *
- * A dependency hoisted above the package checkouts -- which happens once someone
+ * A dependency hoisted above the package checkouts (which happens once someone
  * runs `npm install` inside `ai-lib` to work on it, since Positron's own install
- * only populates the packages -- has no counterpart in the server layout, where
- * the packages sit directly under `node_modules/`. It travels nested under its
- * owner instead of at the top level, so the owner keeps the version it declared:
- * top level would collide with the server's own copy (ai-lib hoists zod 4 while
- * the server ships zod 3) and lose to it, since a caller drops destinations the
- * remote dependencies already provide. Everything below the hoist point keeps its
- * nesting, so a dependency npm nested for a version conflict stays distinct from
- * the copy it was nested against.
+ * only populates the packages) has no counterpart in the server layout, where
+ * the packages sit directly under `node_modules/`. It is placed under its owner
+ * instead, so the closure lists it once per owner and the bundle's notices
+ * cross-check finds it by package name. Everything below the hoist point keeps
+ * its nesting, so a dependency npm nested for a version conflict stays distinct
+ * from the copy it was nested against.
  */
 export function toServerModulePath(repoRelativeDir: string, owner: string): string {
 	if (repoRelativeDir.startsWith('node_modules/')) {
@@ -171,33 +169,4 @@ export function toServerModulePath(repoRelativeDir: string, owner: string): stri
 	}
 
 	throw new Error(`Unexpected ai-lib dependency location: ${repoRelativeDir}`);
-}
-
-/**
- * Stream the ai-lib packages the server loads at runtime, plus their production
- * dependency closure, rewritten to the `node_modules/**` paths the server
- * resolves them from. Callers merge this alongside the `remote/` production
- * dependencies so both get the same filtering (`.moduleignore`, source maps).
- *
- * `alreadyShippedModulePaths` are the destinations the caller already packages
- * from `remote/package.json` (e.g. `node_modules/@github/copilot`); a shared
- * dependency is left to that copy rather than shipped twice, which also keeps
- * the target-platform copy of a per-platform package instead of the host's.
- * Nested `node_modules` are excluded per directory because the closure reports
- * every nested dependency as its own entry with its own destination.
- */
-export function getAiLibServerDependencies(alreadyShippedModulePaths: Iterable<string> = []): NodeJS.ReadWriteStream {
-	const alreadyShipped = new Set(alreadyShippedModulePaths);
-	const streams = getAiLibServerModules()
-		.filter(({ destination }) => !alreadyShipped.has(destination))
-		.map(({ source, destination }) => gulp.src([
-			`${source}/**`,
-			`!${source}/node_modules/**`,
-			`!${source}/**/{test,tests}/**`,
-		], { cwd: REPO_ROOT, base: source, dot: true })
-			.pipe(rename(file => {
-				file.dirname = path.join(destination, file.dirname ?? '');
-			})));
-
-	return es.merge(streams);
 }
