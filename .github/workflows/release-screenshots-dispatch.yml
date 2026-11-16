@@ -1,0 +1,46 @@
+name: "Release Screenshots (dispatch)"
+
+# The release screenshots run in posit-dev/positron-builds
+# (test-release-screenshots.yml), which holds the test credentials and the bot
+# token that opens the positron-website PR. When a release/* branch is created,
+# this job dispatches a publish run there for the branch's first commit. It does
+# not wait for the run. A first commit off main fails positron-builds' ref
+# check; an approver then re-runs it by hand. The nightly and manual runs start in positron-builds.
+# The only secret here is the bot app key.
+
+on:
+  push:
+    branches:
+      - "release/*"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: dispatch
+    # Branch creation only: the first push has an all-zero "before" SHA.
+    if: github.event.before == '0000000000000000000000000000000000000000'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mint a token for positron-builds
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: positron-builds
+          permission-actions: write
+
+      - name: Dispatch the screenshots run
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run test-release-screenshots.yml -R posit-dev/positron-builds --ref main \
+            -f mode=publish -f "release_branch=$BRANCH" -f "positron_ref=$SHA"
+          echo "Dispatched release screenshots for \`$BRANCH\` (\`${SHA:0:10}\`): https://github.com/posit-dev/positron-builds/actions/workflows/test-release-screenshots.yml" >> "$GITHUB_STEP_SUMMARY"
