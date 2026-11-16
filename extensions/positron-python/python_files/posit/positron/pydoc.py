@@ -876,13 +876,21 @@ def _linkify_match(match: re.Match, object_: Any) -> str:
     # gather all groups
     start, name, end = match.groups()
 
-    # Try to resolve `target` and replace it with a link.
-    key = _resolve(name, object_)
+    # Try to resolve `target` and replace it with a link. A relative reference like
+    # `.module.Class` is shown as its resolved full path.
+    relative = name.startswith(".")
+    if relative:
+        module_name = get_module_name(object_)
+        key = _resolve(module_name.split(".")[0] + name, object_) if module_name else None
+    else:
+        key = _resolve(name, object_)
     if name in BUILTIN_FUNCTIONS:
         key = name
     if key is None:
         logger.debug("Could not resolve")
         return match.group(0)
+    if relative:
+        name = key
     result = f"[{start}{name}{end}](get?key={key})"
     logger.debug(f"Resolved: {key}")
     return result
@@ -903,7 +911,7 @@ def _linkify(markdown: str, object_: Any) -> str:
     Replace all instances like '`<name>`' or '`[](~name)`' with a
     relative pydoc link to a resolved object.
     """
-    pattern_sphinx = r"(?P<start>`+)(?P<name>[^\d\W`][\w\.]*)(?P<end>`+)"
+    pattern_sphinx = r"(?P<start>`+)(?P<name>\.?[^\d\W`][\w\.]*)(?P<end>`+)"
     replacement = partial(_linkify_match, object_=object_)
     result = re.sub(pattern_sphinx, replacement, markdown)
 
