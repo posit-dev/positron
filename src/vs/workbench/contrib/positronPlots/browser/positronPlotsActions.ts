@@ -17,7 +17,7 @@ import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positro
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { PositronPlotsGalleryEditorInput } from '../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotsDisplayLocation, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotsDisplayLocation, POSITRON_PLOTS_EDITOR_IS_WEBVIEW, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -30,6 +30,12 @@ export enum PlotActionTarget {
 }
 export const POSITRON_PLOTS_ACTION_CATEGORY = nls.localize('positronPlotsCategory', "Plots");
 const category: ILocalizedString = { value: POSITRON_PLOTS_ACTION_CATEGORY, original: 'Plots' };
+
+/**
+ * The active editor is a plot editor whose plot can be copied, saved, and
+ * zoomed. Webview plots (e.g. Altair) can't.
+ */
+export const PLOT_IS_ACTIVE_IMAGE_EDITOR = ContextKeyExpr.and(PLOT_IS_ACTIVE_EDITOR, POSITRON_PLOTS_EDITOR_IS_WEBVIEW.negate());
 
 /**
  * Abstract class for plot actions that can run for the Plots View or an editor tab. The action
@@ -508,11 +514,11 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			category,
 			f1: false, // do not show in the command palette
 			icon: Codicon.copy,
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}
@@ -545,11 +551,11 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 			category,
 			f1: false, // do not show in the command palette
 			icon: Codicon.positronSave,
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 1,
 				}
@@ -720,14 +726,14 @@ export class ZoomToFitAction extends PlotsEditorZoomAction {
 			title: localize2('positronPlots.zoomToFit', 'Fit'),
 			category,
 			f1: false, // Not in command palette by default
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			toggled: {
 				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fit.toString()),
 			},
 			menu: [
 				{
 					id: PlotsEditorZoomAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 1,
 				}
@@ -746,14 +752,14 @@ export class ZoomFiftyAction extends PlotsEditorZoomAction {
 			title: localize2('positronPlots.zoomFifty', '50%'),
 			category,
 			f1: false, // Not in command palette by default
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			toggled: {
 				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fifty.toString()),
 			},
 			menu: [
 				{
 					id: PlotsEditorZoomAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}
@@ -772,14 +778,14 @@ export class ZoomSeventyFiveAction extends PlotsEditorZoomAction {
 			title: localize2('positronPlots.zoomSeventyFive', '75%'),
 			category,
 			f1: false, // Not in command palette by default
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			toggled: {
 				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.SeventyFive.toString()),
 			},
 			menu: [
 				{
 					id: PlotsEditorZoomAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 3,
 				}
@@ -798,14 +804,14 @@ export class ZoomOneHundredAction extends PlotsEditorZoomAction {
 			title: localize2('positronPlots.zoomOneHundred', '100%'),
 			category,
 			f1: false, // Not in command palette by default
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			toggled: {
 				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.OneHundred.toString()),
 			},
 			menu: [
 				{
 					id: PlotsEditorZoomAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 4,
 				}
@@ -824,14 +830,14 @@ export class ZoomTwoHundredAction extends PlotsEditorZoomAction {
 			title: localize2('positronPlots.zoomTwoHundred', '200%'),
 			category,
 			f1: false, // Not in command palette by default
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			toggled: {
 				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.TwoHundred.toString()),
 			},
 			menu: [
 				{
 					id: PlotsEditorZoomAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 					group: 'navigation',
 					order: 5,
 				}

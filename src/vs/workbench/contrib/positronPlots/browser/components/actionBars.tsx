@@ -29,6 +29,7 @@ import { CustomContextMenuSeparator } from '../../../../browser/positronComponen
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
+import { NotebookOutputPlotClient } from '../notebookOutputPlotClient.js';
 import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -47,6 +48,7 @@ const showNextPlot = localize('positronShowNextPlot', "Show Next Plot");
 const savePlot = localize('positronSavePlot', "Save Plot");
 const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy Plot to Clipboard");
 const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
+const openPlotInBrowser = localize('positronOpenPlotInBrowser', "Open in Browser");
 const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear All Plots");
 // dark filter localized strings
@@ -206,12 +208,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			|| selectedPlot instanceof PlotClientInstance);
 	const enableDarkFilter = enableCopyPlot;
 
+	// Vega and Vega-Lite plots (e.g. Altair) can open in an editor or a browser.
+	const isVegaPlot = hasPlots
+		&& selectedPlot instanceof NotebookOutputPlotClient
+		&& selectedPlot.hasStandaloneHtml;
+
 	const enablePopoutPlot = hasPlots &&
-		selectedPlot instanceof HtmlPlotClient;
+		(selectedPlot instanceof HtmlPlotClient || isVegaPlot);
 
 	const enableEditorPlot = hasPlots
 		&& (selectedPlot instanceof PlotClientInstance
-			|| selectedPlot instanceof StaticPlotClient);
+			|| selectedPlot instanceof StaticPlotClient
+			|| isVegaPlot);
 
 	// Enable code actions when the plot has code metadata
 	const enableCodeActions = hasPlots && !!selectedPlot?.metadata.code;
@@ -514,11 +522,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				label: command.label,
 				run: () => openEditorPlotHandler(command)
 			}));
-		} else if (enablePopoutPlot) {
+		}
+		if (enablePopoutPlot) {
 			availableOpenTargets.push({
 				target: PlotOpenTarget.Popout,
 				id: PlotsPopoutAction.ID,
-				label: openPlotInNewWindow,
+				// Plots that also open in an editor window open in the browser here.
+				label: showOpenInEditorButton ? openPlotInBrowser : openPlotInNewWindow,
 				run: () => popoutPlotHandler()
 			});
 		}

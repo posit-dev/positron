@@ -12,6 +12,8 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
+import { WebviewPlotInstance } from '../../positronPlots/browser/components/webviewPlotInstance.js';
+import { WebviewPlotClient } from '../../positronPlots/browser/webviewPlotClient.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotClient, IPositronPlotsService, ZoomLevel, isZoomablePlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
@@ -19,7 +21,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 interface EditorPlotsContainerProps {
 	plotClient: IPositronPlotClient;
-	positronPlotsService: IPositronPlotsService,
+	positronPlotsService: IPositronPlotsService;
 	height: number;
 	width: number;
 }
@@ -44,6 +46,14 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				key={props.plotClient.id}
 				plotClient={props.plotClient}
 				zoom={zoom} />;
+		}
+		if (props.plotClient instanceof WebviewPlotClient) {
+			return <WebviewPlotInstance
+				key={props.plotClient.id}
+				height={props.height}
+				plotClient={props.plotClient}
+				visible={true}
+				width={props.width} />;
 		}
 		return null;
 	};

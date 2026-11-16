@@ -60,6 +60,11 @@ import { IEphemeralStateService } from '../../../../platform/ephemeralState/comm
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { PlotSaveMemory } from './plotSaveMemory.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
+import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
+import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -233,9 +238,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** Creates the Positron plots service instance */
 	constructor(
 		@IClipboardService private _clipboardService: IClipboardService,
+		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 		@IEphemeralStateService ephemeralStateService: IEphemeralStateService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -248,6 +255,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
 		@IPositronWebviewPreloadService private _positronWebviewPreloadService: IPositronWebviewPreloadService,
+		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
@@ -583,8 +591,42 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				{ openExternal: true, fromUserGesture: true });
 		} else if (selectedPlot instanceof DynamicPlotInstance) {
 		} else {
+			const html = selectedPlot instanceof NotebookOutputPlotClient ? selectedPlot.standaloneHtml : undefined;
+			if (html) {
+				this.openHtmlInBrowser(html).catch(error => {
+					this._notificationService.error(localize('positronPlots.openInBrowserFailed', "Failed to open plot in browser: {0}", String(error)));
+				});
+				return;
+			}
 			throw new Error(`Cannot open plot in new window: plot ${this._selectedPlotId} is not an HTML plot`);
 		}
+	}
+
+	/**
+	 * Writes HTML to a temporary file on the extension host's machine and opens
+	 * it in a web browser through the HTML proxy server.
+	 *
+	 * @param html The HTML document to open.
+	 */
+	private async openHtmlInBrowser(html: string): Promise<void> {
+		// Use the remote machine's temp folder when connected to a remote, so
+		// that the proxy server (which runs in the extension host) can read it.
+		const remoteEnvironment = await this._remoteAgentService.getEnvironment();
+		const tmpDir = remoteEnvironment?.tmpDir ?? (this._environmentService as IEnvironmentService & { tmpDir?: URI }).tmpDir;
+		if (!tmpDir) {
+			throw new Error('No temporary folder is available');
+		}
+		const file = joinPath(tmpDir, `positron-plot-${generateUuid()}.html`);
+		await this._fileService.writeFile(file, VSBuffer.fromString(html));
+
+		// A remote path uses the remote machine's separators, so don't convert it
+		// to a local file system path.
+		const path = remoteEnvironment ? file.path : file.fsPath;
+		const url = await this._commandService.executeCommand<string>('positronProxy.startHtmlProxyServer', path);
+		if (!url) {
+			throw new Error(`Failed to start HTML proxy server for ${path}`);
+		}
+		await this._openerService.open(URI.parse(url), { openExternal: true, fromUserGesture: true });
 	}
 
 	/**
@@ -1663,7 +1705,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
 
-		if (plotClient instanceof WebviewPlotClient) {
+		if (plotClient instanceof NotebookOutputPlotClient && plotClient.hasStandaloneHtml) {
+			// Create a copy with its own webview for the editor. The editor input
+			// disposes the copy via removeEditorPlot when the tab is closed.
+			if (!this._editorPlots.has(plotClient.id)) {
+				this._editorPlots.set(plotClient.id, plotClient.copy());
+			}
+		} else if (plotClient instanceof WebviewPlotClient) {
 			throw new Error('Cannot open plot in editor: webview plot not supported');
 		}
 

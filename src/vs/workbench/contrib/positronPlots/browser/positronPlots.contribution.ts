@@ -19,12 +19,11 @@ import { IPositronPlotsService, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { MenuRegistry, registerAction2, MenuId, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
-import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
+import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PLOT_IS_ACTIVE_IMAGE_EDITOR, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { OldFreezeSlowPlotsConfigKey, FreezeSlowPlotsConfigKey } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
@@ -94,7 +93,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		const zoomSubmenu: ISubmenuItem = {
 			title: localize2('positronPlots.zoomSubMenuTitle', 'Set the plot zoom'),
 			submenu: PlotsEditorZoomAction.SUBMENU_ID,
-			when: PLOT_IS_ACTIVE_EDITOR,
+			when: PLOT_IS_ACTIVE_IMAGE_EDITOR,
 			group: 'navigation',
 			order: 3,
 			icon: Codicon.positronSizeToFit
