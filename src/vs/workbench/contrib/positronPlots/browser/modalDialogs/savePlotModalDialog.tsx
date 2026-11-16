@@ -230,7 +230,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.renderWithSizingPolicy(size, dpi.value / BASE_DPI, format, true);
+		// Render at exactly the requested size. The Plots pane's sizing policy
+		// governs the pane, not an export the user sized explicitly.
+		return props.plotClient.render(size, dpi.value / BASE_DPI, format, true);
 	};
 
 	let intrinsicWidth = '';
