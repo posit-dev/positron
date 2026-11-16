@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { localize } from '../../../../nls.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { EditorExtensions } from '../../../common/editor.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -19,14 +19,12 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { moveOpenDataExplorerEditorToGroup } from './positronDataExplorerEditorResolution.js';
+import { canOpenWithDuckDB, DUCKDB_BUILTIN_EXTENSIONS, DUCKDB_OPTIONAL_EXTENSIONS, moveOpenDataExplorerEditorToGroup } from './positronDataExplorerEditorResolution.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
 import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
 import { PositronDataExplorerClickToViewContribution } from './positronDataExplorerClickToViewProvider.js';
 import { PositronDataExplorerSheetSelector } from './positronDataExplorerSheetSelector.js';
 import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_XLSX } from './positronDataExplorerContextKeys.js';
-import { extname } from '../../../../base/common/resources.js';
-import { posix } from '../../../../base/common/path.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
@@ -34,7 +32,7 @@ import { IPositronDataExplorerService } from '../../../services/positronDataExpl
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { duckDBClientId } from '../../../services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { DataExplorerPreviewEnabled } from '../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
+import { DATA_EXPLORER_FILE_READERS_KEY, DataExplorerFileReaderExtensions, DataExplorerPreviewEnabled } from '../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
 
 /**
  * PositronDataExplorerContribution class.
@@ -104,51 +102,67 @@ export class PositronDataExplorerContribution extends Disposable {
 			}
 		));
 
-		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz', 'xlsx'];
+		// Register the file editor for the built-in formats plus those in `dataExplorer.fileReaders`,
+		// and register it again when that setting changes. Text formats are only offered under
+		// Open With.
+		const fileEditorRegistration = this._register(new MutableDisposable<DisposableStore>());
+		const registerFileEditor = (extensions: string[], readerExtensions: string[], priority: RegisteredEditorPriority) => {
+			return editorResolverService.registerEditor(
+				`*.{${extensions.join(',')}}`,
+				{ ...editorInfo, priority },
+				{
+					singlePerResource: true,
+					canSupportResource: resource => canOpenWithDuckDB(resource, readerExtensions)
+				},
+				{
+					createEditorInput: async ({ resource, options }, group) => {
+						const explorerResource = PositronDataExplorerUri.generate(duckDBClientId(resource));
 
-		this._register(editorResolverService.registerEditor(
-			`*.{${DUCKDB_SUPPORTED_EXTENSIONS.join(',')}}`,
-			editorInfo,
-			{
-				singlePerResource: true,
-				canSupportResource: resource => {
-					// The registration glob above matches case-insensitively, so compare
-					// case-insensitively here too or DATA.CSV resolves to no editor.
-					let fileExt = extname(resource).substring(1).toLowerCase();
-					if (fileExt === 'gz') {
-						// Strip the .gz and get the actual extension
-						fileExt = posix.extname(resource.path.slice(0, -3)).substring(1).toLowerCase();
+						// If a Data Explorer is already open for the file, bring its tab to the group
+						// rather than opening a second tab over the same Data Explorer.
+						const openEditor = moveOpenDataExplorerEditorToGroup(
+							explorerResource,
+							group,
+							editorService,
+							editorGroupsService
+						);
+						if (openEditor) {
+							return { editor: openEditor, options: dataExplorerEditorOptions(options) };
+						}
+
+						await dataExplorerService.openWithDuckDB(resource);
+
+						// We create a data explorer URI that will use the DuckDB client
+						// that we just created.
+						return createDataExplorerEditor({
+							resource: explorerResource,
+							options
+						}, group);
 					}
-					return DUCKDB_SUPPORTED_EXTENSIONS.includes(fileExt);
 				}
-			},
-			{
-				createEditorInput: async ({ resource, options }, group) => {
-					const explorerResource = PositronDataExplorerUri.generate(duckDBClientId(resource));
-
-					// If a Data Explorer is already open for the file, bring its tab to the group
-					// rather than opening a second tab over the same Data Explorer.
-					const openEditor = moveOpenDataExplorerEditorToGroup(
-						explorerResource,
-						group,
-						editorService,
-						editorGroupsService
-					);
-					if (openEditor) {
-						return { editor: openEditor, options: dataExplorerEditorOptions(options) };
-					}
-
-					await dataExplorerService.openWithDuckDB(resource);
-
-					// We create a data explorer URI that will use the DuckDB client
-					// that we just created.
-					return createDataExplorerEditor({
-						resource: explorerResource,
-						options
-					}, group);
-				}
+			);
+		};
+		const registerFileEditors = () => {
+			const readerExtensions = DataExplorerFileReaderExtensions(configurationService);
+			const extensions = [...new Set([...DUCKDB_BUILTIN_EXTENSIONS, ...readerExtensions])];
+			const store = new DisposableStore();
+			store.add(registerFileEditor(
+				extensions.filter(ext => !DUCKDB_OPTIONAL_EXTENSIONS.includes(ext)),
+				readerExtensions,
+				RegisteredEditorPriority.builtin
+			));
+			const optionalExtensions = readerExtensions.filter(ext => DUCKDB_OPTIONAL_EXTENSIONS.includes(ext));
+			if (optionalExtensions.length) {
+				store.add(registerFileEditor(optionalExtensions, readerExtensions, RegisteredEditorPriority.option));
 			}
-		));
+			fileEditorRegistration.value = store;
+		};
+		registerFileEditors();
+		this._register(configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(DATA_EXPLORER_FILE_READERS_KEY)) {
+				registerFileEditors();
+			}
+		}));
 	}
 }
 
