@@ -22,6 +22,9 @@ export class Viewer {
 	get fullApp(): Locator { return this.code.driver.currentPage.locator(FULL_APP); }
 	get viewerFrame(): FrameLocator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
 	get interruptButton(): Locator { return this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
+	get urlBar(): Locator { return this.code.driver.currentPage.getByRole('textbox', { name: 'The current URL' }); }
+	/** The frames holding pages in the Viewer; there should only ever be one. */
+	get pageFrames(): Locator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).locator('iframe'); }
 
 	constructor(private code: Code, private contextMenu: ContextMenu) { }
 
@@ -35,6 +38,17 @@ export class Viewer {
 
 	async refreshViewer() {
 		await this.code.driver.currentPage.locator(REFRESH_BUTTON).click({ timeout: 15000 });
+	}
+
+	async navigateToUrl(url: string) {
+		await test.step(`Navigate the Viewer to ${url}`, async () => {
+			await this.urlBar.fill(url);
+			await this.urlBar.press('Enter');
+		});
+	}
+
+	async navigateBack() {
+		await this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Navigate back to the previous URL' }).click();
 	}
 
 	async clearViewer() {
@@ -77,7 +91,7 @@ export class Viewer {
 
 	async expectUrlToHaveValue(expectedUrl: string, timeout = 10000): Promise<void> {
 		await test.step(`Expect viewer URL to have value: ${expectedUrl}`, async () => {
-			await expect(this.code.driver.currentPage.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
+			await expect(this.urlBar).toHaveValue(expectedUrl, { timeout });
 		});
 	}
 

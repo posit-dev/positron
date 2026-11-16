@@ -40,7 +40,7 @@ suite('ElectronWebviewElement', () => {
 			stopFindInFrame: async (...args) => { calls.push({ command: 'stopFindInFrame', args }); },
 			// --- Start Positron ---
 			// Positron's additional webview manager methods; unused by these tests.
-			awaitFrameCreation: async () => { throw new Error('Not implemented'); },
+			trackFrameNavigation: async () => { },
 			onFrameNavigation: Event.None,
 			captureContentsAsPng: async () => undefined,
 			executeJavaScript: async () => undefined,
