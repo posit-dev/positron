@@ -9,8 +9,8 @@
 //   judge     one model call with no tools; fails closed, i.e. silent
 //   post      re-checks the thread and posts the suggestion, or for an author
 //             on the auto-run list (#16610), starts test-exploratory.yml
-//             instead. That run posts to the PR only if its gate passes it.
-//             When the judge says no to a listed author's PR, it posts why,
+//             instead. When that run's gate declines, it says so on the PR.
+//             When the judge says no to a listed author's PR, post says why,
 //             so a wrong call can be overridden with /explore.
 // DRY_RUN=true runs every step's logic but posts nothing, and judges a PR the
 // precheck would skip, so verdicts can be read on any PR.
@@ -147,8 +147,10 @@ async function post() {
 	}
 	// One note per PR: a later "no" edits it, a later "yes" removes it.
 	const declined = findDeclinedNote(comments);
-	if (process.env.DECLINED === 'true') {
-		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON) });
+	// The workflow runs post on a "no" only for an auto-run author, with its reason.
+	if (process.env.SUGGEST !== 'true') {
+		const pr = await ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}`);
+		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON, pr.head?.sha) });
 		console.log(`[suggest] ${action} the declined note, comment ${id}`);
 		return;
 	}

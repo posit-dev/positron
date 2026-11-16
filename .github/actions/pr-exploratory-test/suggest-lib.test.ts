@@ -154,22 +154,27 @@ test('renderSuggestComment is the marker then a tip callout', () => {
 });
 
 test('renderDeclinedComment gives the reason and the override, and is not a prior use', () => {
-	const body = renderDeclinedComment('Reaching the change needs the ggsql extension. More detail.');
+	const body = renderDeclinedComment('Reaching the change needs the ggsql extension. More detail.', 'abc1234def');
 	assert.equal(body, [
 		DECLINED_MARKER,
 		'> [!NOTE]',
-		'> Exploratory testing did not run automatically on this PR. Reaching the change needs the ggsql extension.',
+		'> Exploratory testing did not run automatically on this PR at abc1234. Reaching the change needs the ggsql extension.',
 		'>',
-		'> If that is wrong, comment `/explore` to run it anyway. Results will be posted as a comment on this PR.',
+		'> If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n'));
 	assert.equal(findPriorUse([{ id: 7, body }]), null);
-	assert.equal(findDeclinedNote([{ id: 6, body: renderSuggestComment('x') }, { id: 7, body }])?.id, 7);
+	const bot = { type: 'Bot' };
+	assert.equal(findDeclinedNote([{ id: 6, user: bot, body: renderSuggestComment('x') }, { id: 7, user: bot, body }])?.id, 7);
+	assert.equal(findDeclinedNote([{ id: 8, user: { type: 'User' }, body }]), undefined);
 });
 
 test('reasonSentence starts with a capital and drops links, images and URLs', () => {
 	assert.equal(reasonSentence('docs only'), 'Docs only.');
 	assert.equal(reasonSentence('See [the fix](https://evil.example) ![x](https://e.x/a.png) or https://evil.example/y now.'), 'See the fix or now.');
+	assert.equal(reasonSentence('See www.evil.example or a@evil.example now.'), 'See or now.');
+	assert.equal(reasonSentence('Blocked on other-org/repo#12 and #34.'), 'Blocked on number 12 and number 34.');
+	assert.equal(reasonSentence('https://evil.example/only'), 'No reason was given.');
 });
 
 test('reasonClause drops "This PR" even behind markup', () => {

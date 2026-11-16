@@ -23,8 +23,8 @@ export const RUN_COMMANDS = ['/explore', '/test', '/exploratory-test'];
 
 /**
  * How test-exploratory.yml's name starts for a run the post job starts for an
- * author on the auto-run list (#16610). A declined run leaves nothing on the
- * PR, so this name is how a later event knows it already started one.
+ * author on the auto-run list (#16610). A run the gate refuses leaves nothing
+ * on the PR, so this name is how a later event knows it already started one.
  */
 export function autoRunName(prNumber) {
 	return `Exploratory auto-run #${prNumber}`;
@@ -150,8 +150,11 @@ function cleanReason(reason) {
 	return String(reason ?? '')
 		// Whole tags and comments first, then any stray bracket left unmatched.
 		.replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '')
-		// Images go; a link keeps its text; a bare URL goes.
-		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\bhttps?:\/\/\S+/gi, ' ')
+		// Images go; a link keeps its text; a URL, www host or email goes.
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ').replace(/\S+@\S+\.\w+/g, ' ')
+		// An issue or PR reference would link, and a cross-repo one notifies that repo.
+		.replace(/[\w.-]*(?:\/[\w.-]+)?#(?=\d)/g, 'number ')
 		// Zero-width space after @ so a handle in the reason does not ping anyone.
 		.replace(/@(?=\w)/g, '@\u200b')
 		.replace(/\s+/g, ' ').trim();
@@ -171,7 +174,7 @@ function firstSentence(text, max) {
 
 /** The model's reason as one sentence that stands alone. */
 export function reasonSentence(reason, max = 300) {
-	const text = firstSentence(cleanReason(reason), max);
+	const text = firstSentence(cleanReason(reason) || 'No reason was given', max);
 	return text[0].toUpperCase() + text.slice(1);
 }
 
@@ -182,9 +185,13 @@ export function reasonClause(reason, max = 300) {
 	return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
 }
 
-/** The note posted when the judge turned down an auto-run author's PR, or undefined. */
+/**
+ * The note post left when the judge turned down an auto-run author's PR, or
+ * undefined. Only a bot's: post edits or deletes it, and must never touch a
+ * person's comment that quotes the marker.
+ */
 export function findDeclinedNote(comments) {
-	return comments.find(c => String(c?.body ?? '').includes(DECLINED_MARKER));
+	return comments.find(c => c?.user?.type === 'Bot' && String(c?.body ?? '').includes(DECLINED_MARKER));
 }
 
 export function renderSuggestComment(reason) {
@@ -202,13 +209,15 @@ export function renderSuggestComment(reason) {
  * The note for an auto-run author's PR the judge turned down: why, and how to
  * run it anyway. Without it the PR shows nothing, and a wrong call goes unseen.
  */
-export function renderDeclinedComment(reason) {
+export function renderDeclinedComment(reason, headSha = '') {
+	const at = headSha ? ` at ${String(headSha).slice(0, 7)}` : '';
 	return [
 		DECLINED_MARKER,
 		'> [!NOTE]',
-		`> Exploratory testing did not run automatically on this PR. ${reasonSentence(reason)}`,
+		`> Exploratory testing did not run automatically on this PR${at}. ${reasonSentence(reason)}`,
 		'>',
-		'> If that is wrong, comment `/explore` to run it anyway. Results will be posted as a comment on this PR.',
+		// A plain /explore goes through the worthiness check, which can say no too.
+		'> If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n');
 }

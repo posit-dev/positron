@@ -6,8 +6,8 @@ name: "Test: Exploratory Suggest"
 #
 # Auto-run experiment (#16610): when the author is on the
 # EXPLORE_AUTO_RUN_AUTHORS repo variable, post starts test-exploratory.yml
-# instead of posting the tip. That run posts to the PR only if its own gate
-# passes it. When the judge says no to such a PR, post says why on the PR, so
+# instead of posting the tip. If that run's own gate declines, the run says
+# so on the PR. When the judge says no to such a PR, post says why on the PR, so
 # a wrong call can be overridden with `/explore`. Listing
 # positron-projects[bot] auto-runs claude.yml's agent PRs; no other bot gets
 # through. Empty the variable to end the experiment. The full list of when
@@ -122,8 +122,7 @@ jobs:
       contents: read
     outputs:
       suggest: ${{ steps.verdict.outputs.suggest }}
-      # A plain "no", as opposed to no verdict, which stays silent.
-      declined: ${{ steps.verdict.outputs.declined }}
+      # Set on a "yes" and on a plain "no"; empty on no verdict, which stays silent.
       reason: ${{ steps.verdict.outputs.reason }}
     steps:
       - uses: actions/checkout@v7
@@ -166,7 +165,7 @@ jobs:
           if [ "$suggest" = "true" ]; then
             { echo "suggest=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
           elif [ "$suggest" = "false" ] && [ -n "$reason" ]; then
-            { echo "suggest=false"; echo "declined=true"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
+            { echo "suggest=false"; echo "reason=$reason"; } >> "$GITHUB_OUTPUT"
           else
             echo "suggest=false" >> "$GITHUB_OUTPUT"
             [ "$suggest" = "false" ] || echo "::warning::The judge gave no verdict, so nothing is suggested."
@@ -180,7 +179,7 @@ jobs:
     needs: [precheck, judge]
     if: >-
       (needs.judge.outputs.suggest == 'true' ||
-        (needs.judge.outputs.declined == 'true' && needs.precheck.outputs.auto == 'true')) &&
+        (needs.judge.outputs.reason != '' && needs.precheck.outputs.auto == 'true')) &&
       !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -212,8 +211,8 @@ jobs:
         working-directory: .github/actions/pr-exploratory-test
         env:
           GH_TOKEN: ${{ github.token }}
+          SUGGEST: ${{ needs.judge.outputs.suggest }}
           REASON: ${{ needs.judge.outputs.reason }}
-          DECLINED: ${{ needs.judge.outputs.declined }}
           AUTO_RUN: ${{ needs.precheck.outputs.auto }}
           # Always main: test-exploratory.yml refuses runs off main, since its
           # dispatch job holds the positron-bot key.

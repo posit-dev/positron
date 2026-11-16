@@ -70,7 +70,8 @@ about cost:
    when unsure. An error means no. The call runs in posit-dev/positron-builds
    (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
    `suggest.ts`. When it says no to an auto-run author's PR, the PR gets a
-   note with the reason and says to comment `/explore` to run it anyway. A
+   note with the reason and says to comment `/explore <what to test>` to run
+   it anyway. A
    later "no" edits that note, and a later "yes" removes it. Other authors
    get no note.
 
