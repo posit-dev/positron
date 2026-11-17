@@ -89,8 +89,16 @@ describe('DynamicPlotInstance', () => {
 			expect(logWarn).toHaveBeenCalledWith(expect.stringContaining(message));
 		});
 
-		it('shows the message instead of the earlier image when a custom size fails, since resizing the pane cannot fix it', async () => {
-			renderPlot(makeFailingPlotClient(earlierRender, undefined, new PlotSizingPolicyCustom({ width: 120, height: 120 })));
+		it.each([
+			['it starts on', false],
+			['the user picks', true],
+		])('shows only the pane message, not the earlier image, when %s a custom size that fails', async (_label, picked) => {
+			const custom = new PlotSizingPolicyCustom({ width: 120, height: 120 });
+			renderPlot(makeFailingPlotClient(earlierRender, undefined, picked ? undefined : custom));
+			if (picked) {
+				await vi.waitFor(() => expect(logWarn).toHaveBeenCalled());
+				act(() => onDidChangeSizingPolicy.fire(custom));
+			}
 
 			expect(await screen.findByText(/at the '120.120 \(custom\)' size because it's too small\. Choose a larger size/)).toBeInTheDocument();
 			expect(screen.queryByText(/Try making it larger/)).not.toBeInTheDocument();
