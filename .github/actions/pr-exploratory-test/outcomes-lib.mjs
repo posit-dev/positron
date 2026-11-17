@@ -237,6 +237,12 @@ export function handOutcome(override) {
 	return override?.outcome ? { outcome: override.outcome, decidedBy: 'by-hand', evidence: override.why ?? '' } : null;
 }
 
+/** A kept row with its hand-set outcome, if it has one. */
+export function withHand(row, overrides) {
+	const hand = handOutcome(overrides[`${row.run}#${row.finding}`]);
+	return hand ? { ...row, ...hand } : row;
+}
+
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {
 	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));
@@ -248,11 +254,12 @@ export function priorRows(rows, pr, run) {
 }
 
 /**
- * A report rebuilt from a run's saved rows, to decide them again when the report itself is gone; null while the PR is
- * open. Only the saved fields are known, so the checks see less. An empty path list is read again from the saved cause.
+ * A report rebuilt from a run's saved rows, to decide them again when the report itself is gone; null unless they were
+ * saved while the PR was open and it has since merged or closed. Only the saved fields are known, so the checks see less,
+ * and a row decided from the full report keeps that decision. An empty path list is read again from the saved cause.
  */
 export function reportFromRows(rows, prState) {
-	if (!rows.length || prState === 'open') {
+	if (!rows.length || prState === 'open' || !rows.every(r => ['open', 'draft'].includes(r.prPreview?.state))) {
 		return null;
 	}
 	const findings = rows.map(r => ({ n: r.finding, title: r.title, severity: r.severity, feature: r.feature, verified: r.verified, observed: r.observed, expected: r.expected, cause: r.cause, origin: r.origin, paths: r.paths?.length ? r.paths : undefined }));
