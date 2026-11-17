@@ -80,12 +80,6 @@
 				);
 			};
 
-			const getPendingFrame = () => {
-				return /** @type {HTMLIFrameElement | undefined} */ (
-					document.getElementById("pending-frame")
-				);
-			};
-
 			/**
 			 * @template T
 			 * @param {T | undefined | null} obj
@@ -446,29 +440,7 @@
 						}
 					});
 				}
-
-				onIframeLoaded(/** @type {HTMLIFrameElement} */ frame) {
-					assertIsDefined(frame.contentWindow).addEventListener(
-						"keydown",
-						(e) => {
-							this.isModifierKeyDown = e.metaKey || e.ctrlKey || e.altKey;
-						},
-					);
-
-					assertIsDefined(frame.contentWindow).addEventListener("keyup", () => {
-						this.isModifierKeyDown = false;
-					});
-				}
 			})();
-
-			// state
-			let firstLoad = true;
-			/** @type {any} */
-			let loadTimeout;
-			let styleVersion = 0;
-
-			/** @type {Array<{ readonly message: any, transfer?: ArrayBuffer[] }>} */
-			let pendingMessages = [];
 
 			const initData = {
 				/** @type {number | undefined} */
@@ -607,8 +579,6 @@
 				}
 
 				hostMessaging.onMessage("styles", (_event, data) => {
-					++styleVersion;
-
 					initData.styles = data.styles;
 					initData.activeTheme = data.activeTheme;
 					initData.themeLabel = data.themeLabel;
@@ -644,6 +614,14 @@
 					activeFrame.contentWindow.focus();
 				});
 
+				// Forward messages posted by the content frame's injected
+				// script to the host.
+				window.addEventListener("message", (e) => {
+					if (e.data && e.data.channel) {
+						hostMessaging.postMessage(e.data.channel, e.data.data);
+					}
+				});
+
 				// update iframe-contents
 				let updateId = 0;
 				hostMessaging.onMessage(
@@ -663,48 +641,12 @@
 							return;
 						}
 
-						const initialStyleVersion = styleVersion;
-
-						const frame = getActiveFrame();
-						const wasFirstLoad = firstLoad;
-						// keep current scrollY around and use later
-						/** @type {(body: HTMLElement, window: Window) => void} */
-						let setInitialScrollPosition;
-						if (firstLoad) {
-							firstLoad = false;
-							setInitialScrollPosition = (body, window) => {
-								if (
-									typeof initData.initialScrollProgress === "number" &&
-									!isNaN(initData.initialScrollProgress)
-								) {
-									if (window.scrollY === 0) {
-										window.scroll(
-											0,
-											body.clientHeight * initData.initialScrollProgress,
-										);
-									}
-								}
-							};
-						} else {
-							const scrollY =
-								frame && frame.contentDocument && frame.contentDocument.body
-									? assertIsDefined(frame.contentWindow).scrollY
-									: 0;
-							setInitialScrollPosition = (body, window) => {
-								if (window.scrollY === 0) {
-									window.scroll(0, scrollY);
-								}
-							};
-						}
-
-						// Clean up old pending frames and set current one as new one
-						const previousPendingFrame = getPendingFrame();
-						if (previousPendingFrame) {
-							previousPendingFrame.setAttribute("id", "");
-							document.body.removeChild(previousPendingFrame);
-						}
-						if (!wasFirstLoad) {
-							pendingMessages = [];
+						// The content is cross-origin, so we can't tell when or
+						// whether the new page loads. Replace the old frame
+						// right away, so that it can't show through the new
+						// one, take its input, or receive commands meant for it.
+						for (const oldFrame of document.querySelectorAll("iframe")) {
+							oldFrame.remove();
 						}
 
 						const newFrame = document.createElement("iframe");
@@ -728,127 +670,11 @@
 							allowRules.push("clipboard-read;", "clipboard-write;");
 						}
 						newFrame.setAttribute("allow", allowRules.join(" "));
-						// We should just be able to use srcdoc, but I wasn't
-						// seeing the service worker applying properly.
-						// Fake load an empty on the correct origin and then write real html
-						// into it to get around this.
-						const fakeUrlParams = new URLSearchParams({ id: ID });
-						if (globalThis.crossOriginIsolated) {
-							fakeUrlParams.set("vscode-coi", "3"); /*COOP+COEP*/
-						}
-						console.log("(Webview) iframe src: ", data);
 						newFrame.src = data;
 
 						newFrame.style.cssText =
 							"display: block; margin: 0; overflow: hidden; position: absolute; width: 100%; height: 100%";
 						document.body.appendChild(newFrame);
-
-						// listen to window events emitted from the frame; forward to the host
-						window.addEventListener("message", (e) => {
-							if (e.data.channel) {
-								hostMessaging.postMessage(e.data.channel, e.data.data);
-							}
-						});
-
-						/**
-						 * @param {Document} contentDocument
-						 */
-						function onFrameLoaded(contentDocument) {
-							// Workaround for https://bugs.chromium.org/p/chromium/issues/detail?id=978325
-							setTimeout(() => {
-								hookupOnLoadHandlers(newFrame);
-
-								if (initialStyleVersion !== styleVersion) {
-									applyStyles(contentDocument, contentDocument.body);
-								}
-							}, 0);
-						}
-
-						assertIsDefined(newFrame.contentWindow).addEventListener(
-							"DOMContentLoaded",
-							(e) => {
-								const contentDocument = e.target
-									? /** @type {HTMLDocument} */ (e.target)
-									: undefined;
-								onFrameLoaded(assertIsDefined(contentDocument));
-							},
-						);
-
-						/**
-						 * @param {Document} contentDocument
-						 * @param {Window} contentWindow
-						 */
-						const onLoad = (contentDocument, contentWindow) => {
-							if (contentDocument && contentDocument.body) {
-								// Workaround for https://github.com/microsoft/vscode/issues/12865
-								// check new scrollY and reset if necessary
-								setInitialScrollPosition(contentDocument.body, contentWindow);
-							}
-
-							const newFrame = getPendingFrame();
-							if (
-								newFrame &&
-								newFrame.contentDocument &&
-								newFrame.contentDocument === contentDocument
-							) {
-								const wasFocused = document.hasFocus();
-								const oldActiveFrame = getActiveFrame();
-								if (oldActiveFrame) {
-									document.body.removeChild(oldActiveFrame);
-								}
-								// Styles may have changed since we created the element. Make sure we re-style
-								if (initialStyleVersion !== styleVersion) {
-									applyStyles(
-										newFrame.contentDocument,
-										newFrame.contentDocument.body,
-									);
-								}
-								newFrame.setAttribute("id", "active-frame");
-
-								if (wasFocused) {
-									contentWindow.focus();
-								}
-
-								pendingMessages.forEach((message) => {
-									contentWindow.postMessage(
-										message.message,
-										window.origin,
-										message.transfer,
-									);
-								});
-								pendingMessages = [];
-							}
-						};
-
-						/**
-						 * @param {HTMLIFrameElement} newFrame
-						 */
-						function hookupOnLoadHandlers(newFrame) {
-							clearTimeout(loadTimeout);
-							loadTimeout = undefined;
-							loadTimeout = setTimeout(() => {
-								clearTimeout(loadTimeout);
-								loadTimeout = undefined;
-								onLoad(
-									assertIsDefined(newFrame.contentDocument),
-									assertIsDefined(newFrame.contentWindow),
-								);
-							}, 200);
-
-							const contentWindow = assertIsDefined(newFrame.contentWindow);
-
-							contentWindow.addEventListener("load", function (e) {
-								const contentDocument = /** @type {Document} */ (e.target);
-
-								if (loadTimeout) {
-									clearTimeout(loadTimeout);
-									loadTimeout = undefined;
-									onLoad(contentDocument, this);
-								}
-							});
-
-							unloadMonitor.onIframeLoaded(newFrame);
-						}
 					},
 				);
 
@@ -872,19 +698,14 @@
 
 				// Forward message to the embedded iframe
 				hostMessaging.onMessage("message", (_event, data) => {
-					const pending = getPendingFrame();
-					if (!pending) {
-						const target = getActiveFrame();
-						if (target) {
-							assertIsDefined(target.contentWindow).postMessage(
-								data.message,
-								"*",
-								data.transfer,
-							);
-							return;
-						}
+					const target = getActiveFrame();
+					if (target) {
+						assertIsDefined(target.contentWindow).postMessage(
+							data.message,
+							"*",
+							data.transfer,
+						);
 					}
-					pendingMessages.push(data);
 				});
 
 				hostMessaging.onMessage(

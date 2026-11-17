@@ -43,11 +43,14 @@ export class PreviewUrl extends PreviewWebview {
 		// Perform the initial navigation.
 		this.navigateToUri(_uri);
 
-		// Listen for navigation events.
-		this.webview.onDidNavigate(e => {
-			this._onDidNavigate.fire(e);
-			this._uri = e;
-		});
+		// Listen for navigation events, removing the cache-busting nonce,
+		// which the user doesn't need to see or carry elsewhere.
+		this._register(this.webview.onDidNavigate(e => {
+			this._uri = e.with({
+				query: e.query.split('&').filter(p => !p.startsWith(`${QUERY_NONCE_PARAMETER}=`)).join('&')
+			});
+			this._onDidNavigate.fire(this._uri);
+		}));
 	}
 
 

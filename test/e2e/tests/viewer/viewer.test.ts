@@ -81,6 +81,60 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await viewer.expectContentVisible(frame => frame.getByText('rbinom'));
 	});
 
+	// Apps in the Viewer change pages in several ways: loading a new page,
+	// changing the URL without loading one (pushState, #hash links), and the
+	// user typing a URL, which may not load at all. Each must leave exactly one
+	// page in the Viewer, with the URL bar and the toolbar acting on it.
+	test('Python - Verify Viewer navigation keeps one page and tracks its URL', { tag: [tags.PYTHON] }, async function ({ app, python }) {
+		const { console, viewer } = app.workbench;
+		const page = () => viewer.getViewerFrame();
+		const heading = (name: string) => page().getByRole('heading', { name });
+
+		await console.executeCode('Python', pythonNavigationServerScript);
+		await viewer.expectContentVisible(() => heading('Page One'));
+		const origin = new URL(await viewer.urlBar.inputValue()).origin;
+		await viewer.expectUrlToHaveValue(`${origin}/index.html`);
+
+		await test.step('Changing the URL without loading a page updates the URL bar', async () => {
+			await page().getByRole('button', { name: 'Push state' }).click();
+			await viewer.expectUrlToHaveValue(`${origin}/pushed-route`);
+			await page().getByRole('link', { name: 'Hash link' }).click();
+			await viewer.expectUrlToHaveValue(`${origin}/pushed-route#section`);
+		});
+
+		await test.step('Typing a URL replaces the page', async () => {
+			await viewer.navigateToUrl(`${origin}/page2.html`);
+			await viewer.expectContentVisible(() => heading('Page Two'));
+			await expect(viewer.pageFrames).toHaveCount(1);
+			await viewer.expectUrlToHaveValue(`${origin}/page2.html`);
+		});
+
+		await test.step('Reload and Back act on the page that is showing', async () => {
+			await page().getByRole('button', { name: 'Mark' }).click();
+			await expect(page().getByText('Marked')).toBeVisible();
+			await viewer.refreshViewer();
+			await expect(page().getByText('Marked')).toHaveCount(0);
+
+			await page().getByRole('link', { name: 'Page three' }).click();
+			await expect(heading('Page Three')).toBeVisible();
+			await viewer.navigateBack();
+			await expect(heading('Page Two')).toBeVisible();
+			await viewer.expectUrlToHaveValue(`${origin}/page2.html`);
+		});
+
+		const closedPort = await page().locator('#closed-port').textContent();
+		for (const url of [`${origin}/deny.html`, `http://127.0.0.1:${closedPort}/`]) {
+			await test.step(`A URL that can't be shown replaces the page: ${url}`, async () => {
+				await viewer.navigateToUrl(url);
+				await viewer.expectUrlToHaveValue(url);
+				await expect(viewer.pageFrames).toHaveCount(1);
+				await expect(heading('Page Two')).toHaveCount(0);
+				await viewer.navigateToUrl(`${origin}/page2.html`);
+				await viewer.expectContentVisible(() => heading('Page Two'));
+			});
+		}
+	});
+
 	// The Viewer serves app content (Shiny, Dash, etc.) from a local web server,
 	// which is a separate origin from the webview. Copying a selection out of
 	// that cross-origin frame is what regressed. A same-origin page (plain HTML)
@@ -162,6 +216,21 @@ webbrowser.open(f"http://127.0.0.1:{_srv.server_address[1]}")`;
 // Viewer the same way any Shiny app is. Kept to a single call so the console
 // does not wait on a multi-line block.
 const rViewerShinyScript = `shiny::runApp(shiny::shinyApp(ui = shiny::fluidPage(shiny::p("${VIEWER_COPY_PROBE}")), server = function(input, output) {}))`;
+
+// Serve a small site whose pages change the URL in each of the ways an app
+// can, plus a page that refuses to be framed, and find a port nothing listens
+// on. Kept free of indented blocks so the file stays tab-indented for hygiene.
+const pythonNavigationServerScript = `import http.server, socketserver, threading, webbrowser, tempfile, os, functools, socket
+_dir = tempfile.mkdtemp()
+_sock = socket.socket(); _sock.bind(("127.0.0.1", 0)); _closed_port = _sock.getsockname()[1]; _sock.close()
+open(os.path.join(_dir, "index.html"), "w").write('''<h1>Page One</h1><a href="#section">Hash link</a><button onclick='history.pushState(null, "", "/pushed-route")'>Push state</button>''')
+open(os.path.join(_dir, "page2.html"), "w").write(f'''<h1>Page Two</h1><button onclick='document.body.append("Marked")'>Mark</button><a href="page3.html">Page three</a><p id="closed-port">{_closed_port}</p>''')
+open(os.path.join(_dir, "page3.html"), "w").write("<h1>Page Three</h1>")
+open(os.path.join(_dir, "deny.html"), "w").write("<h1>Denied</h1>")
+_Handler = type("_Handler", (http.server.SimpleHTTPRequestHandler,), {"end_headers": lambda self: (self.path.startswith("/deny") and self.send_header("X-Frame-Options", "DENY"), http.server.SimpleHTTPRequestHandler.end_headers(self))})
+_srv = socketserver.TCPServer(("127.0.0.1", 0), functools.partial(_Handler, directory=_dir))
+threading.Thread(target=_srv.serve_forever, daemon=True).start()
+webbrowser.open(f"http://127.0.0.1:{_srv.server_address[1]}/index.html")`;
 
 const pythonScript = `import webbrowser
 # will not have any content, but we just want to make sure
