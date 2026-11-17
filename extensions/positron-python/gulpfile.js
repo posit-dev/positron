@@ -30,12 +30,30 @@ const pythonCommand = locatePython();
 const systemArch = os.arch();
 const platform = os.platform();
 
+// The architecture of the build. A release build sets `npm_config_arch` to the target
+// architecture, which can differ from the machine (the macOS x64 build runs on arm64).
+const targetArch = process.env.npm_config_arch || systemArch;
+
 // Determine which architectures to bundle:
-// - macOS: Bundle both x64 and arm64 since macOS can run x64 Python via Rosetta
+// - macOS: Bundle both x64 and arm64 for each target. An arm64 Mac can run x64 Python
+//   via Rosetta, and an x64 Positron can run on an arm64 Mac via Rosetta and start an
+//   arm64 Python.
 //   Note: We'd prefer universal2 but not all packages (e.g., psutil) publish universal2 wheels
-// - Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation
+// - Windows: The arm64 build bundles both x64 and arm64, since Windows ARM64 can run x64
+//   Python via emulation. The x64 build bundles only x64, because the x64 installer does
+//   not install on Windows ARM64 (`ArchitecturesAllowed` in build/gulpfile.vscode.win32.ts).
 // - Linux: Bundle only the current architecture (per-build)
-const archsToBundle = platform === 'darwin' ? ['x64', 'arm64'] : platform === 'win32' ? ['x64', 'arm64'] : [systemArch];
+let archsToBundle;
+if (platform === 'darwin') {
+    archsToBundle = ['x64', 'arm64'];
+} else if (platform === 'win32') {
+    if (targetArch !== 'x64' && targetArch !== 'arm64') {
+        throw new Error(`Unsupported target architecture: ${targetArch}`);
+    }
+    archsToBundle = targetArch === 'arm64' ? ['x64', 'arm64'] : ['x64'];
+} else {
+    archsToBundle = [systemArch];
+}
 
 if (!archsToBundle.every((a) => a === 'x64' || a === 'arm64' || a === 'universal2')) {
     throw new Error(`Unsupported architecture: ${systemArch}`);
@@ -409,7 +427,7 @@ async function bundleIPykernel() {
             }
         }
     } else if (platform === 'win32') {
-        // Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation.
+        // Windows: Bundle each architecture in archsToBundle (x64 only for an x64 build).
         // Must specify --platform for cross-architecture installation.
         for (const arch of archsToBundle) {
             fancyLog(`Bundling ipykernel for Windows architecture: ${ansiColors.cyan(arch)}`);
