@@ -3993,6 +3993,8 @@ declare module 'positron' {
 		 * paired with its output and any error.
 		 */
 		export interface ConsoleHistoryEntry {
+			/** The ID of the execution, matching `CodeExecutionEvent.executionId`. */
+			executionId: string;
 			/** The code that was executed. */
 			input: string;
 			/** The textual output produced by the execution. */

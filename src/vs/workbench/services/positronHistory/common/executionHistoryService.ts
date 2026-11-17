@@ -75,6 +75,8 @@ export interface IExecutionHistoryError {
  * extension: the code that ran, its output, and any error.
  */
 export interface IConsoleHistoryEntry {
+	/** The ID of the execution, matching `CodeExecutionEvent.executionId`. */
+	executionId: string;
 	/** The code that was executed. */
 	input: string;
 	/** The textual output produced by the execution. */
@@ -99,9 +101,9 @@ export const CONSOLE_HISTORY_API_ENABLED_KEY = 'console.historyApiEnabled';
  * Projects raw execution history entries down to the console history relevant
  * to a reader: only completed code executions (skipping the startup banner and
  * entries recorded without input, e.g. output produced outside an execution),
- * each mapped to its input, textual output, error, and timestamp, and limited
- * to the most recent `numberOfEntries` (oldest first, so a reader sees them in
- * chronological order).
+ * each mapped to its execution ID, input, textual output, error, and timestamp,
+ * and limited to the most recent `numberOfEntries` (oldest first, so a reader
+ * sees them in chronological order).
  *
  * @param entries The raw execution history entries, in stored (oldest-first) order.
  * @param numberOfEntries The number of most recent entries to return. Defaults to
@@ -111,6 +113,7 @@ export function projectExecutionEntriesToConsoleHistory(entries: IExecutionHisto
 	const projected = entries
 		.filter(entry => entry.outputType === ExecutionEntryType.Execution && entry.input)
 		.map(entry => ({
+			executionId: entry.id,
 			input: entry.input,
 			output: typeof entry.output === 'string' ? entry.output : String(entry.output ?? ''),
 			error: entry.error,

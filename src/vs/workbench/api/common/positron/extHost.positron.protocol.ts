@@ -508,6 +508,7 @@ export type ISerializedValidateAndExecuteCommandResult =
 	};
 
 export interface ISerializedConsoleHistoryEntry {
+	executionId: string;
 	input: string;
 	output: string;
 	error?: { name: string; message: string; traceback: string[] };

@@ -1167,9 +1167,9 @@ describe('projectExecutionEntriesToConsoleHistory', () => {
 		];
 
 		expect(projectExecutionEntriesToConsoleHistory(entries)).toEqual([
-			{ input: 'a <- 1', output: '', when: 1 },
-			{ input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 },
-			{ input: 'print(2)', output: '[1] 2\n', when: 3 },
+			{ executionId: 'id', input: 'a <- 1', output: '', when: 1 },
+			{ executionId: 'id', input: 'stop("boom")', output: '', error: { name: 'error', message: 'boom', traceback: [] }, when: 2 },
+			{ executionId: 'id', input: 'print(2)', output: '[1] 2\n', when: 3 },
 		]);
 	});
 
@@ -1181,7 +1181,19 @@ describe('projectExecutionEntriesToConsoleHistory', () => {
 		];
 
 		expect(projectExecutionEntriesToConsoleHistory(entries)).toEqual([
-			{ input: 'real()', output: '42', when: 3 },
+			{ executionId: 'id', input: 'real()', output: '42', when: 3 },
+		]);
+	});
+
+	it('carries each entry id as executionId', () => {
+		const entries = [
+			entry({ id: 'a', input: 'stop("boom")', when: 1 }),
+			entry({ id: 'b', input: 'stop("boom")', when: 2 }),
+		];
+
+		expect(projectExecutionEntriesToConsoleHistory(entries)).toEqual([
+			{ executionId: 'a', input: 'stop("boom")', output: '', when: 1 },
+			{ executionId: 'b', input: 'stop("boom")', output: '', when: 2 },
 		]);
 	});
 
