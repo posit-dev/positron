@@ -56,6 +56,9 @@ const GROUP_ORDER: readonly PythonPickerGroup[] = [
 /** The `groupOrder` of the project environments group; stable regardless of localization. */
 export const PROJECT_GROUP_ORDER = GROUP_ORDER.indexOf(PythonPickerGroup.Project);
 
+/** The `groupOrder` of the global (named) environments group; stable regardless of localization. */
+export const GLOBAL_GROUP_ORDER = GROUP_ORDER.indexOf(PythonPickerGroup.Global);
+
 /** Whether the picker lists a runtime under Project environments. */
 export function isProjectEnvironment(runtime: positron.LanguageRuntimeMetadata): boolean {
     return runtime.picker?.groupOrder === PROJECT_GROUP_ORDER;
