@@ -19,8 +19,7 @@ import { PositronPlotsContextProvider } from '../../positronPlots/browser/positr
 import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, POSITRON_PLOTS_EDITOR_IS_WEBVIEW, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
-import { WebviewPlotClient } from '../../positronPlots/browser/webviewPlotClient.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -51,7 +50,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
 	private _plotClient: IPositronPlotClient | undefined;
 	private _zoomContextKey: IContextKey<string>;
-	private _isWebviewContextKey: IContextKey<boolean>;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -105,7 +103,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		this._container = DOM.$('.positron-plots-editor-container');
 		this._container.onclick = () => this.takeFocus();
 		this._zoomContextKey = this._contextKeyService.createKey('positronPlotsEditorZoomLevel', '');
-		this._isWebviewContextKey = POSITRON_PLOTS_EDITOR_IS_WEBVIEW.bindTo(this._contextKeyService);
 	}
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
@@ -146,8 +143,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		}
 
 		await super.setInput(input, options, context, token);
-
-		this._isWebviewContextKey.set(this._plotClient instanceof WebviewPlotClient);
 
 		input.setName(this._plotClient.metadata.name ?? this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 

@@ -10,11 +10,6 @@ import { ILanguageRuntimeMessageOutput } from '../../../services/languageRuntime
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
- * Matches Vega and Vega-Lite MIME types, such as `application/vnd.vegalite.v5+json`.
- */
-const VegaMimeTypeRegex = /^application\/vnd\.(?<library>vega|vegalite)\.v(?<version>\d+)\+json$/;
-
-/**
  * A Positron plot instance created from notebook output rendered into a
  * webview.
  */
@@ -48,64 +43,6 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			code: code ? code : '',
 			output_id: _message.output_id,
 		});
-	}
-
-	/**
-	 * Creates a copy of this plot client. The copy renders the same output in
-	 * its own webview, so it can be shown in an editor.
-	 */
-	copy(): NotebookOutputPlotClient {
-		return new NotebookOutputPlotClient(this._notebookOutputWebviewService, this._session, this._message, this.metadata.code);
-	}
-
-	/**
-	 * Whether the output is a Vega or Vega-Lite plot, which can be rendered as
-	 * a standalone HTML document.
-	 */
-	get hasStandaloneHtml(): boolean {
-		return Object.keys(this._message.data).some(mimeType => VegaMimeTypeRegex.test(mimeType));
-	}
-
-	/**
-	 * Gets a standalone HTML document that renders this plot in a web browser,
-	 * or `undefined` if the output is not a Vega or Vega-Lite plot. The document
-	 * loads Vega from a CDN.
-	 */
-	get standaloneHtml(): string | undefined {
-		for (const [mimeType, spec] of Object.entries(this._message.data)) {
-			const groups = VegaMimeTypeRegex.exec(mimeType)?.groups;
-			if (!groups) {
-				continue;
-			}
-			const majorVersion = Number(groups.version);
-
-			// Vega-Lite 6 requires Vega 6; earlier Vega-Lite versions use Vega 5.
-			const vegaVersion = groups.library === 'vega' ? majorVersion : Math.max(5, Math.min(majorVersion, 6));
-			const vegaEmbedVersion = vegaVersion >= 6 ? 7 : 6;
-			const vegaLiteScript = groups.library === 'vegalite'
-				? `<script src="https://cdn.jsdelivr.net/npm/vega-lite@${majorVersion}"></script>`
-				: '';
-
-			// Escape '<' so the spec cannot close the script tag.
-			const specJson = JSON.stringify(spec).replace(/</g, '\\u003c');
-			return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<script src="https://cdn.jsdelivr.net/npm/vega@${vegaVersion}"></script>
-${vegaLiteScript}
-<script src="https://cdn.jsdelivr.net/npm/vega-embed@${vegaEmbedVersion}"></script>
-</head>
-<body>
-<div id="vis"></div>
-<script>
-vegaEmbed('#vis', ${specJson}).catch(console.error);
-</script>
-</body>
-</html>
-`;
-		}
-		return undefined;
 	}
 
 	protected override async createWebview() {

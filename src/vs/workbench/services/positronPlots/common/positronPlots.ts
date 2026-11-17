@@ -22,15 +22,6 @@ export const POSITRON_PLOTS_LOCATION_CONTEXT = new RawContextKey<string>(
 	'MainWindow'
 );
 
-/**
- * Context key that is true when the active plot editor shows a webview plot,
- * which cannot be copied, saved, or zoomed.
- */
-export const POSITRON_PLOTS_EDITOR_IS_WEBVIEW = new RawContextKey<boolean>(
-	'positronPlotsEditorIsWebview',
-	false
-);
-
 export const POSITRON_PLOTS_SERVICE_ID = 'positronPlotsService';
 
 export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSITRON_PLOTS_SERVICE_ID);

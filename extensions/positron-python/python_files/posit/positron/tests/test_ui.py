@@ -605,6 +605,34 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
 
 
+def test_altair_chart_sends_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
+    """Test that displaying an Altair chart sends it to the plots pane as an HTML file."""
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+import altair as alt
+import pandas as pd
+
+alt.renderers.enable("positron")
+alt.Chart(pd.DataFrame({"x": [1, 2]})).mark_point().encode(x="x")
+"""
+    ).raise_error()
+
+    assert len(ui_comm.messages) == 1
+    params = ui_comm.messages[0]["data"]["params"]
+    assert {
+        "destination": params["destination"],
+        "html": params["path"].endswith(".html"),
+        "temp": tempfile.gettempdir() in params["path"],
+    } == {"destination": "plot", "html": True, "temp": True}
+
+
 def test_plotly_show_sends_events(
     shell: PositronShell,
     ui_comm: DummyComm,
