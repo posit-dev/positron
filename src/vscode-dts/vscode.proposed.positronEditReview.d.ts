@@ -33,9 +33,9 @@ declare module 'positron' {
 			 *
 			 * @param resources The files `callback` may create or modify.
 			 * @param callback Makes the edits.
-			 * @returns The result of `callback`, once its edits are recorded.
+			 * @returns The result of `callback` and the id of its edits, once they are recorded.
 			 */
-			trackEdits<T>(resources: readonly vscode.Uri[], callback: () => Thenable<T>): Thenable<T>;
+			trackEdits<T>(resources: readonly vscode.Uri[], callback: () => Thenable<T>): Thenable<TrackedEdits<T>>;
 
 			/** The files edited in this session, and whether their edits are settled. */
 			readonly entries: readonly EditReviewEntry[];
@@ -53,16 +53,34 @@ declare module 'positron' {
 			show(): Thenable<void>;
 		}
 
+		/** The outcome of {@link EditReviewSession.trackEdits}. */
+		export interface TrackedEdits<T> {
+			/** Identifies the edits in {@link EditReviewEntry.edits}. */
+			readonly id: number;
+			/** The result of the callback. */
+			readonly result: T;
+		}
+
 		/** A file edited in an {@link EditReviewSession}. */
 		export interface EditReviewEntry {
 			readonly uri: vscode.Uri;
 			/** Whether the file's edits await review, or how the user last settled them. */
 			readonly state: 'pending' | 'kept' | 'undone';
 			/**
-			 * While edits are pending, the file's text with the changes kept so
-			 * far and none of the pending ones.
+			 * What became of each {@link EditReviewSession.trackEdits} call's
+			 * changes to the file, oldest first. Calls that did not change the
+			 * file are omitted. A call is `partial` when the user kept some of
+			 * its changes and undid others. Once a call is settled, its state
+			 * no longer changes.
 			 */
-			readonly baseline?: string;
+			readonly edits: readonly TrackedEditState[];
+		}
+
+		/** What became of one {@link EditReviewSession.trackEdits} call's changes to a file. */
+		export interface TrackedEditState {
+			/** The {@link TrackedEdits.id} of the call. */
+			readonly id: number;
+			readonly state: 'pending' | 'kept' | 'undone' | 'partial';
 		}
 	}
 }

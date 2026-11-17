@@ -21,12 +21,15 @@ export interface IPositronEditReviewService {
 	createSession(): IPositronEditReviewSession;
 }
 
+/** Whether a group of edits awaits review, or how the user settled it. */
+export type IPositronTrackedEditState = 'pending' | 'kept' | 'undone' | 'partial';
+
 /** A file edited in a session: whether its edits await review, or how the user last settled them. */
 export interface IPositronEditReviewEntry {
 	readonly uri: URI;
 	readonly state: 'pending' | 'kept' | 'undone';
-	/** While edits are pending, the file's text with the changes kept so far and none of the pending ones. */
-	readonly baseline?: string;
+	/** What became of each group of edits' changes to the file, oldest first, by operation id. */
+	readonly edits: readonly { readonly operationId: number; readonly state: IPositronTrackedEditState }[];
 }
 
 /**
@@ -37,7 +40,7 @@ export interface IPositronEditReviewSession extends IDisposable {
 	/**
 	 * Begin a group of edits made directly on disk. Changes to `resources`
 	 * until the matching {@link stopEdits} become pending edits.
-	 * @returns The id to end the group with.
+	 * @returns The id to end the group with, which identifies it in {@link IPositronEditReviewEntry.edits}.
 	 */
 	startEdits(resources: readonly URI[]): Promise<number>;
 

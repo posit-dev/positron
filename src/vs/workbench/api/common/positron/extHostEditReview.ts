@@ -30,15 +30,19 @@ class ExtHostEditReviewSession implements positron.ai.EditReviewSession {
 	}
 
 	acceptEntries(entries: extHostProtocol.IEditReviewEntryDto[]): void {
-		this.entries = entries.map(entry => ({ uri: URI.revive(entry.uri), state: entry.state, baseline: entry.baseline }));
+		this.entries = entries.map(entry => ({
+			uri: URI.revive(entry.uri),
+			state: entry.state,
+			edits: entry.edits.map(edit => ({ id: edit.operationId, state: edit.state })),
+		}));
 		this._onDidChangeEntries.fire(this.entries);
 	}
 
-	async trackEdits<T>(resources: readonly vscode.Uri[], callback: () => Thenable<T>): Promise<T> {
+	async trackEdits<T>(resources: readonly vscode.Uri[], callback: () => Thenable<T>): Promise<positron.ai.TrackedEdits<T>> {
 		await this._created;
 		const operationId = await this._proxy.$startEdits(this._handle, [...resources]);
 		try {
-			return await callback();
+			return { id: operationId, result: await callback() };
 		} finally {
 			await this._proxy.$stopEdits(this._handle, operationId);
 		}

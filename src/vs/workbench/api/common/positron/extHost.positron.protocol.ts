@@ -537,7 +537,7 @@ export interface ExtHostAiFeaturesShape {
 export interface IEditReviewEntryDto {
 	readonly uri: UriComponents;
 	readonly state: 'pending' | 'kept' | 'undone';
-	readonly baseline?: string;
+	readonly edits: readonly { readonly operationId: number; readonly state: 'pending' | 'kept' | 'undone' | 'partial' }[];
 }
 
 export interface MainThreadEditReviewShape extends IDisposable {
