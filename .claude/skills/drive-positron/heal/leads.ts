@@ -20,7 +20,8 @@ import { fileURLToPath } from 'url';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import { failures, groupLeads, type Failure } from './leads-lib.ts';
 
-const WORKFLOW = 'test-exploratory.yml';
+// The exploratory runs moved to posit-dev/positron-builds (SEC-3673), where the nightly runs too.
+const WORKFLOW = 'explore-pr.yml';
 const ARTIFACT = 'exploratory-run-';
 
 function isMain(): boolean {
