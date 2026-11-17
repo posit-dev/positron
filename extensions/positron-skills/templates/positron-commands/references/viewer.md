@@ -59,6 +59,12 @@ hands the task back to them. A URL without a scheme gets `http://`; any scheme
 other than `http` or `https` fails with an `error`. `localhost` URLs work even
 when Positron is running remotely.
 
+Pass `true` for `waitForLoad` when you'll read or use the page next. The command
+then returns once the page has loaded, so there's no need to sleep or poll
+before calling `positronViewer.read`. If the page doesn't load in time, the
+command fails, but the page stays open in the Viewer; read it before opening
+the URL again.
+
 Use this for a server that is already running, such as one the user started or
 documentation served locally. To start and preview a web app, use the commands
 in [interactive-apps.md]({{skill_dir}}/references/interactive-apps.md) instead.

@@ -113,7 +113,23 @@ export class PreviewOverlayWebview extends Disposable {
 					const vscode = acquireVsCodeApi();
 
 					// Get the preview iframe content window
-					const previewContentWindow = document.getElementById("preview-iframe").contentWindow;
+					const previewIframe = document.getElementById("preview-iframe");
+					const previewContentWindow = previewIframe.contentWindow;
+
+					// Report each page load, with the page's title when it's readable
+					previewIframe.addEventListener('load', () => {
+						let title = '';
+						try {
+							title = previewIframe.contentDocument?.title ?? '';
+						} catch {
+							// Cross-origin page; its title can't be read
+						}
+						vscode.postMessage({
+							__positron_preview_message: true,
+							channel: 'did-load-window',
+							data: { title }
+						});
+					});
 
 					// Listen for messages
 					window.addEventListener('message', message => {
