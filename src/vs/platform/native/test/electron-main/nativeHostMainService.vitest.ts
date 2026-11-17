@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { BrowserWindow } from 'electron';
+import { type BrowserWindow, shell } from 'electron';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { URI } from '../../../../base/common/uri.js';
 import { ensureNoLeakedDisposables } from '../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../test/vitest/stubInterface.js';
 import { NullLogService } from '../../../log/common/log.js';
@@ -45,7 +46,7 @@ vi.mock('electron', () => {
 		clipboard: {},
 		contentTracing: {},
 		powerSaveBlocker: {},
-		shell: {},
+		shell: { openPath: vi.fn(async () => '') },
 		systemPreferences: {},
 		nativeImage: {},
 	};
@@ -85,7 +86,7 @@ function createCodeWindow(id: number, options?: { visible?: boolean; minimized?:
 	};
 }
 
-describe('NativeHostMainService hideWindow/showWindow', () => {
+describe('NativeHostMainService', () => {
 	const disposables = ensureNoLeakedDisposables();
 
 	function build() {
@@ -111,7 +112,10 @@ describe('NativeHostMainService hideWindow/showWindow', () => {
 			}),
 			stubInterface<IDialogMainService>({}),
 			stubInterface<ILifecycleMainService>({ onWillLoadWindow: Event.None }),
-			stubInterface<IEnvironmentMainService>({}),
+			stubInterface<IEnvironmentMainService>({
+				unsetSnapExportedVariables: () => { },
+				restoreSnapExportedVariables: () => { },
+			}),
 			new NullLogService(),
 			stubInterface<IProductService>({}),
 			stubInterface<IThemeMainService>({ onDidChangeColorScheme: Event.None }),
@@ -127,6 +131,15 @@ describe('NativeHostMainService hideWindow/showWindow', () => {
 		));
 		return { service, windows, claimChanges };
 	}
+
+	it('opens a file URI as a decoded native path', async () => {
+		const { service } = build();
+		const resource = URI.file('/tmp/résumé # 100%.pdf');
+
+		await service.openExternal(undefined, resource.toString());
+
+		expect(shell.openPath).toHaveBeenCalledExactlyOnceWith(resource.fsPath);
+	});
 
 	it('hides a visible window once its fullscreen transition finishes', async () => {
 		const { service, windows } = build();

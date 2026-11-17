@@ -11,7 +11,7 @@ import { promisify } from 'util';
 import { memoize } from '../../../base/common/decorators.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
-import { matchesSomeScheme, Schemas } from '../../../base/common/network.js';
+import { matchesScheme, matchesSomeScheme, Schemas } from '../../../base/common/network.js';
 import { dirname, join, posix, resolve, win32 } from '../../../base/common/path.js';
 import { isLinux, isMacintosh, isWindows } from '../../../base/common/platform.js';
 import { AddFirstParameterToFunctions, hasKey } from '../../../base/common/types.js';
@@ -843,24 +843,11 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	private async doOpenShellExternal(windowId: number | undefined, url: string): Promise<void> {
 		try {
 			// --- Start Positron ---
-			// On Windows, use the more specific shell.openPath() for file URIs
-			// Documented as: "Open the given file in the desktop's default manner."
-			// See https://github.com/electron/electron/issues/6302
-			// shell.openPath() is equipped to properly handle non-ASCII characters
-			// (at the time of #6302, shell.openItem() was the right move, but
-			// has since been deprecated in favor of shell.openPath())
-			//
-			// Related work has also been necessary in RStudio:
-			// https://github.com/rstudio/rstudio/issues/12467
-			// https://github.com/rstudio/rstudio/pull/13926
-			if (isWindows && url.startsWith('file:///')) {
-				// Convert file URI to local path for shell.openPath()
-				const uri = URI.parse(url);
-				const filePath = uri.fsPath;
-				const result = await shell.openPath(filePath);
-				if (result) {
-					// shell.openPath returns error string if failed, empty string if successful
-					throw new Error(result);
+			// Let the OS resolve the default application for the file path.
+			if (matchesScheme(url, Schemas.file)) {
+				const error = await shell.openPath(URI.parse(url).fsPath);
+				if (error) {
+					throw new Error(error);
 				}
 			} else {
 				await shell.openExternal(url);
