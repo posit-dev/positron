@@ -240,6 +240,10 @@ describe('WebviewMainService frame navigation', () => {
 		target.events.emit('did-frame-navigate', {}, url, 200, 'OK', false, 9, routingId);
 	}
 
+	function failLoad(routingId: number, url: string, errorCode = -102) {
+		target.events.emit('did-fail-load', {}, errorCode, 'ERR_CONNECTION_REFUSED', url, false, 9, routingId);
+	}
+
 	function navigateInPage(routingId: number, url: string) {
 		target.events.emit('did-navigate-in-page', {}, url, false, 9, routingId);
 	}
@@ -247,15 +251,29 @@ describe('WebviewMainService frame navigation', () => {
 	it('reports navigations of a webview\'s content frame wherever they lead', async () => {
 		const { events } = await setupService();
 		navigate(3, 'http://127.0.0.1:8000/');
-		// A redirect from what was asked for, and a page that failed to load.
+		// A redirect from what was asked for.
 		navigate(3, 'https://www.google.com/');
-		navigate(3, 'http://127.0.0.1:59999/');
-		expect(events).toEqual(['http://127.0.0.1:8000/', 'https://www.google.com/', 'http://127.0.0.1:59999/'].map(url => ({
+		expect(events).toEqual(['http://127.0.0.1:8000/', 'https://www.google.com/'].map(url => ({
 			webviewId: 'viewer',
 			frameId: { processId: 9, routingId: 3, frameTreeNodeId: 103 },
 			url,
 			isSameDocument: false,
+			isErrorPage: false,
 		})));
+	});
+
+	it('reports a page that failed to load, but not a cancelled load', async () => {
+		const { events } = await setupService();
+		failLoad(3, 'http://127.0.0.1:59999/');
+		failLoad(3, 'http://127.0.0.1:8000/slow', -3);
+		failLoad(4, 'http://127.0.0.1:59999/embedded');
+		expect(events).toEqual([{
+			webviewId: 'viewer',
+			frameId: { processId: 9, routingId: 3, frameTreeNodeId: 103 },
+			url: 'http://127.0.0.1:59999/',
+			isSameDocument: false,
+			isErrorPage: true,
+		}]);
 	});
 
 	it('reports navigations within the page, as with pushState or a #hash link', async () => {
@@ -283,10 +301,10 @@ describe('WebviewMainService frame navigation', () => {
 	it('listens to each window once and stops when disposed', async () => {
 		const { service } = await setupService();
 		await service.trackFrameNavigation({ windowId: 1 });
-		const counts = () => ['did-frame-navigate', 'did-navigate-in-page'].map(e => target.events.listenerCount(e));
-		expect(counts()).toEqual([1, 1]);
+		const counts = () => ['did-frame-navigate', 'did-navigate-in-page', 'did-fail-load'].map(e => target.events.listenerCount(e));
+		expect(counts()).toEqual([1, 1, 1]);
 		service.dispose();
-		expect(counts()).toEqual([0, 0]);
+		expect(counts()).toEqual([0, 0, 0]);
 	});
 });
 // --- End Positron ---

@@ -397,8 +397,8 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			this._onDidNavigate.fire(this._uri);
 
 			// A new document needs its own copy of the `webview-events.js` script.
-			// Pages that fail to load, such as error pages, can't take it.
-			if (!evt.isSameDocument) {
+			// Error pages don't run it.
+			if (!evt.isSameDocument && !evt.isErrorPage) {
 				await this.injectJavaScript(evt.frameId).catch(err =>
 					this._logService.debug(`Webview(${this.id}): could not inject events script into ${evt.url}: ${err}`));
 			}

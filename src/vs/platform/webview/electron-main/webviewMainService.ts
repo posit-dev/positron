@@ -215,14 +215,24 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		if (!this._navigationListeners.has(windowId.windowId)) {
 			const onNavigated = (_event: Electron.Event, url: string, _httpResponseCode: number, _httpStatusText: string,
 				_isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
-				this.onFrameNavigated(frameProcessId, frameRoutingId, url, false);
+				this.onFrameNavigated(frameProcessId, frameRoutingId, url, false, false);
 			};
 			const onNavigatedInPage = (_event: Electron.Event, url: string, _isMainFrame: boolean,
 				frameProcessId: number, frameRoutingId: number) => {
-				this.onFrameNavigated(frameProcessId, frameRoutingId, url, true);
+				this.onFrameNavigated(frameProcessId, frameRoutingId, url, true, false);
+			};
+			// A frame that fails to load shows an error page without firing
+			// did-frame-navigate. ERR_ABORTED (-3) means the load was cancelled,
+			// e.g. by a newer navigation, so the frame didn't move.
+			const onFailedLoad = (_event: Electron.Event, errorCode: number, _errorDescription: string, url: string,
+				isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+				if (!isMainFrame && errorCode !== -3) {
+					this.onFrameNavigated(frameProcessId, frameRoutingId, url, false, true);
+				}
 			};
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
 			window.win!.webContents.on('did-navigate-in-page', onNavigatedInPage);
+			window.win!.webContents.on('did-fail-load', onFailedLoad);
 
 			// Show a native context menu for externally-hosted (cross-origin)
 			// Viewer content, whose clipboard actions can't go through the
@@ -245,6 +255,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				dispose: () => {
 					window.win!.webContents.off('did-frame-navigate', onNavigated);
 					window.win!.webContents.off('did-navigate-in-page', onNavigatedInPage);
+					window.win!.webContents.off('did-fail-load', onFailedLoad);
 					window.win!.webContents.off('context-menu', onContextMenu);
 					window.win!.webContents.off('before-input-event', onBeforeInput);
 				}
@@ -419,12 +430,12 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	/**
-	 * Reports a navigation if the frame is a webview's content frame: the
-	 * direct child of a webview's host frame, which is named after the webview.
+	 * Reports a navigation or failed load if the frame is a webview's content
+	 * frame: the direct child of a webview's host frame, named after the webview.
 	 * Frames nested inside the content, and the content frames of webviews
 	 * that write their own HTML, are not reported.
 	 */
-	private onFrameNavigated(processId: number, routingId: number, url: string, isSameDocument: boolean): void {
+	private onFrameNavigated(processId: number, routingId: number, url: string, isSameDocument: boolean, isErrorPage: boolean): void {
 		const frame = electron.webFrameMain.fromId(processId, routingId);
 		const host = frame?.parent;
 		const webviewPrefix = `${Schemas.vscodeWebview}://`;
@@ -436,6 +447,7 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			frameId: { processId, routingId, frameTreeNodeId: frame.frameTreeNodeId },
 			url,
 			isSameDocument,
+			isErrorPage,
 		});
 	}
 

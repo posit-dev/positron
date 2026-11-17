@@ -60,6 +60,9 @@ export interface FrameNavigationEvent {
 
 	/** Whether the frame stayed on its document, as with pushState or a #hash link */
 	readonly isSameDocument: boolean;
+
+	/** Whether the frame failed to load the URL and shows an error page instead */
+	readonly isErrorPage: boolean;
 }
 
 export interface WebviewRectangle {

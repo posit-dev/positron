@@ -91,8 +91,8 @@ describe('ElectronWebviewElement content frame navigation', () => {
 		return { processId: 9, routingId, frameTreeNodeId: routingId + 100 };
 	}
 
-	function navigate(webviewId: string, frameId: WebviewFrameId, url: string, isSameDocument = false) {
-		onFrameNavigation.fire({ webviewId, frameId, url, isSameDocument });
+	function navigate(webviewId: string, frameId: WebviewFrameId, url: string, isSameDocument = false, isErrorPage = false) {
+		onFrameNavigation.fire({ webviewId, frameId, url, isSameDocument, isErrorPage });
 	}
 
 	it('follows its content frame to wherever it lands, even a URL it didn\'t ask for', async () => {
@@ -154,7 +154,8 @@ describe('ElectronWebviewElement content frame navigation', () => {
 		webview.setUri(URI.parse('http://127.0.0.1:59999/'));
 		expect(webview.getContentFrameId()).toBeUndefined();
 
-		navigate(webview.webviewId, frame(4), 'http://127.0.0.1:59999/');
+		navigate(webview.webviewId, frame(4), 'http://127.0.0.1:59999/', false, true);
 		await vi.waitFor(() => expect(webview.getContentFrameId()).toEqual(frame(4)));
+		expect(injected).toEqual([frame(3)]);
 	});
 });
