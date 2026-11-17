@@ -23,7 +23,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
 
 // Errors R raises when the plot area is too small for the plot's margins (#8049).
-// R prints these in English even under other locales, so matching the text is safe.
+// R reported these in English under every language tried (de, fr, ja, es).
 const PLOT_TOO_SMALL_ERRORS = [
 	'invalid graphics state',
 	'figure margins too large',
