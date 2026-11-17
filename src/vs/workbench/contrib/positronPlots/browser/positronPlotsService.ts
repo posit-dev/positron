@@ -1141,6 +1141,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plot.metadata.zoom_level = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
 		}));
+		// Editor plots aren't in the periodic save, so save a sizing change now to survive a reload.
+		this._register(plot.onDidChangeSizingPolicy(() => this.storePlotMetadata(plot.metadata)));
 		this._editorPlots.set(metadata.id, plot);
 	}
 
