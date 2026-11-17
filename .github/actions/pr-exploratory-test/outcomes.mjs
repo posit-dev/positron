@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, priorRows, pickPrCheck, reportFromRows, handOutcome, withHand, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, priorRows, pickPrCheck, reportFromRows, handOutcome, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -304,12 +304,12 @@ async function prRows(number, results) {
 			return null;
 		});
 		if (!report) {
-			// Reports on the retired CDN are gone for good. Their rows keep their outcome but show the PR as it is now,
-			// and are decided again from what they saved once the PR has merged or closed since.
+			// Reports on the retired CDN are gone for good. Their rows show the PR as it is now, and once it has merged or
+			// closed they are decided again from what they saved.
 			const prior = priorRows(PRIOR, number, parsed.run);
 			report = reportFromRows(prior, prState);
 			if (!report) {
-				rows.push(...prior.map(r => ({ ...withHand(r, OVERRIDES), prPreview: preview })));
+				rows.push(...prior.map(r => ({ ...r, prPreview: preview })));
 				console.error(`[outcomes] #${number} run ${parsed.run}: no report, kept ${prior.length} previous rows`);
 				continue;
 			}
@@ -340,8 +340,8 @@ async function prRows(number, results) {
 				inPr: saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null),
 				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, parsed.postedAt, timeline),
 			}));
-			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
-			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
+			const dropped = !hand && prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
+			const intended = hand ? [] : await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
 			// A closed PR didn't ship whatever was tested, so it needs no tested commit.
 			const decided = hand ?? (tested.sha || prState === 'closed'
 				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended, inherited: findingOrig === 'inherited' })

@@ -216,27 +216,25 @@ const SETTLED = new Set(['fixed-in-pr', 'fixed-later']);
 
 /**
  * Whether reading `pr` again can't change its saved rows: it is merged, every run on it has saved rows, and every row is
- * in `settled` with the origin `overrides` sets for it, if any. A run with no rows (a report that failed to load, or one
- * with no findings) keeps the PR read. A removed override and the PR's closing issues aren't seen, so they need a --recheck.
+ * in `settled` or set by hand, with the origin and outcome `overrides` sets for it. A run with no rows (a report that failed
+ * to load, or one with no findings) keeps the PR read, as does a hand-set row whose override is gone. The PR's closing
+ * issues aren't seen, so they need a --recheck.
  */
 export function prSettled(rows, settled, overrides, pr, runs) {
 	const own = rows.filter(r => r.pr === pr);
 	return own.length > 0
 		&& runs.every(run => own.some(r => r.run === run))
-		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`)
-			&& (overrides[`${r.run}#${r.finding}`]?.origin ?? r.origin) === r.origin
-			&& (overrides[`${r.run}#${r.finding}`]?.outcome ?? r.outcome) === r.outcome);
+		&& own.every(r => {
+			const o = overrides[`${r.run}#${r.finding}`];
+			const hand = r.decidedBy === 'by-hand';
+			return r.prPreview?.state === 'merged' && (hand ? o?.outcome === r.outcome : settled.has(`${r.run}#${r.finding}`) && !o?.outcome)
+				&& (o?.origin ?? r.origin) === r.origin;
+		});
 }
 
 /** An outcome set by hand in the overrides file, with its reason as the evidence; null when the entry sets none. */
 export function handOutcome(override) {
 	return override?.outcome ? { outcome: override.outcome, decidedBy: 'by-hand', evidence: override.why ?? '' } : null;
-}
-
-/** A kept row with its hand-set outcome, if it has one. */
-export function withHand(row, overrides) {
-	const hand = handOutcome(overrides[`${row.run}#${row.finding}`]);
-	return hand ? { ...row, ...hand } : row;
 }
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
@@ -250,14 +248,14 @@ export function priorRows(rows, pr, run) {
 }
 
 /**
- * A report rebuilt from a run's saved rows, to decide them again when the report itself is gone; null unless they were
- * saved while the PR was open and it has since merged or closed. Only the saved fields are known, so the checks see less.
+ * A report rebuilt from a run's saved rows, to decide them again when the report itself is gone; null while the PR is
+ * open. Only the saved fields are known, so the checks see less. An empty path list is read again from the saved cause.
  */
 export function reportFromRows(rows, prState) {
-	if (!rows.length || prState === 'open' || !rows.every(r => ['open', 'draft'].includes(r.prPreview?.state))) {
+	if (!rows.length || prState === 'open') {
 		return null;
 	}
-	const findings = rows.map(r => ({ n: r.finding, title: r.title, severity: r.severity, feature: r.feature, verified: r.verified, observed: r.observed, expected: r.expected, cause: r.cause, origin: r.origin, paths: r.paths ?? [] }));
+	const findings = rows.map(r => ({ n: r.finding, title: r.title, severity: r.severity, feature: r.feature, verified: r.verified, observed: r.observed, expected: r.expected, cause: r.cause, origin: r.origin, paths: r.paths?.length ? r.paths : undefined }));
 	return { findings, fromRows: true, header: { headSha: rows[0].testedSha }, stats: { version: rows[0].skillVersion, model: rows[0].model } };
 }
 
