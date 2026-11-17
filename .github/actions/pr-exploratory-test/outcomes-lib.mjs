@@ -237,6 +237,18 @@ export function priorRows(rows, pr, run) {
 	return rows.filter(r => r.pr === pr && (run === undefined || r.run === run)).map(({ dupOf, dupMaybe, ...r }) => r);
 }
 
+/**
+ * A report rebuilt from a run's saved rows, to decide them again when the report itself is gone; null unless they were
+ * saved while the PR was open and it has since merged or closed. Only the saved fields are known, so the checks see less.
+ */
+export function reportFromRows(rows, prState) {
+	if (!rows.length || prState === 'open' || !rows.every(r => ['open', 'draft'].includes(r.prPreview?.state))) {
+		return null;
+	}
+	const findings = rows.map(r => ({ n: r.finding, title: r.title, severity: r.severity, feature: r.feature, verified: r.verified, observed: r.observed, expected: r.expected, cause: r.cause, origin: r.origin, paths: r.paths ?? [] }));
+	return { findings, fromRows: true, header: { headSha: rows[0].testedSha }, stats: { version: rows[0].skillVersion, model: rows[0].model } };
+}
+
 /** A previous run's "no" from asking whether a merged PR fixed the finding, by `run#finding`; a merged PR's diff can't change. One read from a cut diff is asked again. */
 export function savedPrChecks(rows) {
 	return new Map(rows.filter(r => r.prCheck?.answer === 'no' && !r.prCheck.cut).map(r => [`${r.run}#${r.finding}`, r.prCheck]));

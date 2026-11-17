@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -512,4 +512,16 @@ test('priorRows keeps every previous row for a PR, or one run on it, without dup
 	]);
 	assert.deepEqual(priorRows(prev, 1, '11'), [{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' }]);
 	assert.deepEqual(priorRows(prev, 3), []);
+});
+
+test('reportFromRows rebuilds a gone report only when its rows were saved while the PR was open and it has since merged or closed', () => {
+	const row = { pr: 1, run: '10', finding: 2, title: 'T', severity: 'minor', feature: 'f', verified: 'confirmed', origin: 'introduced', observed: 'o', paths: ['a.ts'], testedSha: 'abc', skillVersion: '1.0', model: 'm', outcome: 'pending', prPreview: { state: 'open' } };
+	assert.deepEqual(reportFromRows([row], 'merged'), {
+		findings: [{ n: 2, title: 'T', severity: 'minor', feature: 'f', verified: 'confirmed', observed: 'o', expected: undefined, cause: undefined, origin: 'introduced', paths: ['a.ts'] }],
+		fromRows: true, header: { headSha: 'abc' }, stats: { version: '1.0', model: 'm' },
+	});
+	assert.ok(reportFromRows([{ ...row, prPreview: { state: 'draft' } }], 'closed'));
+	assert.equal(reportFromRows([row], 'open'), null);
+	assert.equal(reportFromRows([{ ...row, prPreview: { state: 'merged' } }], 'merged'), null);
+	assert.equal(reportFromRows([], 'merged'), null);
 });
