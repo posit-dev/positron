@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { HotKeys } from './hotKeys.js';
@@ -20,21 +21,55 @@ export class UserSettings {
 		this.settingsFilePath = path.join(this.settingsPath, USER_SETTINGS_FILENAME);
 	}
 
+	// A server in a container (Workbench) reads its own settings file there, not the
+	// host's. Its fixture names that file as "<container>:<path>".
+	private containerSettingsFile(): { container: string; file: string } | undefined {
+		const target = process.env.PLAYWRIGHT_CONTAINER_USER_SETTINGS;
+		if (!target) {
+			return undefined;
+		}
+		const separator = target.indexOf(':');
+		return { container: target.slice(0, separator), file: target.slice(separator + 1) };
+	}
+
+	private async readSettingsFile(): Promise<string> {
+		const target = this.containerSettingsFile();
+		if (!target) {
+			return fs.readFile(this.settingsFilePath, 'utf-8');
+		}
+		return new Promise<string>((resolve, reject) => {
+			execFile('docker', ['exec', target.container, 'cat', target.file], (error, stdout) => error ? reject(error) : resolve(stdout));
+		});
+	}
+
+	private async writeSettingsFile(content: string): Promise<void> {
+		const target = this.containerSettingsFile();
+		if (!target) {
+			await fs.mkdir(this.settingsPath, { recursive: true });
+			await fs.writeFile(this.settingsFilePath, content, 'utf-8');
+			return;
+		}
+		// Through stdin, so the file keeps the owner and mode its fixture gave it.
+		await new Promise<void>((resolve, reject) => {
+			const child = execFile('docker', ['exec', '-i', target.container, 'tee', target.file], error => error ? reject(error) : resolve());
+			child.stdin?.end(content);
+		});
+	}
+
 	/**
 	 * Sets the provided settings by merging with existing settings.
 	 * @param settings Object with key-value pairs to set
 	 */
 	async mergeSetting(settings: Record<string, unknown>): Promise<void> {
-		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
 		let existingContent = {};
 		try {
-			const fileContent = await fs.readFile(this.settingsFilePath, 'utf-8');
+			const fileContent = await this.readSettingsFile();
 			if (fileContent.trim()) {
 				existingContent = JSON.parse(fileContent);
 			}
 		} catch { }
 		const mergedContent = { ...existingContent, ...settings };
-		await fs.writeFile(this.settingsFilePath, JSON.stringify(mergedContent, null, 2), 'utf-8');
+		await this.writeSettingsFile(JSON.stringify(mergedContent, null, 2));
 	}
 
 	/**
@@ -44,7 +79,7 @@ export class UserSettings {
 	async remove(keysToRemove: string[]): Promise<void> {
 		let currentSettings = {};
 		try {
-			const fileContent = await fs.readFile(this.settingsFilePath, 'utf-8');
+			const fileContent = await this.readSettingsFile();
 			if (fileContent.trim()) {
 				currentSettings = JSON.parse(fileContent);
 			}
@@ -52,7 +87,7 @@ export class UserSettings {
 		for (const key of keysToRemove) {
 			delete currentSettings[key];
 		}
-		await fs.writeFile(this.settingsFilePath, JSON.stringify(currentSettings, null, 2), 'utf-8');
+		await this.writeSettingsFile(JSON.stringify(currentSettings, null, 2));
 	}
 
 	/**
@@ -60,7 +95,7 @@ export class UserSettings {
 	 */
 	async getSettings(): Promise<Record<string, unknown>> {
 		try {
-			const fileContent = await fs.readFile(this.settingsFilePath, 'utf-8');
+			const fileContent = await this.readSettingsFile();
 			if (fileContent.trim()) {
 				return JSON.parse(fileContent);
 			}
@@ -72,8 +107,7 @@ export class UserSettings {
 	 * Clears all settings (resets to empty object).
 	 */
 	async clear(): Promise<void> {
-		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-		await fs.writeFile(this.settingsFilePath, '{}', 'utf-8');
+		await this.writeSettingsFile('{}');
 	}
 
 	/**
@@ -81,7 +115,7 @@ export class UserSettings {
 	 */
 	async backup(): Promise<string> {
 		try {
-			return await fs.readFile(this.settingsFilePath, 'utf-8');
+			return await this.readSettingsFile();
 		} catch {
 			return '';
 		}
@@ -92,8 +126,7 @@ export class UserSettings {
 	 * @param settings The settings JSON string
 	 */
 	async restore(settings: string): Promise<void> {
-		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-		await fs.writeFile(this.settingsFilePath, settings.trim(), 'utf-8');
+		await this.writeSettingsFile(settings.trim());
 	}
 
 	/**

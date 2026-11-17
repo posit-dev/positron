@@ -43,7 +43,7 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 		// Verify the module environment was created and is labeled as a module
 		await expect(async () => {
 			const runtimes = await app.workbench.sessions.getAllAvailableRuntimes();
-			const pythonModule = runtimes.find(r => r.name.includes('Python 3.12.10') && r.description.includes('Module'));
+			const pythonModule = runtimes.find(r => `${r.name} ${r.description}`.includes('Python 3.12.10') && `${r.name} ${r.description}`.includes('Module'));
 			expect(pythonModule).toBeDefined();
 		}).toPass({ timeout: 30000 });
 
