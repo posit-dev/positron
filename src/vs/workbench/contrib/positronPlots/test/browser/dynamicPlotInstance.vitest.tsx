@@ -98,6 +98,14 @@ describe('DynamicPlotInstance', () => {
 			expect(screen.queryByText(/Try making it larger/)).not.toBeInTheDocument();
 		});
 
+		it('shows the message instead of the earlier image when a custom size fails, since resizing the pane cannot fix it', async () => {
+			renderPlot(makeFailingPlotClient(earlierRender, undefined, new PlotSizingPolicyCustom({ width: 120, height: 120 })));
+
+			expect(await screen.findByText(/at the '120.120 \(custom\)' size because it's too small\. Choose a larger size/)).toBeInTheDocument();
+			expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
+			expect(promptNotification).not.toHaveBeenCalled();
+		});
+
 		it('shows a general message with a way to the logs for other errors', async () => {
 			const user = userEvent.setup();
 			renderPlot(makeFailingPlotClient(undefined, new Error(OTHER_RENDER_ERROR)));

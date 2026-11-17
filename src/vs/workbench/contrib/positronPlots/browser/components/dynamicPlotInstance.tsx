@@ -123,8 +123,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				if (disposed || isCancellationError(e)) {
 					return;
 				}
-				// Renders run on every resize, so log instead of notifying; the last
-				// good image (if any) stays visible.
+				// Renders run on every resize, so log instead of notifying.
 				const policyName = policy.getName(props.plotClient);
 				services.logService.warn(`Error rendering plot to '${policyName}' size: ${e.message}${e.code !== undefined ? ` (${e.code})` : ''}`);
 				const renderError: RenderError = {
@@ -132,6 +131,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
 				};
 				setError(renderError);
+				// Resizing the pane can't fix a custom size, so drop the old image to show the message.
+				if (renderError.customSize !== undefined) {
+					setUri('');
+				}
 				// A sizing change is usually picked by the user, and the old image
 				// would hide the failure, so tell them.
 				if (reportErrors && props.plotClient.lastRender) {
@@ -257,7 +260,8 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	return (
 		<div className='plot-instance dynamic-plot-instance'>
 			<div ref={progressRef}></div>
-			{uri && renderedImage()}
+			{/* Scrollable moves its element out of React's tree, so give React a wrapper it can remove. */}
+			{uri && <div style={{ display: 'contents' }}>{renderedImage()}</div>}
 			{!uri && placeholderImage()}
 		</div>
 	);
