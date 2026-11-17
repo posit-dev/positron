@@ -130,14 +130,14 @@ suite('Pins Driver mechanisms', () => {
 	// (the stubbed fetch never verifies the signature, but building it must not throw).
 	const realKey = generateKeyPair().privateKey;
 
-	test('exposes token, apiKey, and envvar mechanisms in that order', () => {
+	test('exposes publisher, token, apiKey, and envvar mechanisms in that order', () => {
 		// Order is deliberate, not incidental: mechanisms[0] is the dialog's default selection, so
-		// token first is the "browser sign-in leads" choice. It is also safe for existing profiles,
+		// publisher first is the "shared sign-in leads" choice. It is also safe for existing profiles,
 		// which all carry a persisted mechanismId (pins postdates mechanismId persistence) and so
 		// never fall back to mechanisms[0]. This assertion guards that intentional order; a reorder
 		// should be a conscious decision that updates it.
 		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache());
-		assert.deepStrictEqual(driver.mechanisms.map(m => m.id), ['token', 'apiKey', 'envvar']);
+		assert.deepStrictEqual(driver.mechanisms.map(m => m.id), ['publisher', 'token', 'apiKey', 'envvar']);
 	});
 
 	test('the token mechanism takes only a required server URL', () => {
@@ -269,6 +269,70 @@ suite('Pins Driver mechanisms', () => {
 		assert.deepStrictEqual(py.map(v => v.id), ['default']);
 		assert.ok(py[0].code.includes('pins.board_connect()'));
 		assert.ok(!py[0].code.includes('CONNECT_API_KEY'));
+	});
+
+	/** A fake Publisher session; the scheme scope picks the Authorization header. */
+	function session(accessToken: string, scheme: 'Key' | 'Bearer'): vscode.AuthenticationSession {
+		return { id: 'cred-1', account: { id: 'https://c.example.com', label: 'my-connect' }, accessToken, scopes: ['Publisher', `auth-scheme:${scheme}`] };
+	}
+
+	/** Like routingFetch, but records the Authorization header of every request. */
+	function recordingFetch(seen: string[]): typeof fetch {
+		const inner = routingFetch(validatingRoutes);
+		return (async (input: string | URL, init?: RequestInit): Promise<Response> => {
+			seen.push((init?.headers as Record<string, string>).Authorization);
+			return inner(input, init);
+		}) as typeof fetch;
+	}
+
+	test('publisher connect reuses an existing session without prompting', async () => {
+		const calls: { scopes: readonly string[]; options: vscode.AuthenticationGetSessionOptions }[] = [];
+		const seen: string[] = [];
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			fetch: recordingFetch(seen),
+			getSession: async (_id, scopes, options) => { calls.push({ scopes, options }); return session('api-key', 'Key'); },
+		});
+
+		const connection = await driver.connect('publisher', { serverUrl: 'c.example.com/' });
+		assert.strictEqual(await connection.isConnected(), true);
+		// The server URL is normalized before it is passed as the scope, and nothing prompts.
+		assert.ok(calls.every(c => c.scopes[0] === 'https://c.example.com' && c.options.silent === true));
+		assert.deepStrictEqual(seen, ['Key api-key', 'Key api-key']);
+	});
+
+	test('publisher connect signs in when Publisher has no session for the server', async () => {
+		let created = false;
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			fetch: routingFetch(validatingRoutes),
+			getSession: async (_id, _scopes, options) => {
+				if (options.createIfNone) {
+					created = true;
+				}
+				return created ? session('oauth', 'Bearer') : undefined;
+			},
+		});
+		const connection = await driver.connect('publisher', { serverUrl: 'https://c.example.com' });
+		assert.strictEqual(await connection.isConnected(), true);
+		assert.strictEqual(created, true);
+	});
+
+	test('publisher requests use the latest session, so refreshed OAuth tokens are picked up', async () => {
+		let n = 0;
+		const seen: string[] = [];
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			fetch: recordingFetch(seen),
+			getSession: async () => session(`token-${++n}`, 'Bearer'),
+		});
+		await driver.connect('publisher', { serverUrl: 'https://c.example.com' });
+		// The first call is the initial lookup; each request then asks again.
+		assert.deepStrictEqual(seen, ['Bearer token-2', 'Bearer token-3']);
+	});
+
+	test('publisher connect explains a missing Publisher extension', async () => {
+		const driver = createPinsDriver(fakeContext(), fakeDataExplorerHandler(), fakeCache(), undefined, {
+			getSession: async () => { throw new Error(`No authentication provider 'posit-connect' is currently registered.`); },
+		});
+		await assert.rejects(async () => driver.connect('publisher', { serverUrl: 'https://c.example.com' }), /Install or enable the Posit Publisher extension/);
 	});
 
 	test('envvar code-gen emits only the environment-variable board open', async () => {
