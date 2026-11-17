@@ -11,6 +11,8 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { IPositronPlotMetadata, PlotClientInstance } from '../../common/languageRuntimePlotClient.js';
 import { PositronPlotCommProxy } from '../../common/positronPlotCommProxy.js';
 import { IPositronPlotSizingPolicy } from '../../../positronPlots/common/sizingPolicy.js';
+import { PlotSizingPolicyAuto } from '../../../positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyIntrinsic } from '../../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
 import { DeferredRender, IRenderedPlot } from '../../common/positronPlotRenderQueue.js';
 
@@ -31,7 +33,10 @@ describe('Positron - PlotClientInstance', () => {
 		};
 	}
 
-	function createPlotClient(metadata: Partial<IPositronPlotMetadata>): PlotClientInstance {
+	function createPlotClient(
+		metadata: Partial<IPositronPlotMetadata>,
+		sizingPolicy = stubInterface<IPositronPlotSizingPolicy>(),
+	): PlotClientInstance {
 		const intrinsicSizeEmitter = disposables.add(new Emitter<IntrinsicSize | undefined>());
 		const commProxy = stubInterface<PositronPlotCommProxy>({
 			onDidClose: closeEmitter.event,
@@ -40,6 +45,7 @@ describe('Positron - PlotClientInstance', () => {
 			onDidSetIntrinsicSize: intrinsicSizeEmitter.event,
 			eventParentId: undefined,
 			render: renderSpy,
+			getIntrinsicSize: () => Promise.resolve(undefined),
 		});
 		const fullMetadata: IPositronPlotMetadata = {
 			id: 'plot-1', created: 0, code: '', session_id: 'session-1', ...metadata,
@@ -47,7 +53,7 @@ describe('Positron - PlotClientInstance', () => {
 		return disposables.add(new PlotClientInstance(
 			commProxy,
 			new TestConfigurationService(),
-			stubInterface<IPositronPlotSizingPolicy>(),
+			sizingPolicy,
 			fullMetadata,
 		));
 	}
@@ -88,5 +94,15 @@ describe('Positron - PlotClientInstance', () => {
 		expect(renderSpy).toHaveBeenCalledTimes(1);
 		const queued = renderSpy.mock.calls[0][0] as DeferredRender;
 		expect(queued.renderRequest.size).toEqual({ width: 200, height: 200 });
+	});
+
+	it('draws a plot on Intrinsic with no intrinsic size at the Auto size', async () => {
+		const client = createPlotClient({}, new PlotSizingPolicyIntrinsic());
+
+		client.renderWithSizingPolicy({ width: 800, height: 200 }, 1);
+
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		expect(renderSpy.mock.calls[0][0].renderRequest.size)
+			.toEqual(new PlotSizingPolicyAuto().getPlotSize({ width: 800, height: 200 }));
 	});
 });

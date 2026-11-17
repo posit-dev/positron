@@ -17,9 +17,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PanZoomImage } from './panZoomImage.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
-import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
-import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
@@ -114,12 +112,8 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const render = async (policy: IPositronPlotSizingPolicy, reportErrors = false) => {
 			const viewportSize = { height: props.height, width: props.width };
 			try {
-				const intrinsicSize = await props.plotClient.getIntrinsicSize();
-
-				// With no intrinsic size, draw at the auto size without changing any plot's setting.
-				const result = policy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize ?
-					await props.plotClient.render(new PlotSizingPolicyAuto().getPlotSize(viewportSize), ratio) :
-					await props.plotClient.renderWithSizingPolicy(policy.getPlotSize(viewportSize), ratio);
+				// Intrinsic returns no size; pass the viewport so a plot with no size of its own can fall back to Auto.
+				const result = await props.plotClient.renderWithSizingPolicy(policy.getPlotSize(viewportSize) ?? viewportSize, ratio);
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);

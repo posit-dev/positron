@@ -10,6 +10,8 @@ import { IntrinsicSize, PlotOrigin, PlotResult, PlotRenderFormat, PlotSize } fro
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
+import { PlotSizingPolicyAuto } from '../../positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyIntrinsic } from '../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 /**
@@ -370,8 +372,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
 	}
 
-	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
-		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
+	public async renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+		// A plot with no intrinsic size of its own draws at the Auto size, without changing its setting.
+		const policy = this._sizingPolicy instanceof PlotSizingPolicyIntrinsic && !(await this.getIntrinsicSize()) ?
+			new PlotSizingPolicyAuto() : this._sizingPolicy;
+		return this.render(size ? policy.getPlotSize(size) : size, pixel_ratio, format, preview);
 	}
 
 	/**

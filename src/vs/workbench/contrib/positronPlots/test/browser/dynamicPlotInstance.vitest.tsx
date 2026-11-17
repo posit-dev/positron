@@ -51,7 +51,6 @@ describe('DynamicPlotInstance', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	const renderWithSizingPolicy = vi.fn();
-	const renderAtSize = vi.fn();
 	const earlierRender: IRenderedPlot = { uri: 'data:image/png;base64,earlier', pixel_ratio: 1, renderTimeMs: 0 };
 
 	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
@@ -63,7 +62,6 @@ describe('DynamicPlotInstance', () => {
 			intrinsicSize: undefined,
 			getIntrinsicSize: () => Promise.resolve(undefined),
 			renderWithSizingPolicy,
-			render: renderAtSize,
 			onDidCompleteRender: Event.None,
 			onDidChangeSizingPolicy: onDidChangeSizingPolicy.event,
 			onDidChangeState: Event.None,
@@ -200,16 +198,18 @@ describe('DynamicPlotInstance', () => {
 		it.each([
 			['it starts on', false],
 			['the user picks', true],
-		])('draws a plot with no intrinsic size at the auto size when %s intrinsic, without changing any plot\'s setting', async (_label, picked) => {
+		])('passes the pane size to the plot when %s intrinsic, without changing any plot\'s setting', async (_label, picked) => {
 			const intrinsic = new PlotSizingPolicyIntrinsic();
-			renderAtSize.mockResolvedValue({ uri: 'data:image/png;base64,auto', pixel_ratio: 1, renderTimeMs: 0 });
-			renderPlot(makeFailingPlotClient(earlierRender, undefined, picked ? undefined : intrinsic));
+			const plotClient = makeFailingPlotClient(earlierRender, undefined, picked ? undefined : intrinsic);
+			renderWithSizingPolicy.mockResolvedValue({ uri: 'data:image/png;base64,auto', pixel_ratio: 1, renderTimeMs: 0 });
+			renderPlot(plotClient);
 			if (picked) {
 				act(() => onDidChangeSizingPolicy.fire(intrinsic));
 			}
 
 			expect(await screen.findByRole('img', { name: 'My Plot' })).toHaveAttribute('src', 'data:image/png;base64,auto');
-			expect(renderAtSize).toHaveBeenCalledWith(new PlotSizingPolicyAuto().getPlotSize({ width: 525, height: 325 }), expect.any(Number));
+			// The plot client falls back to Auto with this size when the plot has no intrinsic size.
+			expect(renderWithSizingPolicy).toHaveBeenLastCalledWith({ width: 525, height: 325 }, expect.any(Number));
 			expect(selectSizingPolicy).not.toHaveBeenCalled();
 			expect(promptNotification).not.toHaveBeenCalled();
 		});
