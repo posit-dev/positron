@@ -219,6 +219,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/** A row as errors show it ("shown"): its label, then its description in parentheses. */
 		shownAs: (r: { label: string; description: string }) => r.label + (r.description ? ' (' + r.description + ')' : ''),
 		/**
+		 * Whether an interpreter picker row is of a language ("Python", "R"): the language
+		 * leads its label ("R 4.5.1") or, when an environment name leads the label, its
+		 * description ("uv: ws", "Python 3.14.7").
+		 */
+		ofLanguage: (word: string) => (r: { label: string; description: string }) => [r.label, r.description].some(t => t.startsWith(word + ' ')),
+		/**
 		 * Whole-word match, so "R" skips "positron-python" but "4.5" matches "4.5.1".
 		 * Words are matched in the row as shownAs writes it, so words copied from "shown" match.
 		 * Also matches without the picker's " \u00B7 reason" suffix, as a session's name reads.

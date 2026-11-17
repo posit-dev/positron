@@ -48,6 +48,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 		// The picker draws only the rows on screen: filter it by the name first, so
 		// a row below them is found too. The filter matches words in the order
 		// typed, so when it leaves no matching row, try the whole list again.
+		const ofWord = lib.ofLanguage(a.word);
 		const filter = page.locator(`${lib.css.quickInput.widget} ${lib.css.quickInput.filter}`).filter({ visible: true }).first();
 		let p = a.name ? (await filter.fill(a.name), await lib.pick({ words: a.words })) : null;
 		if (!p || (!p.ok && p.error.startsWith('no row matches'))) {
@@ -62,9 +63,9 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			const several = / rows match /.test(p.error);
 			const all = (a.name && none) || several ? await lib.allRows() : null;
 			const fits = lib.hasWords(several ? a.words : a.word);
-			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(lib.shownAs);
+			const ours = (all?.rows ?? []).filter(r => ofWord(r) && fits(r)).map(lib.shownAs);
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
-			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
+			const listed = ours.length > 0 || (await lib.rows()).some(ofWord);
 			await lib.closeQuickInput();
 			const more = all?.complete ? {} : { more: 'the picker lists more rows than were read' };
 			const how = 'pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version';
@@ -76,7 +77,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			}
 			return { ...p, listed };
 		}
-		if (!p.row.label.startsWith(a.word + ' ')) {
+		if (!ofWord(p.row)) {
 			await lib.closeQuickInput();
 			return { ok: false, error: `the matching row is not a ${a.word} interpreter: ${p.row.label}` };
 		}

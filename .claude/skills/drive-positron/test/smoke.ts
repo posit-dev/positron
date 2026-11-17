@@ -89,6 +89,10 @@ const logged = (needle: string) => { const f = join(root, 'actions.log'); return
 const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => !(j && k in j)); return miss.length ? `missing keys: ${miss.join(', ')}` : undefined; };
 /** Started a session of the interpreter that found.copied names. */
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
+/** A Python row of the runtime picker as "shown" writes it: "Python 3.12.3", or its environment first, "uv: ws (Python 3.14.7)". */
+const pythonRow = (x: string) => /^Python \d|^[^(]+ \(Python \d/.test(x);
+/** Says --name matched no Python interpreter and shows only Python rows, at least one. */
+const noPythonMatch = (o: Out) => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`);
 /** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
@@ -111,8 +115,10 @@ const cases: Case[] = [
 	{ name: 'panel tabs is not a command, logged', run: ['panel.sh', 'tabs'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"tabs" is not a command: the nearest is tab;') || logged('panel.sh -s=net1: FAILED tabs: "tabs" is not a command') },
 	{ name: 'panel sessio names the nearest command', run: ['panel.sh', 'sessio'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"sessio" is not a command: the nearest is sessions') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
-	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) },
-	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
+	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: noPythonMatch },
+	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
+	// The picker leads a Python row with its environment ("uv: ws") and puts the version in the gray text: still a Python row.
+	{ name: 'start-session --name no row matches lists the workspace row led by its environment', run: ['start-session.sh', '--language', 'python', '--name', 'ws no-such-word', '--new', '--timeout', '5'], fail: true, check: o => noPythonMatch(o) || (!o.json!.shown.some((x: string) => /: ws \(Python \d/.test(x)) && `no "...: ws (Python ...)" row in shown: ${JSON.stringify(o.json!.shown)}`) },
 	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
 	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
 	{ name: 'ui click Start Another... in the menu names the quick pick it opens', run: ['ui.sh', 'click', 'menuitem', 'Start Another...', '--in', 'menu'], check: o => includes(o.json!.opened, 'a quick pick: read it with ui.sh read quickpick') },
@@ -155,7 +161,7 @@ const cases: Case[] = [
 	{
 		name: 'start-session --new with no --name lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true,
 		check: o => {
-			const row = (o.json!.shown ?? []).find((x: string) => /^Python \S+ \((?!.*running).+\)$/.test(x));
+			const row = (o.json!.shown ?? []).find((x: string) => /^(?!.*running)[^(]+ \(Python \d[^)]*\)$/.test(x));
 			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
 		},
 	},
