@@ -25,6 +25,11 @@ test('askedFindings reads the numbers a comment asks about', () => {
 	assert.deepEqual(askedFindings('@claude finding #5 is wrong'), [5]);
 	assert.deepEqual(askedFindings("@claude I'm finding 2 tests fail on Windows"), []);
 	assert.deepEqual(askedFindings(`@claude fix findings ${Array.from({ length: 11 }, (_, i) => i + 1).join(', ')}`), []);
+	assert.deepEqual(askedFindings('@claude fix findings 1-3'), [1, 2, 3]);
+	assert.deepEqual(askedFindings('@claude fix findings 2 to 4 and 7'), [2, 3, 4, 7]);
+	assert.deepEqual(askedFindings('@claude fix finding 2 and finding 3'), [2, 3]);
+	assert.deepEqual(askedFindings('@claude fix findings 1-50'), []);
+	assert.deepEqual(askedFindings('@claude fix finding 2 - it crashes'), [2]);
 });
 
 test('latestRun reads the comment lib.mjs writes, as parseResultComment does', () => {
@@ -54,6 +59,8 @@ test('findingsPrompt wraps the texts in its tag and says what is missing or why 
 	assert.notEqual(findingsPrompt({ asked: [1] }).match(/FINDINGS-\S+/)[0], findingsPrompt({ asked: [1] }).match(/FINDINGS-\S+/)[0]);
 	assert.match(findingsPrompt({ asked: [3], problem: 'the PR\'s comments could not be read.' }), /finding 3 .*could not be loaded: the PR's comments could not be read/);
 	assert.equal(findingsPrompt({ asked: [] }), '');
+	// The limit is in bytes: 40,000 three-byte characters pass a character count but not this.
+	assert.match(findingsPrompt({ asked: [1], texts: new Map([[1, '\u20ac'.repeat(40_000)]]) }), /could not be loaded: they are too long/);
 });
 
 test('loadProblem names the step that failed', () => {

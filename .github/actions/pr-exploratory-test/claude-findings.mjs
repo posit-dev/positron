@@ -28,20 +28,27 @@ const REPORT = /\[View report [^\]]*\]\((https:\/\/\S+?\/exploratory-report-(\d+
 
 // More than this many findings in one comment is not a request to fix them.
 const MAX_ASKED = 10;
-// The whole block goes through job outputs to the build job, which cap at 1 MB.
-const MAX_PROMPT_CHARS = 200_000;
+// The block goes into the action's prompt input, which reaches it as one
+// environment string; Linux caps each at 128 KiB, and the template adds more.
+const MAX_PROMPT_BYTES = 100_000;
 // Words that make "finding 2" a request, so "I'm finding 2 tests fail" is not one.
 const ASK_WORDS = String.raw`@claude[,:]?|fix|fixing|look\s+(?:at|into)|check|investigate|address|reproduce|repro|debug|explain|resolve|handle|about|re:?`;
-const ASK = new RegExp(String.raw`(?:^|[^\w@])(?:${ASK_WORDS})\s+(?:the\s+)?findings?\s*#?(\d+(?:\s*(?:,\s*and|,|&|\+|and)\s*#?\d+)*)\b`, 'gi');
+// One number or a range: "2", "#2", "1-3", "1 to 3".
+const ITEM = String.raw`#?\d+(?:\s*(?:-|\u2013|to)\s*#?\d+)?`;
+const ASK = new RegExp(String.raw`(?:^|[^\w@])(?:${ASK_WORDS})\s+(?:the\s+)?findings?\s*(${ITEM}(?:\s*(?:,\s*and|,|&|\+|and)\s*(?:findings?\s*)?${ITEM})*)\b`, 'gi');
 
-/** The finding numbers a comment asks about, as in "fix finding 2", "look at findings 1, 3 and 4" or "@claude finding #5". */
+/** The finding numbers a comment asks about, as in "fix finding 2", "look at findings 1, 3 and 4", "findings 1-3" or "@claude finding #5". */
 export function askedFindings(body) {
 	const numbers = new Set();
 	for (const m of String(body ?? '').matchAll(ASK)) {
-		for (const n of m[1].match(/\d+/g)) {
-			const value = Number(n);
-			if (value >= 1 && value <= 999) {
-				numbers.add(value);
+		for (const [, a, b] of m[1].matchAll(/(\d+)(?:\s*(?:-|\u2013|to)\s*#?(\d+))?/g)) {
+			const lo = Number(a);
+			const hi = b === undefined ? lo : Number(b);
+			if (hi - lo >= MAX_ASKED) {
+				return [];
+			}
+			for (let n = Math.max(lo, 1); n <= Math.min(hi, 999); n++) {
+				numbers.add(n);
 			}
 		}
 	}
@@ -104,7 +111,7 @@ export function findingsPrompt({ asked, texts = new Map(), tooLarge = new Set(),
 		end,
 	].filter(Boolean);
 	const out = parts.join('\n\n');
-	return out.length > MAX_PROMPT_CHARS
+	return Buffer.byteLength(out) > MAX_PROMPT_BYTES
 		? findingsPrompt({ asked, report, sha, problem: 'they are too long to pass along.' })
 		: out;
 }
