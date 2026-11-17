@@ -835,7 +835,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string,
-		documentUri?: URI,
+		_documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
 		preserveActiveTab?: boolean,
 		activate?: boolean): Promise<string> {
@@ -846,9 +846,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Code from a document, with no session named: a language whose session depends on the
 		// document (such as SQL, which runs on the file's data connection) chooses the session.
-		// Asked before the Console is revealed, because the provider can decline to run the code.
-		if (!sessionId && documentUri) {
-			sessionId = await this.provideExecutionSession(languageId, documentUri);
+		// The document is the one the attribution's code location names, which also links
+		// outputs such as plots back to their source. Asked before the Console is revealed,
+		// because the provider can decline to run the code.
+		const codeLocation = attribution.metadata?.codeLocation as ICodeLocation | undefined;
+		if (!sessionId && codeLocation?.uri) {
+			sessionId = await this.provideExecutionSession(languageId, URI.revive(codeLocation.uri));
 		}
 		const shouldActivate = activate !== false;
 		focus = focus && shouldActivate;

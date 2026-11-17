@@ -149,13 +149,13 @@ async function executeCodeInConsole(
 	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
-	// this will rip focus away from the editor. The document URI lets an execution session
-	// provider for the language (such as SQL's) choose the session for this document.
+	// this will rip focus away from the editor. The code location in the attribution lets an
+	// execution session provider for the language (such as SQL's) choose the session for
+	// this document.
 	let sessionId: string;
 	try {
 		sessionId = await positronConsoleService.executeCode(
-			languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior,
-			undefined /* executionId */, documentUri);
+			languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior);
 	} catch (error) {
 		// The execution session provider declined to run the code and has told the user why.
 		if (isCancellationError(error)) {

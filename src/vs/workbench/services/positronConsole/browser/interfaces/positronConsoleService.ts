@@ -188,9 +188,7 @@ export interface IPositronConsoleService {
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
 	 * @param documentUri Optional document URI when code is executed from a file. When provided,
-	 *   the backend will be notified that this is the source of code execution. When no session
-	 *   ID is given, the execution session provider for the language (if any) chooses the
-	 *   session for this document.
+	 *   the backend will be notified that this is the source of code execution.
 	 * @param executionMetadata Optional metadata to pass to the language runtime.
 	 * @param preserveActiveTab Whether to avoid switching the active tab when revealing the
 	 *   Console (and Plots, for plots this execution produces), and to keep the foreground
@@ -216,7 +214,8 @@ export interface IPositronConsoleService {
 
 	/**
 	 * Registers a provider that chooses the session that runs code from a document, for one
-	 * language. {@link executeCode} asks it when it gets a document URI and no session ID.
+	 * language. {@link executeCode} asks it when it gets no session ID and the attribution
+	 * names a code location (`metadata.codeLocation`), passing that location's document.
 	 * If more than one provider is registered for a language, the most recent one is used.
 	 *
 	 * @param languageId The language of the code.

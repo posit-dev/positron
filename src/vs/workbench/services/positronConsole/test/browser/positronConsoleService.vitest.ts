@@ -359,6 +359,12 @@ describe('PositronConsoleService', () => {
 
 	describe('execution session provider', () => {
 		const documentUri = URI.file('/project/query.sql');
+		// Code run from the document: the attribution names where it came from, as the
+		// editor's run commands do (and as plots read it).
+		const fromDocument = {
+			source: CodeAttributionSource.Script,
+			metadata: { codeLocation: { uri: documentUri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 8 } } } },
+		};
 
 		async function startWithConsole() {
 			const consoleService = ctx.disposables.add(
@@ -374,20 +380,18 @@ describe('PositronConsoleService', () => {
 			const provideSession = vi.fn(async () => session.sessionId);
 			ctx.disposables.add(consoleService.registerExecutionSessionProvider('sql', { provideSession }));
 
-			const sessionId = await consoleService.executeCode('sql', undefined, 'SELECT 1', { source: CodeAttributionSource.Script }, false,
-				undefined, undefined, undefined, undefined, documentUri);
+			const sessionId = await consoleService.executeCode('sql', undefined, 'SELECT 1', fromDocument, false);
 
 			expect({ sessionId, asked: provideSession.mock.calls, runs: enqueueSpy.mock.calls.length })
 				.toEqual({ sessionId: session.sessionId, asked: [[documentUri]], runs: 1 });
 		});
 
-		it('does not ask the provider when a session ID is given or there is no document', async () => {
+		it('does not ask the provider when a session ID is given or the code names no document', async () => {
 			const { consoleService, session } = await startWithConsole();
 			const provideSession = vi.fn(async () => undefined);
 			ctx.disposables.add(consoleService.registerExecutionSessionProvider('test', { provideSession }));
 
-			await consoleService.executeCode('test', session.sessionId, '1', { source: CodeAttributionSource.Script }, false,
-				undefined, undefined, undefined, undefined, documentUri);
+			await consoleService.executeCode('test', session.sessionId, '1', fromDocument, false);
 			await consoleService.executeCode('test', undefined, '1', { source: CodeAttributionSource.Script }, false);
 
 			expect(provideSession).not.toHaveBeenCalled();
@@ -399,7 +403,7 @@ describe('PositronConsoleService', () => {
 				{ provideSession: async () => undefined }));
 
 			const sessionId = await consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
-				{ source: CodeAttributionSource.Script }, false, undefined, undefined, undefined, undefined, documentUri);
+				fromDocument, false);
 
 			expect({ sessionId, runs: enqueueSpy.mock.calls.length }).toEqual({ sessionId: session.sessionId, runs: 1 });
 		});
@@ -410,7 +414,7 @@ describe('PositronConsoleService', () => {
 				{ provideSession: async () => { throw new CancellationError(); } }));
 
 			await expect(consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
-				{ source: CodeAttributionSource.Script }, false, undefined, undefined, undefined, undefined, documentUri))
+				fromDocument, false))
 				.rejects.toBeInstanceOf(CancellationError);
 			expect(enqueueSpy).not.toHaveBeenCalled();
 		});
@@ -420,8 +424,7 @@ describe('PositronConsoleService', () => {
 			const provideSession = vi.fn(async () => session.sessionId);
 			consoleService.registerExecutionSessionProvider('sql', { provideSession }).dispose();
 
-			await expect(consoleService.executeCode('sql', undefined, 'SELECT 1', { source: CodeAttributionSource.Script }, false,
-				undefined, undefined, undefined, undefined, documentUri)).rejects.toThrow(/no registered runtime/);
+			await expect(consoleService.executeCode('sql', undefined, 'SELECT 1', fromDocument, false)).rejects.toThrow(/no registered runtime/);
 			expect(provideSession).not.toHaveBeenCalled();
 		});
 	});
