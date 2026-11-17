@@ -7,6 +7,10 @@ owns Canvas content, panel identity, singleton-ness, and UI readiness. When a
 new command is needed in either direction, ask which side owns the fact, not
 which side finds it convenient to act.
 
+The product is named Braid, and every string a user reads says so. The code
+still says Canvas: file and symbol names, the `positron.canvas.*` commands,
+the `canvas.openOnStartup` setting and the `--canvas` flag are unchanged.
+
 ## The command seam
 
 The cross-repo subset below also lives in the assistant repo at
@@ -33,7 +37,7 @@ Registered by Positron for its own UI and launch integration:
   forwarded `--canvas` launch. Same service call as `positron.canvas.enter`,
   but it owns the failure notification. Deliberately absent from the palette:
   a Canvas-capable assistant owns discovery through its
-  `posit-assistant.openCanvas` command, so older assistants expose nothing.
+  `posit-assistant.openBraid` command, so older assistants expose nothing.
 
 Registered by the assistant, called by Positron:
 
@@ -53,7 +57,7 @@ Registered by the assistant, called by Positron:
 Two deliberate layers, not duplication:
 
 - Positron's startup curtain (`canvasStartupPresenter.ts`) covers the IDE
-  while Canvas starts. It speaks as Positron ("Canvas could not start") and
+  while Canvas starts. It speaks as Positron ("Braid could not start") and
   owns Retry / Open Positron / Quit, because it can reach the IDE and the
   application lifecycle.
 - The assistant's webview bootstrap (static HTML, then

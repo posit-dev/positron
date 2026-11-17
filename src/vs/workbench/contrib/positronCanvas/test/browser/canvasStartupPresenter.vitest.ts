@@ -21,7 +21,7 @@ const ENTERED: CanvasEntryOutcome = { entered: true };
 const AI_DISABLED: CanvasEntryOutcome = {
 	entered: false,
 	reason: 'ai-disabled',
-	message: 'Canvas is unavailable because AI features are disabled.',
+	message: 'Braid is unavailable because AI features are disabled.',
 };
 
 describe('CanvasStartupPresenter', () => {
@@ -73,7 +73,7 @@ describe('CanvasStartupPresenter', () => {
 
 		const curtain = within(container).getByRole('status');
 		expect(curtain).toHaveAttribute('aria-busy', 'true');
-		expect(within(curtain).getByRole('progressbar', { name: 'Loading Canvas' })).toBeInTheDocument();
+		expect(within(curtain).getByRole('progressbar', { name: 'Loading Braid' })).toBeInTheDocument();
 		expect(within(curtain).getByRole('button', { name: 'Open Positron' })).toBeInTheDocument();
 		expect(within(container).getAllByRole('status')).toHaveLength(1);
 		expect(enter).toHaveBeenCalledTimes(1);
@@ -104,7 +104,7 @@ describe('CanvasStartupPresenter', () => {
 		await entry.complete({
 			entered: false,
 			reason: 'superseded',
-			message: 'Canvas stopped opening because Positron was asked for the IDE.'
+			message: 'Braid stopped opening because Positron was asked for the IDE.'
 		} satisfies CanvasEntryOutcome);
 		expect(within(container).queryByRole('dialog')).not.toBeInTheDocument();
 	});
@@ -182,7 +182,7 @@ describe('CanvasStartupPresenter', () => {
 			enter: vi.fn().mockResolvedValue({
 				entered: false,
 				reason: 'engaged-elsewhere',
-				message: 'Canvas is already open in another Positron window.'
+				message: 'Braid is already open in another Positron window.'
 			} satisfies CanvasEntryOutcome)
 		});
 
@@ -225,7 +225,7 @@ describe('CanvasStartupPresenter', () => {
 			enter: vi.fn().mockResolvedValue({
 				entered: false,
 				reason: 'superseded',
-				message: 'Canvas stopped opening because Positron was asked for the IDE.'
+				message: 'Braid stopped opening because Positron was asked for the IDE.'
 			} satisfies CanvasEntryOutcome)
 		});
 
@@ -248,8 +248,8 @@ describe('CanvasStartupPresenter', () => {
 		const curtain = await vi.waitFor(() => within(container).getByRole('dialog'));
 		expect(within(curtain).getAllByRole('button')).toHaveLength(4);
 		expect(curtain).toHaveAttribute('aria-busy', 'false');
-		expect(curtain).toHaveAccessibleName('Canvas could not start');
-		expect(within(curtain).getByText('Canvas is unavailable because AI features are disabled.')).toBeInTheDocument();
+		expect(curtain).toHaveAccessibleName('Braid could not start');
+		expect(within(curtain).getByText('Braid is unavailable because AI features are disabled.')).toBeInTheDocument();
 		expect(within(curtain).getByRole('button', { name: 'Retry' })).toHaveFocus();
 		expect(within(curtain).getByRole('button', { name: 'Open Positron' })).toBeInTheDocument();
 		expect(within(curtain).getByRole('button', { name: 'Quit' })).toBeInTheDocument();
@@ -266,7 +266,7 @@ describe('CanvasStartupPresenter', () => {
 		const curtain = within(container).getByRole('status');
 		await vi.waitFor(() => expect(within(curtain).getAllByRole('button')).toHaveLength(4));
 		expect(within(container).getAllByRole('dialog')).toHaveLength(1);
-		expect(within(curtain).getByText('Canvas could not be loaded. Try again, open Positron, or quit.')).toBeInTheDocument();
+		expect(within(curtain).getByText('Braid could not be loaded. Try again, open Positron, or quit.')).toBeInTheDocument();
 		expect(within(curtain).getByRole('button', { name: 'Retry' })).toHaveFocus();
 		expect(logError).toHaveBeenCalledWith('[canvas] Standalone startup failed.', error);
 	});
