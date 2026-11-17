@@ -198,5 +198,13 @@
 	"41553743303#2": {
 		"origin": "introduced",
 		"why": "Main replay: 0 of 1 failures on main."
+	},
+	"42098251410#1": {
+		"outcome": "not-fixed",
+		"why": "By design: display_round in _data_explorer_search.py returns NaN for floats shown in scientific notation, and NaN never matches a numeric term. The file is unchanged since the tested commit; the PR's later commits are a vitest fix and an ark bump."
+	},
+	"42098251410#2": {
+		"outcome": "not-fixed",
+		"why": "By design: both backends leave the search out of Convert to Code. convert.py drops GlobalSearch filters (tested by test_convert_pandas_skips_global_search and the polars test), and ark's convert_to_code.rs maps GlobalSearch to None. Both shipped with the PR, ark's through its submodule bump."
 	}
 }

@@ -224,7 +224,13 @@ export function prSettled(rows, settled, overrides, pr, runs) {
 	return own.length > 0
 		&& runs.every(run => own.some(r => r.run === run))
 		&& own.every(r => r.prPreview?.state === 'merged' && settled.has(`${r.run}#${r.finding}`)
-			&& (overrides[`${r.run}#${r.finding}`]?.origin ?? r.origin) === r.origin);
+			&& (overrides[`${r.run}#${r.finding}`]?.origin ?? r.origin) === r.origin
+			&& (overrides[`${r.run}#${r.finding}`]?.outcome ?? r.outcome) === r.outcome);
+}
+
+/** An outcome set by hand in the overrides file, with its reason as the evidence; null when the entry sets none. */
+export function handOutcome(override) {
+	return override?.outcome ? { outcome: override.outcome, decidedBy: 'by-hand', evidence: override.why ?? '' } : null;
 }
 
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */

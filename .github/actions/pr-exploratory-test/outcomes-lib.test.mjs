@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, handOutcome, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -41,6 +41,13 @@ test('prSettled holds only for a merged PR whose runs all have rows and whose ro
 	assert.equal(prSettled(rows.map(r => ({ ...r, prPreview: { state: 'closed' } })), settled, {}, 1, ['a']), false, 'not merged');
 	assert.equal(prSettled(rows, settled, { 'a#1': { origin: 'inherited' } }, 1, ['a']), false, 'a new override');
 	assert.equal(prSettled(rows, settled, {}, 2, []), false, 'no rows');
+	assert.equal(prSettled(rows.map(r => ({ ...r, outcome: 'fixed-in-pr' })), settled, { 'a#1': { outcome: 'not-fixed' } }, 1, ['a']), false, 'a new outcome override');
+});
+
+test('handOutcome sets the outcome by hand with its reason, or nothing for an origin-only entry', () => {
+	assert.deepEqual(handOutcome({ outcome: 'not-fixed', why: 'by design' }), { outcome: 'not-fixed', decidedBy: 'by-hand', evidence: 'by design' });
+	assert.equal(handOutcome({ origin: 'inherited', why: 'x' }), null);
+	assert.equal(handOutcome(undefined), null);
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
