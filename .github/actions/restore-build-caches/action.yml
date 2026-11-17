@@ -176,7 +176,7 @@ runs:
       if: ${{ inputs.restore-npm-core == 'true' }}
       id: cache-npm-core
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
@@ -188,7 +188,7 @@ runs:
       if: ${{ inputs.restore-npm-core == 'true' && steps.cache-npm-core.outputs.cache-hit != 'true' }}
       id: cache-npm-core-retry
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: ${{ steps.cache-npm-core.outputs.cache-primary-key }}
@@ -197,7 +197,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-volatile
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
         key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
@@ -206,7 +206,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' && steps.cache-npm-extensions-volatile.outputs.cache-hit != 'true' }}
       id: cache-npm-extensions-volatile-retry
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
         key: ${{ steps.cache-npm-extensions-volatile.outputs.cache-primary-key }}
@@ -215,7 +215,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions-stable
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
         key: npm-extensions-stable-v7-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
@@ -224,7 +224,7 @@ runs:
       if: ${{ inputs.restore-npm-extensions == 'true' && steps.cache-npm-extensions-stable.outputs.cache-hit != 'true' }}
       id: cache-npm-extensions-stable-retry
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
         key: ${{ steps.cache-npm-extensions-stable.outputs.cache-primary-key }}
@@ -233,7 +233,7 @@ runs:
       if: ${{ inputs.restore-builtins == 'true' }}
       id: cache-builtins
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
@@ -248,7 +248,7 @@ runs:
       if: ${{ inputs.restore-playwright == 'true' }}
       id: cache-playwright
       continue-on-error: true
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ steps.cache-paths.outputs.playwright-paths }}
         key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}

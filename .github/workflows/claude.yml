@@ -35,7 +35,8 @@ env:
     If PR creation fails, push the branch and include a link to create the PR in your comment.
 
     The repository is a shallow clone. When you need history for `git log` or `git blame`,
-    run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
+    run exactly `git fetch --deepen=50` or `git fetch --deepen=500` (or `git fetch --unshallow`
+    if you need all of it). Other forms of `git fetch` are blocked.
 
     Files under `.claude/` and `.github/` are read-only in this job. If the request needs a
     change there, do not try it. Do the rest of the request and say that part was not done.
@@ -62,6 +63,11 @@ jobs:
     runs-on: ubuntu-latest
     # No dependency install runs in this job; leave Claude time for larger edits.
     timeout-minutes: 30
+    # One run at a time per issue or PR, so a loop of runs cannot pile up. GitHub keeps only one
+    # pending run per group: a third request made while one runs and one waits replaces the waiting one.
+    concurrency:
+      group: claude-triage-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: read
@@ -78,7 +84,7 @@ jobs:
     env:
       # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
       # even though this workflow also runs as that App.
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
+      ALLOWED_BOTS: "positron-projects[bot]"
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
@@ -100,6 +106,32 @@ jobs:
             exit 1
           fi
           echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+
+      # On a fork PR, claude-code-action checks out the fork's code, and the build job runs its
+      # npm scripts and tests with the App token in reach. Refuse forks before the token exists.
+      - name: Refuse pull requests from forks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_IS_PR: ${{ github.event.issue.pull_request != null }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment)
+              if [ "$ISSUE_IS_PR" != "true" ]; then exit 0; fi
+              HEAD_REPO=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${ISSUE_NUMBER}" --jq '.head.repo.full_name // ""')
+              ;;
+            pull_request|pull_request_review|pull_request_review_comment)
+              HEAD_REPO="$PR_HEAD_REPO"
+              ;;
+            *) exit 0 ;;
+          esac
+          # A deleted fork has no head repo, so it is refused too.
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::@claude does not run on pull requests from forks (head repository: '${HEAD_REPO}')"
+            exit 1
+          fi
 
       # A token failure fails the job after the ack below, so the trigger still gets a reaction.
       - name: Generate token for GitHub App
@@ -235,8 +267,9 @@ jobs:
           # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
           # triggering comment and the issue context. track_progress forces tag mode.
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -270,7 +303,7 @@ jobs:
             --model opus
             --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
             --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.scss),Edit(**/*.less),Edit(**/*.svg),Edit(**/*.html),Edit(**/Dockerfile*),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version),Bash(git rm:*)"
 
       # Missing or malformed output must not start the build job, and must not fail silently.
@@ -325,7 +358,7 @@ jobs:
       issues: write
       id-token: write
     env:
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
+      ALLOWED_BOTS: "positron-projects[bot]"
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       - name: Generate token for GitHub App
@@ -412,8 +445,9 @@ jobs:
           additional_permissions: "actions: read"
           allowed_bots: ${{ env.ALLOWED_BOTS }}
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -502,7 +536,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git restore:*),Bash(git reset:*),Bash(git stash:*),Bash(git mv:*),Bash(git rm:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git merge:*),Bash(git cherry-pick:*),Bash(git revert:*),Bash(git fetch origin:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
 
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''
