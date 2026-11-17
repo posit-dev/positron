@@ -59,8 +59,6 @@ describe('DynamicPlotInstance', () => {
 			metadata: { id: 'plot-1', created: 0, code: '', session_id: 'session-1', name: 'My Plot' },
 			lastRender,
 			sizingPolicy,
-			intrinsicSize: undefined,
-			getIntrinsicSize: () => Promise.resolve(undefined),
 			renderWithSizingPolicy,
 			onDidCompleteRender: Event.None,
 			onDidChangeSizingPolicy: onDidChangeSizingPolicy.event,
@@ -91,17 +89,11 @@ describe('DynamicPlotInstance', () => {
 			expect(logWarn).toHaveBeenCalledWith(expect.stringContaining(message));
 		});
 
-		it('suggests a larger size, not a larger pane, when a custom size is too small', async () => {
-			renderPlot(makeFailingPlotClient(undefined, undefined, new PlotSizingPolicyCustom({ width: 100, height: 100 })));
-
-			expect(await screen.findByText(/at the '100.100 \(custom\)' size because it's too small\. Choose a larger size/)).toBeInTheDocument();
-			expect(screen.queryByText(/Try making it larger/)).not.toBeInTheDocument();
-		});
-
 		it('shows the message instead of the earlier image when a custom size fails, since resizing the pane cannot fix it', async () => {
 			renderPlot(makeFailingPlotClient(earlierRender, undefined, new PlotSizingPolicyCustom({ width: 120, height: 120 })));
 
 			expect(await screen.findByText(/at the '120.120 \(custom\)' size because it's too small\. Choose a larger size/)).toBeInTheDocument();
+			expect(screen.queryByText(/Try making it larger/)).not.toBeInTheDocument();
 			expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
 			expect(promptNotification).not.toHaveBeenCalled();
 		});
