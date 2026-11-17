@@ -22,7 +22,6 @@ ROOT="$(git rev-parse --show-toplevel)"
 PRIMARY='POSITRON_(PY|R)_VER_SEL'
 REMOTE='POSITRON_(PY|R)_REMOTE_VER_SEL'
 ENTRIES=(
-  ".github/workflows/extensions-check-nightly.yml:$PRIMARY"
   ".github/workflows/test-e2e-debian.yml:$PRIMARY"
   ".github/workflows/test-e2e-jupyter-ubuntu.yml:$PRIMARY"
   ".github/workflows/test-e2e-pyrefly.yml:$PRIMARY"
