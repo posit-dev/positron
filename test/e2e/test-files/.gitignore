@@ -3,7 +3,6 @@
 # git there, so only a .gitignore inside the workspace travels with it (the root
 # repo .gitignore does not). Without these, a leaked venv inflates SCM status and
 # flakes scm.test.ts.
-venv-creation-test/
 proj/
 .venv/
 

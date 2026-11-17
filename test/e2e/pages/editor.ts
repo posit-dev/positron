@@ -174,12 +174,32 @@ export class Editor {
 		return content;
 	}
 
+	/**
+	 * Clicks line `lineNumber` of the editor and waits for the editor to take
+	 * focus. Monaco reuses view-line elements, so their DOM order does not
+	 * follow line order; find the line by its margin line number and click the
+	 * text area at that height instead.
+	 */
 	async waitForEditorFocus(filename: string, lineNumber: number, selectorPrefix = ''): Promise<void> {
+		const page = this.code.driver.currentPage;
 		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
-		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
 		const editContext = `${editor} .native-edit-context`;
 
-		await this.code.driver.currentPage.locator(line).click();
+		const lineNumberLocator = page
+			.locator(`${editor} .margin .margin-view-overlays .line-numbers`)
+			.filter({ hasText: new RegExp(`^${lineNumber}$`) });
+		const viewLines = page.locator(`${editor} .view-lines`);
+		const lineBox = await lineNumberLocator.boundingBox();
+		const viewLinesBox = await viewLines.boundingBox();
+		if (!lineBox || !viewLinesBox) {
+			throw new Error(`Line ${lineNumber} of ${filename} is not visible`);
+		}
+		await viewLines.click({
+			position: {
+				x: viewLinesBox.width / 2,
+				y: lineBox.y - viewLinesBox.y + lineBox.height / 2,
+			},
+		});
 
 		await expect(async () => {
 			await expect(this.code.driver.currentPage.locator(editContext)).toBeFocused();
