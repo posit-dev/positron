@@ -75,6 +75,7 @@ jobs:
       branch_prefix: ${{ steps.branch-prefix.outputs.value }}
       ack_target: ${{ steps.ack.outputs.target }}
       ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
+      explore_findings: ${{ steps.findings.outputs.prompt }}
     env:
       # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
       # even though this workflow also runs as that App.
@@ -170,6 +171,61 @@ jobs:
           # claude-code-action sets up its own git auth for pushing
           persist-credentials: false
 
+      # `@claude fix finding 2` on a PR: the text of that finding from the PR's latest
+      # exploratory test. The agent cannot fetch it, since the report is on the tailnet.
+      # Only for comments in the PR conversation, where the checkout is the default branch,
+      # not the PR. The positron-builds token is in the download step's env only.
+      - name: Find the exploratory findings asked for
+        id: findings-ask
+        if: >-
+          steps.ack.outputs.duplicate != 'true' && github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request && contains(github.event.comment.body, 'finding')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR: ${{ github.event.issue.number }}
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs ask
+
+      - name: Generate positron-builds token
+        id: builds-token
+        if: steps.findings-ask.outputs.run != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: posit-dev
+          repositories: positron-builds
+          permission-actions: read
+
+      # The artifact is kept 90 days; runs from before it existed have none.
+      # Its folder holds finding-<n>.md files and too-large.txt, the ones skipped for size.
+      - name: Download the findings
+        id: findings-download
+        if: steps.builds-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.builds-token.outputs.token }}
+          RUN_ID: ${{ steps.findings-ask.outputs.run }}
+          MODEL: ${{ steps.findings-ask.outputs.model }}
+        run: bash .github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$RUNNER_TEMP/explore-findings" "explore-findings-$MODEL"
+
+      - name: Write the findings prompt
+        id: findings
+        if: steps.findings-ask.outputs.asked != ''
+        continue-on-error: true
+        env:
+          ASKED: ${{ steps.findings-ask.outputs.asked }}
+          RUN: ${{ steps.findings-ask.outputs.run }}
+          REPORT: ${{ steps.findings-ask.outputs.report }}
+          SHA: ${{ steps.findings-ask.outputs.sha }}
+          PROBLEM: ${{ steps.findings-ask.outputs.problem }}
+          TOKEN: ${{ steps.builds-token.outcome }}
+          DOWNLOADED: ${{ steps.findings-download.outcome }}
+          DIR: ${{ runner.temp }}/explore-findings
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs prompt
+
       # Determine who to assign to issues/PRs created by Claude.
       # If the triggering actor is a human, use them directly.
       # If it's a bot, fall back to the origin issue/PR's assignee or author.
@@ -225,6 +281,8 @@ jobs:
             }
           prompt: |
             ${{ env.SHARED_PROMPT }}
+
+            ${{ steps.findings.outputs.prompt }}
 
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
@@ -392,6 +450,8 @@ jobs:
             HANDOFF START
             ${{ needs.triage.outputs.handoff }}
             HANDOFF END
+
+            ${{ needs.triage.outputs.explore_findings }}
 
             Root and build/ node dependencies are installed. You can run Vitest on tests under
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
