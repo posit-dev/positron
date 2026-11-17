@@ -82,9 +82,6 @@ jobs:
       ack_target: ${{ steps.ack.outputs.target }}
       ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
     env:
-      # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
-      # even though this workflow also runs as that App.
-      ALLOWED_BOTS: "positron-projects[bot]"
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
@@ -94,18 +91,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
-          # Bots are not collaborators, so the permission lookup fails for them.
-          # Let explicitly allowed bots through; claude-code-action checks the list again.
-          if [[ ",$ALLOWED_BOTS," == *",$ACTOR,"* ]]; then
-            echo "Actor $ACTOR is an allowed bot"
-            exit 0
-          fi
-          PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          # Bots are not collaborators, so the lookup fails and they are refused. That includes
+          # positron-projects[bot], which Claude posts as, so Claude's own output cannot start a run.
+          PERMISSION=$(gh api "/repos/${GITHUB_REPOSITORY}/collaborators/${ACTOR}/permission" --jq '.permission')
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
-            echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
+            echo "::error::Actor $ACTOR has '$PERMISSION' permission, requires 'write' or 'admin'"
             exit 1
           fi
-          echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+          echo "Actor $ACTOR authorized with '$PERMISSION' permission"
 
       # On a fork PR, claude-code-action checks out the fork's code, and the build job runs its
       # npm scripts and tests with the App token in reach. Refuse forks before the token exists.
@@ -263,7 +256,6 @@ jobs:
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
           # triggering comment and the issue context. track_progress forces tag mode.
           track_progress: true
@@ -358,7 +350,6 @@ jobs:
       issues: write
       id-token: write
     env:
-      ALLOWED_BOTS: "positron-projects[bot]"
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       - name: Generate token for GitHub App
@@ -443,7 +434,6 @@ jobs:
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           track_progress: true
           # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
