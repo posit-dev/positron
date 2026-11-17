@@ -29,6 +29,7 @@ import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '..
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
 import { PositronAssistantService } from '../../../positronAssistant/browser/positronAssistantService.js';
+import { findStoredSizingPolicy } from '../../browser/positronPlotsService.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -242,6 +243,15 @@ describe('Positron - Plots Service', () => {
 		const stored = storageService.get(`positron.plot.${session.sessionId}.plot1.${PlotClientLocation.Editor}`, StorageScope.WORKSPACE);
 		plotsService.removeEditorPlot('plot1');
 		expect(JSON.parse(stored!).sizing_policy.id).toBe('square');
+	});
+
+	it('sizing policy: a stored custom size keeps its own width and height', () => {
+		plotsService.setCustomPlotSize({ width: 500, height: 200 });
+
+		const policy = findStoredSizingPolicy({ id: 'custom', size: { width: 300, height: 500 } }, plotsService.sizingPolicies);
+
+		expect(policy?.getPlotSize({ width: 800, height: 600 })).toEqual({ width: 300, height: 500 });
+		expect(findStoredSizingPolicy({ id: 'square' }, plotsService.sizingPolicies)?.id).toBe('square');
 	});
 
 	it('selection: select plot', async () => {
