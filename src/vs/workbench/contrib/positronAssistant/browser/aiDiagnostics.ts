@@ -541,10 +541,12 @@ export function featureState(presence: AIDiagnosticsExtensionPresence, value: un
 }
 
 /**
- * Renders the chat view's state. The setting alone can't show the view:
- * Positron doesn't ship a chat agent, so with the setting on and no extension
- * providing a default chat agent, the view still doesn't appear. Say so rather
- * than reporting plain "Enabled".
+ * Renders the chat view's state. The setting alone can't make the view work:
+ * Positron doesn't ship a chat agent, so with the setting on, chat needs an
+ * extension that has registered a default chat agent. That's missing when no
+ * chat extension is installed, and also when one is installed but hasn't
+ * registered its agent (for example, Copilot Chat while signed out). Say so
+ * rather than reporting plain "Enabled".
  * @param settingAllowsChat Whether `chat.disableAIFeatures` is anything but `true`.
  * @param hasChatAgent Whether a default chat agent is registered for the chat view.
  */
@@ -552,7 +554,7 @@ export function describeChatViewState(settingAllowsChat: boolean, hasChatAgent: 
 	if (!settingAllowsChat) {
 		return describeFeatureToggle(false);
 	}
-	return hasChatAgent ? describeFeatureToggle(true) : 'Enabled, but no chat agent is installed';
+	return hasChatAgent ? describeFeatureToggle(true) : 'Enabled, but no chat agent is available';
 }
 
 /** The activation fields of `IExtensionsStatus` that the report renders. */

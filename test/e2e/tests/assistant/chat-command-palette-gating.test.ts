@@ -20,8 +20,9 @@ test.use({
  * a "Chat: " prefix (see commandsQuickAccess.ts "commandWithCategory").
  *
  * Positron does not ship a chat extension, so the commands checked here are the
- * ones core contributes. Commands that a third-party agent or participant
- * contributes are gated by its own `when` clauses on the same context keys.
+ * ones core contributes. Commands a user-installed chat extension contributes are
+ * gated only by that extension's own `when` clauses; Positron doesn't add these
+ * switches to them, and Copilot Chat lists several with neither switch.
  *
  * Both switches are covered: an earlier version only flipped `chat.disableAIFeatures`,
  * so an `ai.enabled = false` regression (commands still showing) went uncaught.

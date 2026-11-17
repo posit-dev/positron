@@ -419,7 +419,7 @@ describe('describeChatViewState', () => {
 		}).toEqual({
 			settingOff: 'Disabled',
 			settingOffWithAgent: 'Disabled',
-			noAgent: 'Enabled, but no chat agent is installed',
+			noAgent: 'Enabled, but no chat agent is available',
 			withAgent: 'Enabled',
 		});
 	});
