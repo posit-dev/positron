@@ -21,6 +21,7 @@ import { canViewVariableItem, opensInObjectExplorer, viewVariableItem } from '..
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
+import { VariableKind } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -145,6 +146,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	}, [props.variableItem]);
 
 	const hasViewer = canViewVariableItem(props.variableItem);
+	const isFunction = props.variableItem.kind === VariableKind.Function;
 
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
@@ -427,7 +429,7 @@ export const VariableItem = (props: VariableItemProps) => {
 					></div>
 				</div>
 			);
-		} else if (props.rightColumnVisible) {
+		} else if (!isFunction && props.rightColumnVisible) {
 			if (props.positronVariablesInstance.sorting === PositronVariablesSorting.Size) {
 				return (
 					<div className='right-column'>
@@ -447,9 +449,12 @@ export const VariableItem = (props: VariableItemProps) => {
 	};
 
 	// Render.
+	const nameColumnStyle = isFunction ?
+		{ flex: '1 1 0', minWidth: 0 } :
+		{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth };
 	return (
 		<div className={classNames} style={props.style} onDoubleClick={isViewLoading ? undefined : doubleClickHandler} onMouseDown={mouseDownHandler}>
-			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
+			<div className='name-column' style={nameColumnStyle}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} >
@@ -466,16 +471,20 @@ export const VariableItem = (props: VariableItemProps) => {
 					</div>
 				</div>
 			</div>
-			<VerticalSplitter
-				onBeginResize={props.onBeginResizeNameColumn}
-				onResize={props.onResizeNameColumn}
-			/>
-			<div className='details-column' style={{ width: props.detailsColumnWidth - 6, minWidth: props.detailsColumnWidth - 6 }}>
-				<div className='value'>
-					{props.variableItem.displayValue}
-				</div>
-				<RightColumn />
-			</div>
+			{isFunction ? <RightColumn /> : (
+				<>
+					<VerticalSplitter
+						onBeginResize={props.onBeginResizeNameColumn}
+						onResize={props.onResizeNameColumn}
+					/>
+					<div className='details-column' style={{ width: props.detailsColumnWidth - 6, minWidth: props.detailsColumnWidth - 6 }}>
+						<div className='value'>
+							{props.variableItem.displayValue}
+						</div>
+						<RightColumn />
+					</div>
+				</>
+			)}
 		</div>
 	);
 };
