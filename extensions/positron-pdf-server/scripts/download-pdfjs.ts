@@ -32,12 +32,21 @@ import * as yauzl from 'yauzl';
 const scriptDir = __dirname;
 const extensionDir = path.dirname(scriptDir);
 const targetDir = path.join(extensionDir, 'pdfjs-dist');
-const stagingDir = path.join(extensionDir, 'pdfjs-dist.partial');
 const tempZip = path.join(extensionDir, 'pdfjs-temp.zip');
 
 /**
- * Files the extension serves or the viewer loads at startup. If any is missing
- * after extraction, the viewer is broken, so the install fails.
+ * Written into `targetDir` after a complete, verified extraction, holding the
+ * PDF.js version. A viewer without it (an interrupted run) or with another
+ * version (pdfjs-dist was bumped) is downloaded again.
+ */
+const versionMarker = path.join(targetDir, '.pdfjs-version');
+
+/** Retries for removals that a scanner holding a file open can fail on Windows. */
+const rmOptions: fs.RmOptions = { recursive: true, force: true, maxRetries: 5 };
+
+/**
+ * A few files the viewer cannot start without. A missing one means the
+ * archive layout changed or extraction failed, so the install fails.
  */
 const requiredFiles = [
 	'web/viewer.html',
@@ -100,18 +109,42 @@ function verifyViewer(dir: string): void {
 	}
 }
 
-async function main(): Promise<void> {
-	// Check if the PDF.js viewer is already downloaded. The viewer is moved into
-	// place only after it is complete, so a present viewer.html means a full copy.
-	if (fs.existsSync(path.join(targetDir, 'web', 'viewer.html'))) {
-		console.log('PDF.js viewer has already been downloaded. Skipping download.');
-		return;
+/**
+ * True if `targetDir` holds a complete viewer of `version` from an earlier run.
+ */
+function isViewerCurrent(version: string): boolean {
+	try {
+		if (fs.readFileSync(versionMarker, 'utf8').trim() !== version) {
+			return false;
+		}
+		verifyViewer(targetDir);
+		return true;
+	} catch {
+		return false;
 	}
+}
 
+/**
+ * Remove `target` without letting a cleanup failure hide the error that led to it.
+ */
+async function removeBestEffort(target: string): Promise<void> {
+	try {
+		await fs.promises.rm(target, rmOptions);
+	} catch (err) {
+		console.warn(`Could not remove ${target}:`, err);
+	}
+}
+
+async function main(): Promise<void> {
 	// Read version from package.json so we stay in sync with the installed version of pdfjs-dist.
 	const packageJsonPath = path.join(extensionDir, 'package.json');
 	const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 	const version = packageData.devDependencies['pdfjs-dist'].replace(/[^0-9.]/g, '');
+
+	if (isViewerCurrent(version)) {
+		console.log(`PDF.js v${version} viewer has already been downloaded. Skipping download.`);
+		return;
+	}
 
 	// Download and extract (legacy dist for Electron compatibility).
 	const url = `https://github.com/mozilla/pdf.js/releases/download/v${version}/pdfjs-${version}-legacy-dist.zip`;
@@ -120,18 +153,19 @@ async function main(): Promise<void> {
 	try {
 		await downloadFile(url, tempZip);
 
-		// Extract into a staging directory and move it into place only once it
-		// is complete, so an interrupted run never leaves a half-extracted viewer.
-		await fs.promises.rm(stagingDir, { recursive: true, force: true });
-		const fileCount = await extractZip(tempZip, stagingDir);
-		verifyViewer(stagingDir);
-
-		await fs.promises.rm(targetDir, { recursive: true, force: true });
-		await fs.promises.rename(stagingDir, targetDir);
+		// Start from an empty directory, so no file from another version or an
+		// interrupted run survives. The version marker goes in last.
+		await fs.promises.rm(targetDir, rmOptions);
+		const fileCount = await extractZip(tempZip, targetDir);
+		verifyViewer(targetDir);
+		await fs.promises.writeFile(versionMarker, version);
 		console.log(`PDF.js viewer downloaded successfully to ${targetDir} (${fileCount} files)`);
+	} catch (err) {
+		// Don't leave a partial viewer behind for packaging to pick up.
+		await removeBestEffort(targetDir);
+		throw err;
 	} finally {
-		await fs.promises.rm(tempZip, { force: true });
-		await fs.promises.rm(stagingDir, { recursive: true, force: true });
+		await removeBestEffort(tempZip);
 	}
 }
 

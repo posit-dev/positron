@@ -1,4 +1,3 @@
 # Build artifacts copied from node_modules during build
 pdfjs-dist/
-pdfjs-dist.partial/
 pdfjs-temp.zip
