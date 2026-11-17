@@ -40,6 +40,7 @@ describe('DynamicPlotInstance', () => {
 	const selectSizingPolicy = vi.fn();
 	// Describe-level so each plot client stub shares the same event.
 	const onDidChangeSizingPolicy = new Emitter<IPositronPlotSizingPolicy>();
+	const onDidFailRenderUpdate = new Emitter<Error>();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -52,16 +53,23 @@ describe('DynamicPlotInstance', () => {
 
 	const renderWithSizingPolicy = vi.fn();
 	const earlierRender: IRenderedPlot = { uri: 'data:image/png;base64,earlier', pixel_ratio: 1, renderTimeMs: 0 };
+	// Set when R changed the plot and that render failed, so the earlier image lacks the change.
+	let lastRenderStale = false;
+	beforeEach(() => {
+		lastRenderStale = false;
+	});
 
 	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
 		renderWithSizingPolicy.mockRejectedValue(error);
 		return stubInterface<PlotClientInstance>({
 			metadata: { id: 'plot-1', created: 0, code: '', session_id: 'session-1', name: 'My Plot' },
 			lastRender,
+			get lastRenderStale() { return lastRenderStale; },
 			sizingPolicy,
 			renderWithSizingPolicy,
 			onDidCompleteRender: Event.None,
 			onDidChangeSizingPolicy: onDidChangeSizingPolicy.event,
+			onDidFailRenderUpdate: onDidFailRenderUpdate.event,
 			onDidChangeState: Event.None,
 		});
 	}
@@ -203,6 +211,18 @@ describe('DynamicPlotInstance', () => {
 			expect(screen.getByText(/plot area is too small/)).toBeInTheDocument();
 		});
 
+		it('shows only the pane message when the user picks a size that fails after a custom size failed', async () => {
+			renderPlot(makeFailingPlotClient(earlierRender));
+			await vi.waitFor(() => expect(logWarn).toHaveBeenCalled());
+			act(() => onDidChangeSizingPolicy.fire(new PlotSizingPolicyCustom({ width: 120, height: 120 })));
+			expect(await screen.findByText(/Choose a larger size/)).toBeInTheDocument();
+
+			act(() => onDidChangeSizingPolicy.fire(new PlotSizingPolicyFill()));
+
+			expect(await screen.findByText(/plot area is too small\. Try making it larger/)).toBeInTheDocument();
+			expect(promptNotification).not.toHaveBeenCalled();
+		});
+
 		it.each([
 			['it starts on', false],
 			['the user picks', true],
@@ -231,6 +251,54 @@ describe('DynamicPlotInstance', () => {
 			expect(screen.getByText('Rendering plot')).toBeInTheDocument();
 			expect(screen.queryByText(/Couldn't render/)).not.toBeInTheDocument();
 			expect(logWarn).not.toHaveBeenCalled();
+		});
+
+		it('shows the message when R redraws the plot and that render fails (#8049)', async () => {
+			// R's redraw cancels the pane's own render.
+			renderPlot(makeFailingPlotClient(undefined, new CancellationError()));
+			await vi.waitFor(() => expect(renderWithSizingPolicy).toHaveBeenCalled());
+
+			act(() => onDidFailRenderUpdate.fire(new Error(R_MARGINS_ERROR)));
+
+			expect(await screen.findByText(/plot area is too small\. Try making it larger/)).toBeInTheDocument();
+			expect(promptNotification).not.toHaveBeenCalled();
+		});
+
+		describe('after R changes the plot and that render fails', () => {
+			it('shows the message, not the image from before the change', async () => {
+				renderPlot(makeFailingPlotClient(earlierRender, new CancellationError()));
+				await vi.waitFor(() => expect(renderWithSizingPolicy).toHaveBeenCalled());
+				expect(screen.getByRole('img', { name: 'My Plot' })).toBeInTheDocument();
+
+				lastRenderStale = true;
+				act(() => onDidFailRenderUpdate.fire(new Error(R_MARGINS_ERROR)));
+
+				expect(await screen.findByText(/plot area is too small/)).toBeInTheDocument();
+				expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
+				expect(promptNotification).not.toHaveBeenCalled();
+			});
+
+			it('waits without the image from before the change', () => {
+				lastRenderStale = true;
+				const plotClient = makeFailingPlotClient(earlierRender);
+				renderWithSizingPolicy.mockReturnValue(new Promise(() => { }));
+				renderPlot(plotClient);
+
+				expect(screen.getByText('Rendering plot')).toBeInTheDocument();
+				expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
+			});
+
+			it('shows only the pane message, no popup, when a picked size fails too', async () => {
+				lastRenderStale = true;
+				renderPlot(makeFailingPlotClient(earlierRender));
+				expect(await screen.findByText(/plot area is too small/)).toBeInTheDocument();
+
+				act(() => onDidChangeSizingPolicy.fire(new PlotSizingPolicyFill()));
+
+				await vi.waitFor(() => expect(logWarn).toHaveBeenCalledWith(expect.stringContaining('Fill')));
+				expect(screen.getByText(/plot area is too small/)).toBeInTheDocument();
+				expect(promptNotification).not.toHaveBeenCalled();
+			});
 		});
 	});
 });

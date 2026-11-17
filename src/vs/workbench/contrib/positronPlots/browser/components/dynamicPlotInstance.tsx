@@ -87,6 +87,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState<RenderError | undefined>(undefined);
 	const progressRef = React.useRef<HTMLDivElement>(null);
+	// The render effect's callbacks outlive a render, so they read the shown image from here.
+	const uriRef = React.useRef(uri);
+	useEffect(() => {
+		uriRef.current = uri;
+	}, [uri]);
 	const plotName = props.plotClient.metadata.name ? props.plotClient.metadata.name : 'Plot ' + props.plotClient.id;
 
 	useEffect(() => {
@@ -103,10 +108,33 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		// Clear any message from an earlier size; this render may succeed.
 		setError(undefined);
 
-		// If the plot is already rendered, use the old image until the new one is ready.
+		// If the plot is already rendered, use the old image until the new one is
+		// ready, unless it lacks the runtime's last change.
 		if (props.plotClient.lastRender) {
-			setUri(props.plotClient.lastRender.uri);
+			setUri(props.plotClient.lastRenderStale ? '' : props.plotClient.lastRender.uri);
 		}
+
+		const showRenderError = (e: any, policy: IPositronPlotSizingPolicy, reportErrors: boolean) => {
+			// Renders run on every resize, so log instead of notifying.
+			const policyName = policy.getName(props.plotClient);
+			services.logService.warn(`Error rendering plot to '${policyName}' size: ${e.message}${e.code !== undefined ? ` (${e.code})` : ''}`);
+			const renderError: RenderError = {
+				tooSmall: isPlotTooSmallError(String(e.message)),
+				customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
+			};
+			setError(renderError);
+			if (renderError.customSize !== undefined || props.plotClient.lastRenderStale) {
+				// Show the message, not the old image: resizing can't fix a custom size,
+				// and an out-of-date image would hide the user's last change.
+				setUri('');
+			} else if (reportErrors && uriRef.current) {
+				// The user picked this size, and the old image hides the failure, so tell them.
+				services.notificationService.prompt(Severity.Warning, renderErrorMessage(renderError, policyName), [{
+					label: localize('positronPlots.showLogs', "Show Logs"),
+					run: () => services.commandService.executeCommand(showWindowLogActionId)
+				}]);
+			}
+		};
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
 		const render = async (policy: IPositronPlotSizingPolicy, reportErrors = false) => {
@@ -123,24 +151,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				if (disposed || isCancellationError(e)) {
 					return;
 				}
-				// Renders run on every resize, so log instead of notifying.
-				const policyName = policy.getName(props.plotClient);
-				services.logService.warn(`Error rendering plot to '${policyName}' size: ${e.message}${e.code !== undefined ? ` (${e.code})` : ''}`);
-				const renderError: RenderError = {
-					tooSmall: isPlotTooSmallError(String(e.message)),
-					customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
-				};
-				setError(renderError);
-				if (renderError.customSize !== undefined) {
-					// Resizing the pane can't fix a custom size, so drop the old image to show the message.
-					setUri('');
-				} else if (reportErrors && props.plotClient.lastRender) {
-					// The user picked this size, and the old image hides the failure, so tell them.
-					services.notificationService.prompt(Severity.Warning, renderErrorMessage(renderError, policyName), [{
-						label: localize('positronPlots.showLogs', "Show Logs"),
-						run: () => services.commandService.executeCommand(showWindowLogActionId)
-					}]);
-				}
+				showRenderError(e, policy, reportErrors);
 			}
 		};
 
@@ -150,6 +161,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		// When the plot is rendered, update the URI.
 		disposables.add(props.plotClient.onDidCompleteRender((result) => {
 			setUri(result.uri);
+		}));
+
+		// An update from the runtime cancels our render, so its failure arrives here instead (#8049).
+		disposables.add(props.plotClient.onDidFailRenderUpdate((e) => {
+			showRenderError(e, props.plotClient.sizingPolicy, false);
 		}));
 
 		// Re-render if the sizing policy changes.

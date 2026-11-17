@@ -96,6 +96,52 @@ describe('Positron - PlotClientInstance', () => {
 		expect(queued.renderRequest.size).toEqual({ width: 200, height: 200 });
 	});
 
+	it('reports a failed update that replaced a render still in flight', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA') });
+		const failures: string[] = [];
+		disposables.add(client.onDidFailRenderUpdate(err => failures.push(err.message)));
+
+		// The pane asks for a size, then R redraws the plot before that render returns.
+		const paneRender = client.render({ width: 300, height: 50 }, 1);
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		renderUpdateEmitter.fire({});
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(2));
+
+		// The update replaces the pane's render, so the pane hears about it only through the event.
+		await expect(paneRender).rejects.toThrow('Canceled');
+		renderSpy.mock.calls[1][0].error(new Error('figure margins too large'));
+
+		await vi.waitFor(() => expect(failures).toEqual(['figure margins too large']));
+	});
+
+	it('draws again at the last size after an update from R fails, until a draw succeeds', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA') });
+		// The pane reads the flag in its listener, so it must be set before the event fires.
+		const staleWhenFailed: boolean[] = [];
+		disposables.add(client.onDidFailRenderUpdate(() => staleWhenFailed.push(client.lastRenderStale)));
+
+		// R redraws the plot and that render fails, so the saved image is out of date.
+		renderUpdateEmitter.fire({});
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		renderSpy.mock.calls[0][0].error(new Error('figure margins too large'));
+		await vi.waitFor(() => expect(staleWhenFailed).toEqual([true]));
+
+		// Asking for the saved image's size must ask R again, not reuse the old image.
+		const redraw = client.render({ width: 100, height: 100 }, 1);
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(2));
+		const current: IRenderedPlot = {
+			uri: 'data:image/png;base64,CCCC', size: { width: 100, height: 100 },
+			pixel_ratio: 1, format: PlotRenderFormat.Png, renderTimeMs: 0,
+		};
+		renderSpy.mock.calls[1][0].complete(current);
+		await redraw;
+
+		// Once a draw succeeds, the same size is served from the saved image again.
+		expect(client.lastRenderStale).toBe(false);
+		await expect(client.render({ width: 100, height: 100 }, 1)).resolves.toBe(current);
+		expect(renderSpy).toHaveBeenCalledTimes(2);
+	});
+
 	it('draws a plot on Intrinsic with no intrinsic size at the Auto size', async () => {
 		const client = createPlotClient({}, new PlotSizingPolicyIntrinsic());
 
