@@ -11,119 +11,131 @@
  * (pdf.mjs, pdf_viewer.mjs, etc.) - it does NOT include the full viewer application
  * (viewer.html, viewer.css, locale files, etc.). The complete viewer must be downloaded
  * separately from GitHub releases, which is what this script does. The viewer is downloaded
- * as a zip file, extracted, and the relevant files are copied to the extension's pdfjs-dist
- * directory. This directory is .gitignored so that we don't accidentally commit the large
- * viewer files to the repository.
+ * as a zip file and extracted to the extension's pdfjs-dist directory. This directory is
+ * .gitignored so that we don't accidentally commit the large viewer files to the repository.
+ *
+ * The zip is extracted in Node with yauzl rather than with a platform tool. PowerShell's
+ * Expand-Archive failed on the Windows arm64 build runners (it loaded the PowerShell 7
+ * archive module into Windows PowerShell) without failing the script, so those builds
+ * shipped the extension without the viewer.
  *
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as https from 'https';
-import { execSync } from 'child_process';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
+import { promisify } from 'util';
+import * as yauzl from 'yauzl';
 
 // Determine paths.
 const scriptDir = __dirname;
 const extensionDir = path.dirname(scriptDir);
 const targetDir = path.join(extensionDir, 'pdfjs-dist');
-const viewerHtml = path.join(targetDir, 'web', 'viewer.html');
-
-// Check if the PDF.js viewer is already downloaded.
-if (fs.existsSync(viewerHtml)) {
-	console.log('PDF.js viewer has already been downloaded. Skipping download.');
-	process.exit(0);
-}
-
-// Read version from package.json so we stay in sync with the installed version of pdfjs-dist.
-const packageJsonPath = path.join(extensionDir, 'package.json');
-const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const version = packageData.devDependencies['pdfjs-dist'].replace(/[^0-9.]/g, '');
-
-// Log the version being downloaded for clarity.
-console.log(`Downloading PDF.js v${version} legacy viewer...`);
-
-// Download and extract (legacy dist for Electron compatibility).
-const url = `https://github.com/mozilla/pdf.js/releases/download/v${version}/pdfjs-${version}-legacy-dist.zip`;
+const stagingDir = path.join(extensionDir, 'pdfjs-dist.partial');
 const tempZip = path.join(extensionDir, 'pdfjs-temp.zip');
 
-// Download the zip file.
-async function downloadFile(): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const file = fs.createWriteStream(tempZip);
+/**
+ * Files the extension serves or the viewer loads at startup. If any is missing
+ * after extraction, the viewer is broken, so the install fails.
+ */
+const requiredFiles = [
+	'web/viewer.html',
+	'web/viewer.mjs',
+	'web/viewer.css',
+	'build/pdf.mjs',
+	'build/pdf.worker.mjs',
+];
 
-		const handleResponse = (response: any) => {
-			response.pipe(file);
-			file.on('finish', () => {
-				file.close((err) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve();
-					}
-				});
-			});
-			file.on('error', (err) => {
-				fs.unlinkSync(tempZip);
-				reject(err);
-			});
-		};
-
-		https.get(url, (response) => {
-			if (response.statusCode === 302 || response.statusCode === 301) {
-				// Consume the redirect response body to prevent 30-second timeout.
-				response.resume();
-				// Follow redirect
-				https.get(response.headers.location!, handleResponse).on('error', (err) => {
-					fs.unlinkSync(tempZip);
-					reject(err);
-				});
-			} else {
-				handleResponse(response);
-			}
-		}).on('error', (err) => {
-			fs.unlinkSync(tempZip);
-			reject(err);
-		});
-	});
+/**
+ * Download `url` to `dest`, following redirects. Throws on a non-2xx response.
+ */
+async function downloadFile(url: string, dest: string): Promise<void> {
+	const response = await fetch(url);
+	if (!response.ok || !response.body) {
+		throw new Error(`Download of ${url} failed: HTTP ${response.status} ${response.statusText}`);
+	}
+	await pipeline(Readable.fromWeb(response.body as import('stream/web').ReadableStream), fs.createWriteStream(dest));
 }
 
 /**
- * Extracts the downloaded zip file and cleans up the temporary file. Uses platform-specific commands:
+ * Extract every entry of a zip file into `destDir` and return the number of
+ * files written. yauzl rejects entries with absolute paths or `..` segments.
  */
-function extractAndCleanup() {
-	// Extract the zip file using platform-specific commands.
-	// On Windows, use PowerShell's Expand-Archive; on Unix, use unzip.
-	try {
-		if (process.platform === 'win32') {
-			execSync(`powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path '${tempZip}' -DestinationPath '${targetDir}' -Force"`, {
-				stdio: 'inherit'
-			});
-		} else {
-			if (!fs.existsSync(targetDir)) {
-				fs.mkdirSync(targetDir, { recursive: true });
+async function extractZip(zipPath: string, destDir: string): Promise<number> {
+	const zipfile = await promisify<string, yauzl.Options, yauzl.ZipFile>(yauzl.open)(zipPath, { lazyEntries: true });
+	const openReadStream = promisify((entry: yauzl.Entry, callback: (err: Error | null, stream: Readable) => void) => zipfile.openReadStream(entry, callback));
+	let fileCount = 0;
+	await new Promise<void>((resolve, reject) => {
+		zipfile.on('error', reject);
+		zipfile.on('end', () => resolve());
+		zipfile.on('entry', async (entry: yauzl.Entry) => {
+			try {
+				const dest = path.join(destDir, entry.fileName);
+				if (entry.fileName.endsWith('/')) {
+					await fs.promises.mkdir(dest, { recursive: true });
+				} else {
+					await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+					await pipeline(await openReadStream(entry), fs.createWriteStream(dest));
+					fileCount++;
+				}
+				zipfile.readEntry();
+			} catch (err) {
+				zipfile.close();
+				reject(err);
 			}
-			execSync(`unzip -q "${tempZip}" -d "${targetDir}"`, {
-				stdio: 'inherit'
-			});
-		}
-		// Remove the temporary zip file.
-		fs.unlinkSync(tempZip);
+		});
+		zipfile.readEntry();
+	});
+	return fileCount;
+}
 
-		// Log success message.
-		console.log(`PDF.js viewer downloaded successfully to ${targetDir}`);
-	} catch (error) {
-		// Clean up on error
-		if (fs.existsSync(tempZip)) {
-			fs.unlinkSync(tempZip);
-		}
-		throw error;
+/**
+ * Throw if any required viewer file is missing from `dir`.
+ */
+function verifyViewer(dir: string): void {
+	const missing = requiredFiles.filter(file => !fs.existsSync(path.join(dir, file)));
+	if (missing.length > 0) {
+		throw new Error(`PDF.js viewer is incomplete; missing ${missing.join(', ')} in ${dir}`);
 	}
 }
 
-// Download and then extract
-downloadFile()
-	.then(() => extractAndCleanup())
-	.catch((err) => {
-		console.error('Error downloading PDF.js viewer:', err);
-		process.exit(1);
-	});
+async function main(): Promise<void> {
+	// Check if the PDF.js viewer is already downloaded. The viewer is moved into
+	// place only after it is complete, so a present viewer.html means a full copy.
+	if (fs.existsSync(path.join(targetDir, 'web', 'viewer.html'))) {
+		console.log('PDF.js viewer has already been downloaded. Skipping download.');
+		return;
+	}
+
+	// Read version from package.json so we stay in sync with the installed version of pdfjs-dist.
+	const packageJsonPath = path.join(extensionDir, 'package.json');
+	const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+	const version = packageData.devDependencies['pdfjs-dist'].replace(/[^0-9.]/g, '');
+
+	// Download and extract (legacy dist for Electron compatibility).
+	const url = `https://github.com/mozilla/pdf.js/releases/download/v${version}/pdfjs-${version}-legacy-dist.zip`;
+	console.log(`Downloading PDF.js v${version} legacy viewer...`);
+
+	try {
+		await downloadFile(url, tempZip);
+
+		// Extract into a staging directory and move it into place only once it
+		// is complete, so an interrupted run never leaves a half-extracted viewer.
+		await fs.promises.rm(stagingDir, { recursive: true, force: true });
+		const fileCount = await extractZip(tempZip, stagingDir);
+		verifyViewer(stagingDir);
+
+		await fs.promises.rm(targetDir, { recursive: true, force: true });
+		await fs.promises.rename(stagingDir, targetDir);
+		console.log(`PDF.js viewer downloaded successfully to ${targetDir} (${fileCount} files)`);
+	} finally {
+		await fs.promises.rm(tempZip, { force: true });
+		await fs.promises.rm(stagingDir, { recursive: true, force: true });
+	}
+}
+
+main().catch(err => {
+	console.error('Error downloading PDF.js viewer:', err);
+	process.exit(1);
+});
