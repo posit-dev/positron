@@ -7,7 +7,6 @@ import webbrowser
 from pathlib import Path
 
 import altair as alt
-import pandas as pd
 import pytest
 
 from positron.patch.altair import RENDERER_NAME, patch_altair_renderer
@@ -32,7 +31,7 @@ def test_chart_is_written_to_html_file(opened_urls):
     alt.renderers.enable("default")
     patch_altair_renderer(SessionMode.CONSOLE)
 
-    chart = alt.Chart(pd.DataFrame({"x": [1, 2]})).mark_point().encode(x="x")
+    chart = alt.Chart(alt.Data(values=[{"x": 1}, {"x": 2}])).mark_point().encode(x="x:Q")
     bundle = chart._repr_mimebundle_()
 
     assert len(opened_urls) == 1
