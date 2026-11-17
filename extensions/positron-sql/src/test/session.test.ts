@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { ConnectionRef } from '../schema';
-import { SessionApi, SqlSession } from '../session';
+import { isSqlDocument, SessionApi, SqlSession } from '../session';
 import { testLog, TEST_DRIVER } from './support';
 
 const Kind = positron.DataConnectionNodeKind;
@@ -272,6 +272,14 @@ suite('SqlSession', () => {
 
 		const renamed = vscode.workspace.textDocuments.find(document => document.uri.toString() === after.toString())!;
 		assert.strictEqual(resolved(session, renamed), 'connection:a');
+	});
+
+	test('ggsql documents are read as SQL, and other languages are not', () => {
+		// Not opened as a document: no extension in the test host contributes the ggsql language.
+		const language = (languageId: string) => ({ languageId }) as vscode.TextDocument;
+		assert.ok(isSqlDocument(language('sql')));
+		assert.ok(isSqlDocument(language('ggsql')));
+		assert.ok(!isSqlDocument(language('python')));
 	});
 
 	/** Which open connection a document resolves to, by profile, or the kind of nothing it has. */

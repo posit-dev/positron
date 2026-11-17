@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { dialectOfDriver, supportsSql } from '../dialects';
+import { dialectOfConnectUri, dialectOfDriver, supportsSql } from '../dialects';
 
 suite('dialectOfDriver', () => {
 
@@ -54,5 +54,22 @@ suite('supportsSql', () => {
 		// Far likelier than not being one, and guessing the other way leaves a user with no
 		// completions and nothing said about why.
 		assert.strictEqual(supportsSql('com.example.my-database'), true);
+	});
+});
+
+suite('dialectOfConnectUri', () => {
+
+	test('a ggsql connection URI names its database in its scheme', () => {
+		assert.deepStrictEqual(
+			['duckdb://data.db', 'sqlite://x.sqlite', 'postgres://host/db', 'mssql://host/db', 'snowflake://acct'].map(dialectOfConnectUri),
+			['duckdb', 'sqlite', 'postgres', 'tsql', 'snowflake'],
+		);
+	});
+
+	test('a cached database is read by its cache, and a scheme that names no database by none', () => {
+		assert.deepStrictEqual(
+			['duckdb+postgres://host/db', 'odbc://Driver={x}', 'not a uri', ''].map(dialectOfConnectUri),
+			['duckdb', '', '', ''],
+		);
 	});
 });

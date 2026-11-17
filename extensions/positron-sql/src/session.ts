@@ -9,8 +9,9 @@ import * as vscode from 'vscode';
 import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer';
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
-import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
+import { baseDirectoryOf, connectIn, declaredConnect, isGgsqlCell, isQuartoCell, isQuartoCopy, laterCellsOf, normalizeConnect } from './connect';
+import { defaultSchemaOf, dialectOfConnectUri, dialectOfDriver } from './dialects';
+import { ConnectCode, errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, GGSQL_LANGUAGE_ID, positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -53,8 +54,16 @@ const ANALYZER_MODULE = path.join('resources', 'sql-analyzer.wasm');
 /** What a file with no connection to draw on completes against, which is keywords only. */
 const NO_SCHEMA = new SchemaIndex();
 
+/**
+ * The languages this extension reads: SQL, and ggsql, which is SQL with a `VISUALISE` clause on
+ * the end (the analyzer stops at it). ggsql's own extension asks users to map `*.sql` to `ggsql`,
+ * and a Quarto document's `{ggsql}` cells are ggsql, so leaving it out would switch everything off
+ * for exactly the SQL that can be run and rendered.
+ */
+const SQL_LANGUAGES: ReadonlySet<string> = new Set(['sql', GGSQL_LANGUAGE_ID]);
+
 /** Documents this extension provides features for: every SQL document, whatever its scheme. */
-const SQL_DOCUMENTS: vscode.DocumentSelector = { language: 'sql' };
+const SQL_DOCUMENTS: vscode.DocumentSelector = [...SQL_LANGUAGES].map(language => ({ language }));
 
 /**
  * Schemes whose documents are another view of a file rather than one to fix: the left side of a
@@ -246,11 +255,27 @@ export class SqlSession implements vscode.Disposable {
 	/** The document link provider's registration; see {@link _relink}. */
 	private _links: vscode.Disposable | undefined;
 
+	/**
+	 * Which data connection each `@connect` URI is, by the URI in the form it is compared in (see
+	 * `normalizeConnect`): what a ggsql document that names its database is matched against.
+	 *
+	 * Built from the ggsql code each driver writes for its connections, because that is the only
+	 * place the two meet: a profile holds its parameters, not a URI. Asked for only once a ggsql
+	 * document names a database, and dropped with every schema read, since a connection may have
+	 * been added, removed or edited since.
+	 */
+	private _connectIndex: ReadonlyMap<string, string> | undefined;
+
+	/** Whether {@link _connectIndex} is being built, so that it is built once rather than per request. */
+	private _indexing = false;
+
 	constructor(
 		private readonly _context: SessionContext,
 		private readonly _log: SqlLog,
 		private readonly _api: SessionApi = positron.dataConnections,
 		private readonly _changeDelayMs = CONNECTION_CHANGE_DELAY_MS,
+		private readonly _connectCode: (profileId: string) => Thenable<ConnectCode> =
+			profileId => positronExecutionApi().getConnectCode(profileId),
 	) {
 		this._reader = new SchemaReader(_log, _api, undefined, () =>
 			vscode.workspace.getConfiguration().get<boolean>(DATA_CONNECTIONS_ENABLED_SETTING) !== false);
@@ -278,7 +303,7 @@ export class SqlSession implements vscode.Disposable {
 			vscode.languages.registerCompletionItemProvider(
 				SQL_DOCUMENTS,
 				new SqlCompletionItemProvider(document => ({
-					analyzer: this._require(),
+					analyzer: isQuartoCopy(document) ? undefined : this._require(),
 					schema: this._schemaFor(document),
 					dialect: this._dialectFor(document),
 					keywords: this._keywordList(),
@@ -292,8 +317,9 @@ export class SqlSession implements vscode.Disposable {
 			),
 
 			vscode.languages.registerHoverProvider(SQL_DOCUMENTS, {
-				provideHover: (document, position) =>
-					hoverFor(document, position, this._analyze(document), this._schemaFor(document)),
+				provideHover: (document, position) => isQuartoCopy(document)
+					? undefined
+					: hoverFor(document, position, this._analyze(document), this._schemaFor(document)),
 			}),
 
 			vscode.commands.registerCommand(REFRESH_SCHEMA_COMMAND, () => {
@@ -312,7 +338,7 @@ export class SqlSession implements vscode.Disposable {
 			}),
 
 			vscode.workspace.onDidOpenTextDocument(document => {
-				if (document.languageId === 'sql') {
+				if (isSqlDocument(document)) {
 					// This same buffer reopened in a new language keeps its choice, and a buffer just
 					// saved as this file hands its choice over.
 					if (this._selection.reopen(document.uri, document.getText())) {
@@ -337,6 +363,10 @@ export class SqlSession implements vscode.Disposable {
 					void this._adopt(event.document);
 				}
 				this._schedule(event.document);
+				// A `@connect` line in one Quarto cell decides the connection of the cells after it.
+				for (const later of laterCellsOf(event.document)) {
+					this._schedule(later);
+				}
 			}),
 			vscode.workspace.onDidCloseTextDocument(document => {
 				// Diagnostics outlive the document unless they are cleared, so a closed file would
@@ -455,14 +485,14 @@ export class SqlSession implements vscode.Disposable {
 	 * setting exists to switch it off.
 	 */
 	private async _openConnectionFor(document: vscode.TextDocument): Promise<void> {
-		if (document.languageId !== 'sql') {
+		if (!isSqlDocument(document)) {
 			return;
 		}
 		const configuration = vscode.workspace.getConfiguration(CONFIGURATION_SECTION);
 		if (configuration.get<boolean>('connectOnOpen') === false) {
 			return;
 		}
-		const chosen = this._selection.get(document.uri);
+		const chosen = this._declared(document)?.connection ?? this._selection.get(document.uri);
 		if (!chosen || this._attempted.has(chosen.profileId)) {
 			return;
 		}
@@ -529,6 +559,7 @@ export class SqlSession implements vscode.Disposable {
 		this._payload = payload;
 		this._read = true;
 		this._scoped.clear();
+		this._connectIndex = undefined;
 		this._forgetRemovedConnections(payload);
 		// The schema decides which names are unknown, so every open document's diagnostics are
 		// stale, and which names are tables, so its links are. The status bar is stale too: a
@@ -603,6 +634,15 @@ export class SqlSession implements vscode.Disposable {
 
 	/** What a document's choice comes to, given what is open and what is configured. */
 	private _resolve(document: vscode.TextDocument): EffectiveSelection {
+		const declared = this._declared(document);
+		if (declared) {
+			if (!declared.connection) {
+				// Named, but not a database the user has set up: no tables rather than another
+				// database's, which is what the only open connection would be.
+				return { kind: 'none' };
+			}
+			return resolveSelection(declared.connection, this._payload.connections);
+		}
 		return resolveSelection(
 			this._selection.get(document.uri),
 			this._payload.connections,
@@ -610,6 +650,62 @@ export class SqlSession implements vscode.Disposable {
 			// user removed and is kept for when it is back on.
 			this._read && !this._payload.dataConnectionsOff ? this._payload.configured : undefined,
 		);
+	}
+
+	/**
+	 * The database a ggsql document, or a Quarto `{sql}` cell (which runs in ggsql too), names in a
+	 * `-- @connect:` line, and the data connection that is, if one is. Undefined for a document that
+	 * names none, which is chosen for as a SQL file is.
+	 */
+	private _declared(document: vscode.TextDocument): { uri: string; connection?: ConnectionRef } | undefined {
+		if (document.languageId !== GGSQL_LANGUAGE_ID && !isGgsqlCell(document)) {
+			return undefined;
+		}
+		const uri = declaredConnect(document);
+		if (!uri) {
+			return undefined;
+		}
+		if (!this._connectIndex) {
+			void this._indexConnections();
+			return { uri };
+		}
+		const profileId = this._connectIndex.get(normalizeConnect(uri, baseDirectoryOf(document)));
+		return { uri, connection: this._payload.configured.find(connection => connection.profileId === profileId) };
+	}
+
+	/** Builds {@link _connectIndex}, and re-reads every open document against it once it has. */
+	private async _indexConnections(): Promise<void> {
+		if (this._indexing || !this._read || this._payload.dataConnectionsOff) {
+			return;
+		}
+		this._indexing = true;
+		const generation = this._generation;
+		const index = new Map<string, string>();
+		try {
+			for (const connection of this._payload.configured) {
+				try {
+					const code = await this._connectCode(connection.profileId);
+					const uri = code.kind === 'code' ? connectIn(code.code, false) : undefined;
+					if (uri) {
+						index.set(normalizeConnect(uri, undefined), connection.profileId);
+					}
+				} catch (error) {
+					this._log.debug(`Could not get the ggsql code of ${connection.name}: ${error}`);
+				}
+			}
+		} finally {
+			this._indexing = false;
+		}
+		if (this._disposed || generation !== this._generation) {
+			// Overtaken by a read, which dropped the index and will ask for it again.
+			return;
+		}
+		this._connectIndex = index;
+		this._relink();
+		this._refreshAll();
+		for (const document of vscode.workspace.textDocuments) {
+			void this._openConnectionFor(document);
+		}
 	}
 
 	/**
@@ -642,7 +738,7 @@ export class SqlSession implements vscode.Disposable {
 	private _mayAdopt(document: vscode.TextDocument): boolean {
 		// Not another view of a file, such as a diff's left side: it holds the same text as the
 		// file, but is not a file saved from it.
-		return document.languageId === 'sql' && !document.isClosed && !this._selection.get(document.uri)
+		return isSqlDocument(document) && !document.isClosed && !this._selection.get(document.uri)
 			&& !NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme);
 	}
 
@@ -981,9 +1077,10 @@ export class SqlSession implements vscode.Disposable {
 		}
 		const selection = this._resolve(document);
 		// Including a connection that is closed: the file is still written against that database,
-		// and its syntax did not change when the connection did.
+		// and its syntax did not change when the connection did. A database named in a `@connect`
+		// line that is not a data connection still says what it is in its scheme.
 		const dialect = selection.kind === 'none'
-			? ''
+			? dialectOfConnectUri(this._declared(document)?.uri ?? '')
 			: dialectOfDriver(selection.connection.driverId);
 		return { dialect, fromSetting: false };
 	}
@@ -1068,7 +1165,7 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	private _schedule(document: vscode.TextDocument): void {
-		if (document.languageId !== 'sql') {
+		if (!isSqlDocument(document)) {
 			return;
 		}
 		this._cancel(document);
@@ -1089,7 +1186,7 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	private _refresh(document: vscode.TextDocument): void {
-		if (document.languageId !== 'sql' || NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme)) {
+		if (!isSqlDocument(document) || NO_DIAGNOSTICS_SCHEMES.has(document.uri.scheme) || isQuartoCopy(document)) {
 			return;
 		}
 		const configuration = vscode.workspace.getConfiguration(CONFIGURATION_SECTION);
@@ -1099,11 +1196,27 @@ export class SqlSession implements vscode.Disposable {
 			this._diagnostics.delete(document.uri);
 			return;
 		}
-		const reportUnknownNames = configuration.get<boolean>('diagnostics.unknownNames') !== false;
+		const reportUnknownNames = configuration.get<boolean>('diagnostics.unknownNames') !== false
+			&& this._knowsItsTables(document);
 		this._diagnostics.set(
 			document.uri,
 			collectDiagnostics(document, this._analyze(document), this._schemaFor(document), reportUnknownNames),
 		);
+	}
+
+	/**
+	 * Whether a name missing from a document's schema can be reported as not existing.
+	 *
+	 * Not in a Quarto cell: each is read alone, so a table an earlier cell creates would be called
+	 * missing. Nor in ggsql that does not name its database: its session is wherever it was last
+	 * connected, or in memory, so the only open connection is a guess -- good enough to complete
+	 * from, but not to call a table missing.
+	 */
+	private _knowsItsTables(document: vscode.TextDocument): boolean {
+		if (isQuartoCell(document)) {
+			return false;
+		}
+		return document.languageId !== GGSQL_LANGUAGE_ID || this._declared(document)?.connection !== undefined;
 	}
 
 	/**
@@ -1119,8 +1232,9 @@ export class SqlSession implements vscode.Disposable {
 	private _relink(): void {
 		this._links?.dispose();
 		this._links = vscode.languages.registerDocumentLinkProvider(SQL_DOCUMENTS, {
-			provideDocumentLinks: document =>
-				collectLinks(document, this._analyze(document), this._schemaFor(document)),
+			provideDocumentLinks: document => isQuartoCopy(document)
+				? []
+				: collectLinks(document, this._analyze(document), this._schemaFor(document)),
 		});
 	}
 
@@ -1131,12 +1245,23 @@ export class SqlSession implements vscode.Disposable {
 	}
 }
 
+/** Whether a document is one this extension reads; see {@link SQL_LANGUAGES}. */
+export function isSqlDocument(document: vscode.TextDocument): boolean {
+	return SQL_LANGUAGES.has(document.languageId);
+}
+
 /** The SQL document the user is looking at, if that is what they are looking at. */
 function activeSqlDocument(): vscode.TextDocument | undefined {
 	return activeSqlEditor()?.document;
 }
 
-/** The SQL editor the user is looking at, if that is what they are looking at. */
+/**
+ * The SQL editor the user is looking at, if that is what they are looking at.
+ *
+ * SQL only, not ggsql: this is what the connection picker, the status bar and running a statement
+ * act on. A ggsql file says which database it runs against in its own `-- @connect:` lines, and is
+ * run by ggsql's extension, so a choice kept beside it would be a second answer to that question.
+ */
 function activeSqlEditor(): vscode.TextEditor | undefined {
 	const editor = vscode.window.activeTextEditor;
 	return editor?.document.languageId === 'sql' ? editor : undefined;

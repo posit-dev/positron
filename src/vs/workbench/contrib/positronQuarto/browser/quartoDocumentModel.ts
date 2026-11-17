@@ -12,7 +12,7 @@ import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
 import { kernelToLanguageId, parseQuarto } from '../common/quartoParser.js';
-import { hasRuntimeProvider } from '../common/quartoLanguages.js';
+import { GGSQL_LANGUAGE, hasRuntimeProvider } from '../common/quartoLanguages.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 /**
@@ -339,6 +339,9 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _derivePrimaryLanguage(): string | undefined {
 		return (this._jupyterKernel ? kernelToLanguageId(this._jupyterKernel) : undefined)
 			?? this._cells.find(
-				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language;
+				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language
+			// A document of `{sql}` cells alone runs them in ggsql; see `runtimeLanguageOf`.
+			?? (this._cells.some(cell => cell.language.toLowerCase() === 'sql')
+				&& hasRuntimeProvider(GGSQL_LANGUAGE, this._runtimeStartupService) ? GGSQL_LANGUAGE : undefined);
 	}
 }

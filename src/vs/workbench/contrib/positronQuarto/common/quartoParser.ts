@@ -211,5 +211,8 @@ export function kernelToLanguageId(kernelName: string): string | undefined {
 	if (kernelLower.includes('julia')) {
 		return 'julia';
 	}
+	if (kernelLower.startsWith('ggsql')) {
+		return 'ggsql';
+	}
 	return undefined;
 }

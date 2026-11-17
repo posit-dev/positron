@@ -15,6 +15,14 @@ describe('QuartoExecutionOptions', () => {
 	ensureNoLeakedDisposables();
 
 	describe('parseCellExecutionOptions', () => {
+		it('reads SQL cell options from --| lines, so a @connect line under them is the code', () => {
+			const code = '--| label: q\n--| eval: false\n-- @connect: duckdb://x.db\nSELECT 1';
+			const sql = parseCellExecutionOptions(code, 'sql');
+			expect([sql.optionLineCount, sql.options.eval, sql.metadata, parseCellExecutionOptions(code).optionLineCount])
+				.toEqual([2, false, { label: 'q' }, 0]);
+			expect(parseCellExecutionOptions('#| label: q\nSELECT 1', 'ggsql').optionLineCount).toBe(1);
+		});
+
 		it('returns defaults for code without options', () => {
 			const code = `print("hello")
 x = 1 + 2`;

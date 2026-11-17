@@ -80,6 +80,10 @@ describe('parseQuartoDocument', () => {
 			expect(kernelToLanguageId('ir')).toBe('r');
 		});
 
+		it('maps ggsql kernels to ggsql', () => {
+			expect(kernelToLanguageId('ggsql')).toBe('ggsql');
+		});
+
 		it('maps ark to r', () => {
 			expect(kernelToLanguageId('ark')).toBe('r');
 		});

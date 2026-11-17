@@ -236,6 +236,15 @@ x <- 1
 			expect(model.primaryLanguage).toBe(undefined);
 		});
 
+		it('runs a document of {sql} cells alone in ggsql, when ggsql is available', () => {
+			const content = ['```{sql}', 'SELECT 1', '```', ''].join('\n');
+
+			expect([
+				createModel(content, undefined, createTestRuntimeStartupService(['ggsql'])).primaryLanguage,
+				createModel(content, URI.file('/other.qmd')).primaryLanguage,
+			]).toEqual(['ggsql', undefined]);
+		});
+
 		it('picks the language of a provided but undiscovered runtime', () => {
 			// Providers come from extension metadata, so the language is known
 			// before the extension activates and discovers any interpreter.
