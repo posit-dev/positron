@@ -45,6 +45,9 @@ const platform = os.platform();
  *
  * Throws for an architecture that has no bundle. `bundleIPykernel` calls it, so that a bad
  * `npm_config_arch` fails only the bundling and not every task in this file.
+ *
+ * Keep in sync with `expectedIpykernelArchs()` in build/lib/positron-ipykernel-bundle.ts,
+ * which fails a release build whose packaged bundle does not match these rules.
  */
 function getArchsToBundle() {
     if (platform === 'darwin') {
@@ -344,7 +347,8 @@ async function bundleIPykernel() {
     // pyzmq publishes a wheel for each Python version up to 3.11, and one abi3 wheel
     // (cp312-abi3) for Python 3.12 and later. Install the abi3 wheel one time instead of
     // one identical copy for each version.
-    // Keep in sync with getIpykernelBundle() in src/client/positron/ipykernel.ts.
+    // Keep in sync with getIpykernelBundle() in src/client/positron/ipykernel.ts, and with
+    // IPYKERNEL_CPX_DIRS in build/lib/positron-ipykernel-bundle.ts, which checks the packaged bundle.
     const cpxInstalls = [
         { directory: 'cp310', pythonVersion: '3.10', abi: 'cp310' },
         { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },

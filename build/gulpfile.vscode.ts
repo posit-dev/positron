@@ -682,7 +682,8 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 /**
  * Fails the build when the packaged tree holds a path that is too long for a
  * Windows per-user install or auto-update, when an extension ships more files
- * than its budget, or when the shared DuckDB runtime is incomplete for the target.
+ * than its budget, when the shared DuckDB runtime is incomplete for the target,
+ * or when the ipykernel bundle of positron-python does not match the target.
  *
  * This task runs for every platform, because the extension dependency trees that
  * own the longest paths and the most files are the same everywhere. The first
@@ -700,7 +701,7 @@ function checkPackagedTreeTask(platform: string, arch: string, destinationFolder
 			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
 		const extensionsDir = platform === 'darwin' ? 'Resources/app/extensions' : 'resources/app/extensions';
 
-		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, duckdbTarget: { platform, arch } });
+		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, duckdbTarget: { platform, arch }, ipykernelTarget: { platform, arch } });
 	};
 }
 // --- End Positron ---

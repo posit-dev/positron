@@ -16,6 +16,7 @@ import {
 	isPrunedServerDependencyFile
 } from './positron-path-budget.ts';
 import { checkSharedDuckdbRuntime, duckdbBindingPackage } from './positron-duckdb-runtime.ts';
+import { checkIpykernelBundle, expectedIpykernelArchs } from './positron-ipykernel-bundle.ts';
 
 /** How many offenders to name when the check fails. */
 const REPORTED_OFFENDERS = 10;
@@ -97,6 +98,11 @@ export interface IPackagedTreeCheckOptions {
 	 * positron-duckdb-runtime.ts.
 	 */
 	duckdbTarget?: { platform: string; arch: string };
+	/**
+	 * The build target, to check the ipykernel bundle of positron-python for it.
+	 * See positron-ipykernel-bundle.ts.
+	 */
+	ipykernelTarget?: { platform: string; arch: string };
 	/**
 	 * Whether to fail when a shipped `node_modules` file matches the server
 	 * prune (`isPrunedServerDependencyFile`). Only the server builds set it. The
@@ -372,6 +378,28 @@ function reportDuckdbRuntime(extensionsPath: string, { platform, arch }: { platf
 	return `the shared DuckDB runtime is incomplete: ${problems.join('; ')}`;
 }
 
+/** Logs the ipykernel bundle result. Returns an error message when the bundle does not match the target. */
+function reportIpykernelBundle(extensionsPath: string, { platform, arch }: { platform: string; arch: string }): string | undefined {
+	const problems = checkIpykernelBundle(extensionsPath, platform, arch);
+	const archs = expectedIpykernelArchs(platform, arch);
+
+	if (problems.length === 0) {
+		if (archs) {
+			fancyLog(`ipykernel bundle ok: ${ansiColors.cyan(archs.join(', '))} for ${platform}-${arch}`);
+		}
+		return undefined;
+	}
+
+	fancyLog.error(`The ipykernel bundle of positron-python does not match ${platform}-${arch}:`);
+	for (const problem of problems) {
+		fancyLog.error(`  ${problem}`);
+	}
+	fancyLog.error('A Python console that needs a missing folder starts only if ipykernel is installed in its environment.');
+	fancyLog.error('See build/lib/positron-ipykernel-bundle.ts and bundleIPykernel() in extensions/positron-python/gulpfile.js.');
+
+	return `the ipykernel bundle does not match ${platform}-${arch}: ${problems.join('; ')}`;
+}
+
 /** How many pruned files to name when the check fails. */
 const REPORTED_PRUNED_FILES = 20;
 
@@ -412,7 +440,8 @@ function reportPrunedServerDependencies(files: IShippedFile[]): string | undefin
  * files than its budget, and, with `pathLengths`, when a path is too long for a
  * Windows per-user install or auto-update. With `duckdbTarget`, it also fails
  * when the shared DuckDB runtime is incomplete for the target. With
- * `prunedServerDependencies`, it fails when a shipped `node_modules` file
+ * `ipykernelTarget`, it fails when the ipykernel bundle of positron-python does
+ * not match the target. With `prunedServerDependencies`, it fails when a shipped `node_modules` file
  * matches the server prune. All results are
  * logged before the function throws, so that one build shows every problem. With
  * `POSITRON_IGNORE_FILE_BUDGET` set, a file count over budget is only a
@@ -435,6 +464,7 @@ export function checkPackagedTree(appRoot: string, extensionsDir: string, option
 		pathLengths && reportPathLengths(pathLengths),
 		reportFileCounts(fileCounts, budgets),
 		options.duckdbTarget && reportDuckdbRuntime(path.join(appRoot, extensionsDir), options.duckdbTarget),
+		options.ipykernelTarget && reportIpykernelBundle(path.join(appRoot, extensionsDir), options.ipykernelTarget),
 		options.prunedServerDependencies && reportPrunedServerDependencies(files)
 	].filter(error => error !== undefined);
 

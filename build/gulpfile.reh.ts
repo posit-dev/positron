@@ -745,12 +745,12 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
  * Workbench runs the server build on network filesystems, where file count
  * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
  * models the desktop install directory, so this task does not check it. The
- * task also checks the shared DuckDB runtime for the target, and that no
- * file that the server prune removes ships in node_modules.
+ * task also checks the shared DuckDB runtime and the ipykernel bundle for the
+ * target, and that no file that the server prune removes ships in node_modules.
  */
 function checkPackagedTreeTaskREH(platform: string, arch: string, destinationFolderName: string) {
 	return async () => {
-		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch }, prunedServerDependencies: true });
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch }, ipykernelTarget: { platform, arch }, prunedServerDependencies: true });
 	};
 }
 // --- End Positron ---
