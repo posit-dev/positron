@@ -83,7 +83,9 @@ def patch_altair_renderer(session_mode: "SessionMode") -> None:
 
     try:
         import altair as alt
-    except ImportError:
+    except (ImportError, TypeError):
+        # On Python 3.10, Altair fails to import with a TypeError after the
+        # vendored typing_extensions (pinned below 4.11) is loaded. See #17381.
         return
 
     alt.renderers.register(RENDERER_NAME, positron_altair_renderer)

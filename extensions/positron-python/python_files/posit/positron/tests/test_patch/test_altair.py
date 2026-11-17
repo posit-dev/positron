@@ -3,14 +3,22 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import sys
 import webbrowser
 from pathlib import Path
 
-import altair as alt
 import pytest
 
 from positron.patch.altair import RENDERER_NAME, patch_altair_renderer
 from positron.session_mode import SessionMode
+
+if sys.version_info < (3, 11):
+    # Altair fails to import on Python 3.10 after the vendored typing_extensions is loaded (#17381).
+    pytest.skip(
+        "Altair can't be imported in the kernel on Python 3.10 (#17381)", allow_module_level=True
+    )
+
+import altair as alt
 
 
 @pytest.fixture(autouse=True)

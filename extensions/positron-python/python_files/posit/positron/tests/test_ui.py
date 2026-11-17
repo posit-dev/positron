@@ -605,6 +605,10 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="Altair can't be imported in the kernel on Python 3.10 (#17381)",
+)
 def test_altair_chart_sends_events(
     shell: PositronShell,
     ui_comm: DummyComm,
