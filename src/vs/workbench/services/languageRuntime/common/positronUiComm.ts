@@ -90,6 +90,25 @@ export interface EvaluateCodeParams {
 }
 
 /**
+ * The point the user clicked, or null if the user finished without a
+ * click
+ */
+export interface PlotPoint {
+	/**
+	 * Horizontal position as a fraction of the plot image width, from 0 at
+	 * the left edge to 1 at the right edge
+	 */
+	x: number;
+
+	/**
+	 * Vertical position as a fraction of the plot image height, from 0 at
+	 * the top edge to 1 at the bottom edge
+	 */
+	y: number;
+
+}
+
+/**
  * Editor metadata
  */
 export interface EditorContext {
@@ -429,6 +448,16 @@ export interface SelectFileParams {
 	 * session's working directory.
 	 */
 	default_dir?: string;
+}
+
+/**
+ * Parameters for the LocatePlotPoint method.
+ */
+export interface LocatePlotPointParams {
+	/**
+	 * The ID of the plot, which is the ID of its plot comm
+	 */
+	plot_id: string;
 }
 
 /**
@@ -949,6 +978,20 @@ export interface SelectFileRequest {
 }
 
 /**
+ * Request: Ask the user to click a point on a plot
+ *
+ * Use this to let the user choose a point on a plot shown in the Plots
+ * pane, for example for R's `locator()`
+ */
+export interface LocatePlotPointRequest {
+	/**
+	 * The ID of the plot, which is the ID of its plot comm
+	 */
+	plot_id: string;
+
+}
+
+/**
  * Request: Sleep for n seconds
  *
  * Useful for testing in the backend a long running frontend method
@@ -1110,6 +1153,7 @@ export enum UiFrontendRequest {
 	ShowPrompt = 'show_prompt',
 	AskForPassword = 'ask_for_password',
 	SelectFile = 'select_file',
+	LocatePlotPoint = 'locate_plot_point',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
 	EvaluateWhenClause = 'evaluate_when_clause',

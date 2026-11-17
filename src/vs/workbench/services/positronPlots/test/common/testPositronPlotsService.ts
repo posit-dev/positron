@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { PlotPoint } from '../../../languageRuntime/common/positronUiComm.js';
+import { IPlotLocator } from '../../common/plotLocator.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
 import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, IOpenImageInEditorOptions, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
@@ -126,6 +128,38 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 */
 	constructor() {
 		super();
+	}
+
+	/**
+	 * The onDidChangeLocator event emitter.
+	 */
+	private readonly _onDidChangeLocatorEmitter =
+		this._register(new Emitter<IPlotLocator | undefined>());
+
+	activeLocator: IPlotLocator | undefined = undefined;
+
+	readonly onDidChangeLocator = this._onDidChangeLocatorEmitter.event;
+
+	/**
+	 * The points passed to resolveLocator, in call order.
+	 */
+	readonly resolvedLocatorPoints: (PlotPoint | undefined)[] = [];
+
+	/**
+	 * Sets the active locator and fires onDidChangeLocator, as the real service does.
+	 * @param locator The new active locator, or undefined to clear it.
+	 */
+	setActiveLocator(locator: IPlotLocator | undefined): void {
+		this.activeLocator = locator;
+		this._onDidChangeLocatorEmitter.fire(locator);
+	}
+
+	locatePlotPoint(sessionId: string, plotId: string): Promise<PlotPoint | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	resolveLocator(point: PlotPoint | undefined): void {
+		this.resolvedLocatorPoints.push(point);
 	}
 
 	getPlotsRenderSettings(): PlotRenderSettings {

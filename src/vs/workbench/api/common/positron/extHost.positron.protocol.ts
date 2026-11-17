@@ -28,7 +28,7 @@ import { PlotRenderSettings } from '../../../services/positronPlots/common/posit
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
-import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { EvalResult, PlotPoint } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
@@ -536,6 +536,7 @@ export interface ExtHostAiFeaturesShape {
 
 export interface MainThreadPlotsServiceShape {
 	$getPlotsRenderSettings(): Promise<PlotRenderSettings>;
+	$locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined>;
 }
 
 export interface ExtHostPlotsServiceShape {

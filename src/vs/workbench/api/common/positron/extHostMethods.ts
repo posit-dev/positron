@@ -14,6 +14,7 @@ import { ExtHostDialogs } from '../extHostDialogs.js';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
 import { ExtHostConsoleService } from '../positron/extHostConsoleService.js';
+import { ExtHostPlotsService } from '../positron/extHostPlotsService.js';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime.js';
 import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
@@ -53,7 +54,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly commands: ExtHostCommands,
 		private readonly contextKeys: ExtHostContextKeyService,
 		private readonly consoleService: ExtHostConsoleService,
-		private readonly fileDialogs: ExtHostDialogs
+		private readonly fileDialogs: ExtHostDialogs,
+		private readonly plots: ExtHostPlotsService
 	) {
 	}
 
@@ -64,7 +66,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	// by the UI-comm bridge in `KallichoreSession.onCommRequest()`). It gates console-aware
 	// behavior in `lastActiveEditorContext()` / `modifyEditorLocations()` to the calling kernel's
 	// own console; direct callers with no session id fall back to editor-pane behavior.
-	async call(extensionId: string, method: UiFrontendRequest, params: Record<string, any>, callerSessionId?: string): Promise<JsonRpcResponse> {
+	//
+	// `callerParentId`, when provided, is the ID of the kernel request that the RPC belongs to
+	// (the parent of the RPC request, e.g. the execute request that waits for the reply).
+	async call(extensionId: string, method: UiFrontendRequest, params: Record<string, any>, callerSessionId?: string, callerParentId?: string): Promise<JsonRpcResponse> {
 		try {
 			if (!Object.values(UiFrontendRequest).includes(method)) {
 				return <JsonRpcError>{
@@ -221,6 +226,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						return newInvalidParamsError(method);
 					}
 					result = await this.debugSleep(params.ms as number);
+					break;
+				}
+				case UiFrontendRequest.LocatePlotPoint: {
+					if (!params || typeof params.plot_id !== 'string') {
+						return newInvalidParamsError(method);
+					}
+					// The reply must be JSON null, not undefined, so the kernel sees "no point".
+					result = callerSessionId === undefined ?
+						null :
+						(await this.plots.locatePlotPoint(callerSessionId, params.plot_id, callerParentId)) ?? null;
 					break;
 				}
 			}

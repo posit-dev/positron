@@ -22,6 +22,8 @@ const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
+const LOCATOR_BANNER = '.plot-instance .plot-locator-banner';
+const LOCATOR_FINISH_BUTTON = '.plot-locator-banner .plot-locator-finish';
 const PLOTS_SECTION = '.part.auxiliarybar [aria-label="Plots Section"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -156,6 +158,38 @@ export class Plots {
 		if (await clearPlotsButton.isVisible() && await clearPlotsButton.isEnabled()) {
 			await clearPlotsButton.click();
 		}
+	}
+
+	async expectLocatorActive(active: boolean) {
+		await test.step(`Expect plot locator banner to be ${active ? 'visible' : 'hidden'}`, async () => {
+			const banner = this.code.driver.currentPage.locator(LOCATOR_BANNER);
+			if (active) {
+				await expect(banner).toBeVisible();
+			} else {
+				await expect(banner).toBeHidden();
+			}
+		});
+	}
+
+	async clickPlotAt(xFraction: number, yFraction: number) {
+		await test.step(`Click current plot at (${xFraction}, ${yFraction})`, async () => {
+			const plot = this.code.driver.currentPage.locator(CURRENT_PLOT);
+			await expect(plot).toBeVisible();
+			const box = await plot.boundingBox();
+			if (!box) {
+				fail('Current plot has no bounding box');
+			}
+			await this.code.driver.currentPage.mouse.click(
+				box.x + box.width * xFraction,
+				box.y + box.height * yFraction
+			);
+		});
+	}
+
+	async finishLocator() {
+		await test.step('Click Finish in the plot locator banner', async () => {
+			await this.code.driver.currentPage.locator(LOCATOR_FINISH_BUTTON).click();
+		});
 	}
 
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {

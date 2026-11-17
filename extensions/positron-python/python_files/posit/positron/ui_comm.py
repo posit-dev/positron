@@ -72,6 +72,21 @@ class PreviewSourceType(str, enum.Enum):
     Terminal = "terminal"
 
 
+class PlotPoint(BaseModel):
+    """
+    The point the user clicked, or null if the user finished without a
+    click
+    """
+
+    x: Union[StrictInt, StrictFloat] = Field(
+        description="Horizontal position as a fraction of the plot image width, from 0 at the left edge to 1 at the right edge",
+    )
+
+    y: Union[StrictInt, StrictFloat] = Field(
+        description="Vertical position as a fraction of the plot image height, from 0 at the top edge to 1 at the bottom edge",
+    )
+
+
 class EditorContext(BaseModel):
     """
     Editor metadata
@@ -561,6 +576,16 @@ class SelectFileParams(BaseModel):
     )
 
 
+class LocatePlotPointParams(BaseModel):
+    """
+    Ask the user to click a point on a plot
+    """
+
+    plot_id: StrictStr = Field(
+        description="The ID of the plot, which is the ID of its plot comm",
+    )
+
+
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -751,6 +776,8 @@ class OpenWithSystemParams(BaseModel):
 
 EvalResult.update_forward_refs()
 
+PlotPoint.update_forward_refs()
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -796,6 +823,8 @@ ShowPromptParams.update_forward_refs()
 AskForPasswordParams.update_forward_refs()
 
 SelectFileParams.update_forward_refs()
+
+LocatePlotPointParams.update_forward_refs()
 
 PromptStateParams.update_forward_refs()
 

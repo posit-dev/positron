@@ -12,10 +12,12 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { PanZoomImage } from './panZoomImage.js';
+import { PLOT_LOCATOR_BANNER_HEIGHT, PlotLocatorBanner } from './plotLocatorBanner.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { IPlotLocator } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
@@ -46,6 +48,60 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
+	const wrapperRef = React.useRef<HTMLDivElement>(null);
+	const plotId = props.plotClient.id;
+	const sessionId = props.plotClient.metadata.session_id;
+	const [locating, setLocating] = useState(() => {
+		const locator = services.positronPlotsService.activeLocator;
+		return locator?.plotId === plotId && locator.sessionId === sessionId;
+	});
+
+	// Whether the wrapper had focus when the locator mode last ended. locator() and identify()
+	// send one request per point, so the next request for this plot takes the focus back and
+	// Escape keeps working.
+	const restoreFocusRef = React.useRef(false);
+
+	// Track whether a locator() call is waiting on this plot. A new locator request fires an
+	// intermediate undefined before the new locator, which is harmless here.
+	useEffect(() => {
+		const matches = (locator: IPlotLocator | undefined) =>
+			locator?.plotId === plotId && locator.sessionId === sessionId;
+		setLocating(matches(services.positronPlotsService.activeLocator));
+		const disposable = services.positronPlotsService.onDidChangeLocator(locator => {
+			const wrapper = wrapperRef.current;
+			if (matches(locator)) {
+				setLocating(true);
+				return;
+			}
+			if (locator) {
+				// A locator for another plot.
+				restoreFocusRef.current = false;
+			} else if (wrapper && wrapper.contains(wrapper.ownerDocument.activeElement)) {
+				// The wrapper stops being focusable when the mode ends. Move the focus to the
+				// Plots pane before that happens, so it does not fall to the document body.
+				restoreFocusRef.current = true;
+				wrapper.parentElement?.closest<HTMLElement>('.plots-container')?.focus();
+			}
+			setLocating(false);
+		});
+		return () => disposable.dispose();
+	}, [plotId, sessionId, services.positronPlotsService]);
+
+	// Take the focus back when the next locator request for this plot starts, unless the
+	// user moved the focus somewhere else in the meantime.
+	useEffect(() => {
+		const wrapper = wrapperRef.current;
+		if (!locating || !restoreFocusRef.current || !wrapper) {
+			return;
+		}
+		restoreFocusRef.current = false;
+		const active = wrapper.ownerDocument.activeElement;
+		const container = wrapper.parentElement?.closest('.plots-container');
+		if (!active || active === wrapper.ownerDocument.body || active === container) {
+			wrapper.focus();
+		}
+	}, [locating]);
+
 	const plotName = props.plotClient.metadata.name ? props.plotClient.metadata.name : 'Plot ' + props.plotClient.id;
 
 	useEffect(() => {
@@ -178,10 +234,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const renderedImage = () => {
 		return <PanZoomImage
 			description={plotName}
-			height={props.height}
+			height={locating ? Math.max(props.height - PLOT_LOCATOR_BANNER_HEIGHT, 0) : props.height}
 			imageUri={uri}
 			width={props.width}
 			zoom={props.zoom}
+			onLocate={locating ? point => services.positronPlotsService.resolveLocator(point) : undefined}
 		/>;
 	};
 
@@ -205,7 +262,22 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
 	return (
-		<div className='plot-instance dynamic-plot-instance'>
+		// The wrapper is only focusable programmatically (tabIndex -1), so Escape reaches it in locator mode.
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div
+			ref={wrapperRef}
+			className={locating ? 'plot-instance dynamic-plot-instance locator-active' : 'plot-instance dynamic-plot-instance'}
+			tabIndex={locating ? -1 : undefined}
+			onKeyDown={locating ? e => {
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					e.stopPropagation();
+					services.positronPlotsService.resolveLocator(undefined);
+				}
+			} : undefined}
+			onMouseDown={locating ? () => wrapperRef.current?.focus() : undefined}
+		>
+			{locating && <PlotLocatorBanner onFinish={() => services.positronPlotsService.resolveLocator(undefined)} />}
 			<div ref={progressRef}></div>
 			{uri && renderedImage()}
 			{!uri && placeholderImage(error)}

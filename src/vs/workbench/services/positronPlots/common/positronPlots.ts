@@ -10,6 +10,8 @@ import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { PlotPoint } from '../../languageRuntime/common/positronUiComm.js';
+import { IPlotLocator } from './plotLocator.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -244,6 +246,23 @@ export interface IPositronPlotsService {
 	 * This typically happens when the plot viewpane has been resized.
 	 */
 	readonly onDidChangePlotsRenderSettings: Event<PlotRenderSettings>;
+
+	/** The active locator request, if a kernel is waiting for the user to click a plot. */
+	readonly activeLocator: IPlotLocator | undefined;
+
+	/** Notifies subscribers when a locator request begins or ends. */
+	readonly onDidChangeLocator: Event<IPlotLocator | undefined>;
+
+	/**
+	 * Asks the user to click a point on a plot. Resolves `undefined` when the user finishes,
+	 * the plot does not arrive in time, or the locator is cancelled. `executionId` is the ID of
+	 * the execute request that waits for the point; when given, only that request's Idle ends
+	 * the locator.
+	 */
+	locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined>;
+
+	/** Answers the active locator: a point for a click, `undefined` to finish. */
+	resolveLocator(point: PlotPoint | undefined): void;
 
 	/**
 	 * Notifies subscribers when the settings for rendering a plot have changed.

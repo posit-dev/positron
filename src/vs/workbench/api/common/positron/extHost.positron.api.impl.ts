@@ -98,7 +98,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService,
-			extHostConsoleService, new ExtHostDialogs(rpcProtocol)));
+			extHostConsoleService, new ExtHostDialogs(rpcProtocol), extHostPlotsService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
@@ -317,8 +317,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
-			call(method: string, params: Record<string, unknown>, options?: { sessionId?: string }): Thenable<unknown> {
-				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params, options?.sessionId);
+			call(method: string, params: Record<string, unknown>, options?: { sessionId?: string; parentId?: string }): Thenable<unknown> {
+				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params, options?.sessionId, options?.parentId);
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();

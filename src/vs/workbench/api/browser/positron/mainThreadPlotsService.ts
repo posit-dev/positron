@@ -6,6 +6,7 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ExtHostPlotsServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadPlotsServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { PlotPoint } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IPositronPlotsService, PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadPlotsService)
@@ -34,5 +35,9 @@ export class MainThreadPlotsService implements MainThreadPlotsServiceShape {
 
 	async $getPlotsRenderSettings(): Promise<PlotRenderSettings> {
 		return this._positronPlotsService.getPlotsRenderSettings();
+	}
+
+	$locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined> {
+		return this._positronPlotsService.locatePlotPoint(sessionId, plotId, executionId);
 	}
 }

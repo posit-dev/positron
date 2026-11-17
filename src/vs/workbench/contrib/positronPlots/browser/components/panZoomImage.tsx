@@ -8,6 +8,8 @@ import React from 'react';
 
 // Other dependencies.
 import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
+import { PlotPoint } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { plotPointFromClick } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface PanZoomImageProps {
@@ -16,6 +18,8 @@ interface PanZoomImageProps {
 	imageUri: string;
 	description: string;
 	zoom: ZoomLevel;
+	/** When set, the image is in locator mode: clicks on the bitmap are reported here. */
+	onLocate?: (point: PlotPoint) => void;
 }
 
 /**
@@ -76,12 +80,26 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	}, [naturalWidth, naturalHeight, props.width, props.height, props.zoom, props.imageUri]);
 
 	return (
-		<Scrollable height={props.height} mousePan={true} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
+		<Scrollable height={props.height} mousePan={!props.onLocate} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
 			<img ref={imageRef}
 				alt={props.description}
 				className='plot'
 				draggable={false}
 				src={props.imageUri}
+				style={props.onLocate ? { cursor: 'crosshair' } : undefined}
+				onClick={props.onLocate ? e => {
+					// Read the natural size from the element: the state lags behind a new image until onLoad.
+					const img = e.currentTarget;
+					const point = plotPointFromClick(
+						img.getBoundingClientRect(),
+						{ width: img.naturalWidth, height: img.naturalHeight },
+						{ x: e.clientX, y: e.clientY },
+						props.zoom === ZoomLevel.Fit
+					);
+					if (point) {
+						props.onLocate?.(point);
+					}
+				} : undefined}
 				onLoad={(el) => {
 					// ensures the zoom level is applied correctly when switching images
 					setNaturalWidth(el.currentTarget.naturalWidth);
