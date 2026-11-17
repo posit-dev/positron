@@ -106,7 +106,7 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
  */
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
-	['positron-python', 3_450], // about 2,770 on linux-x64; about 3,110 on win32-arm64, which bundles both x64 and arm64
+	['positron-python', 3_450], // 2,831; 3,119 on win32-arm64, which bundles both x64 and arm64 (2026.12.0 daily, November 17)
 	['positron-pdf-server', 450], // 407
 	['node_modules', 345], // about 312, with the shared DuckDB runtime (#14265)
 	['markdown-language-features', 365], // 322 (1.143 merge: code-split markdown editor webview)
