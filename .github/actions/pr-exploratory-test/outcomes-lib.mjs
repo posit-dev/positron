@@ -233,6 +233,12 @@ export function handOutcome(override) {
 	return override?.outcome ? { outcome: override.outcome, decidedBy: 'by-hand', evidence: override.why ?? '' } : null;
 }
 
+/** A kept row with its hand-set outcome, if it has one. */
+export function withHand(row, overrides) {
+	const hand = handOutcome(overrides[`${row.run}#${row.finding}`]);
+	return hand ? { ...row, ...hand } : row;
+}
+
 /** A previous run's rows whose outcome can no longer change, by `run#finding`, less their duplicate marks. A fix read from a cut diff is checked again. */
 export function settledRows(rows) {
 	return new Map(rows.filter(r => SETTLED.has(r.outcome) && !r.cut).map(({ dupOf, dupMaybe, ...r }) => [`${r.run}#${r.finding}`, r]));

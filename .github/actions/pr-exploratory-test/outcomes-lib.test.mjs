@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, handOutcome, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, handOutcome, withHand, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -48,6 +48,12 @@ test('handOutcome sets the outcome by hand with its reason, or nothing for an or
 	assert.deepEqual(handOutcome({ outcome: 'not-fixed', why: 'by design' }), { outcome: 'not-fixed', decidedBy: 'by-hand', evidence: 'by design' });
 	assert.equal(handOutcome({ origin: 'inherited', why: 'x' }), null);
 	assert.equal(handOutcome(undefined), null);
+});
+
+test('withHand sets a kept row\'s outcome by hand and leaves other rows alone', () => {
+	const row = { run: 1, finding: 2, outcome: 'unclear', decidedBy: 'model', evidence: 'x' };
+	assert.deepEqual(withHand(row, { '1#2': { outcome: 'not-fixed', why: 'by design' } }), { ...row, outcome: 'not-fixed', decidedBy: 'by-hand', evidence: 'by design' });
+	assert.equal(withHand(row, { '1#3': { outcome: 'not-fixed', why: 'y' } }), row);
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
