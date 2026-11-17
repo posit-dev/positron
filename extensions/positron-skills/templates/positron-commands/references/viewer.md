@@ -65,6 +65,11 @@ before calling `positronViewer.read`. If the page doesn't load in time, the
 command fails, but the page stays open in the Viewer; read it before opening
 the URL again.
 
+On Desktop, the wait doesn't notice a page the server redirected to, such as
+Jupyter sending `/` to `/lab`, and fails after the timeout even though the page
+is showing. Such a page can't be read either. Pass the URL the server
+redirects to instead.
+
 Use this for a server that is already running, such as one the user started or
 documentation served locally. To start and preview a web app, use the commands
 in [interactive-apps.md]({{skill_dir}}/references/interactive-apps.md) instead.
