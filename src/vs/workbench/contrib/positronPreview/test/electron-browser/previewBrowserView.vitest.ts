@@ -10,7 +10,8 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IBrowserViewLoadingEvent, IBrowserViewNavigationEvent } from '../../../../../platform/browserView/common/browserView.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
+import { IBrowserViewCDPService, IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
+import { CDPEvent, CDPRequest, CDPResponse } from '../../../../../platform/browserView/common/cdp/types.js';
 import { PreviewBrowserView } from '../../electron-browser/previewBrowserView.js';
 
 const { hostVisibility } = vi.hoisted(() => ({ hostVisibility: [] as boolean[] }));
@@ -29,6 +30,7 @@ vi.mock('../../../browserView/electron-browser/webContentsViewHost.js', () => ({
 }));
 
 describe('PreviewBrowserView', () => {
+	const cdpMessages = new Emitter<CDPResponse | CDPEvent>();
 	let views: DeferredPromise<IBrowserViewModel>[];
 	let created: string[];
 
@@ -41,6 +43,17 @@ describe('PreviewBrowserView', () => {
 				return view.p;
 			}
 		})
+		// A page that navigates away before answering any script.
+		.stub(IBrowserViewCDPService, {
+			createSessionGroup: async () => 'group',
+			destroySessionGroup: async () => { },
+			onCDPMessage: () => cdpMessages.event,
+			onDidDestroy: () => new Emitter<void>().event,
+			sendCDPMessage: async (_groupId: string, { id, method }: CDPRequest) => queueMicrotask(() => cdpMessages.fire(
+				method === 'Target.getTargets' ? { id, result: { targetInfos: [{ targetId: 't', type: 'page', vscodeBrowserViewId: 'view' }] } } :
+					method === 'Target.attachToTarget' ? { id, result: { sessionId: 's' } } :
+						{ id, error: { code: -32000, message: 'Execution context was destroyed.' } })),
+		})
 		.build();
 
 	/** A browser view model whose events the test fires, recording what it's asked to do. */
@@ -52,6 +65,7 @@ describe('PreviewBrowserView', () => {
 		const model = stubInterface<IBrowserViewModel>({
 			url: 'http://localhost:8000/',
 			title: 'App',
+			id: 'view',
 			onDidNavigate: navigate.event,
 			onDidChangeLoadingState: loading.event,
 			onDidChangeFocus: ctx.disposables.add(new Emitter<never>()).event,
@@ -170,5 +184,15 @@ describe('PreviewBrowserView', () => {
 		await timeout(0);
 
 		expect(calls).toEqual(['dispose']);
+	});
+
+	it('reports an action cut off by the page going to another address as navigation', async () => {
+		const surface = createSurface();
+		await views[0].complete(createModel().model);
+
+		const outcome = await surface.runBridge('act', { kind: 'click', ref: 'e1' });
+
+		expect(outcome).toEqual({ message: 'The page went to another address during the action.', navigated: true, timedOut: false });
+		await expect(surface.runBridge('viewport')).rejects.toThrow('The Viewer\'s content changed while it was being read. Try again.');
 	});
 });

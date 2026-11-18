@@ -123,6 +123,14 @@ Tables come one row per line, at most 50 rows.
 
 {{command:positronViewer.screenshot}}
 
+### `positronViewer.consoleLogs`
+
+When `<viewer_page>` has `backend="browser"`, the Viewer keeps the page's
+browser console. Read it when an app shows an error or a blank area that its
+own output doesn't explain, such as a JavaScript error in a widget.
+
+{{command:positronViewer.consoleLogs}}
+
 ## Using the app
 
 The action commands use the app as a user would. Each waits for the app to

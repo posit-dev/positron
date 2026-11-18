@@ -15,9 +15,12 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
 import { focusWebContentsViewContainer, WebContentsViewHost } from '../../browserView/electron-browser/webContentsViewHost.js';
-import { IViewerBridge } from '../common/positronViewerAgent.js';
+import { IViewerActOutcome, IViewerBridge } from '../common/positronViewerAgent.js';
 import { IPreviewSurface, ViewerBridgeResult } from '../browser/previewSurface.js';
 import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreenshot.js';
+import { viewerBridgeScript } from '../browser/viewerBridge.js';
+import { BrowserViewBridgeSession, PageNavigatedError } from './browserViewBridgeSession.js';
+import { bridgeScriptValue, ViewerBridgeScriptResult } from './previewOverlayWebview.js';
 
 /**
  * Shows a preview's content in the integrated browser: a native view that
@@ -48,6 +51,9 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 
 	private _model: IBrowserViewModel | undefined;
 	private readonly _modelStore = this._register(new DisposableStore());
+
+	/** The connection that runs the Viewer bridge in the page, once used. */
+	private readonly _bridge = this._register(new MutableDisposable<BrowserViewBridgeSession>());
 
 	/** The address to show, until the view has been created. */
 	private _uri: URI | undefined;
@@ -264,16 +270,40 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		};
 	}
 
-	async runBridge<M extends keyof IViewerBridge>(_method: M, ..._args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
-		throw new Error('Agents can\'t read the Viewer yet when it uses the integrated browser.');
+	/**
+	 * Runs the bridge in the page through CDP, in the page's own JavaScript
+	 * world, which the page can tamper with.
+	 */
+	async runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+		const model = this.loadedModel();
+		this._bridge.value ??= this._instantiationService.createInstance(BrowserViewBridgeSession, model.id);
+		try {
+			return bridgeScriptValue(await this._bridge.value.evaluate(viewerBridgeScript(method, args)) as ViewerBridgeScriptResult<M>);
+		} catch (error) {
+			// The bridge reports an action that leads to another page, but the
+			// page can be gone before its answer is sent.
+			if (method === 'act' && error instanceof PageNavigatedError) {
+				const outcome: IViewerActOutcome = { message: 'The page went to another address during the action.', navigated: true, timedOut: false };
+				return outcome as ViewerBridgeResult<M>;
+			}
+			throw error;
+		}
+	}
+
+	async getConsoleLogs(): Promise<string> {
+		return this.loadedModel().getConsoleLogs();
+	}
+
+	private loadedModel(): IBrowserViewModel {
+		if (!this._model) {
+			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
+		}
+		return this._model;
 	}
 
 	async captureScreenshot(): Promise<IViewerCapture> {
-		if (!this._model || !this._anchor) {
-			throw new Error('The Viewer\'s content hasn\'t loaded yet.');
-		}
-		const png = await this._model.captureScreenshot({ format: 'png' });
-		return scaleNativeScreenshot(png, getWindow(this._anchor));
+		const png = await this.loadedModel().captureScreenshot({ format: 'png' });
+		return scaleNativeScreenshot(png, getWindow(this._anchor ?? this._container));
 	}
 
 	async getCurrentUrl(): Promise<string | undefined> {

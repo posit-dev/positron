@@ -13,6 +13,8 @@ export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnTy
 
 export const VIEWER_CONTENT_CHANGED_MESSAGE = 'The Viewer\'s content changed while it was being read. Try again.';
 
+export const CONSOLE_LOGS_UNAVAILABLE_MESSAGE = 'Console logs are available only when the Viewer uses the integrated browser.';
+
 /**
  * What the Viewer needs from the thing that shows a preview's content: a
  * webview, or (on Desktop) the integrated browser.
@@ -60,4 +62,7 @@ export interface IPreviewSurface extends IDisposable {
 
 	/** Gets the address of the page showing, as the browser has it. */
 	getCurrentUrl(): Promise<string | undefined>;
+
+	/** Gets the page's console messages. Rejects for a webview, which doesn't keep them. */
+	getConsoleLogs(): Promise<string>;
 }

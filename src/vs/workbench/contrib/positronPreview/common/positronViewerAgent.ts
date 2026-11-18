@@ -31,6 +31,8 @@ export interface IViewerInfo {
 	readonly sourceSessionId?: string;
 	/** Whether the Viewer is showing on screen. */
 	readonly visible: boolean;
+	/** What shows the content: a webview, or the integrated browser, which keeps the page's console logs. */
+	readonly backend?: 'webview' | 'browser';
 }
 
 /**
@@ -216,4 +218,10 @@ export interface IPositronViewerAgentService {
 	 * @param snapshotOptions Options for the snapshot taken afterwards.
 	 */
 	viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult>;
+
+	/**
+	 * Gets the console messages of the page in the Viewer. Rejects when the
+	 * Viewer doesn't use the integrated browser, which keeps them.
+	 */
+	getViewerConsoleLogs(): Promise<string>;
 }

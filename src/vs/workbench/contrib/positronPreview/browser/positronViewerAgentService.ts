@@ -127,6 +127,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			return { kind, visible };
 		}
 		const title = preview.surface.title;
+		const backend = preview.surface.kind;
 		if (preview instanceof PreviewUrl) {
 			const source = preview.source;
 			return {
@@ -135,6 +136,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				url: await this.currentUrl(preview),
 				sourceSessionId: source?.type === PreviewSourceType.Runtime ? source.id : undefined,
 				visible,
+				backend,
 			};
 		}
 		if (preview instanceof PreviewHtml) {
@@ -144,9 +146,10 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				url: await this.currentUrl(preview),
 				sourceSessionId: preview.sessionId || undefined,
 				visible,
+				backend,
 			};
 		}
-		return { kind, title: title || preview.name, visible };
+		return { kind, title: title || preview.name, visible, backend };
 	}
 
 	async getViewerSnapshot(options?: IViewerSnapshotOptions): Promise<IViewerSnapshot> {
@@ -221,6 +224,11 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		} finally {
 			restoreFocus();
 		}
+	}
+
+	async getViewerConsoleLogs(): Promise<string> {
+		this.checkEnabled();
+		return withBridgeTimeout(this.readablePreview().surface.getConsoleLogs());
 	}
 
 	/**

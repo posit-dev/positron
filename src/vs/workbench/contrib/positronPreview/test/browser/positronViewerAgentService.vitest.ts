@@ -167,6 +167,7 @@ describe('PositronViewerAgentService', () => {
 			url: 'http://localhost:8000/',
 			sourceSessionId: 'python-1',
 			visible: false,
+			backend: 'webview',
 		});
 	});
 
@@ -244,8 +245,8 @@ describe('PositronViewerAgentService', () => {
 			await read(POSITRON_PREVIEW_HTML_VIEW_TYPE, 'quartoHtmlOutput.1', 'Output - report.qmd'),
 			await read(POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, 'quartoWebviewOutput.1', 'Quarto Output'),
 		]).toEqual([
-			{ info: { kind: 'html', title: 'Output - report.qmd', visible: true }, snapshotUrl: '' },
-			{ info: { kind: 'output', title: 'Quarto Output', visible: true }, snapshotUrl: '' },
+			{ info: { kind: 'html', title: 'Output - report.qmd', visible: true, backend: 'webview' }, snapshotUrl: '' },
+			{ info: { kind: 'output', title: 'Quarto Output', visible: true, backend: 'webview' }, snapshotUrl: '' },
 		]);
 	});
 

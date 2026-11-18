@@ -80,6 +80,9 @@ function truncationNote(canRaiseLimit: boolean): string {
 /** The outline in a `<viewer_page>` node, and a note if it was cut short. */
 function outlineLines(info: IViewerInfo, snapshot: IViewerSnapshot, maxChars: number): string[] {
 	const attributes: Record<string, string> = { kind: info.kind, visible: String(info.visible) };
+	if (info.backend) {
+		attributes.backend = info.backend;
+	}
 	// The Viewer's title can lag a new page.
 	const title = snapshot.title || info.title;
 	if (title) {
@@ -126,6 +129,20 @@ async function read(accessor: ServicesAccessor, options?: IOutlineOptions): Prom
 	const snapshotOpts = snapshotOptions(options);
 	const snapshot = await viewerAgentService.getViewerSnapshot(snapshotOpts);
 	return [UNTRUSTED_NOTE, ...outlineLines(info, snapshot, snapshotOpts.maxChars)].join('\n');
+}
+
+async function consoleLogs(accessor: ServicesAccessor): Promise<string> {
+	let text = await accessor.get(IPositronViewerAgentService).getViewerConsoleLogs();
+	// Keep the latest messages.
+	const cut = text.length > MAX_OUTLINE_CHARS;
+	if (cut) {
+		text = text.slice(text.indexOf('\n', text.length - MAX_OUTLINE_CHARS) + 1);
+	}
+	const lines = [UNTRUSTED_NOTE, xmlNode('viewer_console', escape(text), cut ? { truncated: 'true' } : {})];
+	if (cut) {
+		lines.push('Only the latest messages are shown.');
+	}
+	return lines.join('\n');
 }
 
 async function screenshot(accessor: ServicesAccessor): Promise<IAgentCommandImage> {
@@ -242,6 +259,18 @@ CommandsRegistry.registerCommand({
 		agentCompatible: true,
 		readOnly: true,
 		returns: 'An image: kind "image", mimeType, the PNG as base64 data, and a note on how it was taken.',
+	},
+});
+
+CommandsRegistry.registerCommand({
+	id: 'positronViewer.consoleLogs',
+	handler: consoleLogs,
+	metadata: {
+		title: localize('positron.viewer.consoleLogs.title', "Read Viewer Console Logs"),
+		description: localize('positron.viewer.consoleLogs.description', "Read the browser console messages of the page in the Viewer pane, such as JavaScript errors from an app. Available only when the Viewer uses the integrated browser (backend=\"browser\" on positronViewer.read's <viewer_page>). Changes nothing."),
+		agentCompatible: true,
+		readOnly: true,
+		returns: 'The messages in a <viewer_console> node, after a line saying the page\'s text is untrusted; truncated="true" means only the latest are shown.',
 	},
 });
 
