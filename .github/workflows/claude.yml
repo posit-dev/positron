@@ -213,7 +213,7 @@ jobs:
         with:
           fetch-depth: 1
           token: ${{ steps.generate-token.outputs.token }}
-          # claude-code-action sets up its own git auth for pushing
+          # claude-code-action sets up its own git auth, with the read-only App token
           persist-credentials: false
 
       # `@claude fix finding 2` on a PR: the text of that finding from the PR's latest
@@ -477,13 +477,18 @@ jobs:
             echo "::warning::HEAD does not descend from ${BASE}"
             exit 0
           fi
-          COUNT=$(g rev-list --count "${BASE}..HEAD")
+          # Leave out commits already on the remote, such as the default branch after Claude merges
+          # it. Otherwise the shallow clone's boundary commit, with its whole tree, ends up in the
+          # bundle. The publish job only accepts a remote commit as a boundary if the default
+          # branch contains it, so a changed remote-tracking ref cannot slip anything past it.
+          RANGE=("${BASE}..HEAD" --not --remotes=origin)
+          COUNT=$(g rev-list --count "${RANGE[@]}")
           if [ "$COUNT" = "0" ]; then
             echo "has_commits=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          g bundle create "$RUNNER_TEMP/claude-commits/claude.bundle" "${BASE}..HEAD"
-          g log --oneline "${BASE}..HEAD"
+          g bundle create "$RUNNER_TEMP/claude-commits/claude.bundle" "${RANGE[@]}"
+          g log --oneline "${RANGE[@]}"
           echo "has_commits=true" >> "$GITHUB_OUTPUT"
 
       - &upload-commits
@@ -545,7 +550,8 @@ jobs:
     if: needs.triage.outputs.needs_build == 'true'
     runs-on: ubuntu-latest
     # The Claude step has its own timeout, so the steps that save its commits still run after it.
-    timeout-minutes: 60
+    # Leave room for the dependency setup before it, which can be slow on a cold cache.
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: read
@@ -781,8 +787,11 @@ jobs:
           (needs.build.outputs.has_commits == 'true' || needs.build.outputs.problem != '')))
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Write access lets github.token post the result comment if the App token step fails.
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
     env:
       # The job that ran Claude last: build after a handoff, otherwise triage.
       SOURCE: ${{ needs.triage.outputs.needs_build == 'true' && 'build' || 'triage' }}
@@ -950,7 +959,7 @@ jobs:
             fail "$(printf 'Nothing was published, because these commits change %s:\n\n%s' "$WHAT" "$BAD")"
           fi
           echo "tip=${TIP}" >> "$GITHUB_OUTPUT"
-          echo "count=$(git rev-list --count --no-merges "$TIP" "${NOT[@]}")" >> "$GITHUB_OUTPUT"
+          echo "count=$(git rev-list --count "$TIP" "${NOT[@]}")" >> "$GITHUB_OUTPUT"
           git log --oneline "$TIP" "${NOT[@]}"
 
       # Never forced: if the branch moved while Claude ran, the push is rejected and reported.
@@ -977,6 +986,11 @@ jobs:
             GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${AUTH}" \
             git -c core.hooksPath=/dev/null push origin "${TIP}:refs/heads/${BRANCH}" 2> "$RUNNER_TEMP/push.err"; then
             cat "$RUNNER_TEMP/push.err" >&2
+            # The App has no `workflows` permission, so GitHub refuses a push whose new commits
+            # change a workflow file, even when the change comes from merging the default branch.
+            if grep -q 'without `workflows` permission' "$RUNNER_TEMP/push.err"; then
+              fail "GitHub refused to push to \`${BRANCH}\`, because the commits change workflow files, and Claude may not do that. This happens when Claude merges a version of \`${DEFAULT_BRANCH}\` with workflow changes. Merge \`${DEFAULT_BRANCH}\` into the branch yourself, then ask Claude again."
+            fi
             if grep -qE 'non-fast-forward|fetch first|\[rejected\]' "$RUNNER_TEMP/push.err"; then
               fail "Branch \`${BRANCH}\` changed while Claude ran, so its commits were not pushed. Ask Claude again to work from the new version."
             fi
