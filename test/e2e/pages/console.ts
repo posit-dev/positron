@@ -125,10 +125,13 @@ export class Console {
 			const waitForReady = options?.waitForReady ?? true;
 			const maximizeConsole = options?.maximizeConsole ?? true;
 
+			// Short action timeout so a stuck attempt retries in seconds instead of
+			// burning the 30s default (seen in CI on the astropy screenshot test).
+			const attemptTimeout = 3000;
 			await expect(async () => {
 				await this.hotKeys.executeCodeInConsole();
 				await this.quickinput.waitForQuickInputOpened();
-				await this.quickinput.type(languageName);
+				await this.quickinput.type(languageName, { timeout: attemptTimeout });
 				await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
 				await this.code.driver.currentPage.keyboard.press('Enter');
 
@@ -136,7 +139,7 @@ export class Console {
 				const unescapedCode = code
 					.replace(/\n/g, '\\n')
 					.replace(/\r/g, '\\r');
-				await this.quickinput.type(unescapedCode);
+				await this.quickinput.type(unescapedCode, { timeout: attemptTimeout });
 				await this.code.driver.currentPage.keyboard.press('Enter');
 				await this.quickinput.waitForQuickInputClosed();
 			}).toPass();
