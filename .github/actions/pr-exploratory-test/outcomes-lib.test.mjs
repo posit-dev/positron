@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, outcomeFindings, candidateIssues, decideOutcome, diffEvidence, droppedPaths, extractPaths, findingOrigin, isCut, mapLimit, markDuplicates, packDiffs, parseCheck, guarded, issueOf, parsePageFindings, parseResultComment, priorRows, reportFromRows, handOutcome, withHand, capDiff, pickPrCheck, prSettled, prOwnChanges, prOwnCommits, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const BASE = 'https://positron-reports.tail00da2.ts.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -41,6 +41,24 @@ test('prSettled holds only for a merged PR whose runs all have rows and whose ro
 	assert.equal(prSettled(rows.map(r => ({ ...r, prPreview: { state: 'closed' } })), settled, {}, 1, ['a']), false, 'not merged');
 	assert.equal(prSettled(rows, settled, { 'a#1': { origin: 'inherited' } }, 1, ['a']), false, 'a new override');
 	assert.equal(prSettled(rows, settled, {}, 2, []), false, 'no rows');
+	assert.equal(prSettled(rows.map(r => ({ ...r, outcome: 'fixed-in-pr' })), settled, { 'a#1': { outcome: 'not-fixed' } }, 1, ['a']), false, 'a new outcome override');
+	const hand = rows.map(r => ({ ...r, outcome: 'not-fixed', decidedBy: 'by-hand' }));
+	const both = { 'a#1': { outcome: 'not-fixed' }, 'a#2': { origin: 'inherited', outcome: 'not-fixed' } };
+	assert.equal(prSettled(hand, new Set(), both, 1, ['a']), true, 'rows set by hand');
+	assert.equal(prSettled(hand, new Set(), { 'a#1': both['a#1'] }, 1, ['a']), false, 'a removed outcome override');
+});
+
+test('handOutcome sets the outcome by hand with its reason, or nothing for an origin-only entry', () => {
+	assert.deepEqual(handOutcome({ outcome: 'not-fixed', why: 'by design' }), { outcome: 'not-fixed', decidedBy: 'by-hand', evidence: 'by design' });
+	assert.equal(handOutcome({ origin: 'inherited', why: 'x' }), null);
+	assert.equal(handOutcome(undefined), null);
+});
+
+test('withHand sets a kept row\'s outcome by hand and leaves other rows alone', () => {
+	const row = { run: 1, finding: 2, outcome: 'unclear', decidedBy: 'model', evidence: 'x' };
+	assert.deepEqual(withHand(row, { '1#2': { outcome: 'not-fixed', why: 'by design' } }), { ...row, outcome: 'not-fixed', decidedBy: 'by-hand', evidence: 'by design' });
+	assert.equal(withHand(row, { '1#3': { outcome: 'not-fixed', why: 'y' } }), row);
+
 });
 
 test('parseResultComment marks a run the auto-run experiment started', () => {
@@ -512,4 +530,17 @@ test('priorRows keeps every previous row for a PR, or one run on it, without dup
 	]);
 	assert.deepEqual(priorRows(prev, 1, '11'), [{ pr: 1, run: '11', finding: 1, outcome: 'not-fixed' }]);
 	assert.deepEqual(priorRows(prev, 3), []);
+});
+
+test('reportFromRows rebuilds a gone report only when its rows were saved while the PR was open and it has since merged or closed', () => {
+	const row = { pr: 1, run: '10', finding: 2, title: 'T', severity: 'minor', feature: 'f', verified: 'confirmed', origin: 'introduced', observed: 'o', paths: ['a.ts'], testedSha: 'abc', skillVersion: '1.0', model: 'm', outcome: 'pending', prPreview: { state: 'open' } };
+	assert.deepEqual(reportFromRows([row], 'merged'), {
+		findings: [{ n: 2, title: 'T', severity: 'minor', feature: 'f', verified: 'confirmed', observed: 'o', expected: undefined, cause: undefined, origin: 'introduced', paths: ['a.ts'] }],
+		fromRows: true, header: { headSha: 'abc' }, stats: { version: '1.0', model: 'm' },
+	});
+	assert.ok(reportFromRows([{ ...row, prPreview: { state: 'draft' } }], 'closed'));
+	assert.equal(reportFromRows([row], 'open'), null);
+	assert.equal(reportFromRows([{ ...row, prPreview: { state: 'merged' } }], 'merged'), null, 'not again once decided');
+	assert.equal(reportFromRows([{ ...row, paths: [] }], 'merged').findings[0].paths, undefined, 'empty paths are read again');
+	assert.equal(reportFromRows([], 'merged'), null);
 });

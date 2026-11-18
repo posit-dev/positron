@@ -342,7 +342,11 @@ suite('build-fast orchestration', () => {
 			await capture();
 			assert.strictEqual((await fs.promises.readFile(path.join(repoRoot, 'out/late.js'), 'utf8')).includes('const late = true'), true);
 
-			const clientTasks = ['client', 'copy-codicons compile-api-proposal-names compile-extension-point-names'];
+			// --- Start Positron ---
+			// build-fast does not run copy-codicons in Positron; see build-fast.ts.
+			// const clientTasks = ['client', 'copy-codicons compile-api-proposal-names compile-extension-point-names'];
+			const clientTasks = ['client', 'compile-api-proposal-names compile-extension-point-names'];
+			// --- End Positron ---
 			assert.deepStrictEqual(results, [
 				{ tasks: clientTasks, lanes: [true, false, false] },
 				{ tasks: [''], lanes: [true, false, false] },

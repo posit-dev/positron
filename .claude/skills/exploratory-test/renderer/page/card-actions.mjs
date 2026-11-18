@@ -156,7 +156,10 @@ function scriptText(text) {
 }
 
 export function renderPromptBlock(f, report, options) {
-	return `<script type="text/plain" id="prompt-f${f.n}">${scriptText(buildAgentPrompt(f, report, options))}</script>`;
+	const text = buildAgentPrompt(f, report, options);
+	// writeRunPage saves each one as its own file, the text the button copies.
+	options.promptTexts?.set(f.n, text);
+	return `<script type="text/plain" id="prompt-f${f.n}">${scriptText(text)}</script>`;
 }
 
 const ISSUE_NEW_URL = `${REPO_URL}/issues/new`;

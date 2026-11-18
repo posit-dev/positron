@@ -17,7 +17,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
-import { PreviewUrl, QUERY_NONCE_PARAMETER } from '../previewUrl.js';
+import { PreviewUrl } from '../previewUrl.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -216,24 +216,6 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		const disposables = new DisposableStore();
 		disposables.add(props.preview.onDidNavigate(e => {
 			if (urlInputRef.current) {
-				// Remove the nonce from the URL before updating the input; we
-				// use this this for cache busting but the user doesn't need to
-				// see it.
-				if (e.query) {
-					const nonceIndex = e.query.indexOf(`${QUERY_NONCE_PARAMETER}=`);
-					if (nonceIndex !== -1) {
-						const nonceEnd = e.query.indexOf('&', nonceIndex);
-						if (nonceEnd !== -1) {
-							e = e.with({
-								query: e.query.slice(0, nonceIndex) + e.query.slice(nonceEnd + 1)
-							});
-						} else {
-							e = e.with({
-								query: e.query.slice(0, nonceIndex)
-							});
-						}
-					}
-				}
 				urlInputRef.current.value = e.toString(true);
 			}
 		}));

@@ -68,7 +68,7 @@ import { InterpreterQuickPickList, Interpreters } from '../../common/utils/local
 import { showPositronErrorMessageWithLogs } from './common/commonUtils';
 import { isNewEnvironment } from './reusedEnvironment';
 import { scanWorkspace } from '../../positron/workspaceScan';
-import { isProjectEnvironment } from '../../positron/pickerInfo';
+import { GLOBAL_GROUP_ORDER, isProjectEnvironment } from '../../positron/pickerInfo';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -257,7 +257,9 @@ async function createGlobalEnvironmentFromCommand(uvPythonVersion?: string): Pro
  * Which setup items the interpreter picker suggests: only in an empty or Python
  * folder with no project environment. An empty window has no folder to set up,
  * and an R project isn't asking for Python. Installing Python also needs a
- * Python folder; an empty one isn't asking for it yet.
+ * Python folder; an empty one isn't asking for it yet. Creating an environment
+ * is not suggested when a named global environment exists (e.g. a conda env in
+ * `envs/`), since that is often the user's dedicated environment.
  */
 async function setupSuggestions(
     pythonRuntimes: positron.LanguageRuntimeMetadata[],
@@ -269,8 +271,9 @@ async function setupSuggestions(
     // The scan also counts envs on disk that discovery hasn't registered yet.
     const noProjectEnv =
         !pythonRuntimes.some(isProjectEnvironment) && scans.every((scan) => scan.rootProjectEnvs.length === 0);
+    const hasNamedEnv = pythonRuntimes.some((runtime) => runtime.picker?.groupOrder === GLOBAL_GROUP_ORDER);
     return {
-        create: noProjectEnv && scans.some((scan) => scan.isEmpty || scan.hasPythonSignals),
+        create: noProjectEnv && !hasNamedEnv && scans.some((scan) => scan.isEmpty || scan.hasPythonSignals),
         install: noProjectEnv && scans.some((scan) => scan.hasPythonSignals),
     };
 }

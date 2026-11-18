@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './positronDedicatedWindow.js';
+import { AssistantWindowGuard } from './positronAssistantWindow.js';
 import { localize } from '../../../../nls.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event } from '../../../../base/common/event.js';
@@ -88,4 +89,10 @@ registerWorkbenchContribution2(
 	ActiveEditorHasUnsavedChangesTracker.ID,
 	ActiveEditorHasUnsavedChangesTracker,
 	WorkbenchPhase.BlockRestore,
+);
+
+registerWorkbenchContribution2(
+	AssistantWindowGuard.ID,
+	AssistantWindowGuard,
+	WorkbenchPhase.AfterRestored,
 );

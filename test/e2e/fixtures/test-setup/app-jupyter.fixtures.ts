@@ -150,14 +150,15 @@ async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enable
 	);
 
 
-	// Copy settings to container
+	// The settings page object edits this file, which is the one the server reads.
+	process.env.PLAYWRIGHT_CONTAINER_USER_SETTINGS = `jupyter-test:${JUPYTER_USER_DATA_DIR}settings.json`;
 	await copyUserSettingsToContainer(
 		'jupyter-test',
-		'/home/jupyter-admin/.positron-server/data/User/',
+		JUPYTER_USER_DATA_DIR,
 		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
 		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings })
 	);
-	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/data/User/');
+	await copyKeyBindingsToContainer('jupyter-test', JUPYTER_USER_DATA_DIR);
 
 	// Fix permissions
 	await runDockerCommand(`docker exec jupyter-test chown -R jupyter-admin:jupyter-admin ${JUPYTER_USER_SERVER_DIR}`, 'Set ownership of server directory');

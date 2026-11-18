@@ -45,14 +45,16 @@ test.describe('Python Venv Auto-Creation', {
 	test.slow();
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
-		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'venv-creation-test');
+		// Kept outside the shared test-files workspace: other specs would discover the
+		// leftover .venv and pick it by version match (it has no pandas etc.).
+		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'venv-creation-test');
 		// Cleaned up here rather than after the test: the new venv's session is still
 		// starting when the test ends, and removing the folder then fails the kernel launch.
 		await fs.rm(tempWorkspace, { recursive: true, force: true });
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
 
-		await openFolder('test-files/venv-creation-test');
+		await openFolder('venv-creation-test');
 		await app.workbench.sessions.expectNoStartUpMessaging();
 
 		// Info toasts auto-hide after 10s when the window has focus; the notification

@@ -17,7 +17,7 @@ export { resolveRange, runUrl };
 
 // In this order everywhere, counted outcomes first and Already on main last. `group` is the evidence filter: fixed, filed, won't fix, not fixed, not merged, or no outcome yet;
 // `def` explains it under the bar, `brief` under its evidence group.
-const OUTCOMES = [
+export const OUTCOMES = [
 	{ key: 'fixed-in-pr', label: 'Fixed in the PR', group: 'fixed', def: 'A commit pushed to the PR after the run fixed it.', brief: 'Fixed by a later commit on the PR.' },
 	{ key: 'fixed-later', label: 'Fixed later', group: 'fixed', def: 'Fixed on main after the merge, or its issue was closed as completed.', brief: 'Fixed on main after merging.' },
 	{ key: 'filed-issue', label: 'Filed as issue', group: 'filed', def: 'An issue matching the finding was opened after the run, and nothing has fixed it yet.', brief: 'Tracked in an issue, not fixed yet.' },
@@ -40,6 +40,7 @@ const DECIDED_BY = {
 	'closed-unmerged': 'PR closed without merging',
 	'dropped': 'PR merged without the change',
 	'sha': 'A specific commit',
+	'by-hand': 'Set by hand',
 };
 // Why a finding wasn't merged, on its evidence row.
 const SHIP_REASON = { 'closed-unmerged': 'PR closed', 'dropped': 'Change dropped' };

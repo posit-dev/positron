@@ -10,7 +10,7 @@ import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readJson } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
-import { renderPrComment, buildShotsBaseUrl, failedStep } from './lib.mjs';
+import { renderPrComment, buildShotsBaseUrl, failedStep, findDeclinedNote } from './lib.mjs';
 
 const API = 'https://api.github.com';
 
@@ -26,7 +26,8 @@ async function gh(fetchImpl, token, path, init = {}) {
 	if (!res.ok) {
 		throw new Error(`GitHub ${init.method || 'GET'} ${path} failed: ${res.status} ${await res.text()}`);
 	}
-	return res.json();
+	// A DELETE answers 204 with no body.
+	return res.status === 204 ? null : res.json();
 }
 
 /**
@@ -42,6 +43,35 @@ export async function postOrEditComment({ fetchImpl, token, repo, prNumber, comm
 	}
 	const created = await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments`, { method: 'POST', ...payload });
 	return { action: 'created', id: created.id };
+}
+
+/** Deletes a PR comment. Throws when GitHub refuses. */
+export async function deleteComment({ fetchImpl, token, repo, commentId }) {
+	await gh(fetchImpl, token, `/repos/${repo}/issues/comments/${commentId}`, { method: 'DELETE' });
+}
+
+/**
+ * Deletes the suggest workflow's "did not run automatically" note, if the PR
+ * has one. Called once a run has said something on the PR, which supersedes
+ * it. Best effort: a note left behind is only stale, so this never throws.
+ */
+export async function removeDeclinedNote({ fetchImpl, token, repo, prNumber }) {
+	try {
+		for (let page = 1; ; page++) {
+			const comments = await gh(fetchImpl, token, `/repos/${repo}/issues/${prNumber}/comments?per_page=100&page=${page}`);
+			const note = findDeclinedNote(comments);
+			if (note) {
+				await deleteComment({ fetchImpl, token, repo, commentId: note.id });
+				return note.id;
+			}
+			if (comments.length < 100) {
+				return null;
+			}
+		}
+	} catch (err) {
+		console.log(`[comment] could not remove the declined note: ${err instanceof Error ? err.message : String(err)}`);
+		return null;
+	}
 }
 
 /** The run's report.json, or null when the build failed first or the agent never wrote one. */
@@ -132,6 +162,13 @@ async function main() {
 		appendFileSync(process.env.GITHUB_OUTPUT, `comment_id=${id}\n`);
 	}
 	console.log(`[comment] ${action} ${id} (${state || 'failed'})`);
+	// This run now speaks for itself on the PR, so the judge's earlier "no" is
+	// stale. Removed here, not when the auto-run is started: a run the gate
+	// refuses posts nothing, and the note is then all the PR has.
+	const removed = await removeDeclinedNote({ fetchImpl: fetch, token: process.env.GH_TOKEN, repo: process.env.GITHUB_REPOSITORY, prNumber: process.env.PR_NUMBER });
+	if (removed) {
+		console.log(`[comment] removed the declined note, comment ${removed}`);
+	}
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

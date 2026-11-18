@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMMENT_MARKER } from './lib.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, DECLINED_MARKER, findDeclinedNote, findPriorUse, isAutoRunAuthor, isAutoRunTitle, isRunCommand, parseVerdict, reasonClause, reasonSentence, renderDeclinedComment, renderDiff, renderSuggestComment, skipReason, SUGGEST_MARKER } from './suggest-lib.ts';
 
 test('isRunCommand accepts every alias as the first word of the first non-blank line', () => {
 	for (const body of ['/explore', '/test', '/exploratory-test', '\r\n\r\n/explore the plots pane\r\n', '  /test 20m']) {
@@ -151,6 +151,35 @@ test('renderSuggestComment is the marker then a tip callout', () => {
 		'> Comment `/explore` to run an exploratory test. Results will be posted as a comment on this PR.',
 		'',
 	].join('\n'));
+});
+
+test('renderDeclinedComment gives the reason and the override, and is not a prior use', () => {
+	const body = renderDeclinedComment('Reaching the change needs the ggsql extension. More detail.', 'abc1234def');
+	assert.equal(body, [
+		DECLINED_MARKER,
+		'> [!NOTE]',
+		'> Exploratory testing did not run automatically on this PR at abc1234. Reaching the change needs the ggsql extension.',
+		'',
+		'If that is wrong, comment `/explore <what to test>` to run it anyway. Results will be posted on this PR.',
+		'',
+	].join('\n'));
+	assert.equal(findPriorUse([{ id: 7, body }]), null);
+	const bot = { type: 'Bot' };
+	assert.equal(findDeclinedNote([{ id: 6, user: bot, body: renderSuggestComment('x') }, { id: 7, user: bot, body }])?.id, 7);
+	assert.equal(findDeclinedNote([{ id: 8, user: { type: 'User' }, body }]), undefined);
+});
+
+test('reasonSentence starts with a capital and drops links, images and URLs', () => {
+	assert.equal(reasonSentence('docs only'), 'Docs only.');
+	assert.equal(reasonSentence('See [the fix](https://evil.example) ![x](https://e.x/a.png) or https://evil.example/y now.'), 'See the fix or now.');
+	assert.equal(reasonSentence('See www.evil.example or a@evil.example now.'), 'See or now.');
+	assert.equal(reasonSentence('Blocked on other-org/repo#12 and #34.'), 'Blocked on number 12 and number 34.');
+	assert.equal(reasonSentence('https://evil.example/only'), 'No reason was given.');
+});
+
+test('reasonClause drops "This PR" even behind markup', () => {
+	assert.equal(reasonClause('<b>This PR</b> changes restart.'), 'changes restart.');
+	assert.equal(reasonClause('<!-- note -->This PR changes restart.'), 'changes restart.');
 });
 
 test('renderDiff puts product files first and names what does not fit', () => {

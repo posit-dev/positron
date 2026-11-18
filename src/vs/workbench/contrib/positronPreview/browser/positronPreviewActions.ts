@@ -11,6 +11,11 @@ import { IPositronPreviewService } from './positronPreviewSevice.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { Event } from '../../../../base/common/event.js';
+import { raceTimeout } from '../../../../base/common/async.js';
+
+/** How long to wait for a page to load when asked to. */
+const LOAD_TIMEOUT_MS = 30_000;
 
 export const POSITRON_PREVIEW_ACTION_CATEGORY = nls.localize('positronViewerCategory', "Viewer");
 const category: ILocalizedString = { value: POSITRON_PREVIEW_ACTION_CATEGORY, original: 'Viewer' };
@@ -35,6 +40,11 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 					isOptional: true,
 					description: 'The http or https URL to open. Omit to prompt the user for a URL.',
 					schema: { type: 'string' }
+				}, {
+					name: 'waitForLoad',
+					isOptional: true,
+					description: `Whether to wait until the page has loaded in the Viewer before returning. Fails if it hasn't loaded within ${LOAD_TIMEOUT_MS / 1000} seconds.`,
+					schema: { type: 'boolean' }
 				}]
 			}
 		});
@@ -45,8 +55,9 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 	 *
 	 * @param accessor The service accessor.
 	 * @param url The URL to open; the user is prompted for one if omitted.
+	 * @param waitForLoad Whether to wait until the page has loaded.
 	 */
-	async run(accessor: ServicesAccessor, url?: string) {
+	async run(accessor: ServicesAccessor, url?: string, waitForLoad?: boolean) {
 		// Load services from accessor
 		const previewService = accessor.get(IPositronPreviewService);
 		const quickInputService = accessor.get(IQuickInputService);
@@ -83,6 +94,13 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 		}
 
 		const previewId = `userRequestedPreview-${PositronOpenUrlInViewerAction._previewCounter++}`;
-		previewService.openUri(previewId, undefined, uri);
+		const preview = previewService.openUri(previewId, undefined, uri);
+
+		if (waitForLoad) {
+			const loaded = Event.toPromise(preview.webview.onDidLoad);
+			if (await raceTimeout(loaded.then(() => true), LOAD_TIMEOUT_MS, () => loaded.cancel()) !== true) {
+				throw new Error(nls.localize('positronOpenUrlInViewer.loadTimeout', "The URL '{0}' was opened in the Viewer, but the page didn't finish loading within {1} seconds.", url, LOAD_TIMEOUT_MS / 1000));
+			}
+		}
 	}
 }
