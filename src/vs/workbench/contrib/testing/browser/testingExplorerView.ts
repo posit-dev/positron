@@ -568,6 +568,9 @@ class ResultSummaryView extends Disposable {
 		@IConfigurationService configurationService: IConfigurationService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IHoverService hoverService: IHoverService,
+		// --- Start Positron ---
+		@IContextKeyService contextKeyService: IContextKeyService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -585,12 +588,33 @@ class ResultSummaryView extends Disposable {
 		const ab = this._register(new ActionBar(this.elements.rerun, {
 			actionViewItemProvider: (action, options) => createActionViewItem(instantiationService, action, options),
 		}));
-		ab.push(instantiationService.createInstance(MenuItemAction,
-			{ ...new ReRunLastRun().desc, icon: icons.testingRerunIcon },
-			{ ...new DebugLastRun().desc, icon: icons.testingDebugIcon },
-			{},
-			undefined, undefined
-		), { icon: true, label: false });
+		// --- Start Positron ---
+		// Offer Debug Last Run on Alt only while some controller has a Debug
+		// profile. MenuItemAction evaluates its precondition once, so rebuild
+		// the button when that changes.
+		// ab.push(instantiationService.createInstance(MenuItemAction,
+		// 	{ ...new ReRunLastRun().desc, icon: icons.testingRerunIcon },
+		// 	{ ...new DebugLastRun().desc, icon: icons.testingDebugIcon },
+		// 	{},
+		// 	undefined, undefined
+		// ), { icon: true, label: false });
+		const pushRerunAction = () => {
+			ab.clear();
+			ab.push(instantiationService.createInstance(MenuItemAction,
+				{ ...new ReRunLastRun().desc, icon: icons.testingRerunIcon },
+				{ ...new DebugLastRun().desc, icon: icons.testingDebugIcon, precondition: TestingContextKeys.hasDebuggableTests },
+				{},
+				undefined, undefined
+			), { icon: true, label: false });
+		};
+		pushRerunAction();
+		const debuggableKeys = new Set([TestingContextKeys.hasDebuggableTests.key]);
+		this._register(contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(debuggableKeys)) {
+				pushRerunAction();
+			}
+		}));
+		// --- End Positron ---
 
 		this.render();
 	}
