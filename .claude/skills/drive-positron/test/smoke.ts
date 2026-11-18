@@ -91,8 +91,6 @@ const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => 
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
 /** A runtime picker row as "shown" writes it is a Python one: its label ("Python 3.12.3") or description ("uv: ws (Python 3.14.7)") leads with Python. */
 const pythonRow = (x: string) => /^Python |\(Python /.test(x);
-/** Says --name matched no Python row, and lists only Python rows. */
-const listsPythonRows = (o: Out) => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`);
 /** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
@@ -115,9 +113,8 @@ const cases: Case[] = [
 	{ name: 'panel tabs is not a command, logged', run: ['panel.sh', 'tabs'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"tabs" is not a command: the nearest is tab;') || logged('panel.sh -s=net1: FAILED tabs: "tabs" is not a command') },
 	{ name: 'panel sessio names the nearest command', run: ['panel.sh', 'sessio'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"sessio" is not a command: the nearest is sessions') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
-	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: listsPythonRows },
-	// The workspace's interpreter leads its row with its environment ("uv: ws (Python 3.14.7)"): it is listed with the Python rows.
-	{ name: 'start-session --name no row matches lists the workspace interpreter', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => listsPythonRows(o) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) },
+	// The workspace's interpreter can lead its row with its environment ("uv: ws (Python 3.14.7)"): it is listed too.
+	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) },
 	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
 	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
 	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
