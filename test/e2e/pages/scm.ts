@@ -80,8 +80,9 @@ export class SCM {
 			await commitAction.click();
 			await page.waitForFunction(state => state.sawDisabled, watch, { polling: 'raf', timeout: 15000 });
 		} finally {
-			await watch.evaluate(state => state.observer?.disconnect());
-			await watch.dispose();
+			// A closed page must not replace the error from the try block.
+			await watch.evaluate(state => state.observer?.disconnect()).catch(() => { });
+			await watch.dispose().catch(() => { });
 		}
 		await expect(commitAction).not.toHaveClass(/disabled/);
 	}

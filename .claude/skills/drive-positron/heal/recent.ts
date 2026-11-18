@@ -62,6 +62,8 @@ async function main(): Promise<number> {
 	if (dir instanceof Error || days instanceof Error) { console.log(`recent: ${(dir instanceof Error ? dir : days as Error).message}`); return 2; }
 	if (days !== null && !/^[1-9]\d*$/.test(days)) { console.log('recent: --days must be a positive integer'); return 2; }
 	const { GH_TOKEN: token, GITHUB_API_URL: api = 'https://api.github.com', GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: self } = process.env;
+	// The nightly runs in posit-dev/positron-builds; the findings are filed as positron issues.
+	const issueRepo = 'posit-dev/positron';
 	const out = join(dir ?? '/tmp/heal', 'recent');
 	mkdirSync(out, { recursive: true });
 	if (!token || !repo) { console.log('recent: GH_TOKEN or GITHUB_REPOSITORY is not set; no earlier findings'); return 0; }
@@ -104,7 +106,7 @@ async function main(): Promise<number> {
 	const states: Record<number, string> = {};
 	const runDirs = readdirSync(out, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('.'));
 	for (const n of issuesIn(runDirs.map(d => readFindings(join(out, d.name))))) {
-		try { states[n] = (await (await get(`${api}/repos/${repo}/issues/${n}`)).json()).state; } catch (e) { console.log(`recent: issue ${n} skipped (${e instanceof Error ? e.message : e})`); }
+		try { states[n] = (await (await get(`${api}/repos/${issueRepo}/issues/${n}`)).json()).state; } catch (e) { console.log(`recent: issue ${n} skipped (${e instanceof Error ? e.message : e})`); }
 	}
 	writeFileSync(join(out, 'issues.json'), `${JSON.stringify(states, null, '\t')}\n`);
 	return 0;
