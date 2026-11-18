@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { basename, isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -14,8 +15,9 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
+import { createNotStartedDisplayInfo, RuntimeSessionDisplayInfo } from '../../../services/runtimeSession/common/runtimeSessionDisplayInfo.js';
 import {
 	isQuartoDocument,
 	usingQuartoInlineOutput,
@@ -121,6 +123,15 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 				if (session) {
 					this._recordEndedSession(session);
 				}
+			}
+		}));
+
+		// If a session for the active document fails to start, show the document
+		// as not started again
+		this._register(this._runtimeSessionService.onDidFailStartRuntime((session) => {
+			const notebookUri = session.metadata.notebookUri;
+			if (notebookUri && !this._runtimeSessionService.foregroundSession && this._isActiveDocument(notebookUri)) {
+				this._showDocumentWithoutSession(notebookUri);
 			}
 		}));
 
@@ -281,7 +292,21 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 			this._logService.trace(`[ForegroundSessionContribution] onDidFocusWidget fired for Positron notebook (${notebookName}) instance: ${instanceId}`);
 			this._handlePositronNotebookFocus(instance);
 		}));
+		// The kernel decides which runtime will start, so the interpreter picker
+		// follows it while the active notebook has no session (e.g. a preview tab).
+		// Also check now: a preview tab opened from the explorer doesn't take
+		// focus, and its instance can be added after the active editor changed.
+		const showIfActiveWithoutSession = () => {
+			const activeEditor = this._editorService.activeEditor;
+			if (isNotebookEditorInput(activeEditor) &&
+				isEqual(activeEditor.resource, instance.uri) &&
+				!this._runtimeSessionService.getNotebookSessionForNotebookUri(instance.uri)) {
+				this._showDocumentWithoutSession(instance.uri);
+			}
+		};
+		disposables.add(runOnChange(instance.kernel, showIfActiveWithoutSession));
 		this._positronNotebookDisposables.set(instanceId, disposables);
+		showIfActiveWithoutSession();
 	}
 
 	/**
@@ -645,16 +670,55 @@ export class ForegroundSessionContribution extends Disposable implements IWorkbe
 	 * @param uri The URI of the active document.
 	 */
 	private _showDocumentWithoutSession(uri: URI | undefined): void {
-		const snapshot = uri ? this._endedSessionSnapshots.get(uri) : undefined;
+		const runtime = uri ? this._runtimeForDocument(uri) : undefined;
+		const snapshot = uri
+			? this._endedSessionSnapshots.get(uri) ?? (runtime ? createNotStartedDisplayInfo(runtime, uri) : undefined)
+			: undefined;
 		if (!snapshot) {
 			this._dropStaleNotebookSnapshot(uri);
 			return;
 		}
 		if (this._runtimeSessionService.foregroundSessionDisplayInfo !== snapshot) {
-			this._logService.trace(`[ForegroundSessionContribution] Showing the ended session for (${basename(snapshot.notebookUri!)})`);
+			this._logService.trace(`[ForegroundSessionContribution] Showing ${snapshot.sessionState ?? 'not started'} session info for (${basename(snapshot.notebookUri!)})`);
 			this._runtimeSessionService.foregroundSession = undefined;
 			this._runtimeSessionService.foregroundSessionDisplayInfo = snapshot;
 		}
+	}
+
+	/**
+	 * Gets the runtime that will start for a notebook or Quarto document: the
+	 * notebook's selected kernel, or the Quarto document's preferred runtime.
+	 *
+	 * @param uri The URI of the document.
+	 */
+	private _runtimeForDocument(uri: URI): ILanguageRuntimeMetadata | undefined {
+		const instance = this._positronNotebookService.listInstances().find(i => isEqual(i.uri, uri));
+		if (instance) {
+			return instance.kernel.get()?.runtime;
+		}
+		// Untitled Quarto documents have no .qmd extension, so also check the
+		// language of the active editor showing this document.
+		const model = this._codeEditorService.getActiveCodeEditor()?.getModel();
+		const languageId = model && isEqual(model.uri, uri) ? model.getLanguageId() : undefined;
+		return isQuartoDocument(uri.path, languageId)
+			? this._quartoKernelManager.getPreferredRuntimeForDocument(uri)
+			: undefined;
+	}
+
+	/**
+	 * Whether the given URI is the active notebook editor, or the active Quarto
+	 * editor when Quarto inline output is on.
+	 */
+	private _isActiveDocument(uri: URI): boolean {
+		const activeEditor = this._editorService.activeEditor;
+		if (isNotebookEditorInput(activeEditor) && isEqual(activeEditor.resource, uri)) {
+			return true;
+		}
+		if (usingQuartoInlineOutput(this._configurationService)) {
+			const model = this._codeEditorService.getActiveCodeEditor()?.getModel();
+			return !!model && isEqual(model.uri, uri) && isQuartoDocument(model.uri.path, model.getLanguageId());
+		}
+		return false;
 	}
 
 	/**

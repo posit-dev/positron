@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { observableValue } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
@@ -12,13 +13,15 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorCloseEvent } from '../../../../common/editor.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { RuntimeNotebookKernel } from '../../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 import { IQuartoKernelManager } from '../../../positronQuarto/browser/quartoKernelManager.js';
 import { ForegroundSessionContribution } from '../../browser/foregroundSessionContribution.js';
@@ -38,6 +41,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 	let activeCodeEditor: ICodeEditor | undefined;
 	let notebookInstances: IPositronNotebookInstance[] = [];
 	let quartoSessionForDocument: ILanguageRuntimeSession | undefined;
+	let quartoPreferredRuntime: ILanguageRuntimeMetadata | undefined;
 	// Documents with no open editor. Every other document counts as open.
 	let closedUris: URI[] = [];
 
@@ -60,6 +64,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		} as IPositronNotebookService)
 		.stub(IQuartoKernelManager, {
 			getSessionForDocument: () => quartoSessionForDocument,
+			getPreferredRuntimeForDocument: () => quartoPreferredRuntime,
 		} as unknown as IQuartoKernelManager)
 		.stub(ICodeEditorService, {
 			onCodeEditorAdd: Event.None,
@@ -94,6 +99,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		activeCodeEditor = undefined;
 		notebookInstances = [];
 		quartoSessionForDocument = undefined;
+		quartoPreferredRuntime = undefined;
 		closedUris = [];
 
 		// Reset Quarto config to avoid leakage between tests
@@ -105,6 +111,35 @@ describe('Positron - ForegroundSessionContribution', () => {
 			ctx.instantiationService.createInstance(ForegroundSessionContribution)
 		);
 	});
+
+	/** Create a mock Positron notebook instance with the given runtime as its selected kernel. */
+	function createNotebookInstance(uri: URI, runtime?: ILanguageRuntimeMetadata) {
+		return createNotebookInstanceWithKernel(uri, runtime).instance;
+	}
+
+	/** Create a mock Positron notebook instance, returning its kernel so a test can change it. */
+	function createNotebookInstanceWithKernel(uri: URI, runtime?: ILanguageRuntimeMetadata, onDidFocusWidget: Event<void> = Event.None) {
+		const kernel = observableValue<RuntimeNotebookKernel | undefined>('test-kernel',
+			runtime ? stubInterface<RuntimeNotebookKernel>({ runtime }) : undefined);
+		const instance = stubInterface<IPositronNotebookInstance>({
+			getId: () => `instance-${uri.toString()}`,
+			uri,
+			kernel,
+			onDidFocusWidget,
+		});
+		return { instance, kernel };
+	}
+
+	/** Create runtime metadata for a runtime that has not started a session. */
+	function createRuntime(runtimeName = 'Python 3.12'): ILanguageRuntimeMetadata {
+		return stubInterface<ILanguageRuntimeMetadata>({
+			runtimeId: 'python-3.12',
+			runtimeName,
+			languageId: 'python',
+			languageName: 'Python',
+			base64EncodedIconSvg: undefined,
+		});
+	}
 
 	/** Create a mock notebook EditorInput that passes isNotebookEditorInput(). */
 	function createNotebookEditorInput(uri: URI): EditorInput {
@@ -408,11 +443,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			await runtimeSessionService.deleteSession(oldSession.sessionId);
 
 			const onDidFocusWidget = ctx.disposables.add(new Emitter<void>());
-			const instance = {
-				getId: () => 'instance-1',
-				uri: notebookUri,
-				onDidFocusWidget: onDidFocusWidget.event,
-			} as unknown as IPositronNotebookInstance;
+			const instance = createNotebookInstanceWithKernel(notebookUri, undefined, onDidFocusWidget.event).instance;
 			notebookInstances = [instance];
 			onDidAddNotebookInstance.fire(instance);
 			activeEditor = createNotebookEditorInput(notebookUri);
@@ -433,11 +464,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 			const notebookSession = await startNotebookSession();
 			runtimeSessionService.foregroundSession = notebookSession;
 
-			const mockInstance = {
-				getId: () => 'instance-1',
-				uri: notebookUri,
-				onDidFocusWidget: Event.None,
-			} as unknown as IPositronNotebookInstance;
+			const mockInstance = createNotebookInstance(notebookUri);
 			notebookInstances = [];
 
 			onDidRemoveNotebookInstance.fire(mockInstance);
@@ -448,11 +475,7 @@ describe('Positron - ForegroundSessionContribution', () => {
 		it('no-op when foreground is a console session', async () => {
 			const consoleSession = await startConsoleSession();
 
-			const mockInstance = {
-				getId: () => 'instance-1',
-				uri: notebookUri,
-				onDidFocusWidget: Event.None,
-			} as unknown as IPositronNotebookInstance;
+			const mockInstance = createNotebookInstance(notebookUri);
 			notebookInstances = [];
 
 			onDidRemoveNotebookInstance.fire(mockInstance);
@@ -774,17 +797,116 @@ describe('Positron - ForegroundSessionContribution', () => {
 		});
 	});
 
+	describe('not-started info in the picker', () => {
+		async function readyConsole() {
+			const consoleSession = await startConsoleSession();
+			await waitForRuntimeState(consoleSession, RuntimeState.Ready);
+			return consoleSession;
+		}
+
+		function pickerState() {
+			const info = runtimeSessionService.foregroundSessionDisplayInfo;
+			return {
+				foreground: runtimeSessionService.foregroundSession?.sessionId,
+				notebookUri: info?.notebookUri?.toString(),
+				runtimeName: info?.runtimeName,
+				sessionState: info?.sessionState,
+			};
+		}
+
+		it('shows a sessionless notebook with a selected kernel as not started', async () => {
+			await readyConsole();
+			notebookInstances = [createNotebookInstance(notebookUri, createRuntime())];
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(pickerState()).toEqual({ foreground: undefined, notebookUri: notebookUri.toString(), runtimeName: 'Python 3.12', sessionState: undefined });
+		});
+
+		it('shows it once its notebook instance is added after the editor became active', async () => {
+			await readyConsole();
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			const instance = createNotebookInstance(notebookUri, createRuntime());
+			notebookInstances = [instance];
+			onDidAddNotebookInstance.fire(instance);
+
+			expect([pickerState().notebookUri, pickerState().sessionState]).toEqual([notebookUri.toString(), undefined]);
+		});
+
+		it('shows it once a kernel is selected for the active notebook', async () => {
+			const consoleSession = await readyConsole();
+			const { instance, kernel } = createNotebookInstanceWithKernel(notebookUri);
+			notebookInstances = [instance];
+			onDidAddNotebookInstance.fire(instance);
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+
+			kernel.set(stubInterface<RuntimeNotebookKernel>({ runtime: createRuntime('R 4.4') }), undefined);
+
+			expect([pickerState().runtimeName, pickerState().sessionState]).toEqual(['R 4.4', undefined]);
+		});
+
+		it('shows a sessionless Quarto file as not started with its preferred runtime', async () => {
+			configService.setUserConfiguration(QUARTO_INLINE_OUTPUT_ENABLED_KEY, true);
+			await readyConsole();
+			const quartoUri = URI.file('/path/to/doc.qmd');
+			quartoPreferredRuntime = createRuntime();
+
+			activeEditor = { typeId: 'text', resource: quartoUri } as unknown as EditorInput;
+			activeCodeEditor = createMockCodeEditor(quartoUri, 'quarto');
+			onDidActiveEditorChange.fire();
+
+			expect(pickerState()).toEqual({ foreground: undefined, notebookUri: quartoUri.toString(), runtimeName: 'Python 3.12', sessionState: undefined });
+		});
+
+		it('keeps the console when no runtime is known for the notebook', async () => {
+			const consoleSession = await readyConsole();
+			notebookInstances = [createNotebookInstance(notebookUri)];
+
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
+		it('goes back to the console when another document becomes active', async () => {
+			const consoleSession = await readyConsole();
+			notebookInstances = [createNotebookInstance(notebookUri, createRuntime())];
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			activeEditor = createNotebookEditorInput(URI.file('/path/to/other.ipynb'));
+			onDidActiveEditorChange.fire();
+
+			expect(getForegroundSessionId()).toBe(consoleSession.sessionId);
+		});
+
+		it('shows the notebook as not started again when its session fails to start', async () => {
+			await readyConsole();
+			notebookInstances = [createNotebookInstance(notebookUri, createRuntime())];
+			activeEditor = createNotebookEditorInput(notebookUri);
+			onDidActiveEditorChange.fire();
+
+			vi.spyOn(TestLanguageRuntimeSession.prototype, 'start').mockRejectedValueOnce(new Error('start failed'));
+			// The helper throws before it can register the failed session for disposal.
+			ctx.disposables.add(runtimeSessionService.onWillStartSession(({ session }) => ctx.disposables.add(session)));
+			await startNotebookSession().catch(() => { });
+
+			expect([pickerState().notebookUri, pickerState().sessionState]).toEqual([notebookUri.toString(), undefined]);
+		});
+	});
+
 	describe('dispose', () => {
 		it('cleans up disposable maps without errors', () => {
 			// Create a standalone instance so we can dispose it without double-dispose
 			const disposableContribution = ctx.instantiationService.createInstance(ForegroundSessionContribution);
 
 			// Register a mock notebook instance to create disposables
-			const mockInstance = {
-				getId: () => 'instance-1',
-				uri: notebookUri,
-				onDidFocusWidget: Event.None,
-			} as unknown as IPositronNotebookInstance;
+			const mockInstance = createNotebookInstance(notebookUri);
 			onDidAddNotebookInstance.fire(mockInstance);
 
 			// Disposing should not throw
