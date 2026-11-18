@@ -260,16 +260,20 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 				vscode.commands.executeCommand('setContext', 'forwardedPortsViewEnabled', true);
 
 				this.labelFormatterDisposable?.dispose();
-				this.labelFormatterDisposable = vscode.workspace.registerResourceLabelFormatter({
-					scheme: 'vscode-remote',
-					authority: `${REMOTE_SSH_AUTHORITY}+*`,
-					formatting: {
-						label: '${path}',
-						separator: '/',
-						tildify: true,
-						workspaceSuffix: `SSH: ${sshDest.hostname}` + (sshDest.port && sshDest.port !== 22 ? `:${sshDest.port}` : '')
-					}
-				});
+				const hostLabel = sshDest.hostname + (sshDest.port && sshDest.port !== 22 ? `:${sshDest.port}` : '');
+				// Saved labels carry over to other hosts' windows, so only the host-specific one includes the host name (#17410)
+				this.labelFormatterDisposable = vscode.Disposable.from(
+					vscode.workspace.registerResourceLabelFormatter({
+						scheme: 'vscode-remote',
+						authority: `${REMOTE_SSH_AUTHORITY}+*`,
+						formatting: { label: '${path}', separator: '/', tildify: true, workspaceSuffix: 'SSH' }
+					}),
+					vscode.workspace.registerResourceLabelFormatter({
+						scheme: 'vscode-remote',
+						authority,
+						formatting: { label: '${path}', separator: '/', tildify: true, workspaceSuffix: `SSH: ${hostLabel}` }
+					})
+				);
 
 				const resolvedResult: vscode.ResolverResult = new vscode.ResolvedAuthority('127.0.0.1', tunnelConfig.localPort, installResult.connectionToken);
 				resolvedResult.extensionHostEnv = envVariables;
