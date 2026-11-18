@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { PlotPoint } from '../../../languageRuntime/common/positronUiComm.js';
-import { IPlotLocator } from '../../common/plotLocator.js';
+import { IPlotLocator, IPlotLocatorPoints } from '../../common/plotLocator.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
 import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, IOpenImageInEditorOptions, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
@@ -152,6 +152,22 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	setActiveLocator(locator: IPlotLocator | undefined): void {
 		this.activeLocator = locator;
 		this._onDidChangeLocatorEmitter.fire(locator);
+	}
+
+	private readonly _onDidChangeLocatorPointsEmitter =
+		this._register(new Emitter<IPlotLocatorPoints | undefined>());
+
+	locatorPoints: IPlotLocatorPoints | undefined = undefined;
+
+	readonly onDidChangeLocatorPoints = this._onDidChangeLocatorPointsEmitter.event;
+
+	/**
+	 * Sets the chosen locator points and fires onDidChangeLocatorPoints, as the real service does.
+	 * @param points The chosen points, or undefined to clear them.
+	 */
+	setLocatorPoints(points: IPlotLocatorPoints | undefined): void {
+		this.locatorPoints = points;
+		this._onDidChangeLocatorPointsEmitter.fire(points);
 	}
 
 	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize): Promise<PlotPoint | undefined> {

@@ -9,7 +9,7 @@ import React from 'react';
 // Other dependencies.
 import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
 import { PlotPoint } from '../../../../services/languageRuntime/common/positronUiComm.js';
-import { plotPointFromClick } from '../../../../services/positronPlots/common/plotLocator.js';
+import { plotImageBox, plotPointFromClick } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface PanZoomImageProps {
@@ -20,6 +20,8 @@ interface PanZoomImageProps {
 	zoom: ZoomLevel;
 	/** When set, the image is in locator mode: clicks on the bitmap are reported here. */
 	onLocate?: (point: PlotPoint) => void;
+	/** Points to mark on the image, as fractions of the image: the clicks of a locator() call. */
+	locatorPoints?: readonly PlotPoint[];
 }
 
 /**
@@ -86,6 +88,11 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	// previous image is not read against the new one.
 	const onLocate = loadedUri === props.imageUri ? props.onLocate : undefined;
 
+	// The markers sit in a layer over the image that scrolls with it.
+	const imageBox = props.locatorPoints?.length ?
+		plotImageBox({ width: props.width, height: props.height }, { width: naturalWidth, height: naturalHeight }, props.zoom) :
+		undefined;
+
 	return (
 		<Scrollable height={props.height} mousePan={!props.onLocate} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
 			<img ref={imageRef}
@@ -114,6 +121,19 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 					setLoadedUri(el.currentTarget.getAttribute('src') ?? undefined);
 				}}
 			/>
+			{imageBox && <div aria-hidden='true' className='plot-locator-points'>
+				{props.locatorPoints?.map((point, index) =>
+					<div
+						key={index}
+						className='plot-locator-point'
+						data-testid='plot-locator-point'
+						style={{
+							left: imageBox.left + point.x * imageBox.width,
+							top: imageBox.top + point.y * imageBox.height,
+						}}
+					/>
+				)}
+			</div>}
 		</Scrollable>
 	);
 };

@@ -18,7 +18,7 @@ import { IRenderedPlot } from '../../../../services/languageRuntime/common/posit
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
-import { IPlotLocator, isLocatorForPlot } from '../../../../services/positronPlots/common/plotLocator.js';
+import { arePointsForPlot, IPlotLocator, IPlotLocatorPoints, isLocatorForPlot } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
@@ -73,6 +73,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return isLocatorForPlot(active, sessionId, plotId) ? active : undefined;
 	});
 	const locating = locator !== undefined;
+	// The points chosen on this plot so far, shown as markers.
+	const [locatorPoints, setLocatorPoints] = useState<IPlotLocatorPoints | undefined>(() => {
+		const points = services.positronPlotsService.locatorPoints;
+		return arePointsForPlot(points, sessionId, plotId) ? points : undefined;
+	});
 	const showBanner = locating && props.showLocatorBanner !== false;
 
 	// Whether the wrapper had focus when the locator mode last ended. locator() and identify()
@@ -104,6 +109,17 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			}
 			setLocator(undefined);
 		});
+		return () => disposable.dispose();
+	}, [plotId, sessionId, services.positronPlotsService]);
+
+	// Track the points chosen on this plot.
+	useEffect(() => {
+		const forThisPlot = (points: IPlotLocatorPoints | undefined) =>
+			arePointsForPlot(points, sessionId, plotId) ? points : undefined;
+		setLocatorPoints(forThisPlot(services.positronPlotsService.locatorPoints));
+		const disposable = services.positronPlotsService.onDidChangeLocatorPoints(
+			points => setLocatorPoints(forThisPlot(points))
+		);
 		return () => disposable.dispose();
 	}, [plotId, sessionId, services.positronPlotsService]);
 
@@ -260,12 +276,18 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		uriSize?.width === locator.size.width &&
 		uriSize.height === locator.size.height;
 
+	// The markers are in the right place only on the image the points were chosen on.
+	const pointsToMark = locatorPoints &&
+		uriSize?.width === locatorPoints.size.width &&
+		uriSize.height === locatorPoints.size.height ? locatorPoints.points : undefined;
+
 	// Render method for the plot image.
 	const renderedImage = () => {
 		return <PanZoomImage
 			description={plotName}
 			height={showBanner ? Math.max(props.height - PLOT_LOCATOR_BANNER_HEIGHT, 0) : props.height}
 			imageUri={uri}
+			locatorPoints={pointsToMark}
 			width={props.width}
 			zoom={props.zoom}
 			onLocate={canLocate ? point => services.positronPlotsService.resolveLocator(point) : undefined}

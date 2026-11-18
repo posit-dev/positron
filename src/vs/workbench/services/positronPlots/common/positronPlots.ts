@@ -11,7 +11,7 @@ import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRunt
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { PlotPoint } from '../../languageRuntime/common/positronUiComm.js';
-import { IPlotLocator } from './plotLocator.js';
+import { IPlotLocator, IPlotLocatorPoints } from './plotLocator.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -263,6 +263,15 @@ export interface IPositronPlotsService {
 
 	/** Answers the active locator: a point for a click, `undefined` to finish. */
 	resolveLocator(point: PlotPoint | undefined): void;
+
+	/**
+	 * The points the user chose on a plot for locator requests of the current execute request.
+	 * Plots show them as markers, because the kernel draws nothing until the call returns.
+	 */
+	readonly locatorPoints: IPlotLocatorPoints | undefined;
+
+	/** Notifies subscribers when the chosen locator points change. */
+	readonly onDidChangeLocatorPoints: Event<IPlotLocatorPoints | undefined>;
 
 	/**
 	 * Notifies subscribers when the settings for rendering a plot have changed.

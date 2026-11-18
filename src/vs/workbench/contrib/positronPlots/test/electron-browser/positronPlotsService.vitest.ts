@@ -845,6 +845,34 @@ describe('Positron - Plots Service', () => {
 			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
 		});
 
+		it('keeps the chosen points until their execute request goes idle', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const point = { x: 0.1, y: 0.9 };
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
+			plotsService.resolveLocator(point);
+			const expected = { sessionId: session.sessionId, plotId: 'plot1', size: SIZE, points: [point] };
+
+			// A comm request answered between two locator requests sends busy and idle.
+			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Idle });
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(plotsService.locatorPoints).toEqual(expected);
+
+			session.receiveStateMessage({ parent_id: 'exec1', state: RuntimeOnlineState.Idle });
+			expect(plotsService.locatorPoints).toBeUndefined();
+		});
+
+		it('removes the chosen points when their plot is removed', async () => {
+			const session = await createSessionWithPlots('plot1', 'plot2');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
+			plotsService.resolveLocator({ x: 0.1, y: 0.9 });
+
+			plotsService.removePlot('plot2');
+			expect(plotsService.locatorPoints?.points).toHaveLength(1);
+
+			plotsService.removePlot('plot1');
+			expect(plotsService.locatorPoints).toBeUndefined();
+		});
+
 		it('stays active when an editor copy of the plot is closed', async () => {
 			const session = await createSessionWithPlots('plot1');
 			// Opening the editor registers the editor copy even if the test editor service

@@ -45,8 +45,11 @@ test.describe('Plots: R locator()', {
 		await plots.waitForCurrentPlot();
 		await plots.expectLocatorActive(true);
 		await plots.clickPlotAt(0.5, 0.5);
+		// R draws nothing until the call returns, so the plot marks the click itself.
+		await plots.expectLocatorMarkers(1);
 		await plots.finishLocator();
 		await plots.expectLocatorActive(false);
+		await plots.expectLocatorMarkers(0);
 		await console.waitForReady('>');
 
 		await console.executeCode('R', 'cat(sprintf("npoints-finish:%d", length(p$x)))', { maximizeConsole: false });

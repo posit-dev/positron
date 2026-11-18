@@ -25,6 +25,7 @@ const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action
 // The Plots pane shows the locator prompt in its plot info header.
 const LOCATOR_PROMPT = '.plots-container .plot-info-header .plot-locator-prompt';
 const LOCATOR_FINISH_BUTTON = '.plots-container .plot-info-header .plot-locator-finish';
+const LOCATOR_POINT = '.plots-container .plot-instance .plot-locator-point';
 const PLOTS_SECTION = '.part.auxiliarybar [aria-label="Plots Section"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -197,6 +198,15 @@ export class Plots {
 				box.x + box.width * xFraction,
 				box.y + box.height * yFraction
 			);
+		});
+	}
+
+	/**
+	 * Waits until the plot shows this number of markers for the points chosen with locator().
+	 */
+	async expectLocatorMarkers(count: number) {
+		await test.step(`Expect ${count} plot locator markers`, async () => {
+			await expect(this.code.driver.currentPage.locator(LOCATOR_POINT)).toHaveCount(count);
 		});
 	}
 

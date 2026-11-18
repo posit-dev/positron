@@ -60,7 +60,7 @@ import { dirname, joinPath } from '../../../../base/common/resources.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { PlotSaveMemory } from './plotSaveMemory.js';
-import { IPlotLocator, PlotLocatorState } from '../../../services/positronPlots/common/plotLocator.js';
+import { IPlotLocator, IPlotLocatorPoints, PlotLocatorState } from '../../../services/positronPlots/common/plotLocator.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 /** The maximum number of recent executions to store. */
@@ -811,6 +811,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return this._locatorState.onDidChangeLocator;
 	}
 
+	get locatorPoints(): IPlotLocatorPoints | undefined {
+		return this._locatorState.points;
+	}
+
+	get onDidChangeLocatorPoints(): Event<IPlotLocatorPoints | undefined> {
+		return this._locatorState.onDidChangePoints;
+	}
+
 	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined> {
 		const locator: IPlotLocator = { sessionId, plotId, size, executionId };
 		const result = this._locatorState.begin(locator);
@@ -868,16 +876,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Ends the active locator if its plot is no longer in the Plots pane.
+	 * Ends the active locator, and removes the chosen points, if their plot is no longer in the
+	 * Plots pane.
 	 */
 	private _cancelLocatorIfPlotGone(): void {
-		const locator = this._locatorState.activeLocator;
 		// A plot that has not arrived yet is not gone.
 		if (this._locatorPlotWait.value) {
 			return;
 		}
-		if (locator && !this._plots.some(plot => plot.id === locator.plotId)) {
-			this._locatorState.cancelPlot(locator.plotId);
+		const plotId = (this._locatorState.activeLocator ?? this._locatorState.points)?.plotId;
+		if (plotId && !this._plots.some(plot => plot.id === plotId)) {
+			this._locatorState.cancelPlot(plotId);
 		}
 	}
 
@@ -898,9 +907,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					// answers while R waits in locator(), for example a Variables request.
 					// When the waiting execute request is known, only its own Idle (below)
 					// ends the locator.
-					if (this._locatorState.activeLocator?.executionId === undefined) {
-						this._locatorState.cancelSession(session.sessionId);
-					}
+					this._locatorState.cancelExecution(session.sessionId, undefined);
 					break;
 				case RuntimeState.Ready:
 				case RuntimeState.Exiting:

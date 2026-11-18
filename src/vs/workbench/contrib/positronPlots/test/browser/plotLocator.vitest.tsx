@@ -34,6 +34,7 @@ describe('Plot locator mode', () => {
 
 	beforeEach(() => {
 		plotsService.activeLocator = undefined;
+		plotsService.locatorPoints = undefined;
 		plotsService.resolvedLocatorPoints.length = 0;
 	});
 
@@ -295,6 +296,48 @@ describe('Plot locator mode', () => {
 		expect(img).toHaveStyle({ cursor: 'crosshair' });
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
 		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
+	});
+
+	function choosePoints(points: { x: number; y: number }[], plotId = PLOT_ID, size: IPlotSize = { width: WIDTH, height: HEIGHT }) {
+		act(() => plotsService.setLocatorPoints({ sessionId: SESSION_ID, plotId, size, points }));
+	}
+
+	it('marks the chosen points on the image and removes the markers with the points', () => {
+		// The bitmap is 200 x 200 in a 400 x 200 area at Fit zoom, so it starts 100 from the left.
+		const img = renderPlot();
+		loadImage(img, 200, 200);
+		choosePoints([{ x: 0.25, y: 0.5 }, { x: 1, y: 0 }]);
+
+		const markers = screen.getAllByTestId('plot-locator-point');
+		expect(markers).toHaveLength(2);
+		expect(markers[0]).toHaveStyle({ left: '150px', top: '100px' });
+		expect(markers[1]).toHaveStyle({ left: '300px', top: '0px' });
+
+		act(() => plotsService.setLocatorPoints(undefined));
+		expect(screen.queryByTestId('plot-locator-point')).not.toBeInTheDocument();
+	});
+
+	it('keeps the markers between the requests of one call', () => {
+		const img = renderPlot();
+		loadImage(img, 400, 200);
+		startLocator();
+		choosePoints([{ x: 0.5, y: 0.5 }]);
+		act(() => plotsService.setActiveLocator(undefined));
+		expect(screen.getByTestId('plot-locator-point')).toBeInTheDocument();
+	});
+
+	it('shows no markers for the points of another plot', () => {
+		const img = renderPlot();
+		loadImage(img, 400, 200);
+		choosePoints([{ x: 0.5, y: 0.5 }], 'other-plot');
+		expect(screen.queryByTestId('plot-locator-point')).not.toBeInTheDocument();
+	});
+
+	it('shows no markers on an image of another size than the points were chosen on', () => {
+		const img = renderPlot();
+		loadImage(img, 400, 200);
+		choosePoints([{ x: 0.5, y: 0.5 }], PLOT_ID, { width: 300, height: 150 });
+		expect(screen.queryByTestId('plot-locator-point')).not.toBeInTheDocument();
 	});
 
 	it('ignores clicks on the image when no locator is active', async () => {
