@@ -9,7 +9,7 @@ import { createLightTestContainer } from '../../../../../test/vitest/lightTestCo
 import '../../browser/positronViewerAgentCommands.js';
 import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerSnapshot, IViewerSnapshotOptions, ViewerAction } from '../../common/positronViewerAgent.js';
 
-const VIEWER_COMMANDS = ['read', 'screenshot', 'consoleLogs', 'click', 'hover', 'fill', 'select', 'press', 'scroll', 'wait'];
+const VIEWER_COMMANDS = ['read', 'screenshot', 'consoleLogs', 'evaluate', 'click', 'hover', 'fill', 'select', 'press', 'type', 'drag', 'upload', 'navigate', 'handleDialog', 'scroll', 'wait'];
 
 describe('positronViewer commands', () => {
 	let info: IViewerInfo;
@@ -46,15 +46,16 @@ describe('positronViewer commands', () => {
 		return ctx.instantiationService.invokeFunction(accessor => Promise.resolve(command.handler(accessor, options)));
 	}
 
-	it('offers every command to agents, and lets them read, screenshot, scroll and wait without asking', () => {
+	it('offers every command to agents, and lets them read, screenshot, read the console, set how dialogs are answered, scroll and wait without asking', () => {
 		const flags = Object.fromEntries(VIEWER_COMMANDS.map(id => {
 			const metadata = CommandsRegistry.getCommand(`positronViewer.${id}`)?.metadata;
 			return [id, metadata?.agentCompatible === true && metadata.readOnly === true ? 'read-only' : metadata?.agentCompatible === true ? 'asks' : 'hidden'];
 		}));
 
 		expect(flags).toEqual({
-			read: 'read-only', screenshot: 'read-only', consoleLogs: 'read-only', click: 'asks', hover: 'asks',
-			fill: 'asks', select: 'asks', press: 'asks', scroll: 'read-only', wait: 'read-only',
+			read: 'read-only', screenshot: 'read-only', consoleLogs: 'read-only', evaluate: 'asks', click: 'asks', hover: 'asks',
+			fill: 'asks', select: 'asks', press: 'asks', type: 'asks', drag: 'asks', upload: 'asks', navigate: 'asks',
+			handleDialog: 'read-only', scroll: 'read-only', wait: 'read-only',
 		});
 	});
 

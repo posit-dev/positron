@@ -14,6 +14,8 @@ describe('BrowserViewBridgeSession', () => {
 	const messages = new Emitter<CDPResponse | CDPEvent>();
 	const destroyed = new Emitter<void>();
 	let sent: string[];
+	/** The input events sent, as CDP params. */
+	let input: Record<string, unknown>[];
 	let groups: { created: number; destroyed: number };
 	/** How the page answers a Runtime.evaluate; undefined leaves it unanswered. */
 	let evaluate: ((request: CDPRequest) => Omit<CDPResponse, 'id'>) | undefined;
@@ -43,6 +45,10 @@ describe('BrowserViewBridgeSession', () => {
 						const response = evaluate?.(request);
 						return response && answer(response);
 					}
+					case 'Input.dispatchMouseEvent':
+					case 'Input.dispatchKeyEvent':
+						input.push(request.params as Record<string, unknown>);
+						return answer({ result: {} });
 				}
 			},
 		})
@@ -50,6 +56,7 @@ describe('BrowserViewBridgeSession', () => {
 
 	beforeEach(() => {
 		sent = [];
+		input = [];
 		groups = { created: 0, destroyed: 0 };
 		evaluate = request => ({ result: { result: { value: (request.params as { expression: string }).expression.toUpperCase() } } });
 	});
@@ -108,5 +115,36 @@ describe('BrowserViewBridgeSession', () => {
 
 		await expect(waiting).rejects.toThrow(VIEWER_CONTENT_CHANGED_MESSAGE);
 		expect(groups.destroyed).toBe(1);
+	});
+
+	it('sends a drag as mouse events that keep the button down while moving', async () => {
+		await createSession().dispatchInput([
+			{ type: 'mouse', action: 'down', x: 1, y: 2, button: 'left', clickCount: 1 },
+			{ type: 'mouse', action: 'move', x: 5, y: 6 },
+			{ type: 'mouse', action: 'up', x: 5, y: 6, button: 'left', clickCount: 1 },
+			{ type: 'mouse', action: 'move', x: 7, y: 8 },
+		]);
+
+		expect(input.map(({ type, button, buttons, clickCount }) => `${type} ${button} ${buttons} ${clickCount}`)).toEqual([
+			'mousePressed left 1 1',
+			'mouseMoved left 1 0',
+			'mouseReleased left 0 1',
+			'mouseMoved none 0 0',
+		]);
+	});
+
+	it('sends key combinations with the modifiers held, and types text key by key', async () => {
+		await createSession().dispatchInput([{ type: 'key', key: 'Shift+Tab' }, { type: 'text', text: 'a\n' }]);
+
+		expect(input.map(({ type, key, modifiers, text }) => `${type} ${key} ${modifiers}${text === undefined ? '' : ` ${JSON.stringify(text)}`}`)).toEqual([
+			'rawKeyDown Shift 8',
+			'rawKeyDown Tab 8',
+			'keyUp Tab 8',
+			'keyUp Shift 0',
+			'keyDown a 0 "a"',
+			'keyUp a 0',
+			'keyDown Enter 0 "\\r"',
+			'keyUp Enter 0',
+		]);
 	});
 });

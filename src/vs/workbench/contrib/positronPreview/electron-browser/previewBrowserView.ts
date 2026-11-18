@@ -16,7 +16,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
 import { focusWebContentsViewContainer, WebContentsViewHost } from '../../browserView/electron-browser/webContentsViewHost.js';
 import { IViewerActOutcome, IViewerBridge } from '../common/positronViewerAgent.js';
-import { IPreviewSurface, ViewerBridgeResult } from '../browser/previewSurface.js';
+import { IPreviewCaptureOptions, IPreviewSurface, ViewerBridgeResult, ViewerInputStep } from '../browser/previewSurface.js';
 import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreenshot.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
 import { BrowserViewBridgeSession, PageNavigatedError } from './browserViewBridgeSession.js';
@@ -290,6 +290,12 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		}
 	}
 
+	async dispatchInput(steps: readonly ViewerInputStep[]): Promise<void> {
+		const model = this.loadedModel();
+		this._bridge.value ??= this._instantiationService.createInstance(BrowserViewBridgeSession, model.id);
+		await this._bridge.value.dispatchInput(steps);
+	}
+
 	async getConsoleLogs(): Promise<string> {
 		return this.loadedModel().getConsoleLogs();
 	}
@@ -301,9 +307,9 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		return this._model;
 	}
 
-	async captureScreenshot(): Promise<IViewerCapture> {
-		const png = await this.loadedModel().captureScreenshot({ format: 'png' });
-		return scaleNativeScreenshot(png, getWindow(this._anchor ?? this._container));
+	async captureScreenshot(options?: IPreviewCaptureOptions): Promise<IViewerCapture> {
+		const png = await this.loadedModel().captureScreenshot({ format: 'png', fullPage: options?.fullPage });
+		return scaleNativeScreenshot(png, getWindow(this._anchor ?? this._container), options?.fullPage ? undefined : options?.rect);
 	}
 
 	async getCurrentUrl(): Promise<string | undefined> {

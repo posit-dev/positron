@@ -11,10 +11,10 @@ import { externalUriToString } from '../../../../base/common/positronUtilities.j
 import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
-import { IViewerBridge } from '../common/positronViewerAgent.js';
+import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
 import { createViewerBridge, findViewerContentWindow } from './viewerBridge.js';
 import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
-import { CONSOLE_LOGS_UNAVAILABLE_MESSAGE, IPreviewSurface, VIEWER_CONTENT_CHANGED_MESSAGE, ViewerBridgeResult } from './previewSurface.js';
+import { CONSOLE_LOGS_UNAVAILABLE_MESSAGE, FULL_PAGE_UNAVAILABLE_MESSAGE, IPreviewCaptureOptions, IPreviewSurface, VIEWER_CONTENT_CHANGED_MESSAGE, ViewerBridgeResult } from './previewSurface.js';
 
 /**
  * The Viewer bridges created for app pages in web builds, one per document so
@@ -218,8 +218,11 @@ export class PreviewOverlayWebview extends Disposable implements IPreviewSurface
 	 * Takes a screenshot of what's on screen in the webview. The webview must
 	 * be showing.
 	 */
-	public captureScreenshot(): Promise<IViewerCapture> {
-		return this.untilDisposed(() => this.capture());
+	public captureScreenshot(options?: IPreviewCaptureOptions): Promise<IViewerCapture> {
+		if (options?.fullPage) {
+			return Promise.reject(new Error(FULL_PAGE_UNAVAILABLE_MESSAGE));
+		}
+		return this.untilDisposed(() => this.capture(options?.rect));
 	}
 
 	/**
@@ -276,8 +279,8 @@ export class PreviewOverlayWebview extends Disposable implements IPreviewSurface
 	 * In web builds, the screenshot is rebuilt from the app's page; the
 	 * Electron implementation captures the screen instead.
 	 */
-	protected async capture(): Promise<IViewerCapture> {
-		return captureDomScreenshot(this.getAppWindow(), getWindow(this.webview.container));
+	protected async capture(rect?: IViewerRect): Promise<IViewerCapture> {
+		return captureDomScreenshot(this.getAppWindow(), getWindow(this.webview.container), rect);
 	}
 
 	/**

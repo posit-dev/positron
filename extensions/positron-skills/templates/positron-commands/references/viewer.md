@@ -138,14 +138,21 @@ settle and returns what it did in a `<viewer_action>` node, then a fresh
 outline, so there's no need to read the page again.
 
 - **Only act when the user wants the app used,** such as to test it, and say
-  what you're about to do. Click, hover, fill, select and press ask for
-  approval; scroll and wait don't, so use them freely.
+  what you're about to do. Most actions ask for approval; scroll, wait and
+  handleDialog don't, so use them freely.
 - **Use refs from the latest outline.** Refs start over after a link or a
   reload, and can shift when the layout changes. If an action says a ref is
-  stale, read the page again.
-- `positronViewer.fill` is for text and number boxes and sliders,
-  `positronViewer.select` for dropdowns. Radio buttons and checklist items are
-  clicked.
+  stale, read the page again. When an element has no ref (a plot area, a drop
+  zone), pass a CSS `selector` that matches only it instead.
+- `positronViewer.fill` is for text and number boxes, editable areas and
+  sliders, `positronViewer.select` for dropdowns. Radio buttons and checklist
+  items are clicked. Use `positronViewer.type` only for widgets that react to
+  each key, such as an autocomplete that filters as you type.
+- **Drag within a chart** with `positronViewer.drag`, giving `dx` and `dy`
+  from its top left corner, to select a range or brush points.
+- **Dialogs** (alert, confirm, prompt) a page shows during an action are
+  accepted by default, and the result says which were shown. Call
+  `positronViewer.handleDialog` first to cancel them or give a prompt's text.
 - **For slow outputs,** wait for their text with `positronViewer.wait` rather
   than reading the page over and over.
 - **A failed action's `<viewer_error>` says what to do,** such as the options
@@ -154,8 +161,15 @@ outline, so there's no need to read the page again.
   before trying again.
 - **Check the outcome in the outline.** Only for Shiny do the actions confirm
   the change with the server.
-- **The events are synthetic,** so file pickers and popups that need a real
-  click won't open. Ask the user to do those.
+- **Attach files with `positronViewer.upload`** rather than clicking a file
+  input: the file chooser can't be used. Only workspace files can be uploaded.
+- **With `backend="browser"`,** clicks, hovers, drags, keys and typing are
+  real input, so the browser does what they normally do (Tab moves focus,
+  shortcuts work). Otherwise the events are synthetic, so popups that need a
+  real click won't open, and shortcuts reach only the page's own handlers.
+- **`positronViewer.evaluate` runs JavaScript in the page.** Use it only when
+  the other commands can't do the job, such as to read a value no outline
+  shows.
 
 ### `positronViewer.click`
 
@@ -176,6 +190,30 @@ outline, so there's no need to read the page again.
 ### `positronViewer.hover`
 
 {{command:positronViewer.hover}}
+
+### `positronViewer.type`
+
+{{command:positronViewer.type}}
+
+### `positronViewer.drag`
+
+{{command:positronViewer.drag}}
+
+### `positronViewer.upload`
+
+{{command:positronViewer.upload}}
+
+### `positronViewer.navigate`
+
+{{command:positronViewer.navigate}}
+
+### `positronViewer.handleDialog`
+
+{{command:positronViewer.handleDialog}}
+
+### `positronViewer.evaluate`
+
+{{command:positronViewer.evaluate}}
 
 ### `positronViewer.scroll`
 

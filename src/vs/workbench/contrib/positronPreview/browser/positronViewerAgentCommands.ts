@@ -10,7 +10,7 @@ import { localize } from '../../../../nls.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IAgentCommandImage } from '../../positronAiFeatures/common/agentAllowedCommandsService.js';
-import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, ViewerAction } from '../common/positronViewerAgent.js';
+import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerScreenshotOptions, IViewerSnapshot, IViewerSnapshotOptions, ViewerAction } from '../common/positronViewerAgent.js';
 
 /**
  * Commands that let AI agents read and act on the app in the Viewer pane,
@@ -145,8 +145,22 @@ async function consoleLogs(accessor: ServicesAccessor): Promise<string> {
 	return lines.join('\n');
 }
 
-async function screenshot(accessor: ServicesAccessor): Promise<IAgentCommandImage> {
-	const capture = await accessor.get(IPositronViewerAgentService).getViewerScreenshot();
+async function evaluate(accessor: ServicesAccessor, options?: { expression?: unknown; timeoutMs?: unknown }): Promise<string> {
+	const timeoutMs = typeof options?.timeoutMs === 'number' ? options.timeoutMs : undefined;
+	let json = await accessor.get(IPositronViewerAgentService).viewerEvaluate(String(options?.expression ?? ''), timeoutMs);
+	const cut = json.length > MAX_OUTLINE_CHARS;
+	if (cut) {
+		json = json.slice(0, MAX_OUTLINE_CHARS);
+	}
+	const lines = [UNTRUSTED_NOTE, xmlNode('viewer_result', escape(json), cut ? { truncated: 'true' } : {})];
+	if (cut) {
+		lines.push('The result was cut short. Return less, such as one property or a count.');
+	}
+	return lines.join('\n');
+}
+
+async function screenshot(accessor: ServicesAccessor, options?: IViewerScreenshotOptions): Promise<IAgentCommandImage> {
+	const capture = await accessor.get(IPositronViewerAgentService).getViewerScreenshot(options);
 	return { kind: 'image', mimeType: capture.mimeType, data: encodeBase64(capture.data), note: screenshotNote(capture) };
 }
 
@@ -156,9 +170,11 @@ async function screenshot(accessor: ServicesAccessor): Promise<IAgentCommandImag
  */
 async function act(accessor: ServicesAccessor, kind: ViewerAction['kind'], options: ActionOptions | undefined): Promise<string> {
 	const viewerAgentService = accessor.get(IPositronViewerAgentService);
-	// Check before acting, so a failure here means nothing happened.
+	// Check before acting, so a failure here means nothing happened. Going to
+	// a URL and setting how dialogs are answered don't need a page.
 	const before = await viewerAgentService.getViewerInfo();
-	if (before.kind === 'none' || before.kind === 'other') {
+	const needsPage = !(kind === 'handleDialog' || (kind === 'navigate' && options?.type === 'url'));
+	if (needsPage && (before.kind === 'none' || before.kind === 'other')) {
 		throw new Error(UNREADABLE[before.kind]);
 	}
 	const { selector, interactiveOnly, maxChars, ...fields } = options ?? {};
@@ -205,6 +221,20 @@ const OUTLINE_PROPERTIES: Record<string, IJSONSchema> = {
 };
 
 const REF_PROPERTY: IJSONSchema = { type: 'string', description: 'The control\'s ref from the latest outline, such as e3.' };
+
+const SELECTOR_PROPERTY: IJSONSchema = { type: 'string', description: 'A CSS selector matching exactly one element, for when the outline gives no ref for it.' };
+
+/** An element to act on, by ref or selector. */
+const TARGET_PROPERTIES: Record<string, IJSONSchema> = { ref: REF_PROPERTY, selector: SELECTOR_PROPERTY };
+
+const DRAG_POINT: IJSONSchema = {
+	type: 'object',
+	properties: {
+		...TARGET_PROPERTIES,
+		dx: { type: 'number', description: 'Pixels right of the element\'s left edge. Without dx and dy, the element\'s center.' },
+		dy: { type: 'number', description: 'Pixels down from the element\'s top edge.' },
+	},
+};
 
 const OUTLINE_RETURNS = 'The page as an outline in a <viewer_page> node, one line per element with its role, name and key properties, and a ref on each control, after a line saying the page\'s text is untrusted. Its attributes give the content\'s kind (url, html, or output for widgets and other renderer output), whether the Viewer is showing, and the page\'s title and url (none for output or HTML shown as a string); truncated="true" means it was cut short, and a note after it says how to narrow it.';
 
@@ -255,10 +285,45 @@ CommandsRegistry.registerCommand({
 	handler: screenshot,
 	metadata: {
 		title: localize('positron.viewer.screenshot.title', "Take Viewer Screenshot"),
-		description: localize('positron.viewer.screenshot.description', "Take a screenshot of the Viewer pane, revealing the Viewer first if it's hidden. It costs far more than an outline, so use it only to see the layout or a plot."),
+		description: localize('positron.viewer.screenshot.description', "Take a screenshot of the Viewer pane, or of one element in it, revealing the Viewer first if it's hidden. It costs far more than an outline, so use it only to see the layout or a plot."),
 		agentCompatible: true,
 		readOnly: true,
+		args: [{
+			name: 'options',
+			isOptional: true,
+			schema: {
+				type: 'object',
+				properties: {
+					...TARGET_PROPERTIES,
+					scrollIntoView: { type: 'boolean', description: 'With ref or selector, scroll the element into view first.' },
+					fullPage: { type: 'boolean', description: 'Capture the whole page, not just what\'s on screen. Only when the Viewer uses the integrated browser (backend="browser").' },
+				},
+			},
+		}],
 		returns: 'An image: kind "image", mimeType, the PNG as base64 data, and a note on how it was taken.',
+	},
+});
+
+CommandsRegistry.registerCommand({
+	id: 'positronViewer.evaluate',
+	handler: evaluate,
+	metadata: {
+		title: localize('positron.viewer.evaluate.title', "Run JavaScript in Viewer"),
+		description: localize('positron.viewer.evaluate.description', "Evaluate a JavaScript expression in the page in the Viewer pane, and return its value as JSON. A promise is awaited. Use it only when the other positronViewer commands can't do the job."),
+		agentCompatible: true,
+		readOnly: false,
+		args: [{
+			name: 'options',
+			schema: {
+				type: 'object',
+				properties: {
+					expression: { type: 'string', description: 'The expression, such as document.title or a function call. Wrap statements in an arrow function you call: (() => { ... })().' },
+					timeoutMs: { type: 'number', description: 'The longest to wait for it, at most 20000.' },
+				},
+				required: ['expression'],
+			},
+		}],
+		returns: 'The value as JSON in a <viewer_result> node, after a line saying the page\'s text is untrusted.',
 	},
 });
 
@@ -274,19 +339,29 @@ CommandsRegistry.registerCommand({
 	},
 });
 
-registerActionCommand('positronViewer.click', 'click', localize('positron.viewer.click.title', "Click in Viewer"), localize('positron.viewer.click.description', "Click a control in the Viewer pane, by its ref, as a user would."), false,
-	{ ref: REF_PROPERTY }, ['ref']);
+registerActionCommand('positronViewer.click', 'click', localize('positron.viewer.click.title', "Click in Viewer"), localize('positron.viewer.click.description', "Click an element in the Viewer pane, by its ref or a selector, as a user would. Can double-click, or use the right or middle button."), false,
+	{ ...TARGET_PROPERTIES, dblClick: { type: 'boolean', description: 'Double-click.' }, button: { type: 'string', enum: ['left', 'right', 'middle'], description: 'The mouse button. Default left.' } });
 // Not read-only: an app can run server code on hover, such as a Shiny plot's
 // hover input or a Dash hoverData callback.
-registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.title', "Hover in Viewer"), localize('positron.viewer.hover.description', "Move the pointer over a control in the Viewer pane, by its ref, as a user would."), false,
-	{ ref: REF_PROPERTY }, ['ref']);
-registerActionCommand('positronViewer.fill', 'fill', localize('positron.viewer.fill.title', "Fill in Viewer"), localize('positron.viewer.fill.description', "Type into a text or number box in the Viewer pane, or move a slider, by its ref. Dropdowns are handed on to positronViewer.select."), false,
-	{ ref: REF_PROPERTY, value: { type: 'string', description: 'The text or number.' } }, ['ref', 'value']);
-registerActionCommand('positronViewer.select', 'select', localize('positron.viewer.select.title', "Select in Viewer"), localize('positron.viewer.select.description', "Pick options in a dropdown in the Viewer pane, by its ref and the options' text or value. In one where several can be picked, the values given replace what was picked. To pick an option in a list of options (radio items, checklists), click it."), false,
-	{ ref: REF_PROPERTY, value: { type: ['string', 'array'], items: { type: 'string' }, description: 'An option, or several.' } }, ['ref', 'value']);
-registerActionCommand('positronViewer.press', 'press', localize('positron.viewer.press.title', "Press Key in Viewer"), localize('positron.viewer.press.description', "Press a key in a control in the Viewer pane, by its ref. Without a ref, the key goes to the page itself, not to the control last acted on. The page's own key handlers get it, but the browser only does what the key normally does for Enter in a text box (submits its form), Enter or Space on a button, Enter on a link, Space on a checkbox or radio button, and ArrowUp or ArrowDown in a number box. To type, use positronViewer.fill; to pick an option, positronViewer.select."), false,
-	{ key: { type: 'string', description: 'The key, such as Enter, Escape, Space or ArrowDown.' }, ref: REF_PROPERTY }, ['key']);
-registerActionCommand('positronViewer.scroll', 'scroll', localize('positron.viewer.scroll.title', "Scroll Viewer"), localize('positron.viewer.scroll.description', "Scroll a control in the Viewer pane into view, or scroll by dx and dy pixels (the control's scrolling area, or the page's). With neither, scrolls the page down most of a screenful. Doesn't change what the user entered."), true,
-	{ ref: REF_PROPERTY, dx: { type: 'number', description: 'Pixels right.' }, dy: { type: 'number', description: 'Pixels down.' } });
+registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.title', "Hover in Viewer"), localize('positron.viewer.hover.description', "Move the pointer over an element in the Viewer pane, by its ref or a selector, as a user would."), false,
+	TARGET_PROPERTIES);
+registerActionCommand('positronViewer.fill', 'fill', localize('positron.viewer.fill.title', "Fill in Viewer"), localize('positron.viewer.fill.description', "Set the text of a text or number box or an editable area in the Viewer pane, or move a slider, by its ref or a selector. Dropdowns are handed on to positronViewer.select. To type key by key, use positronViewer.type."), false,
+	{ ...TARGET_PROPERTIES, value: { type: 'string', description: 'The text or number.' }, submit: { type: 'boolean', description: 'Then press Enter, as to submit a search or a form.' } }, ['value']);
+registerActionCommand('positronViewer.select', 'select', localize('positron.viewer.select.title', "Select in Viewer"), localize('positron.viewer.select.description', "Pick options in a dropdown in the Viewer pane, by its ref or a selector and the options' text or value. In one where several can be picked, the values given replace what was picked. To pick an option in a list of options (radio items, checklists), click it."), false,
+	{ ...TARGET_PROPERTIES, value: { type: ['string', 'array'], items: { type: 'string' }, description: 'An option, or several.' } }, ['value']);
+registerActionCommand('positronViewer.press', 'press', localize('positron.viewer.press.title', "Press Key in Viewer"), localize('positron.viewer.press.description', "Press a key or a key combination in a control in the Viewer pane, by its ref or a selector. Without one, the key goes to whatever has focus in the page. When the Viewer uses the integrated browser (backend=\"browser\"), the browser does what the key normally does, such as moving focus on Tab or copying on Control+C. Otherwise the page's own key handlers get it, and the browser only does what the key normally does for Enter in a text box (submits its form), Enter or Space on a button, Enter on a link, Space on a checkbox or radio button, and ArrowUp or ArrowDown in a number box."), false,
+	{ key: { type: 'string', description: 'The key, such as Enter, Escape, Space or ArrowDown, or a combination such as Control+a or Shift+Tab. ControlOrMeta is Command on macOS and Control elsewhere.' }, ...TARGET_PROPERTIES }, ['key']);
+registerActionCommand('positronViewer.type', 'type', localize('positron.viewer.type.title', "Type in Viewer"), localize('positron.viewer.type.description', "Type text one key at a time into a control in the Viewer pane, by its ref or a selector, or into whatever has focus. For widgets that react to each key, such as code editors, autocompletes and canvas apps; to set a box's text, positronViewer.fill is faster and surer."), false,
+	{ text: { type: 'string', description: 'The text to type.' }, ...TARGET_PROPERTIES, submit: { type: 'boolean', description: 'Then press Enter.' } }, ['text']);
+registerActionCommand('positronViewer.drag', 'drag', localize('positron.viewer.drag.title', "Drag in Viewer"), localize('positron.viewer.drag.description', "Drag with the mouse in the Viewer pane, from one element to another, or within one element by offsets from its top left, as to select a range on a Plotly chart, brush a Shiny plot, move a slider's handle or reorder a list."), false,
+	{ from: DRAG_POINT, to: { ...DRAG_POINT, description: 'Where to drop. Without ref or selector, a point on the element the drag starts from.' } }, ['from', 'to']);
+registerActionCommand('positronViewer.upload', 'upload', localize('positron.viewer.upload.title', "Upload File in Viewer"), localize('positron.viewer.upload.description', "Attach files from the workspace to a file input in the Viewer pane, by its ref or a selector, or drop them on a drop zone such as Dash's dcc.Upload or Streamlit's file uploader. Only files in the workspace that aren't excluded from AI, up to 10 MB in all."), false,
+	{ ...TARGET_PROPERTIES, paths: { type: 'array', items: { type: 'string' }, description: 'The files, relative to the workspace folder or absolute.' } }, ['paths']);
+registerActionCommand('positronViewer.navigate', 'navigate', localize('positron.viewer.navigate.title', "Navigate Viewer"), localize('positron.viewer.navigate.description', "Go to a URL in the Viewer pane, or go back, forward, or reload, and wait for the page to load."), false,
+	{ type: { type: 'string', enum: ['url', 'back', 'forward', 'reload'], description: 'Where to go.' }, url: { type: 'string', description: 'For type url: the http or https URL.' } }, ['type']);
+registerActionCommand('positronViewer.handleDialog', 'handleDialog', localize('positron.viewer.handleDialog.title', "Answer Viewer Dialogs"), localize('positron.viewer.handleDialog.description', "Set how the alert, confirm and prompt dialogs a page shows during your actions are answered, from now on. By default they're accepted, with prompts answered with their default text. Each action's result says which dialogs were shown."), true,
+	{ accept: { type: 'boolean', description: 'Accept (OK) rather than cancel.' }, promptText: { type: 'string', description: 'The text to answer prompts with.' } }, ['accept']);
+registerActionCommand('positronViewer.scroll', 'scroll', localize('positron.viewer.scroll.title', "Scroll Viewer"), localize('positron.viewer.scroll.description', "Scroll an element in the Viewer pane into view, by its ref or a selector, or scroll by dx and dy pixels (the element's scrolling area, or the page's). With neither, scrolls the page down most of a screenful. Doesn't change what the user entered."), true,
+	{ ...TARGET_PROPERTIES, dx: { type: 'number', description: 'Pixels right.' }, dy: { type: 'number', description: 'Pixels down.' } });
 registerActionCommand('positronViewer.wait', 'wait', localize('positron.viewer.wait.title', "Wait for Viewer"), localize('positron.viewer.wait.description', "Wait for the app in the Viewer pane to settle, or for text to show up on the page. Doesn't change what the user entered."), true,
 	{ text: { type: 'string', description: 'The text to wait for. Without it, waits for the app to settle.' }, timeoutMs: { type: 'number', description: 'The longest to wait, at most 15000.' } });

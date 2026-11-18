@@ -6,14 +6,33 @@
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IViewerBridge } from '../common/positronViewerAgent.js';
+import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
 import { IViewerCapture } from './viewerScreenshot.js';
 
 export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnType<IViewerBridge[M]>>;
 
 export const VIEWER_CONTENT_CHANGED_MESSAGE = 'The Viewer\'s content changed while it was being read. Try again.';
 
+export const FULL_PAGE_UNAVAILABLE_MESSAGE = 'A full-page screenshot is available only when the Viewer uses the integrated browser.';
+
 export const CONSOLE_LOGS_UNAVAILABLE_MESSAGE = 'Console logs are available only when the Viewer uses the integrated browser.';
+
+/**
+ * A step of input sent to the page from outside it, so the page gets it as it
+ * would from a user (trusted events, with the browser's default actions).
+ * Points are in the page's viewport, in CSS pixels.
+ */
+export type ViewerInputStep =
+	| { readonly type: 'mouse'; readonly action: 'move' | 'down' | 'up'; readonly x: number; readonly y: number; readonly button?: 'left' | 'right' | 'middle'; readonly clickCount?: number }
+	/** A key or combination, such as `Enter` or `Control+a`, pressed and released. */
+	| { readonly type: 'key'; readonly key: string }
+	/** Text typed one character at a time. */
+	| { readonly type: 'text'; readonly text: string };
+
+export interface IPreviewCaptureOptions {
+	readonly rect?: IViewerRect;
+	readonly fullPage?: boolean;
+}
 
 /**
  * What the Viewer needs from the thing that shows a preview's content: a
@@ -57,12 +76,19 @@ export interface IPreviewSurface extends IDisposable {
 	/** Calls a Viewer bridge method against the page showing. */
 	runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>>;
 
-	/** Takes a screenshot of the page. The content must be showing. */
-	captureScreenshot(): Promise<IViewerCapture>;
+	/**
+	 * Takes a screenshot of the page's viewport, or the part of it in `rect`,
+	 * or with `fullPage`, of the whole page (the integrated browser only). The
+	 * content must be showing.
+	 */
+	captureScreenshot(options?: IPreviewCaptureOptions): Promise<IViewerCapture>;
 
 	/** Gets the address of the page showing, as the browser has it. */
 	getCurrentUrl(): Promise<string | undefined>;
 
 	/** Gets the page's console messages. Rejects for a webview, which doesn't keep them. */
 	getConsoleLogs(): Promise<string>;
+
+	/** Sends input to the page from outside it. Only the integrated browser can. */
+	dispatchInput?(steps: readonly ViewerInputStep[]): Promise<void>;
 }

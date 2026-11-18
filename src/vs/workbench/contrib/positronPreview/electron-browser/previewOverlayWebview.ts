@@ -6,7 +6,7 @@
 import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
 import { WEBVIEW_FRAME_NOT_FOUND_MESSAGE, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
-import { IViewerBridge } from '../common/positronViewerAgent.js';
+import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
 import { PreviewOverlayWebview } from '../browser/previewOverlayWebview.js';
 import { ViewerBridgeResult } from '../browser/previewSurface.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
@@ -98,12 +98,12 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	 * Captures what's on screen in the webview's area of the window. Anything
 	 * drawn over the Viewer, such as a menu, is captured too.
 	 */
-	protected override async capture(): Promise<IViewerCapture> {
+	protected override async capture(rect?: IViewerRect): Promise<IViewerCapture> {
 		const png = await this.webview.captureContentsAsPng();
 		if (!png) {
 			throw new Error('Could not capture the Viewer.');
 		}
-		return scaleNativeScreenshot(png, getWindow(this.webview.container));
+		return scaleNativeScreenshot(png, getWindow(this.webview.container), rect);
 	}
 
 	/**

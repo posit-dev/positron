@@ -112,29 +112,123 @@ export interface IViewerViewport {
 }
 
 /**
- * An action for an agent to take on the page in the Viewer. `ref` is a
- * control's ref from a snapshot, such as `e3`.
+ * An element to act on: a ref from a snapshot, such as `e3`, or a CSS
+ * selector that matches exactly one element.
+ */
+export interface IViewerTarget {
+	readonly ref?: string;
+	readonly selector?: string;
+}
+
+/**
+ * A point for a drag: an element's center, or with `dx` and `dy`, that far
+ * from its top left corner, in CSS pixels. Without an element, the point is
+ * on the element the drag started from.
+ */
+export interface IViewerDragPoint extends IViewerTarget {
+	readonly dx?: number;
+	readonly dy?: number;
+}
+
+/** A file to attach to a file input, with its bytes in base64. */
+export interface IViewerFile {
+	readonly name: string;
+	readonly type: string;
+	readonly data: string;
+}
+
+/**
+ * How to answer the dialogs (`alert`, `confirm`, `prompt`) a page shows
+ * during an agent's actions.
+ */
+export interface IViewerDialogPolicy {
+	readonly accept: boolean;
+	/** The text to answer a prompt with. */
+	readonly promptText?: string;
+}
+
+/** A dialog a page showed during an action. */
+export interface IViewerDialog {
+	readonly type: 'alert' | 'confirm' | 'prompt';
+	readonly message: string;
+}
+
+/**
+ * An action for an agent to take on the page in the Viewer, on a target
+ * (see `IViewerTarget`).
  * - `click` and `hover`: send the pointer and mouse events a user would.
- * - `fill`: type into a text or number box, or move a slider, to `value`.
- *   Dropdowns are handed on to `select`.
+ *   `click` can double-click, and use the right or middle button.
+ * - `fill`: type into a text or number box or an editable area, or move a
+ *   slider, to `value`. Dropdowns are handed on to `select`. With `submit`,
+ *   then press Enter.
  * - `select`: pick options in a dropdown, by their text or value. In one where
  *   several can be picked, the values given replace what was picked; elsewhere,
  *   give one value. To pick an option in a list of options (radio items,
  *   checklists), click the option.
- * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) in a control,
- *   or in whatever has focus.
+ * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) or a
+ *   combination (`Control+a`, `Shift+Tab`) in a control, or in whatever has
+ *   focus.
+ * - `type`: type text one key at a time, into a control or whatever has focus.
+ * - `drag`: drag from one point to another (see `IViewerDragPoint`).
+ * - `upload`: attach files to a file input, or drop them on a drop zone.
+ *   Agents give `paths`; Positron reads them into `files` for the bridge.
  * - `scroll`: bring a control into view, or scroll by `dx` and `dy` pixels
  *   (the control's scrolling area, or the page's).
  * - `wait`: wait for the app to settle, or for some text to show up.
+ * - `navigate`: go to a URL, back, forward, or reload. Positron does this
+ *   itself, not the bridge.
+ * - `handleDialog`: set how dialogs are answered during the actions that
+ *   follow. Positron keeps this, not the bridge.
  */
 export type ViewerAction =
-	| { readonly kind: 'click'; readonly ref: string }
-	| { readonly kind: 'hover'; readonly ref: string }
-	| { readonly kind: 'fill'; readonly ref: string; readonly value: string }
-	| { readonly kind: 'select'; readonly ref: string; readonly value: string | readonly string[] }
-	| { readonly kind: 'press'; readonly key: string; readonly ref?: string }
-	| { readonly kind: 'scroll'; readonly ref?: string; readonly dx?: number; readonly dy?: number }
-	| { readonly kind: 'wait'; readonly for: 'idle' | 'text'; readonly text?: string; readonly timeoutMs?: number };
+	| { readonly kind: 'click'; readonly ref?: string; readonly selector?: string; readonly dblClick?: boolean; readonly button?: 'left' | 'right' | 'middle' }
+	| { readonly kind: 'hover'; readonly ref?: string; readonly selector?: string }
+	| { readonly kind: 'fill'; readonly ref?: string; readonly selector?: string; readonly value: string; readonly submit?: boolean }
+	| { readonly kind: 'select'; readonly ref?: string; readonly selector?: string; readonly value: string | readonly string[] }
+	| { readonly kind: 'press'; readonly key: string; readonly ref?: string; readonly selector?: string }
+	| { readonly kind: 'type'; readonly text: string; readonly ref?: string; readonly selector?: string; readonly submit?: boolean }
+	| { readonly kind: 'drag'; readonly from: IViewerDragPoint; readonly to: IViewerDragPoint }
+	| { readonly kind: 'upload'; readonly ref?: string; readonly selector?: string; readonly paths?: readonly string[]; readonly files?: readonly IViewerFile[] }
+	| { readonly kind: 'scroll'; readonly ref?: string; readonly selector?: string; readonly dx?: number; readonly dy?: number }
+	| { readonly kind: 'wait'; readonly for: 'idle' | 'text'; readonly text?: string; readonly timeoutMs?: number }
+	| { readonly kind: 'navigate'; readonly type: 'url' | 'back' | 'forward' | 'reload'; readonly url?: string }
+	| { readonly kind: 'handleDialog'; readonly accept: boolean; readonly promptText?: string };
+
+/** A rectangle in the page's viewport, in CSS pixels. */
+export interface IViewerRect {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+
+/** Where an element is on screen, for input sent from outside the page. */
+export interface IViewerLocation extends IViewerRect {
+	/** How to refer to the element in messages, such as `button "Go"`. */
+	readonly description: string;
+	/** Whether a checkbox, switch or radio button is checked. */
+	readonly checked?: boolean;
+	/** Whether a pointer at the element's center reaches it, rather than something covering it. */
+	readonly pointable: boolean;
+	/** Whether dragging the element starts HTML drag and drop. */
+	readonly draggable: boolean;
+}
+
+/** Options for a screenshot of the Viewer. */
+export interface IViewerScreenshotOptions extends IViewerTarget {
+	/** With a target, scroll it into view first. */
+	readonly scrollIntoView?: boolean;
+	/** Capture the whole page rather than what's on screen (the integrated browser only). */
+	readonly fullPage?: boolean;
+}
+
+/** Options for finding an element. */
+export interface IViewerLocateOptions {
+	/** Throw if the element is disabled or hidden. */
+	readonly usable?: boolean;
+	readonly scrollIntoView?: boolean;
+	readonly focus?: boolean;
+}
 
 /**
  * What an action did, as the bridge reports it.
@@ -179,6 +273,16 @@ export interface IViewerBridge {
 	viewport(): IViewerViewport;
 	/** Takes an action, then waits for the app to settle (`idle`) and checks the action took. */
 	act(action: ViewerAction, idle?: IViewerIdleOptions): Promise<IViewerActOutcome>;
+	/** Finds an element and where it is in the viewport. */
+	locate(target: IViewerTarget, options?: IViewerLocateOptions): IViewerLocation;
+	/**
+	 * With a policy, answers the page's dialogs by it from now on, rather than
+	 * showing them; with null, shows them again. Returns the dialogs answered
+	 * since the last call.
+	 */
+	dialogs(policy: IViewerDialogPolicy | null): IViewerDialog[];
+	/** Evaluates a JavaScript expression in the page, and returns its value as JSON. */
+	evaluate(expression: string): Promise<string>;
 }
 
 export const IPositronViewerAgentService = createDecorator<IPositronViewerAgentService>('positronViewerAgentService');
@@ -207,7 +311,7 @@ export interface IPositronViewerAgentService {
 	 * Takes a screenshot of what's on screen in the Viewer. Reveals the
 	 * Viewer first if it's hidden, without taking focus.
 	 */
-	getViewerScreenshot(): Promise<IViewerScreenshot>;
+	getViewerScreenshot(options?: IViewerScreenshotOptions): Promise<IViewerScreenshot>;
 
 	/**
 	 * Takes an action on the page in the Viewer, waits for the app to settle,
@@ -224,4 +328,10 @@ export interface IPositronViewerAgentService {
 	 * Viewer doesn't use the integrated browser, which keeps them.
 	 */
 	getViewerConsoleLogs(): Promise<string>;
+
+	/**
+	 * Evaluates a JavaScript expression in the page in the Viewer, and returns
+	 * its value as JSON.
+	 */
+	viewerEvaluate(expression: string, timeoutMs?: number): Promise<string>;
 }
