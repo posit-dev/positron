@@ -956,12 +956,15 @@ jobs:
           # On a pull request, someone may push while Claude runs, and Claude may merge it. Those
           # commits are already on the branch, so like the base, they are not checked or counted.
           # If Claude did not merge them, the push is rejected below as not a fast-forward.
+          # FROM is where Claude's own commits start, for the result comment's compare link.
+          FROM="$BASE"
           if [ "$TARGET" = "pr" ]; then
             REMOTE_HEAD=$(git ls-remote origin "refs/heads/${BRANCH}" | cut -f 1)
             if [[ "$REMOTE_HEAD" =~ ^[0-9a-f]{40}$ ]] && [ "$REMOTE_HEAD" != "$BASE" ] &&
               git cat-file -e "${REMOTE_HEAD}^{commit}" 2>/dev/null &&
               git merge-base --is-ancestor "$REMOTE_HEAD" "$TIP"; then
               NOT+=("^${REMOTE_HEAD}")
+              FROM="$REMOTE_HEAD"
             fi
           fi
 
@@ -997,6 +1000,7 @@ jobs:
             fail "$(printf 'Nothing was published, because these commits change %s:\n\n%s' "$WHAT" "$BAD")"
           fi
           echo "tip=${TIP}" >> "$GITHUB_OUTPUT"
+          echo "from=${FROM}" >> "$GITHUB_OUTPUT"
           echo "count=$(git rev-list --count "$TIP" "${NOT[@]}")" >> "$GITHUB_OUTPUT"
           git log --oneline "$TIP" "${NOT[@]}"
 
@@ -1075,7 +1079,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
           TARGET: ${{ steps.src.outputs.target }}
-          BASE: ${{ steps.src.outputs.base }}
+          FROM: ${{ steps.check.outputs.from }}
           TIP: ${{ steps.check.outputs.tip }}
           COUNT: ${{ steps.check.outputs.count }}
           PUSHED: ${{ steps.push.outcome == 'success' }}
@@ -1086,8 +1090,10 @@ jobs:
           MESSAGE="$RUNNER_TEMP/message.md"
           if [ -n "$PR_URL" ]; then
             echo "Opened ${PR_URL} with Claude's commits." > "$MESSAGE"
+          elif [ "$PUSHED" = "true" ] && [ "$TARGET" = "pr" ] && [ "$COUNT" = "0" ]; then
+            echo "Claude added no new commits to this pull request." > "$MESSAGE"
           elif [ "$PUSHED" = "true" ] && [ "$TARGET" = "pr" ]; then
-            echo "Pushed ${COUNT} commits to this pull request: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${BASE}...${TIP}" > "$MESSAGE"
+            echo "Pushed ${COUNT} commits to this pull request: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${FROM}...${TIP}" > "$MESSAGE"
           elif [ "$PUSHED" = "true" ]; then
             echo "Pushed Claude's commits, but opening the pull request failed." > "$MESSAGE"
           elif [ -s "$RUNNER_TEMP/comment.md" ]; then
