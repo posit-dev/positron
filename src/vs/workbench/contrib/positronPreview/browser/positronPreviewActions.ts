@@ -13,12 +13,152 @@ import { URI } from '../../../../base/common/uri.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { PreviewHtml } from './previewHtml.js';
+import { PreviewWebview } from './previewWebview.js';
 
 /** How long to wait for a page to load when asked to. */
 const LOAD_TIMEOUT_MS = 30_000;
 
 export const POSITRON_PREVIEW_ACTION_CATEGORY = nls.localize('positronViewerCategory', "Viewer");
 const category: ILocalizedString = { value: POSITRON_PREVIEW_ACTION_CATEGORY, original: 'Viewer' };
+
+/** Whether the Viewer is showing anything. */
+export const POSITRON_VIEWER_HAS_CONTENT = new RawContextKey<boolean>('positronViewer.hasContent', false);
+
+/** Whether the Viewer is showing content with an address, which can be navigated and opened elsewhere. */
+export const POSITRON_VIEWER_HAS_ADDRESS = new RawContextKey<boolean>('positronViewer.hasAddress', false);
+
+/**
+ * A Viewer action that runs against the active preview.
+ */
+abstract class ViewerPreviewAction extends Action2 {
+	run(accessor: ServicesAccessor): void {
+		const preview = accessor.get(IPositronPreviewService).activePreviewWebview;
+		if (preview) {
+			this.runOnPreview(accessor, preview);
+		}
+	}
+
+	protected abstract runOnPreview(accessor: ServicesAccessor, preview: PreviewWebview): void;
+}
+
+export class PositronViewerGoBackAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.goBack',
+			title: nls.localize2('positronViewerGoBack', "Go Back"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+			metadata: {
+				description: nls.localize('positronViewerGoBack.description', "Go back to the previous page in the Viewer."),
+				agentCompatible: true,
+			}
+		});
+	}
+
+	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
+		preview.surface.goBack();
+	}
+}
+
+export class PositronViewerGoForwardAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.goForward',
+			title: nls.localize2('positronViewerGoForward', "Go Forward"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+			metadata: {
+				description: nls.localize('positronViewerGoForward.description', "Go forward to the next page in the Viewer."),
+				agentCompatible: true,
+			}
+		});
+	}
+
+	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
+		preview.surface.goForward();
+	}
+}
+
+export class PositronViewerReloadAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.reload',
+			title: nls.localize2('positronViewerReload', "Reload"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+			metadata: {
+				description: nls.localize('positronViewerReload.description', "Reload the page in the Viewer."),
+				agentCompatible: true,
+			}
+		});
+	}
+
+	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
+		preview.surface.reload();
+	}
+}
+
+export class PositronViewerClearAction extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.clear',
+			title: nls.localize2('positronViewerClear', "Clear"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_CONTENT,
+			metadata: {
+				description: nls.localize('positronViewerClear.description', "Clear the content of the Viewer."),
+				agentCompatible: true,
+			}
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		accessor.get(IPositronPreviewService).clearAllPreviews();
+	}
+}
+
+export class PositronViewerOpenInBrowserAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.openInBrowser',
+			title: nls.localize2('positronViewerOpenInBrowser', "Open in Browser"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+		});
+	}
+
+	protected runOnPreview(accessor: ServicesAccessor, preview: PreviewWebview): void {
+		if (preview.address) {
+			accessor.get(IOpenerService).open(preview.address, { openExternal: true, fromUserGesture: true });
+		}
+	}
+}
+
+export class PositronViewerOpenInEditorAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.openInEditor',
+			title: nls.localize2('positronViewerOpenInEditor', "Open in Editor Tab"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+		});
+	}
+
+	protected runOnPreview(accessor: ServicesAccessor, preview: PreviewWebview): void {
+		if (preview.address) {
+			const title = preview.surface.title || (preview instanceof PreviewHtml ? preview.html?.title : undefined);
+			accessor.get(IPositronPreviewService).openEditor(preview.address, title);
+		}
+	}
+}
 
 export class PositronOpenUrlInViewerAction extends Action2 {
 
@@ -97,7 +237,7 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 		const preview = previewService.openUri(previewId, undefined, uri);
 
 		if (waitForLoad) {
-			const loaded = Event.toPromise(preview.webview.onDidLoad);
+			const loaded = Event.toPromise(preview.surface.onDidLoad);
 			if (await raceTimeout(loaded.then(() => true), LOAD_TIMEOUT_MS, () => loaded.cancel()) !== true) {
 				throw new Error(nls.localize('positronOpenUrlInViewer.loadTimeout', "The URL '{0}' was opened in the Viewer, but the page didn't finish loading within {1} seconds.", url, LOAD_TIMEOUT_MS / 1000));
 			}

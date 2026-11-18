@@ -127,9 +127,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	createHtmlWebview(sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
-		event: IShowHtmlUriEvent): PreviewHtml {
-		const preview = this.createPreviewHtml(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, extension, event.uri, event.event);
-		return preview as PreviewHtml;
+		event: IShowHtmlUriEvent): PreviewHtml<PreviewOverlayWebview> {
+		return this.createPreviewHtml(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, extension, event.uri, event.event);
 	}
 
 	get previewWebviews(): PreviewWebview[] {
@@ -196,7 +195,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,
-		preserveFocus?: boolean | undefined): PreviewWebview {
+		preserveFocus?: boolean | undefined): PreviewWebview<PreviewOverlayWebview> {
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = this.createPreviewWebview(previewId, webview, viewType, title);
 		this._items.set(preview.previewId, preview);
@@ -248,7 +247,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewUrl {
+		source?: { type: string; id: string }): PreviewUrl<PreviewOverlayWebview> {
 		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
 		return new PreviewUrl(previewId, overlay, uri, source);
 	}
@@ -261,16 +260,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		event: ShowHtmlFileEvent): PreviewHtml {
+		event: ShowHtmlFileEvent): PreviewHtml<PreviewOverlayWebview> {
 		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
 		return new PreviewHtml(sessionId, previewId, overlay, uri, event);
 	}
 
 	/** Create a preview for a webview. */
-	private createPreviewWebview(previewId: string, webview: IOverlayWebview, viewType: string, title: string): PreviewWebview {
-		const overlay = this.createOverlayWebview(webview);
-		const preview = new PreviewWebview(viewType, previewId, title, overlay);
-		return preview;
+	private createPreviewWebview(previewId: string, webview: IOverlayWebview, viewType: string, title: string): PreviewWebview<PreviewOverlayWebview> {
+		return new PreviewWebview(viewType, previewId, title, this.createOverlayWebview(webview));
 	}
 
 	/**
@@ -376,7 +373,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this.activePreviewWebviewId = preview.previewId;
 
 		// Ensure we clean up the preview webview when it is closed.
-		this._register(preview.webview.onDidDispose(() => {
+		this._register(preview.surface.onDidDispose(() => {
 
 			const wasActive = this.activePreviewWebviewId === preview.previewId;
 
@@ -605,7 +602,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 * Opens an existing overlay webview in the Viewer pane.
 	 * Used for displaying notebook output webviews that have already been created.
 	 */
-	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview {
+	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview<PreviewOverlayWebview> {
 		const preview = this.createPreviewWebview(previewId, webview, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, title);
 		this.makeActivePreview(preview);
 		return preview;

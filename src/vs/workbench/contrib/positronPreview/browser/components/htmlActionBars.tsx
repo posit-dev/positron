@@ -52,12 +52,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 	);
 
 	// Handler for the reload button.
-	const reloadHandler = () => {
-		props.preview.webview.postMessage({
-			channel: 'execCommand',
-			data: 'reload-window'
-		});
-	};
+	const reloadHandler = () => props.preview.surface.reload();
 
 	// Handler for the clear button.
 	const clearHandler = () => {
@@ -106,13 +101,13 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
-		disposableStore.add(props.preview.webview.onDidLoad((title) => {
+		disposableStore.add(props.preview.surface.onDidLoad((title) => {
 			if (title) {
 				setTitle(title);
 			}
 		}));
 		return () => disposableStore.dispose();
-	}, [props.preview.webview]);
+	}, [props.preview.surface]);
 
 	// Render.
 	return (

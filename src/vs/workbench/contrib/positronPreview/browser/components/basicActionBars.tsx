@@ -46,13 +46,13 @@ export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
-		disposableStore.add(props.preview.webview.onDidLoad((title) => {
+		disposableStore.add(props.preview.surface.onDidLoad((title) => {
 			if (title) {
 				setTitle(title);
 			}
 		}));
 		return () => disposableStore.dispose();
-	}, [props.preview.webview]);
+	}, [props.preview.surface]);
 
 	// Render.
 	return (

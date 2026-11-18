@@ -9,11 +9,10 @@ import { Event } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { PositronPreview } from '../../browser/positronPreview.js';
 import { IPositronPreviewService } from '../../browser/positronPreviewSevice.js';
 import { PositronPreviewViewPane } from '../../browser/positronPreviewView.js';
-import { PreviewOverlayWebview } from '../../browser/previewOverlayWebview.js';
+import { IPreviewSurface } from '../../browser/previewSurface.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
 
 describe('PositronPreview stop button', () => {
@@ -37,8 +36,8 @@ describe('PositronPreview stop button', () => {
 	});
 
 	beforeEach(() => {
-		preview = ctx.disposables.add(new PreviewWebview('test.view', 'preview-1', 'Test', stubInterface<PreviewOverlayWebview>({
-			webview: stubInterface<IOverlayWebview>({ release: () => { } }),
+		preview = ctx.disposables.add(new PreviewWebview('test.view', 'preview-1', 'Test', stubInterface<IPreviewSurface>({
+			release: () => { },
 			dispose: () => { },
 		})));
 	});

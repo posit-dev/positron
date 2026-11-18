@@ -6,8 +6,8 @@
 import { Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { POSITRON_PREVIEW_URL_VIEW_TYPE } from './positronPreviewSevice.js';
-import { PreviewOverlayWebview } from './previewOverlayWebview.js';
 import { PreviewWebview } from './previewWebview.js';
+import { IPreviewSurface } from './previewSurface.js';
 
 export const QUERY_NONCE_PARAMETER = '_positronRender';
 
@@ -15,7 +15,7 @@ export const QUERY_NONCE_PARAMETER = '_positronRender';
  * PreviewUrl is a class that represents a Positron `PreviewWebview` that
  * contains a URL preview.
  */
-export class PreviewUrl extends PreviewWebview {
+export class PreviewUrl<S extends IPreviewSurface = IPreviewSurface> extends PreviewWebview<S> {
 
 	/**
 	 * A nonce to append to the URI to ensure that the preview is not cached.
@@ -26,26 +26,26 @@ export class PreviewUrl extends PreviewWebview {
 	 * Construct a new PreviewWebview.
 	 *
 	 * @param previewId A unique ID for the preview
-	 * @param webview The underlying webview instance that hosts the preview's content
+	 * @param surface The webview or browser that shows the preview's content
 	 * @param _uri The URI to open in the preview
 	 * @param _source Optional source information indicating what opened the preview
 	 */
 	constructor(
 		previewId: string,
-		webview: PreviewOverlayWebview,
+		surface: S,
 		private _uri: URI,
 		private _source?: { type: string; id: string }
 	) {
 		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
 			POSITRON_PREVIEW_URL_VIEW_TYPE,
-			webview);
+			surface);
 
 		// Perform the initial navigation.
 		this.navigateToUri(_uri);
 
 		// Listen for navigation events, removing the cache-busting nonce,
 		// which the user doesn't need to see or carry elsewhere.
-		this._register(this.webview.onDidNavigate(e => {
+		this._register(this.surface.onDidNavigate(e => {
 			this._uri = e.with({
 				query: e.query.split('&').filter(p => !p.startsWith(`${QUERY_NONCE_PARAMETER}=`)).join('&')
 			});
@@ -68,13 +68,17 @@ export class PreviewUrl extends PreviewWebview {
 			query:
 				uri.query ? uri.query + '&' + nonce : nonce
 		});
-		this.webview.loadUri(iframeUri);
+		this.surface.loadUri(iframeUri);
 	}
 
 	public _onDidNavigate = this._register(new Emitter<URI>());
 	public onDidNavigate = this._onDidNavigate.event;
 
 	get currentUri(): URI {
+		return this._uri;
+	}
+
+	override get address(): URI {
 		return this._uri;
 	}
 

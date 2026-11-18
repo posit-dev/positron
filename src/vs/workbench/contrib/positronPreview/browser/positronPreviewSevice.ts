@@ -8,6 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
+import { PreviewOverlayWebview } from './previewOverlayWebview.js';
 import { IOverlayWebview, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
@@ -61,7 +62,7 @@ export interface IPositronPreviewService {
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,
-		preserveFocus?: boolean): PreviewWebview;
+		preserveFocus?: boolean): PreviewWebview<PreviewOverlayWebview>;
 
 	/**
 	 * Opens a URI in the preview pane.
@@ -102,7 +103,7 @@ export interface IPositronPreviewService {
 	createHtmlWebview(
 		sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
-		event: IShowHtmlUriEvent): PreviewHtml;
+		event: IShowHtmlUriEvent): PreviewHtml<PreviewOverlayWebview>;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.
@@ -151,7 +152,7 @@ export interface IPositronPreviewService {
 	 * @param webview The overlay webview to display.
 	 * @param title The title for the preview.
 	 */
-	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview;
+	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview<PreviewOverlayWebview>;
 
 	/**
 	 * Opens an HTML string directly in the Viewer pane without writing to a

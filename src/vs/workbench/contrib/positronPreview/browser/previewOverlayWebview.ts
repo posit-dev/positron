@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getWindow } from '../../../../base/browser/dom.js';
+import { getActiveElement, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
 import { raceCancellation } from '../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -14,6 +14,7 @@ import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
 import { createViewerBridge, findViewerContentWindow } from './viewerBridge.js';
 import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
+import { IPreviewSurface, VIEWER_CONTENT_CHANGED_MESSAGE, ViewerBridgeResult } from './previewSurface.js';
 
 /**
  * The Viewer bridges created for app pages in web builds, one per document so
@@ -21,17 +22,18 @@ import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
  */
 const viewerBridges = new WeakMap<Document, IViewerBridge>();
 
-export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnType<IViewerBridge[M]>>;
+export class PreviewOverlayWebview extends Disposable implements IPreviewSurface {
 
-export const VIEWER_CONTENT_CHANGED_MESSAGE = 'The Viewer\'s content changed while it was being read. Try again.';
-
-export class PreviewOverlayWebview extends Disposable {
+	public readonly kind = 'webview';
 
 	public onDidNavigate = this.webview.onDidNavigate;
 	public onDidDispose = this.webview.onDidDispose;
 	public onDidLoad = this.webview.onDidLoad;
 
 	private _title: string | undefined;
+
+	/** The element the webview is laid out over, while claimed. */
+	private _anchor: HTMLElement | undefined;
 
 	/** Cancelled when the webview is disposed, as when other content replaces it in the Viewer. */
 	private readonly _disposed = new CancellationTokenSource();
@@ -61,6 +63,59 @@ export class PreviewOverlayWebview extends Disposable {
 
 	public setTitle(value: string): void {
 		this.webview.setTitle(value);
+	}
+
+	public goBack(): void {
+		this.execCommand('navigate-back');
+	}
+
+	public goForward(): void {
+		this.execCommand('navigate-forward');
+	}
+
+	public reload(): void {
+		this.execCommand('reload-window');
+	}
+
+	/** Asks the page's injected helper script to run a navigation command. */
+	private execCommand(command: string): void {
+		this.postMessage({ channel: 'execCommand', data: command });
+	}
+
+	public claim(owner: unknown, anchor: HTMLElement): void {
+		this._anchor = anchor;
+		this.webview.claim(owner, getWindow(anchor), undefined);
+		this.webview.setAnchorElement(anchor);
+	}
+
+	public release(owner: unknown): void {
+		this.webview.release(owner);
+	}
+
+	public layout(): void {
+		if (this._anchor) {
+			this.webview.setAnchorElement(this._anchor);
+		}
+	}
+
+	public getBounds(): DOMRect {
+		return this.webview.container.getBoundingClientRect();
+	}
+
+	public keepFocusOutside(): () => void {
+		const container = this.webview.container;
+		const focused = getActiveElement();
+		return () => {
+			const active = container.ownerDocument.activeElement;
+			if (!active || !container.contains(active) || (focused && container.contains(focused))) {
+				return;
+			}
+			if (isHTMLElement(focused) && focused.isConnected && focused !== focused.ownerDocument.body) {
+				focused.focus();
+			} else if (isHTMLElement(active)) {
+				active.blur();
+			}
+		};
 	}
 
 	public postMessage(message: any, transfer?: readonly ArrayBuffer[]): Promise<boolean> {

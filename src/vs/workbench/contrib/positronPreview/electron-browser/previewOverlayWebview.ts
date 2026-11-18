@@ -7,7 +7,8 @@ import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
 import { WEBVIEW_FRAME_NOT_FOUND_MESSAGE, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 import { IViewerBridge } from '../common/positronViewerAgent.js';
-import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOverlayWebview.js';
+import { PreviewOverlayWebview } from '../browser/previewOverlayWebview.js';
+import { ViewerBridgeResult } from '../browser/previewSurface.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
 import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreenshot.js';
 

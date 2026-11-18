@@ -102,28 +102,13 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	};
 
 	// Handler for the navigate back button.
-	const navigateBackHandler = () => {
-		props.preview.webview.postMessage({
-			channel: 'execCommand',
-			data: 'navigate-back'
-		});
-	};
+	const navigateBackHandler = () => props.preview.surface.goBack();
 
 	// Handler for the navigate forward button.
-	const navigateForwardHandler = () => {
-		props.preview.webview.postMessage({
-			channel: 'execCommand',
-			data: 'navigate-forward'
-		});
-	};
+	const navigateForwardHandler = () => props.preview.surface.goForward();
 
 	// Handler for the reload button.
-	const reloadHandler = () => {
-		props.preview.webview.postMessage({
-			channel: 'execCommand',
-			data: 'reload-window'
-		});
-	};
+	const reloadHandler = () => props.preview.surface.reload();
 
 	// State for the remembered "Open in..." target. Persisted via the preview
 	// service so it survives remounts and reloads.

@@ -11,7 +11,7 @@ import { createLightTestContainer } from '../../../../../test/vitest/lightTestCo
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronOpenUrlInViewerAction } from '../../browser/positronPreviewActions.js';
 import { IPositronPreviewService } from '../../browser/positronPreviewSevice.js';
-import { PreviewOverlayWebview } from '../../browser/previewOverlayWebview.js';
+import { IPreviewSurface } from '../../browser/previewSurface.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
 
 describe('PositronOpenUrlInViewerAction', () => {
@@ -19,7 +19,7 @@ describe('PositronOpenUrlInViewerAction', () => {
 
 	const ctx = createLightTestContainer()
 		.stub(IPositronPreviewService, {
-			openUri: () => stubInterface<PreviewWebview>({ webview: stubInterface<PreviewOverlayWebview>({ onDidLoad: onDidLoad.event }) }),
+			openUri: () => stubInterface<PreviewWebview>({ surface: stubInterface<IPreviewSurface>({ onDidLoad: onDidLoad.event }) }),
 		})
 		.stub(IQuickInputService, {})
 		.stub(IOpenerService, { resolveExternalUri: async (uri: URI) => ({ resolved: uri, dispose: () => { } }) })

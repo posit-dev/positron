@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getActiveElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { raceTimeout, timeout } from '../../../../base/common/async.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -13,7 +12,7 @@ import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfigu
 import { IPositronViewerAgentService, IViewerActOutcome, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerContentKind } from '../common/positronViewerAgent.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { PreviewHtml } from './previewHtml.js';
-import { VIEWER_CONTENT_CHANGED_MESSAGE } from './previewOverlayWebview.js';
+import { VIEWER_CONTENT_CHANGED_MESSAGE } from './previewSurface.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
 import { PreviewWebview } from './previewWebview.js';
 
@@ -85,26 +84,6 @@ function withBridgeTimeout<T>(promise: Promise<T>): Promise<T> {
 	return withTimeout(promise, BRIDGE_CALL_TIMEOUT_MS, 'The page in the Viewer stopped responding.');
 }
 
-/**
- * Notes where keyboard focus is, and returns a function that takes it back out
- * of `container` if it has moved in since. Acting on a control in the app's
- * page focuses the Viewer, which would send what the user types to the app.
- */
-function keepFocusOutOf(container: HTMLElement): () => void {
-	const focused = getActiveElement();
-	return () => {
-		const active = container.ownerDocument.activeElement;
-		if (!active || !container.contains(active) || (focused && container.contains(focused))) {
-			return;
-		}
-		if (isHTMLElement(focused) && focused.isConnected && focused !== focused.ownerDocument.body) {
-			focused.focus();
-		} else if (isHTMLElement(active)) {
-			active.blur();
-		}
-	};
-}
-
 function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 	if (!preview) {
 		return 'none';
@@ -147,7 +126,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		if (!preview) {
 			return { kind, visible };
 		}
-		const title = preview.webview.title;
+		const title = preview.surface.title;
 		if (preview instanceof PreviewUrl) {
 			const source = preview.source;
 			return {
@@ -175,7 +154,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		const preview = this.readablePreview();
 		// Snapshot once the app has settled: a snapshot taken while Streamlit is
 		// still rendering comes back empty.
-		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
+		await withBridgeTimeout(preview.surface.runBridge('waitForIdle'));
 		const snapshot = await this.snapshotOf(preview, options);
 		this.checkStillShowing(preview);
 		return snapshot;
@@ -187,9 +166,9 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 
 		// The Viewer has to be showing: Desktop captures the screen.
 		const revealed = await this.showViewer(preview);
-		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
+		await withBridgeTimeout(preview.surface.runBridge('waitForIdle'));
 
-		const capture = await withTimeout(preview.webview.captureScreenshot(), CAPTURE_TIMEOUT_MS,
+		const capture = await withTimeout(preview.surface.captureScreenshot(), CAPTURE_TIMEOUT_MS,
 			'Taking the screenshot of the Viewer took too long.');
 		this.checkStillShowing(preview);
 		return { mimeType: 'image/png', ...capture, revealed };
@@ -198,7 +177,9 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	async viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult> {
 		this.checkEnabled();
 		const preview = this.readablePreview();
-		const restoreFocus = keepFocusOutOf(preview.webview.webview.container);
+		// Acting on a control in the app's page focuses the Viewer, which would
+		// send what the user types to the app.
+		const restoreFocus = preview.surface.keepFocusOutside();
 		try {
 			// Act on the app at the size the user sees it. A responsive app can
 			// hide or move its controls at a hidden web Viewer's 300x150.
@@ -206,7 +187,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			let outcome: IViewerActOutcome;
 			let movedOn = false;
 			try {
-				outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
+				outcome = await withTimeout(preview.surface.runBridge('act', action), ACT_TIMEOUT_MS,
 					'The page in the Viewer stopped responding during the action, which may have been taken. Read the page before trying it again.');
 			} catch (error) {
 				if (this._previewService.activePreviewWebview === preview) {
@@ -271,7 +252,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	 * the bridge, which on Desktop runs in the page and so can be faked.
 	 */
 	private async snapshotOf(preview: PreviewWebview, options?: IViewerSnapshotOptions): Promise<IViewerSnapshot> {
-		const { text, title, truncated } = await withBridgeTimeout(preview.webview.runBridge('snapshot', options));
+		const { text, title, truncated } = await withBridgeTimeout(preview.surface.runBridge('snapshot', options));
 		return { text, url: await this.currentUrl(preview) ?? '', title, truncated };
 	}
 
@@ -284,7 +265,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		if (!(preview instanceof PreviewUrl || preview instanceof PreviewHtml)) {
 			return undefined;
 		}
-		const url = await preview.webview.getCurrentUrl();
+		const url = await preview.surface.getCurrentUrl();
 		if (url) {
 			return cleanUrl(url);
 		}
@@ -300,7 +281,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	private async showViewer(preview: PreviewWebview): Promise<boolean> {
 		// Make sure the page can be reached before changing the user's layout,
 		// so a call that would fail anyway doesn't reveal the Viewer for nothing.
-		const viewport = await withBridgeTimeout(preview.webview.runBridge('viewport'));
+		const viewport = await withBridgeTimeout(preview.surface.runBridge('viewport'));
 		const revealed = !this._viewsService.isViewVisible(POSITRON_PREVIEW_VIEW_ID);
 		if (revealed) {
 			await this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, false);
@@ -325,7 +306,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				return;
 			}
 			try {
-				await withTimeout(preview.webview.runBridge('viewport'), PAGE_PING_TIMEOUT_MS, 'The new page in the Viewer isn\'t responding.');
+				await withTimeout(preview.surface.runBridge('viewport'), PAGE_PING_TIMEOUT_MS, 'The new page in the Viewer isn\'t responding.');
 				break;
 			} catch (error) {
 				if (Date.now() >= deadline) {
@@ -333,7 +314,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				}
 			}
 		}
-		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
+		await withBridgeTimeout(preview.surface.runBridge('waitForIdle'));
 	}
 
 	/**
@@ -357,8 +338,8 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		const deadline = Date.now() + LAYOUT_TIMEOUT_MS;
 		let viewport = firstViewport;
 		for (; ;) {
-			const rect = preview.webview.webview.container.getBoundingClientRect();
-			viewport ??= await withBridgeTimeout(preview.webview.runBridge('viewport'));
+			const rect = preview.surface.getBounds() ?? new DOMRect();
+			viewport ??= await withBridgeTimeout(preview.surface.runBridge('viewport'));
 			const laidOut = rect.width > 0 && rect.height > 0 &&
 				Math.abs(viewport.width - rect.width) <= 2 && Math.abs(viewport.height - rect.height) <= 2;
 			if (laidOut) {

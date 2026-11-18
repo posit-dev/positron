@@ -9,6 +9,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { PreviewHtml } from '../../positronPreview/browser/previewHtml.js';
+import { PreviewOverlayWebview } from '../../positronPreview/browser/previewOverlayWebview.js';
 import { WebviewExtensionDescription } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -19,7 +20,7 @@ import { localize } from '../../../../nls.js';
  */
 export class HtmlPlotClient extends WebviewPlotClient {
 
-	private readonly _html = this._register(new MutableDisposable<PreviewHtml>());
+	private readonly _html = this._register(new MutableDisposable<PreviewHtml<PreviewOverlayWebview>>());
 
 	private readonly _htmlEvents = this._register(new DisposableStore());
 
@@ -71,17 +72,17 @@ export class HtmlPlotClient extends WebviewPlotClient {
 		this._html.value = html;
 
 		// Render the thumbnail when the webview loads.
-		this._htmlEvents.add(html.webview.onDidLoad(e => {
+		this._htmlEvents.add(html.surface.onDidLoad(e => {
 			this.nudgeRenderThumbnail();
 		}));
 
 		// Handle link clicks from the webview
-		this._register(html.webview.webview.onDidClickLink((link) => {
+		this._register(html.surface.webview.onDidClickLink((link) => {
 			this._openerService.open(link, {
 				fromUserGesture: true
 			});
 		}));
-		return html.webview.webview;
+		return html.surface.webview;
 	}
 
 	protected override disposeWebview() {

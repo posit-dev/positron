@@ -18,7 +18,8 @@ import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from './positronPre
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { PositronOpenUrlInViewerAction } from './positronPreviewActions.js';
+import { POSITRON_VIEWER_HAS_ADDRESS, POSITRON_VIEWER_HAS_CONTENT, PositronOpenUrlInViewerAction, PositronViewerClearAction, PositronViewerGoBackAction, PositronViewerGoForwardAction, PositronViewerOpenInBrowserAction, PositronViewerOpenInEditorAction, PositronViewerReloadAction } from './positronPreviewActions.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { isWeb } from '../../../../base/common/platform.js';
@@ -70,13 +71,30 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IPositronPreviewService positronPreviewService: IPositronPreviewService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
 		this.registerActions();
+
+		const hasContent = POSITRON_VIEWER_HAS_CONTENT.bindTo(contextKeyService);
+		const hasAddress = POSITRON_VIEWER_HAS_ADDRESS.bindTo(contextKeyService);
+		const update = () => {
+			const preview = positronPreviewService.activePreviewWebview;
+			hasContent.set(!!preview);
+			hasAddress.set(!!preview?.address);
+		};
+		update();
+		this._register(positronPreviewService.onDidChangeActivePreviewWebview(update));
 	}
 
 	private registerActions(): void {
 		registerAction2(PositronOpenUrlInViewerAction);
+		registerAction2(PositronViewerGoBackAction);
+		registerAction2(PositronViewerGoForwardAction);
+		registerAction2(PositronViewerReloadAction);
+		registerAction2(PositronViewerClearAction);
+		registerAction2(PositronViewerOpenInBrowserAction);
+		registerAction2(PositronViewerOpenInEditorAction);
 	}
 }
 

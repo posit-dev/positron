@@ -13,6 +13,7 @@ import * as extHostProtocol from '../../common/positron/extHost.positron.protoco
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from '../../../contrib/positronPreview/browser/positronPreviewSevice.js';
 import { PreviewWebview } from '../../../contrib/positronPreview/browser/previewWebview.js';
+import { PreviewOverlayWebview } from '../../../contrib/positronPreview/browser/previewOverlayWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 
 /**
@@ -160,7 +161,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		// Forward stop requests from the Viewer's stop button.
 		listeners.add(preview.onDidRequestStop(() => this._proxy.$onDidRequestStop(handle)));
 
-		listeners.add(preview.webview.onDidDispose(() => {
+		listeners.add(preview.surface.onDidDispose(() => {
 			this._previewListeners.deleteAndDispose(handle);
 			this._proxy.$onDidDisposePreviewPanel(handle).finally(() => {
 				this._previews.delete(handle);
@@ -196,7 +197,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 			return;
 		}
 
-		preview.webview.setTitle(value);
+		preview.surface.setTitle(value);
 	}
 
 	$setStoppable(handle: string, stoppable: boolean): void {
@@ -214,7 +215,10 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 
 	public addWebview(handle: extHostProtocol.PreviewHandle, preview: PreviewWebview): void {
 		this._previews.add(handle, preview);
-		this._mainThreadWebviews.addWebview(handle, preview.webview.webview,
+		if (!(preview.surface instanceof PreviewOverlayWebview)) {
+			return;
+		}
+		this._mainThreadWebviews.addWebview(handle, preview.surface.webview,
 			{
 				// This is the standard for extensions built for VS Code
 				// 1.57.0 and above (see `shouldSerializeBuffersForPostMessage`).
