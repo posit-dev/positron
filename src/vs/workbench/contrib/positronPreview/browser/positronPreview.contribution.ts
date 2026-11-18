@@ -18,7 +18,7 @@ import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from './positronPre
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { POSITRON_VIEWER_HAS_ADDRESS, POSITRON_VIEWER_HAS_CONTENT, PositronOpenUrlInViewerAction, PositronViewerClearAction, PositronViewerGoBackAction, PositronViewerGoForwardAction, PositronViewerOpenInBrowserAction, PositronViewerOpenInEditorAction, PositronViewerReloadAction } from './positronPreviewActions.js';
+import { POSITRON_VIEWER_HAS_ADDRESS, POSITRON_VIEWER_HAS_CONTENT, POSITRON_VIEWER_IS_INTEGRATED_BROWSER, PositronOpenUrlInViewerAction, PositronViewerClearAction, PositronViewerFindAction, PositronViewerGoBackAction, PositronViewerGoForwardAction, PositronViewerOpenInBrowserAction, PositronViewerOpenInEditorAction, PositronViewerReloadAction } from './positronPreviewActions.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
@@ -78,10 +78,12 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 
 		const hasContent = POSITRON_VIEWER_HAS_CONTENT.bindTo(contextKeyService);
 		const hasAddress = POSITRON_VIEWER_HAS_ADDRESS.bindTo(contextKeyService);
+		const isIntegratedBrowser = POSITRON_VIEWER_IS_INTEGRATED_BROWSER.bindTo(contextKeyService);
 		const update = () => {
 			const preview = positronPreviewService.activePreviewWebview;
 			hasContent.set(!!preview);
 			hasAddress.set(!!preview?.address);
+			isIntegratedBrowser.set(preview?.surface.kind === 'browser');
 		};
 		update();
 		this._register(positronPreviewService.onDidChangeActivePreviewWebview(update));
@@ -93,6 +95,7 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 		registerAction2(PositronViewerGoForwardAction);
 		registerAction2(PositronViewerReloadAction);
 		registerAction2(PositronViewerClearAction);
+		registerAction2(PositronViewerFindAction);
 		registerAction2(PositronViewerOpenInBrowserAction);
 		registerAction2(PositronViewerOpenInEditorAction);
 	}

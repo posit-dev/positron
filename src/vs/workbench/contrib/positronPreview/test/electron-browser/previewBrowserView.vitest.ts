@@ -7,7 +7,7 @@ import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IBrowserViewLoadingEvent, IBrowserViewNavigationEvent } from '../../../../../platform/browserView/common/browserView.js';
+import { IBrowserElementSelectionState, IBrowserViewLoadingEvent, IBrowserViewNavigationEvent, IElementData } from '../../../../../platform/browserView/common/browserView.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IBrowserViewCDPService, IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
@@ -61,7 +61,9 @@ describe('PreviewBrowserView', () => {
 		const navigate = ctx.disposables.add(new Emitter<IBrowserViewNavigationEvent>());
 		const loading = ctx.disposables.add(new Emitter<IBrowserViewLoadingEvent>());
 		const willDispose = ctx.disposables.add(new Emitter<void>());
+		const selectElement = ctx.disposables.add(new Emitter<IElementData>());
 		const calls: string[] = [];
+		let selection: IBrowserElementSelectionState = { active: false, options: {} };
 		const model = stubInterface<IBrowserViewModel>({
 			url: 'http://localhost:8000/',
 			title: 'App',
@@ -71,11 +73,19 @@ describe('PreviewBrowserView', () => {
 			onDidChangeFocus: ctx.disposables.add(new Emitter<never>()).event,
 			onDidClose: ctx.disposables.add(new Emitter<void>()).event,
 			onWillDispose: willDispose.event,
+			onDidSelectElement: selectElement.event,
+			get elementSelectionState() { return selection; },
+			toggleElementSelection: async (enabled, options) => {
+				calls.push(`select ${enabled} ${options?.mode} ${options?.continuous}`);
+				selection = { active: !!enabled, options: options ?? {} };
+			},
+			setElementComments: async update => { calls.push(`comments ${JSON.stringify(update)}`); },
+			focus: async () => { calls.push('focus'); },
 			loadURL: async url => { calls.push(`load ${url}`); },
 			layout: async bounds => { calls.push(`layout ${JSON.stringify(bounds)}`); },
 			dispose: () => { calls.push('dispose'); willDispose.fire(); },
 		});
-		return { model, calls, navigate, loading, willDispose };
+		return { model, calls, navigate, loading, willDispose, selectElement };
 	}
 
 	/** Creates a surface showing `url`. Its view is created by completing `views[0]`. */
@@ -207,5 +217,31 @@ describe('PreviewBrowserView', () => {
 		loading.fire({ loading: false });
 
 		expect({ loaded, title: surface.title }).toEqual({ loaded: ['App', ''], title: undefined });
+	});
+
+	it('turns element selection on and off, passes on what the user picks, and removes a comment\'s pin', async () => {
+		const { model, calls, selectElement } = createModel();
+		const surface = createSurface();
+		await views[0].complete(model);
+		const picked: string[] = [];
+		ctx.disposables.add(surface.onDidSelectElement(data => picked.push(data.outerHTML)));
+
+		await surface.toggleElementSelection('comment');
+		selectElement.fire({ outerHTML: '<button>Go</button>', computedStyle: '', bounds: { x: 0, y: 0, width: 1, height: 1 }, comment: 'Bigger', elementId: 'c1' });
+		surface.discardElementComment('c1');
+		await surface.toggleElementSelection('comment');
+		await surface.toggleElementSelection('select');
+
+		expect({ calls, picked }).toEqual({
+			calls: [
+				'select true comment true',
+				'focus',
+				'comments {"comments":[],"pendingCommentIdsToDiscard":["c1"]}',
+				'select false comment true',
+				'select true select false',
+				'focus',
+			],
+			picked: ['<button>Go</button>'],
+		});
 	});
 });

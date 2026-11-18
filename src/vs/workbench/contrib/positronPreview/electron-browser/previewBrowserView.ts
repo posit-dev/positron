@@ -5,7 +5,7 @@
 
 import './media/previewBrowserView.css';
 import { getZoomFactor, onDidChangeZoomLevel } from '../../../../base/browser/browser.js';
-import { $, getActiveElement, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
+import { $, DisposableResizeObserver, getActiveElement, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
 import type { CodeWindow } from '../../../../base/browser/window.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -14,6 +14,8 @@ import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
+import { BrowserElementSelectionMode, IElementData } from '../../../../platform/browserView/common/browserView.js';
+import { ViewerFindWidget } from './viewerFindWidget.js';
 import { focusWebContentsViewContainer, WebContentsViewHost } from '../../browserView/electron-browser/webContentsViewHost.js';
 import { IViewerActOutcome, IViewerBridge } from '../common/positronViewerAgent.js';
 import { IPreviewCaptureOptions, IPreviewSurface, ViewerBridgeResult, ViewerInputStep } from '../browser/previewSurface.js';
@@ -48,11 +50,18 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 	private readonly _onDidDispose = this._register(new Emitter<void>());
 	readonly onDidDispose = this._onDidDispose.event;
 
+	private readonly _onDidSelectElement = this._register(new Emitter<IElementData>());
+	readonly onDidSelectElement = this._onDidSelectElement.event;
+
 	private readonly _root = $('.browser-root.positron-preview-browser');
 	private readonly _wrapper = $('.browser-container-wrapper');
 	private readonly _container = $('.browser-container');
 	private readonly _placeholder = $('.browser-placeholder-contents');
 	private readonly _message = $('.positron-preview-browser-message');
+
+	/** Holds the find widget, above the page, which shrinks to make room for it. */
+	private readonly _findWrapper = $('.browser-find-widget-wrapper');
+	private readonly _findWidget = this._register(new MutableDisposable<ViewerFindWidget>());
 
 	/** The host for the view, created for the window the Viewer is in. */
 	private readonly _host = this._register(new MutableDisposable<WebContentsViewHost>());
@@ -84,7 +93,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this._placeholder.appendChild(this._message);
 		this._container.appendChild(this._placeholder);
 		this._wrapper.appendChild(this._container);
-		this._root.appendChild(this._wrapper);
+		this._root.append(this._findWrapper, this._wrapper);
 
 		this._register(onDidChangeZoomLevel(() => this.layout()));
 	}
@@ -142,6 +151,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 				this._onDidLoad.fire(pageTitle(model));
 			}
 		}));
+		this._modelStore.add(model.onDidSelectElement(e => this._onDidSelectElement.fire(e)));
 		this._modelStore.add(model.onDidChangeFocus(e => {
 			if (e.focused) {
 				focusWebContentsViewContainer(this._container);
@@ -303,6 +313,56 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		const model = this.loadedModel();
 		this._bridge.value ??= this._instantiationService.createInstance(BrowserViewBridgeSession, model.id);
 		await this._bridge.value.dispatchInput(steps);
+	}
+
+	find(): void {
+		const model = this._model;
+		if (!model) {
+			return;
+		}
+		if (!this._findWidget.value) {
+			const widget = this._instantiationService.createInstance(ViewerFindWidget, this._findWrapper, model);
+			this._findWidget.value = widget;
+			// The page moves down to make room for the widget, and back when it's gone.
+			const observer = this._register(new DisposableResizeObserver('ViewerFindWidget.height', () => this.layout(), getWindow(this._findWrapper)));
+			this._register(observer.observe(this._findWrapper));
+		}
+		const widget = this._findWidget.value;
+		// Find the text selected in the page, as editors do.
+		model.getSelectedText().then(selected => {
+			const text = selected.trim();
+			widget.reveal(text && !/[\r\n]/.test(text) ? text : undefined);
+			widget.layout(this._findWrapper.clientWidth);
+		}, () => widget.reveal());
+	}
+
+	findNext(previous: boolean): void {
+		this._findWidget.value?.find(previous);
+	}
+
+	hideFind(): void {
+		this._findWidget.value?.hide();
+	}
+
+	async toggleDevTools(): Promise<void> {
+		await this.loadedModel().toggleDevTools();
+	}
+
+	async toggleElementSelection(mode: 'select' | 'comment'): Promise<void> {
+		const model = this.loadedModel();
+		const selectionMode = mode === 'comment' ? BrowserElementSelectionMode.Comment : BrowserElementSelectionMode.Select;
+		const state = model.elementSelectionState;
+		const on = !(state.active && state.options.mode === selectionMode);
+		await model.toggleElementSelection(on, { mode: selectionMode, continuous: mode === 'comment' });
+		if (on) {
+			// The user picks with the pointer or the keyboard in the page.
+			await model.focus();
+		}
+	}
+
+	discardElementComment(elementId: string): void {
+		this._model?.setElementComments({ comments: [], pendingCommentIdsToDiscard: [elementId] })
+			.catch(error => this._logService.error('[Viewer] Failed to remove a comment from the page', error));
 	}
 
 	async getConsoleLogs(): Promise<string> {

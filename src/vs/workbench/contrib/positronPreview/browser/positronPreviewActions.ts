@@ -7,13 +7,18 @@ import * as nls from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronPreviewService } from './positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Event } from '../../../../base/common/event.js';
 import { raceTimeout } from '../../../../base/common/async.js';
-import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { FocusedViewContext } from '../../../common/contextkeys.js';
+import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
+import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/positAssistantChat.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
 
@@ -28,6 +33,25 @@ export const POSITRON_VIEWER_HAS_CONTENT = new RawContextKey<boolean>('positronV
 
 /** Whether the Viewer is showing content with an address, which can be navigated and opened elsewhere. */
 export const POSITRON_VIEWER_HAS_ADDRESS = new RawContextKey<boolean>('positronViewer.hasAddress', false);
+
+/** Whether the Viewer is showing content in the integrated browser. */
+export const POSITRON_VIEWER_IS_INTEGRATED_BROWSER = new RawContextKey<boolean>('positronViewer.isIntegratedBrowser', false);
+
+/** Sending the Viewer's content to Posit Assistant needs the integrated browser, AI features, and a chat model. */
+export const POSITRON_VIEWER_CAN_SEND_TO_ASSISTANT = ContextKeyExpr.and(
+	POSITRON_VIEWER_IS_INTEGRATED_BROWSER,
+	ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+	ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
+)!;
+
+/** The commands that act on the integrated browser showing in the Viewer, for its toolbar. */
+export const VIEWER_BROWSER_COMMANDS = {
+	toggleDevTools: 'workbench.action.positronPreview.toggleDevTools',
+	addElement: 'workbench.action.positronPreview.addElementToAssistant',
+	commentOnElement: 'workbench.action.positronPreview.commentOnElement',
+	addScreenshot: 'workbench.action.positronPreview.addScreenshotToAssistant',
+	addConsoleLogs: 'workbench.action.positronPreview.addConsoleLogsToAssistant',
+} as const;
 
 /**
  * A Viewer action that runs against the active preview.
@@ -120,6 +144,27 @@ export class PositronViewerClearAction extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		accessor.get(IPositronPreviewService).clearAllPreviews();
+	}
+}
+
+export class PositronViewerFindAction extends ViewerPreviewAction {
+	constructor() {
+		super({
+			id: 'workbench.action.positronPreview.find',
+			title: nls.localize2('positronViewerFind', "Find"),
+			f1: true,
+			category,
+			precondition: POSITRON_VIEWER_HAS_CONTENT,
+			keybinding: {
+				when: ContextKeyExpr.and(POSITRON_VIEWER_HAS_CONTENT, FocusedViewContext.isEqualTo(POSITRON_PREVIEW_VIEW_ID)),
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
+			},
+		});
+	}
+
+	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
+		preview.surface.find();
 	}
 }
 

@@ -10,11 +10,6 @@
 	background: var(--vscode-editor-background);
 }
 
-.positron-preview-browser .browser-container-wrapper {
-	position: absolute;
-	inset: 0;
-}
-
 .positron-preview-browser .browser-container,
 .positron-preview-browser .browser-placeholder-contents {
 	border-radius: 0;

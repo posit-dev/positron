@@ -76,7 +76,11 @@ function formatElementPath(ancestors: readonly IElementAncestor[] | undefined): 
 		.join(' > ');
 }
 
-function createElementContextValue(elementData: IElementData, displayName: string): string {
+// --- Start Positron ---
+// Exported so the Viewer gives Posit Assistant elements in the same form.
+// function createElementContextValue(elementData: IElementData, displayName: string): string {
+export function createElementContextValue(elementData: IElementData, displayName: string): string {
+// --- End Positron ---
 	const sections: string[] = [];
 	sections.push('Attached Element Context from Integrated Browser');
 	sections.push(`Element: ${displayName}`);

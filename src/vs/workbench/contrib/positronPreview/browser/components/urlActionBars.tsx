@@ -27,6 +27,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PreviewOpenTarget } from '../positronPreviewSevice.js';
+import { BrowserActionButtons } from './browserActionButtons.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -352,6 +353,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 								</ActionBarButton>
 							</>
 						)}
+						<BrowserActionButtons preview={props.preview} />
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}

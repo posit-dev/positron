@@ -7,6 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
+import { IElementData } from '../../../../platform/browserView/common/browserView.js';
 import { IViewerCapture } from './viewerScreenshot.js';
 
 export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnType<IViewerBridge[M]>>;
@@ -14,6 +15,8 @@ export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnTy
 export const VIEWER_CONTENT_CHANGED_MESSAGE = 'The Viewer\'s content changed while it was being read. Try again.';
 
 export const FULL_PAGE_UNAVAILABLE_MESSAGE = 'A full-page screenshot is available only when the Viewer uses the integrated browser.';
+
+export const BROWSER_ONLY_MESSAGE = 'This is available only when the Viewer uses the integrated browser.';
 
 export const CONSOLE_LOGS_UNAVAILABLE_MESSAGE = 'Console logs are available only when the Viewer uses the integrated browser.';
 
@@ -91,4 +94,23 @@ export interface IPreviewSurface extends IDisposable {
 
 	/** Sends input to the page from outside it. Only the integrated browser can. */
 	dispatchInput?(steps: readonly ViewerInputStep[]): Promise<void>;
+
+	/** Shows the find widget for the page. */
+	find(): void;
+
+	/** Opens or closes the developer tools for the page. Rejects for a webview. */
+	toggleDevTools(): Promise<void>;
+
+	/**
+	 * Lets the user pick an element in the page (`select`), or keep commenting
+	 * on elements (`comment`), or stops if that's already on. Rejects for a
+	 * webview.
+	 */
+	toggleElementSelection(mode: 'select' | 'comment'): Promise<void>;
+
+	/** Fires when the user picks an element or comments on one. */
+	readonly onDidSelectElement: Event<IElementData>;
+
+	/** Removes the pin a comment left on an element in the page. */
+	discardElementComment(elementId: string): void;
 }

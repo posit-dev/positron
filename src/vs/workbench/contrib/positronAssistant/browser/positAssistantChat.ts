@@ -30,9 +30,53 @@ export interface NewChatOptions {
 	prompt: string;
 	/** 'new' starts a fresh conversation; 'auto' continues the current one. */
 	target: 'auto' | 'new';
-	/** 'submit' sends the prompt immediately; 'prefill' only populates the input. */
-	behavior: 'submit' | 'prefill';
+	/**
+	 * 'submit' sends the prompt immediately; 'prefill' replaces the input;
+	 * 'append' adds the prompt and files to what's in the input.
+	 */
+	behavior: 'submit' | 'prefill' | 'append';
 	files?: NewChatFile[];
+}
+
+/**
+ * Add text and files to the input of the current Posit Assistant
+ * conversation, without sending them, so the user can add more before
+ * sending. A Posit Assistant without 'append' gets them as a prefilled
+ * prompt instead, which replaces its input. Failures are logged and surfaced
+ * as a notification rather than thrown.
+ *
+ * @param fallbackPrompt The prompt to prefill when there's no text and
+ *   Posit Assistant can't append.
+ */
+export async function attachToPositAssistant(
+	commandService: ICommandService,
+	notificationService: INotificationService,
+	logService: ILogService,
+	attachment: { text?: string; files: NewChatFile[]; fallbackPrompt: string },
+): Promise<void> {
+	try {
+		await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, {
+			prompt: attachment.text ?? '',
+			target: 'auto',
+			behavior: 'append',
+			files: attachment.files,
+		} satisfies NewChatOptions);
+	} catch (error) {
+		// A Posit Assistant without 'append' rejects it, or first an empty
+		// prompt, which only 'append' allows.
+		const message = toErrorMessage(error);
+		if (!message.includes('Invalid behavior') && !message.includes('prompt is required')) {
+			logService.error('Failed to add to the Posit Assistant chat', error);
+			notificationService.error(localize('positron.assistant.attachUnavailable', "Could not add to the Posit Assistant chat: {0}", toErrorMessage(error)));
+			return;
+		}
+		await openPositAssistantChat(commandService, notificationService, logService, {
+			prompt: attachment.text ?? attachment.fallbackPrompt,
+			target: 'auto',
+			behavior: 'prefill',
+			files: attachment.files,
+		});
+	}
 }
 
 /**

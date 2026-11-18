@@ -6,6 +6,7 @@
 import { getActiveElement, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
 import { raceCancellation } from '../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { externalUriToString } from '../../../../base/common/positronUtilities.js';
 import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
@@ -14,7 +15,7 @@ import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
 import { createViewerBridge, findViewerContentWindow } from './viewerBridge.js';
 import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
-import { CONSOLE_LOGS_UNAVAILABLE_MESSAGE, FULL_PAGE_UNAVAILABLE_MESSAGE, IPreviewCaptureOptions, IPreviewSurface, VIEWER_CONTENT_CHANGED_MESSAGE, ViewerBridgeResult } from './previewSurface.js';
+import { BROWSER_ONLY_MESSAGE, CONSOLE_LOGS_UNAVAILABLE_MESSAGE, FULL_PAGE_UNAVAILABLE_MESSAGE, IPreviewCaptureOptions, IPreviewSurface, VIEWER_CONTENT_CHANGED_MESSAGE, ViewerBridgeResult } from './previewSurface.js';
 
 /**
  * The Viewer bridges created for app pages in web builds, one per document so
@@ -242,6 +243,24 @@ export class PreviewOverlayWebview extends Disposable implements IPreviewSurface
 
 	public async getConsoleLogs(): Promise<string> {
 		throw new Error(CONSOLE_LOGS_UNAVAILABLE_MESSAGE);
+	}
+
+	public find(): void {
+		this.webview.showFind();
+	}
+
+	public async toggleDevTools(): Promise<void> {
+		throw new Error(BROWSER_ONLY_MESSAGE);
+	}
+
+	public async toggleElementSelection(): Promise<void> {
+		throw new Error(BROWSER_ONLY_MESSAGE);
+	}
+
+	public readonly onDidSelectElement = Event.None;
+
+	public discardElementComment(): void {
+		// A webview has no comments.
 	}
 
 	/**
