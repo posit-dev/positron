@@ -30,7 +30,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		[POSITRON_VIEWER_USE_INTEGRATED_BROWSER]: {
 			scope: ConfigurationScope.APPLICATION,
 			type: 'boolean',
-			default: false,
+			default: true,
 			description: localize('positron.viewer.useIntegratedBrowser', "Show web pages and HTML in the Viewer using the integrated browser. When off, the Viewer uses a webview.")
 		},
 	}
