@@ -6,11 +6,13 @@
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronPreview } from '../../browser/positronPreview.js';
-import { IPositronPreviewService } from '../../browser/positronPreviewSevice.js';
+import { PositronOpenUrlInViewerAction } from '../../browser/positronPreviewActions.js';
+import { IPositronPreviewService, PreviewOpenTarget } from '../../browser/positronPreviewSevice.js';
 import { PositronPreviewViewPane } from '../../browser/positronPreviewView.js';
 import { IPreviewSurface } from '../../browser/previewSurface.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
@@ -64,5 +66,36 @@ describe('PositronPreview stop button', () => {
 
 		expect(onStop).toHaveBeenCalledTimes(1);
 		expect(screen.queryByRole('button', { name: 'Stop the preview' })).not.toBeInTheDocument();
+	});
+});
+
+describe('PositronPreview empty state', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronPreviewService, {
+			activePreviewWebview: undefined,
+			onDidChangeActivePreviewWebview: Event.None,
+			getDefaultOpenTarget: () => PreviewOpenTarget.Browser,
+		})
+		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	const container = stubInterface<PositronPreviewViewPane>({
+		width: 400,
+		height: 300,
+		containerVisible: false,
+		onSizeChanged: Event.None,
+		onPositionChanged: Event.None,
+		onVisibilityChanged: Event.None,
+	});
+
+	it('opens the URL the user enters in the Viewer', async () => {
+		const user = userEvent.setup();
+		rtl.render(<PositronPreview reactComponentContainer={container} />);
+
+		await user.type(screen.getByRole('textbox', { name: 'The current URL' }), 'localhost:8080{Enter}');
+
+		expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(PositronOpenUrlInViewerAction.ID, 'localhost:8080');
 	});
 });

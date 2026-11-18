@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,6 +28,7 @@ import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PreviewOpenTarget } from '../positronPreviewSevice.js';
 import { BrowserActionButtons } from './browserActionButtons.js';
+import { PositronOpenUrlInViewerAction } from '../positronPreviewActions.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -37,8 +38,8 @@ const kUrlBarInputName = 'url-bar';
  */
 export interface UrlActionBarsProps {
 
-	// The active preview.
-	readonly preview: PreviewUrl;
+	// The active preview; when there is none, the URL bar opens a new one.
+	readonly preview?: PreviewUrl;
 }
 
 // Localized strings.
@@ -50,6 +51,7 @@ const openInBrowserLabel = localize('positron.preview.openInBrowser.menu', "Open
 const openInEditorLabel = localize('positron.preview.openInEditor.menu', "Open in Editor Tab");
 const openInDropdownLabel = localize('positron.preview.openInDropdown', "Select where to open");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
+const enterUrl = localize('positron.preview.enterUrl', "Enter a URL to preview");
 const interruptExecution = localize('positron.preview.interruptExecution', "Interrupt execution");
 
 /**
@@ -61,8 +63,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
-	// Save the current URL.
-	const currentUri = props.preview.currentUri;
+	const preview = props.preview;
 
 	const urlInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -103,13 +104,13 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	};
 
 	// Handler for the navigate back button.
-	const navigateBackHandler = () => props.preview.surface.goBack();
+	const navigateBackHandler = () => preview?.surface.goBack();
 
 	// Handler for the navigate forward button.
-	const navigateForwardHandler = () => props.preview.surface.goForward();
+	const navigateForwardHandler = () => preview?.surface.goForward();
 
 	// Handler for the reload button.
-	const reloadHandler = () => props.preview.surface.reload();
+	const reloadHandler = () => preview?.surface.reload();
 
 	// State for the remembered "Open in..." target. Persisted via the preview
 	// service so it survives remounts and reloads.
@@ -118,9 +119,12 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	);
 
 	const openInEditorHandler = () => {
+		if (!preview) {
+			return;
+		}
 		setRememberedOpenTarget(PreviewOpenTarget.EditorTab);
 		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.EditorTab);
-		services.positronPreviewService.openEditor(currentUri);
+		services.positronPreviewService.openEditor(preview.currentUri);
 	};
 
 	// Handler for the clear button.
@@ -130,9 +134,12 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 	// Handler for the open in browser button.
 	const openInBrowserHandler = () => {
+		if (!preview) {
+			return;
+		}
 		setRememberedOpenTarget(PreviewOpenTarget.Browser);
 		services.positronPreviewService.setDefaultOpenTarget(PreviewOpenTarget.Browser);
-		services.openerService.open(props.preview.currentUri,
+		services.openerService.open(preview.currentUri,
 			{ openExternal: true, fromUserGesture: true });
 	};
 
@@ -161,6 +168,13 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 	// Perform navigation to the given URL.
 	const navigateToUrl = (url: string) => {
+		// With no preview, open one; the command validates the URL.
+		if (!preview) {
+			services.commandService.executeCommand(PositronOpenUrlInViewerAction.ID, url).catch(e =>
+				services.notificationService.error(e));
+			return;
+		}
+
 		// If the URL doesn't start with a scheme, assume it's an HTTP URL.
 		if (!url.match(/^[a-zA-Z]+:\/\//)) {
 			url = `http://${url}`;
@@ -176,14 +190,14 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 			// Restore the old input value.
 			if (urlInputRef.current) {
-				urlInputRef.current.value = currentUri.toString(true);
+				urlInputRef.current.value = preview.currentUri.toString(true);
 			}
 
 			return;
 		}
 
 		// Navigate to the URL.
-		props.preview.navigateToUri(uri);
+		preview.navigateToUri(uri);
 	};
 
 	// Handler that runs when the user submits the URL bar form.
@@ -192,25 +206,27 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		event.preventDefault();
 
 		// Navigate to the URL.
-		if (urlInputRef.current) {
+		if (urlInputRef.current?.value) {
 			navigateToUrl(urlInputRef.current.value);
 		}
 	};
 
 	// useEffect hook for URL navigation updates.
 	useEffect(() => {
-		const disposables = new DisposableStore();
-		disposables.add(props.preview.onDidNavigate(e => {
+		if (!preview) {
+			return;
+		}
+		const disposable = preview.onDidNavigate(e => {
 			if (urlInputRef.current) {
 				urlInputRef.current.value = e.toString(true);
 			}
-		}));
-		return () => disposables.dispose();
-	}, [props.preview]);
+		});
+		return () => disposable.dispose();
+	}, [preview]);
 
 	// useEffect hook to capture the source when preview content changes.
 	useEffect(() => {
-		const source = props.preview.source;
+		const source = preview?.source;
 		if (!source) {
 			setAppSource(undefined);
 			setInterruptible(false);
@@ -242,7 +258,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				setInterrupting(false);
 			}
 		}
-	}, [props.preview, services.terminalService, services.runtimeSessionService]);
+	}, [preview, services.terminalService, services.runtimeSessionService]);
 
 	// useEffect hook to track the source terminal's child process state.
 	useEffect(() => {
@@ -319,11 +335,13 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton ariaLabel={navigateBack}
+							disabled={!preview}
 							icon={ThemeIcon.fromId('positron-left-arrow')}
 							tooltip={navigateBack}
 							onPressed={navigateBackHandler} />
 						<ActionBarButton
 							ariaLabel={navigateForward}
+							disabled={!preview}
 							icon={ThemeIcon.fromId('positron-right-arrow')}
 							tooltip={navigateForward}
 							onPressed={navigateForwardHandler} />
@@ -334,8 +352,9 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 								ref={urlInputRef}
 								aria-label={currentUrl}
 								className='text-input url-bar'
-								defaultValue={props.preview.currentUri.toString(true)}
+								defaultValue={preview?.currentUri.toString(true)}
 								name={kUrlBarInputName}
+								placeholder={enterUrl}
 								type='text'>
 							</input>
 						</form>
@@ -353,29 +372,31 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 								</ActionBarButton>
 							</>
 						)}
-						<BrowserActionButtons preview={props.preview} />
-						<ActionBarButton
-							align='right'
-							ariaLabel={reload}
-							icon={ThemeIcon.fromId('refresh')}
-							tooltip={reload}
-							onPressed={reloadHandler} />
-						<ActionBarMenuButton
-							actions={openInActions}
-							align='right'
-							ariaLabel={openInDropdownLabel}
-							dropdownAriaLabel={openInDropdownLabel}
-							dropdownIndicator='enabled-split'
-							dropdownTooltip={openInDropdownLabel}
-							icon={ThemeIcon.fromId('positron-open-in-new-window')}
-							tooltip={openInDropdownLabel} />
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='right'
-							ariaLabel={clear}
-							icon={ThemeIcon.fromId('clear-all')}
-							tooltip={clear}
-							onPressed={clearHandler} />
+						{preview && <>
+							<BrowserActionButtons preview={preview} />
+							<ActionBarButton
+								align='right'
+								ariaLabel={reload}
+								icon={ThemeIcon.fromId('refresh')}
+								tooltip={reload}
+								onPressed={reloadHandler} />
+							<ActionBarMenuButton
+								actions={openInActions}
+								align='right'
+								ariaLabel={openInDropdownLabel}
+								dropdownAriaLabel={openInDropdownLabel}
+								dropdownIndicator='enabled-split'
+								dropdownTooltip={openInDropdownLabel}
+								icon={ThemeIcon.fromId('positron-open-in-new-window')}
+								tooltip={openInDropdownLabel} />
+							<ActionBarSeparator />
+							<ActionBarButton
+								align='right'
+								ariaLabel={clear}
+								icon={ThemeIcon.fromId('clear-all')}
+								tooltip={clear}
+								onPressed={clearHandler} />
+						</>}
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

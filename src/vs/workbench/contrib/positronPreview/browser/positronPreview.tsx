@@ -96,7 +96,9 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		return () => disposable.dispose();
 	}, [activePreview]);
 
-	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
+	// With no preview, the URL toolbar invites the user to open one. Nothing
+	// that shows content is created until they do.
+	const urlToolbar = !activePreview || activePreview instanceof PreviewUrl;
 	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
 	const basicToolbar =
 		activePreview && activePreview.viewType === POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE;
@@ -111,7 +113,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 				// here to ensure the action bars are keyed to the preview;
 				// otherwise the URL bar can get out of sync with the preview
 				// since it's an uncontrolled component.
-				<UrlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+				<UrlActionBars key={activePreview?.previewId} preview={activePreview} {...props} />
 			}
 			{htmlToolbar &&
 				<HtmlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
