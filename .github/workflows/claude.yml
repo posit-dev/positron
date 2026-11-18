@@ -878,6 +878,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET: ${{ steps.src.outputs.target }}
           BASE: ${{ steps.src.outputs.base }}
+          BRANCH: ${{ steps.src.outputs.branch }}
         run: |
           set -euo pipefail
           fail() { printf '%s\n' "$1" > "$RUNNER_TEMP/comment.md"; echo "::error::$1"; exit 1; }
@@ -950,6 +951,18 @@ jobs:
           fi
           if [ "$TARGET" = "pr" ]; then
             FORBIDDEN+='|^(\.claude|\.husky)(/|$)|^(\.mcp\.json|\.claude\.json|\.gitmodules|\.ripgreprc|CLAUDE\.md|CLAUDE\.local\.md)$'
+          fi
+
+          # On a pull request, someone may push while Claude runs, and Claude may merge it. Those
+          # commits are already on the branch, so like the base, they are not checked or counted.
+          # If Claude did not merge them, the push is rejected below as not a fast-forward.
+          if [ "$TARGET" = "pr" ]; then
+            REMOTE_HEAD=$(git ls-remote origin "refs/heads/${BRANCH}" | cut -f 1)
+            if [[ "$REMOTE_HEAD" =~ ^[0-9a-f]{40}$ ]] && [ "$REMOTE_HEAD" != "$BASE" ] &&
+              git cat-file -e "${REMOTE_HEAD}^{commit}" 2>/dev/null &&
+              git merge-base --is-ancestor "$REMOTE_HEAD" "$TIP"; then
+              NOT+=("^${REMOTE_HEAD}")
+            fi
           fi
 
           # A merge may bring in the default branch. Its changes are not Claude's, so skip the
