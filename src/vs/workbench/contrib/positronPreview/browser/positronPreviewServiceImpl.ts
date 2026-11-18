@@ -11,7 +11,9 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_USE_INTEGRATED_BROWSER } from './positronPreviewSevice.js';
+import { IPreviewSurface } from './previewSurface.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -67,8 +69,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IConfigurationService protected readonly _configurationService: IConfigurationService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IInstantiationService protected readonly _instantiationService: IInstantiationService,
 	) {
 		super();
 		this._register(this._items);
@@ -114,6 +117,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			}
 		}));
 
+		// Show the active preview on the backend the setting now chooses.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_VIEWER_USE_INTEGRATED_BROWSER)) {
+				this.recreateActivePreview();
+			}
+		}));
+
 		// When the extension host is about to stop, dispose all previews that
 		// use HTML proxies, since these proxies live in the extension host.
 		this._register(this._extensionService.onWillStop((e) => {
@@ -128,7 +138,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	createHtmlWebview(sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
 		event: IShowHtmlUriEvent): PreviewHtml<PreviewOverlayWebview> {
-		return this.createPreviewHtml(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, extension, event.uri, event.event);
+		const previewId = `previewHtml.${PositronPreviewService._previewIdCounter++}`;
+		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, event.uri, extension);
+		return new PreviewHtml(sessionId, previewId, overlay, event.uri, event.event);
 	}
 
 	get previewWebviews(): PreviewWebview[] {
@@ -241,15 +253,26 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	/**
+	 * Create a surface to show content that has an address: a webview, or on
+	 * Desktop, the integrated browser.
+	 */
+	protected createAddressableSurface(
+		viewType: string,
+		uri: URI,
+		extension: WebviewExtensionDescription | undefined): IPreviewSurface {
+		return this.createWebview(viewType, uri, extension);
+	}
+
+	/**
 	 * Create a URL preview.
 	 */
 	private createPreviewUrl(
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewUrl<PreviewOverlayWebview> {
-		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
-		return new PreviewUrl(previewId, overlay, uri, source);
+		source?: { type: string; id: string }): PreviewUrl {
+		const surface = this.createAddressableSurface(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
+		return new PreviewUrl(previewId, surface, uri, source);
 	}
 
 	/**
@@ -260,9 +283,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		event: ShowHtmlFileEvent): PreviewHtml<PreviewOverlayWebview> {
-		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
-		return new PreviewHtml(sessionId, previewId, overlay, uri, event);
+		event?: ShowHtmlFileEvent): PreviewHtml {
+		const surface = this.createAddressableSurface(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
+		return new PreviewHtml(sessionId, previewId, surface, uri, event);
+	}
+
+	/**
+	 * Shows the active preview again on a new surface, if it has an address.
+	 * Other previews keep their surface until they're replaced.
+	 */
+	private recreateActivePreview(): void {
+		const preview = this.activePreviewWebview;
+		if (preview instanceof PreviewUrl) {
+			this.makeActivePreview(this.createPreviewUrl(`previewUrl.${PositronPreviewService._previewIdCounter++}`, undefined, preview.currentUri, preview.source));
+		} else if (preview instanceof PreviewHtml) {
+			this.makeActivePreview(this.createPreviewHtml(preview.sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, undefined, preview.uri, preview.html));
+		}
 	}
 
 	/** Create a preview for a webview. */

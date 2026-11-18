@@ -32,6 +32,12 @@ export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
  */
 export const POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE = 'notebookRenderer';
 
+/**
+ * The Desktop setting that shows web pages and HTML in the Viewer using the
+ * integrated browser instead of a webview.
+ */
+export const POSITRON_VIEWER_USE_INTEGRATED_BROWSER = 'viewer.useIntegratedBrowser';
+
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
 /**

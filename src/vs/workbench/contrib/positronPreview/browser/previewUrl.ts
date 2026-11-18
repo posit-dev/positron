@@ -62,6 +62,12 @@ export class PreviewUrl<S extends IPreviewSurface = IPreviewSurface> extends Pre
 	public navigateToUri(uri: URI): void {
 		this._uri = uri;
 
+		// A browser revalidates its cache normally.
+		if (this.surface.kind === 'browser') {
+			this.surface.loadUri(uri);
+			return;
+		}
+
 		// Amend a nonce to the URI for cache busting.
 		const nonce = `${QUERY_NONCE_PARAMETER}=${(PreviewUrl._nonce++).toString(16)}`;
 		const iframeUri = this._uri.with({
