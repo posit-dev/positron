@@ -17,6 +17,7 @@ export class JupyterAuthPage {
 	 * Sign in to JupyterHub
 	 */
 	async signIn(): Promise<void> {
+		// TEMP, do not merge: a change to start the PR lanes.
 		const page = this.code.driver.currentPage;
 
 		// Wait for login form to be visible
