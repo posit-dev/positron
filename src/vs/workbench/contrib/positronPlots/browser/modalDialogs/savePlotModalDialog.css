@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -122,4 +122,22 @@ img.plot-preview {
 .positron-modal-dialog-box .plot-save-dialog-action-bar .action-bar-button {
 	width: 80px;
 	height: 32px;
+}
+
+.plot-preview-input .plot-input .resolution {
+	flex-basis: 100%;
+	display: flex;
+	align-items: flex-end;
+	column-gap: 16px;
+	padding-top: 8px;
+}
+
+.plot-preview-input .plot-input .resolution .drop-down-list-box {
+	min-width: 100px;
+	margin-top: 4px;
+}
+
+.plot-preview-input .plot-input .resolution-output {
+	line-height: 26px;
+	color: var(--vscode-descriptionForeground);
 }
