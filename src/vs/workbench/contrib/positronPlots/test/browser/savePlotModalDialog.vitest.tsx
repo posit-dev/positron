@@ -256,11 +256,25 @@ describe('Save Plot dialog size', () => {
 
 		it('is enabled again, still on, when Use intrinsic size is unticked', async () => {
 			const user = userEvent.setup();
-			await open(new PlotSizingPolicyIntrinsic(), intrinsicSize);
+			// Under the Intrinsic policy the last render has no size, so the lock comes from the intrinsic size.
+			await open(new PlotSizingPolicyIntrinsic(), intrinsicSize, false);
 
 			await user.click(screen.getByRole('checkbox', { name: 'Use intrinsic size' }));
 
 			expect(screen.getByRole('checkbox', { name: LOCK_NAME, checked: true })).toBeEnabled();
+			await close(user);
+		});
+
+		it('takes the size from the intrinsic size when the plot has no last render', async () => {
+			const user = userEvent.setup();
+			await open(new PlotSizingPolicyIntrinsic(), intrinsicSize, false);
+
+			await user.click(screen.getByRole('checkbox', { name: 'Use intrinsic size' }));
+			await typeInto(user, widthInput(), 1260);
+
+			// 6.3in x 4.7in at 100 DPI.
+			expect(widthInput()).toHaveValue(1260);
+			expect(heightInput()).toHaveValue(940);
 			await close(user);
 		});
 

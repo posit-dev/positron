@@ -31,7 +31,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
+import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -97,13 +97,17 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [name, setName] = React.useState({ value: props.plotClient.metadata.name ?? props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
 	const [format, setFormat] = React.useState(props.suggestedFormat ?? PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
-	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
-	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
+	// The plot's last render size, or its intrinsic size when it has not rendered at a size,
+	// as it hasn't under the Intrinsic sizing policy.
+	const [initialSize] = React.useState(() => props.plotSize ??
+		(props.plotIntrinsicSize ? intrinsicSizeInPixels(props.plotIntrinsicSize, BASE_DPI) : undefined));
+	const [width, setWidth] = React.useState({ value: initialSize?.width ?? 100, valid: true });
+	const [height, setHeight] = React.useState({ value: initialSize?.height ?? 100, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
 	// The aspect ratio (width / height) kept while editing the size, or undefined when unlocked.
 	// Locked by default when the plot has a known size to take the ratio from.
 	const [lockedRatio, setLockedRatio] = React.useState<number | undefined>(
-		() => props.plotSize ? ratioOf(props.plotSize.width, props.plotSize.height) : undefined
+		() => initialSize ? ratioOf(initialSize.width, initialSize.height) : undefined
 	);
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);

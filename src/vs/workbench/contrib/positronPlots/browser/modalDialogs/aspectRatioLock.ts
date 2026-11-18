@@ -3,6 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
+
+/**
+ * Gets a plot's intrinsic size in pixels.
+ * @param size The intrinsic size.
+ * @param dpi The pixels per inch to convert a size in inches at.
+ * @returns The size, rounded to whole pixels.
+ */
+export function intrinsicSizeInPixels(size: IntrinsicSize, dpi: number): IPlotSize {
+	const scale = size.unit === PlotUnit.Inches ? dpi : 1;
+	return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
+}
+
 /**
  * Gets the aspect ratio (width divided by height) of a size.
  * @param width The width.

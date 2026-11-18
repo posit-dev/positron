@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { linkedHeight, linkedWidth, ratioOf } from '../../browser/modalDialogs/aspectRatioLock.js';
+import { PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from '../../browser/modalDialogs/aspectRatioLock.js';
 
 describe('aspectRatioLock', () => {
 	describe('ratioOf', () => {
@@ -38,6 +39,18 @@ describe('aspectRatioLock', () => {
 
 		it('never returns less than 1', () => {
 			expect(linkedWidth(1, 0.1)).toBe(1);
+		});
+	});
+
+	describe('intrinsicSizeInPixels', () => {
+		it('converts inches at the given DPI, rounded to whole pixels', () => {
+			expect(intrinsicSizeInPixels({ width: 6.4, height: 4.75, unit: PlotUnit.Inches, source: 'Matplotlib' }, 100))
+				.toEqual({ width: 640, height: 475 });
+		});
+
+		it('keeps pixels as they are', () => {
+			expect(intrinsicSizeInPixels({ width: 640, height: 480, unit: PlotUnit.Pixels, source: 'Test' }, 100))
+				.toEqual({ width: 640, height: 480 });
 		});
 	});
 });
