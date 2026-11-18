@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PlotLocatorState, plotPointFromClick } from '../../common/plotLocator.js';
+import { isLocatorForPlot, PlotLocatorState, plotPointFromClick } from '../../common/plotLocator.js';
 
 describe('PlotLocatorState', () => {
 	const size = { width: 400, height: 300 };
@@ -85,6 +85,19 @@ describe('PlotLocatorState', () => {
 		const promise = state.begin(a);
 		state.dispose();
 		expect(await promise).toBeUndefined();
+	});
+});
+
+describe('isLocatorForPlot', () => {
+	const locator = { sessionId: 's1', plotId: 'p1', size: { width: 400, height: 300 } };
+
+	it('matches only the same session and plot', () => {
+		expect([
+			isLocatorForPlot(locator, 's1', 'p1'),
+			isLocatorForPlot(locator, 's2', 'p1'),
+			isLocatorForPlot(locator, 's1', 'p2'),
+			isLocatorForPlot(undefined, 's1', 'p1'),
+		]).toEqual([true, false, false, false]);
 	});
 });
 

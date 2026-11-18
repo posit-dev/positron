@@ -172,6 +172,27 @@ describe('Plot locator mode', () => {
 		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }, undefined]);
 	});
 
+	it('hands the focus to a focusable ancestor outside the Plots pane, as in an editor tab', async () => {
+		const user = userEvent.setup();
+		rtl.render(
+			<div data-testid='editor-container' tabIndex={-1}>
+				<DynamicPlotInstance height={HEIGHT} plotClient={makePlotClient()} width={WIDTH} zoom={ZoomLevel.Fit} />
+			</div>
+		);
+		const img = screen.getByRole('img', { name: 'My plot' });
+		loadImage(img, 400, 200);
+		startLocator();
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(wrapperOf(img)).toHaveFocus();
+
+		act(() => plotsService.setActiveLocator(undefined));
+		expect(screen.getByTestId('editor-container')).toHaveFocus();
+
+		// The next request (the next point of identify()) takes the focus back.
+		startLocator();
+		expect(wrapperOf(img)).toHaveFocus();
+	});
+
 	it('has no tab index and does not take focus on mouse down outside locator mode', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();

@@ -24,7 +24,7 @@ import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { DarkFilter, IPositronPlotClient, isZoomablePlotClient, PlotRenderFormat, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
-import { IPlotLocator } from '../../../../services/positronPlots/common/plotLocator.js';
+import { IPlotLocator, isLocatorForPlot } from '../../../../services/positronPlots/common/plotLocator.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
@@ -99,8 +99,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return () => disposable.dispose();
 	}, [services.positronPlotsService]);
 	const locatingCurrentPlot = !!currentPlotInstance &&
-		activeLocator?.plotId === currentPlotInstance.id &&
-		activeLocator.sessionId === currentPlotInstance.metadata.session_id;
+		isLocatorForPlot(activeLocator, currentPlotInstance.metadata.session_id, currentPlotInstance.id);
+	// A plot in this pane that the locator waits on while another plot is shown.
+	const locatorPlotId = !locatingCurrentPlot ? positronPlotsContext.positronPlotInstances.find(
+		plot => isLocatorForPlot(activeLocator, plot.metadata.session_id, plot.id)
+	)?.id : undefined;
 
 	// Bumped by the plots context when plot metadata (kind, name, origin)
 	// changes, so the memos below recompute.
@@ -496,13 +499,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// source, so a second identical button is redundant.
 		const showOriginFile = !!originFileName && originFileName !== sessionName;
 
-		// While a locator() call waits on this plot, the prompt takes the place of the origin
-		// file and plot name, so the plot keeps its full height.
-		if (locatingCurrentPlot) {
+		// While a locator() call waits on a plot in this pane, the prompt takes the place of the
+		// origin file and plot name, so the plot keeps its full height. If the user selected
+		// another plot, the prompt offers to go back, so the busy console is explained.
+		if (locatingCurrentPlot || locatorPlotId) {
 			return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 				<span className='plot-info-text'>
 					{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
-					<PlotLocatorPrompt onFinish={() => services.positronPlotsService.resolveLocator(undefined)} />
+					<PlotLocatorPrompt
+						onFinish={() => services.positronPlotsService.resolveLocator(undefined)}
+						onShowPlot={locatorPlotId ? () => services.positronPlotsService.selectPlot(locatorPlotId) : undefined}
+					/>
 				</span>
 			</div>;
 		}

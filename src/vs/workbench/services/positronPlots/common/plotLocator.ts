@@ -25,6 +25,13 @@ export interface IPlotLocator {
 }
 
 /**
+ * Whether `locator` waits on the plot `plotId` of the session `sessionId`.
+ */
+export function isLocatorForPlot(locator: IPlotLocator | undefined, sessionId: string, plotId: string): locator is IPlotLocator {
+	return locator?.plotId === plotId && locator.sessionId === sessionId;
+}
+
+/**
  * Tracks the single active locator request.
  */
 export class PlotLocatorState extends Disposable {

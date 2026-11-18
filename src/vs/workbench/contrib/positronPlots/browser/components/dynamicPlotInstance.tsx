@@ -18,9 +18,17 @@ import { IRenderedPlot } from '../../../../services/languageRuntime/common/posit
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
-import { IPlotLocator } from '../../../../services/positronPlots/common/plotLocator.js';
+import { IPlotLocator, isLocatorForPlot } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+
+/**
+ * Returns the element that takes the focus when the locator mode ends: the closest focusable
+ * ancestor of the plot instance, such as the Plots pane or the plot editor.
+ */
+function focusTargetOf(wrapper: HTMLElement): HTMLElement | null {
+	return wrapper.parentElement?.closest<HTMLElement>('[tabindex]') ?? null;
+}
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -62,7 +70,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// The locator() call waiting on this plot, if any.
 	const [locator, setLocator] = useState<IPlotLocator | undefined>(() => {
 		const active = services.positronPlotsService.activeLocator;
-		return active?.plotId === plotId && active.sessionId === sessionId ? active : undefined;
+		return isLocatorForPlot(active, sessionId, plotId) ? active : undefined;
 	});
 	const locating = locator !== undefined;
 	const showBanner = locating && props.showLocatorBanner !== false;
@@ -75,13 +83,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// Track whether a locator() call is waiting on this plot. A new locator request fires an
 	// intermediate undefined before the new locator, which is harmless here.
 	useEffect(() => {
-		const matches = (locator: IPlotLocator | undefined) =>
-			locator?.plotId === plotId && locator.sessionId === sessionId;
+		// Catch a locator that started between the first render and this subscription.
 		const active = services.positronPlotsService.activeLocator;
-		setLocator(matches(active) ? active : undefined);
+		setLocator(isLocatorForPlot(active, sessionId, plotId) ? active : undefined);
 		const disposable = services.positronPlotsService.onDidChangeLocator(locator => {
 			const wrapper = wrapperRef.current;
-			if (matches(locator)) {
+			if (isLocatorForPlot(locator, sessionId, plotId)) {
 				setLocator(locator);
 				return;
 			}
@@ -90,9 +97,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				restoreFocusRef.current = false;
 			} else if (wrapper && wrapper.contains(wrapper.ownerDocument.activeElement)) {
 				// The wrapper stops being focusable when the mode ends. Move the focus to the
-				// Plots pane before that happens, so it does not fall to the document body.
+				// Plots pane or editor before that happens, so it does not fall to the document
+				// body.
 				restoreFocusRef.current = true;
-				wrapper.parentElement?.closest<HTMLElement>('.plots-container')?.focus();
+				focusTargetOf(wrapper)?.focus();
 			}
 			setLocator(undefined);
 		});
@@ -108,8 +116,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 		restoreFocusRef.current = false;
 		const active = wrapper.ownerDocument.activeElement;
-		const container = wrapper.parentElement?.closest('.plots-container');
-		if (!active || active === wrapper.ownerDocument.body || active === container) {
+		if (!active || active === wrapper.ownerDocument.body || active === focusTargetOf(wrapper)) {
 			wrapper.focus();
 		}
 	}, [locating]);

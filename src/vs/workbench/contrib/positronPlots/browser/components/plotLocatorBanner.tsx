@@ -21,6 +21,11 @@ export const PLOT_LOCATOR_BANNER_HEIGHT = 28;
  */
 interface PlotLocatorPromptProps {
 	onFinish: () => void;
+	/**
+	 * When set, the locator waits on a plot other than the one shown, and the prompt offers to
+	 * show that plot.
+	 */
+	onShowPlot?: () => void;
 }
 
 /**
@@ -33,9 +38,16 @@ export const PlotLocatorPrompt = (props: PlotLocatorPromptProps) => {
 	return (
 		<span className='plot-locator-prompt' role='status'>
 			<span className='plot-locator-message'>
-				{localize('positron.plots.locator.message', "Click the plot to choose a point.")}
+				{props.onShowPlot ?
+					localize('positron.plots.locator.otherPlotMessage', "Another plot is waiting for a point.") :
+					localize('positron.plots.locator.message', "Click the plot to choose a point.")}
 			</span>
-			<Button className='plot-locator-finish' onPressed={props.onFinish}>
+			{props.onShowPlot &&
+				<Button className='plot-locator-button plot-locator-show' onPressed={props.onShowPlot}>
+					{localize('positron.plots.locator.showPlot', "Show Plot")}
+				</Button>
+			}
+			<Button className='plot-locator-button plot-locator-finish' onPressed={props.onFinish}>
 				{localize('positron.plots.locator.finish', "Finish")}
 			</Button>
 		</span>

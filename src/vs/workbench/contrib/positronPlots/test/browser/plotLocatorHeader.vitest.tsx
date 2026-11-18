@@ -30,6 +30,7 @@ describe('PlotsContainer locator prompt', () => {
 	const onDidSelectPlot = new Emitter<string>();
 	const onDidChangeLocator = new Emitter<IPlotLocator | undefined>();
 	const resolveLocator = vi.fn<IPositronPlotsService['resolveLocator']>();
+	const selectPlot = vi.fn<IPositronPlotsService['selectPlot']>();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -39,6 +40,7 @@ describe('PlotsContainer locator prompt', () => {
 			activeLocator: undefined,
 			onDidChangeLocator: onDidChangeLocator.event,
 			resolveLocator,
+			selectPlot,
 			onDidEmitPlot: onDidEmitPlot.event,
 			onDidSelectPlot: onDidSelectPlot.event,
 			onDidUpdatePlotMetadata: Event.None,
@@ -57,18 +59,25 @@ describe('PlotsContainer locator prompt', () => {
 		onDidChangeLocator.dispose();
 	});
 
-	/** Renders the container with one selected plot named "plot 2". */
-	function renderWithPlot() {
-		const plot = ctx.disposables.add(StaticPlotClient.fromMetadata(ctx.get(IStorageService), {
-			id: PLOT_ID,
+	function createPlot(id: string, name: string): IPositronPlotClient {
+		return ctx.disposables.add(StaticPlotClient.fromMetadata(ctx.get(IStorageService), {
+			id,
 			created: Date.now(),
 			session_id: SESSION_ID,
 			code: 'plot(1:10)',
 			language: 'r',
-			name: 'plot 2',
-			suggested_file_name: 'plot-2',
+			name,
+			suggested_file_name: id,
 			zoom_level: ZoomLevel.Fit,
 		}, 'image/png', encodeBase64(VSBuffer.fromString('fake-png-bytes'))));
+	}
+
+	/**
+	 * Renders the container with one selected plot named "plot 2", after `others` are added to
+	 * the pane.
+	 */
+	function renderWithPlot(...others: IPositronPlotClient[]) {
+		const plot = createPlot(PLOT_ID, 'plot 2');
 
 		rtl.render(
 			<PositronPlotsContextProvider>
@@ -84,6 +93,9 @@ describe('PlotsContainer locator prompt', () => {
 			</PositronPlotsContextProvider>
 		);
 		act(() => {
+			for (const other of others) {
+				onDidEmitPlot.fire(other);
+			}
 			onDidEmitPlot.fire(plot);
 			onDidSelectPlot.fire(plot.id);
 		});
@@ -111,6 +123,16 @@ describe('PlotsContainer locator prompt', () => {
 		startLocator('other-plot');
 		expect(screen.queryByRole('status')).not.toBeInTheDocument();
 		expect(screen.getByText('plot 2')).toBeInTheDocument();
+	});
+
+	it('offers to show the plot the locator waits on when another plot is shown', async () => {
+		const user = userEvent.setup();
+		renderWithPlot(createPlot('plot-1', 'plot 1'));
+		startLocator('plot-1');
+
+		expect(screen.getByRole('status')).toHaveTextContent('Another plot is waiting for a point.');
+		await user.click(screen.getByRole('button', { name: 'Show Plot' }));
+		expect(selectPlot.mock.calls).toEqual([['plot-1']]);
 	});
 
 	it('finishes the locator when Finish is clicked', async () => {

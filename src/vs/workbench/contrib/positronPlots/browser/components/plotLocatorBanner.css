@@ -22,7 +22,7 @@
 	opacity: 0.8;
 }
 
-.plot-locator-prompt .plot-locator-finish {
+.plot-locator-prompt .plot-locator-button {
 	flex-shrink: 0;
 	padding: 2px 8px;
 	font-size: 12px;
@@ -31,7 +31,7 @@
 	border-radius: 4px;
 }
 
-.plot-locator-prompt .plot-locator-finish:hover {
+.plot-locator-prompt .plot-locator-button:hover {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 

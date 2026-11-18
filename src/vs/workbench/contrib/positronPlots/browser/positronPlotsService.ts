@@ -5,7 +5,7 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
-import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
 import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation, PlotClientState } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -244,6 +244,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** Waits for the plot of the active locator to arrive, when the request came first. */
 	private readonly _locatorPlotWait = this._register(new MutableDisposable<DisposableStore>());
 
+	/** The listeners that end a locator() request, per session. Removed with the session. */
+	private readonly _locatorSessionListeners = this._register(new DisposableMap<string, DisposableStore>());
+
 	/** Creates the Positron plots service instance */
 	constructor(
 		@IClipboardService private _clipboardService: IClipboardService,
@@ -283,6 +286,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Register for session deletions to clean up render queues
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			this._locatorSessionListeners.deleteAndDispose(sessionId);
 			// Remove the render queue for this session
 			if (this._renderQueues.has(sessionId)) {
 				const renderQueue = this._renderQueues.get(sessionId);
@@ -853,6 +857,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		disposableTimeout(() => {
 			this._locatorPlotWait.clear();
 			if (this._locatorState.activeLocator === locator) {
+				this._logService.warn(`Plot ${locator.plotId} for locator() did not arrive in time; ending the locator`);
 				this._locatorState.resolve(undefined);
 			}
 		}, LocatorPlotWaitTimeout, store);
@@ -884,7 +889,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private attachRuntime(session: ILanguageRuntimeSession) {
 		// End a locator() request when the session leaves the busy states. Interrupting
 		// and Offline are not listed on purpose: R is still waiting in locator() then.
-		this._register(session.onDidChangeRuntimeState(state => {
+		const locatorListeners = new DisposableStore();
+		this._locatorSessionListeners.set(session.sessionId, locatorListeners);
+		locatorListeners.add(session.onDidChangeRuntimeState(state => {
 			switch (state) {
 				case RuntimeState.Idle:
 					// The session also goes idle after each comm request that the kernel
@@ -908,7 +915,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// End a locator() request when the execute request that waits for it goes idle,
 		// for example after an interrupt or an error.
-		this._register(session.onDidReceiveRuntimeMessageState(message => {
+		locatorListeners.add(session.onDidReceiveRuntimeMessageState(message => {
 			if (message.state === RuntimeOnlineState.Idle) {
 				this._locatorState.cancelExecution(session.sessionId, message.parent_id);
 			}
