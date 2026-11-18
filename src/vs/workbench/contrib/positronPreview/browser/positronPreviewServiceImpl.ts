@@ -14,6 +14,8 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_USE_INTEGRATED_BROWSER } from './positronPreviewSevice.js';
 import { IPreviewSurface } from './previewSurface.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -348,24 +350,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		htmlpath: string): Promise<PreviewHtml> {
 
 		// Use the Positron Proxy extension to create a URL for the HTML file.
-		const url = await this._commandService.executeCommand<string>(
-			'positronProxy.startHtmlProxyServer',
-			htmlpath
-		);
-
-		if (!url) {
-			throw new Error(`Failed to start HTML file proxy server for ${htmlpath}`);
-		}
-
-		// Parse the URL and resolve it if necessary. The resolution step is
-		// necessary when URI is hosted on a remote server.
-		let uri = URI.parse(url);
-		try {
-			const resolvedUri = await this._openerService.resolveExternalUri(uri);
-			uri = resolvedUri.resolved;
-		} catch {
-			// Noop; use the original URI
-		}
+		const uri = await this.proxy('positronProxy.startHtmlProxyServer', htmlpath, htmlpath);
 
 		// Create a ShowFileEvent for the HTML file.
 		const evt: ShowHtmlFileEvent = {
@@ -381,6 +366,33 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Make the preview active and return it
 		this.makeActivePreview(preview);
 		return preview;
+	}
+
+	/**
+	 * Serves content through the Positron Proxy extension, and returns its URL,
+	 * resolved so it can be reached when the proxy runs on a remote host.
+	 *
+	 * @param what Names the content in an error.
+	 */
+	private async proxy(command: string, content: string, what: string): Promise<URI> {
+		const url = await this._commandService.executeCommand<string>(command, content);
+		if (!url) {
+			throw new Error(`Failed to start the HTML proxy server for ${what}`);
+		}
+		const uri = URI.parse(url);
+		try {
+			return (await this._openerService.resolveExternalUri(uri)).resolved;
+		} catch {
+			return uri;
+		}
+	}
+
+	/**
+	 * Whether content with an address is shown in the integrated browser
+	 * rather than a webview. Overridden on Desktop, where the setting chooses.
+	 */
+	protected useIntegratedBrowser(): boolean {
+		return false;
 	}
 
 	/**
@@ -589,6 +601,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public async openEditor(uri: URI, title?: string): Promise<void> {
+		// Open the integrated browser's own editor, as its Open Browser command does.
+		if (this.useIntegratedBrowser()) {
+			await this._editorService.openEditor({
+				resource: BrowserViewUri.forId(generateUuid()),
+				options: { viewState: { url: uri.toString(true) } },
+			});
+			return;
+		}
+
 		// Create and store webview overlay for editor
 		// We use the URI to attempt to bring focus to an editor if it already exists
 		const previewId = `editorPreview.${uri.toString()}`;
@@ -646,11 +667,19 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/**
 	 * Opens an HTML string directly in the Viewer pane without writing to a
-	 * temp file. Creates a webview and renders the HTML inside an iframe using
-	 * the srcdoc attribute, which works consistently across Electron and
-	 * browser environments.
+	 * temp file. The integrated browser shows it as a page the Positron Proxy
+	 * serves; a webview renders it inside an iframe using the srcdoc
+	 * attribute, which works consistently across Electron and browser
+	 * environments.
 	 */
-	public openHtmlString(previewId: string, html: string, title: string): PreviewWebview {
+	public async openHtmlString(previewId: string, html: string, title: string): Promise<PreviewWebview> {
+		if (this.useIntegratedBrowser()) {
+			const uri = await this.proxy('positronProxy.startHtmlStringServer', html, title);
+			const preview = this.createPreviewHtml('', previewId, undefined, uri, { height: 0, title, destination: ShowHtmlFileDestination.Viewer, path: '' });
+			this.makeActivePreview(preview);
+			return preview;
+		}
+
 		const webviewInitInfo: WebviewInitInfo = {
 			origin: DOM.getActiveWindow().origin,
 			providedViewType: POSITRON_PREVIEW_HTML_VIEW_TYPE,

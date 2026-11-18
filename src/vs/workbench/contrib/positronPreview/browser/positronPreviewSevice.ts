@@ -162,13 +162,14 @@ export interface IPositronPreviewService {
 
 	/**
 	 * Opens an HTML string directly in the Viewer pane without writing to a
-	 * temp file. Creates a webview and sets the HTML content on it.
+	 * temp file. On Desktop with the integrated browser, the Positron Proxy
+	 * serves it; otherwise a webview shows it.
 	 *
 	 * @param previewId The unique ID for the preview.
 	 * @param html The HTML content to display.
 	 * @param title The title for the preview.
 	 */
-	openHtmlString(previewId: string, html: string, title: string): PreviewWebview;
+	openHtmlString(previewId: string, html: string, title: string): Promise<PreviewWebview>;
 
 	/**
 	 * Gets the remembered "Open in..." target for the Viewer action bar.

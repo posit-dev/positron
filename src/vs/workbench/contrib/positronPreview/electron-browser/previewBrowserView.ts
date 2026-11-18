@@ -23,6 +23,15 @@ import { BrowserViewBridgeSession, PageNavigatedError } from './browserViewBridg
 import { bridgeScriptValue, ViewerBridgeScriptResult } from './previewOverlayWebview.js';
 
 /**
+ * The page's title, or an empty one when it has none, as Chromium then gives
+ * the page's address as its title.
+ */
+function pageTitle(model: IBrowserViewModel): string {
+	const title = model.title;
+	return title === model.url || title === model.url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '') ? '' : title;
+}
+
+/**
  * Shows a preview's content in the integrated browser: a native view that
  * the main process lays over the Viewer.
  */
@@ -81,7 +90,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 	}
 
 	get title(): string | undefined {
-		return this._model?.title || undefined;
+		return (this._model && pageTitle(this._model)) || undefined;
 	}
 
 	/**
@@ -120,7 +129,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			// The first page loaded before the view was handed over.
 			this.showError(undefined);
 			this._onDidNavigate.fire(URI.parse(model.url));
-			this._onDidLoad.fire(model.title);
+			this._onDidLoad.fire(pageTitle(model));
 		}
 	}
 
@@ -130,7 +139,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this._modelStore.add(model.onDidChangeLoadingState(e => {
 			this.showError(e.error?.errorDescription);
 			if (!e.loading && !e.error) {
-				this._onDidLoad.fire(model.title);
+				this._onDidLoad.fire(pageTitle(model));
 			}
 		}));
 		this._modelStore.add(model.onDidChangeFocus(e => {

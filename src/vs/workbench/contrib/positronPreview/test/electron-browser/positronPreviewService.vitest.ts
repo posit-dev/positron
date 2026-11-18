@@ -13,6 +13,10 @@ import { URI } from '../../../../../base/common/uri.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
 import { ElectronPositronPreviewService } from '../../electron-browser/positronPreviewServiceImpl.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { BrowserViewUri } from '../../../../../platform/browserView/common/browserViewUri.js';
+import { IUntypedEditorInput } from '../../../../common/editor.js';
 
 describe('Positron - Preview Service', () => {
 
@@ -73,5 +77,37 @@ describe('Positron - Electron Preview Service', () => {
 		const after = previewService.activePreviewWebview;
 		expect({ disposed: before.isDisposed(), kind: after?.surface.kind, address: after?.address?.toString() })
 			.toEqual({ disposed: true, kind: 'browser', address: 'http://localhost:8000/app' });
+	});
+
+	it('serves an HTML string through the proxy to show it in the integrated browser', async () => {
+		await configurationService.setUserConfiguration(POSITRON_VIEWER_USE_INTEGRATED_BROWSER, true);
+		const commandService = ctx.instantiationService.invokeFunction(accessor => accessor.get(ICommandService));
+		const executeCommand = vi.spyOn(commandService, 'executeCommand').mockResolvedValue('http://localhost:9000/string/abc');
+
+		const preview = await previewService.openHtmlString('quartoHtmlOutput.1', '<h1>Hi</h1>', 'Output - report.qmd');
+
+		expect({
+			command: executeCommand.mock.calls[0],
+			kind: preview.surface.kind,
+			address: preview.address?.toString(),
+			active: previewService.activePreviewWebview === preview,
+		}).toEqual({
+			command: ['positronProxy.startHtmlStringServer', '<h1>Hi</h1>'],
+			kind: 'browser',
+			address: 'http://localhost:9000/string/abc',
+			active: true,
+		});
+	});
+
+	it('opens Open in Editor Tab in the integrated browser\'s editor when the setting is on', async () => {
+		await configurationService.setUserConfiguration(POSITRON_VIEWER_USE_INTEGRATED_BROWSER, true);
+		const editorService = ctx.instantiationService.invokeFunction(accessor => accessor.get(IEditorService));
+		const openEditor = vi.spyOn(editorService, 'openEditor').mockResolvedValue(undefined);
+
+		await previewService.openEditor(URI.parse('http://localhost:8000/app'));
+
+		const opened = openEditor.mock.calls[0][0] as IUntypedEditorInput & { resource: URI };
+		expect({ scheme: opened.resource.scheme, isBrowser: !!BrowserViewUri.getId(opened.resource), viewState: opened.options?.viewState })
+			.toEqual({ scheme: BrowserViewUri.scheme, isBrowser: true, viewState: { url: 'http://localhost:8000/app' } });
 	});
 });

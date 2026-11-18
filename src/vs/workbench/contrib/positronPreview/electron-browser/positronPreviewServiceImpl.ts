@@ -24,6 +24,10 @@ export class ElectronPositronPreviewService extends PositronPreviewService {
 		return new ElectronPreviewOverlayWebview(webview);
 	}
 
+	protected override useIntegratedBrowser(): boolean {
+		return this._configurationService.getValue<boolean>(POSITRON_VIEWER_USE_INTEGRATED_BROWSER) === true;
+	}
+
 	/**
 	 * Shows content with an address in the integrated browser when the
 	 * setting asks for it.
@@ -32,7 +36,7 @@ export class ElectronPositronPreviewService extends PositronPreviewService {
 		viewType: string,
 		uri: URI,
 		extension: WebviewExtensionDescription | undefined): IPreviewSurface {
-		if (this._configurationService.getValue<boolean>(POSITRON_VIEWER_USE_INTEGRATED_BROWSER) === true) {
+		if (this.useIntegratedBrowser()) {
 			return this._instantiationService.createInstance(PreviewBrowserView);
 		}
 		return super.createAddressableSurface(viewType, uri, extension);

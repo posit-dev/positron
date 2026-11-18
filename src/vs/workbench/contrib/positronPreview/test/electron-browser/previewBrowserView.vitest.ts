@@ -195,4 +195,17 @@ describe('PreviewBrowserView', () => {
 		expect(outcome).toEqual({ message: 'The page went to another address during the action.', navigated: true, timedOut: false });
 		await expect(surface.runBridge('viewport')).rejects.toThrow('The Viewer\'s content changed while it was being read. Try again.');
 	});
+
+	it('reports no title for a page without one, which Chromium titles with its address', async () => {
+		const { model, loading } = createModel();
+		const surface = createSurface();
+		const loaded: string[] = [];
+		ctx.disposables.add(surface.onDidLoad(title => loaded.push(title)));
+		await views[0].complete(model);
+
+		Object.assign(model, { url: 'http://127.0.0.1:9000/abc', title: '127.0.0.1:9000/abc' });
+		loading.fire({ loading: false });
+
+		expect({ loaded, title: surface.title }).toEqual({ loaded: ['App', ''], title: undefined });
+	});
 });

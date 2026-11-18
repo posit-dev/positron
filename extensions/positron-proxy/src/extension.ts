@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronProxy } from './positronProxy';
+import { HtmlStringServer } from './htmlStringServer';
 
 /**
  * ProxyServerStyles type.
@@ -41,6 +42,22 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(
 			'positronProxy.startHtmlProxyServer',
 			async (targetPath: string) => await positronProxy.startHtmlProxyServer(targetPath)
+		)
+	);
+
+	// Register the positronProxy.startHtmlStringServer command and add its
+	// disposable. The server starts when it's first used.
+	let htmlStringServer: HtmlStringServer | undefined;
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.startHtmlStringServer',
+			async (html: string) => {
+				if (!htmlStringServer) {
+					htmlStringServer = new HtmlStringServer();
+					context.subscriptions.push(htmlStringServer);
+				}
+				return htmlStringServer.serve(html);
+			}
 		)
 	);
 
