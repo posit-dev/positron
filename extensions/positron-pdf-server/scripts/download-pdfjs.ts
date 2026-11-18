@@ -151,19 +151,23 @@ async function main(): Promise<void> {
 	console.log(`Downloading PDF.js v${version} legacy viewer...`);
 
 	try {
+		// Download before touching targetDir, so a failed download leaves an
+		// existing viewer in place.
 		await downloadFile(url, tempZip);
 
-		// Start from an empty directory, so no file from another version or an
-		// interrupted run survives. The version marker goes in last.
-		await fs.promises.rm(targetDir, rmOptions);
-		const fileCount = await extractZip(tempZip, targetDir);
-		verifyViewer(targetDir);
-		await fs.promises.writeFile(versionMarker, version);
-		console.log(`PDF.js viewer downloaded successfully to ${targetDir} (${fileCount} files)`);
-	} catch (err) {
-		// Don't leave a partial viewer behind for packaging to pick up.
-		await removeBestEffort(targetDir);
-		throw err;
+		try {
+			// Start from an empty directory, so no file from another version or an
+			// interrupted run survives. The version marker goes in last.
+			await fs.promises.rm(targetDir, rmOptions);
+			const fileCount = await extractZip(tempZip, targetDir);
+			verifyViewer(targetDir);
+			await fs.promises.writeFile(versionMarker, version);
+			console.log(`PDF.js viewer downloaded successfully to ${targetDir} (${fileCount} files)`);
+		} catch (err) {
+			// Don't leave a partial viewer behind for packaging to pick up.
+			await removeBestEffort(targetDir);
+			throw err;
+		}
 	} finally {
 		await removeBestEffort(tempZip);
 	}
