@@ -37,6 +37,8 @@ describe('PlotsContainer origin file button', () => {
 		.stub(IPositronPlotsService, {
 			positronPlotInstances: [],
 			selectedPlotId: undefined,
+			activeLocator: undefined,
+			onDidChangeLocator: Event.None,
 			onDidEmitPlot: onDidEmitPlot.event,
 			onDidSelectPlot: onDidSelectPlot.event,
 			onDidUpdatePlotMetadata: onDidUpdatePlotMetadata.event,

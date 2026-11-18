@@ -22,8 +22,9 @@ const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
-const LOCATOR_BANNER = '.plot-instance .plot-locator-banner';
-const LOCATOR_FINISH_BUTTON = '.plot-locator-banner .plot-locator-finish';
+// The Plots pane shows the locator prompt in its plot info header.
+const LOCATOR_PROMPT = '.plots-container .plot-info-header .plot-locator-prompt';
+const LOCATOR_FINISH_BUTTON = '.plots-container .plot-info-header .plot-locator-finish';
 const PLOTS_SECTION = '.part.auxiliarybar [aria-label="Plots Section"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -161,8 +162,8 @@ export class Plots {
 	}
 
 	async expectLocatorActive(active: boolean) {
-		await test.step(`Expect plot locator banner to be ${active ? 'visible' : 'hidden'}`, async () => {
-			const banner = this.code.driver.currentPage.locator(LOCATOR_BANNER);
+		await test.step(`Expect plot locator prompt to be ${active ? 'visible' : 'hidden'}`, async () => {
+			const banner = this.code.driver.currentPage.locator(LOCATOR_PROMPT);
 			if (active) {
 				await expect(banner).toBeVisible();
 			} else {
@@ -190,7 +191,7 @@ export class Plots {
 	}
 
 	async finishLocator() {
-		await test.step('Click Finish in the plot locator banner', async () => {
+		await test.step('Click Finish in the plot locator prompt', async () => {
 			await this.code.driver.currentPage.locator(LOCATOR_FINISH_BUTTON).click();
 		});
 	}

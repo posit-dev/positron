@@ -59,10 +59,10 @@ describe('Plot locator mode', () => {
 	/**
 	 * Renders the plot instance inside a focusable parent, as .plots-container is.
 	 */
-	function renderPlot(zoom: ZoomLevel = ZoomLevel.Fit, uri = IMAGE_URI) {
+	function renderPlot(zoom: ZoomLevel = ZoomLevel.Fit, uri = IMAGE_URI, showLocatorBanner?: boolean) {
 		rtl.render(
 			<div className='plots-container' tabIndex={0}>
-				<DynamicPlotInstance height={HEIGHT} plotClient={makePlotClient(uri)} width={WIDTH} zoom={zoom} />
+				<DynamicPlotInstance height={HEIGHT} plotClient={makePlotClient(uri)} showLocatorBanner={showLocatorBanner} width={WIDTH} zoom={zoom} />
 			</div>
 		);
 		return screen.getByRole('img', { name: 'My plot' });
@@ -190,6 +190,20 @@ describe('Plot locator mode', () => {
 
 		act(() => plotsService.setActiveLocator(undefined));
 		expect(img.parentElement).toHaveStyle({ height: `${HEIGHT}px` });
+	});
+
+	it('shows no banner and keeps the full height when the banner is turned off', async () => {
+		const user = userEvent.setup();
+		const img = renderPlot(ZoomLevel.Fit, IMAGE_URI, false);
+		loadImage(img, 400, 200);
+		startLocator();
+
+		expect(screen.queryByRole('status')).not.toBeInTheDocument();
+		expect(img.parentElement).toHaveStyle({ height: `${HEIGHT}px` });
+
+		// Clicks still choose a point.
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
 	});
 
 	it('resolves the locator with the clicked point', async () => {

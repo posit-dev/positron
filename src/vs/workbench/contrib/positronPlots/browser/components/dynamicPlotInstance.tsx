@@ -30,6 +30,11 @@ interface DynamicPlotInstanceProps {
 	height: number;
 	zoom: ZoomLevel;
 	plotClient: PlotClientInstance;
+	/**
+	 * Whether to show the locator prompt in a banner above the plot. The Plots pane shows it in
+	 * its plot info header instead. Defaults to true.
+	 */
+	showLocatorBanner?: boolean;
 }
 
 /**
@@ -60,6 +65,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return active?.plotId === plotId && active.sessionId === sessionId ? active : undefined;
 	});
 	const locating = locator !== undefined;
+	const showBanner = locating && props.showLocatorBanner !== false;
 
 	// Whether the wrapper had focus when the locator mode last ended. locator() and identify()
 	// send one request per point, so the next request for this plot takes the focus back and
@@ -251,7 +257,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const renderedImage = () => {
 		return <PanZoomImage
 			description={plotName}
-			height={locating ? Math.max(props.height - PLOT_LOCATOR_BANNER_HEIGHT, 0) : props.height}
+			height={showBanner ? Math.max(props.height - PLOT_LOCATOR_BANNER_HEIGHT, 0) : props.height}
 			imageUri={uri}
 			width={props.width}
 			zoom={props.zoom}
@@ -294,7 +300,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			} : undefined}
 			onMouseDown={locating ? () => wrapperRef.current?.focus() : undefined}
 		>
-			{locating && <PlotLocatorBanner onFinish={() => services.positronPlotsService.resolveLocator(undefined)} />}
+			{showBanner && <PlotLocatorBanner onFinish={() => services.positronPlotsService.resolveLocator(undefined)} />}
 			<div ref={progressRef}></div>
 			{uri && renderedImage()}
 			{!uri && placeholderImage(error)}
