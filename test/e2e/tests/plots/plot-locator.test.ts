@@ -59,8 +59,10 @@ test.describe('Plots: R locator()', {
 		await console.executeCode('R', 'plot(1:10); p <- locator()', run);
 		await plots.waitForCurrentPlot();
 		await plots.expectLocatorActive(true);
-		// The click moves focus to the plot, so Escape reaches the locator.
+		// The click answers this request. Wait for the next request, which gives the focus back
+		// to the plot, so Escape reaches the locator.
 		await plots.clickPlotAt(0.5, 0.5);
+		await plots.expectLocatorFocused();
 		await page.keyboard.press('Escape');
 		await plots.expectLocatorActive(false);
 		await console.waitForReady('>');

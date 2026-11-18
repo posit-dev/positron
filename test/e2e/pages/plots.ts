@@ -172,6 +172,16 @@ export class Plots {
 		});
 	}
 
+	/**
+	 * Waits until the plot in locator mode has the focus. After a click, the plot gets the focus
+	 * back only when the next locator request starts, so this also waits for that request.
+	 */
+	async expectLocatorFocused() {
+		await test.step('Expect the plot in locator mode to have focus', async () => {
+			await expect(this.code.driver.currentPage.locator('.plot-instance.locator-active')).toBeFocused();
+		});
+	}
+
 	async clickPlotAt(xFraction: number, yFraction: number) {
 		await test.step(`Click current plot at (${xFraction}, ${yFraction})`, async () => {
 			const plot = this.code.driver.currentPage.locator(CURRENT_PLOT);
