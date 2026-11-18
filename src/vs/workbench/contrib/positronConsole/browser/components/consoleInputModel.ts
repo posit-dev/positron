@@ -5,6 +5,7 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { Schemas } from '../../../../../base/common/network.js';
+import { Event } from '../../../../../base/common/event.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { DisposableStore, thenRegisterOrDispose } from '../../../../../base/common/lifecycle.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
@@ -63,5 +64,31 @@ export function createConsoleInputModel(
 	// under the editor (see the doc comment above and issue #13925).
 	thenRegisterOrDispose(textModelService.createModelReference(model.uri), store);
 
+	return model;
+}
+
+/**
+ * Creates the plain-text model that backs an activity prompt editor (for
+ * example `readline()` or a Y/n confirmation) and holds an
+ * {@link ITextModelService} reference to it for the model's lifetime.
+ *
+ * Without our own reference, an external reference (for example the one
+ * MainThreadDocuments takes when the extension host opens the document, which
+ * it releases after 3 minutes) can be the last one. Releasing it disposes the
+ * model out from under the prompt editor and the prompt disappears. See
+ * {@link createConsoleInputModel} and issues #13925 and #17137.
+ *
+ * @param modelService The model service used to create the model.
+ * @param textModelService The text model service used to hold a reference.
+ * @param store The disposable store the model and its reference are registered to.
+ * @returns The created text model.
+ */
+export function createActivityPromptModel(
+	modelService: IModelService,
+	textModelService: ITextModelService,
+	store: DisposableStore
+): ITextModel {
+	const model = store.add(modelService.createModel('', { languageId: '', onDidChange: Event.None }, undefined, true));
+	thenRegisterOrDispose(textModelService.createModelReference(model.uri), store);
 	return model;
 }
