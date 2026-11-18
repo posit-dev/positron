@@ -229,13 +229,15 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					break;
 				}
 				case UiFrontendRequest.LocatePlotPoint: {
-					if (!params || typeof params.plot_id !== 'string') {
+					if (!params || typeof params.plot_id !== 'string' ||
+						typeof params.width !== 'number' || typeof params.height !== 'number') {
 						return newInvalidParamsError(method);
 					}
+					const size = { width: params.width, height: params.height };
 					// The reply must be JSON null, not undefined, so the kernel sees "no point".
 					result = callerSessionId === undefined ?
 						null :
-						(await this.plots.locatePlotPoint(callerSessionId, params.plot_id, callerParentId)) ?? null;
+						(await this.plots.locatePlotPoint(callerSessionId, params.plot_id, size, callerParentId)) ?? null;
 					break;
 				}
 			}

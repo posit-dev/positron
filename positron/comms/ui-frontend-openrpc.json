@@ -282,6 +282,20 @@
 					"schema": {
 						"type": "string"
 					}
+				},
+				{
+					"name": "width",
+					"description": "The width of the plot image to click on, in pixels. The frontend accepts clicks only when it shows an image of this size.",
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "height",
+					"description": "The height of the plot image to click on, in pixels. The frontend accepts clicks only when it shows an image of this size.",
+					"schema": {
+						"type": "integer"
+					}
 				}
 			],
 			"result": {

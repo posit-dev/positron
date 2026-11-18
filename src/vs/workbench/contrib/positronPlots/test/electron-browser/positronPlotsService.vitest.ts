@@ -709,6 +709,8 @@ describe('Positron - Plots Service', () => {
 	});
 
 	describe('locator', () => {
+		const SIZE = { width: 400, height: 300 };
+
 		async function createSessionWithPlots(...plotIds: string[]) {
 			const out = await createSession();
 			for (const id of plotIds) {
@@ -721,15 +723,15 @@ describe('Positron - Plots Service', () => {
 			const session = await createSessionWithPlots('plot1');
 			plotsService.selectPlot('plot1');
 
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot2');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot2', SIZE);
 			// Removing another plot while the request waits does not end it.
 			plotsService.removePlot('plot1');
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2', size: SIZE });
 
 			await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
 
 			expect(plotsService.selectedPlotId).toBe('plot2');
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2', size: SIZE });
 			plotsService.resolveLocator({ x: 0.3, y: 0.7 });
 			expect(await pending).toEqual({ x: 0.3, y: 0.7 });
 		});
@@ -738,8 +740,8 @@ describe('Positron - Plots Service', () => {
 			const session = await createSessionWithPlots('plot1');
 			vi.useFakeTimers();
 			try {
-				const pending = plotsService.locatePlotPoint(session.sessionId, 'nope');
-				expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'nope' });
+				const pending = plotsService.locatePlotPoint(session.sessionId, 'nope', SIZE);
+				expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'nope', size: SIZE });
 
 				vi.advanceTimersByTime(4_999);
 				expect(plotsService.activeLocator).toBeDefined();
@@ -756,10 +758,10 @@ describe('Positron - Plots Service', () => {
 			const session = await createSessionWithPlots('plot1', 'plot2');
 			plotsService.selectPlot('plot2');
 
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			expect(plotsService.selectedPlotId).toBe('plot1');
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
 			plotsService.resolveLocator({ x: 0.1, y: 0.9 });
 			expect(await pending).toEqual({ x: 0.1, y: 0.9 });
 			expect(plotsService.activeLocator).toBeUndefined();
@@ -767,7 +769,7 @@ describe('Positron - Plots Service', () => {
 
 		it('survives an interrupt and ends when the session goes idle', async () => {
 			const session = await createSessionWithPlots('plot1');
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			session.setRuntimeState(RuntimeState.Interrupting);
 			expect(plotsService.activeLocator).toBeDefined();
@@ -779,14 +781,14 @@ describe('Positron - Plots Service', () => {
 
 		it('ends only when its own execute request goes idle', async () => {
 			const session = await createSessionWithPlots('plot1');
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', 'exec1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
 
 			// A comm request answered while R waits in locator() sends busy and idle.
 			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Busy });
 			session.setRuntimeState(RuntimeState.Busy);
 			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Idle });
 			session.setRuntimeState(RuntimeState.Idle);
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', executionId: 'exec1' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE, executionId: 'exec1' });
 
 			session.receiveStateMessage({ parent_id: 'exec1', state: RuntimeOnlineState.Idle });
 			expect(await pending).toBeUndefined();
@@ -795,7 +797,7 @@ describe('Positron - Plots Service', () => {
 
 		it('survives the session going offline and coming back', async () => {
 			const session = await createSessionWithPlots('plot1');
-			void plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			session.setRuntimeState(RuntimeState.Offline);
 			expect(plotsService.activeLocator).toBeDefined();
@@ -809,7 +811,7 @@ describe('Positron - Plots Service', () => {
 
 		it('ends when the session exits', async () => {
 			const session = await createSessionWithPlots('plot1');
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			session.setRuntimeState(RuntimeState.Exited);
 
@@ -818,7 +820,7 @@ describe('Positron - Plots Service', () => {
 
 		it('ends when the plot is removed', async () => {
 			const session = await createSessionWithPlots('plot1');
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			plotsService.removePlot('plot1');
 
@@ -827,7 +829,7 @@ describe('Positron - Plots Service', () => {
 
 		it('ends when all plots are cleared', async () => {
 			const session = await createSessionWithPlots('plot1');
-			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			plotsService.removeAllPlots();
 
@@ -836,11 +838,11 @@ describe('Positron - Plots Service', () => {
 
 		it('stays active when a different plot is removed', async () => {
 			const session = await createSessionWithPlots('plot1', 'plot2');
-			void plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			plotsService.removePlot('plot2');
 
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
 		});
 
 		it('stays active when an editor copy of the plot is closed', async () => {
@@ -848,11 +850,11 @@ describe('Positron - Plots Service', () => {
 			// Opening the editor registers the editor copy even if the test editor service
 			// cannot show a pane.
 			await plotsService.openEditor('plot1').catch(() => { });
-			void plotsService.locatePlotPoint(session.sessionId, 'plot1');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
 
 			plotsService.removeEditorPlot('plot1');
 
-			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1' });
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
 		});
 	});
 });

@@ -6,6 +6,7 @@
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { PlotPoint } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { IPlotSize } from '../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 
 export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceShape {
@@ -31,8 +32,8 @@ export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceS
 	 * Asks the main thread to let the user click a point on a plot.
 	 * `executionId` is the ID of the execute request that waits for the point.
 	 */
-	locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined> {
-		return this._proxy.$locatePlotPoint(sessionId, plotId, executionId);
+	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined> {
+		return this._proxy.$locatePlotPoint(sessionId, plotId, size, executionId);
 	}
 
 	// --- from main thread

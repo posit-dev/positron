@@ -7,6 +7,7 @@ import { DeferredPromise } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { PlotPoint } from '../../languageRuntime/common/positronUiComm.js';
+import { IPlotSize } from './sizingPolicy.js';
 
 /**
  * Identifies the plot a locator() call is waiting on.
@@ -14,6 +15,11 @@ import { PlotPoint } from '../../languageRuntime/common/positronUiComm.js';
 export interface IPlotLocator {
 	readonly sessionId: string;
 	readonly plotId: string;
+	/**
+	 * The size of the plot image the kernel sent for this request, in logical pixels. The point
+	 * maps to the plot only on an image of this size, so other images take no clicks.
+	 */
+	readonly size: IPlotSize;
 	/** The ID of the execute request that waits for the point, if known. */
 	readonly executionId?: string;
 }

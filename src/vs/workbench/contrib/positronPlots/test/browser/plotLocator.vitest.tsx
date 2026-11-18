@@ -3,26 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PLOT_LOCATOR_BANNER_HEIGHT } from '../../browser/components/plotLocatorBanner.js';
 import { DynamicPlotInstance } from '../../browser/components/dynamicPlotInstance.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { IPositronPlotsService, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
-import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
 
 const WIDTH = 400;
 const HEIGHT = 200;
 const SESSION_ID = 'session-1';
 const PLOT_ID = 'plot-1';
+const IMAGE_URI = 'data:image/png;base64,abc';
 
 describe('Plot locator mode', () => {
 	const plotsService = new TestPositronPlotsService();
+	const renderEmitter = new Emitter<IRenderedPlot>();
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronPlotsService, plotsService)
@@ -35,16 +38,17 @@ describe('Plot locator mode', () => {
 	});
 
 	afterAll(() => {
+		renderEmitter.dispose();
 		plotsService.dispose();
 	});
 
-	function makePlotClient(): PlotClientInstance {
+	function makePlotClient(uri = IMAGE_URI): PlotClientInstance {
 		return stubInterface<PlotClientInstance>({
 			id: PLOT_ID,
 			metadata: stubInterface<IPositronPlotMetadata>({ id: PLOT_ID, session_id: SESSION_ID, name: 'My plot' }),
-			lastRender: stubInterface<NonNullable<PlotClientInstance['lastRender']>>({ uri: 'data:image/png;base64,abc' }),
+			lastRender: stubInterface<IRenderedPlot>({ uri, size: { width: WIDTH, height: HEIGHT } }),
 			sizingPolicy: stubInterface<IPositronPlotSizingPolicy>({ getPlotSize: () => ({ width: WIDTH, height: HEIGHT }) }),
-			onDidCompleteRender: Event.None,
+			onDidCompleteRender: renderEmitter.event,
 			onDidChangeSizingPolicy: Event.None,
 			onDidChangeState: Event.None,
 			getIntrinsicSize: () => Promise.resolve(undefined),
@@ -55,17 +59,17 @@ describe('Plot locator mode', () => {
 	/**
 	 * Renders the plot instance inside a focusable parent, as .plots-container is.
 	 */
-	function renderPlot(zoom: ZoomLevel = ZoomLevel.Fit) {
+	function renderPlot(zoom: ZoomLevel = ZoomLevel.Fit, uri = IMAGE_URI) {
 		rtl.render(
 			<div className='plots-container' tabIndex={0}>
-				<DynamicPlotInstance height={HEIGHT} plotClient={makePlotClient()} width={WIDTH} zoom={zoom} />
+				<DynamicPlotInstance height={HEIGHT} plotClient={makePlotClient(uri)} width={WIDTH} zoom={zoom} />
 			</div>
 		);
 		return screen.getByRole('img', { name: 'My plot' });
 	}
 
-	function startLocator(plotId = PLOT_ID) {
-		act(() => plotsService.setActiveLocator({ sessionId: SESSION_ID, plotId }));
+	function startLocator(plotId = PLOT_ID, size: IPlotSize = { width: WIDTH, height: HEIGHT }) {
+		act(() => plotsService.setActiveLocator({ sessionId: SESSION_ID, plotId, size }));
 	}
 
 	/**
@@ -75,6 +79,14 @@ describe('Plot locator mode', () => {
 		img.getBoundingClientRect = () => new DOMRect(0, 0, WIDTH, HEIGHT);
 		Object.defineProperty(img, 'naturalWidth', { value: naturalWidth, configurable: true });
 		Object.defineProperty(img, 'naturalHeight', { value: naturalHeight, configurable: true });
+	}
+
+	/**
+	 * Gives the image a natural size and finishes loading it, as a browser would.
+	 */
+	function loadImage(img: HTMLElement, naturalWidth: number, naturalHeight: number) {
+		sizeImage(img, naturalWidth, naturalHeight);
+		fireEvent.load(img);
 	}
 
 	/**
@@ -123,7 +135,7 @@ describe('Plot locator mode', () => {
 	it('finishes on Escape after a click on the plot, even with a focusable ancestor', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 200, 200);
+		loadImage(img, 200, 200);
 		startLocator();
 
 		// A click in the letterbox area sends no point but still moves focus.
@@ -138,7 +150,7 @@ describe('Plot locator mode', () => {
 	it('keeps Escape working for the next request after a click on a point', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 400, 200);
+		loadImage(img, 400, 200);
 		startLocator();
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
 		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
@@ -183,7 +195,7 @@ describe('Plot locator mode', () => {
 	it('resolves the locator with the clicked point', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 400, 200);
+		loadImage(img, 400, 200);
 		startLocator();
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
 		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
@@ -192,12 +204,12 @@ describe('Plot locator mode', () => {
 	it('reads the natural size at click time', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 400, 200);
+		loadImage(img, 400, 200);
 		startLocator();
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
 		expect(plotsService.resolvedLocatorPoints).toHaveLength(1);
 
-		// A new image with a different size, before any load event.
+		// The element now reports a different natural size.
 		sizeImage(img, 200, 200);
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 10, clientY: 100 } });
 		expect(plotsService.resolvedLocatorPoints).toHaveLength(1);
@@ -206,17 +218,54 @@ describe('Plot locator mode', () => {
 	it('ignores a click in the letterbox at Fit zoom and stays in locator mode', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 200, 200);
+		loadImage(img, 200, 200);
 		startLocator();
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 10, clientY: 100 } });
 		expect(plotsService.resolvedLocatorPoints).toEqual([]);
 		expect(screen.getByRole('status')).toBeInTheDocument();
 	});
 
+	it('takes clicks only on the image of the requested size', async () => {
+		const user = userEvent.setup();
+		const img = renderPlot();
+		loadImage(img, 400, 200);
+		startLocator(PLOT_ID, { width: 300, height: 150 });
+
+		// The image shown is from an earlier render at another size.
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(plotsService.resolvedLocatorPoints).toEqual([]);
+		expect(img).not.toHaveStyle({ cursor: 'crosshair' });
+
+		// The image the kernel sent for the request arrives and loads.
+		const uri = 'data:image/png;base64,def';
+		act(() => renderEmitter.fire(stubInterface<IRenderedPlot>({ uri, size: { width: 300, height: 150 } })));
+		expect(img).toHaveAttribute('src', uri);
+		loadImage(img, 400, 200);
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
+	});
+
+	it('takes no clicks until the image has loaded', async () => {
+		const user = userEvent.setup();
+		// The test DOM loads data URIs at once but never loads other URLs.
+		const img = renderPlot(ZoomLevel.Fit, 'https://example.com/plot.png');
+		sizeImage(img, 400, 200);
+		startLocator();
+		expect(img).not.toHaveStyle({ cursor: 'crosshair' });
+
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(plotsService.resolvedLocatorPoints).toEqual([]);
+
+		fireEvent.load(img);
+		expect(img).toHaveStyle({ cursor: 'crosshair' });
+		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
+		expect(plotsService.resolvedLocatorPoints).toEqual([{ x: 0.25, y: 0.25 }]);
+	});
+
 	it('ignores clicks on the image when no locator is active', async () => {
 		const user = userEvent.setup();
 		const img = renderPlot();
-		sizeImage(img, 400, 200);
+		loadImage(img, 400, 200);
 		await user.pointer({ keys: '[MouseLeft]', target: img, coords: { clientX: 100, clientY: 50 } });
 		expect(plotsService.resolvedLocatorPoints).toEqual([]);
 	});

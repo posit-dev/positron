@@ -175,6 +175,9 @@ export class Plots {
 		await test.step(`Click current plot at (${xFraction}, ${yFraction})`, async () => {
 			const plot = this.code.driver.currentPage.locator(CURRENT_PLOT);
 			await expect(plot).toBeVisible();
+			// The plot takes clicks, and shows a crosshair, only once the image the kernel sent
+			// for the request has loaded
+			await expect(plot).toHaveCSS('cursor', 'crosshair');
 			const box = await plot.boundingBox();
 			if (!box) {
 				fail('Current plot has no bounding box');

@@ -255,11 +255,11 @@ export interface IPositronPlotsService {
 
 	/**
 	 * Asks the user to click a point on a plot. Resolves `undefined` when the user finishes,
-	 * the plot does not arrive in time, or the locator is cancelled. `executionId` is the ID of
-	 * the execute request that waits for the point; when given, only that request's Idle ends
-	 * the locator.
+	 * the plot does not arrive in time, or the locator is cancelled. `size` is the size of the
+	 * plot image to click on, in logical pixels. `executionId` is the ID of the execute request
+	 * that waits for the point; when given, only that request's Idle ends the locator.
 	 */
-	locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined>;
+	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined>;
 
 	/** Answers the active locator: a point for a click, `undefined` to finish. */
 	resolveLocator(point: PlotPoint | undefined): void;

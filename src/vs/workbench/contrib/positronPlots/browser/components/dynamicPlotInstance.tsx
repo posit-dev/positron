@@ -14,7 +14,8 @@ import { localize } from '../../../../../nls.js';
 import { PanZoomImage } from './panZoomImage.js';
 import { PLOT_LOCATOR_BANNER_HEIGHT, PlotLocatorBanner } from './plotLocatorBanner.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
+import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { IPlotLocator } from '../../../../services/positronPlots/common/plotLocator.js';
@@ -46,15 +47,19 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState('');
+	// The size of the image at `uri`, in logical pixels, if known.
+	const [uriSize, setUriSize] = useState<IPlotSize | undefined>(undefined);
 	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const wrapperRef = React.useRef<HTMLDivElement>(null);
 	const plotId = props.plotClient.id;
 	const sessionId = props.plotClient.metadata.session_id;
-	const [locating, setLocating] = useState(() => {
-		const locator = services.positronPlotsService.activeLocator;
-		return locator?.plotId === plotId && locator.sessionId === sessionId;
+	// The locator() call waiting on this plot, if any.
+	const [locator, setLocator] = useState<IPlotLocator | undefined>(() => {
+		const active = services.positronPlotsService.activeLocator;
+		return active?.plotId === plotId && active.sessionId === sessionId ? active : undefined;
 	});
+	const locating = locator !== undefined;
 
 	// Whether the wrapper had focus when the locator mode last ended. locator() and identify()
 	// send one request per point, so the next request for this plot takes the focus back and
@@ -66,11 +71,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	useEffect(() => {
 		const matches = (locator: IPlotLocator | undefined) =>
 			locator?.plotId === plotId && locator.sessionId === sessionId;
-		setLocating(matches(services.positronPlotsService.activeLocator));
+		const active = services.positronPlotsService.activeLocator;
+		setLocator(matches(active) ? active : undefined);
 		const disposable = services.positronPlotsService.onDidChangeLocator(locator => {
 			const wrapper = wrapperRef.current;
 			if (matches(locator)) {
-				setLocating(true);
+				setLocator(locator);
 				return;
 			}
 			if (locator) {
@@ -82,7 +88,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				restoreFocusRef.current = true;
 				wrapper.parentElement?.closest<HTMLElement>('.plots-container')?.focus();
 			}
-			setLocating(false);
+			setLocator(undefined);
 		});
 		return () => disposable.dispose();
 	}, [plotId, sessionId, services.positronPlotsService]);
@@ -108,6 +114,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
+		const showRender = (rendered: IRenderedPlot) => {
+			setUri(rendered.uri);
+			setUriSize(rendered.size);
+		};
+
 		// The frontend shoudn't send invalid sizes so be defensive. Sometimes the
 		// plot container is in a strange state when it's hidden.
 		if (props.height <= 0 || props.width <= 0) {
@@ -116,7 +127,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
-			setUri(props.plotClient.lastRender.uri);
+			showRender(props.plotClient.lastRender);
 		}
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
@@ -146,7 +157,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 
 				// Update the URI to the URI of the new plot.
-				setUri(result.uri);
+				showRender(result);
 
 			} catch (e) {
 				if (e.name === 'Canceled' || e.message === 'Canceled') {
@@ -163,7 +174,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// When the plot is rendered, update the URI.
 		disposables.add(props.plotClient.onDidCompleteRender((result) => {
-			setUri(result.uri);
+			showRender(result);
 		}));
 
 		// Re-render if the sizing policy changes.
@@ -230,6 +241,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		};
 	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.notificationService]);
 
+	// The point maps to the plot only on the image the kernel sent for this request. Another
+	// image, such as an older one that is still shown, takes no clicks.
+	const canLocate = locator !== undefined &&
+		uriSize?.width === locator.size.width &&
+		uriSize.height === locator.size.height;
+
 	// Render method for the plot image.
 	const renderedImage = () => {
 		return <PanZoomImage
@@ -238,7 +255,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			imageUri={uri}
 			width={props.width}
 			zoom={props.zoom}
-			onLocate={locating ? point => services.positronPlotsService.resolveLocator(point) : undefined}
+			onLocate={canLocate ? point => services.positronPlotsService.resolveLocator(point) : undefined}
 		/>;
 	};
 

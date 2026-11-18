@@ -34,6 +34,9 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	const [naturalHeight, setNaturalHeight] = React.useState<number>(props.height);
 	const [scrollableWidth, setScrollableWidth] = React.useState<number>(props.width);
 	const [scrollableHeight, setScrollableHeight] = React.useState<number>(props.height);
+	// The URI of the image the element has finished loading. Until the current URI loads, the
+	// element can still show the previous image.
+	const [loadedUri, setLoadedUri] = React.useState<string | undefined>(undefined);
 	const imageRef = React.useRef<HTMLImageElement>(null);
 
 	// updates the image size and position based on the zoom level
@@ -79,6 +82,10 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		}
 	}, [naturalWidth, naturalHeight, props.width, props.height, props.zoom, props.imageUri]);
 
+	// In locator mode, take clicks only once the current image has loaded, so a click on the
+	// previous image is not read against the new one.
+	const onLocate = loadedUri === props.imageUri ? props.onLocate : undefined;
+
 	return (
 		<Scrollable height={props.height} mousePan={!props.onLocate} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
 			<img ref={imageRef}
@@ -86,9 +93,9 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 				className='plot'
 				draggable={false}
 				src={props.imageUri}
-				style={props.onLocate ? { cursor: 'crosshair' } : undefined}
-				onClick={props.onLocate ? e => {
-					// Read the natural size from the element: the state lags behind a new image until onLoad.
+				style={onLocate ? { cursor: 'crosshair' } : undefined}
+				onClick={onLocate ? e => {
+					// Read the natural size from the element, which always matches the image it shows.
 					const img = e.currentTarget;
 					const point = plotPointFromClick(
 						img.getBoundingClientRect(),
@@ -97,13 +104,14 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 						props.zoom === ZoomLevel.Fit
 					);
 					if (point) {
-						props.onLocate?.(point);
+						onLocate(point);
 					}
 				} : undefined}
 				onLoad={(el) => {
 					// ensures the zoom level is applied correctly when switching images
 					setNaturalWidth(el.currentTarget.naturalWidth);
 					setNaturalHeight(el.currentTarget.naturalHeight);
+					setLoadedUri(el.currentTarget.getAttribute('src') ?? undefined);
 				}}
 			/>
 		</Scrollable>

@@ -585,6 +585,14 @@ class LocatePlotPointParams(BaseModel):
         description="The ID of the plot, which is the ID of its plot comm",
     )
 
+    width: StrictInt = Field(
+        description="The width of the plot image to click on, in pixels. The frontend accepts clicks only when it shows an image of this size.",
+    )
+
+    height: StrictInt = Field(
+        description="The height of the plot image to click on, in pixels. The frontend accepts clicks only when it shows an image of this size.",
+    )
+
 
 class PromptStateParams(BaseModel):
     """

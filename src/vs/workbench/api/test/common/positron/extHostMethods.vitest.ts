@@ -373,17 +373,17 @@ describe('ExtHostMethods', function () {
 			const locatePlotPoint = vi.fn<ExtHostPlotsService['locatePlotPoint']>(async () => ({ x: 0.2, y: 0.4 }));
 			const methods = createMethods({ plots: stubInterface<ExtHostPlotsService>({ locatePlotPoint }) });
 
-			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1' }, 's1', 'exec1');
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1', width: 400, height: 300 }, 's1', 'exec1');
 
 			expect(response).toEqual({ result: { x: 0.2, y: 0.4 } });
-			expect(locatePlotPoint.mock.calls).toEqual([['s1', 'p1', 'exec1']]);
+			expect(locatePlotPoint.mock.calls).toEqual([['s1', 'p1', { width: 400, height: 300 }, 'exec1']]);
 		});
 
 		it('replies null when the user finishes', async function () {
 			const locatePlotPoint = vi.fn<ExtHostPlotsService['locatePlotPoint']>(async () => undefined);
 			const methods = createMethods({ plots: stubInterface<ExtHostPlotsService>({ locatePlotPoint }) });
 
-			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1' }, 's1');
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1', width: 400, height: 300 }, 's1');
 
 			expect(response).toEqual({ result: null });
 		});
@@ -391,7 +391,15 @@ describe('ExtHostMethods', function () {
 		it('rejects a request without a plot id', async function () {
 			const methods = createMethods({});
 
-			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, {}, 's1');
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { width: 400, height: 300 }, 's1');
+
+			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
+		});
+
+		it('rejects a request without an image size', async function () {
+			const methods = createMethods({});
+
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1' }, 's1');
 
 			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
 		});

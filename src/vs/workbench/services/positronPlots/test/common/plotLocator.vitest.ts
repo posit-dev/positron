@@ -6,8 +6,9 @@
 import { PlotLocatorState, plotPointFromClick } from '../../common/plotLocator.js';
 
 describe('PlotLocatorState', () => {
-	const a = { sessionId: 's1', plotId: 'p1' };
-	const b = { sessionId: 's2', plotId: 'p2' };
+	const size = { width: 400, height: 300 };
+	const a = { sessionId: 's1', plotId: 'p1', size };
+	const b = { sessionId: 's2', plotId: 'p2', size };
 
 	function create() {
 		const state = new PlotLocatorState();

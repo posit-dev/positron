@@ -8,7 +8,7 @@ import { IPlotLocator } from '../../common/plotLocator.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
 import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, IOpenImageInEditorOptions, PlotOpenTarget, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
-import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
+import { IPlotSize, IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../editor/common/editorService.js';
 
@@ -154,7 +154,7 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 		this._onDidChangeLocatorEmitter.fire(locator);
 	}
 
-	locatePlotPoint(sessionId: string, plotId: string): Promise<PlotPoint | undefined> {
+	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize): Promise<PlotPoint | undefined> {
 		return Promise.resolve(undefined);
 	}
 

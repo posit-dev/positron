@@ -807,8 +807,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return this._locatorState.onDidChangeLocator;
 	}
 
-	locatePlotPoint(sessionId: string, plotId: string, executionId?: string): Promise<PlotPoint | undefined> {
-		const locator: IPlotLocator = { sessionId, plotId, executionId };
+	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined> {
+		const locator: IPlotLocator = { sessionId, plotId, size, executionId };
 		const result = this._locatorState.begin(locator);
 		if (this.hasPlot(sessionId, plotId)) {
 			this._locatorPlotWait.clear();
