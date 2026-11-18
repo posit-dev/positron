@@ -438,6 +438,7 @@ jobs:
           TARGET: ${{ steps.target.outputs.target }}
           BASE: ${{ steps.target.outputs.base }}
           CHECKOUT: ${{ steps.target.outputs.checkout }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/git-home" "$RUNNER_TEMP/claude-commits"
@@ -477,11 +478,15 @@ jobs:
             echo "::warning::HEAD does not descend from ${BASE}"
             exit 0
           fi
-          # Leave out commits already on the remote, such as the default branch after Claude merges
-          # it. Otherwise the shallow clone's boundary commit, with its whole tree, ends up in the
-          # bundle. The publish job only accepts a remote commit as a boundary if the default
-          # branch contains it, so a changed remote-tracking ref cannot slip anything past it.
-          RANGE=("${BASE}..HEAD" --not --remotes=origin)
+          # Leave out the default branch's commits, which Claude may have merged. Otherwise the
+          # shallow clone's boundary commit, with its whole tree, ends up in the bundle. Commits
+          # from other branches, such as a PR branch that moved, stay in and get checked. The
+          # publish job only accepts a boundary that the default branch contains, so a moved
+          # remote-tracking ref cannot slip anything past it.
+          RANGE=("${BASE}..HEAD")
+          if g rev-parse -q --verify "refs/remotes/origin/${DEFAULT_BRANCH}^{commit}" >/dev/null; then
+            RANGE+=(--not "refs/remotes/origin/${DEFAULT_BRANCH}")
+          fi
           COUNT=$(g rev-list --count "${RANGE[@]}")
           if [ "$COUNT" = "0" ]; then
             echo "has_commits=false" >> "$GITHUB_OUTPUT"
@@ -884,8 +889,8 @@ jobs:
           esac
           PREREQS=$(tail -n +2 <<<"$HEADER" | grep '^-' | cut -c 2-41 | sort -u || true)
           REFS=$(tail -n +2 <<<"$HEADER" | grep -v '^[-@]' || true)
-          if ! grep -qx "$BASE" <<<"$PREREQS" || [ -z "$REFS" ] || [ "$(wc -l <<<"$REFS")" -ne 1 ]; then
-            fail "Claude's commits do not build on ${BASE:0:12}, so nothing was published."
+          if [ -z "$REFS" ] || [ "$(wc -l <<<"$REFS")" -ne 1 ]; then
+            fail "Claude's commits could not be read, so nothing was published."
           fi
           on_default_branch() {
             local STATUS
@@ -893,10 +898,12 @@ jobs:
             [ "$STATUS" = "ahead" ] || [ "$STATUS" = "identical" ]
           }
           # Commits outside the bundle that Claude's commits are not checked against. Besides the
-          # base, a merge of the default branch adds its own boundary. Only commits the default
-          # branch already contains are allowed; their history is not Claude's.
+          # base, the bundle leaves out the default branch's commits, so a merge of it, or a
+          # fast-forward to it, adds a boundary. Only boundaries the default branch already
+          # contains are allowed; their history is not Claude's.
           NOT=("^${BASE}")
           git update-ref refs/claude/base "$BASE"
+          OTHER=()
           for PREREQ in $PREREQS; do
             if [ "$PREREQ" = "$BASE" ]; then continue; fi
             if [[ ! "$PREREQ" =~ ^[0-9a-f]{40}$ ]] || ! on_default_branch "$PREREQ"; then
@@ -905,11 +912,29 @@ jobs:
             git fetch -q --depth=1 --no-tags origin "$PREREQ"
             git update-ref "refs/claude/prereq-${PREREQ}" "$PREREQ"
             NOT+=("^${PREREQ}")
+            OTHER+=("$PREREQ")
           done
           git bundle verify -q "$BUNDLE"
           git fetch -q --no-tags "$BUNDLE" "${REFS#* }:refs/claude/tip"
           TIP=$(git rev-parse refs/claude/tip)
-          if [ "$TIP" != "${REFS%% *}" ] || ! git merge-base --is-ancestor "$BASE" "$TIP"; then
+          if [ "$TIP" != "${REFS%% *}" ]; then
+            fail "Claude's commits could not be read, so nothing was published."
+          fi
+          # The tip must descend from the base. When the path runs through a boundary on the
+          # default branch, that history is not here, so ask GitHub instead.
+          BUILDS_ON_BASE=false
+          if git merge-base --is-ancestor "$BASE" "$TIP"; then
+            BUILDS_ON_BASE=true
+          else
+            for PREREQ in "${OTHER[@]}"; do
+              STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE}...${PREREQ}" --jq .status 2>/dev/null || true)
+              if [ "$STATUS" = "ahead" ] || [ "$STATUS" = "identical" ]; then
+                BUILDS_ON_BASE=true
+                break
+              fi
+            done
+          fi
+          if [ "$BUILDS_ON_BASE" != "true" ]; then
             fail "Claude's commits do not build on ${BASE:0:12}, so nothing was published."
           fi
 
