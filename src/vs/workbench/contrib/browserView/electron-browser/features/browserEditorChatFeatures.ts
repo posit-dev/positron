@@ -26,7 +26,15 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IChatWidget, IChatWidgetService } from '../../../chat/browser/chat.js';
 import { IChatService } from '../../../chat/common/chatService/chatService.js';
 import { IChatRequestVariableEntry } from '../../../chat/common/attachments/chatVariableEntries.js';
-import { ChatContextKeys } from '../../../chat/common/actions/chatContextKeys.js';
+// --- Start Positron ---
+// The browser's chat actions go to Posit Assistant, so they're shown when it
+// can take a chat rather than when the built-in chat is enabled.
+// import { ChatContextKeys } from '../../../chat/common/actions/chatContextKeys.js';
+import { ChatContextKeys as UpstreamChatContextKeys } from '../../../chat/common/actions/chatContextKeys.js';
+import { POSIT_ASSISTANT_CAN_CHAT } from '../../../positronAssistant/browser/positAssistantChat.js';
+import { IPositronBrowserChatTarget } from '../../../positronPreview/electron-browser/positronBrowserChatTarget.js';
+const ChatContextKeys = { ...UpstreamChatContextKeys, enabled: POSIT_ASSISTANT_CAN_CHAT };
+// --- End Positron ---
 import { BrowserElementSelectionMode, IBrowserElementSelectionOptions, IElementData, IElementAncestor, BrowserViewCommandId } from '../../../../../platform/browserView/common/browserView.js';
 import { IBrowserViewModel, BrowserViewSharingState } from '../../../browserView/common/browserView.js';
 import { BrowserEditorInput } from '../../common/browserEditorInput.js';
@@ -188,6 +196,9 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IAccessibleViewService private readonly accessibleViewService: IAccessibleViewService,
 		@IChatPetService private readonly chatPetService: IChatPetService,
+		// --- Start Positron ---
+		@IPositronBrowserChatTarget private readonly positronBrowserChatTarget: IPositronBrowserChatTarget,
+		// --- End Positron ---
 	) {
 		super(editor);
 		this._elementSelectionModeContext = CONTEXT_BROWSER_ELEMENT_SELECTION_MODE.bindTo(contextKeyService);
@@ -431,6 +442,11 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 	 * Callers are responsible for running {@link _confirmContentAttachmentRisk} first.
 	 */
 	private async _attachToChat(entries: readonly IChatRequestVariableEntry[]): Promise<boolean> {
+		// --- Start Positron ---
+		if (await this.positronBrowserChatTarget.attachEntries(entries)) {
+			return true;
+		}
+		// --- End Positron ---
 		const widget = await this._revealChatWidgetForAttachment();
 		if (!widget?.attachmentModel) {
 			return false;
@@ -494,6 +510,13 @@ export class BrowserEditorChatIntegration extends BrowserEditorContribution {
 		if (!await this._confirmContentAttachmentRisk(elementData.url ?? model.url)) {
 			return false;
 		}
+		// --- Start Positron ---
+		// Posit Assistant keeps no link back to the page, so report the element
+		// as not attached, which takes a comment's pin off the page.
+		if (await this.positronBrowserChatTarget.attachEntries(toAttach, elementData.comment)) {
+			return false;
+		}
+		// --- End Positron ---
 		const widget = await this._revealChatWidgetForAttachment(elementData.comment !== undefined);
 		if (!widget?.attachmentModel || this._disposedCommentModels.has(model)) {
 			return false;

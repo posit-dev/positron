@@ -17,6 +17,8 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { BrowserViewUri } from '../../../../../platform/browserView/common/browserViewUri.js';
 import { IUntypedEditorInput } from '../../../../common/editor.js';
+import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
+import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 
 describe('Positron - Preview Service', () => {
 
@@ -43,6 +45,7 @@ describe('Positron - Electron Preview Service', () => {
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(IBrowserViewWorkbenchService, { createExternalBrowserView: () => new Promise(() => { }) })
+		.stub(IMainProcessService, { getChannel: () => stubInterface<IChannel>({}) })
 		.build();
 	let previewService: IPositronPreviewService;
 	let configurationService: TestConfigurationService;

@@ -13,6 +13,9 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IBrowserViewCDPService, IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
 import { CDPEvent, CDPRequest, CDPResponse } from '../../../../../platform/browserView/common/cdp/types.js';
 import { PreviewBrowserView } from '../../electron-browser/previewBrowserView.js';
+import { ILifecycleService, WillShutdownEvent } from '../../../../services/lifecycle/common/lifecycle.js';
+import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
+import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 
 const { hostVisibility } = vi.hoisted(() => ({ hostVisibility: [] as boolean[] }));
 
@@ -31,6 +34,9 @@ vi.mock('../../../browserView/electron-browser/webContentsViewHost.js', () => ({
 
 describe('PreviewBrowserView', () => {
 	const cdpMessages = new Emitter<CDPResponse | CDPEvent>();
+	const willShutdown = new Emitter<WillShutdownEvent>();
+	/** The calls the surface made to the main process's browser views. */
+	const mainCalls: string[] = [];
 	let views: DeferredPromise<IBrowserViewModel>[];
 	let created: string[];
 
@@ -42,6 +48,10 @@ describe('PreviewBrowserView', () => {
 				views.push(view);
 				return view.p;
 			}
+		})
+		.stub(ILifecycleService, { onWillShutdown: willShutdown.event })
+		.stub(IMainProcessService, {
+			getChannel: () => stubInterface<IChannel>({ call: async <T>(command: string, arg?: unknown) => { mainCalls.push(`${command} ${JSON.stringify(arg)}`); return undefined as T; } }),
 		})
 		// A page that navigates away before answering any script.
 		.stub(IBrowserViewCDPService, {
@@ -243,5 +253,17 @@ describe('PreviewBrowserView', () => {
 			],
 			picked: ['<button>Go</button>'],
 		});
+	});
+
+	it('destroys its view before the window reloads or closes, since nothing takes it back', async () => {
+		const surface = createSurface();
+		await views[0].complete(createModel().model);
+		const joined: Promise<void>[] = [];
+
+		willShutdown.fire(stubInterface<WillShutdownEvent>({ join: (promise: Promise<void> | (() => Promise<void>)) => { joined.push(promise as Promise<void>); } }));
+		await Promise.all(joined);
+		surface.dispose();
+
+		expect({ joined: joined.length, mainCalls }).toEqual({ joined: 1, mainCalls: ['destroyBrowserView ["view"]'] });
 	});
 });

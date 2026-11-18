@@ -8,6 +8,8 @@ import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
 // Command exposed by the Posit Assistant extension to start/continue a chat.
 // The key string is mirrored in the Posit Assistant extension (the two
@@ -18,6 +20,12 @@ export const POSIT_NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 // usable chat model. Like the command ID, the string is mirrored in the
 // extension.
 export const POSIT_HAS_CHAT_MODELS_KEY = 'posit-assistant.hasChatModels';
+
+/** Whether Posit Assistant can take a chat: AI features are on and it has a chat model. */
+export const POSIT_ASSISTANT_CAN_CHAT = ContextKeyExpr.and(
+	ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+	ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
+)!;
 
 /** A file attachment passed to the Posit Assistant newChat command. */
 export interface NewChatFile {

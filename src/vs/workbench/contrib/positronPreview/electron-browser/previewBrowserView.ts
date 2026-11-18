@@ -14,7 +14,10 @@ import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
-import { BrowserElementSelectionMode, IElementData } from '../../../../platform/browserView/common/browserView.js';
+import { BrowserElementSelectionMode, IBrowserViewService, IElementData, ipcBrowserViewChannelName } from '../../../../platform/browserView/common/browserView.js';
+import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
+import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
+import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
 import { ViewerFindWidget } from './viewerFindWidget.js';
 import { focusWebContentsViewContainer, WebContentsViewHost } from '../../browserView/electron-browser/webContentsViewHost.js';
 import { IViewerActOutcome, IViewerBridge } from '../common/positronViewerAgent.js';
@@ -86,8 +89,20 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		@IBrowserViewWorkbenchService private readonly _browserViewWorkbenchService: IBrowserViewWorkbenchService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		@ILifecycleService lifecycleService: ILifecycleService,
+		@IMainProcessService mainProcessService: IMainProcessService,
 	) {
 		super();
+		// The main process keeps a view across a reload of the window, for
+		// editors that take theirs back. Nothing takes the Viewer's back, so
+		// destroy it before the window goes, and wait for that.
+		const views = ProxyChannel.toService<IBrowserViewService>(mainProcessService.getChannel(ipcBrowserViewChannelName));
+		this._register(lifecycleService.onWillShutdown(e => {
+			const model = this._model;
+			if (model) {
+				e.join(views.destroyBrowserView(model.id), { id: 'positronViewer.destroyBrowserView', label: localize('positron.viewer.closingPage', "Closing the page in the Viewer") });
+			}
+		}));
 		this._container.tabIndex = 0;
 		this._message.setAttribute('role', 'status');
 		this._placeholder.appendChild(this._message);

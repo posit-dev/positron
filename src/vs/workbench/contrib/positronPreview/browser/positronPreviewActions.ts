@@ -17,8 +17,7 @@ import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/c
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { FocusedViewContext } from '../../../common/contextkeys.js';
-import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/positAssistantChat.js';
+import { POSIT_ASSISTANT_CAN_CHAT } from '../../positronAssistant/browser/positAssistantChat.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
 
@@ -38,11 +37,7 @@ export const POSITRON_VIEWER_HAS_ADDRESS = new RawContextKey<boolean>('positronV
 export const POSITRON_VIEWER_IS_INTEGRATED_BROWSER = new RawContextKey<boolean>('positronViewer.isIntegratedBrowser', false);
 
 /** Sending the Viewer's content to Posit Assistant needs the integrated browser, AI features, and a chat model. */
-export const POSITRON_VIEWER_CAN_SEND_TO_ASSISTANT = ContextKeyExpr.and(
-	POSITRON_VIEWER_IS_INTEGRATED_BROWSER,
-	ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
-	ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
-)!;
+export const POSITRON_VIEWER_CAN_SEND_TO_ASSISTANT = ContextKeyExpr.and(POSITRON_VIEWER_IS_INTEGRATED_BROWSER, POSIT_ASSISTANT_CAN_CHAT)!;
 
 /** The commands that act on the integrated browser showing in the Viewer, for its toolbar. */
 export const VIEWER_BROWSER_COMMANDS = {
