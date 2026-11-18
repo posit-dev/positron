@@ -17,7 +17,6 @@ import {
 	MAX_RELATIVE_PATH_LENGTH,
 	isPrunedExtensionDependencyFile as isPruned,
 	isPrunedServerDependencyFile,
-	isUnusedCopilotOpenTelemetryPackage,
 } from '../positron-path-budget.ts';
 
 const REPO_ROOT = path.join(import.meta.dirname, '..', '..', '..');
@@ -325,51 +324,6 @@ suite('positron-path-budget', () => {
 			}
 
 			assert.deepStrictEqual({ found, scanned: scanned > 0 }, { found: [], scanned: true });
-		});
-	});
-
-	suite('isUnusedCopilotOpenTelemetryPackage', () => {
-
-		test('keeps the externalized instrumentation closure, drops the bundled rest', () => {
-			const dependencies = [
-				// External in extensions/copilot/.esbuild.mts. The extension
-				// therefore loads these from node_modules at runtime.
-				'extensions/copilot/node_modules/@opentelemetry/instrumentation',
-				'extensions/copilot/node_modules/@opentelemetry/api',
-				'extensions/copilot/node_modules/@opentelemetry/core',
-				// Inside dist/extension.js, so dead weight on disk. The nested
-				// resources copies are the source of the paths in #14702.
-				'extensions/copilot/node_modules/@opentelemetry/exporter-metrics-otlp-grpc',
-				'extensions/copilot/node_modules/@opentelemetry/resources',
-				'extensions/copilot/node_modules/@opentelemetry/sdk-trace-node',
-				// The prune keeps this package at the top level. But when the
-				// prune removes a parent package, it also removes the nested
-				// copy, so that the glob of the parent cannot return it.
-				'extensions/copilot/node_modules/@opentelemetry/exporter-trace-otlp-grpc/node_modules/@opentelemetry/core',
-				// The prune does not touch an unrelated dependency.
-				'extensions/copilot/node_modules/@github/copilot',
-				'extensions/copilot/node_modules/shimmer',
-			];
-
-			assert.deepStrictEqual(dependencies.map(isUnusedCopilotOpenTelemetryPackage), [
-				false, false, false,
-				true, true, true,
-				true,
-				false, false,
-			]);
-		});
-
-		test('ignores a trailing @opentelemetry segment with no package after it', () => {
-			assert.strictEqual(
-				isUnusedCopilotOpenTelemetryPackage('extensions/copilot/node_modules/@opentelemetry'),
-				false);
-		});
-
-		test('handles Windows separators', () => {
-			assert.strictEqual(
-				isUnusedCopilotOpenTelemetryPackage(
-					'extensions\\copilot\\node_modules\\@opentelemetry\\resources'),
-				true);
 		});
 	});
 

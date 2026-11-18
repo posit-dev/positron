@@ -24,7 +24,7 @@
 		},
 		{
 			"label": "Install & Watch (All)",
-			"detail": "Install dependencies and watch all of VS Code (core, extensions and copilot).",
+			"detail": "Install dependencies and watch all of VS Code (core and extensions).",
 			"dependsOn": [
 				"Install Dependencies",
 				"Watch"
@@ -204,48 +204,11 @@
 			}
 		},
 		{
-			"type": "npm",
-			"script": "watch-copilotd",
-			"label": "Copilot - Build",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"group": "buildWatchers",
-				"close": false
-			},
-			"problemMatcher": [
-				"$esbuild-watch",
-				{
-					"owner": "typescript",
-					"applyTo": "closedDocuments",
-					"fileLocation": [
-						"relative",
-						"${workspaceFolder}/extensions/copilot"
-					],
-					"pattern": {
-						"regexp": "\\] ([^(]+)\\((\\d+,\\d+)\\): (.*)$",
-						"file": 1,
-						"location": 2,
-						"message": 3
-					},
-					"background": {
-						// --- Start Positron ---
-						// Fixes for the problem matcher
-						"activeOnStart": true,
-						"beginsPattern": "\\[watch:typecheck\\].*(Starting compilation|File change detected\\. Starting incremental compilation)",
-						"endsPattern": "\\[watch:typecheck\\].*Found \\d+ errors?\\. Watching for file changes"
-						// --- End Positron ---
-					}
-				}
-			]
-		},
-		{
 			"label": "Positron - Build",
 			"dependsOn": [
 				"Core - Transpile",
 				"Core - Typecheck",
-				"Ext - Build",
-				"Copilot - Build"
+				"Ext - Build"
 			],
 			"group": {
 				"kind": "build",
@@ -292,8 +255,7 @@
 				"E2E Tests - Build",
 				"Core - Transpile",
 				"Core - Typecheck",
-				"Ext - Build",
-				"Copilot - Build"
+				"Ext - Build"
 			],
 			"group": {
 				"kind": "build",
@@ -350,25 +312,12 @@
 			"problemMatcher": "$tsc"
 		},
 		{
-			"type": "npm",
-			"script": "kill-watch-copilotd",
-			"label": "Kill Copilot - Build",
-			"group": "build",
-			"presentation": {
-				"reveal": "never",
-				"group": "buildKillers",
-				"close": true
-			},
-			"problemMatcher": []
-		},
-		{
 			"label": "Kill VS Code - Build",
 			"dependsOn": [
 				"Kill Core - Transpile",
 				"Kill Core - Typecheck",
 				"Kill Ext - Build",
-				"Kill E2E Tests - Build",
-				"Kill Copilot - Build"
+				"Kill E2E Tests - Build"
 			],
 			"group": "build",
 			"problemMatcher": []
@@ -611,8 +560,7 @@
 				"Kill Ext - Build",
 				"Kill Core - Transpile",
 				"Kill Core - Typecheck",
-				"Kill E2E Tests - Build",
-				"Kill Copilot - Build"
+				"Kill E2E Tests - Build"
 			],
 			"group": "build",
 			"problemMatcher": []

@@ -112,8 +112,8 @@ fi
 # intentionally added/removed/updated.
 #
 # Why `tr '\n' '\0' | xargs -0 cat` instead of `xargs cat`?
-# Some vendored fixtures have spaces in their paths (e.g.
-# extensions/copilot/test/simulation/.../simple-js-proj copy/package.json).
+# Some vendored fixtures can have spaces in their paths (e.g. a test fixture
+# folder named "simple-js-proj copy").
 # Plain `xargs` word-splits on whitespace, so cat would receive broken path
 # fragments, exit non-zero, and `set -o pipefail` would abort the whole script
 # ("hash generation failed"). NUL-delimiting passes each path as one argument.

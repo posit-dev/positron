@@ -76,7 +76,10 @@ suite('build-fast planning', () => {
 		);
 	});
 
-	test('routes client, extension, and Copilot changes independently', () => {
+	// --- Start Positron ---
+	// Positron removed extensions/copilot: the copilot lane is never selected, and
+	// copilot paths don't affect the extensions lane.
+	test('routes client and extension changes independently and never builds Copilot', () => {
 		assert.deepStrictEqual(
 			createBuildPlan(savedState(), environment, changes([
 				'extensions/configuration-editing/src/configurationEditingMain.ts',
@@ -84,18 +87,18 @@ suite('build-fast planning', () => {
 				'src/main.ts',
 			]), outputsPresent, false),
 			{
-				reason: '3 input path(s) changed',
+				reason: '2 input path(s) changed',
 				changedPaths: [
 					'extensions/configuration-editing/src/configurationEditingMain.ts',
-					'extensions/copilot/src/extension.ts',
 					'src/main.ts',
 				],
 				client: 'incremental',
 				extensions: 'full',
-				copilot: 'full',
+				copilot: 'skip',
 			}
 		);
 	});
+	// --- End Positron ---
 
 	test('falls back fully for missing state and build inputs', () => {
 		assert.deepStrictEqual([
@@ -108,21 +111,21 @@ suite('build-fast planning', () => {
 				changedPaths: [],
 				client: 'full',
 				extensions: 'full',
-				copilot: 'full',
+				copilot: 'skip', // Positron: copilot lane removed
 			},
 			{
 				reason: 'build configuration or dependencies changed',
 				changedPaths: ['build/next/index.ts'],
 				client: 'full',
 				extensions: 'full',
-				copilot: 'full',
+				copilot: 'skip', // Positron: copilot lane removed
 			},
 			{
 				reason: 'build configuration or dependencies changed',
 				changedPaths: ['gulpfile.mjs'],
 				client: 'full',
 				extensions: 'full',
-				copilot: 'full',
+				copilot: 'skip', // Positron: copilot lane removed
 			}
 		]);
 	});
@@ -167,7 +170,7 @@ suite('build-fast planning', () => {
 			modes: [plan.client, plan.extensions, plan.copilot],
 		}, {
 			snapshots: [snapshot, previous.extensions, previous.copilot],
-			modes: ['skip', 'full', 'full'],
+			modes: ['skip', 'full', 'skip'], // Positron: copilot lane removed
 		});
 	});
 
@@ -175,7 +178,7 @@ suite('build-fast planning', () => {
 		const snapshot: BuildFastSnapshot = { head: 'saved', dirty: {} };
 		const updated = createBuildFastState(undefined, environment, snapshot, true);
 		const plan = createBuildPlan({ state: updated, reason: undefined }, environment, changes(), outputsPresent, false);
-		assert.deepStrictEqual([plan.client, plan.extensions, plan.copilot], ['skip', 'full', 'full']);
+		assert.deepStrictEqual([plan.client, plan.extensions, plan.copilot], ['skip', 'full', 'skip']); // Positron: copilot lane removed
 	});
 
 	test('incompatible state is not retained for unselected lanes', () => {
@@ -351,7 +354,11 @@ suite('build-fast orchestration', () => {
 				{ tasks: clientTasks, lanes: [true, false, false] },
 				{ tasks: [''], lanes: [true, false, false] },
 				{ tasks: [''], lanes: [true, false, false] },
-				{ tasks: ['copilot', 'transpile-extensions compile-extension-media'], lanes: [true, true, true] },
+				// --- Start Positron ---
+				// Positron removed extensions/copilot; the copilot lane never builds.
+				// { tasks: ['copilot', 'transpile-extensions compile-extension-media'], lanes: [true, true, true] },
+				{ tasks: ['transpile-extensions compile-extension-media'], lanes: [true, true, true] },
+				// --- End Positron ---
 				{ tasks: [''], lanes: [true, true, true] },
 				{ tasks: ['transpile-extensions compile-extension-media'], lanes: [true, true, true] },
 				{ tasks: [''], lanes: [true, true, true] },
