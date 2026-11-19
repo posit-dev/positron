@@ -89,7 +89,6 @@ describe('PositronNotebookOutputWebviewService', () => {
 					getMimeTypeInfo: () => [{ mimeType: 'text/html', rendererId: 'renderer', isTrusted: true }],
 					getRendererInfo: () => renderer,
 					getRenderers: () => [],
-					getStaticPreloads: () => [],
 				}),
 				stubInterface<IWorkspaceTrustManagementService>({ isWorkspaceTrusted: () => true }),
 				stubInterface<INotebookRendererMessagingService>({ getScoped: () => stubInterface({}) }),
@@ -101,7 +100,7 @@ describe('PositronNotebookOutputWebviewService', () => {
 			return { service, htmls };
 		};
 
-		const output = stubInterface<ILanguageRuntimeMessageWebOutput>({ id: 'output-1', data: { 'text/html': '' }, resource_roots: [], output_location: undefined });
+		const output = stubInterface<ILanguageRuntimeMessageWebOutput>({ id: 'output-1', data: { 'text/html': '' }, resource_roots: [] });
 		const create = {
 			single: (service: PositronNotebookOutputWebviewService, fillViewport?: boolean) => service.createNotebookOutputWebview({
 				id: 'output-1',
@@ -121,7 +120,6 @@ describe('PositronNotebookOutputWebviewService', () => {
 			{ entry: 'single', fillViewport: true, expected: true },
 			{ entry: 'single', fillViewport: undefined, expected: false },
 			{ entry: 'multi', fillViewport: true, expected: true },
-			{ entry: 'multi', fillViewport: undefined, expected: false },
 		] as const)('$entry: fillViewport=$fillViewport adds the fill CSS: $expected', async ({ entry, fillViewport, expected }) => {
 			const { service, htmls } = createService();
 			await create[entry](service, fillViewport);

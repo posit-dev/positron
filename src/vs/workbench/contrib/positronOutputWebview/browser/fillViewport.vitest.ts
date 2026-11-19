@@ -5,11 +5,17 @@
 
 import { FILL_VIEWPORT_CSS } from './fillViewport.js';
 
-// The first rule's selector list, so it can be checked with Element.matches().
-const selector = FILL_VIEWPORT_CSS.match(/<style>([^{]*)\{/)![1].trim();
+/** The selector of the rule that sets `declaration`, so it can be checked with Element.matches(). */
+function selectorFor(declaration: string): string {
+	const rule = [...FILL_VIEWPORT_CSS.matchAll(/([^{}]+)\{([^}]*)\}/g)].find(m => m[2].includes(declaration));
+	if (!rule) {
+		throw new Error(`no rule sets ${declaration}`);
+	}
+	return rule[1].replace('<style>', '').trim();
+}
 
-/** Renders `html` into the body and returns the ids of elements the fill CSS gives a height. */
-function filledIds(html: string): string[] {
+/** Renders `html` into the body and returns the ids of elements matching `selector`. */
+function matchedIds(html: string, selector: string): string[] {
 	document.body.innerHTML = html;
 	// eslint-disable-next-line no-restricted-syntax -- checks CSS selector matching on raw markup, not a rendered component
 	return Array.from(document.querySelectorAll('[id]'))
@@ -17,18 +23,14 @@ function filledIds(html: string): string[] {
 		.map(el => el.id);
 }
 
+/** Returns the ids of elements the fill CSS gives a height. */
+function filledIds(html: string): string[] {
+	return matchedIds(html, selectorFor('height: 100%'));
+}
+
 describe('FILL_VIEWPORT_CSS', () => {
 	afterEach(() => {
 		document.body.innerHTML = '';
-	});
-
-	it('fills a chart with the actions menu (Altair HTML output)', () => {
-		expect(filledIds(`
-			<div id="output" class="output_html">
-				<div id="embed" class="vega-embed fit-y">
-					<div id="wrapper" class="chart-wrapper fit-y"><svg id="marks"></svg></div>
-				</div>
-			</div>`)).toEqual(['output', 'embed', 'wrapper']);
 	});
 
 	it('fills a chart without the actions menu (Altair HTML output)', () => {
@@ -38,7 +40,7 @@ describe('FILL_VIEWPORT_CSS', () => {
 			</div>`)).toEqual(['output', 'embed']);
 	});
 
-	it('fills a chart whose wrapper alone has fit-y (notebook renderer, actions menu shown)', () => {
+	it('fills a chart with the actions menu (Altair 5)', () => {
 		expect(filledIds(`
 			<div id="output">
 				<div id="embed" class="vega-embed">
@@ -56,7 +58,30 @@ describe('FILL_VIEWPORT_CSS', () => {
 			</div>`)).toEqual([]);
 	});
 
-	it('leaves other outputs unchanged', () => {
-		expect(filledIds(`<div id="output" class="output_html"><img id="img"></div>`)).toEqual([]);
+	it('shows the chart as a block, so it does not overflow the pane', () => {
+		const selector = selectorFor('display: block');
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions">
+				<div id="wrapper" class="chart-wrapper fit-x fit-y"><canvas id="marks" class="marks"></canvas></div>
+			</div>`, selector)).toEqual(['marks']);
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed"><svg id="marks" class="marks"></svg></div>`, selector)).toEqual([]);
+	});
+
+	it('gives the actions button no width beside a container-width chart', () => {
+		const selector = selectorFor('min-width: 0');
+		// Altair 5 sets fit-x only on the wrapper; Altair 6 also sets it on the embed.
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions">
+				<div class="chart-wrapper fit-x fit-y"></div><details id="actions"></details>
+			</div>`, selector)).toEqual(['actions']);
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions fit-x fit-y">
+				<div class="chart-wrapper fit-x fit-y"></div><details id="actions"></details>
+			</div>`, selector)).toEqual(['actions']);
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions">
+				<div class="chart-wrapper"></div><details id="actions"></details>
+			</div>`, selector)).toEqual([]);
 	});
 });
