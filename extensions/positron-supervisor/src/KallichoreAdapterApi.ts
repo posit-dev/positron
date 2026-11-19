@@ -585,7 +585,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Get the path to the Kallichore server binary. This will throw an
 		// error if the server binary cannot be found.
-		const shellPath = this.getKallichorePath();
+		const shellPath = await this.getKallichorePath();
 
 		// Create a server session ID (8 characters)
 		const sessionId = `${createUniqueId()}-${process.pid}`;
@@ -788,11 +788,9 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Ensure the output file is cleaned up when the API is disposed
 		this._disposables.push(new vscode.Disposable(() => {
-			try {
-				fs.unlinkSync(outFile);
-			} catch (err) {
+			fs.promises.unlink(outFile).catch(err => {
 				this.log(`Error cleaning up output file ${outFile}: ${err}`);
-			}
+			});
 		}));
 
 		// Wait for the terminal to start and get the PID
@@ -1983,7 +1981,7 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns A path to the Kallichore server binary.
 	 * @throws An error if the server binary cannot be found.
 	 */
-	getKallichorePath(): string {
+	async getKallichorePath(): Promise<string> {
 
 		// Get the name of the server binary for the current platform
 		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
@@ -1995,8 +1993,10 @@ export class KCApi implements PositronSupervisorApi {
 		const positronParent = path.dirname(path.dirname(path.dirname(this._context.extensionPath)));
 		const devDebugBinary = path.join(positronParent, 'kallichore', 'target', 'debug', serverBin);
 		const devReleaseBinary = path.join(positronParent, 'kallichore', 'target', 'release', serverBin);
-		const debugModified = fs.statSync(devDebugBinary, { throwIfNoEntry: false })?.mtime;
-		const releaseModified = fs.statSync(devReleaseBinary, { throwIfNoEntry: false })?.mtime;
+		const modifiedTime = async (file: string) =>
+			(await fs.promises.stat(file).catch(() => undefined))?.mtime;
+		const debugModified = await modifiedTime(devDebugBinary);
+		const releaseModified = await modifiedTime(devReleaseBinary);
 
 		if (debugModified) {
 			devBinary = (releaseModified && releaseModified > debugModified) ? devReleaseBinary : devDebugBinary;
@@ -2012,8 +2012,11 @@ export class KCApi implements PositronSupervisorApi {
 		// development and release builds.
 		const embeddedBinary = path.join(
 			this._context.extensionPath, 'resources', 'kallichore', serverBin);
-		if (fs.existsSync(embeddedBinary)) {
+		try {
+			await fs.promises.access(embeddedBinary);
 			return embeddedBinary;
+		} catch {
+			// Not found; fall through to the error below
 		}
 
 		throw new Error(`Kallichore server not found (expected at ${embeddedBinary})`);
