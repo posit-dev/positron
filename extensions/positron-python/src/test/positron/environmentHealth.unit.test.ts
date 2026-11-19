@@ -516,7 +516,7 @@ suite('Python Environment Health - orchestration', () => {
             [
                 ['pythonInstalled', 'A supported Python is installed'],
                 ['environmentReady', 'The environment is ready to use with Positron'],
-                ['dedicatedEnvironment', 'A dedicated Python environment is available'],
+                ['dedicatedEnvironment', 'A folder is open and uses a dedicated Python environment'],
             ],
         );
     });

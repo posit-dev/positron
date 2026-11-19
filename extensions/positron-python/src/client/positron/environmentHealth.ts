@@ -84,7 +84,7 @@ export function itemSummary(id: HealthItemId): string {
         discovery: vscode.l10n.t('Positron can discover Python environments'),
         pythonInstalled: vscode.l10n.t('A supported Python is installed'),
         environmentReady: vscode.l10n.t('The environment is ready to use with Positron'),
-        dedicatedEnvironment: vscode.l10n.t('A dedicated Python environment is available'),
+        dedicatedEnvironment: vscode.l10n.t('A folder is open and uses a dedicated Python environment'),
     };
     return summaries[id];
 }
@@ -365,7 +365,7 @@ export function probeDedicatedEnvironment(deps: {
             status: 'warn',
             summary,
             detail: vscode.l10n.t(
-                'A dedicated environment exists but no folder is open. Open a folder to use it; full green means an open folder using a dedicated environment.',
+                'A dedicated environment was found, but no folder is open. Open a folder, then select that environment or create a new one.',
             ),
             fix: deps.openFolderFix,
         };
@@ -375,9 +375,7 @@ export function probeDedicatedEnvironment(deps: {
         id,
         status: 'fail',
         summary,
-        detail: vscode.l10n.t(
-            'No dedicated Python environment was found and no folder is open. Open a folder to get started; you can create a dedicated environment in it.',
-        ),
+        detail: vscode.l10n.t('No folder is open. Open a folder, then create a dedicated environment for it.'),
         fix: deps.openFolderFix,
     };
 }
