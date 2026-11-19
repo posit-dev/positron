@@ -62,9 +62,12 @@ env:
     If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
 
 jobs:
-  # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
-  # Hands code changes to the build job.
-  triage:
+  # Checks who asked, acknowledges the request, and fetches the exploratory findings Claude needs.
+  # Commands Claude runs can write files outside the workspace, such as the code of later steps,
+  # so they could reach any secret that their job uses, even one never passed to Claude. The App
+  # private keys are used only in jobs that never run Claude: this one, publish, and react. The
+  # Claude jobs use github.token.
+  ack:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -72,38 +75,23 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # The Claude step has its own timeout, so the steps that save its commits still run after it.
-    timeout-minutes: 45
-    # One run at a time per issue or PR, so a loop of runs cannot pile up. GitHub keeps only one
-    # pending run per group: a third request made while one runs and one waits replaces the waiting one.
+    timeout-minutes: 10
+    # GitHub sometimes starts this workflow twice for one comment. One ack at a time per issue or
+    # PR, so the second run sees the first run's reaction. GitHub keeps only one pending run per
+    # group: a third request made in the seconds an ack takes replaces the waiting one.
     concurrency:
-      group: claude-triage-${{ github.event.issue.number || github.event.pull_request.number }}
+      group: claude-ack-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
+    # Write access lets github.token add the reaction if the App token step fails.
     permissions:
       contents: read
-      packages: read
       pull-requests: write
       issues: write
-      id-token: write
     outputs:
-      needs_build: ${{ steps.handoff.outputs.needs_build }}
-      handoff: ${{ steps.claude.outputs.structured_output }}
-      assignee: ${{ steps.assignee.outputs.value }}
-      branch_prefix: ${{ steps.branch-prefix.outputs.value }}
-      ack_target: ${{ steps.ack.outputs.target }}
-      ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
+      duplicate: ${{ steps.ack.outputs.duplicate }}
+      target: ${{ steps.ack.outputs.target }}
+      reaction_id: ${{ steps.ack.outputs.reaction_id }}
       explore_findings: ${{ steps.findings.outputs.prompt }}
-      # Read by the publish job. Keep in step with the build job's outputs.
-      target: ${{ steps.target.outputs.target }}
-      base: ${{ steps.target.outputs.base }}
-      head_ref: ${{ steps.target.outputs.head_ref }}
-      has_commits: ${{ steps.bundle.outputs.has_commits }}
-      problem: ${{ steps.bundle.outputs.problem }}
-      result: ${{ steps.claude.outputs.structured_output }}
-    env:
-      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
-      # The action only does this by default when allowed_non_write_users is set.
-      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       - name: Check actor has write permission
         env:
@@ -111,7 +99,7 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: |
           # Bots are not collaborators, so the lookup fails and they are refused. That includes
-          # positron-projects[bot], which Claude posts as, so Claude's own output cannot start a run.
+          # positron-projects[bot], which opens Claude's pull requests.
           PERMISSION=$(gh api "/repos/${GITHUB_REPOSITORY}/collaborators/${ACTOR}/permission" --jq '.permission')
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
             echo "::error::Actor $ACTOR has '$PERMISSION' permission, requires 'write' or 'admin'"
@@ -120,7 +108,7 @@ jobs:
           echo "Actor $ACTOR authorized with '$PERMISSION' permission"
 
       # On a fork PR, claude-code-action checks out the fork's code, and the build job runs its
-      # npm scripts and tests with the App token in reach. Refuse forks before the token exists.
+      # npm scripts and tests. Refuse forks before anything else runs.
       - name: Refuse pull requests from forks
         env:
           GH_TOKEN: ${{ github.token }}
@@ -145,9 +133,8 @@ jobs:
             exit 1
           fi
 
-      # A token failure fails the job after the ack below, so the trigger still gets a reaction.
-      # Claude and every command it runs can read this token, so it cannot write repository
-      # contents. The publish job pushes Claude's commits with its own token.
+      # Only for reactions. A token failure fails the job after the ack below, so the trigger
+      # still gets a reaction.
       - name: Generate token for GitHub App
         id: generate-token
         continue-on-error: true
@@ -155,19 +142,16 @@ jobs:
         with:
           client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
           private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
-          permission-contents: read
           permission-pull-requests: write
           permission-issues: write
-          permission-members: read
           owner: posit-dev
           repositories: positron
 
       # Ack the trigger right away; the action's own progress comment takes a minute or more.
       # Reviews have no reactions API, so they get no ack.
-      # GitHub sometimes starts this workflow twice for one comment. The reactions API returns 200
-      # instead of 201 when this account's eyes reaction already exists, so the later run skips
-      # Claude. React as the App, not github-actions[bot], which other workflows also react as.
+      # The reactions API returns 200 instead of 201 when this account's eyes reaction already
+      # exists, so the later of two runs for one comment skips Claude. React as the App, not
+      # github-actions[bot], which other workflows also react as.
       - name: Add eyes reaction
         id: ack
         env:
@@ -208,18 +192,19 @@ jobs:
           echo "::error::Failed to generate the GitHub App token"
           exit 1
 
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 1
-          token: ${{ steps.generate-token.outputs.token }}
-          # claude-code-action sets up its own git auth, with the read-only App token
-          persist-credentials: false
-
       # `@claude fix finding 2` on a PR: the text of that finding from the PR's latest
       # exploratory test. The agent cannot fetch it, since the report is on the tailnet.
       # Only for comments in the PR conversation, where the checkout is the default branch,
       # not the PR. The positron-builds token is in the download step's env only.
+      - name: Checkout repository
+        if: >-
+          steps.ack.outputs.duplicate != 'true' && github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request && contains(github.event.comment.body, 'finding')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Find the exploratory findings asked for
         id: findings-ask
         if: >-
@@ -271,6 +256,52 @@ jobs:
           DIR: ${{ runner.temp }}/explore-findings
         run: node .github/actions/pr-exploratory-test/claude-findings.mjs prompt
 
+  # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
+  # Hands code changes to the build job.
+  triage:
+    needs: ack
+    if: needs.ack.outputs.duplicate != 'true'
+    runs-on: ubuntu-latest
+    # The Claude step has its own timeout, so the steps that save its commits still run after it.
+    timeout-minutes: 45
+    # One run at a time per issue or PR, so a loop of runs cannot pile up. GitHub keeps only one
+    # pending run per group: a third request made while one runs and one waits replaces the waiting one.
+    concurrency:
+      group: claude-triage-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    # Claude, and every command it runs, can read github.token, so it cannot write repository
+    # contents. The publish job pushes Claude's commits with its own token.
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    outputs:
+      needs_build: ${{ steps.handoff.outputs.needs_build }}
+      handoff: ${{ steps.claude.outputs.structured_output }}
+      assignee: ${{ steps.assignee.outputs.value }}
+      branch_prefix: ${{ steps.branch-prefix.outputs.value }}
+      # Read by the publish job. Keep in step with the build job's outputs.
+      target: ${{ steps.target.outputs.target }}
+      base: ${{ steps.target.outputs.base }}
+      head_ref: ${{ steps.target.outputs.head_ref }}
+      has_commits: ${{ steps.bundle.outputs.has_commits }}
+      problem: ${{ steps.bundle.outputs.problem }}
+      result: ${{ steps.claude.outputs.structured_output }}
+    env:
+      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
+      # The action only does this by default when allowed_non_write_users is set.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          # claude-code-action sets up its own git auth, with github.token
+          persist-credentials: false
+
       # Determine who to assign to issues/PRs created by Claude.
       # If the triggering actor is a human, use them directly.
       # If it's a bot, fall back to the origin issue/PR's assignee or author.
@@ -303,13 +334,12 @@ jobs:
       # Claude does not choose. On an open pull request the commits go to its head branch, which
       # claude-code-action checks out at the head commit. Otherwise claude-code-action branches
       # from the local default branch that actions/checkout created, and the publish job opens a
-      # new pull request. Fork pull requests were refused above, so the head is in this repository.
+      # new pull request. The ack job refused fork pull requests, so the head is in this repository.
       # A review on a closed pull request would branch from a default-branch commit this job does
       # not know, so its commits are not published.
       - &record-target
         name: Record where Claude's commits go
         id: target
-        if: steps.ack.outputs.duplicate != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
@@ -349,19 +379,16 @@ jobs:
           } | tee -a "$GITHUB_OUTPUT"
 
       - name: Setup Claude
-        if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
 
       # AWS rejects role session names outside [\w+=,.@-], such as `positron-projects[bot]`.
       - name: Sanitize role session name
         id: session-name
-        if: steps.ack.outputs.duplicate != 'true'
         env:
           ACTOR: ${{ github.triggering_actor }}
         run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials for Bedrock
-        if: steps.ack.outputs.duplicate != 'true'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
@@ -370,7 +397,6 @@ jobs:
 
       - name: Run Claude Code Action
         id: claude
-        if: steps.ack.outputs.duplicate != 'true'
         # No dependency install runs in this job; leave Claude time for larger edits.
         timeout-minutes: 30
         uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
@@ -380,7 +406,7 @@ jobs:
           ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
           use_bedrock: true
-          github_token: ${{ steps.generate-token.outputs.token }}
+          github_token: ${{ github.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
           # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
@@ -398,7 +424,7 @@ jobs:
           prompt: |
             ${{ env.SHARED_PROMPT }}
 
-            ${{ steps.findings.outputs.prompt }}
+            ${{ needs.ack.outputs.explore_findings }}
 
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
@@ -527,37 +553,18 @@ jobs:
           echo "::error::Claude returned no valid handoff"
           exit 1
 
-      # On a handoff the build job swaps the reaction when it finishes, and when there is
-      # something to publish, the publish job does.
-      - name: Replace eyes with result reaction
-        if: >-
-          always() && steps.ack.outputs.target != '' && steps.handoff.outputs.needs_build != 'true' &&
-          steps.bundle.outputs.has_commits != 'true' && steps.bundle.outputs.problem == ''
-        env:
-          # Only the account that added the eyes can remove it; match the ack's token.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
-          TARGET: ${{ steps.ack.outputs.target }}
-          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          if [ -n "$REACTION_ID" ]; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
-              || echo "Failed to remove eyes reaction (non-fatal)"
-          fi
-          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
-            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
-
   # Code changes: installs core dependencies so Claude can run Vitest, eslint, and precommit.
-  # Runs only through triage, which already checked the actor's permission.
+  # Runs only through triage, after the ack job checked the actor's permission.
   build:
-    needs: triage
+    needs: [ack, triage]
     if: needs.triage.outputs.needs_build == 'true'
     runs-on: ubuntu-latest
     # The Claude step has its own timeout, so the steps that save its commits still run after it.
     # Leave room for the dependency setup before it, which can be slow on a cold cache.
     timeout-minutes: 90
+    # github.token, as in triage: Claude runs npm scripts and tests with it in reach.
     permissions:
+      actions: read
       contents: read
       packages: read
       pull-requests: write
@@ -574,26 +581,10 @@ jobs:
     env:
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
-      # Read-only contents, as in triage: Claude runs npm scripts and tests with this token in reach.
-      - name: Generate token for GitHub App
-        id: generate-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
-          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
-          permission-contents: read
-          permission-pull-requests: write
-          permission-issues: write
-          permission-members: read
-          owner: posit-dev
-          repositories: positron
-
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-          token: ${{ steps.generate-token.outputs.token }}
           persist-credentials: false
 
       - *record-target
@@ -658,7 +649,7 @@ jobs:
           ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
           use_bedrock: true
-          github_token: ${{ steps.generate-token.outputs.token }}
+          github_token: ${{ github.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"
           track_progress: true
@@ -681,7 +672,7 @@ jobs:
             ${{ needs.triage.outputs.handoff }}
             HANDOFF END
 
-            ${{ needs.triage.outputs.explore_findings }}
+            ${{ needs.ack.outputs.explore_findings }}
 
             Root and build/ node dependencies are installed. You can run Vitest on tests under
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
@@ -759,26 +750,6 @@ jobs:
 
       - *upload-commits
 
-      # When there is something to publish, the publish job swaps the reaction instead.
-      - name: Replace eyes with result reaction
-        if: >-
-          always() && needs.triage.outputs.ack_target != '' &&
-          steps.bundle.outputs.has_commits != 'true' && steps.bundle.outputs.problem == ''
-        env:
-          # The App added the eyes, and only the reacting account can remove it.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          TARGET: ${{ needs.triage.outputs.ack_target }}
-          REACTION_ID: ${{ needs.triage.outputs.ack_reaction_id }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          if [ -n "$REACTION_ID" ]; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
-              || echo "Failed to remove eyes reaction (non-fatal)"
-          fi
-          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
-            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
-
   # Pushes the commits that the last Claude job made, then opens or updates the pull request.
   # It never runs Claude or code from the repository, and it is the only job whose App token can
   # write repository contents. The token is in the environment of the push and API steps only.
@@ -801,7 +772,6 @@ jobs:
       # The job that ran Claude last: build after a handoff, otherwise triage.
       SOURCE: ${{ needs.triage.outputs.needs_build == 'true' && 'build' || 'triage' }}
       SOURCE_OUTPUTS: ${{ needs.triage.outputs.needs_build == 'true' && toJSON(needs.build.outputs) || toJSON(needs.triage.outputs) }}
-      SOURCE_RESULT: ${{ needs.triage.outputs.needs_build == 'true' && needs.build.result || needs.triage.result }}
       NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
@@ -1104,19 +1074,46 @@ jobs:
           printf '\nSee %s.\n' "$RUN_URL" >> "$MESSAGE"
           gh api --silent --method POST "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" -F "body=@${MESSAGE}"
 
+  # Swaps the eyes reaction for the result once every job that ran has finished. Only the account
+  # that added a reaction can remove it, so this reacts as the App, as the ack job did.
+  react:
+    needs: [ack, triage, build, publish]
+    if: always() && needs.ack.outputs.target != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Write access lets github.token react if the App token step fails.
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Generate token for GitHub App
+        id: generate-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-pull-requests: write
+          permission-issues: write
+          owner: posit-dev
+          repositories: positron
+
       - name: Replace eyes with result reaction
-        if: always() && needs.triage.outputs.ack_target != ''
         env:
-          # The App added the eyes, and only the reacting account can remove it.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          TARGET: ${{ needs.triage.outputs.ack_target }}
-          REACTION_ID: ${{ needs.triage.outputs.ack_reaction_id }}
-          JOB_STATUS: ${{ job.status }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
+          TARGET: ${{ needs.ack.outputs.target }}
+          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          RESULTS: ${{ needs.ack.result }} ${{ needs.triage.result }} ${{ needs.build.result }} ${{ needs.publish.result }}
         run: |
           if [ -n "$REACTION_ID" ]; then
             gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
               || echo "Failed to remove eyes reaction (non-fatal)"
           fi
-          if [ "$JOB_STATUS" = "success" ] && [ "$SOURCE_RESULT" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
+          # build runs only on a handoff, and publish only when there are commits, so a skipped
+          # job is not a failure.
+          FINAL=rocket
+          for RESULT in $RESULTS; do
+            if [ "$RESULT" != "success" ] && [ "$RESULT" != "skipped" ]; then FINAL=confused; fi
+          done
           gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
             -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
