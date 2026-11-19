@@ -16,6 +16,7 @@
 		{ "path": "./extensions/positron-duckdb/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-file-transfer/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-r/tsconfig.vitest.json" },
-		{ "path": "./extensions/positron-run-app/tsconfig.vitest.json" }
+		{ "path": "./extensions/positron-run-app/tsconfig.vitest.json" },
+		{ "path": "./extensions/positron-supervisor/tsconfig.vitest.json" }
 	]
 }

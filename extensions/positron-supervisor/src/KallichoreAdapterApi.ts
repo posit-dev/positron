@@ -21,6 +21,7 @@ import { KallichoreInstances } from './KallichoreInstances.js';
 import { DefinitionTerminalEnvironment, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
+import { describeServerOutput } from './serverOutput.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
@@ -738,16 +739,16 @@ export class KCApi implements PositronSupervisorApi {
 			// Mark the terminal as exited
 			exited = true;
 
-			// Read the contents of the output file and log it
-			const contents = fs.readFileSync(outFile, 'utf8');
+			// Log the exit along with any output the server process captured
+			const output = await describeServerOutput(outFile);
 			if (this._terminal.exitStatus && this._terminal.exitStatus.code) {
 				this.log(`Supervisor terminal closed (` +
 					this.describeExitReason(this._terminal.exitStatus.reason) +
-					`) with exit code ${this._terminal.exitStatus.code}; output:\n${contents}`);
+					`) with exit code ${this._terminal.exitStatus.code}${output}`);
 			} else {
 				this.log(`Supervisor terminal closed unexpectedly (` +
 					this.describeExitReason(this._terminal.exitStatus?.reason) +
-					`); output:\n${contents}`);
+					`)${output}`);
 			}
 
 			// Display a notification that directs users to open the log to get more information
@@ -804,24 +805,6 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Kallichore terminal started in ${Date.now() - startTime}ms with PID ${processId}`);
 		const supervisorStartTime = Date.now();
 
-		// Reads any captured stdout/stderr from the server process, formatted for
-		// appending to a startup error message. This gives us "server exited
-		// during startup, here is its captured output" diagnostics that make
-		// startup failures debuggable.
-		const readServerOutput = (): string => {
-			try {
-				if (fs.existsSync(outFile)) {
-					const contents = fs.readFileSync(outFile, 'utf8');
-					if (contents) {
-						return `; output:\n\n${contents}`;
-					}
-				}
-			} catch (err) {
-				this.log(`Error reading supervisor output file ${outFile}: ${err}`);
-			}
-			return '';
-		};
-
 		// Wait for the supervisor to connect to the handshake socket and report
 		// its connection details. Race the handshake payload against
 		// server-process-exit detection so a crashed kcserver fails fast with its
@@ -835,10 +818,11 @@ export class KCApi implements PositronSupervisorApi {
 		// Rejects if the supervisor process exits before it reports in. The
 		// `exited` flag is also set by the terminal close listener above.
 		let rejectOnExit!: (err: Error) => void;
+		let exitError: Error | undefined;
 		const processExited = new Promise<never>((_, reject) => {
 			rejectOnExit = reject;
 		});
-		const exitPoller = setInterval(() => {
+		const exitPoller = setInterval(async () => {
 			if (!exited && processId) {
 				try {
 					process.kill(processId, 0);
@@ -849,9 +833,10 @@ export class KCApi implements PositronSupervisorApi {
 			}
 			if (exited) {
 				clearInterval(exitPoller);
-				rejectOnExit(new Error(
+				exitError = new Error(
 					`The supervisor process exited unexpectedly during startup` +
-					readServerOutput()));
+					await describeServerOutput(outFile));
+				rejectOnExit(exitError);
 			}
 		}, 100);
 		exitPoller.unref?.();
@@ -865,7 +850,7 @@ export class KCApi implements PositronSupervisorApi {
 			// A process-exit rejection already includes the captured output; a
 			// handshake timeout does not, so append it here for diagnosability.
 			const base = err instanceof Error ? err.message : String(err);
-			const message = base.includes('output:') ? base : base + readServerOutput();
+			const message = err === exitError ? base : base + await describeServerOutput(outFile);
 			this.log(message);
 			throw new Error(message);
 		} finally {
@@ -967,15 +952,10 @@ export class KCApi implements PositronSupervisorApi {
 						// the Console. If there's any content in the log
 						// files, append it to the error message so that the
 						// user can see it without clicking over to the logs.
-						if (fs.existsSync(outFile)) {
-							// Note that we don't need to append this content
-							// to the logs since the output file is already
-							// being watched by the log streamer.
-							const contents = fs.readFileSync(outFile, 'utf8');
-							if (contents) {
-								message += `; output:\n\n${contents}`;
-							}
-						}
+						// Note that we don't need to append this content
+						// to the logs since the output file is already
+						// being watched by the log streamer.
+						message += await describeServerOutput(outFile);
 						throw new Error(message);
 					}
 				} else if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
