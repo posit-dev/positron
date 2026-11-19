@@ -145,7 +145,7 @@ RUN echo 'CC=gcc-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'FC=gfortran-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'FC=gfortran-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXXFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CC=gcc-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
@@ -156,7 +156,7 @@ RUN echo 'CC=gcc-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'FC=gfortran-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'FC=gfortran-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXXFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf
 
