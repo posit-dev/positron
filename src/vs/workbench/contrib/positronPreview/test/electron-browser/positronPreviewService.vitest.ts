@@ -19,6 +19,7 @@ import { BrowserViewUri } from '../../../../../platform/browserView/common/brows
 import { IUntypedEditorInput } from '../../../../common/editor.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
+import { PreviewHtml } from '../../browser/previewHtml.js';
 
 describe('Positron - Preview Service', () => {
 
@@ -112,5 +113,85 @@ describe('Positron - Electron Preview Service', () => {
 		const opened = openEditor.mock.calls[0][0] as IUntypedEditorInput & { resource: URI };
 		expect({ scheme: opened.resource.scheme, isBrowser: !!BrowserViewUri.getId(opened.resource), viewState: opened.options?.viewState })
 			.toEqual({ scheme: BrowserViewUri.scheme, isBrowser: true, viewState: { url: 'http://localhost:8000/app' } });
+	});
+
+	describe('history', () => {
+		let proxyCount: number;
+
+		beforeEach(() => {
+			proxyCount = 0;
+			const commandService = ctx.instantiationService.invokeFunction(accessor => accessor.get(ICommandService));
+			vi.spyOn(commandService, 'executeCommand').mockImplementation(async () => `http://localhost:9000/html/${proxyCount++}`);
+		});
+
+		/** What the Viewer shows, and where back and forward go. */
+		function state() {
+			const preview = previewService.activePreviewWebview;
+			return {
+				showing: preview?.address?.toString() ?? preview?.name,
+				canGoBack: previewService.canGoBack,
+				canGoForward: previewService.canGoForward,
+			};
+		}
+
+		it('goes back from a page that can\'t go back to the content before it, disposing what it leaves', async () => {
+			await useIntegratedBrowser(true);
+			const html = await previewService.openHtml('html', undefined, '/widget.html');
+			const app = previewService.openUri('app', undefined, URI.parse('http://localhost:8000/'));
+
+			previewService.goBack();
+			const back = state();
+			previewService.goForward();
+
+			expect({ back, forward: state(), disposed: [html.isDisposed(), app.isDisposed()] }).toEqual({
+				back: { showing: 'http://localhost:9000/html/0', canGoBack: false, canGoForward: true },
+				forward: { showing: 'http://localhost:8000/', canGoBack: true, canGoForward: false },
+				disposed: [true, true],
+			});
+		});
+
+		it('replaces the entries after the active one with new content', async () => {
+			await previewService.openHtml('a', undefined, '/a.html');
+			await previewService.openHtml('b', undefined, '/b.html');
+			previewService.goBack();
+			await previewService.openHtml('c', undefined, '/c.html');
+
+			const atEnd = state();
+			previewService.goBack();
+
+			expect({ atEnd, back: state() }).toEqual({
+				atEnd: { showing: 'http://localhost:9000/html/2', canGoBack: true, canGoForward: false },
+				back: { showing: 'http://localhost:9000/html/0', canGoBack: false, canGoForward: true },
+			});
+		});
+
+		it('drops content that can\'t be shown again once it\'s left', async () => {
+			await previewService.openHtml('a', undefined, '/a.html');
+			await previewService.openHtmlString('string', '<h1>Hi</h1>', 'Output');
+
+			previewService.goBack();
+
+			expect(state()).toEqual({ showing: 'http://localhost:9000/html/0', canGoBack: false, canGoForward: false });
+		});
+
+		it('goes back within a URL page in a webview, which can\'t tell whether it can', async () => {
+			await previewService.openHtml('a', undefined, '/a.html');
+			const app = previewService.openUri('app', undefined, URI.parse('http://localhost:8000/'));
+			const goBack = vi.spyOn(app.surface, 'goBack');
+
+			previewService.goBack();
+
+			expect({ calls: goBack.mock.calls.length, active: previewService.activePreviewWebview === app }).toEqual({ calls: 1, active: true });
+		});
+
+		it('shows the content before when the active content goes away on its own', async () => {
+			await previewService.openHtml('a', undefined, '/a.html');
+			const app = previewService.openUri('app', undefined, URI.parse('http://localhost:8000/'));
+
+			app.dispose();
+
+			expect({ html: previewService.activePreviewWebview instanceof PreviewHtml, ...state() })
+				.toEqual({ html: true, showing: 'http://localhost:9000/html/0', canGoBack: false, canGoForward: false });
+		});
 	});
 });

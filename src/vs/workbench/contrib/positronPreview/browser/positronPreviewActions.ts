@@ -62,14 +62,14 @@ abstract class ViewerPreviewAction extends Action2 {
 	protected abstract runOnPreview(accessor: ServicesAccessor, preview: PreviewWebview): void;
 }
 
-export class PositronViewerGoBackAction extends ViewerPreviewAction {
+export class PositronViewerGoBackAction extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.positronPreview.goBack',
 			title: nls.localize2('positronViewerGoBack', "Go Back"),
 			f1: true,
 			category,
-			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+			precondition: POSITRON_VIEWER_HAS_CONTENT,
 			metadata: {
 				description: nls.localize('positronViewerGoBack.description', "Go back to the previous page in the Viewer."),
 				agentCompatible: true,
@@ -77,19 +77,19 @@ export class PositronViewerGoBackAction extends ViewerPreviewAction {
 		});
 	}
 
-	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
-		preview.surface.goBack();
+	run(accessor: ServicesAccessor): void {
+		accessor.get(IPositronPreviewService).goBack();
 	}
 }
 
-export class PositronViewerGoForwardAction extends ViewerPreviewAction {
+export class PositronViewerGoForwardAction extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.positronPreview.goForward',
 			title: nls.localize2('positronViewerGoForward', "Go Forward"),
 			f1: true,
 			category,
-			precondition: POSITRON_VIEWER_HAS_ADDRESS,
+			precondition: POSITRON_VIEWER_HAS_CONTENT,
 			metadata: {
 				description: nls.localize('positronViewerGoForward.description', "Go forward to the next page in the Viewer."),
 				agentCompatible: true,
@@ -97,8 +97,8 @@ export class PositronViewerGoForwardAction extends ViewerPreviewAction {
 		});
 	}
 
-	protected runOnPreview(_accessor: ServicesAccessor, preview: PreviewWebview): void {
-		preview.surface.goForward();
+	run(accessor: ServicesAccessor): void {
+		accessor.get(IPositronPreviewService).goForward();
 	}
 }
 

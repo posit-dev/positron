@@ -185,8 +185,6 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 			return;
 		}
 
-		this._positronPreviewService.activePreviewWebviewId = preview.previewId;
-
 		// Raise the preview panel
 		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, preserveFocus);
 	}

@@ -12,7 +12,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronPreview } from '../../browser/positronPreview.js';
 import { PositronOpenUrlInViewerAction } from '../../browser/positronPreviewActions.js';
-import { IPositronPreviewService, PreviewOpenTarget } from '../../browser/positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, PreviewOpenTarget } from '../../browser/positronPreviewSevice.js';
 import { PositronPreviewViewPane } from '../../browser/positronPreviewView.js';
 import { IPreviewSurface } from '../../browser/previewSurface.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
@@ -24,6 +24,10 @@ describe('PositronPreview stop button', () => {
 		.stub(IPositronPreviewService, {
 			get activePreviewWebview() { return preview; },
 			onDidChangeActivePreviewWebview: Event.None,
+			onDidChangeNavigationState: Event.None,
+			canGoBack: false,
+			canGoForward: false,
+			getDefaultOpenTarget: () => PreviewOpenTarget.Browser,
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -39,6 +43,9 @@ describe('PositronPreview stop button', () => {
 
 	beforeEach(() => {
 		preview = ctx.disposables.add(new PreviewWebview('test.view', 'preview-1', 'Test', stubInterface<IPreviewSurface>({
+			kind: 'webview',
+			title: undefined,
+			onDidLoad: Event.None,
 			release: () => { },
 			dispose: () => { },
 		})));
@@ -75,6 +82,9 @@ describe('PositronPreview empty state', () => {
 		.stub(IPositronPreviewService, {
 			activePreviewWebview: undefined,
 			onDidChangeActivePreviewWebview: Event.None,
+			onDidChangeNavigationState: Event.None,
+			canGoBack: false,
+			canGoForward: false,
 			getDefaultOpenTarget: () => PreviewOpenTarget.Browser,
 		})
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
@@ -97,5 +107,56 @@ describe('PositronPreview empty state', () => {
 		await user.type(screen.getByRole('textbox', { name: 'The current URL' }), 'localhost:8080{Enter}');
 
 		expect(ctx.get(ICommandService).executeCommand).toHaveBeenCalledWith(PositronOpenUrlInViewerAction.ID, 'localhost:8080');
+	});
+});
+
+describe('PositronPreview content without a URL', () => {
+	let preview: PreviewWebview;
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronPreviewService, {
+			get activePreviewWebview() { return preview; },
+			onDidChangeActivePreviewWebview: Event.None,
+			onDidChangeNavigationState: Event.None,
+			canGoBack: true,
+			canGoForward: false,
+			goBack: vi.fn(),
+			getDefaultOpenTarget: () => PreviewOpenTarget.Browser,
+		})
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	const container = stubInterface<PositronPreviewViewPane>({
+		width: 400,
+		height: 300,
+		containerVisible: false,
+		onSizeChanged: Event.None,
+		onPositionChanged: Event.None,
+		onVisibilityChanged: Event.None,
+	});
+
+	beforeEach(() => {
+		preview = ctx.disposables.add(new PreviewWebview(POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, 'widget-1', 'R 4.5.0', stubInterface<IPreviewSurface>({
+			kind: 'webview',
+			title: undefined,
+			onDidLoad: Event.None,
+			release: () => { },
+			dispose: () => { },
+		})));
+	});
+
+	it('shows its title in a URL bar that can\'t be edited, and goes back through the Viewer\'s history', async () => {
+		const user = userEvent.setup();
+		rtl.render(<PositronPreview reactComponentContainer={container} />);
+		const bar = screen.getByRole('textbox', { name: 'The content showing' });
+
+		await user.click(screen.getByRole('button', { name: 'Go back' }));
+
+		expect({
+			title: (bar as HTMLInputElement).value,
+			disabled: (bar as HTMLInputElement).disabled,
+			forwardDisabled: screen.getByRole('button', { name: 'Go forward' }).getAttribute('aria-disabled'),
+			wentBack: vi.mocked(ctx.get(IPositronPreviewService).goBack).mock.calls.length,
+		}).toEqual({ title: 'R 4.5.0 output', disabled: true, forwardDisabled: 'true', wentBack: 1 });
 	});
 });

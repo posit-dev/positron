@@ -3,6 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference types="@testing-library/jest-dom/vitest" />
+
+// eslint-disable-next-line local/code-import-patterns -- Semantic DOM queries for the Viewer's native error state.
+import { within } from '@testing-library/dom';
+// eslint-disable-next-line local/code-import-patterns -- User events exercise the error state's Reload button.
+import { userEvent } from '@testing-library/user-event';
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -142,16 +148,21 @@ describe('PreviewBrowserView', () => {
 		expect({ created, calls }).toEqual({ created: ['http://localhost:8000/a'], calls: ['load http://localhost:8000/b'] });
 	});
 
-	it('creates the view again on reload when its first page failed to load', async () => {
+	it('shows why its first page failed to load, and creates the view again from Reload', async () => {
 		const surface = createSurface();
+		const anchor = createAnchor();
+		surface.claim(undefined, anchor);
 		await views[0].error(new Error('ERR_CONNECTION_REFUSED'));
 		const loaded = vi.fn();
 		ctx.disposables.add(surface.onDidLoad(loaded));
 
-		surface.reload();
+		expect(within(anchor).getByRole('alert')).toHaveTextContent('Failed to Load PageERR_CONNECTION_REFUSEDURL: http://localhost:8000/Reload');
+
+		await userEvent.click(within(anchor).getByRole('button', { name: 'Reload' }));
 		await views[1].complete(createModel().model);
 
 		expect({ created, loaded: loaded.mock.calls }).toEqual({ created: ['http://localhost:8000/', 'http://localhost:8000/'], loaded: [['App']] });
+		expect(within(anchor).queryByRole('alert')).not.toBeInTheDocument();
 	});
 
 	it('hides the view when released and shows it again when claimed', async () => {

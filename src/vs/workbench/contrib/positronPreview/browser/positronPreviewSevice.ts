@@ -122,12 +122,6 @@ export interface IPositronPreviewService {
 	onDidChangeActivePreviewWebview: Event<string>;
 
 	/**
-	 * Returns the list of preview pane items currently being displayed in the
-	 * preview pane.
-	 */
-	get previewWebviews(): PreviewWebview[];
-
-	/**
 	 * Clears all the previews from the preview pane.
 	 */
 	clearAllPreviews(): void;
@@ -140,7 +134,25 @@ export interface IPositronPreviewService {
 
 	get activePreviewWebviewId(): string;
 
-	set activePreviewWebviewId(id: string);
+	/**
+	 * Whether back or forward goes anywhere: within the active preview's
+	 * page, or to the preview before or after it in the Viewer's history.
+	 */
+	readonly canGoBack: boolean;
+	readonly canGoForward: boolean;
+
+	/** Fires when `canGoBack` or `canGoForward` may have changed. */
+	readonly onDidChangeNavigationState: Event<void>;
+
+	/**
+	 * Goes back within the active preview's page, or when it can't, to the
+	 * previous preview. When the page can't tell whether it can go back (a
+	 * webview), a URL preview always goes back within its page.
+	 */
+	goBack(): void;
+
+	/** Goes forward, as `goBack` goes back. */
+	goForward(): void;
 
 	openEditor(uri: URI, title?: string): Promise<void>;
 

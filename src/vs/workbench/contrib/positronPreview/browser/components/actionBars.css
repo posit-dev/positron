@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -40,4 +40,10 @@ bar to fill the center of the toolbar.
 
 .preview-action-bar .action-bar-button-icon.interrupt::before {
 	color: var(--vscode-errorForeground);
+}
+
+.preview-action-bar .url-bar:disabled {
+	color: var(--vscode-disabledForeground);
+	background-color: transparent;
+	text-overflow: ellipsis;
 }

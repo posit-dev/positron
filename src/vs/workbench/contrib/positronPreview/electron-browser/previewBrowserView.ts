@@ -7,6 +7,9 @@ import './media/previewBrowserView.css';
 import { getZoomFactor, onDidChangeZoomLevel } from '../../../../base/browser/browser.js';
 import { $, DisposableResizeObserver, getActiveElement, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
 import type { CodeWindow } from '../../../../base/browser/window.js';
+import { Button } from '../../../../base/browser/ui/button/button.js';
+import { renderIcon } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -14,7 +17,8 @@ import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
-import { BrowserElementSelectionMode, IBrowserViewService, IElementData, ipcBrowserViewChannelName } from '../../../../platform/browserView/common/browserView.js';
+import { BrowserElementSelectionMode, IBrowserViewLoadError, IBrowserViewService, IElementData, ipcBrowserViewChannelName } from '../../../../platform/browserView/common/browserView.js';
+import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
@@ -60,7 +64,8 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 	private readonly _wrapper = $('.browser-container-wrapper');
 	private readonly _container = $('.browser-container');
 	private readonly _placeholder = $('.browser-placeholder-contents');
-	private readonly _message = $('.positron-preview-browser-message');
+	private readonly _error = $('.browser-error-container');
+	private readonly _errorStore = this._register(new MutableDisposable<DisposableStore>());
 
 	/** Holds the find widget, above the page, which shrinks to make room for it. */
 	private readonly _findWrapper = $('.browser-find-widget-wrapper');
@@ -104,13 +109,22 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			}
 		}));
 		this._container.tabIndex = 0;
-		this._message.setAttribute('role', 'status');
-		this._placeholder.appendChild(this._message);
+		this._error.setAttribute('role', 'alert');
+		this._error.style.display = 'none';
+		this._placeholder.appendChild(this._error);
 		this._container.appendChild(this._placeholder);
 		this._wrapper.appendChild(this._container);
 		this._root.append(this._findWrapper, this._wrapper);
 
 		this._register(onDidChangeZoomLevel(() => this.layout()));
+	}
+
+	get canGoBack(): boolean {
+		return this._model?.canGoBack ?? false;
+	}
+
+	get canGoForward(): boolean {
+		return this._model?.canGoForward ?? false;
 	}
 
 	get title(): string | undefined {
@@ -133,7 +147,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			model = await this._browserViewWorkbenchService.createExternalBrowserView(uri.toString(true));
 		} catch (error) {
 			this._creating = false;
-			this.showError(error instanceof Error ? error.message : String(error));
+			this.showError({ url: uri.toString(true), errorDescription: error instanceof Error ? error.message : String(error) });
 			if (this._uri !== uri) {
 				return this.createView();
 			}
@@ -161,7 +175,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this._model = model;
 		this._modelStore.add(model.onDidNavigate(e => this._onDidNavigate.fire(URI.parse(e.url))));
 		this._modelStore.add(model.onDidChangeLoadingState(e => {
-			this.showError(e.error?.errorDescription);
+			this.showError(e.error);
 			if (!e.loading && !e.error) {
 				this._onDidLoad.fire(pageTitle(model));
 			}
@@ -183,10 +197,39 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this.layout();
 	}
 
-	private showError(description: string | undefined): void {
-		this._message.textContent = description ?
-			localize('positron.viewer.pageFailed', "The page could not be loaded: {0}", description) :
-			'';
+	/**
+	 * Shows why the page failed to load, with a button to try again, in
+	 * place of the page; or clears that when there's no error.
+	 */
+	private showError(error: Pick<IBrowserViewLoadError, 'url' | 'errorDescription'> & { errorCode?: number } | undefined): void {
+		this._errorStore.clear();
+		this._error.replaceChildren();
+		this._error.style.display = error ? '' : 'none';
+		if (!error) {
+			return;
+		}
+
+		const icon = $('.browser-error-icon');
+		icon.appendChild(renderIcon(Codicon.globe));
+		const title = $('.browser-error-title');
+		title.textContent = localize('positron.viewer.pageFailed', "Failed to Load Page");
+		const detail = $('.browser-error-detail');
+		detail.textContent = error.errorCode === undefined ? error.errorDescription : `${error.errorDescription} (${error.errorCode})`;
+		const url = $('.browser-error-detail');
+		const urlLabel = $('strong');
+		urlLabel.textContent = localize('positron.viewer.pageFailedUrl', "URL:");
+		const urlValue = $('code');
+		urlValue.textContent = error.url;
+		url.append(urlLabel, ' ', urlValue);
+		const actions = $('.positron-preview-browser-error-actions');
+		const store = this._errorStore.value = new DisposableStore();
+		const button = store.add(new Button(actions, defaultButtonStyles));
+		button.label = localize('positron.viewer.reload', "Reload");
+		store.add(button.onDidClick(() => this.reload()));
+
+		const content = $('.browser-error-content');
+		content.append(icon, title, detail, url, actions);
+		this._error.appendChild(content);
 	}
 
 	loadUri(uri: URI): void {
@@ -247,10 +290,9 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		}
 		this._hostWindow = targetWindow;
 		// The old host's elements go with it.
-		this._placeholder.replaceChildren(this._message);
 		const host = this._instantiationService.createInstance(WebContentsViewHost, targetWindow, () => focusWebContentsViewContainer(this._container));
 		this._host.value = host;
-		this._placeholder.append(host.screenshotElement, host.pauseElement);
+		this._placeholder.replaceChildren(host.screenshotElement, host.pauseElement, this._error);
 		host.onContainerCreated(this._container);
 		host.setModel(this._model);
 	}

@@ -52,6 +52,10 @@ export interface IPreviewSurface extends IDisposable {
 	readonly onDidNavigate: Event<URI>;
 	readonly onDidDispose: Event<void>;
 
+	/** Whether the page can go back or forward, or undefined when the surface can't tell. */
+	readonly canGoBack: boolean | undefined;
+	readonly canGoForward: boolean | undefined;
+
 	loadUri(uri: URI): void;
 	goBack(): void;
 	goForward(): void;

@@ -31,6 +31,9 @@ export class PreviewOverlayWebview extends Disposable implements IPreviewSurface
 	public onDidDispose = this.webview.onDidDispose;
 	public onDidLoad = this.webview.onDidLoad;
 
+	public readonly canGoBack = undefined;
+	public readonly canGoForward = undefined;
+
 	private _title: string | undefined;
 
 	/** The element the webview is laid out over, while claimed. */
