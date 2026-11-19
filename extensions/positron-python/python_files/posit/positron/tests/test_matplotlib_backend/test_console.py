@@ -5,6 +5,7 @@
 
 import base64
 import gc
+import inspect
 import io
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -646,7 +647,7 @@ def test_mpl_pyplot_show_skips_shown_inactive_figures(
 def test_mpl_pyplot_show_updates_edited_inactive_figure(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
-    """An edited figure that isn't active gets an update event from `plt.show()`, not a show."""
+    """An edited figure that isn't active gets its update event but no show from `plt.show()`."""
     shell.run_cell("fig1 = plt.figure(); fig2 = plt.figure(); plt.show()").raise_error()
     plot_comms = [_plot_comm(plots_service, i) for i in range(2)]
     for comm in plot_comms:
@@ -656,6 +657,25 @@ def test_mpl_pyplot_show_updates_edited_inactive_figure(
     shell.run_cell("fig1.gca().plot([1, 2]); plt.show()").raise_error()
 
     assert [_event_methods(comm) for comm in plot_comms] == [["update"], ["show"]]
+
+
+def test_mpl_pyplot_show_updates_edited_inactive_figure_ioff(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Outside interactive mode, `plt.show()` sends the update for an edited inactive figure."""
+    with plt.ioff():
+        shell.run_cell("fig1 = plt.figure(); fig2 = plt.figure(); plt.show()").raise_error()
+        plot_comms = [_plot_comm(plots_service, i) for i in range(2)]
+        for comm in plot_comms:
+            comm.messages.clear()
+            _do_render(comm)
+
+        # Nothing redraws the edited figure until `plt.show()`.
+        shell.run_cell("fig1.gca().plot([1, 2])").raise_error()
+        assert [_event_methods(comm) for comm in plot_comms] == [[], []]
+
+        shell.run_cell("plt.show()").raise_error()
+        assert [_event_methods(comm) for comm in plot_comms] == [["update"], ["show"]]
 
 
 def test_mpl_pyplot_show_warns_for_non_gui_figure(
@@ -673,9 +693,12 @@ def test_mpl_pyplot_show_warns_for_non_gui_figure(
     plt.switch_backend(Backend.CONSOLE.full_name)
     plot_comm = _create_mpl_plot(shell, plots_service)
 
-    with pytest.warns(UserWarning, match="non-interactive"):
+    with pytest.warns(UserWarning, match="non-interactive") as record:
         shell.run_cell("plt.show()").raise_error()
 
+    # The kernel logs warnings from Positron files instead of showing them in the console.
+    positron_dir = Path(inspect.getfile(PositronIPyKernel)).parent
+    assert not Path(record[0].filename).is_relative_to(positron_dir)
     assert _event_methods(plot_comm) == ["show"]
 
 
