@@ -366,7 +366,44 @@ function pathToModule(p: string): string {
  */
 async function getAppName(document: vscode.TextDocument, className: string): Promise<string | undefined> {
     const text = document.getText();
-    let appName = text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
+    // Inspect assignments in source order, including module-level blocks. This is
+    // a line-based heuristic, not a Python parser (e.g. triple-quoted examples).
+    const annotatedAssignment = new RegExp(
+        String.raw`^(?<name>[a-zA-Z_][a-zA-Z0-9_]*)[ \t]*:[ \t]*${className}[ \t]*=[ \t]*[^#=\s][^\r\n#]*`,
+    );
+    const directConstruction = new RegExp(String.raw`^(?<name>[a-zA-Z_][a-zA-Z0-9_]*)[ \t]*=[ \t]*${className}\(`);
+    let appName: string | undefined;
+    let localScopeIndent: number | undefined;
+    let inLocalScopeHeader = false;
+    for (const line of text.split(/\r?\n/)) {
+        const statement = line.trimStart();
+        if (!statement || statement.startsWith('#')) {
+            continue;
+        }
+        if (inLocalScopeHeader) {
+            inLocalScopeHeader = !/:\s*(?:#.*)?$/.test(statement);
+            continue;
+        }
+        const indent = line.length - statement.length;
+        if (localScopeIndent !== undefined && indent <= localScopeIndent) {
+            localScopeIndent = undefined;
+        }
+        if (
+            localScopeIndent === undefined &&
+            /^(?:async[ \t]+def|def|class)[ \t]+[a-zA-Z_][a-zA-Z0-9_]*/.test(statement)
+        ) {
+            localScopeIndent = indent;
+            inLocalScopeHeader = !/:\s*(?:#.*)?$/.test(statement);
+            continue;
+        }
+        if (localScopeIndent !== undefined) {
+            continue;
+        }
+        appName = annotatedAssignment.exec(statement)?.groups?.name ?? directConstruction.exec(statement)?.groups?.name;
+        if (appName) {
+            break;
+        }
+    }
     if (!appName) {
         appName = await vscode.window.showInputBox({
             prompt: vscode.l10n.t(

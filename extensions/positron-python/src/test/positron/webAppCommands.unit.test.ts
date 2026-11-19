@@ -38,6 +38,8 @@ suite('Web app commands', () => {
     let isFastAPICliInstalled: boolean;
 
     const originalOpenTextDocument = vscode.workspace.openTextDocument;
+    const originalShowInputBox = vscode.window.showInputBox;
+    let input: sinon.SinonStub;
 
     /** URIs passed to `vscode.workspace.openTextDocument`, in call order. */
     let openedUris: vscode.Uri[];
@@ -52,6 +54,8 @@ suite('Web app commands', () => {
         // 2. `debugApplication` that records the last `options` that it was called with.
         runAppOptions = undefined;
         debugAppOptions = undefined;
+        input = sinon.stub();
+        vscode.window.showInputBox = input;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
                 assert.ok(!runAppOptions, 'runApplication called more than once');
@@ -143,6 +147,7 @@ suite('Web app commands', () => {
         // `vscode` is mocked once per process and shared with every other unit
         // test suite, so put the real function back rather than leaking a stub.
         vscode.workspace.openTextDocument = originalOpenTextDocument;
+        vscode.window.showInputBox = originalShowInputBox;
         commands.clear();
         disposables.forEach((d) => d.dispose());
         disposables.splice(0, disposables.length);
@@ -213,6 +218,92 @@ suite('Web app commands', () => {
             { command: runtimePath, args: ['-m', 'uvicorn', '--reload', `${path.parse(documentPath).name}:app`] },
             { documentText: 'app = FastAPI()' },
         );
+    });
+
+    test('Exec FastAPI in terminal - annotated factory app name', async () => {
+        isFastAPICliInstalled = false;
+        await verifyRunAppCommand(
+            Commands.Exec_FastAPI_In_Terminal,
+            { command: runtimePath, args: ['-m', 'uvicorn', '--reload', 'file:app'] },
+            { documentText: 'from fastapi import FastAPI\napp: FastAPI = create_app(title="My API")' },
+        );
+        assert.strictEqual(input.callCount, 0);
+    });
+
+    test('Exec FastAPI in terminal - annotated direct construction uses variable name', async () => {
+        isFastAPICliInstalled = false;
+        await verifyRunAppCommand(
+            Commands.Exec_FastAPI_In_Terminal,
+            { command: runtimePath, args: ['-m', 'uvicorn', '--reload', 'file:api_server'] },
+            { documentText: 'api_server: FastAPI = FastAPI()' },
+        );
+        assert.strictEqual(input.callCount, 0);
+    });
+
+    for (const [description, documentText, name] of [
+        ['spaced annotation', 'api_server : FastAPI = create_app()', 'api_server'],
+        ['CRLF annotation', 'from fastapi import FastAPI\r\napi_server: FastAPI = create_app()', 'api_server'],
+        ['direct construction before annotation', 'first = FastAPI()\nsecond: FastAPI = create_app()', 'first'],
+        ['annotation before direct construction', 'first: FastAPI = create_app()\nsecond = FastAPI()', 'first'],
+        ['direct construction in module if block', 'if enabled:\n    block_app = FastAPI()', 'block_app'],
+        [
+            'direct construction in module try block',
+            'try:\n    block_app = FastAPI()\nexcept ImportError:\n    pass',
+            'block_app',
+        ],
+        ['annotation in module if block', 'if enabled:\n    block_app: FastAPI = create_app()', 'block_app'],
+        [
+            'module assignment after local function',
+            'def make_app():\n    local: FastAPI = create_app()\napp = FastAPI()',
+            'app',
+        ],
+        [
+            'module annotation after multiline factory signature',
+            "def create_app(\n    title: str = 'My API',\n) -> FastAPI:\n    local_app: FastAPI = FastAPI(title=title)\n    return local_app\napp: FastAPI = create_app()",
+            'app',
+        ],
+    ]) {
+        test(`Exec FastAPI in terminal - ${description}`, async () => {
+            isFastAPICliInstalled = false;
+            await verifyRunAppCommand(
+                Commands.Exec_FastAPI_In_Terminal,
+                { command: runtimePath, args: ['-m', 'uvicorn', '--reload', `file:${name}`] },
+                { documentText },
+            );
+            assert.strictEqual(input.callCount, 0);
+        });
+    }
+
+    for (const [description, documentText] of [
+        ['unannotated factory', 'app = create_app()'],
+        ['comment', '# app: FastAPI = create_app()'],
+        ['quoted example', '"app: FastAPI = create_app()"'],
+        ['declaration without initializer', 'app: FastAPI'],
+        ['assignment without initializer', 'app: FastAPI = # explanation'],
+        ['equality', 'app: FastAPI == create_app()'],
+        ['indented local', 'def make_app():\n    app: FastAPI = create_app()'],
+        ['nested local', 'def make_app():\n    if enabled:\n        app: FastAPI = create_app()'],
+        ['local direct construction', 'def make_app():\n    app = FastAPI()'],
+    ]) {
+        test(`Exec FastAPI in terminal - ${description} prompts`, async () => {
+            isFastAPICliInstalled = false;
+            input.resolves('manual_app');
+            await verifyRunAppCommand(
+                Commands.Exec_FastAPI_In_Terminal,
+                { command: runtimePath, args: ['-m', 'uvicorn', '--reload', 'file:manual_app'] },
+                { documentText },
+            );
+            assert.strictEqual(input.callCount, 1);
+        });
+    }
+
+    test('Exec FastAPI in terminal - CLI installed ignores annotated assignment', async () => {
+        await verifyRunAppCommand(
+            Commands.Exec_FastAPI_In_Terminal,
+            { command: runtimePath, args: ['-m', 'fastapi', 'dev', documentPath] },
+            { documentText: 'api_server: FastAPI = create_app()' },
+        );
+        assert.strictEqual(input.callCount, 0);
     });
 
     test('Exec FastAPI in terminal - fastapi-cli not installed, could not infer app name', async () => {
@@ -339,6 +430,24 @@ suite('Web app commands', () => {
             },
             { urlPrefix },
         );
+    });
+
+    test('Debug FastAPI in terminal - annotated factory without CLI', async () => {
+        isFastAPICliInstalled = false;
+        await verifyDebugAppCommand(
+            Commands.Debug_FastAPI_In_Terminal,
+            {
+                type: 'python',
+                name: 'FastAPI',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                module: 'uvicorn',
+                args: ['--reload', 'file:api_server'],
+            },
+            { documentText: 'api_server: FastAPI = create_app()' },
+        );
+        assert.strictEqual(input.callCount, 0);
     });
 
     test('Debug Flask in terminal - without urlPrefix', async () => {
