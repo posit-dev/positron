@@ -133,7 +133,7 @@ const COPY_PROBE = 'PositronCopyProbeToken';
 // tab-indented for hygiene.
 const pythonServerScript = `import http.server, socketserver, threading, webbrowser, tempfile, os, functools
 _dir = tempfile.mkdtemp()
-open(os.path.join(_dir, "index.html"), "w").write('''<title>Page One</title><h1>Page One</h1><p>${COPY_PROBE}</p><button onclick='document.body.append("Marked")'>Mark</button><a href="page2.html">Page two</a>''')
+open(os.path.join(_dir, "index.html"), "w").write('''<title>Page One</title><h1>Page One</h1><p><span>${COPY_PROBE}</span></p><button onclick='document.body.append("Marked")'>Mark</button><a href="page2.html">Page two</a>''')
 open(os.path.join(_dir, "page2.html"), "w").write("<title>Page Two</title><h1>Page Two</h1>")
 _srv = socketserver.TCPServer(("127.0.0.1", 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=_dir))
 threading.Thread(target=_srv.serve_forever, daemon=True).start()

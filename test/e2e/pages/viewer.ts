@@ -97,7 +97,7 @@ export class Viewer {
 	}
 
 	async navigateBack() {
-		await this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Go back' }).click();
+		await this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Go back', exact: true }).click();
 	}
 
 	async clearViewer() {
