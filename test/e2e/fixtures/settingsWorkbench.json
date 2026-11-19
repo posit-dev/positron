@@ -3,6 +3,5 @@
     "security.workspace.trust.enabled": false,
     "security.workspace.trust.banner": "never",
 	"extensions.autoCheckUpdates": true,
-	"extensions.autoUpdate": true,
-	"workbench.editor.useModal": "off"
+	"extensions.autoUpdate": true
 }

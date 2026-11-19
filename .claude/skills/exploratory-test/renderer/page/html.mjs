@@ -634,13 +634,13 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 		.map(e => observedItem(e.issue, e.severity, e.wontFix ? 'Won&rsquo;t fix' : e.duplicate ? 'Duplicate' : kiState(e.issue),
 			[e.linked && `linked to ${changeWord(report)}`, e.matches.length && matched(e.matches)].filter(Boolean).join(' &middot; '), e.rows));
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
-		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
+		+ list('ki-list-fix', `${held.length === 1 ? 'Fix' : 'Fixes'} verified this run`, held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : ki.unmet?.has(i.number) ? `not met: ${escapeHtml(ki.unmet.get(i.number))}` : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
-	const counts = kiCounts(ki, demoted, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
+	const counts = kiCounts(ki, demoted, { fix: n => `${plural(n, 'fix', 'fixes')} verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
 	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Existing issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 

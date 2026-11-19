@@ -24,7 +24,6 @@ import { DisposableMap, IDisposable } from '../../../base/common/lifecycle.js';
 import { WebviewMenuShortcutsTarget, WebviewFrameId, FrameNavigationEvent, WEBVIEW_FRAME_NOT_FOUND_MESSAGE } from '../common/webviewManagerService.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { Schemas } from '../../../base/common/network.js';
-import { DeferredPromise } from '../../../base/common/async.js';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
@@ -169,20 +168,15 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 	// --- Start Positron ---
 
-	// The onFrameNavigated event is fired when a frame in a webview navigates to
-	// a new URL.
+	// Fired when a webview's content frame navigates, to a new document or
+	// within its current one.
 	private readonly _onFrameNavigated = this._register(new Emitter<FrameNavigationEvent>());
 	public onFrameNavigation = this._onFrameNavigated.event;
 
-	// A map of window IDs to disposables for navigation event listeners. We
-	// attach a single listener to each window to capture frame navigation
-	// events. Keyed by the numeric window ID; callers pass a fresh
+	// A map of window IDs to disposables for the listeners attached to each
+	// window. Keyed by the numeric window ID; callers pass a fresh
 	// WebviewWindowId object each call, so the object itself is not a stable key.
 	private readonly _navigationListeners = new Map<number, IDisposable>();
-
-	// A map of pending frame navigations, from the URL of the frame to the
-	// promise that will be resolved when a frame navigates to that URL.
-	private readonly _pendingNavigations = new Map<string, DeferredPromise<WebviewFrameId>>();
 
 	/**
 	 * Captures the contents of the webview in the given window as a PNG image.
@@ -205,13 +199,11 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	/**
-	 * Waits for a frame to be created in a webview.
+	 * Starts reporting navigations of webview content frames in a window.
 	 *
-	 * @param windowId The ID of the window containing the webview
-	 * @param targetUrl The URL of the frame to await creation of
-	 * @returns A unique identifier for the frame
+	 * @param windowId The ID of the window containing the webviews
 	 */
-	public async awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId> {
+	public async trackFrameNavigation(windowId: WebviewWindowId): Promise<void> {
 		// Get the window containing the webview
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
 		if (!window?.win) {
@@ -221,19 +213,26 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		// If we aren't already listening for navigation events on this window,
 		// set up a listener to capture them
 		if (!this._navigationListeners.has(windowId.windowId)) {
-			// Event handler for navigation events
-			const onNavigated = (_event: any,
-				url: string,
-				_httpResponseCode: number,
-				_httpStatusText: string,
-				_isMainFrame: boolean,
-				frameProcessId: number,
-				frameRoutingId: number) => {
-				const frameTreeNodeId = electron.webFrameMain.fromId(frameProcessId, frameRoutingId)?.frameTreeNodeId;
-				const frameId = { processId: frameProcessId, routingId: frameRoutingId, frameTreeNodeId };
-				this.onFrameNavigated(frameId, url);
+			const onNavigated = (_event: Electron.Event, url: string, _httpResponseCode: number, _httpStatusText: string,
+				_isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+				this.onFrameNavigated(frameProcessId, frameRoutingId, url, false, false);
+			};
+			const onNavigatedInPage = (_event: Electron.Event, url: string, _isMainFrame: boolean,
+				frameProcessId: number, frameRoutingId: number) => {
+				this.onFrameNavigated(frameProcessId, frameRoutingId, url, true, false);
+			};
+			// A frame that fails to load shows an error page without firing
+			// did-frame-navigate. ERR_ABORTED (-3) means the load was cancelled,
+			// e.g. by a newer navigation, so the frame didn't move.
+			const onFailedLoad = (_event: Electron.Event, errorCode: number, _errorDescription: string, url: string,
+				isMainFrame: boolean, frameProcessId: number, frameRoutingId: number) => {
+				if (!isMainFrame && errorCode !== -3) {
+					this.onFrameNavigated(frameProcessId, frameRoutingId, url, false, true);
+				}
 			};
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
+			window.win!.webContents.on('did-navigate-in-page', onNavigatedInPage);
+			window.win!.webContents.on('did-fail-load', onFailedLoad);
 
 			// Show a native context menu for externally-hosted (cross-origin)
 			// Viewer content, whose clipboard actions can't go through the
@@ -255,6 +254,8 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			const disposable = {
 				dispose: () => {
 					window.win!.webContents.off('did-frame-navigate', onNavigated);
+					window.win!.webContents.off('did-navigate-in-page', onNavigatedInPage);
+					window.win!.webContents.off('did-fail-load', onFailedLoad);
 					window.win!.webContents.off('context-menu', onContextMenu);
 					window.win!.webContents.off('before-input-event', onBeforeInput);
 				}
@@ -265,12 +266,6 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			// disposed
 			this._register(disposable);
 		}
-
-		// Create a new deferred promise; it will be resolved when the frame
-		// navigates to the target URL.
-		const deferred = new DeferredPromise<WebviewFrameId>();
-		this._pendingNavigations.set(targetUrl, deferred);
-		return deferred.p;
 	}
 
 	/**
@@ -435,20 +430,25 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	/**
-	 * Handles a frame navigation event.
-	 * @param frameId The ID of the frame that navigated
-	 * @param url The URL to which the frame navigated
+	 * Reports a navigation or failed load if the frame is a webview's content
+	 * frame: the direct child of a webview's host frame, named after the webview.
+	 * Frames nested inside the content, and the content frames of webviews
+	 * that write their own HTML, are not reported.
 	 */
-	private onFrameNavigated(frameId: WebviewFrameId, url: string): void {
-		this._onFrameNavigated.fire({ frameId, url });
-
-		// Check for any pending navigations that match this URL; if we find
-		// any, complete them
-		const deferred = this._pendingNavigations.get(url);
-		if (deferred) {
-			deferred.complete(frameId);
-			this._pendingNavigations.delete(url);
+	private onFrameNavigated(processId: number, routingId: number, url: string, isSameDocument: boolean, isErrorPage: boolean): void {
+		const frame = electron.webFrameMain.fromId(processId, routingId);
+		const host = frame?.parent;
+		const webviewPrefix = `${Schemas.vscodeWebview}://`;
+		if (!frame || !host?.url.startsWith(webviewPrefix) || host.parent?.url.startsWith(webviewPrefix) || frame.url.startsWith(webviewPrefix)) {
+			return;
 		}
+		this._onFrameNavigated.fire({
+			webviewId: host.name,
+			frameId: { processId, routingId, frameTreeNodeId: frame.frameTreeNodeId },
+			url,
+			isSameDocument,
+			isErrorPage,
+		});
 	}
 
 	// --- End Positron ---
