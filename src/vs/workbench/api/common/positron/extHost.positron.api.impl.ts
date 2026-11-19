@@ -320,11 +320,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				languageId: string,
 				provider: positron.ExecutionSessionProvider): vscode.Disposable {
 				return extHostLanguageRuntime.registerExecutionSessionProvider(languageId, async (documentUri, token) => {
-					// A document the extension host does not know (for example, one closed
-					// since the code was sent) has nothing to choose by, so the usual lookup
-					// applies.
-					const document = extHostDocuments.getDocumentData(documentUri)?.document;
-					if (!document) {
+					// Loaded if the extension host does not have it, for example because it was
+					// closed after the code was sent. One that cannot be loaded has nothing to
+					// choose by, so the usual lookup applies.
+					let document: vscode.TextDocument;
+					try {
+						document = (extHostDocuments.getDocumentData(documentUri)
+							?? await extHostDocuments.ensureDocumentData(documentUri)).document;
+					} catch {
 						return undefined;
 					}
 					return (await provider.provideSession(document, token)) ?? undefined;

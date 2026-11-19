@@ -6,18 +6,18 @@
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer';
+import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer } from './analyzer';
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, SessionOutcome, StatementRunner } from './execution';
+import { errorMessage, GGSQL_EXTENSION_ID, NotRunOutcome, positronExecutionApi, SessionOutcome, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
 import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, Donor, EffectiveSelection, resolveSelection } from './selection';
-import { SqlStatementRangeProvider, statementAt } from './statementRange';
+import { SqlStatementRangeProvider } from './statementRange';
 import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explainDataConnectionsOff, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
@@ -38,12 +38,21 @@ const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
 /**
  * The command that runs one statement, from the Command Palette.
  *
- * The keys go to the Console's own run commands (Cmd/Ctrl+Enter, Alt+Enter, run to or from the
- * cursor), which send the code to the session the execution session provider chooses; see
- * {@link SqlSession._provideSession}. Both end in a ggsql console on the file's database; see
- * `execution.ts`.
+ * It is the Console's own Execute Code, as are the keys (Cmd/Ctrl+Enter, Alt+Enter, run to or from
+ * the cursor): each finds the code, and the execution session provider chooses where it runs, a
+ * ggsql console on the file's database. See {@link SqlSession._provideSession} and `execution.ts`.
+ * One path, so that runs from the palette and the keys share one queue and one set of messages.
  */
 const RUN_STATEMENT_COMMAND = 'sql.runStatement';
+
+/** The Console's Execute Code, which {@link RUN_STATEMENT_COMMAND} runs. */
+const EXECUTE_CODE_COMMAND = 'workbench.action.positronConsole.executeCode';
+
+/**
+ * How long a session lookup runs before it is shown as a notification the user can cancel. Most
+ * find a session already on the database in well under this; only a start or a connect takes long.
+ */
+const SLOW_LOOKUP_MS = 500;
 
 /** Set when the user asks not to be offered ggsql again; see the `no-runtime` case of a run. */
 const HIDE_GGSQL_INSTALL_KEY = 'sql.hideGgsqlInstallPrompt';
@@ -184,26 +193,16 @@ export class SqlSession implements vscode.Disposable {
 
 	private readonly _selection: ConnectionSelection;
 
-	/** Runs a statement in a ggsql session; see `execution.ts`. */
+	/** Finds or starts the ggsql session on a connection; see `execution.ts`. */
 	private readonly _runner: StatementRunner;
-
-	/**
-	 * Whether a run is already in flight, so that a held-down cmd+enter does not start another.
-	 *
-	 * Starting and connecting a ggsql session takes a moment, and the cursor only moves on once
-	 * that is done -- so without this, a second keypress would see the same cursor position and
-	 * start a second session for the same database. Only that part is guarded: the statement
-	 * itself is queued in the console and not waited for, so nothing the user leaves unanswered
-	 * or a long query holds up the next run.
-	 */
-	private _running = false;
 
 	/**
 	 * The last session lookup for the Console's run commands, so that the next waits for it.
 	 *
-	 * The same reason as {@link _running}: a second keypress while a ggsql session starts must find
-	 * that session on the database, not start another. The Console's commands cannot be dropped
-	 * the way a second `sql.runStatement` is, since each carries code to run, so they queue.
+	 * A second keypress while the first is still choosing a connection must not open a second
+	 * picker, and must run against the connection the first one chose. Each press carries code to
+	 * run, so they queue rather than being dropped. Two lookups that both start a session on the
+	 * same database share it; see `StatementRunner.sessionFor`.
 	 */
 	private _providing: Promise<unknown> = Promise.resolve();
 
@@ -319,7 +318,13 @@ export class SqlSession implements vscode.Disposable {
 				return this.refreshSchema(true);
 			}),
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
-			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND, () => this._runStatement()),
+			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND, () => {
+				// Enabled only for SQL editors, but still reachable by hand.
+				if (activeSqlDocument()) {
+					return vscode.commands.executeCommand(EXECUTE_CODE_COMMAND);
+				}
+				return undefined;
+			}),
 
 			// The item speaks for the file in front of the user, so it changes with the editor.
 			vscode.window.onDidChangeActiveTextEditor(() => {
@@ -700,79 +705,21 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
-	 * Runs the statement under the cursor, or the selection, against the file's data connection.
-	 *
-	 * The work itself is in `execution.ts`; this is the editor's half of it -- finding what to
-	 * run, making sure the file has said what to run it against, moving the cursor on afterwards,
-	 * and saying what happened when nothing did.
-	 */
-	private async _runStatement(): Promise<void> {
-		const editor = activeSqlEditor();
-		if (!editor || this._running) {
-			// The command is enabled only for SQL editors, but it is still reachable by hand.
-			return;
-		}
-
-		const target = this._statementToRun(editor);
-		if (!target) {
-			// An empty file, or a cursor past the last statement. Nothing to run and nothing to
-			// explain: the user can see there is no statement there.
-			return;
-		}
-
-		// The statement offsets are for the text as it is now. Starting a session can take seconds,
-		// in which the user may type on or move to another editor.
-		const version = editor.document.version;
-		this._running = true;
-		try {
-			let connection: ConnectionRef;
-			let outcome: ExecutionOutcome;
-			try {
-				const chosen = await this._connectionToRunAgainst(editor.document);
-				if (!chosen || this._disposed) {
-					return;
-				}
-				connection = chosen;
-				outcome = await this._runner.run(editor.document, connection, target.query);
-			} catch (error) {
-				// Not one of the outcomes below: an API call failing outright, such as Data
-				// Connections being switched off mid-run. Said here rather than left to surface as
-				// the command failing, which tells the user nothing. Not once SQL support is off.
-				this._log.error(`Could not run the statement from ${editor.document.uri.toString(true)}:`
-					+ ` ${errorMessage(error)}`);
-				if (!this._disposed) {
-					void vscode.window.showWarningMessage(vscode.l10n.t(
-						"The statement was not run: {0}",
-						errorMessage(error),
-					));
-				}
-				return;
-			}
-			if (outcome.kind === 'executed') {
-				// Only for a statement the cursor was in. A selection is what the user chose to
-				// run, and moving off it would take their selection away. Nor once the text has
-				// changed or the user has moved on: the cursor would land somewhere unrelated.
-				if (target.advance && editor.document.version === version
-					&& vscode.window.activeTextEditor === editor) {
-					advance(editor, target.statements, target.statement);
-				}
-			} else {
-				this._reportNotRun(outcome, connection);
-			}
-		} finally {
-			this._running = false;
-		}
-	}
-
-	/**
 	 * The session that runs code from a SQL document when the Console runs it: the ggsql console
 	 * on the file's database, started and connected first if there is none.
 	 *
 	 * The Console's run commands find the code and run it; this is only where. When there is no
-	 * such session, this says why, as {@link _runStatement} does, and rejects with a cancellation
-	 * so that the Console does not also look for a `sql` runtime and say there is none.
+	 * such session, this says why and declines (rejects with a cancellation), so that the Console
+	 * runs nothing and says nothing more.
+	 *
+	 * Only for SQL files. Positron also asks for `sql` code from other documents, such as a `{sql}`
+	 * cell in a Quarto document; those have no connection of their own to run against here, and
+	 * no status bar to show or change one, so they get the usual session lookup.
 	 */
-	private _provideSession(document: vscode.TextDocument): Promise<string> {
+	private _provideSession(document: vscode.TextDocument): Promise<string | undefined> {
+		if (document.languageId !== 'sql') {
+			return Promise.resolve(undefined);
+		}
 		const result = this._providing.then(() => this._sessionForDocument(document));
 		this._providing = result.then(undefined, () => undefined);
 		return result;
@@ -789,11 +736,14 @@ export class SqlSession implements vscode.Disposable {
 				throw new vscode.CancellationError();
 			}
 			connection = chosen;
-			outcome = await this._runner.sessionFor(connection);
+			outcome = await this._withSlowProgress(connection, this._runner.sessionFor(connection));
 		} catch (error) {
 			if (error instanceof vscode.CancellationError) {
 				throw error;
 			}
+			// Not one of the outcomes below: an API call failing outright, such as Data Connections
+			// being switched off mid-run. Said here rather than left to surface as the command
+			// failing, which tells the user nothing. Not once SQL support is off.
 			this._log.error(`Could not find a ggsql session for ${document.uri.toString(true)}:`
 				+ ` ${errorMessage(error)}`);
 			if (!this._disposed) {
@@ -802,6 +752,11 @@ export class SqlSession implements vscode.Disposable {
 					errorMessage(error),
 				));
 			}
+			throw new vscode.CancellationError();
+		}
+		if (this._disposed) {
+			// SQL support was turned off while the session started. Nothing runs, and there is
+			// nothing to say: the user turned it off.
 			throw new vscode.CancellationError();
 		}
 		if (outcome.kind === 'ready') {
@@ -814,11 +769,40 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
+	 * Waits for a session lookup, showing it as a notification the user can cancel once it has
+	 * taken long enough to need one: starting and connecting a ggsql session takes seconds, and a
+	 * connect can hang on a database that does not answer.
+	 *
+	 * Cancelling declines this run. The lookup itself carries on, so a session it starts is still
+	 * found by the next run rather than started twice.
+	 */
+	private async _withSlowProgress<T>(connection: ConnectionRef, lookup: Promise<T>): Promise<T> {
+		const quick = await Promise.race([
+			lookup.then(value => ({ value })),
+			new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), SLOW_LOOKUP_MS)),
+		]);
+		if (quick) {
+			return quick.value;
+		}
+		return vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t("Connecting a ggsql console to {0}", connection.name),
+			cancellable: true,
+		}, (_progress, token) => new Promise<T>((resolve, reject) => {
+			const cancelled = token.onCancellationRequested(() => {
+				this._log.info(`Running against ${connection.name} was cancelled while its ggsql session started.`);
+				reject(new vscode.CancellationError());
+			});
+			lookup.then(resolve, reject).finally(() => cancelled.dispose());
+		}));
+	}
+
+	/**
 	 * Says why a statement was not run. Never awaited: a notification the user leaves alone must
 	 * not hold up the next run.
 	 */
 	private _reportNotRun(
-		outcome: Exclude<ExecutionOutcome, { kind: 'executed' }>,
+		outcome: NotRunOutcome,
 		connection: ConnectionRef,
 	): void {
 		switch (outcome.kind) {
@@ -902,35 +886,6 @@ export class SqlSession implements vscode.Disposable {
 				));
 				break;
 		}
-	}
-
-	/**
-	 * What cmd+enter runs: the selection if there is one, otherwise the statement at the cursor.
-	 *
-	 * A selection wins for the same reason it does everywhere else in Positron -- the user has
-	 * said exactly what they mean, including when what they mean is half a statement.
-	 */
-	private _statementToRun(editor: vscode.TextEditor): StatementToRun | undefined {
-		if (!editor.selection.isEmpty) {
-			return { query: editor.document.getText(editor.selection), advance: false };
-		}
-
-		const analyzer = this._require();
-		if (!analyzer) {
-			return undefined;
-		}
-		const text = editor.document.getText();
-		const statements = analyzer.statements(text, this._dialectFor(editor.document));
-		const statement = statementAt(statements, editor.document.offsetAt(editor.selection.active));
-		if (!statement) {
-			return undefined;
-		}
-		return {
-			query: text.slice(statement.start, statement.end),
-			advance: true,
-			statements,
-			statement,
-		};
 	}
 
 	/**
@@ -1205,39 +1160,4 @@ function activeSqlDocument(): vscode.TextDocument | undefined {
 function activeSqlEditor(): vscode.TextEditor | undefined {
 	const editor = vscode.window.activeTextEditor;
 	return editor?.document.languageId === 'sql' ? editor : undefined;
-}
-
-/**
- * What one cmd+enter runs, and whether the cursor should move on afterwards.
- *
- * The statements around it travel with it so that advancing does not have to parse the document a
- * second time -- and so that it advances by the same reading of it, which matters for a document
- * the user is still editing.
- */
-type StatementToRun =
-	| { readonly query: string; readonly advance: false }
-	| {
-		readonly query: string;
-		readonly advance: true;
-		readonly statements: readonly StatementSpan[];
-		readonly statement: StatementSpan;
-	};
-
-/**
- * Moves the cursor to the next statement after the one that just ran.
- *
- * To the start of the next one, rather than past the end of this one: what lies between them is
- * blank lines and comments, and leaving the cursor in them would mean the next cmd+enter runs the
- * statement below anyway, one keystroke later. At the last statement the cursor goes to its end,
- * where a further cmd+enter runs it again -- which is what a user pressing it there is asking for.
- */
-function advance(
-	editor: vscode.TextEditor,
-	statements: readonly StatementSpan[],
-	statement: StatementSpan,
-): void {
-	const next = statements.find(candidate => candidate.start > statement.start);
-	const position = editor.document.positionAt(next ? next.start : statement.end);
-	editor.selection = new vscode.Selection(position, position);
-	editor.revealRange(new vscode.Range(position, position));
 }

@@ -14,7 +14,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { CodeAttributionSource, COMPLETENESS_VERIFIED_METADATA_KEY, USER_INITIATED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
-import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
+import { Range } from '../../../../../editor/common/core/range.js';
 import { PositronConsoleService } from '../../browser/positronConsoleService.js';
 import { RuntimeItemPendingInput } from '../../browser/classes/runtimeItemPendingInput.js';
 import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
@@ -408,15 +409,69 @@ describe('PositronConsoleService', () => {
 			expect({ sessionId, runs: enqueueSpy.mock.calls.length }).toEqual({ sessionId: session.sessionId, runs: 1 });
 		});
 
-		it('does not run the code when the provider rejects', async () => {
+		it.each([
+			['declines', () => new ExecutionSessionDeclinedError()],
+			['fails', () => new CancellationError()],
+		])('does not run the code when the provider %s, and passes on why', async (_label, error) => {
 			const { consoleService, session, enqueueSpy } = await startWithConsole();
+			const rejection = error();
 			ctx.disposables.add(consoleService.registerExecutionSessionProvider(session.runtimeMetadata.languageId,
-				{ provideSession: async () => { throw new CancellationError(); } }));
+				{ provideSession: async () => { throw rejection; } }));
 
 			await expect(consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
 				fromDocument, false))
-				.rejects.toBeInstanceOf(CancellationError);
+				.rejects.toBe(rejection);
 			expect(enqueueSpy).not.toHaveBeenCalled();
+		});
+
+		it('asks about the cursor\'s document when the code has no location', async () => {
+			// Running to or from the cursor sends no code location.
+			const { consoleService, session } = await startWithConsole();
+			const provideSession = vi.fn(async () => session.sessionId);
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider('sql', { provideSession }));
+
+			await consoleService.executeCode('sql', undefined, 'SELECT 1', {
+				source: CodeAttributionSource.Script,
+				metadata: { cursorLocation: { uri: documentUri, range: new Range(1, 1, 1, 1) } },
+			}, false);
+
+			expect(provideSession.mock.calls).toEqual([[documentUri]]);
+		});
+
+		it('declines empty code without asking the provider', async () => {
+			// Pressing Cmd+Enter on the blank lines after the last statement: there is nothing to
+			// run, and asking could put up a connection picker for nothing.
+			const { consoleService, enqueueSpy } = await startWithConsole();
+			const provideSession = vi.fn(async () => undefined);
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider('sql', { provideSession }));
+
+			await expect(consoleService.executeCode('sql', undefined, '  ', fromDocument, false))
+				.rejects.toBeInstanceOf(ExecutionSessionDeclinedError);
+			expect({ asked: provideSession.mock.calls.length, runs: enqueueSpy.mock.calls.length }).toEqual({ asked: 0, runs: 0 });
+		});
+
+		it('uses the usual lookup when the provider chooses a session with no console', async () => {
+			const { consoleService, session, enqueueSpy } = await startWithConsole();
+			ctx.disposables.add(consoleService.registerExecutionSessionProvider(session.runtimeMetadata.languageId,
+				{ provideSession: async () => 'no-such-session' }));
+
+			const sessionId = await consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1',
+				fromDocument, false);
+
+			expect({ sessionId, runs: enqueueSpy.mock.calls.length }).toEqual({ sessionId: session.sessionId, runs: 1 });
+		});
+
+		it('ignores a code location that is not a URI, for a language with no provider', async () => {
+			// An extension can pass anything as attribution metadata. Only a provider reads the
+			// location, so code in other languages runs as before.
+			const { consoleService, session, enqueueSpy } = await startWithConsole();
+
+			const sessionId = await consoleService.executeCode(session.runtimeMetadata.languageId, undefined, '1', {
+				source: CodeAttributionSource.Extension,
+				metadata: { codeLocation: { uri: 'file:///not/a/uri/object.sql' } },
+			}, false);
+
+			expect({ sessionId, runs: enqueueSpy.mock.calls.length }).toEqual({ sessionId: session.sessionId, runs: 1 });
 		});
 
 		it('stops asking a provider once it is disposed', async () => {

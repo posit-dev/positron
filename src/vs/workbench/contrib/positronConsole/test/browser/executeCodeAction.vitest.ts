@@ -24,13 +24,15 @@ import { TestNotificationService } from '../../../../../platform/notification/te
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { IDebugService } from '../../../debug/common/debug.js';
 import { registerPositronConsoleActions } from '../../browser/positronConsoleActions.js';
 import { IEditorCodeSubmissionService, IStatementRangeDetection } from '../../browser/editorCodeSubmission/editorCodeSubmissionService.js';
 
 const EXECUTE_CODE_COMMAND_ID = 'workbench.action.positronConsole.executeCode';
+const EXECUTE_BEFORE_CURSOR_COMMAND_ID = 'workbench.action.positronConsole.executeCodeBeforeCursor';
+const EXECUTE_AFTER_CURSOR_COMMAND_ID = 'workbench.action.positronConsole.executeCodeAfterCursor';
 
 // Register the Console actions once so that the Execute Code command exists.
 registerPositronConsoleActions();
@@ -46,12 +48,18 @@ const SQL = [
 	'SELECT 3 AS third_stmt;',
 ].join('\n');
 
+/** Whether the statement range provider finds statements, or leaves the action to run by line. */
+let providerFindsStatements = true;
+
 /**
  * A statement range provider that knows the three statements in `SQL`. A blank
  * line resolves to the statement that follows it.
  */
 const statementRangeProvider: StatementRangeProvider = {
-	provideStatementRange(model: ITextModel, position: Position): IStatementRange {
+	provideStatementRange(model: ITextModel, position: Position): IStatementRange | undefined {
+		if (!providerFindsStatements) {
+			return undefined;
+		}
 		const line = position.lineNumber;
 		const range = line <= 1 ? new Range(1, 1, 1, 24) :
 			line <= 5 ? new Range(3, 1, 5, 17) :
@@ -60,14 +68,17 @@ const statementRangeProvider: StatementRangeProvider = {
 	}
 };
 
-/** A minimal editor that tracks its cursor and selection. */
+/**
+ * A minimal editor that tracks its cursor and selection. Positions are clamped to the
+ * document as the real editor clamps them (column 0 becomes column 1, for example).
+ */
 function createFakeEditor(model: ITextModel, start: Position) {
 	let selection = Selection.fromPositions(start);
 	return stubInterface<IEditor>({
 		getModel: () => model,
 		getPosition: () => selection.getPosition(),
 		getSelection: () => selection,
-		setPosition: (position) => { selection = Selection.fromPositions(Position.lift(position)); },
+		setPosition: (position) => { selection = Selection.fromPositions(model.validatePosition(Position.lift(position))); },
 		setSelection: (s: Selection) => { selection = Selection.liftSelection(s); },
 		revealPositionInCenterIfOutsideViewport: () => { },
 	});
@@ -97,10 +108,18 @@ describe('Execute Code action', () => {
 		})
 		.build();
 
-	async function runExecuteCode(editor: IEditor) {
+	beforeEach(() => {
+		providerFindsStatements = true;
+	});
+
+	async function runCommand(commandId: string, editor: IEditor) {
 		editorService.activeTextEditorControl = editor;
-		const handler = CommandsRegistry.getCommand(EXECUTE_CODE_COMMAND_ID)!.handler;
+		const handler = CommandsRegistry.getCommand(commandId)!.handler;
 		return ctx.instantiationService.invokeFunction(handler, {});
+	}
+
+	function runExecuteCode(editor: IEditor) {
+		return runCommand(EXECUTE_CODE_COMMAND_ID, editor);
 	}
 
 	it('moves the cursor to the next statement after the code runs', async () => {
@@ -117,7 +136,7 @@ describe('Execute Code action', () => {
 	it('leaves the cursor where it was when the execution session provider declines', async () => {
 		const model = ctx.disposables.add(createTextModel(SQL));
 		const editor = createFakeEditor(model, new Position(1, 1));
-		executeCode.mockRejectedValue(new CancellationError());
+		executeCode.mockRejectedValue(new ExecutionSessionDeclinedError());
 
 		const nextPosition = await runExecuteCode(editor);
 
@@ -131,11 +150,59 @@ describe('Execute Code action', () => {
 		executeCode.mockImplementation(async () => {
 			// The user moves the cursor while the provider waits for a connection.
 			editor.setPosition(new Position(7, 1));
-			throw new CancellationError();
+			throw new ExecutionSessionDeclinedError();
 		});
 
 		await runExecuteCode(editor);
 
 		expect(editor.getPosition()).toEqual(new Position(7, 1));
+	});
+	it('puts the cursor back after a decline when it ran a line rather than a statement', async () => {
+		// The line-based advance moves to column 0, which the editor holds as column 1.
+		providerFindsStatements = false;
+		const model = ctx.disposables.add(createTextModel(SQL));
+		const editor = createFakeEditor(model, new Position(3, 1));
+		executeCode.mockRejectedValue(new ExecutionSessionDeclinedError());
+
+		await runExecuteCode(editor);
+
+		expect(editor.getPosition()).toEqual(new Position(3, 1));
+	});
+
+	it('takes back the line the advance added at the end of the document when declined', async () => {
+		const model = ctx.disposables.add(createTextModel(SQL));
+		const editor = createFakeEditor(model, new Position(7, 1));
+		executeCode.mockRejectedValue(new ExecutionSessionDeclinedError());
+
+		await runExecuteCode(editor);
+
+		expect({ text: model.getValue(), position: editor.getPosition() })
+			.toEqual({ text: SQL, position: new Position(7, 1) });
+	});
+
+	it('does not treat a cancellation from elsewhere as a decline', async () => {
+		// For example, the extension host restarting while the provider was asked: that is a
+		// failure, and the command says so rather than dropping the code silently.
+		const model = ctx.disposables.add(createTextModel(SQL));
+		const editor = createFakeEditor(model, new Position(1, 1));
+		executeCode.mockRejectedValue(new CancellationError());
+
+		await expect(runExecuteCode(editor)).rejects.toBeInstanceOf(CancellationError);
+	});
+
+	it.each([
+		['before', EXECUTE_BEFORE_CURSOR_COMMAND_ID],
+		['after', EXECUTE_AFTER_CURSOR_COMMAND_ID],
+	])('names the document when running the code %s the cursor', async (_label, commandId) => {
+		// These send no code location, so the cursor location is what lets an execution session
+		// provider choose the session for the document.
+		const model = ctx.disposables.add(createTextModel(SQL));
+		const editor = createFakeEditor(model, new Position(3, 1));
+		executeCode.mockResolvedValue('session-1');
+
+		await runCommand(commandId, editor);
+
+		const attribution = executeCode.mock.calls[0][3];
+		expect((attribution.metadata?.cursorLocation as { uri: unknown } | undefined)?.uri).toEqual(model.uri);
 	});
 });

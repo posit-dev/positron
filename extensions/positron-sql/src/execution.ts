@@ -72,12 +72,8 @@ export interface ExecutionApi {
 	/** Starts a new console session for a runtime, resolving to its id. */
 	startSession(runtime: positron.LanguageRuntimeMetadata): Thenable<string>;
 
-	/**
-	 * Executes code in a ggsql session, resolving once it has run.
-	 *
-	 * @param documentUri The file the code came from, if it came from one.
-	 */
-	executeCode(code: string, sessionId: string, documentUri?: vscode.Uri): Thenable<unknown>;
+	/** Executes code in a ggsql session, resolving once it has run. */
+	executeCode(code: string, sessionId: string): Thenable<unknown>;
 }
 
 /** What the Data Connections pane's getConnectionCode command answers with. */
@@ -152,34 +148,27 @@ export function positronExecutionApi(): ExecutionApi {
 		getPreferredRuntime: languageId => positron.runtime.getPreferredRuntime(languageId),
 		startSession: async runtime =>
 			(await positron.runtime.startLanguageRuntime(runtime.runtimeId, runtime.runtimeName)).metadata.sessionId,
-		executeCode: (code, sessionId, documentUri) => positron.runtime.executeCode(
+		executeCode: (code, sessionId) => positron.runtime.executeCode(
 			GGSQL_LANGUAGE_ID,
 			code,
 			// Not focused: the user is typing in the editor, and taking focus to the console on
 			// every run would put their next keystroke somewhere they were not looking.
 			false,
-			// A statement as the user wrote it, which the console runs whole.
+			// The `@connect` line as the driver wrote it, which the console runs whole.
 			false,
 			undefined /* mode */,
 			undefined /* errorBehavior */,
 			undefined /* observer */,
 			sessionId,
-			documentUri,
 		),
 	};
 }
 
 /**
- * How a run ended, in the caller's terms rather than the API's.
- *
- * Every case other than `executed` is something the user needs told, and each is told differently.
+ * Why there is no ggsql session on a file's database to run its code in, in the caller's terms
+ * rather than the API's. Each is something the user needs told, and each is told differently.
  */
-export type ExecutionOutcome =
-	/**
-	 * Sent to a session on the file's database. Its result, or its error, is the console's to show,
-	 * like anything else run there.
-	 */
-	| { readonly kind: 'executed'; readonly sessionId: string }
+export type NotRunOutcome =
 	| { readonly kind: 'no-connection' }
 	| { readonly kind: 'unsupported' }
 	| { readonly kind: 'unavailable'; readonly reason: string }
@@ -219,11 +208,15 @@ export function sessionOn(
 }
 
 /**
- * Runs one SQL statement against the connection its file is written against.
+ * Finds, or starts and connects, the ggsql session that runs a file's SQL on the file's
+ * connection. The Console runs the statement there.
  *
  * See the note at the top of this file for the shape of it.
  */
 export class StatementRunner {
+
+	/** The starts under way, by the `@connect` line of the database each is for. */
+	private readonly _starting = new Map<string, Promise<StartOutcome>>();
 
 	/**
 	 * @param _reportTimeoutMs How long a finished `@connect` line waits for Positron to report the
@@ -236,39 +229,14 @@ export class StatementRunner {
 	) { }
 
 	/**
-	 * @param document The file the statement came from, so the execution is attributed to it.
-	 * @param connection The connection the file is written against.
-	 * @param query The statement to run, as the user wrote it.
-	 */
-	public async run(
-		document: vscode.TextDocument,
-		connection: ConnectionRef,
-		query: string,
-	): Promise<ExecutionOutcome> {
-		const session = await this.sessionFor(connection);
-		if (session.kind !== 'ready') {
-			return session;
-		}
-		const sessionId = session.sessionId;
-
-		this._log.info(`Running a statement from ${document.uri.toString(true)} against`
-			+ ` ${connection.name} in ggsql session ${sessionId}.`);
-		// Not awaited. The statement is the user's and may take as long as it takes; the console
-		// shows its result or its error, and the next Cmd+Enter is queued behind it there rather
-		// than held up here.
-		this._api.executeCode(query, sessionId, document.uri).then(undefined, error => {
-			this._log.warn(`The statement from ${document.uri.toString(true)} failed in ggsql`
-				+ ` session ${sessionId}: ${errorMessage(error)}`);
-		});
-		return { kind: 'executed', sessionId };
-	}
-
-	/**
 	 * The ggsql console session on the connection's database, started and connected first if
 	 * there is none, or why there is none.
 	 *
-	 * This is the part of a run that the Console's own run commands need: they run the code
-	 * themselves once they know the session. See `ExecutionSessionProvider` in session.ts.
+	 * The Console's run commands run the code themselves once they know the session. See
+	 * `SqlSession._provideSession` in session.ts.
+	 *
+	 * A lookup that finds a start already under way for the database waits for that one rather than
+	 * starting another, so two lookups close together never give the database two consoles.
 	 *
 	 * @param connection The connection the file is written against.
 	 */
@@ -283,7 +251,13 @@ export class StatementRunner {
 		if (sessionId) {
 			return { kind: 'ready', sessionId };
 		}
-		const started = await this._startOn(connection, connect.code);
+		let starting = this._starting.get(connect.code);
+		if (!starting) {
+			starting = this._startOn(connection, connect.code)
+				.finally(() => this._starting.delete(connect.code));
+			this._starting.set(connect.code, starting);
+		}
+		const started = await starting;
 		if (started.kind !== 'connected') {
 			return started;
 		}
@@ -392,12 +366,12 @@ export class StatementRunner {
  */
 export type SessionOutcome =
 	| { readonly kind: 'ready'; readonly sessionId: string }
-	| Exclude<ExecutionOutcome, { kind: 'executed' }>;
+	| NotRunOutcome;
 
 /** What {@link StatementRunner._startOn} settled on, or why it did not. */
 type StartOutcome =
 	| { readonly kind: 'connected'; readonly sessionId: string }
-	| Extract<ExecutionOutcome, { kind: 'no-runtime' | 'not-started' | 'connect-failed' | 'exited' }>;
+	| Extract<NotRunOutcome, { kind: 'no-runtime' | 'not-started' | 'connect-failed' | 'exited' }>;
 
 /**
  * What a rejection says, for the log.

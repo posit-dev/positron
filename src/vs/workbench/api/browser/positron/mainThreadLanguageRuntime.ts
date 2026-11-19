@@ -17,7 +17,7 @@ import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILangu
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -2211,11 +2211,14 @@ export class MainThreadLanguageRuntime
 	/**
 	 * Creates the attribution metadata for code an extension requested.
 	 * Caller metadata is merged first so that the caller cannot forge
-	 * Positron's own fields.
+	 * Positron's own fields. The source locations are dropped from it: the
+	 * console routes code by them (see `registerExecutionSessionProvider`),
+	 * and an extension names its document with `documentUri` instead.
 	 */
 	private createAttributionMetadata(extensionId: string, callerSessionId: string | undefined, attributionMetadata?: Record<string, unknown>): Record<string, unknown> {
+		const { codeLocation: _codeLocation, cursorLocation: _cursorLocation, ...callerMetadata } = attributionMetadata ?? {};
 		return {
-			...attributionMetadata,
+			...callerMetadata,
 			extensionId: extensionId,
 			callerSessionId: this.getRelayedFromSessionId(callerSessionId),
 		};
@@ -2793,8 +2796,16 @@ export class MainThreadLanguageRuntime
 	 */
 	$registerExecutionSessionProvider(handle: number, languageId: string): void {
 		const disposable = this._positronConsoleService.registerExecutionSessionProvider(languageId, {
-			provideSession: documentUri =>
-				this._proxy.$provideExecutionSession(handle, documentUri, CancellationToken.None),
+			provideSession: async documentUri => {
+				// A decline comes back as a value rather than a rejection, so that it cannot be
+				// confused with the request itself being cancelled (for example, by the
+				// extension host restarting), which is a failure.
+				const result = await this._proxy.$provideExecutionSession(handle, documentUri, CancellationToken.None);
+				if (result.declined) {
+					throw new ExecutionSessionDeclinedError();
+				}
+				return result.sessionId;
+			},
 		});
 		this._executionSessionProviderDisposables.set(handle, disposable);
 	}

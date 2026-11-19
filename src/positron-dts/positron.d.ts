@@ -2255,12 +2255,18 @@ declare module 'positron' {
 		 * provider can start or connect a session first.
 		 *
 		 * Positron asks the provider when code in the provider's language runs
-		 * from a document in the Console (for example, with Cmd/Ctrl+Enter) and
-		 * no session is named.
+		 * in the Console from a document and no session is named: from the
+		 * editor's run commands (for example, Cmd/Ctrl+Enter), from a Quarto
+		 * document's cells, or from an extension that passes a document to
+		 * `positron.runtime.executeCode`. The document may therefore be in
+		 * another language than the code, such as a Quarto document with a
+		 * cell in the provider's language.
 		 *
-		 * Return undefined to use the usual session lookup for the language.
-		 * Throw a {@link vscode.CancellationError} to stop the execution, when
-		 * the provider has already told the user why the code did not run.
+		 * Return undefined to use the usual session lookup for the language,
+		 * for example for a document the provider does not handle.
+		 * Throw a {@link vscode.CancellationError} to decline: the code does
+		 * not run, and Positron says nothing more, so the provider must already
+		 * have told the user why. Throw any other error to fail the execution.
 		 *
 		 * @param document The document that the code comes from.
 		 * @param token A cancellation token.

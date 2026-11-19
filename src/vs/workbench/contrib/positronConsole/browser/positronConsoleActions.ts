@@ -5,7 +5,6 @@
 
 import { localize } from '../../../../nls.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { isCancellationError } from '../../../../base/common/errors.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -35,7 +34,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IDebugService } from '../../debug/common/debug.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
@@ -149,16 +148,16 @@ async function executeCodeInConsole(
 	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
-	// this will rip focus away from the editor. The code location in the attribution lets an
-	// execution session provider for the language (such as SQL's) choose the session for
-	// this document.
+	// this will rip focus away from the editor. The code and cursor locations in the
+	// attribution let an execution session provider for the language (such as SQL's) choose
+	// the session for this document.
 	let sessionId: string;
 	try {
 		sessionId = await positronConsoleService.executeCode(
 			languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior);
 	} catch (error) {
 		// The execution session provider declined to run the code and has told the user why.
-		if (isCancellationError(error)) {
+		if (error instanceof ExecutionSessionDeclinedError) {
 			return 'declined';
 		}
 		throw error;
@@ -521,6 +520,10 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute.
 			const selection = editor?.getSelection();
 
+			// The advance below can add a line at the end of the document; this lets a decline
+			// take it back off.
+			const lineCountBefore = model.getLineCount();
+
 			// Track the source and range of the executed code (with UTF-8 byte offsets)
 			let codeLocation: ICodeLocation | undefined = undefined;
 
@@ -724,10 +727,15 @@ export function registerPositronConsoleActions() {
 			// The cursor advanced before the code was sent, so the editor stays
 			// responsive while a runtime starts. If an execution session provider
 			// declined to run the code (for example, the user dismissed SQL's
-			// connection picker), nothing ran: put the cursor back, unless the user
-			// moved it in the meantime.
+			// connection picker), nothing ran: undo the advance, unless the user
+			// moved the cursor in the meantime.
 			if (result === 'declined') {
-				if (editor && selection && nextPosition && editor.getPosition()?.equals(nextPosition)) {
+				// Compared as the editor holds it: the line-based advance asks for
+				// column 0, which the editor clamps to column 1.
+				const stillAtNext = !!editor && !!nextPosition &&
+					!!editor.getPosition()?.equals(model.validatePosition(nextPosition));
+				this.removeAmendedNewline(model, lineCountBefore);
+				if (editor && selection && stillAtNext) {
 					editor.setSelection(selection);
 					editor.revealPositionInCenterIfOutsideViewport(selection.getPosition());
 				}
@@ -915,6 +923,22 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+
+		/**
+		 * Takes back the empty line that {@link amendNewlineToEnd} added during this run, if it
+		 * did, so that a run that did nothing leaves the document as it was. Left alone if the
+		 * document has changed in any other way since.
+		 */
+		removeAmendedNewline(model: ITextModel, lineCountBefore: number) {
+			const lastLine = model.getLineCount();
+			if (lastLine !== lineCountBefore + 1 || model.getLineLength(lastLine) !== 0) {
+				return;
+			}
+			model.pushEditOperations([], [{
+				range: new Range(lastLine - 1, model.getLineMaxColumn(lastLine - 1), lastLine, 1),
+				text: null
+			}], () => []);
 		}
 
 		/**

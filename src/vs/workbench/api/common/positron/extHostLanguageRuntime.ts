@@ -20,7 +20,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CancellationError } from '../../../../base/common/errors.js';
+import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -2260,12 +2260,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Get the session that runs code from a document, from an execution session provider.
 	 * Called by the main thread.
+	 *
+	 * A provider declines by throwing a cancellation error. That is answered as a value, so the
+	 * main thread can tell it apart from the request itself being cancelled.
 	 */
-	async $provideExecutionSession(handle: number, documentUri: UriComponents, token: CancellationToken): Promise<string | undefined> {
+	async $provideExecutionSession(handle: number, documentUri: UriComponents, token: CancellationToken): Promise<extHostProtocol.IExecutionSessionProviderResult> {
 		const provideSession = this._executionSessionProviders.get(handle);
 		if (!provideSession) {
-			return undefined;
+			return {};
 		}
-		return provideSession(URI.revive(documentUri), token);
+		try {
+			return { sessionId: await provideSession(URI.revive(documentUri), token) };
+		} catch (error) {
+			if (isCancellationError(error)) {
+				return { declined: true };
+			}
+			throw error;
+		}
 	}
 }

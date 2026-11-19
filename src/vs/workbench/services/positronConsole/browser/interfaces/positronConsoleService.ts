@@ -61,10 +61,26 @@ export interface IConsoleExecutionSessionProvider {
 	 *
 	 * @param documentUri The document that the code comes from.
 	 * @returns The session ID, or undefined to use the usual session lookup for the language.
-	 *   A rejection stops the execution. Reject with a cancellation error when the provider
-	 *   has already told the user why the code did not run.
+	 *   Rejects with {@link ExecutionSessionDeclinedError} when the provider declined to run the
+	 *   code and has told the user why. Any other rejection is a failure.
 	 */
 	provideSession(documentUri: URI): Promise<string | undefined>;
+}
+
+/**
+ * Thrown by {@link IPositronConsoleService.executeCode} when an execution session provider
+ * declined to run the code, for example because the user dismissed its connection picker.
+ * Nothing ran, and the provider has already told the user why.
+ *
+ * A distinct type rather than a cancellation error, so that a cancellation from elsewhere (such
+ * as the extension host restarting mid-request) is not mistaken for a decline and dropped
+ * silently.
+ */
+export class ExecutionSessionDeclinedError extends Error {
+	constructor() {
+		super('The execution session provider declined to run the code.');
+		this.name = 'ExecutionSessionDeclinedError';
+	}
 }
 
 /**
@@ -214,8 +230,8 @@ export interface IPositronConsoleService {
 
 	/**
 	 * Registers a provider that chooses the session that runs code from a document, for one
-	 * language. {@link executeCode} asks it when it gets no session ID and the attribution
-	 * names a code location (`metadata.codeLocation`), passing that location's document.
+	 * language. {@link executeCode} asks it when it gets no session ID and the attribution names
+	 * the document the code came from (`metadata.codeLocation`, or else `metadata.cursorLocation`).
 	 * If more than one provider is registered for a language, the most recent one is used.
 	 *
 	 * @param languageId The language of the code.
