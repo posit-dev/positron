@@ -405,14 +405,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									onChange={e => updateHeight(e.target.value)}
 								/>
 							</>}
-							<Checkbox
-								disabled={enableIntrinsicSize || (lockedRatio === undefined && currentRatio === undefined)}
-								initialChecked={lockedRatio !== undefined}
-								label={localize(
-									'positron.savePlotModalDialog.maintainAspectRatio',
-									"Maintain aspect ratio"
-								)}
-								onChanged={maintainAspectRatio} />
 							{isRasterFormat(format) && <div className='resolution'>
 								<label>{localize('positron.savePlotModalDialog.resolution', "Resolution")}
 									<DropDownListBox
@@ -425,14 +417,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 										title={localize('positron.savePlotModalDialog.resolution', "Resolution")}
 										onSelectionChanged={item => setResolution(item.options.identifier)} />
 								</label>
-								{!enableIntrinsicSize && width.valid && height.valid && <div className='resolution-output'>
-									{localize(
-										'positron.savePlotModalDialog.resolutionOutput',
-										"Output: {0} x {1} px",
-										Math.round(width.value * resolution),
-										Math.round(height.value * resolution),
-									)}
-								</div>}
 							</div>}
 							<div className='error'>
 								<div>
@@ -455,7 +439,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								</div>
 							</div>
 						</div>
-						<div className='use-intrinsic-size'>
+						<div className='size-options'>
+							<Checkbox
+								disabled={enableIntrinsicSize || (lockedRatio === undefined && currentRatio === undefined)}
+								initialChecked={lockedRatio !== undefined}
+								label={localize(
+									'positron.savePlotModalDialog.maintainAspectRatio',
+									"Maintain aspect ratio"
+								)}
+								onChanged={maintainAspectRatio} />
 							{props.plotIntrinsicSize ? <Checkbox
 								initialChecked={enableIntrinsicSize}
 								label={localize(

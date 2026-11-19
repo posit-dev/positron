@@ -338,7 +338,6 @@ describe('Save Plot dialog resolution', () => {
 
 		// The fake plot is 700 x 500.
 		expect(resolutionButton()).toHaveTextContent('2x');
-		expect(screen.getByText('Output: 1400 x 1000 px')).toBeInTheDocument();
 		await save(user, savePlotCallback);
 
 		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
@@ -350,7 +349,6 @@ describe('Save Plot dialog resolution', () => {
 		const { render, savePlotCallback } = await open(PlotRenderFormat.Jpeg);
 
 		await pick(user, 'Resolution', '3x');
-		expect(screen.getByText('Output: 2100 x 1500 px')).toBeInTheDocument();
 		await save(user, savePlotCallback);
 
 		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Jpeg, true);
@@ -393,7 +391,6 @@ describe('Save Plot dialog resolution', () => {
 		await open(PlotRenderFormat.Svg);
 
 		expect(screen.queryByRole('button', { name: 'Resolution' })).not.toBeInTheDocument();
-		expect(screen.queryByText(/^Output:/)).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Cancel' }));
 	});
 
