@@ -696,9 +696,11 @@ def test_mpl_pyplot_show_warns_for_non_gui_figure(
     with pytest.warns(UserWarning, match="non-interactive") as record:
         shell.run_cell("plt.show()").raise_error()
 
-    # The kernel logs warnings from Positron files instead of showing them in the console.
-    positron_dir = Path(inspect.getfile(PositronIPyKernel)).parent
-    assert not Path(record[0].filename).is_relative_to(positron_dir)
+    # The warning points at the user's `plt.show()` call, like matplotlib's default. It must not
+    # point at a Positron file: the kernel logs those warnings instead of showing them.
+    warning_file = Path(record[0].filename)
+    for module in (PositronIPyKernel, plt):
+        assert not warning_file.is_relative_to(Path(inspect.getfile(module)).parent)
     assert _event_methods(plot_comm) == ["show"]
 
 

@@ -208,14 +208,15 @@ class FigureManagerPositron(FigureManagerBase):
             ):
                 # A figure from a non-GUI backend (e.g. Agg) can outlive a switch to this
                 # backend. Warn like matplotlib's default `pyplot_show` instead of raising.
-                # Attribute the warning to `plt.show()`: the kernel sends warnings from
-                # Positron files to the log instead of the console.
+                # Attribute the warning to the caller of `plt.show()`: the kernel sends
+                # warnings from Positron files to the log instead of the console.
                 try:
                     manager.show()
                 except NonGuiException as exc:
-                    warnings.warn(str(exc), stacklevel=2)
+                    warnings.warn(str(exc), stacklevel=3)
             elif manager.canvas.figure.stale:
-                # Outside interactive mode, nothing has redrawn an edited figure yet.
+                # Nothing has redrawn an edited figure yet: interactive mode only redraws after
+                # the cell finishes, and `plt.ioff()` never does.
                 manager.canvas.draw_idle()
 
     def destroy(self) -> None:
