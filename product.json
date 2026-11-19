@@ -284,8 +284,8 @@
 		},
 		{
 			"name": "posit.shiny",
-			"version": "1.5.0",
-			"sha256": "0bf87dd2adc6786ecfe3688c368c70e9c1ea170735e12523a3fa2a743b8feb3f",
+			"version": "1.5.1",
+			"sha256": "b6b2a55aa806f55d2dca1a5c10336aabf0eb27fa30da9a9610efb54220a2c276",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
