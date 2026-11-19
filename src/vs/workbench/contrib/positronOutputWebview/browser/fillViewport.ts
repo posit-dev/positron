@@ -15,6 +15,9 @@
  * Vega puts `fit-y` on `.vega-embed`, or on its `.chart-wrapper` child when the
  * actions menu is shown, so both are matched. Every element that contains either
  * one, `.vega-embed` included, matches the `:has()` rule.
+ *
+ * Scrollbars are hidden because Vega measures its container while the pane
+ * shrinks; a scrollbar shown then would leave the chart that much too small.
  */
 export const FILL_VIEWPORT_CSS = `
 <style>
@@ -22,5 +25,8 @@ export const FILL_VIEWPORT_CSS = `
 	.vega-embed.fit-y,
 	.vega-embed.fit-y > .chart-wrapper {
 		height: 100%;
+	}
+	html:has(.vega-embed.fit-y, .chart-wrapper.fit-y) {
+		overflow: hidden;
 	}
 </style>`;
