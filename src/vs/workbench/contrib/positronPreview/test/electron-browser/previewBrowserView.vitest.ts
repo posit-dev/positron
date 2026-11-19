@@ -149,6 +149,7 @@ describe('PreviewBrowserView', () => {
 	});
 
 	it('shows why its first page failed to load, and creates the view again from Reload', async () => {
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
 		const surface = createSurface();
 		const anchor = createAnchor();
 		surface.claim(undefined, anchor);
@@ -157,6 +158,8 @@ describe('PreviewBrowserView', () => {
 		ctx.disposables.add(surface.onDidLoad(loaded));
 
 		expect(within(anchor).getByRole('alert')).toHaveTextContent('Failed to Load PageERR_CONNECTION_REFUSEDURL: http://localhost:8000/Reload');
+		// The error is drawn in the view's container, which fills the Viewer.
+		expect(within(anchor).getByRole('alert').closest('.browser-container')).toHaveStyle({ width: '300px', height: '200px' });
 
 		await userEvent.click(within(anchor).getByRole('button', { name: 'Reload' }));
 		await views[1].complete(createModel().model);

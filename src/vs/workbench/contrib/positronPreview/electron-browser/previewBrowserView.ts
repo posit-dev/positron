@@ -298,8 +298,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 	}
 
 	layout(): void {
-		const host = this._host.value;
-		if (!this._model || !this._anchor || !host) {
+		if (!this._anchor) {
 			return;
 		}
 		const targetWindow = getWindow(this._anchor);
@@ -310,6 +309,15 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		const y = snap(rect.top);
 		const width = snap(rect.width);
 		const height = snap(rect.height);
+		// The container also holds the error shown when there's no view.
+		this._container.style.left = `${x - rect.left}px`;
+		this._container.style.top = `${y - rect.top}px`;
+		this._container.style.width = `${width}px`;
+		this._container.style.height = `${height}px`;
+		const host = this._host.value;
+		if (!this._model || !host) {
+			return;
+		}
 		const visible = this._claimed
 			&& width > 0
 			&& height > 0
@@ -317,10 +325,6 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			&& rect.bottom > 0
 			&& rect.left < targetWindow.innerWidth
 			&& rect.top < targetWindow.innerHeight;
-		this._container.style.left = `${x - rect.left}px`;
-		this._container.style.top = `${y - rect.top}px`;
-		this._container.style.width = `${width}px`;
-		this._container.style.height = `${height}px`;
 		host.setVisible(visible);
 		this._model.layout({ x, y, width, height, windowId: targetWindow.vscodeWindowId, zoomFactor, cornerRadius: 0 })
 			.catch(error => this._logService.error('[Viewer] Failed to lay out the browser view', error));
