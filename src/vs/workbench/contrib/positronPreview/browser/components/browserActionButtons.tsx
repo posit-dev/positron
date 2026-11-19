@@ -59,7 +59,7 @@ export const BrowserActionButtons = (props: { readonly preview: PreviewWebview }
 					actions={assistantActions}
 					align='right'
 					ariaLabel={addToAssistant}
-					icon={ThemeIcon.fromId('sparkle')}
+					icon={ThemeIcon.fromId('inspect')}
 					tooltip={addToAssistant} />
 			}
 			<ActionBarButton
