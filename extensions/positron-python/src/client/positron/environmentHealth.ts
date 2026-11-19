@@ -84,7 +84,7 @@ export function itemSummary(id: HealthItemId): string {
         discovery: vscode.l10n.t('Positron can discover Python environments'),
         pythonInstalled: vscode.l10n.t('A supported Python is installed'),
         environmentReady: vscode.l10n.t('The environment is ready to use with Positron'),
-        dedicatedEnvironment: vscode.l10n.t('A folder is open and uses a dedicated Python environment'),
+        dedicatedEnvironment: vscode.l10n.t('Dedicated Python environment'),
     };
     return summaries[id];
 }
