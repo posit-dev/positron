@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Decide whether a pull request, or a push, changes only docs or tooling, and
-# write docs_only=true|false to $GITHUB_OUTPUT. pr-dispatch.yml and
-# main-dispatch.yml skip tests in positron-builds when it is true. See
+# write docs_only=true|false to $GITHUB_OUTPUT. test-pr-dispatch.yml and
+# test-merge-dispatch.yml skip tests in positron-builds when it is true. See
 # scripts/lib/pr-docs-only-lib.sh for the allowlist.
 #
 # With PR_NUMBER, the changed files come from the pull request. With

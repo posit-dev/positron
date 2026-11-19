@@ -49,7 +49,7 @@ import { FromWebviewMessage, KeyEvent, ToWebviewMessage, WebViewDragEvent } from
 
 // --- Start Positron ---
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { FrameNavigationEvent, isSameWebviewFrame, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
+import { FrameNavigationEvent, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { FileAccess } from '../../../../base/common/network.js';
@@ -389,22 +389,18 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 
 		// --- Start Positron ---
 		this._register(this.onFrameNavigated(async (evt) => {
-			if (!this._frameId) {
+			if (evt.webviewId !== this.id) {
 				return;
 			}
-			// Going to another document can give the frame new IDs; follow it.
-			if (isSameWebviewFrame(evt.frameId, this._frameId)) {
-				this._frameId = evt.frameId;
+			this._frameId = evt.frameId;
+			this._uri = URI.parse(evt.url);
+			this._onDidNavigate.fire(this._uri);
 
-				// Insert the `webview-events.js` script into the frame
-				await this.injectJavaScript();
-
-				// Save the new URI
-				const uri = URI.parse(evt.url);
-				this._uri = uri;
-
-				// If the frame is navigated to a new URL, update listeners
-				this._onDidNavigate.fire(URI.parse(evt.url));
+			// A new document needs its own copy of the `webview-events.js` script.
+			// Error pages don't run it.
+			if (!evt.isSameDocument && !evt.isErrorPage) {
+				await this.injectJavaScript(evt.frameId).catch(err =>
+					this._logService.debug(`Webview(${this.id}): could not inject events script into ${evt.url}: ${err}`));
 			}
 		}));
 		this._register(this.on('did-load-window', (data) => {
@@ -823,23 +819,14 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			return;
 		}
 
-		// Tell the webview to load the URI
+		// The frame showing the URI is learned from its navigation events.
 		this._uri = uri;
-		const uriString = externalUriToString(uri);
-		this._send('set-uri', uriString);
-
-		// Wait for the frame to be created by hanging around until Electron
-		// notices that the frame with the requested URL navigated.
-		//
-		// This is a little bit of a hack, but it's the only way to get a handle
-		// to the newly created frame.
-		const frameId = await this.awaitFrameCreation(uriString);
-		this._frameId = frameId;
-
-		return this.injectJavaScript();
+		this._frameId = undefined;
+		await this.trackFrameNavigation();
+		this._send('set-uri', externalUriToString(uri));
 	}
 
-	private async injectJavaScript(): Promise<void> {
+	private async injectJavaScript(frameId: WebviewFrameId): Promise<void> {
 		// Read the contents of the 'webview-events.js' file. This file contains
 		// a bunch of event handlers that forward events from the iframe to the
 		// main process.
@@ -847,7 +834,7 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		const webviewEvents = await this._fileService.readFile(webviewEventsJsPath);
 
 		// Inject the 'webview-events.js' script into the frame
-		return this.executeJavaScript(this._frameId!, webviewEvents.value.toString());
+		return this.executeJavaScript(frameId, webviewEvents.value.toString());
 	}
 	// --- End Positron ---
 
@@ -1233,7 +1220,7 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 	}
 
 	// --- Start Positron ---
-	public awaitFrameCreation(targetUrl: string): Promise<WebviewFrameId> {
+	public trackFrameNavigation(): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 	public captureContentsAsPng(): Promise<VSBuffer | undefined> {

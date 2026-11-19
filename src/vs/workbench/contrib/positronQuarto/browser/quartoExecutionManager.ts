@@ -8,7 +8,7 @@ import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { Range } from '../../../../editor/common/core/range.js';
+import { IRange, Range } from '../../../../editor/common/core/range.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -47,7 +47,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import { createCodeLocation, fragmentCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -111,10 +111,10 @@ interface QuartoCodeFragments {
 	readonly fragments: string[];
 	/**
 	 * 0-based [start, end) line offsets, relative to the first line of the
-	 * executed code range, for each fragment. Aligned with `fragments`. Only
-	 * present when the code was split into more than one fragment at statement
-	 * boundaries; undefined when the whole range is executed as one fragment
-	 * (in which case the whole-cell running treatment should be used).
+	 * executed code range, for each fragment. Aligned with `fragments`. Present
+	 * when the code was split at statement boundaries, even into a single
+	 * statement (which can leave out blank lines around it); undefined when
+	 * the whole range is executed as one fragment.
 	 */
 	readonly lineRanges?: { readonly start: number; readonly end: number }[];
 }
@@ -148,24 +148,15 @@ export function shouldSkipFirstCommandFinished(promptModel: IPromptInputModel): 
 }
 
 /**
- * Builds a code location for a chunk/statement in a Quarto document from its
- * line range. Cell ranges are line-based (column 1), so a zero character offset
- * is used; this is sufficient to attribute outputs (e.g. plots) to the source
- * and avoids a dependency on the document's text model being resolved at
- * execution time.
+ * Get the text in a range of a model, with line endings normalized to LF.
  *
- * @param uri The document URI.
- * @param range The 1-based, line-oriented range of the code being executed.
- * @returns A code location with 0-based lines and zero character offsets.
+ * Normalize line endings so the boundary provider's line-by-line parse (and
+ * the local split in `_getCodeFragmentsFromBoundaries`) see clean LF input.
+ * On a CRLF document every split line otherwise keeps its trailing carriage
+ * return, and a fragment that ends in a bare CR is a syntax error to R.
  */
-function codeLocationForRange(uri: URI, range: Range): ICodeLocation {
-	return {
-		uri,
-		range: {
-			start: { line: range.startLineNumber - 1, character: 0 },
-			end: { line: range.endLineNumber - 1, character: 0 },
-		},
-	};
+function getNormalizedValueInRange(textModel: ITextModel, range: IRange): string {
+	return textModel.getValueInRange(range).replace(/\r\n?/g, '\n');
 }
 
 /**
@@ -755,10 +746,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				const executionId = execution.executionId;
 
 				// Get just the code in the specified range
-				const code = await this._getCodeInRange(documentUri, codeRange);
-				if (!code) {
+				const codeAndLocation = await this._getCodeAndLocationInRange(documentUri, codeRange);
+				if (!codeAndLocation?.code) {
 					throw new Error('Could not get code in range');
 				}
+				const { code, codeLocation: wholeCodeLocation } = codeAndLocation;
 
 				// Completion depends on an idle message from this session. If the
 				// session ends or the kernel exits mid-execution, that message
@@ -788,13 +780,16 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
 
-				// When the code was split into individual statements, compute the
-				// absolute document line range for each fragment so the gutter can
-				// show per-statement progress as execution advances.
-				const fragmentRanges = lineRanges?.map(({ start, end }) => new Range(
-					codeRange.startLineNumber + start, 1,
-					codeRange.startLineNumber + end - 1, 1,
-				));
+				// When the code was split into more than one statement, compute
+				// the absolute document line range for each fragment so the gutter
+				// can show per-statement progress as execution advances. A single
+				// statement gets the whole-cell running treatment instead.
+				const fragmentRanges = codeFragments.length > 1
+					? lineRanges?.map(({ start, end }) => new Range(
+						codeRange.startLineNumber + start, 1,
+						codeRange.startLineNumber + end - 1, 1,
+					))
+					: undefined;
 
 				for (let index = 0; index < codeFragments.length; index++) {
 					// Stop dispatching fragments if execution was cancelled between
@@ -834,12 +829,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					);
 
 					// Attribute the fragment to its source location in the
-					// document. When the code was split into statements, use the
-					// fragment's own range; otherwise fall back to the whole
-					// cell range. The location is forwarded to the kernel so that
+					// document. When the code was split into statements, narrow
+					// the whole range to the fragment's lines; otherwise use the
+					// whole range. The location is forwarded to the kernel so that
 					// outputs (e.g. plots) can link back to the source.
-					const fragmentRange = fragmentRanges?.[index] ?? codeRange;
-					const codeLocation = codeLocationForRange(documentUri, fragmentRange);
+					const lineRange = lineRanges?.[index];
+					const codeLocation = lineRange
+						? fragmentCodeLocation(wholeCodeLocation, fragment, lineRange.start, lineRange.end)
+						: wholeCodeLocation;
 					const attribution: IConsoleCodeAttribution = {
 						source: CodeAttributionSource.Notebook,
 						metadata: {
@@ -930,10 +927,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				const executionId = execution.executionId;
 
 				// Get just the code in the specified range
-				const code = await this._getCodeInRange(documentUri, codeRange);
-				if (!code) {
+				const codeAndLocation = await this._getCodeAndLocationInRange(documentUri, codeRange);
+				if (!codeAndLocation?.code) {
 					throw new Error('Could not get code in range');
 				}
+				const { code, codeLocation } = codeAndLocation;
 
 				// Set up message handlers BEFORE executing to avoid race conditions.
 				// If a session already exists, set up handlers on it directly.
@@ -963,7 +961,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				// Attribute the code to its source location in the document so
 				// that outputs (e.g. plots) can link back to the source chunk.
-				const codeLocation = codeLocationForRange(documentUri, codeRange);
 				await this._consoleService.executeCode(
 					cell.language,
 					undefined,
@@ -1725,11 +1722,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Get code content for a specific range in the document.
-	 *
-	 * Normalize line endings so the boundary provider's line-by-line parse (and
-	 * the local split in `_getCodeFragmentsFromBoundaries`) see clean LF input.
-	 * On a CRLF document every split line otherwise keeps its trailing carriage
-	 * return, and a fragment that ends in a bare CR is a syntax error to R.
 	 */
 	private async _getCodeInRange(documentUri: URI, range: Range): Promise<string | undefined> {
 		try {
@@ -1738,7 +1730,36 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				return undefined;
 			}
 
-			return textModel.getValueInRange(range).replace(/\r\n?/g, '\n');
+			return getNormalizedValueInRange(textModel, range);
+		} catch (error) {
+			this._logService.warn(`[QuartoExecutionManager] Failed to get code in range:`, error);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Get code content for a specific range in the document, along with the
+	 * code location to send to the kernel for it.
+	 *
+	 * The location's character offsets are UTF-8 bytes computed from the
+	 * document's lines, which is what kernels check against the code: Ark
+	 * discards a location whose end does not match the code's last line. The
+	 * range can be stale (e.g. lines deleted while the cell was queued), so it
+	 * is validated first, the same way `getValueInRange` clamps it, to keep the
+	 * code and its location in step.
+	 */
+	private async _getCodeAndLocationInRange(documentUri: URI, range: Range): Promise<{ code: string; codeLocation: ICodeLocation } | undefined> {
+		try {
+			const textModel = await this._getTextModel(documentUri);
+			if (!textModel) {
+				return undefined;
+			}
+
+			const validRange = textModel.validateRange(range);
+			return {
+				code: getNormalizedValueInRange(textModel, validRange),
+				codeLocation: createCodeLocation(textModel, documentUri, validRange),
+			};
 		} catch (error) {
 			this._logService.warn(`[QuartoExecutionManager] Failed to get code in range:`, error);
 			return undefined;
@@ -1754,19 +1775,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return { fragments: [code] };
 		}
 
-		const result = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
-		if (!result) {
-			return { fragments: [code] };
-		}
-
-		// Only expose per-fragment line ranges (used for granular gutter
-		// progress) when the code was actually split into multiple statements.
-		// A single fragment covers the whole range, which is indistinguishable
-		// from the whole-cell running treatment.
-		if (result.fragments.length > 1) {
-			return result;
-		}
-		return { fragments: result.fragments };
+		return await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token)
+			?? { fragments: [code] };
 	}
 
 	/**

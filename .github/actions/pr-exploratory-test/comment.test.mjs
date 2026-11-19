@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { postOrEditComment, findFailure, buildRunUrl } from './comment.mjs';
+import { postOrEditComment, findFailure, buildRunUrl, removeDeclinedNote } from './comment.mjs';
+import { DECLINED_MARKER } from './lib.mjs';
 
 /** A fake GitHub that records every call and answers writes with id 99. */
 function fakeGitHub() {
@@ -42,6 +43,46 @@ test('postOrEditComment throws on an API error', async () => {
 	const fetchImpl = async () => ({ ok: false, status: 403, text: async () => 'forbidden' });
 	await assert.rejects(postOrEditComment({ ...args, fetchImpl }), /403/);
 	await assert.rejects(postOrEditComment({ ...args, commentId: '7', fetchImpl }), /403/);
+});
+
+/** A fake GitHub whose PR has `pages` of comments, and which deletes with 204. */
+function fakeThread(pages) {
+	const calls = [];
+	const fetchImpl = async (url, init = {}) => {
+		const method = init.method || 'GET';
+		calls.push(`${method} ${url.replace('https://api.github.com', '')}`);
+		if (method === 'DELETE') {
+			return { ok: true, status: 204 };
+		}
+		const page = Number(new URL(url).searchParams.get('page'));
+		return { ok: true, status: 200, json: async () => pages[page - 1] ?? [] };
+	};
+	return { fetchImpl, calls };
+}
+
+const bot = { type: 'Bot' };
+const note = { id: 5, user: bot, body: `${DECLINED_MARKER}\nnot run` };
+const full = Array.from({ length: 100 }, (_, i) => ({ id: 1000 + i, user: bot, body: 'other' }));
+
+test('removeDeclinedNote deletes the bot note, past the first page', async () => {
+	const gh = fakeThread([full, [note]]);
+	assert.equal(await removeDeclinedNote({ ...args, fetchImpl: gh.fetchImpl }), 5);
+	assert.deepEqual(gh.calls, [
+		'GET /repos/posit-dev/positron/issues/42/comments?per_page=100&page=1',
+		'GET /repos/posit-dev/positron/issues/42/comments?per_page=100&page=2',
+		'DELETE /repos/posit-dev/positron/issues/comments/5',
+	]);
+});
+
+test('removeDeclinedNote leaves a person\'s comment that quotes the marker', async () => {
+	const gh = fakeThread([[{ ...note, user: { type: 'User' } }]]);
+	assert.equal(await removeDeclinedNote({ ...args, fetchImpl: gh.fetchImpl }), null);
+	assert.equal(gh.calls.filter(c => c.startsWith('DELETE')).length, 0);
+});
+
+test('removeDeclinedNote never throws', async () => {
+	const fetchImpl = async () => ({ ok: false, status: 403, text: async () => 'forbidden' });
+	assert.equal(await removeDeclinedNote({ ...args, fetchImpl }), null);
 });
 
 /** A fake jobs API: a run id maps to its jobs; an unknown run answers 404. */

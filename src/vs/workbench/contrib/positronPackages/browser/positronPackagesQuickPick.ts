@@ -10,6 +10,7 @@ import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.
 import { localize } from '../../../../nls.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IInputBox, IQuickInput, IQuickInputButton, IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { ILanguageRuntimePackage, isBundledOnly } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { sortVersionsDescending } from './packageVersions.js';
 
 /**
@@ -140,6 +141,15 @@ export const updatePackage = async (
 		await performUpdate(state.selectedPackage, state.selectedVersion);
 	}
 };
+
+/**
+ * The installed packages the update and uninstall pickers offer: every one
+ * except those only Positron's bundle provides, which have no environment copy
+ * to update or remove.
+ */
+export function environmentPackageCandidates(packages: readonly ILanguageRuntimePackage[]): { name: string }[] {
+	return packages.filter((pkg) => !isBundledOnly(pkg)).map((pkg) => ({ name: pkg.name }));
+}
 
 export const uninstallPackage = async (
 	accessor: ServicesAccessor,

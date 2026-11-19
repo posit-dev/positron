@@ -1533,6 +1533,20 @@ declare module 'positron' {
 
 		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 		sourceRepository?: string;
+
+		/**
+		 * Whether the copy the session imports ships with Positron itself (e.g.
+		 * bundled ipykernel dependencies on the kernel's search path) rather than
+		 * being installed in the user's environment.
+		 */
+		bundled?: boolean;
+
+		/**
+		 * For a bundled package, the version also installed in the user's
+		 * environment, which the bundled copy shadows. Undefined when the
+		 * environment does not have the package.
+		 */
+		environmentVersion?: string;
 	}
 
 	/**
@@ -4150,8 +4164,10 @@ declare module 'positron' {
 		 * @param params An object of named parameters for `method`.
 		 * @param options Optional options for the call. `sessionId` identifies the calling kernel
 		 *   session, e.g. so console-aware methods can be scoped to that session's own console.
+		 *   `parentId` is the ID of the request that the call belongs to (the parent of the
+		 *   kernel's RPC request), e.g. the execute request that waits for the reply.
 		 */
-		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string }): Thenable<any>;
+		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string; parentId?: string }): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.

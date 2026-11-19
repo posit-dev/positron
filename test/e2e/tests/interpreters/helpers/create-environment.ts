@@ -46,16 +46,19 @@ export async function runCreateEnvironment(app: Application, provider: 'Venv' | 
 	await test.step(`Run Python: Create Environment and pick ${provider}`, async () => {
 		await app.workbench.quickaccess.runCommand('python.createEnvironment', { keepOpen: true });
 
-		// The environment-type picker reuses the Command Palette's widget, so a row
-		// picked before it has replaced the palette's rows can be one that is going
-		// away, and the click selects nothing. Wait for this picker, click without
-		// force so the click retries if its row is replaced, and make sure the flow
-		// moved on.
-		const typePicker = app.code.driver.currentPage.locator(
+		// The picker reuses the palette's widget, so wait for it before picking.
+		// Pick by keyboard: the palette click leaves the pointer on the first row,
+		// whose tooltip can cover the provider row and swallow a click.
+		const page = app.code.driver.currentPage;
+		const typePicker = page.locator(
 			'.quick-input-widget .quick-input-box input[placeholder="Select an environment type"]',
 		);
 		await expect(typePicker).toBeVisible({ timeout: 30000 });
-		await app.workbench.quickInput.rowByAriaLabelPrefix(provider).first().click();
+		await typePicker.fill(provider);
+		await expect(
+			page.locator(`.quick-input-widget .quick-input-list .monaco-list-row.focused[aria-label^="${provider}"]`),
+		).toBeVisible();
+		await page.keyboard.press('Enter');
 		await expect(typePicker).not.toBeVisible({ timeout: 15000 });
 	});
 }

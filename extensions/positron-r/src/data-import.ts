@@ -409,9 +409,40 @@ export function generateJsonliteImportCode(request: JsonliteImportRequest): RImp
 	);
 }
 
+/** A request to generate a haven load statement. */
+export interface HavenImportRequest {
+	/**
+	 * The path of the file to load as a ready-to-embed string literal, already quoted and escaped
+	 * (the output of positron.paths.formatPathForCode): workspace-relative when the file is inside
+	 * the workspace, absolute otherwise.
+	 */
+	pathLiteral: string;
+
+	/** The target variable name. */
+	variableName: string;
+
+	/** The Data Explorer view (filters and sorts) to reproduce after the load, if requested. */
+	view?: positron.DataImportView;
+}
+
 /**
- * Builds the readr, readxl, nanoparquet, and jsonlite data importers, which generate the code that
- * loads a delimited file, Excel workbook, Parquet file, or JSON file. Generation is pure
+ * Generates the haven code that loads a SAS data file (.sas7bdat or SAS transport .xpt) into a
+ * data frame. SAS files always carry column names, so the view translation runs with named columns.
+ */
+export function generateHavenImportCode(request: HavenImportRequest): RImportResult {
+	const readFunction = /\.xpt"$/i.test(request.pathLiteral) ? 'read_xpt' : 'read_sas';
+	return assembleRImportCode(
+		'haven',
+		`${readFunction}(${request.pathLiteral})`,
+		request.variableName,
+		request.view,
+		undefined,
+	);
+}
+
+/**
+ * Builds the readr, readxl, nanoparquet, jsonlite, and haven data importers, which generate the code that
+ * loads a delimited file, Excel workbook, Parquet file, JSON file, or SAS data file. Generation is pure
  * TypeScript; no R runtime is involved, so the importers can be built and exercised without
  * registering them.
  */
@@ -467,6 +498,18 @@ export function createRDataImporters(): positron.DataImporter[] {
 					variableName: request.variableName,
 				}),
 		},
+		{
+			languageId: 'r',
+			displayName: 'R (haven)',
+			fileExtensions: ['sas7bdat', 'xpt'],
+			reservedNames: R_RESERVED_NAMES,
+			generateCode: async (request: positron.DataImportRequest): Promise<positron.DataImportResult> =>
+				generateHavenImportCode({
+					pathLiteral: await pathLiteralFor(request),
+					variableName: request.variableName,
+					view: request.view,
+				}),
+		},
 	];
 }
 
@@ -479,7 +522,7 @@ function pathLiteralFor(request: positron.DataImportRequest): Thenable<string> {
 	return positron.paths.formatPathForCode(request.fileUri.fsPath, { relativeTo: 'workspace' });
 }
 
-/** Registers the readr, readxl, nanoparquet, and jsonlite data importers. */
+/** Registers the readr, readxl, nanoparquet, jsonlite, and haven data importers. */
 export function registerRDataImporter(context: vscode.ExtensionContext): void {
 	for (const importer of createRDataImporters()) {
 		context.subscriptions.push(positron.dataExplorer.registerDataImporter(importer));

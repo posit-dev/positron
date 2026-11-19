@@ -35,7 +35,8 @@ env:
     If PR creation fails, push the branch and include a link to create the PR in your comment.
 
     The repository is a shallow clone. When you need history for `git log` or `git blame`,
-    run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
+    run exactly `git fetch --deepen=50` or `git fetch --deepen=500` (or `git fetch --unshallow`
+    if you need all of it). Other forms of `git fetch` are blocked.
 
     Files under `.claude/` and `.github/` are read-only in this job. If the request needs a
     change there, do not try it. Do the rest of the request and say that part was not done.
@@ -62,6 +63,11 @@ jobs:
     runs-on: ubuntu-latest
     # No dependency install runs in this job; leave Claude time for larger edits.
     timeout-minutes: 30
+    # One run at a time per issue or PR, so a loop of runs cannot pile up. GitHub keeps only one
+    # pending run per group: a third request made while one runs and one waits replaces the waiting one.
+    concurrency:
+      group: claude-triage-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: read
@@ -75,10 +81,8 @@ jobs:
       branch_prefix: ${{ steps.branch-prefix.outputs.value }}
       ack_target: ${{ steps.ack.outputs.target }}
       ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
+      explore_findings: ${{ steps.findings.outputs.prompt }}
     env:
-      # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
-      # even though this workflow also runs as that App.
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
       # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
       # The action only does this by default when allowed_non_write_users is set.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
@@ -88,18 +92,40 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
-          # Bots are not collaborators, so the permission lookup fails for them.
-          # Let explicitly allowed bots through; claude-code-action checks the list again.
-          if [[ ",$ALLOWED_BOTS," == *",$ACTOR,"* ]]; then
-            echo "Actor $ACTOR is an allowed bot"
-            exit 0
-          fi
-          PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          # Bots are not collaborators, so the lookup fails and they are refused. That includes
+          # positron-projects[bot], which Claude posts as, so Claude's own output cannot start a run.
+          PERMISSION=$(gh api "/repos/${GITHUB_REPOSITORY}/collaborators/${ACTOR}/permission" --jq '.permission')
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
-            echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
+            echo "::error::Actor $ACTOR has '$PERMISSION' permission, requires 'write' or 'admin'"
             exit 1
           fi
-          echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+          echo "Actor $ACTOR authorized with '$PERMISSION' permission"
+
+      # On a fork PR, claude-code-action checks out the fork's code, and the build job runs its
+      # npm scripts and tests with the App token in reach. Refuse forks before the token exists.
+      - name: Refuse pull requests from forks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_IS_PR: ${{ github.event.issue.pull_request != null }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment)
+              if [ "$ISSUE_IS_PR" != "true" ]; then exit 0; fi
+              HEAD_REPO=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${ISSUE_NUMBER}" --jq '.head.repo.full_name // ""')
+              ;;
+            pull_request|pull_request_review|pull_request_review_comment)
+              HEAD_REPO="$PR_HEAD_REPO"
+              ;;
+            *) exit 0 ;;
+          esac
+          # A deleted fork has no head repo, so it is refused too.
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::@claude does not run on pull requests from forks (head repository: '${HEAD_REPO}')"
+            exit 1
+          fi
 
       # A token failure fails the job after the ack below, so the trigger still gets a reaction.
       - name: Generate token for GitHub App
@@ -170,6 +196,61 @@ jobs:
           # claude-code-action sets up its own git auth for pushing
           persist-credentials: false
 
+      # `@claude fix finding 2` on a PR: the text of that finding from the PR's latest
+      # exploratory test. The agent cannot fetch it, since the report is on the tailnet.
+      # Only for comments in the PR conversation, where the checkout is the default branch,
+      # not the PR. The positron-builds token is in the download step's env only.
+      - name: Find the exploratory findings asked for
+        id: findings-ask
+        if: >-
+          steps.ack.outputs.duplicate != 'true' && github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request && contains(github.event.comment.body, 'finding')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR: ${{ github.event.issue.number }}
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs ask
+
+      - name: Generate positron-builds token
+        id: builds-token
+        if: steps.findings-ask.outputs.run != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: posit-dev
+          repositories: positron-builds
+          permission-actions: read
+
+      # The artifact is kept 90 days; runs from before it existed have none.
+      # Its folder holds finding-<n>.md files and too-large.txt, the ones skipped for size.
+      - name: Download the findings
+        id: findings-download
+        if: steps.builds-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.builds-token.outputs.token }}
+          RUN_ID: ${{ steps.findings-ask.outputs.run }}
+          MODEL: ${{ steps.findings-ask.outputs.model }}
+        run: bash .github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$RUNNER_TEMP/explore-findings" "explore-findings-$MODEL"
+
+      - name: Write the findings prompt
+        id: findings
+        if: steps.findings-ask.outputs.asked != ''
+        continue-on-error: true
+        env:
+          ASKED: ${{ steps.findings-ask.outputs.asked }}
+          RUN: ${{ steps.findings-ask.outputs.run }}
+          REPORT: ${{ steps.findings-ask.outputs.report }}
+          SHA: ${{ steps.findings-ask.outputs.sha }}
+          PROBLEM: ${{ steps.findings-ask.outputs.problem }}
+          TOKEN: ${{ steps.builds-token.outcome }}
+          DOWNLOADED: ${{ steps.findings-download.outcome }}
+          DIR: ${{ runner.temp }}/explore-findings
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs prompt
+
       # Determine who to assign to issues/PRs created by Claude.
       # If the triggering actor is a human, use them directly.
       # If it's a bot, fall back to the origin issue/PR's assignee or author.
@@ -199,27 +280,44 @@ jobs:
           echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
 
       - name: Setup Claude
-        id: setup
         if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
+
+      # AWS rejects role session names outside [\w+=,.@-], such as `positron-projects[bot]`.
+      - name: Sanitize role session name
+        id: session-name
+        if: steps.ack.outputs.duplicate != 'true'
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        if: steps.ack.outputs.duplicate != 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-2
 
       - name: Run Claude Code Action
         id: claude
         if: steps.ack.outputs.duplicate != 'true'
-        uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
-          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
+          use_bedrock: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
           # triggering comment and the issue context. track_progress forces tag mode.
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -228,6 +326,8 @@ jobs:
             }
           prompt: |
             ${{ env.SHARED_PROMPT }}
+
+            ${{ steps.findings.outputs.prompt }}
 
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
@@ -253,7 +353,7 @@ jobs:
             --model opus
             --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
             --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.scss),Edit(**/*.less),Edit(**/*.svg),Edit(**/*.html),Edit(**/Dockerfile*),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version),Bash(git rm:*)"
 
       # Missing or malformed output must not start the build job, and must not fail silently.
@@ -308,7 +408,6 @@ jobs:
       issues: write
       id-token: write
     env:
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       - name: Generate token for GitHub App
@@ -333,10 +432,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Claude
-        id: setup
         uses: ./.github/actions/setup-claude
-        with:
-          op-service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Setup core dependencies
         uses: ./.github/actions/setup-claude-build-deps
@@ -372,17 +468,34 @@ jobs:
         with:
           extension: 'true'
 
-      - name: Run Claude Code Action
-        uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+      - name: Sanitize role session name
+        id: session-name
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          anthropic_api_key: ${{ steps.setup.outputs.anthropic-key }}
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-2
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
+        with:
+          use_bedrock: true
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -398,6 +511,8 @@ jobs:
             HANDOFF START
             ${{ needs.triage.outputs.handoff }}
             HANDOFF END
+
+            ${{ needs.triage.outputs.explore_findings }}
 
             Root and build/ node dependencies are installed. You can run Vitest on tests under
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
@@ -471,7 +586,7 @@ jobs:
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git restore:*),Bash(git reset:*),Bash(git stash:*),Bash(git mv:*),Bash(git rm:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git merge:*),Bash(git cherry-pick:*),Bash(git revert:*),Bash(git fetch origin:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
 
       - name: Replace eyes with result reaction
         if: always() && needs.triage.outputs.ack_target != ''

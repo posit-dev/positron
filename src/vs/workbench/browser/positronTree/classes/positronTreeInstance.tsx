@@ -498,6 +498,13 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the current roots, for a subclass that needs to compare them with the next ones.
+	 */
+	protected get roots(): readonly TreeNode<T>[] {
+		return this._roots;
+	}
+
+	/**
 	 * Push escape hatch: replace the roots without going through getRoots. Used when the
 	 * consumer has the data in hand (e.g. a sync event source).
 	 */

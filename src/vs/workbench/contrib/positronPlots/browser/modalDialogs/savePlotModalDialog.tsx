@@ -31,6 +31,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -96,9 +97,18 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [name, setName] = React.useState({ value: props.plotClient.metadata.name ?? props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
 	const [format, setFormat] = React.useState(props.suggestedFormat ?? PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
-	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
-	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
+	// The plot's last render size, or its intrinsic size when it has not rendered at a size,
+	// as it hasn't under the Intrinsic sizing policy.
+	const [initialSize] = React.useState(() => props.plotSize ??
+		(props.plotIntrinsicSize ? intrinsicSizeInPixels(props.plotIntrinsicSize, BASE_DPI) : undefined));
+	const [width, setWidth] = React.useState({ value: initialSize?.width ?? 100, valid: true });
+	const [height, setHeight] = React.useState({ value: initialSize?.height ?? 100, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
+	// The aspect ratio (width / height) kept while editing the size, or undefined when unlocked.
+	// Locked by default when the plot has a known size to take the ratio from.
+	const [lockedRatio, setLockedRatio] = React.useState<number | undefined>(
+		() => initialSize ? ratioOf(initialSize.width, initialSize.height) : undefined
+	);
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null!);
@@ -125,12 +135,27 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const updateWidth = (widthString: string): void => {
 		const newWidth = parseInt(widthString);
-		setWidth({ value: newWidth, valid: newWidth > 0 && !isNaN(newWidth) });
+		const valid = newWidth > 0 && !isNaN(newWidth);
+		setWidth({ value: newWidth, valid });
+		if (lockedRatio !== undefined && valid) {
+			setHeight({ value: linkedHeight(newWidth, lockedRatio), valid: true });
+		}
 	};
 
 	const updateHeight = (heightString: string): void => {
 		const newHeight = parseInt(heightString);
-		setHeight({ value: newHeight, valid: newHeight > 0 && !isNaN(newHeight) });
+		const valid = newHeight > 0 && !isNaN(newHeight);
+		setHeight({ value: newHeight, valid });
+		if (lockedRatio !== undefined && valid) {
+			setWidth({ value: linkedWidth(newHeight, lockedRatio), valid: true });
+		}
+	};
+
+	// The ratio a new lock would capture from the current size, if both fields are valid.
+	const currentRatio = width.valid && height.valid ? ratioOf(width.value, height.value) : undefined;
+
+	const maintainAspectRatio = (checked: boolean): void => {
+		setLockedRatio(checked ? currentRatio : undefined);
 	};
 
 	const updateDpi = (dpiString: string): void => {
@@ -230,7 +255,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.renderWithSizingPolicy(size, dpi.value / BASE_DPI, format, true);
+		// Render at exactly the requested size. The Plots pane's sizing policy
+		// governs the pane, not an export the user sized explicitly.
+		return props.plotClient.render(size, dpi.value / BASE_DPI, format, true);
 	};
 
 	let intrinsicWidth = '';
@@ -363,6 +390,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									onChange={e => updateHeight(e.target.value)}
 								/>
 							</>}
+							<Checkbox
+								disabled={enableIntrinsicSize || (lockedRatio === undefined && currentRatio === undefined)}
+								initialChecked={lockedRatio !== undefined}
+								label={localize(
+									'positron.savePlotModalDialog.maintainAspectRatio',
+									"Maintain aspect ratio"
+								)}
+								onChanged={maintainAspectRatio} />
 							{enableDPI && <LabeledTextInput
 								error={!dpi.valid}
 								label={localize(

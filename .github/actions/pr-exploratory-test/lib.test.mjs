@@ -5,8 +5,27 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, exploreRepo, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, resolveDispatchOutcome, OUTDATED_HELPERS_REASON, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, addCost, exploreTurnsUp, wrapUpTurn, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderGateSummary, renderStepSummary, renderSummaryTarget, exploreRepo, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, resolveDispatchOutcome, OUTDATED_HELPERS_REASON, failedStep, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange, takeStepSummary } from './lib.mjs';
 import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+
+test('addCost sums two passes, keeps the first model, and treats a missing number as zero', () => {
+	const a = { total_cost_usd: 9, num_turns: 201, duration_ms: 100, input_tokens: 4, cache_read_input_tokens: 10, cache_creation_input_tokens: 1, output_tokens: 5, model: 'claude-opus-5-5' };
+	const b = { total_cost_usd: 0.5, num_turns: 12, duration_ms: 20, input_tokens: null, cache_read_input_tokens: 2, cache_creation_input_tokens: 1, output_tokens: 3, model: 'claude-sonnet-5-5' };
+	assert.deepEqual(addCost(a, b), { total_cost_usd: 9.5, num_turns: 213, duration_ms: 120, input_tokens: 4, cache_read_input_tokens: 12, cache_creation_input_tokens: 2, output_tokens: 8, model: 'claude-opus-5-5' });
+	// Unknown in both stays unknown rather than reading as a measured zero.
+	assert.equal(addCost({ input_tokens: null }, { input_tokens: null }).input_tokens, null);
+});
+
+test('wrapUpTurn leaves the reserve before the cap, or half a small cap', () => {
+	assert.equal(wrapUpTurn(200, 25), 175);
+	assert.equal(wrapUpTurn(30, 25), 15);
+	assert.equal(wrapUpTurn(1, 25), 1);
+});
+
+test('exploreTurnsUp says how many turns are left, and nothing about a stop once there are none', () => {
+	assert.match(exploreTurnsUp(25), /write report\.json.*The run is stopped in 25 turns\.$/);
+	assert.doesNotMatch(exploreTurnsUp(0), /stopped in/);
+});
 
 test('buildCostRecord extracts the fields the spec names', () => {
 	const record = buildCostRecord({
@@ -240,6 +259,10 @@ test('runOutcome is complete when a report was written inside the turn cap', () 
 test('runOutcome is partial at the turn cap, report or not', () => {
 	assert.equal(runOutcome({ report: '# r', numTurns: 200, maxTurns: 200 }), 'partial');
 	assert.equal(runOutcome({ report: null, numTurns: 200, maxTurns: 200 }), 'partial');
+	// Told to wrap up before the cap, it wrote a report under it, but its exploring was still cut short.
+	assert.equal(runOutcome({ report: '# r', numTurns: 185, maxTurns: 200, turnWarned: true }), 'partial');
+	// Warned but quit without a report and under the cap: it did not hit the cap, so it is not partial.
+	assert.equal(runOutcome({ report: null, numTurns: 180, maxTurns: 200, turnWarned: true }), 'no-report');
 });
 
 test('runOutcome is no-report when the agent stopped early without one', () => {
@@ -268,7 +291,7 @@ test('renderPrComment counts the findings the page shows, not the ones it lists 
 });
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled', 'job-timeout', 'scan-failed']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'refused', 'outdated', 'cancelled', 'job-timeout', 'scan-failed']) {
 		const body = renderPrComment({ state, report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -299,6 +322,11 @@ test('renderPrComment running state names the head and links the run', () => {
 test('renderPrComment on a cancelled run says it was cancelled', () => {
 	const body = renderPrComment({ state: 'cancelled', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment on a refused run says why', () => {
+	const body = renderPrComment({ state: 'refused', runUrl: RUN_URL, headSha: SHA, reason: 'PR #1 has new commits.' });
+	assert.match(body, /^Not run: PR #1 has new commits\.$/m);
 });
 
 test('renderPrComment on an outdated branch says why and what to do', () => {
@@ -409,6 +437,18 @@ test('renderPrComment says a declined run was not run, and why', () => {
 	assert.match(body, /Not run/);
 	assert.match(body, /only tests changed/);
 	assert.doesNotMatch(body, /failed before/);
+});
+
+test('renderPrComment tells an auto-run author how to run a declined change anyway', () => {
+	const body = renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'needs ggsql', autoRun: true });
+	assert.match(body, /^If that is wrong, comment `\/explore <what to test>` to run it anyway\./m);
+	assert.match(body, /Started automatically/);
+	assert.doesNotMatch(renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'needs ggsql' }), /run it anyway/);
+});
+
+test('renderPrComment cleans the gate\'s decline reason before the bot posts it', () => {
+	const body = renderPrComment({ state: 'declined', runUrl: RUN_URL, headSha: SHA, reason: 'Ask @someone, see [docs](https://e.x) and other-org/repo#12.', autoRun: true });
+	assert.match(body, /declined this change: Ask @\u200bsomeone, see docs and number 12\.$/m);
 });
 
 test('renderSummaryTarget names the branch and links the PR', () => {
@@ -525,6 +565,10 @@ test('renderPrBody is empty for no description, or one that is only template com
 	for (const body of [undefined, null, '', '  \n', '<!-- Describe the change -->\n']) {
 		assert.equal(renderPrBody(body), '');
 	}
+});
+
+test('ENVIRONMENT says a PR description\'s environment is not this run\'s', () => {
+	assert.match(ENVIRONMENT, /about where its author worked, not about this run/);
 });
 
 test('ENVIRONMENT lists GitHub and Copilot sign-in as unavailable', () => {

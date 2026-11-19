@@ -22,6 +22,7 @@ import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
 import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
 import { DynamicPlotInstance } from '../../browser/components/dynamicPlotInstance.js';
 
@@ -47,7 +48,7 @@ describe('DynamicPlotInstance', () => {
 		.stub(INotificationService, { prompt: promptNotification })
 		.stub(ICommandService, { executeCommand })
 		.stub(ILogService, Object.assign(new NullLogService(), { warn: logWarn }))
-		.stub(IPositronPlotsService, { selectSizingPolicy })
+		.stub(IPositronPlotsService, Object.assign(new TestPositronPlotsService(), { selectSizingPolicy }))
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -62,6 +63,7 @@ describe('DynamicPlotInstance', () => {
 	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
 		renderWithSizingPolicy.mockRejectedValue(error);
 		return stubInterface<PlotClientInstance>({
+			id: 'plot-1',
 			metadata: { id: 'plot-1', created: 0, code: '', session_id: 'session-1', name: 'My Plot' },
 			lastRender,
 			get lastRenderStale() { return lastRenderStale; },

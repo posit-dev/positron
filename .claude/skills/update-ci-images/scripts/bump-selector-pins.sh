@@ -22,7 +22,6 @@ ROOT="$(git rev-parse --show-toplevel)"
 PRIMARY='POSITRON_(PY|R)_VER_SEL'
 REMOTE='POSITRON_(PY|R)_REMOTE_VER_SEL'
 ENTRIES=(
-  ".github/workflows/extensions-check-nightly.yml:$PRIMARY"
   ".github/workflows/test-e2e-debian.yml:$PRIMARY"
   ".github/workflows/test-e2e-jupyter-ubuntu.yml:$PRIMARY"
   ".github/workflows/test-e2e-pyrefly.yml:$PRIMARY"
@@ -32,7 +31,6 @@ ENTRIES=(
   ".github/workflows/test-e2e-ubuntu.yml:$PRIMARY"
   ".github/workflows/test-e2e-ubuntu-run.yml:$PRIMARY"
   ".github/workflows/test-e2e-workbench-linux.yml:$PRIMARY"
-  ".github/workflows/test-memory-metrics.yml:$PRIMARY"
   ".github/workflows/test-e2e-remote-ssh-ubuntu.yml:$REMOTE"
   "docker/environments/arm-local/setup-test-env.sh:$PRIMARY"
   ".devcontainer/ci-arm/devcontainer.json:$PRIMARY"

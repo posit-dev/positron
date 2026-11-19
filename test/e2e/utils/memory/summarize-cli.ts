@@ -43,7 +43,7 @@ export type CollectedScenario = {
 
 /**
  * Which scenarios each lane's matrix job actually runs, mirroring the workflow
- * matrix (test-memory-metrics.yml) and scenarios.ts's SPEC_BY_LANE_SCENARIO.
+ * matrix (positron-builds' test-memory-metrics.yml) and scenarios.ts's SPEC_BY_LANE_SCENARIO.
  * Duplicated here rather than imported: this CLI never launches Positron and
  * never imports the e2e harness, and importing the spec map would pull that in.
  */

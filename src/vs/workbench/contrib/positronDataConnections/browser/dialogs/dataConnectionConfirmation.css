@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Separates the paragraphs of a confirmation. A gap rather than a margin, so nothing has to change
+ * when the dialog has only one paragraph.
+ */
+.data-connection-confirmation {
+	display: flex;
+	gap: 12px;
+	flex-direction: column;
+}

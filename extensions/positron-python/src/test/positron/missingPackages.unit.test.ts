@@ -42,6 +42,12 @@ suite('parsePythonImports', () => {
 
         expect(parsePythonImports(code).sort()).to.deep.equal(['flask', 'numpy', 'pandas', 'requests'].sort());
     });
+
+    test('ignores commented-out imports', () => {
+        const code = ['# import pandas', 'import numpy  # import requests', 'x = 1  # note; import flask'].join('\n');
+
+        expect(parsePythonImports(code)).to.deep.equal(['numpy']);
+    });
 });
 
 suite('pythonMissingPackageProbe', () => {

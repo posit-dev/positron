@@ -13,7 +13,7 @@
 
 // escapeHtml is shared with the model rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
@@ -634,13 +634,13 @@ function renderLinkedIssues(report, ki, noFindings = false, demoted = []) {
 		.map(e => observedItem(e.issue, e.severity, e.wontFix ? 'Won&rsquo;t fix' : e.duplicate ? 'Duplicate' : kiState(e.issue),
 			[e.linked && `linked to ${changeWord(report)}`, e.matches.length && matched(e.matches)].filter(Boolean).join(' &middot; '), e.rows));
 	const lists = list('ki-list-obs', 'Known issues observed this run', known)
-		+ list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
+		+ list('ki-list-fix', `${held.length === 1 ? 'Fix' : 'Fixes'} verified this run`, held.map(h => item(h.issue, `passed in ${quote(h.rows[0])}`)))
 		+ list('ki-list-part', 'Partly fixed this run', partly.map(p => item(p.issue, `passed in ${quote(p.held[0])}, failed in ${quote(p.failed[0])}`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : ki.unmet?.has(i.number) ? `not met: ${escapeHtml(ki.unmet.get(i.number))}` : 'no scenario reached it')));
 	if (noFindings) {
 		return lists;
 	}
-	const counts = kiCounts(ki, demoted, { fix: n => `${n} fix verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
+	const counts = kiCounts(ki, demoted, { fix: n => `${plural(n, 'fix', 'fixes')} verified`, part: n => `${n} partly fixed`, obs: n => `${n} observed`, no: n => `${n} not observed` }).join(KI_DOT);
 	return `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Existing issues</b></span><span class="ki-sum">${counts}</span></div></div>\n${lists}`;
 }
 
@@ -1635,7 +1635,9 @@ export function missingFiles(parsed, fileExists) {
 
 /**
  * Writes the page to `out`, with its link card beside it when `base` is a URL:
- * chat apps need an absolute one to fetch the image from.
+ * chat apps need an absolute one to fetch the image from. Each finding's
+ * prompt goes to `promptDir`, by default the `findings` folder beside the
+ * page; `promptDir: false` leaves it alone.
  *
  * @param {string} out
  * @param {{ severityCounts: object }} report reportFromJson's model
@@ -1648,5 +1650,24 @@ export async function writeRunPage(out, report, options) {
 	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), shown.report.severityCounts)
 		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
 		: undefined;
-	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage }));
+	const promptTexts = new Map();
+	writeFileSync(out, renderReportHtml(report, { ...options, shown, ogImage, promptTexts }));
+	if (options.promptDir !== false) {
+		writePromptFiles(options.promptDir ?? join(dirname(out), 'findings'), promptTexts);
+	}
+}
+
+/**
+ * Each finding's prompt as `finding-<n>.md`, for `@claude fix finding <n>` on
+ * the PR to read. Emptied first, so a finding a later render dropped is gone.
+ */
+export function writePromptFiles(dir, promptTexts) {
+	rmSync(dir, { recursive: true, force: true });
+	if (!promptTexts.size) {
+		return;
+	}
+	mkdirSync(dir, { recursive: true });
+	for (const [n, text] of promptTexts) {
+		writeFileSync(join(dir, `finding-${n}.md`), `${text}\n`);
+	}
 }

@@ -67,13 +67,22 @@ about cost:
 3. **The judge** (`buildSuggestPrompt`). One model call with no tools reads
    the title, description and diff. It says yes only for a change a user can
    see or do with edge cases a reviewer reading the diff would miss, and no
-   when unsure. An error means no.
+   when unsure. An error means no. The call runs in posit-dev/positron-builds
+   (`explore-suggest.yml`), which holds the Anthropic key, with main's copy of
+   `suggest.ts`. When it says no to an auto-run author's PR, the PR gets a
+   note with the reason and says to comment `/explore <what to test>` to run
+   it anyway. A later "no" edits that note. The note goes once something
+   newer speaks for the PR: a tip, or any run's first comment on it. An
+   auto-run the gate refuses posts nothing, so the note stays. Other authors
+   get no note.
 
 Every run, however it started, then goes through the worthiness check
-(`gate.mjs`) unless a focus was given. It is lenient the other way: it
+(`gate.mjs`, run in positron-builds by `explore-gate.yml`) unless a focus was
+given. It is lenient the other way: it
 declines only a change it can name a blocker for. On a `/explore` run it says
-why in the PR. An automatic run posts nothing until the check passes, so a
-decline leaves the PR untouched.
+why in the PR. An automatic run posts nothing until the check passes. If the
+check declines it, the PR gets the same "Not run" comment, with how to run it
+anyway: comment `/explore <what to test>`, since a focus skips the check.
 
 So a PR gets at most one tip or one automatic run, ever. Commenting
 `/explore` runs it again after new pushes. A plain `/explore` while a plain
@@ -130,9 +139,10 @@ Rows in the Already on main group show what became of the finding: its issue
 number, Fixed later, or Won't fix.
 
 Runs from before main was replayed have no trusted origin. Their origins
-were checked by hand and are set in `origin-overrides.json`, keyed by
-`<run>#<finding>`, with a reason for each. An entry there wins over the
-report's own origin.
+were checked by hand and are set in `finding-overrides.json`, keyed by
+`<run>#<finding>`, with a reason (`why`) for each. An entry there wins over the
+report's own origin. An entry can also set `outcome` for a finding the checks
+get wrong; its `why` shows as the evidence, and no model check runs for it.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many
@@ -147,7 +157,7 @@ Hovering or focusing a PR link shows a card with the PR's title, author, size
 and the first paragraph of its description, saved on each row (`prPreview`)
 when the rows are built, so the page makes no GitHub calls.
 
-`exploratory-outcomes.yml` does both every night and deploys the page to
+positron-builds' `explore-outcomes.yml` does both every night and deploys the page to
 Posit Connect with `outcomes-publish.mjs`. The content was made once with
 `CONNECT_API_KEY=<your key> node outcomes-publish.mjs create`, which prints
 its GUID; that went in the `EXPLORE_OUTCOMES_CONNECT_GUID` repo variable. Only
@@ -215,7 +225,7 @@ holds the text helpers and the ledger parser.
 | The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |
-| A finding card's agent prompt, GitHub issue and feedback links | `renderer/page/card-actions.mjs` |
+| A finding card's agent prompt (also saved as `findings/finding-<n>.md` for `@claude fix finding <n>`), GitHub issue and feedback links | `renderer/page/card-actions.mjs` |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
 | Publishing a local run | `renderer/publish.sh` |
@@ -223,7 +233,7 @@ holds the text helpers and the ledger parser.
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |
-| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`, `exploratory-outcomes.yml` |
+| The workflows | `test-exploratory.yml` (`/explore` and manual runs), `test-exploratory-suggest.yml`, `exploratory-test-checks.yml`; in positron-builds, `explore-pr.yml`, `explore-gate.yml`, `explore-suggest.yml`, `explore-outcomes.yml` |
 
 Launching and driving the app belongs to drive-positron. See its
 [CONTRIBUTING.md](../drive-positron/CONTRIBUTING.md).

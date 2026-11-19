@@ -59,6 +59,17 @@ hands the task back to them. A URL without a scheme gets `http://`; any scheme
 other than `http` or `https` fails with an `error`. `localhost` URLs work even
 when Positron is running remotely.
 
+Pass `true` for `waitForLoad` when you'll read or use the page next. The command
+then returns once the page has loaded, so there's no need to sleep or poll
+before calling `positronViewer.read`. If the page doesn't load in time, the
+command fails, but the page stays open in the Viewer; read it before opening
+the URL again.
+
+On Desktop, the wait doesn't notice a page the server redirected to, such as
+Jupyter sending `/` to `/lab`, and fails after the timeout even though the page
+is showing. Such a page can't be read either. Pass the URL the server
+redirects to instead.
+
 Use this for a server that is already running, such as one the user started or
 documentation served locally. To start and preview a web app, use the commands
 in [interactive-apps.md]({{skill_dir}}/references/interactive-apps.md) instead.
@@ -100,7 +111,7 @@ Tables come one row per line, at most 50 rows.
   chunk sent to the Viewer, such as a Plotly chart (outlined with its data) or
   an HTML table. It has no URL, and neither does a Quarto chunk's HTML
   (`kind="html"`). Its controls work with the action commands like an app's.
-- With `positron.runApp.previewMode` set to `editor`, `external` or `none` (or
+- With `positron.runApp.previewMode` set to anything other than `viewer` (or
   `shiny.previewType` for Shiny), the app isn't in the Viewer, so let the user
   confirm it's up.
 

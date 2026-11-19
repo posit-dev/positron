@@ -14,6 +14,7 @@ import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDat
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { closeDataConnectionHandle, DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionLineageRequest, IDataConnectionLineageResult, IDataConnectionMechanism, IDataConnectionParameter, IDataConnectionParameterValidation, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { isRuntimeDataConnectionDriverId } from '../../../services/positronConnections/common/runtimeDataConnections.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -240,6 +241,13 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * @param metadata Serializable driver info (name, parameters, supported languages, etc.).
 	 */
 	$registerDataConnectionDriver(driverId: string, metadata: IDataConnectionDriverMetadataDTO): void {
+		// The runtime driver ids belong to the in-core drivers. Replacing one would hand an
+		// extension the R and Python connections, whose comms only an explicit Disconnect may close.
+		// The ext host sends this without awaiting it, so the refusal is logged rather than thrown.
+		if (isRuntimeDataConnectionDriverId(driverId)) {
+			this._logService.error(`[DataConnections] Refusing to register data connection driver '${driverId}': the id is reserved for an in-core driver`);
+			return;
+		}
 		this._dataConnectionsService.driverManager.registerDriver(
 			new MainThreadDataConnectionDriverAdapter(driverId, dtoToServiceMetadata(metadata), this._proxy)
 		);
@@ -250,6 +258,12 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * @param driverId The unique identifier for the driver to remove.
 	 */
 	$removeDataConnectionDriver(driverId: string): void {
+		// No extension can have registered a runtime driver id (see $registerDataConnectionDriver),
+		// so removing one is a no-op rather than dropping the in-core driver.
+		if (isRuntimeDataConnectionDriverId(driverId)) {
+			this._logService.warn(`[DataConnections] Ignoring removal of reserved data connection driver id '${driverId}'`);
+			return;
+		}
 		this._dataConnectionsService.driverManager.removeDriver(driverId);
 
 		for (const [connectionHandle, entry] of this._connectionHandles) {
@@ -261,10 +275,11 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
-	 * Returns summaries of all registered drivers from the service.
+	 * Returns summaries of all registered drivers from the service, except the in-core runtime
+	 * drivers, which serve connections R and Python sessions opened and cannot be connected to.
 	 */
 	async $getDataConnectionDrivers(): Promise<IDataConnectionDriverSummaryDTO[]> {
-		return this._dataConnectionsService.driverManager.getDrivers().map(driver => ({
+		return this._dataConnectionsService.driverManager.getDrivers().filter(driver => !isRuntimeDataConnectionDriverId(driver.id)).map(driver => ({
 			id: driver.id,
 			name: driver.metadata.name,
 			description: driver.metadata.description,
@@ -280,7 +295,11 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * round trip.
 	 */
 	async $connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValues): Promise<number> {
-		const driver = this._dataConnectionsService.driverManager.getDriver(driverId);
+		// A runtime driver's handle is shared by the pane and the schema summary, so an extension
+		// must not hold one. It gets the same error as an unknown driver (Decision 5).
+		const driver = isRuntimeDataConnectionDriverId(driverId)
+			? undefined
+			: this._dataConnectionsService.driverManager.getDriver(driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}

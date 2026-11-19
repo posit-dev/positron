@@ -1,17 +1,7 @@
 name: "Setup Claude"
-description: "Shared setup for the @claude jobs: Simple English plugin, Anthropic key, bubblewrap sandbox, and Node.js"
+description: "Shared setup for the @claude jobs: Simple English plugin, bubblewrap sandbox, and Node.js"
 
 # Run actions/checkout before this action.
-inputs:
-  op-service-account-token:
-    description: "1Password service account token used to load the Anthropic key"
-    required: true
-
-outputs:
-  anthropic-key:
-    description: "Anthropic API key"
-    value: ${{ steps.load_secrets.outputs.ANTHROPIC_KEY }}
-
 runs:
   using: "composite"
   steps:
@@ -23,12 +13,15 @@ runs:
         path: .claude-plugins/simple-english
         persist-credentials: false
 
-    - name: Load secret
-      id: load_secrets
-      uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-      env:
-        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.op-service-account-token }}
-        ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+    # actions/checkout can only write inside the workspace, so move the plugin out. claude-code-action
+    # checks out a PR's head into the workspace without restoring .claude-plugins from the base
+    # branch, so a PR could otherwise add files to the plugin, such as hooks that run commands.
+    # The jobs load the plugin from $RUNNER_TEMP/simple-english.
+    - name: Move Simple English plugin out of the workspace
+      shell: bash
+      run: |
+        mv .claude-plugins/simple-english "$RUNNER_TEMP/simple-english"
+        rmdir .claude-plugins
 
     # claude-code-action only installs bubblewrap when allowed_non_write_users is set, so the
     # @claude workflow mirrors its setup here. CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs it.

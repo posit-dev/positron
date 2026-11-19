@@ -61,16 +61,29 @@ export class SCM {
 		await expect(this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT)).toBeFocused();
 		await this.code.driver.currentPage.locator(SCM_INPUT_EDIT_CONTEXT).pressSequentially(message);
 
-		const commitAction = this.code.driver.currentPage.locator(COMMIT_COMMAND);
+		const page = this.code.driver.currentPage;
+		const commitAction = page.locator(COMMIT_COMMAND);
 		await expect(commitAction).not.toHaveClass(/disabled/);
-		await commitAction.click();
-		// Disabled until the commit and its status refresh release index.lock, pass or fail (CI
-		// has no git user); poll per frame since a local commit can end between expect's polls.
-		await this.code.driver.currentPage.waitForFunction(
-			selector => document.querySelector(selector)?.classList.contains('disabled'),
-			COMMIT_COMMAND,
-			{ polling: 'raf', timeout: 15000 }
-		);
+		// Disabled until the commit and its status refresh release index.lock, pass or fail.
+		// Watch from before the click: with no git user (CI) the commit can fail within 100 ms.
+		const watch = await page.evaluateHandle(selector => {
+			const state = { sawDisabled: false, observer: undefined as MutationObserver | undefined };
+			state.observer = new MutationObserver(() => {
+				if (document.querySelector(selector)?.classList.contains('disabled')) {
+					state.sawDisabled = true;
+				}
+			});
+			state.observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+			return state;
+		}, COMMIT_COMMAND);
+		try {
+			await commitAction.click();
+			await page.waitForFunction(state => state.sawDisabled, watch, { polling: 'raf', timeout: 15000 });
+		} finally {
+			// A closed page must not replace the error from the try block.
+			await watch.evaluate(state => state.observer?.disconnect()).catch(() => { });
+			await watch.dispose().catch(() => { });
+		}
 		await expect(commitAction).not.toHaveClass(/disabled/);
 	}
 

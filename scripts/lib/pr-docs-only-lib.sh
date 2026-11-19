@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pure helpers for deciding whether a PR or push changes only docs or tooling,
-# so pr-dispatch.yml and main-dispatch.yml can skip the tests in
+# so test-pr-dispatch.yml and test-merge-dispatch.yml can skip the tests in
 # posit-dev/positron-builds. On PRs, required-tests then passes without a run.
 # No `gh`, no $GITHUB_OUTPUT side effects: everything is string-in / string-out
 # so it can be unit-tested without network or GitHub Actions context.
@@ -44,8 +44,9 @@ is_docs_only_path() {
 		.github/*.md)
 			[[ "$path" == */*/* ]] || { echo true; return 0; } ;;
 		# The tests run from positron-builds' own workflows, never from a
-		# workflow here. This includes pr-dispatch.yml and main-dispatch.yml:
-		# a PR can't exercise either one, so it merges with no test run.
+		# workflow here. This includes test-pr-dispatch.yml and
+		# test-merge-dispatch.yml: a PR can't exercise either one, so it
+		# merges with no test run.
 		# Scripts, JSON maps, and the like under .github/workflows/ are not
 		# matched here and so still run.
 		.github/workflows/*.yml|.github/workflows/*.yaml)
