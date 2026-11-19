@@ -388,7 +388,7 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 							tooltip={navigateForward}
 							onPressed={() => previewService.goForward()} />
 					</ActionBarRegion>
-					<ActionBarRegion location='center'>
+					<ActionBarRegion location='center' minWidth={0}>
 						<form onSubmit={navigateToHandler}>
 							{content && !urlPreview ?
 								// Content without a URL shows its title, which can't be edited.
