@@ -414,7 +414,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		const selectionMode = mode === 'comment' ? BrowserElementSelectionMode.Comment : BrowserElementSelectionMode.Select;
 		const state = model.elementSelectionState;
 		const on = !(state.active && state.options.mode === selectionMode);
-		await model.toggleElementSelection(on, { mode: selectionMode, continuous: mode === 'comment' });
+		await model.toggleElementSelection(on, { mode: selectionMode });
 		if (on) {
 			// The user picks with the pointer or the keyboard in the page.
 			await model.focus();

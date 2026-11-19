@@ -39,6 +39,15 @@ export const POSITRON_VIEWER_IS_INTEGRATED_BROWSER = new RawContextKey<boolean>(
 /** Sending the Viewer's content to Posit Assistant needs the integrated browser, AI features, and a chat model. */
 export const POSITRON_VIEWER_CAN_SEND_TO_ASSISTANT = ContextKeyExpr.and(POSITRON_VIEWER_IS_INTEGRATED_BROWSER, POSIT_ASSISTANT_CAN_CHAT)!;
 
+/** Whether the Viewer's content can reload when a file it loaded changes on disk. */
+export const POSITRON_VIEWER_CAN_AUTO_REFRESH = new RawContextKey<boolean>('positronViewer.canAutoRefresh', false);
+
+/** Whether the Viewer's content reloads when a file it loaded changes on disk. */
+export const POSITRON_VIEWER_AUTO_REFRESH = new RawContextKey<boolean>('positronViewer.autoRefresh', false);
+
+/** Turns reloading the Viewer's content when its files change on and off. */
+export const POSITRON_VIEWER_TOGGLE_AUTO_REFRESH = 'workbench.action.positronPreview.toggleAutoRefresh';
+
 /** The commands that act on the integrated browser showing in the Viewer, for its toolbar. */
 export const VIEWER_BROWSER_COMMANDS = {
 	toggleDevTools: 'workbench.action.positronPreview.toggleDevTools',

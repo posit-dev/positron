@@ -27,6 +27,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IPositronViewerAgentService } from '../common/positronViewerAgent.js';
 import { PositronViewerAgentService } from './positronViewerAgentService.js';
 import './positronViewerAgentCommands.js';
+import { ViewerAutoRefresh } from './viewerAutoRefresh.js';
 
 registerSingleton(IPositronViewerAgentService, PositronViewerAgentService, InstantiationType.Delayed);
 
@@ -124,3 +125,4 @@ if (!isWeb) {
 }
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronPreviewContribution, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ViewerAutoRefresh, LifecyclePhase.Restored);

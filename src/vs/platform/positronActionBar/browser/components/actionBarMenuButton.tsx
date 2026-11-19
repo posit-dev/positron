@@ -38,6 +38,8 @@ interface ActionBarMenuButtonProps {
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
 	readonly disabled?: boolean;
 	readonly actions: () => readonly IAction[] | Promise<readonly IAction[]>;
+	/** With `enabled-split`, runs when the button is clicked, in place of the default action. */
+	readonly onPressed?: () => void;
 }
 
 /**
@@ -133,6 +135,8 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 			onPressed={async () => {
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
+				} else if (props.onPressed) {
+					props.onPressed();
 				} else {
 					// Run the preferred action (checked action, or first action if none checked).
 					const actions = await getActions();

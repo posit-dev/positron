@@ -65,7 +65,7 @@ export const BrowserActionButtons = (props: { readonly preview: PreviewWebview }
 			<ActionBarButton
 				align='right'
 				ariaLabel={toggleDevTools}
-				icon={ThemeIcon.fromId('tools')}
+				icon={ThemeIcon.fromId('developer-tools')}
 				tooltip={toggleDevTools}
 				onPressed={run(VIEWER_BROWSER_COMMANDS.toggleDevTools)} />
 		</>

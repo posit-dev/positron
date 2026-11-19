@@ -92,7 +92,7 @@ describe('PreviewBrowserView', () => {
 			onDidSelectElement: selectElement.event,
 			get elementSelectionState() { return selection; },
 			toggleElementSelection: async (enabled, options) => {
-				calls.push(`select ${enabled} ${options?.mode} ${options?.continuous}`);
+				calls.push(`select ${enabled} ${options?.mode}`);
 				selection = { active: !!enabled, options: options ?? {} };
 			},
 			setElementComments: async update => { calls.push(`comments ${JSON.stringify(update)}`); },
@@ -258,11 +258,11 @@ describe('PreviewBrowserView', () => {
 
 		expect({ calls, picked }).toEqual({
 			calls: [
-				'select true comment true',
+				'select true comment',
 				'focus',
 				'comments {"comments":[],"pendingCommentIdsToDiscard":["c1"]}',
-				'select false comment true',
-				'select true select false',
+				'select false comment',
+				'select true select',
 				'focus',
 			],
 			picked: ['<button>Go</button>'],

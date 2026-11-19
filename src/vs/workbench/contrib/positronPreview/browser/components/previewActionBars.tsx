@@ -30,7 +30,7 @@ import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, PreviewOpenTarget } from '../positronPreviewSevice.js';
 import { BrowserActionButtons } from './browserActionButtons.js';
-import { PositronOpenUrlInViewerAction } from '../positronPreviewActions.js';
+import { POSITRON_VIEWER_AUTO_REFRESH, POSITRON_VIEWER_CAN_AUTO_REFRESH, POSITRON_VIEWER_TOGGLE_AUTO_REFRESH, PositronOpenUrlInViewerAction } from '../positronPreviewActions.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -56,6 +56,9 @@ const openInEditorLabel = localize('positron.preview.openInEditor.menu', "Open i
 const openInDropdownLabel = localize('positron.preview.openInDropdown', "Select where to open");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
 const enterUrl = localize('positron.preview.enterUrl', "Enter a URL to preview");
+const moreReloadActions = localize('positron.preview.moreReloadActions', "More Reload Actions");
+const reloadAutoRefresh = localize('positron.preview.reloadAutoRefresh', "Reload (Automatic Refresh Enabled)");
+const refreshAutomatically = localize('positron.preview.refreshAutomatically', "Refresh Automatically");
 const interruptExecution = localize('positron.preview.interruptExecution', "Interrupt execution");
 
 /**
@@ -129,6 +132,35 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 
 	// Handler for the reload button.
 	const reloadHandler = () => content?.surface.reload();
+
+	// Whether the content reloads when a local file it loaded changes.
+	const contextKeyService = services.contextKeyService;
+	const [canAutoRefresh, setCanAutoRefresh] = useState(false);
+	const [autoRefresh, setAutoRefresh] = useState(false);
+	useEffect(() => {
+		const keys = new Set([POSITRON_VIEWER_CAN_AUTO_REFRESH.key, POSITRON_VIEWER_AUTO_REFRESH.key]);
+		const read = () => {
+			setCanAutoRefresh(!!POSITRON_VIEWER_CAN_AUTO_REFRESH.getValue(contextKeyService));
+			setAutoRefresh(!!POSITRON_VIEWER_AUTO_REFRESH.getValue(contextKeyService));
+		};
+		const disposable = contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(keys)) {
+				read();
+			}
+		});
+		read();
+		return () => disposable.dispose();
+	}, [contextKeyService]);
+
+	const reloadActions = (): IAction[] => [{
+		id: POSITRON_VIEWER_TOGGLE_AUTO_REFRESH,
+		label: refreshAutomatically,
+		tooltip: '',
+		class: undefined,
+		checked: autoRefresh,
+		enabled: true,
+		run: () => services.commandService.executeCommand(POSITRON_VIEWER_TOGGLE_AUTO_REFRESH),
+	}];
 
 	// State for the remembered "Open in..." target. Persisted via the preview
 	// service so it survives remounts and reloads.
@@ -387,6 +419,23 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 							icon={ThemeIcon.fromId('positron-right-arrow')}
 							tooltip={navigateForward}
 							onPressed={() => previewService.goForward()} />
+						{canAutoRefresh ?
+							<ActionBarMenuButton
+								actions={reloadActions}
+								ariaLabel={reload}
+								dropdownAriaLabel={moreReloadActions}
+								dropdownIndicator='enabled-split'
+								dropdownTooltip={moreReloadActions}
+								icon={ThemeIcon.fromId(autoRefresh ? 'sync' : 'refresh')}
+								tooltip={autoRefresh ? reloadAutoRefresh : reload}
+								onPressed={reloadHandler} /> :
+							<ActionBarButton
+								ariaLabel={reload}
+								disabled={!content?.address}
+								icon={ThemeIcon.fromId('refresh')}
+								tooltip={reload}
+								onPressed={reloadHandler} />
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='center' minWidth={0}>
 						<form onSubmit={navigateToHandler}>
@@ -436,13 +485,7 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 						}
 						{content && <>
 							<BrowserActionButtons preview={content} />
-							{content.address && <>
-								<ActionBarButton
-									align='right'
-									ariaLabel={reload}
-									icon={ThemeIcon.fromId('refresh')}
-									tooltip={reload}
-									onPressed={reloadHandler} />
+							{content.address &&
 								<ActionBarMenuButton
 									actions={openInActions}
 									align='right'
@@ -452,7 +495,7 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 									dropdownTooltip={openInDropdownLabel}
 									icon={ThemeIcon.fromId('positron-open-in-new-window')}
 									tooltip={openInDropdownLabel} />
-							</>}
+							}
 							<ActionBarSeparator />
 							<ActionBarButton
 								align='right'

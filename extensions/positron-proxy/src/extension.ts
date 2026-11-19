@@ -45,6 +45,19 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Register the commands the Viewer uses to watch the files of content
+	// served by the HTML proxy server.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.watchHtmlProxy',
+			(url: string) => positronProxy.watchHtmlProxy(url)
+		),
+		vscode.commands.registerCommand(
+			'positronProxy.unwatchHtmlProxy',
+			(id: string) => positronProxy.unwatchHtmlProxy(id)
+		)
+	);
+
 	// Register the positronProxy.startHtmlStringServer command and add its
 	// disposable. The server starts when it's first used.
 	let htmlStringServer: HtmlStringServer | undefined;
@@ -97,10 +110,16 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.showHtmlPreview',
-			async (target: vscode.Uri | string) => {
-				// Agents pass a string, which may be a file URI or a path.
-				const uri = typeof target !== 'string' ? target :
-					target.startsWith('file:') ? vscode.Uri.parse(target) : vscode.Uri.file(target);
+			async (target?: vscode.Uri | string) => {
+				// Agents pass a string, which may be a file URI or a path. From
+				// the Command Palette, show the active editor's file.
+				const uri = typeof target === 'string' ?
+					target.startsWith('file:') ? vscode.Uri.parse(target) : vscode.Uri.file(target) :
+					target ?? vscode.window.activeTextEditor?.document.uri;
+				if (!uri) {
+					vscode.window.showErrorMessage(vscode.l10n.t('No selected file to show in the Viewer. Open an HTML file in an editor before running this command.'));
+					return;
+				}
 
 				// Throws if the file doesn't exist.
 				await vscode.workspace.fs.stat(uri);

@@ -24,6 +24,14 @@ stay visible when the Viewer is narrow.
 
 .preview-action-bar .action-bar-region-center {
 	flex: 1;
+	container-type: inline-size;
+}
+
+/* Hide the URL bar when it is too narrow to be useful. */
+@container (max-width: 80px) {
+	.preview-action-bar .url-bar {
+		display: none;
+	}
 }
 
 .preview-action-bar form {

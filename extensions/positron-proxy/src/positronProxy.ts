@@ -184,6 +184,25 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
+	 * Watches the local files served for the content at a URL, and tells the
+	 * Viewer when one changes.
+	 * @param url The URL of the content.
+	 * @returns An ID for the watch, or undefined if the URL isn't served here.
+	 */
+	watchHtmlProxy(url: string): string | undefined {
+		return this._htmlProxyServer?.watch(url, id =>
+			vscode.commands.executeCommand('positronViewer.htmlProxyContentChanged', id));
+	}
+
+	/**
+	 * Stops watching the files served for content.
+	 * @param id The ID returned by `watchHtmlProxy`.
+	 */
+	unwatchHtmlProxy(id: string) {
+		this._htmlProxyServer?.unwatch(id);
+	}
+
+	/**
 	 * Sets the help proxy server styles.
 	 * @param styles The help proxy server styles.
 	 */
