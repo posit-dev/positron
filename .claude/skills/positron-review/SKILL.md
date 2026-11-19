@@ -113,6 +113,8 @@ git ls-files --others --exclude-standard # local only
 
 **Intent.** Read the PR description, linked issue, and commit messages. If something can't be opened, say so. If you still can't tell what the change is for, state your best reading as assumed and raise a `clarity` finding.
 
+**CI** (PR mode). Run `gh pr checks <n>` once and keep the names of failed checks for the Summary. Don't wait for pending checks, and don't triage failures.
+
 **Triage.** Label mechanical hunks and skim them: lockfiles, generated comms code (check the `positron/comms/*.json` schema changed with it), regenerated snapshots, mass renames, vendored Python pins. Read everything else in behavioral context: the whole enclosing function, its callers, DI and contribution registration, and the tests that exercise it.
 
 **Guidance.** Claude Code loads nested and path-scoped guidance only when it opens a matching file with `Read`, so collect it on purpose, at `TARGET`:
@@ -194,16 +196,41 @@ One line each in the coverage note, only for those the diff touches:
 
 - **Upstream isolation:** a file with a Microsoft header at `BASE` (including vscode-python files under `extensions/positron-python`) needs every edit inside `// --- Start Positron ---` / `// --- End Positron ---` markers, with a reason and the replaced code commented. Unmarked edits, or logic that could live in a new file, are findings.
 - **Where it runs:** `common/` imports no `browser/`, `node/`, or `electron-*/`; `browser/` uses no Node APIs. For the browser build and REH/Workbench: host-relative URLs, `localhost` vs `127.0.0.1`/`::1`, client-only paths, dynamic imports the server build doesn't bundle.
-- **Platforms:** Windows paths (separators, drive case, spaces, forward slashes users type in settings), CRLF in parsed text, case-insensitive filesystems, shell differences.
+- **Platforms:** use the signal table below. For each target a signal points to, write a line with its risk (`low` or `at risk`) and the code involved. Targets with no signal are `none` and need no line. Code you can show is wrong on a target is a finding. A risk you can't settle by reading is a `minor (platform)` question that names what to test and where.
 - **Release build:** built-in extension `activationEvents`, strings in `package.nls.json`, files packaging drops or wrongly ships, new `.js` files and `.eslint-allowed-javascript-files`.
 - **Contracts:** `positron.d.ts`, proposed APIs, and `positron/comms/*.json` schemas need regenerated code and a plan for Ark and the Python kernel.
 - **Failing safe:** a check the change relies on that can be skipped (nothing to verify against, an input that doesn't parse, an error swallowed by a fallback). Does the code stop, or continue as if it passed?
+
+Platform signals. Targets are Linux, Windows, web (Positron Server and Workbench), Remote SSH, WSL, and dev containers.
+
+| Signal in the diff | Targets at risk |
+|---|---|
+| Path building or comparison: `/` joined by hand, `fsPath` vs `path`, `path.sep`, drive letters and drive case, spaces, case-insensitive compares or filesystems, forward slashes users type in settings, `~` or `os.homedir()` | Windows, remotes |
+| Spawning processes: shell syntax and quoting, `.exe`/`.cmd`/`.bat` shims, `PATH` splitting (`:` vs `;`), signals, `chmod` or executable bits, symlinks | Windows, WSL |
+| Interpreter or tool discovery: `bin/python` vs `Scripts\python.exe`, the registry, conda/pyenv/uv locations, `R_HOME` | Windows, Linux |
+| Native binaries or architecture: ark, kcserver, pet, node-pty, x64 vs arm64 | Linux, Windows |
+| `electron-main`/`electron-browser` code, native dialogs, clipboard, menus, keybindings (Cmd vs Ctrl) | web: check the `browser` fallback |
+| URIs that assume `file:` or `localhost`, webviews, port forwarding, `asExternalUri`, proxies, auth, enforced settings | web, Remote SSH, WSL, dev containers |
+| Extension code that touches the local machine (`os`, `child_process`, fs) or sets `extensionKind` | Remote SSH, WSL, dev containers (the extension host is remote) |
+| Sizes tied to the default font: `em` values, fixed `px` heights around text (see 4b) | Windows, Linux (14px default vs 12px on macOS) |
+| CRLF vs LF in parsed text, file watchers, encodings | Windows |
 
 ### 4g. Size
 
 Write one sentence on what the change does in user terms, and one line with production and test lines changed. Flag a mechanism that isn't load-bearing: an existing mechanism already does it, it guards against something impossible, or it exists only because of another design choice. Grep for other copies of a new helper's core operation; if copies exist, name them and say which can use the new helper. Same-behavior cuts that save more than about 20 production lines are `important (simplification)`; smaller ones are `minor`.
 
 ## Step 5: Merge and rank
+
+**Exploratory report** (PR mode). Read this only now, after Step 4, so it can't steer the inventories. A CI workflow can run an exploratory-testing agent on the PR. It posts a comment from `github-actions[bot]` whose body starts with `<!-- exploratory-test -->`, and edits that comment as the run goes:
+
+```bash
+gh api --paginate "repos/posit-dev/positron/issues/<n>/comments" \
+  --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- exploratory-test -->"))) | {url: .html_url, created_at, body}'
+```
+
+Use the newest. Its title line holds the short SHA it tested. If `TARGET` doesn't start with that SHA, the report is stale: use it, but check each finding still applies at `TARGET`, and say so in the Summary. If the body says "Off exploring, back soon", the run is still going; don't wait for it. If the body has a "View report" link to `<base>/index.html`, fetch `<base>/report.json` with `curl -fsS -m 30`. The report site may be unreachable from your network; then work from the comment body and say the report was unreachable. Otherwise the run declined or failed, and the body says why. Put the state in the Summary.
+
+In `report.json`, each entry in `findings` has `severity`, `title`, `observed`, `expected`, `cause`, and `verified` (the agent's own check). In `main.steps`, `same: true` means the problem also happens on `main`. Treat each finding like a general-pass finding below: fact-check its `cause` against the code at `TARGET`, merge it with any matching finding, and rate it. A problem that also happens on `main` is `preexisting` unless the change now relies on it. Link the bot comment (not the report site) in every finding it contributed to.
 
 1. **Fact-check each general-pass finding** at `TARGET`. It is often right about the bug and wrong about the context, especially about what upstream code does and about later revisions.
     - **Drop** only when the code contradicts a fact it states, or the PR description explicitly accepts that cost. Cite the line or the words in the coverage note.
@@ -244,7 +271,7 @@ Tag each **`priority (reason)`** and sort by priority. `critical`: must be addre
 # Review: <PR #<n> - <title> | branch <name> | range <A>..<B> | local changes>
 
 ## Summary
-<Up to 5 sentences: what the change does; BASE..TARGET; the general pass's level or that it was unavailable; blind or inline (and if inline, whether this session wrote the change); overall read with a one-line take on strengths; answers to questions the PR asks reviewers; coverage gaps.>
+<Up to 5 sentences: what the change does; BASE..TARGET; the general pass's level or that it was unavailable; blind or inline (and if inline, whether this session wrote the change); overall read with a one-line take on strengths; answers to questions the PR asks reviewers; failed CI checks by name; the exploratory report's state; coverage gaps.>
 
 ## Size
 <behavior sentence; production/test lines; proportionate, or what could be cut>
@@ -265,7 +292,21 @@ Then:
 1. **Save the review** under `reviews/` at the root of the checkout or worktree, as `reviews/{yyyy-mm-dd}-{hhmm}-pr-<n>.md`, `-range-<short A>-<short B>.md`, or `-local.md`. The repo's `.gitignore` ignores `/reviews/`, so reviews never get committed.
 2. **Return a 2-4 line digest:** the overall read and the critical and important headlines, with the file path last.
 
-**Posting to the PR** only on an explicit request in the conversation: draft each selected finding as an inline comment at its line on the PR head (a `suggestion` block only for drop-in fixes), in the author-facing voice with no priority tags or mention of this skill, show the drafts, and post after the user confirms.
+**Posting to the PR** only on an explicit request in the conversation: draft each selected finding as an inline comment at its line on the PR head (a `suggestion` block only for drop-in fixes), in the author-facing voice with no priority tags or mention of this skill, and show the drafts. After the user confirms, post them as one **pending** review. Nobody but the user sees it until they submit it on GitHub, where they can still edit, add screenshots, and pick approve or request changes.
+
+1. Check that the user has no pending review on the PR. GitHub allows one per person per PR, and it may hold their own drafts:
+
+   ```bash
+   ME=$(gh api user --jq .login)
+   gh api "repos/posit-dev/positron/pulls/<n>/reviews" --paginate \
+     --jq ".[] | select(.state == \"PENDING\" and .user.login == \"$ME\") | .html_url"
+   ```
+
+   If this prints a URL, don't touch that review. Give the user the drafts in chat instead.
+2. Every comment must land on a line inside one of the PR's diff hunks at `TARGET`: the new-file line with `side: "RIGHT"`, or the old-file line with `side: "LEFT"` for a deleted line. A comment that spans lines also gets `start_line` and `start_side`. Findings with no line in the diff go in the review body.
+3. Write the payload with `jq`, not by hand, to `reviews/<review file stem>-pending.json`: `commit_id` is `TARGET`, `body` is the review body, `comments` holds `path`, `line`, `side`, and `body` for each comment. Leave out `event`; that is what keeps the review pending.
+4. Post it: `gh api -X POST "repos/posit-dev/positron/pulls/<n>/reviews" --input <payload>`. A `422` such as `Line could not be resolved` means a comment isn't on a diff line and nothing was created. Fix that line or move the comment to the body, then post again.
+5. Give the user the review's `html_url`.
 
 ## Acting on this review
 
@@ -297,7 +338,7 @@ The test's coordinator starts the two agents itself, and its working directory m
 ## Rules
 
 1. **Review-only.** Never merge, push, commit, amend, check out, stash, or modify the code under review.
-2. **Don't run builds, type checks, lints, or tests.** Judge by reading; report suspected failures as findings. Read-only `git`, `gh`, `scripts/file-origin.sh`, and `code-review` (without `--fix` or `--comment`) are fine.
+2. **Don't run builds, type checks, lints, or tests.** Judge by reading; report suspected failures as findings. Read-only `git`, `gh`, `scripts/file-origin.sh`, fetching the exploratory `report.json`, and `code-review` (without `--fix` or `--comment`) are fine.
 3. **Never discard uncommitted work.**
 4. **Nothing outward-facing without an explicit request:** no PR comments, reviews, labels, or approvals.
 5. **Keep the reviewers blind.** No brief carries the conversation, a summary of it, earlier findings, or a hypothesis, and the coordinator relays the general pass's findings verbatim.
