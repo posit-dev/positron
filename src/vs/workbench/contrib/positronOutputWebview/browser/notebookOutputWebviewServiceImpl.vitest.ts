@@ -86,6 +86,8 @@ describe('PositronNotebookOutputWebviewService', () => {
 				webviewService,
 				stubInterface<INotebookService>({
 					getPreferredRenderer: () => renderer,
+					getMimeTypeInfo: () => [{ mimeType: 'text/html', rendererId: 'renderer', isTrusted: true }],
+					getRendererInfo: () => renderer,
 					getRenderers: () => [],
 					getStaticPreloads: () => [],
 				}),
@@ -99,17 +101,30 @@ describe('PositronNotebookOutputWebviewService', () => {
 			return { service, htmls };
 		};
 
-		it.each([
-			{ fillViewport: true, expected: true },
-			{ fillViewport: undefined, expected: false },
-		])('fillViewport=$fillViewport adds the fill CSS: $expected', async ({ fillViewport, expected }) => {
-			const { service, htmls } = createService();
-			await service.createNotebookOutputWebview({
+		const output = stubInterface<ILanguageRuntimeMessageWebOutput>({ id: 'output-1', data: { 'text/html': '' }, resource_roots: [], output_location: undefined });
+		const create = {
+			single: (service: PositronNotebookOutputWebviewService, fillViewport?: boolean) => service.createNotebookOutputWebview({
 				id: 'output-1',
 				runtime: stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }),
-				output: stubInterface<ILanguageRuntimeMessageWebOutput>({ id: 'output-1', data: { 'text/html': '' }, resource_roots: [], output_location: undefined }),
+				output,
 				fillViewport,
-			});
+			}),
+			multi: (service: PositronNotebookOutputWebviewService, fillViewport?: boolean) => service.createMultiMessageWebview({
+				runtimeId: 'session-1',
+				preReqMessages: [],
+				displayMessage: output,
+				fillViewport,
+			}),
+		};
+
+		it.each([
+			{ entry: 'single', fillViewport: true, expected: true },
+			{ entry: 'single', fillViewport: undefined, expected: false },
+			{ entry: 'multi', fillViewport: true, expected: true },
+			{ entry: 'multi', fillViewport: undefined, expected: false },
+		] as const)('$entry: fillViewport=$fillViewport adds the fill CSS: $expected', async ({ entry, fillViewport, expected }) => {
+			const { service, htmls } = createService();
+			await create[entry](service, fillViewport);
 
 			expect(htmls).toHaveLength(1);
 			expect(htmls[0].includes(FILL_VIEWPORT_CSS)).toBe(expected);

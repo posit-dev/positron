@@ -5,8 +5,8 @@
 
 import { FILL_VIEWPORT_CSS } from './fillViewport.js';
 
-// The rule's selector list, so it can be checked with Element.matches().
-const selector = FILL_VIEWPORT_CSS.match(/<style>([\s\S]*)\{/)![1].trim();
+// The first rule's selector list, so it can be checked with Element.matches().
+const selector = FILL_VIEWPORT_CSS.match(/<style>([^{]*)\{/)![1].trim();
 
 /** Renders `html` into the body and returns the ids of elements the fill CSS gives a height. */
 function filledIds(html: string): string[] {
@@ -22,7 +22,7 @@ describe('FILL_VIEWPORT_CSS', () => {
 		document.body.innerHTML = '';
 	});
 
-	it('fills a chart whose outer element has fit-y (Altair HTML output)', () => {
+	it('fills a chart with the actions menu (Altair HTML output)', () => {
 		expect(filledIds(`
 			<div id="output" class="output_html">
 				<div id="embed" class="vega-embed fit-y">
@@ -31,7 +31,14 @@ describe('FILL_VIEWPORT_CSS', () => {
 			</div>`)).toEqual(['output', 'embed', 'wrapper']);
 	});
 
-	it('fills a chart whose inner wrapper has fit-y (actions menu shown)', () => {
+	it('fills a chart without the actions menu (Altair HTML output)', () => {
+		expect(filledIds(`
+			<div id="output" class="output_html">
+				<div id="embed" class="vega-embed fit-y"><svg id="marks"></svg></div>
+			</div>`)).toEqual(['output', 'embed']);
+	});
+
+	it('fills a chart whose wrapper alone has fit-y (notebook renderer, actions menu shown)', () => {
 		expect(filledIds(`
 			<div id="output">
 				<div id="embed" class="vega-embed">
