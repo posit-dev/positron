@@ -136,7 +136,8 @@ export class HtmlProxyServer implements Disposable {
 		const root = targetPath;
 		this._app.use(`/${serverPath}`, async (req: any, _res: any, next: any) => {
 			try {
-				const file = path.join(root, decodeURIComponent(req.path));
+				// Normalized as the watcher's URIs are, e.g. the drive letter's case.
+				const file = Uri.file(path.join(root, decodeURIComponent(req.path))).fsPath;
 				if (!path.relative(root, file).startsWith('..') && (await fs.promises.stat(file)).isFile()) {
 					mount.files.add(file);
 					mount.watch?.add(file);

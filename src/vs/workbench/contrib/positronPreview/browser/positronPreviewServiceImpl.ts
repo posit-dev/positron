@@ -250,7 +250,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const navigation = ++this._navigation;
 		const entry = this._history[target];
 		const preview = entry.output ? await this.createWidget(entry.preview.previewId, entry.output) : this.reopen(entry.preview);
-		if (navigation !== this._navigation) {
+		// The history can change while the widget is created.
+		target = this._history.indexOf(entry);
+		if (navigation !== this._navigation || target < 0) {
 			preview?.dispose();
 			return;
 		}
@@ -428,14 +430,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/**
 	 * Shows the active preview again on a new surface, if it has an address.
-	 * Other previews keep their surface until they're replaced.
+	 * Other previews keep their surface until they're replaced, as does a
+	 * stoppable one, whose stop button is linked to its owner.
 	 */
 	private recreateActivePreview(): void {
 		const entry = this._history[this._index];
-		const preview = entry && this.reopen(entry.preview);
+		if (!entry || entry.preview.stoppable) {
+			return;
+		}
+		const preview = this.reopen(entry.preview);
 		if (preview) {
 			entry.preview = preview;
-			this.setActive(preview);
+			this.setActive(preview, true);
 		}
 	}
 
@@ -555,8 +561,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._register(session.onDidReceiveRuntimeMessageUpdateOutput(async e => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const previewId = this.previewWebviewId(session, e);
-				if (this._history.some(entry => entry.preview.previewId === previewId)) {
+				const entry = this._history.find(entry => entry.preview.previewId === previewId);
+				if (entry?.preview === this._active.value) {
 					await this.handleRuntimeOutputMessage(previewId, e, session);
+				} else if (entry) {
+					// An update to a widget that isn't showing is kept to show later.
+					entry.output = { session, message: e };
 				}
 			}
 		}));
@@ -570,25 +580,26 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	/** Handles a language runtime output message. */
 	private async handleRuntimeOutputMessage(previewId: string, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput, session: ILanguageRuntimeSession) {
 		const output = { session, message };
-
-		// An update to a widget that isn't showing is kept to show later.
-		const entry = this._history.find(e => e.preview.previewId === previewId);
-		if (entry && entry.preview !== this._active.value) {
-			entry.output = output;
-			return;
-		}
-
 		const preview = await this.createWidget(previewId, output);
 		if (!preview) {
 			return;
 		}
-		if (entry) {
-			entry.output = output;
-			entry.preview = preview;
+
+		// Replace the widget in place if it's showing; otherwise show it as
+		// new content, dropping its old entry.
+		const index = this._history.findIndex(e => e.preview.previewId === previewId);
+		if (index >= 0 && index === this._index) {
+			this._history[index] = { preview, output };
 			this.setActive(preview);
-		} else {
-			this.makeActivePreview(preview, false, output);
+			return;
 		}
+		if (index >= 0) {
+			this._history.splice(index, 1);
+			if (index < this._index) {
+				this._index--;
+			}
+		}
+		this.makeActivePreview(preview, false, output);
 	}
 
 	/** Creates a preview of a widget a runtime sent. */

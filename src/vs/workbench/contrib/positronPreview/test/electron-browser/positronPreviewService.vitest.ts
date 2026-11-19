@@ -20,6 +20,7 @@ import { IUntypedEditorInput } from '../../../../common/editor.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { PreviewHtml } from '../../browser/previewHtml.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
 
 describe('Positron - Preview Service', () => {
 
@@ -75,12 +76,23 @@ describe('Positron - Electron Preview Service', () => {
 
 	it('shows the active URL again in the new backend when the setting changes', async () => {
 		const before = previewService.openUri('previewUrl.a', undefined, URI.parse('http://localhost:8000/app'));
+		const viewsService = ctx.instantiationService.invokeFunction(accessor => accessor.get(IViewsService));
+		const openView = vi.spyOn(viewsService, 'openView');
 
 		await useIntegratedBrowser(true);
 
 		const after = previewService.activePreviewWebview;
-		expect({ disposed: before.isDisposed(), kind: after?.surface.kind, address: after?.address?.toString() })
-			.toEqual({ disposed: true, kind: 'browser', address: 'http://localhost:8000/app' });
+		expect({ disposed: before.isDisposed(), kind: after?.surface.kind, address: after?.address?.toString(), preserveFocus: openView.mock.calls[0][1] })
+			.toEqual({ disposed: true, kind: 'browser', address: 'http://localhost:8000/app', preserveFocus: true });
+	});
+
+	it('keeps a stoppable preview on its surface when the setting changes', async () => {
+		const app = previewService.openUri('previewUrl.a', undefined, URI.parse('http://localhost:8000/app'));
+		app.stoppable = true;
+
+		await useIntegratedBrowser(true);
+
+		expect({ active: previewService.activePreviewWebview === app, disposed: app.isDisposed() }).toEqual({ active: true, disposed: false });
 	});
 
 	it('serves an HTML string through the proxy to show it in the integrated browser', async () => {
