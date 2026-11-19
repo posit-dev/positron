@@ -16,7 +16,6 @@ import { isWindows } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { useActionBarHover } from '../../../../../platform/positronActionBar/browser/useActionBarHover.js';
-import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { AnchorPoint } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -57,9 +56,6 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 
 	// Reference hooks.
 	const keyboardContextMenuTimeRef = useRef(0);
-
-	// Participate in the action bar's arrow key navigation.
-	useRegisterWithActionBar([ref]);
 
 	// The directory label as displayed.
 	const directoryLabel = isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel;
@@ -140,6 +136,8 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 			)}
 			className='current-working-directory-label'
 			role='button'
+			// A Tab stop of its own, like the other controls in the console action bar.
+			tabIndex={0}
 			onBlur={hover.onBlur}
 			onContextMenu={contextMenuHandler}
 			onFocus={hover.onFocus}

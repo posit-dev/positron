@@ -5,12 +5,14 @@
 
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useRef } from 'react';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 import { CurrentWorkingDirectory } from '../../browser/components/currentWorkingDirectory.js';
 
 // The real context menu renders a modal popup; the tests only need to know it was asked to open.
@@ -42,6 +44,25 @@ describe('CurrentWorkingDirectory', () => {
 		const label = screen.getByRole('button', { name: 'Current Working Directory: ~/projects/demo' });
 		expect(label).toHaveAttribute('aria-haspopup', 'menu');
 		expect(label).toHaveAttribute('tabindex', '0');
+	});
+
+	it('stays a Tab stop when another control registers with the action bar first', () => {
+		const RegisteredButton = () => {
+			const ref = useRef<HTMLButtonElement>(undefined!);
+			useRegisterWithActionBar([ref]);
+			return <button ref={ref}>Registered</button>;
+		};
+		const renderBar = (directoryLabel: string) => (
+			<PositronActionBarContextProvider>
+				<RegisteredButton />
+				<CurrentWorkingDirectory directoryLabel={directoryLabel} />
+			</PositronActionBarContextProvider>
+		);
+		const { rerender } = rtl.render(renderBar('~/projects/demo'));
+
+		rerender(renderBar('~/projects/other'));
+
+		expect(screen.getByRole('button', { name: /current working directory/i })).toHaveAttribute('tabindex', '0');
 	});
 
 	it('shows the directory in a hover when it gets focus', async () => {
