@@ -13,7 +13,7 @@ describe('normalizeSaveResolutions', () => {
 		['empty', []],
 		['all invalid', [0, 50]],
 	])('uses the default list when the setting is %s', (_label, value) => {
-		expect(normalizeSaveResolutions(value)).toEqual([1, 2, 3, 4]);
+		expect(normalizeSaveResolutions(value)).toEqual([1, 2, 3]);
 	});
 
 	it('sorts and drops duplicates', () => {

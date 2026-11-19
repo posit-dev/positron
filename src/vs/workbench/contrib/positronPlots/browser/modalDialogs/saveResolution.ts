@@ -9,7 +9,7 @@ import { PlotRenderFormat } from '../../../../services/positronPlots/common/posi
 export const SaveResolutionsConfigKey = 'plots.saveResolutions';
 
 /** The resolution multipliers offered when the setting is missing or has no valid entries. */
-export const DEFAULT_SAVE_RESOLUTIONS: readonly number[] = [1, 2, 3, 4];
+export const DEFAULT_SAVE_RESOLUTIONS: readonly number[] = [1, 2, 3];
 
 /** The largest resolution multiplier the setting accepts. */
 export const MAX_SAVE_RESOLUTION = 10;

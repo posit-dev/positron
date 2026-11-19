@@ -358,12 +358,12 @@ describe('Save Plot dialog resolution', () => {
 
 	it('starts at the remembered resolution', async () => {
 		const user = userEvent.setup();
-		const { render, savePlotCallback } = await open(PlotRenderFormat.Png, 4);
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png, 3);
 
-		expect(resolutionButton()).toHaveTextContent('4x');
+		expect(resolutionButton()).toHaveTextContent('3x');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 4, PlotRenderFormat.Png, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Png, true);
 	});
 
 	it('ignores a remembered resolution that the setting no longer offers', async () => {
