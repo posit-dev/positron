@@ -142,6 +142,36 @@ describe('Positron - PlotClientInstance', () => {
 		expect(renderSpy).toHaveBeenCalledTimes(2);
 	});
 
+	it('marks R\'s first image until a view gets a render at its own size', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA', { width: 100, height: 100 }) });
+		expect(client.lastRenderIsPreRender).toBe(true);
+
+		// A failed render at another size leaves only R's first image.
+		const small = client.render({ width: 100, height: 20 }, 1);
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		renderSpy.mock.calls[0][0].error(new Error('figure margins too large'));
+		await expect(small).rejects.toThrow('figure margins too large');
+		expect(client.lastRenderIsPreRender).toBe(true);
+
+		// The first image at the asked size is the view's own render.
+		await client.render({ width: 100, height: 100 }, 1);
+		expect(client.lastRenderIsPreRender).toBe(false);
+	});
+
+	it('clears the mark when a render at a new size succeeds', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA', { width: 100, height: 100 }) });
+
+		const render = client.render({ width: 200, height: 200 }, 1);
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		renderSpy.mock.calls[0][0].complete({
+			uri: 'data:image/png;base64,BBBB', size: { width: 200, height: 200 },
+			pixel_ratio: 1, format: PlotRenderFormat.Png, renderTimeMs: 0,
+		});
+		await render;
+
+		expect(client.lastRenderIsPreRender).toBe(false);
+	});
+
 	it('draws a plot on Intrinsic with no intrinsic size at the Auto size', async () => {
 		const client = createPlotClient({}, new PlotSizingPolicyIntrinsic());
 

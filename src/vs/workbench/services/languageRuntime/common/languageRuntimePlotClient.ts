@@ -137,6 +137,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private _lastRenderStale = false;
 
 	/**
+	 * Set while _lastRender is the runtime's pre-render, drawn at a size no view asked for.
+	 */
+	private _lastRenderIsPreRender = false;
+
+	/**
 	 * The timer used to throttle plot rendering requests.
 	 */
 	private _renderThrottleTimer?: Timeout;
@@ -238,6 +243,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// (size, pixel ratio, and format) matches.
 		if (metadata.pre_render?.settings) {
 			this._lastRender = plotResultToRenderedPlot(metadata.pre_render as PlotResult & { settings: NonNullable<PlotResult['settings']> });
+			this._lastRenderIsPreRender = true;
 		}
 
 		// Connect close emitter event
@@ -304,6 +310,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				// Store the pre-rendering as the last render
 				this._lastRender = preRenderPlot;
 				this._lastRenderStale = false;
+				this._lastRenderIsPreRender = false;
 
 				// Fire the complete render event to actually update the plot instance
 				this._completeRenderEmitter.fire(preRenderPlot);
@@ -358,6 +365,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					// Store the pre-rendering as the last render
 					this._lastRender = preRenderPlot;
 					this._lastRenderStale = false;
+					this._lastRenderIsPreRender = true;
 
 					// Fire the complete render event to update the plot display
 					this._completeRenderEmitter.fire(preRenderPlot);
@@ -470,6 +478,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		)) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
+			this._lastRenderIsPreRender = false;
 			return Promise.resolve(this._lastRender);
 		}
 
@@ -538,6 +547,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				if (!request.preview) {
 					this._lastRender = rendered;
 					this._lastRenderStale = false;
+					this._lastRenderIsPreRender = false;
 					this._lastRenderTimeMs = rendered.renderTimeMs;
 					this._completeRenderEmitter.fire(rendered);
 				}
@@ -573,6 +583,14 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	get lastRenderStale(): boolean {
 		return this._lastRenderStale;
+	}
+
+	/**
+	 * Whether the last render is only the runtime's pre-render, drawn at a size
+	 * no view asked for, so a failed render can't fall back to it.
+	 */
+	get lastRenderIsPreRender(): boolean {
+		return this._lastRenderIsPreRender;
 	}
 
 	/** The current rendering state. */

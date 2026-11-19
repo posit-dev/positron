@@ -223,9 +223,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
 			};
 			setError(renderError);
-			if (renderError.customSize !== undefined || props.plotClient.lastRenderStale) {
+			if (renderError.customSize !== undefined || props.plotClient.lastRenderStale || props.plotClient.lastRenderIsPreRender) {
 				// Show the message, not the old image: resizing can't fix a custom size,
-				// and an out-of-date image would hide the user's last change.
+				// an out-of-date image would hide the user's last change, and R's first
+				// image was drawn at a size this view never had.
 				setUri('');
 			} else if (reportErrors && uriRef.current) {
 				// The user picked this size, and the old image hides the failure, so tell them.

@@ -56,8 +56,11 @@ describe('DynamicPlotInstance', () => {
 	const earlierRender: IRenderedPlot = { uri: 'data:image/png;base64,earlier', pixel_ratio: 1, renderTimeMs: 0 };
 	// Set when R changed the plot and that render failed, so the earlier image lacks the change.
 	let lastRenderStale = false;
+	// Set when the only image is R's first one, drawn at a size the pane never asked for.
+	let lastRenderIsPreRender = false;
 	beforeEach(() => {
 		lastRenderStale = false;
+		lastRenderIsPreRender = false;
 	});
 
 	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
@@ -67,6 +70,7 @@ describe('DynamicPlotInstance', () => {
 			metadata: { id: 'plot-1', created: 0, code: '', session_id: 'session-1', name: 'My Plot' },
 			lastRender,
 			get lastRenderStale() { return lastRenderStale; },
+			get lastRenderIsPreRender() { return lastRenderIsPreRender; },
 			sizingPolicy,
 			renderWithSizingPolicy,
 			onDidCompleteRender: Event.None,
@@ -133,6 +137,15 @@ describe('DynamicPlotInstance', () => {
 			await vi.waitFor(() => expect(logWarn).toHaveBeenCalled());
 			expect(screen.getByRole('img', { name: 'My Plot' })).toHaveAttribute('src', earlierRender.uri);
 			expect(screen.queryByText(/Couldn't render/)).not.toBeInTheDocument();
+			expect(promptNotification).not.toHaveBeenCalled();
+		});
+
+		it('shows the message, not R\'s first image, when the first render at the pane size fails', async () => {
+			lastRenderIsPreRender = true;
+			renderPlot(makeFailingPlotClient(earlierRender));
+
+			expect(await screen.findByText(/plot area is too small\. Try making it larger/)).toBeInTheDocument();
+			expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
 			expect(promptNotification).not.toHaveBeenCalled();
 		});
 
