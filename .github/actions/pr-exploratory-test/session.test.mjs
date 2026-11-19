@@ -53,6 +53,59 @@ test('an error that is not the time limit is thrown', async () => {
 	await assert.rejects(runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', query, log: quiet }), /boom/);
 });
 
+test('the turn cap returns what the agent did, not the error the SDK throws after its result', async () => {
+	const query = async function* () {
+		yield { type: 'system', session_id: 's1' };
+		yield assistant('x');
+		yield { ...result, subtype: 'error_max_turns', num_turns: 10 };
+		throw new Error('Claude Code returned an error result: Reached maximum number of turns (9)');
+	};
+	const s = await runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', query, log: quiet });
+	assert.equal(s.turnCapHit, true);
+	assert.equal(s.cost.num_turns, 10);
+	assert.equal(s.sessionId, 's1');
+	assert.deepEqual(s.texts, ['x']);
+});
+
+test('a turn warning tells every tool result to wrap up once the agent reaches its turn, counting a turn per message id', async () => {
+	const said = [];
+	const turn = id => ({ type: 'assistant', message: { id, content: [{ type: 'tool_use', name: 'Bash', input: {} }] } });
+	const query = async function* ({ options }) {
+		const hook = input => options.hooks[input.hook_event_name][0].hooks[0](input);
+		// The SDK splits one turn's blocks across messages that share its id.
+		yield turn('m1'); yield turn('m1');
+		said.push(await hook({ hook_event_name: 'PostToolUse' }));
+		yield turn('m2');
+		said.push(await hook({ hook_event_name: 'PostToolUse' }));
+		yield turn('m3');
+		said.push(await hook({ hook_event_name: 'PostToolUseFailure' }));
+		yield result;
+	};
+	const s = await runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', turnWarning: { at: 2, message: turns => `Wrap up; ${9 - turns} left.` }, query, log: quiet });
+	assert.deepEqual(said[0], {});
+	assert.deepEqual(said[1], { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: 'Wrap up; 7 left.' } });
+	// The count goes down with each turn rather than repeating the first one.
+	assert.equal(said[2].hookSpecificOutput.additionalContext, 'Wrap up; 6 left.');
+	assert.equal(said[2].hookSpecificOutput.hookEventName, 'PostToolUseFailure');
+	assert.equal(s.turnWarned, true);
+});
+
+test('a turn warning and a time limit both reach the agent', async () => {
+	let opts;
+	const query = async function* ({ options }) { opts = options; yield result; };
+	await runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', timeLimit: 60, turnWarning: { at: 2, message: 'Wrap up.' }, query, log: quiet });
+	assert.equal(opts.hooks.PostToolUse.length, 2);
+	assert.equal(opts.hooks.PostToolUseFailure.length, 2);
+});
+
+test('after the turn cap, an error that is not the cap\'s own is still thrown', async () => {
+	const query = async function* () {
+		yield { ...result, subtype: 'error_max_turns' };
+		throw new Error('the CLI crashed');
+	};
+	await assert.rejects(runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', query, log: quiet }), /crashed/);
+});
+
 test('writeGuard allows file edits inside the root and denies every other ask', async () => {
 	const guard = writeGuard('/r/.claude/skills/dp');
 	assert.equal((await guard('Edit', { file_path: '/r/.claude/skills/dp/a.ts' })).behavior, 'allow');
