@@ -4,6 +4,7 @@
 #
 
 import base64
+import gc
 import io
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -477,8 +478,8 @@ def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: Plots
     assert plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == []
 
-    # A new plot was created
-    assert len(plots_service._plots) == 2  # noqa: SLF001
+    # A new plot was created, and the closed one was unregistered
+    assert len(plots_service._plots) == 1  # noqa: SLF001
     new_plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
     assert not new_plot_comm._closed  # noqa: SLF001
 
@@ -496,8 +497,44 @@ def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: Plots
     assert plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == []
 
-    # No new plots were created
+    # No new plots were created, and the closed one was unregistered
+    assert not plots_service._plots  # noqa: SLF001
+
+
+def test_mpl_frontend_close_unregisters_plot(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Closing a plot from the frontend drops it from the plots service, freeing its figure."""
+    shell.run_cell("import weakref; fig_ref = weakref.ref(plt.figure())").raise_error()
+    plot_comm = _plot_comm(plots_service, 0)
+    plot_comm.messages.clear()
+    _do_close(plot_comm)
+
+    assert not plots_service._plots  # noqa: SLF001
+    # The comm references the plot; ipykernel drops closed comms, so drop ours too.
+    del plot_comm
+    gc.collect()
+    assert shell.user_ns["fig_ref"]() is None
+
+
+def test_mpl_frontend_close_then_show_held_figure(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """A closed plot that is re-opened through a held figure is registered again."""
+    shell.run_cell("fig = plt.figure()").raise_error()
+    plot_comm = _plot_comm(plots_service, 0)
+    plot_comm.messages.clear()
+    _do_close(plot_comm)
+
+    shell.run_cell("fig.show()").raise_error()
+
+    assert not plot_comm._closed  # noqa: SLF001
     assert len(plots_service._plots) == 1  # noqa: SLF001
+
+    # Shutdown closes the re-opened plot.
+    plots_service.shutdown()
+    assert plot_comm._closed  # noqa: SLF001
+    assert not plots_service._plots  # noqa: SLF001
 
 
 def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -538,6 +575,108 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     assert plot_comms[0].messages == []
     assert len(plot_comms[1].messages) == 1
     _verify_show_notification(plot_comms[1].messages[0])
+
+
+def _plot_comm(plots_service: PlotsService, index: int) -> DummyComm:
+    return cast("DummyComm", plots_service._plots[index]._comm.comm)  # noqa: SLF001
+
+
+def _event_methods(plot_comm: DummyComm) -> list[str]:
+    return [
+        message["data"]["method"]
+        for message in plot_comm.messages
+        if message["msg_type"] == "comm_msg"
+    ]
+
+
+def _total_show_events(plots_service: PlotsService) -> int:
+    return sum(
+        _event_methods(_plot_comm(plots_service, i)).count("show")
+        for i in range(len(plots_service._plots))  # noqa: SLF001
+    )
+
+
+_PLOT_AND_SHOW = "plt.figure(); plt.plot([1, 2]); plt.show()"
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        pytest.param([f"for _ in range(10):\n    {_PLOT_AND_SHOW}"], id="one_cell"),
+        pytest.param([_PLOT_AND_SHOW] * 10, id="across_cells"),
+    ],
+)
+def test_mpl_pyplot_show_sends_one_show_per_figure(
+    shell: PositronShell, plots_service: PlotsService, cells: list[str]
+) -> None:
+    """
+    `plt.show()` doesn't re-show earlier figures, so the cost of each call stays constant.
+
+    See https://github.com/posit-dev/positron/issues/14207.
+    """
+    for cell in cells:
+        shell.run_cell(cell).raise_error()
+
+    assert len(plots_service._plots) == 10  # noqa: SLF001
+    assert _total_show_events(plots_service) == 10
+
+
+def test_mpl_pyplot_show_skips_shown_inactive_figures(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """`plt.show()` shows new figures and the active one, but not other shown figures."""
+    plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
+
+    # Both figures are new, so both are shown.
+    shell.run_cell("plt.show()").raise_error()
+    assert [_event_methods(comm) for comm in plot_comms] == [["show"], ["show"]]
+    for comm in plot_comms:
+        comm.messages.clear()
+
+    # Only the active figure (2) is shown again.
+    shell.run_cell("plt.show()").raise_error()
+    assert [_event_methods(comm) for comm in plot_comms] == [[], ["show"]]
+    plot_comms[1].messages.clear()
+
+    # Activating figure 1 makes `plt.show()` select it again.
+    shell.run_cell("plt.figure(1); plt.show()").raise_error()
+    assert [_event_methods(comm) for comm in plot_comms] == [["show"], []]
+
+
+def test_mpl_pyplot_show_updates_edited_inactive_figure(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """An edited figure that isn't active gets an update event from `plt.show()`, not a show."""
+    shell.run_cell("fig1 = plt.figure(); fig2 = plt.figure(); plt.show()").raise_error()
+    plot_comms = [_plot_comm(plots_service, i) for i in range(2)]
+    for comm in plot_comms:
+        comm.messages.clear()
+        _do_render(comm)
+
+    shell.run_cell("fig1.gca().plot([1, 2]); plt.show()").raise_error()
+
+    assert [_event_methods(comm) for comm in plot_comms] == [["update"], ["show"]]
+
+
+def test_mpl_pyplot_show_warns_for_non_gui_figure(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A non-GUI figure left open across a backend switch makes `plt.show()` warn, not raise.
+
+    This matches matplotlib's default `plt.show()`, and the Positron figure is still shown.
+    """
+    # On Linux, matplotlib only raises for a non-GUI figure when a display is available.
+    monkeypatch.setenv("DISPLAY", ":0")
+    plt.switch_backend("agg")
+    plt.figure()
+    plt.switch_backend(Backend.CONSOLE.full_name)
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    with pytest.warns(UserWarning, match="non-interactive"):
+        shell.run_cell("plt.show()").raise_error()
+
+    assert _event_methods(plot_comm) == ["show"]
 
 
 def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:

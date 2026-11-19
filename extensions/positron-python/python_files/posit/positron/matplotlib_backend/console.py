@@ -145,6 +145,9 @@ class FigureManagerPositron(FigureManagerBase):
         kind = _detect_plotting_library()
         self.plotting_library = kind
 
+        # Whether this figure has been shown. See `pyplot_show`.
+        self._shown = False
+
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot: Plot | None = None
@@ -173,8 +176,36 @@ class FigureManagerPositron(FigureManagerBase):
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
+        self._shown = True
         if self._plot is not None:
             self._plot.show()
+
+    @classmethod
+    def pyplot_show(cls, *, block: bool | None = None) -> None:  # noqa: ARG003
+        """
+        Called by matplotlib when a user calls `plt.show()`.
+
+        Matplotlib's default shows every open figure. Positron keeps plain figures open
+        across cells, so the N-th `plt.show()` would re-render and re-select all N earlier
+        figures in the Plots pane. Instead, show only figures that haven't been shown yet,
+        plus the active figure so that `plt.figure(n); plt.show()` still selects figure n.
+        Edits to other figures still reach the frontend through `update`.
+
+        `block` is accepted for API compatibility and ignored: there's no GUI main loop.
+        """
+        from matplotlib import _api
+        from matplotlib._pylab_helpers import Gcf
+        from matplotlib.backend_bases import NonGuiException
+
+        active = Gcf.get_active()
+        for manager in Gcf.get_all_fig_managers():
+            if manager is active or not getattr(manager, "_shown", False):
+                # A figure from a non-GUI backend (e.g. Agg) can outlive a switch to this
+                # backend. Warn like matplotlib's default `pyplot_show` instead of raising.
+                try:
+                    manager.show()
+                except NonGuiException as exc:
+                    _api.warn_external(str(exc))
 
     def destroy(self) -> None:
         """Called by matplotlib after a figure is closed via `plt.close()`.
