@@ -75,7 +75,15 @@ export interface FilePort {
 	caseInsensitive(): Promise<boolean>;
 }
 export type NetworkResult = { ok: true } | { ok: false; reason: RejectedReason; detail: string };
-export interface NetworkPort { fetch(): Promise<NetworkResult>; push(branch: string): Promise<NetworkResult> }
+export interface NetworkPort {
+	fetch(): Promise<NetworkResult>;
+	push(branch: string): Promise<NetworkResult>;
+	/**
+	 * Sends `branch` to the remote `origin`, whose URL is `remoteUrl`, and sets `origin/<branch>`
+	 * as the branch's upstream. `connectSharedCopy` adds the remote before the call.
+	 */
+	publish(remoteUrl: string, branch: string): Promise<NetworkResult>;
+}
 export interface EnginePorts {
 	git: GitRunner; files: FilePort; network: NetworkPort; now: () => Date; newId: () => string; projectRoot: string; openedFolder: string;
 	/** Receives a description of each unexpected error that the engine facade turns into `could-not-finish`. */

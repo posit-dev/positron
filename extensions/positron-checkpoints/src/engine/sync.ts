@@ -8,10 +8,10 @@ import { emptyTree } from './changes';
 import { readCheckpoints, readCommit, readPartialFiles, revision, savePartialFiles } from './checkpoints';
 import { findCollisions } from './collisions';
 import { mustGit, runGit, splitZ } from './git';
-import { PathPlan, readBranch, readIndexTree, TriState } from './journal';
+import { engineDirectory, PathPlan, readBranch, readIndexTree, TriState } from './journal';
 import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
-import { EnginePorts } from './ports';
+import { EnginePorts, NetworkResult } from './ports';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
 import { LARGE_FILE_BYTES, STAGING_TIMEOUT_MS, worktreeTree } from './trees';
@@ -491,4 +491,93 @@ export async function sendChanges(ports: EnginePorts): Promise<OperationResult> 
 	// The states before the push can no longer be reached safely, whether or not the record exists.
 	await noteNewOperation(ports, 'send-changes');
 	return { kind: 'done', operationId, hookEditedFiles: [] };
+}
+
+/** The file that records a remote `connectSharedCopy` added, until the send ends: JSON `{ "url": <the remote's URL> }`. */
+async function connectRecordFile(ports: EnginePorts): Promise<string> {
+	return `${await engineDirectory(ports)}/connect.json`;
+}
+
+/** The URL of the remote `origin`, or undefined when there is no such remote. */
+async function originUrl(ports: EnginePorts): Promise<string | undefined> {
+	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'remote', 'get-url', 'origin']);
+	return result.exitCode === 0 ? result.stdout.replace(/\r?\n$/, '') : undefined;
+}
+
+/** True when the branch HEAD points at has an upstream that git can resolve. */
+async function hasUpstream(ports: EnginePorts): Promise<boolean> {
+	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
+	return result.exitCode === 0 && result.stdout.trim() !== '';
+}
+
+/**
+ * Finishes a `connectSharedCopy` that stopped before its send ended (the engine stopped): when
+ * the branch has no upstream and the remote `origin` still has the recorded URL, the remote is
+ * removed again. The record is then removed. Does nothing when there is no record.
+ */
+export async function repairConnect(ports: EnginePorts): Promise<void> {
+	const file = await connectRecordFile(ports);
+	const content = await ports.files.read(file);
+	if (content === undefined) {
+		return;
+	}
+	let url: string | undefined;
+	try {
+		const parsed: unknown = JSON.parse(Buffer.from(content).toString('utf8'));
+		if (typeof parsed === 'object' && parsed !== null && typeof (parsed as { url?: unknown }).url === 'string') {
+			url = (parsed as { url: string }).url;
+		}
+	} catch {
+		// A record a crash cut short names no URL; the remote is then left as it is.
+	}
+	if (url !== undefined && !await hasUpstream(ports) && await originUrl(ports) === url) {
+		await mustGit(ports.git, ['-C', ports.projectRoot, 'remote', 'remove', 'origin']);
+	}
+	await ports.files.remove(file);
+}
+
+/**
+ * Connects the project to a new, empty shared copy at `url` (share and join design, section 4):
+ * adds the remote `origin` and sends the current branch there with `ports.network.publish`,
+ * which sets the upstream. Refuses, changing nothing, with `unavailable nothing-to-do` detail
+ * `no-checkpoints` when the branch has no checkpoint, `unavailable nothing-to-do` detail
+ * `already-shared` when it has an upstream, and `unavailable unusual-state` detail
+ * `origin-exists` when a remote `origin` exists: a remote the engine did not add is never
+ * replaced. When the send fails, the remote is removed again and the result is `rejected` with
+ * the port's reason. The remote's URL is recorded in the engine folder while the send runs, so
+ * `repairConnect` can remove the remote after a crash. No operation is recorded: the shared copy
+ * stays, so there is nothing to undo.
+ */
+export async function connectSharedCopy(ports: EnginePorts, url: string): Promise<OperationResult> {
+	await repairConnect(ports);
+	const symbolic = await runGit(ports.git, ['-C', ports.projectRoot, 'symbolic-ref', '-q', 'HEAD']);
+	const ref = symbolic.exitCode === 0 ? symbolic.stdout.trim() : '';
+	if (!ref.startsWith('refs/heads/')) {
+		return { kind: 'unavailable', reason: 'unusual-state', detail: 'detached' };
+	}
+	const branch = ref.slice('refs/heads/'.length);
+	if (await revision(ports, 'HEAD') === undefined) {
+		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'no-checkpoints' };
+	}
+	if (await hasUpstream(ports)) {
+		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'already-shared' };
+	}
+	if (await originUrl(ports) !== undefined) {
+		return { kind: 'unavailable', reason: 'unusual-state', detail: 'origin-exists' };
+	}
+
+	const file = await connectRecordFile(ports);
+	await ports.files.write(file, Buffer.from(JSON.stringify({ url }), 'utf8'), false);
+	let published: NetworkResult | undefined;
+	try {
+		await mustGit(ports.git, ['-C', ports.projectRoot, 'remote', 'add', '--', 'origin', url]);
+		published = await ports.network.publish(url, branch);
+	} finally {
+		if (published?.ok !== true) {
+			// The send failed or threw: the project returns to its state before the call.
+			await repairConnect(ports);
+		}
+	}
+	await ports.files.remove(file);
+	return published.ok ? { kind: 'done', operationId: '', hookEditedFiles: [] } : { kind: 'rejected', reason: published.reason, detail: published.detail };
 }

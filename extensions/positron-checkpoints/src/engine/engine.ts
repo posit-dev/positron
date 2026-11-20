@@ -19,7 +19,7 @@ import { EnginePorts } from './ports';
 import { listRecoverySnapshots, recoverOnStart, removeRecoverySnapshot, resolveInterrupted } from './recovery';
 import { isSyncAvailable, readRepoFacts, RepoFacts } from './repoState';
 import { proposedGitignore, startTracking } from './startTracking';
-import { checkShared, getIncoming, previewIncoming, sendChanges } from './sync';
+import { checkShared, connectSharedCopy, getIncoming, previewIncoming, repairConnect, sendChanges } from './sync';
 import { ChangeSet, CheckpointsEngine, EngineState, IncomingPreview, OperationKind, OperationResult } from './types';
 
 /** The engine that `createEngine` returns: the bridge interface, plus the host's own calls. */
@@ -43,7 +43,8 @@ interface Guard {
 
 /**
  * Creates the engine for `ports.openedFolder` (spec 5.1). Startup recovery (`recoverOnStart`, spec
- * 6.3.1) runs before the promise resolves, so no request is served before it.
+ * 6.3.1), the repair of an unfinished `connectSharedCopy` (`repairConnect`), and the retention
+ * rule (`expire`) run before the promise resolves, so no request is served before them.
  *
  * Mutating calls run one at a time: a call made while another runs returns `unavailable busy` at
  * once. Before a mutating call computes anything or runs a project's hooks, it is refused with
@@ -321,6 +322,11 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			unrecovered = `Startup recovery stopped: ${errorText(error)}.`;
 		}
 		try {
+			await repairConnect(ports);
+		} catch (error) {
+			log(`Removing the remote of an unfinished connection failed: ${errorText(error)}`);
+		}
+		try {
 			// Also expires the entries that a send which could not take the lock left pending.
 			await expire(ports);
 		} catch (error) {
@@ -393,6 +399,7 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		},
 		startTracking: (identity, gitignore) => mutate({ plainFolder: true }, current => startTracking(current, identity, gitignore)),
 		proposedGitignore: () => proposedGitignore(ports),
+		connectSharedCopy: url => mutate({}, async current => noteChecked(await connectSharedCopy(current, url))),
 		onDidChangeState: listener => {
 			listeners.add(listener);
 			return { dispose: () => listeners.delete(listener) };

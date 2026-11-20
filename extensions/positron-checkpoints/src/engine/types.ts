@@ -128,5 +128,6 @@ export interface CheckpointsEngine {
 	removeRecoverySnapshot(operationId: string): Promise<void>;
 	startTracking(identity?: { name: string; email: string }, gitignore?: string): Promise<OperationResult>;
 	proposedGitignore(): Promise<string>;
+	connectSharedCopy(url: string): Promise<OperationResult>;
 	onDidChangeState(listener: () => void): { dispose(): void };
 }

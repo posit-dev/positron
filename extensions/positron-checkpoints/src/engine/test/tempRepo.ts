@@ -117,6 +117,7 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 	const network: NetworkPort = {
 		fetch: () => runNetwork(['fetch']),
 		push: branch => runNetwork(['push', 'origin', branch]),
+		publish: (_remoteUrl, branch) => runNetwork(['push', '-u', 'origin', branch]),
 	};
 
 	let instances = 0;
