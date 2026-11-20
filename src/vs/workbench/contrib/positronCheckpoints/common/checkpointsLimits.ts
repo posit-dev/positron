@@ -1,0 +1,13 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/** The most characters a checkpoint title can have. */
+export const CHECKPOINT_TITLE_LIMIT = 72;
+
+/** The size in megabytes above which a changed file is left out of a checkpoint unless included. */
+export const LARGE_FILE_LIMIT_MEGABYTES = 50;
+
+/** `LARGE_FILE_LIMIT_MEGABYTES` in bytes. */
+export const LARGE_FILE_LIMIT_BYTES = LARGE_FILE_LIMIT_MEGABYTES * 1024 * 1024;

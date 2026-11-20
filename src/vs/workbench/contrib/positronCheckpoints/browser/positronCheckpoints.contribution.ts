@@ -10,9 +10,11 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
 import { registerCheckpointsConfiguration } from '../common/checkpointsConfiguration.js';
 import { Strings } from '../common/checkpointsStrings.js';
+import { CheckpointsContentProvider } from './checkpointsContentProvider.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
 
 export const POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID = 'workbench.view.positronCheckpoints';
@@ -52,3 +54,5 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 );
 
 registerCheckpointsConfiguration();
+
+registerWorkbenchContribution2(CheckpointsContentProvider.ID, CheckpointsContentProvider, WorkbenchPhase.AfterRestored);

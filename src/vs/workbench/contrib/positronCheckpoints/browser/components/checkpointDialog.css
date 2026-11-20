@@ -1,0 +1,99 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.checkpoint-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+	overflow-y: auto;
+	max-height: 100%;
+}
+
+.checkpoint-dialog-chunk {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	margin: 0;
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size120);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.checkpoint-dialog-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
+.checkpoint-dialog-body textarea {
+	resize: vertical;
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+	font-family: inherit;
+}
+
+.checkpoint-dialog-files {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.checkpoint-dialog-file {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+}
+
+.checkpoint-dialog-file.unticked .checkpoint-dialog-path {
+	color: var(--vscode-descriptionForeground);
+}
+
+.checkpoint-dialog-file label {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.checkpoint-dialog-file select {
+	color: var(--vscode-dropdown-foreground);
+	background-color: var(--vscode-dropdown-background);
+	border: 1px solid var(--vscode-dropdown-border, transparent);
+}
+
+.checkpoint-dialog-warning {
+	flex-basis: 100%;
+	margin: 0;
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.checkpoint-dialog-empty {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.checkpoint-dialog .checkpoints-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.checkpoint-dialog .checkpoints-button {
+	align-self: flex-start;
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size120);
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, transparent));
+	border-radius: var(--vscode-cornerRadius-small);
+	color: var(--vscode-foreground);
+	background: none;
+	cursor: pointer;
+}

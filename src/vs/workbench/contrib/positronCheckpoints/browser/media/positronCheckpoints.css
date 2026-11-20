@@ -81,3 +81,48 @@
 	color: var(--vscode-textLink-activeForeground);
 	text-decoration: underline;
 }
+
+.positron-checkpoints .checkpoints-heading {
+	margin: 0;
+	font-size: var(--vscode-fontSize-body1);
+	text-transform: uppercase;
+}
+
+.positron-checkpoints .checkpoints-section {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size60);
+	min-width: 0;
+}
+
+.positron-checkpoints .checkpoints-note {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-checkpoints .checkpoints-file-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.positron-checkpoints .checkpoints-file-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+}
+
+.positron-checkpoints .checkpoints-file-path {
+	overflow-wrap: anywhere;
+}
+
+.positron-checkpoints .checkpoints-file-status,
+.positron-checkpoints .checkpoints-file-note {
+	color: var(--vscode-descriptionForeground);
+}

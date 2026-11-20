@@ -64,8 +64,13 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	changes: {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
-		renamedFile: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]], includeLargeFile: [[]],
-		titlePlaceholder: [[]], titleTooLong: [[72]], chunkTitle: [[1]], moveToCheckpoint: [[]], dialogTitle: [[]],
+		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]], includeLargeFile: [[]],
+		titlePlaceholder: [[]], titleTooLong: [[72]], chunkTitle: [[1]], moveToCheckpoint: [[]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
+		addAnotherCheckpoint: [[]], includeFile: [['dose.R']], moveFileTo: [['dose.R']], noFilesInChunk: [[]],
+	},
+	diff: {
+		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],
+		binaryMessage: [['plot.png', 'Before: 1 MB. Now: 2 MB.']], tooLargeMessage: [['big.csv', 50, 'Now: 80 MB.']], unavailable: [['dose.R']],
 	},
 	history: {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],

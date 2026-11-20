@@ -52,7 +52,7 @@ export interface IFakeEngineCall {
 }
 
 /**
- * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `keptFiles`,
+ * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `keptFiles`, `diff`, `blobs`,
  * and `nextResult`; every call is recorded in `calls`; `fireChange()` fires the state event.
  * `holdGetState()` makes the next `getState` wait until the test releases it.
  */
@@ -61,6 +61,10 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	changes: IChangeSet = { basis: 'basis-1', files: [] };
 	history: ICheckpoint[] = [];
 	keptFiles: IKeptFile[] = [];
+	/** The answer to `getDiff`. Without it, the left side is empty and the right side is the file. */
+	diff?: { left: ContentRef; right: ContentRef };
+	/** The content `readBlob` returns for each blob id. Other ids read as empty. */
+	blobs = new Map<string, VSBuffer>();
 	gitignore = '.Rhistory\n';
 	/** The result of every operation. */
 	nextResult: OperationResult = { kind: 'done', operationId: 'op-1', hookEditedFiles: [] };
@@ -118,12 +122,12 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 
 	async getDiff(target: DiffTarget): Promise<{ left: ContentRef; right: ContentRef }> {
 		this._record('getDiff', target);
-		return { left: { kind: 'empty' }, right: { kind: 'file', path: target.path } };
+		return this.diff ?? { left: { kind: 'empty' }, right: { kind: 'file', path: target.path } };
 	}
 
 	async readBlob(oid: string): Promise<VSBuffer> {
 		this._record('readBlob', oid);
-		return VSBuffer.fromString('');
+		return this.blobs.get(oid) ?? VSBuffer.fromString('');
 	}
 
 	createCheckpoints(basis: string, chunks: IChunk[]): Promise<OperationResult> {

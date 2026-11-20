@@ -71,7 +71,7 @@ const status = {
 };
 
 const actions = {
-	createCheckpoint: () => localize('positron.checkpoints.actions.createCheckpoint', "Create Checkpoint..."),
+	createCheckpoint: () => localize('positron.checkpoints.actions.createCheckpoint', "Create checkpoint..."),
 	createCheckpoints: (count: number) => plural(count,
 		localize('positron.checkpoints.actions.createCheckpoints.one', "Create 1 checkpoint"),
 		localize('positron.checkpoints.actions.createCheckpoints.other', "Create {0} checkpoints", count)),
@@ -114,9 +114,10 @@ const changes = {
 	fileCount: (count: number) => plural(count,
 		localize('positron.checkpoints.changes.fileCount.one', "1 file"),
 		localize('positron.checkpoints.changes.fileCount.other', "{0} files", count)),
-	newFile: () => localize('positron.checkpoints.changes.newFile', "new file"),
-	deletedFile: () => localize('positron.checkpoints.changes.deletedFile', "deleted"),
-	renamedFile: (oldPath: string) => localize('positron.checkpoints.changes.renamedFile', "renamed from {0}", oldPath),
+	newFile: () => localize('positron.checkpoints.changes.newFile', "new"),
+	deletedFile: () => localize('positron.checkpoints.changes.deletedFile', "removed"),
+	renamedFile: () => localize('positron.checkpoints.changes.renamedFile', "renamed"),
+	previousName: (oldPath: string) => localize('positron.checkpoints.changes.previousName', "was {0}", oldPath),
 	changedFile: () => localize('positron.checkpoints.changes.changedFile', "changed"),
 	binaryFile: (size: string) => localize('positron.checkpoints.changes.binaryFile', "data file, {0}", size),
 	tooLarge: (path: string, limitMegabytes: number) => localize('positron.checkpoints.changes.tooLarge', "{0} is over {1} MB. It is left out of the checkpoint unless you include it.", path, limitMegabytes),
@@ -126,6 +127,27 @@ const changes = {
 	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Checkpoint {0}", index),
 	moveToCheckpoint: () => localize('positron.checkpoints.changes.moveToCheckpoint', "Move to another checkpoint"),
 	dialogTitle: () => localize('positron.checkpoints.changes.dialogTitle', "Create Checkpoints"),
+	titleLabel: () => localize('positron.checkpoints.changes.titleLabel', "Title"),
+	bodyLabel: () => localize('positron.checkpoints.changes.bodyLabel', "Description (optional)"),
+	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add another checkpoint"),
+	includeFile: (path: string) => localize('positron.checkpoints.changes.includeFile', "Include {0}", path),
+	moveFileTo: (path: string) => localize('positron.checkpoints.changes.moveFileTo', "Move {0} to", path),
+	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this checkpoint."),
+};
+
+const diff = {
+	changeTitle: (path: string) => localize('positron.checkpoints.diff.changeTitle', "{0} (changes since your last checkpoint)", path),
+	sizes: (before: string | undefined, after: string | undefined): string => {
+		if (before !== undefined && after !== undefined) {
+			return localize('positron.checkpoints.diff.sizesBoth', "Before: {0}. Now: {1}.", before, after);
+		}
+		return before !== undefined
+			? localize('positron.checkpoints.diff.sizesBefore', "Before: {0}.", before)
+			: localize('positron.checkpoints.diff.sizesAfter', "Now: {0}.", after ?? '');
+	},
+	binaryMessage: (path: string, sizes: string) => localize('positron.checkpoints.diff.binaryMessage', "{0} is a data file, so there is no line-by-line comparison. {1}", path, sizes),
+	tooLargeMessage: (path: string, limitMegabytes: number, sizes: string) => localize('positron.checkpoints.diff.tooLargeMessage', "{0} is over {1} MB, so there is no line-by-line comparison. {2}", path, limitMegabytes, sizes),
+	unavailable: (path: string) => localize('positron.checkpoints.diff.unavailable', "The differences for {0} could not be read.", path),
 };
 
 const history = {
@@ -343,6 +365,7 @@ export const Strings = {
 	status,
 	actions,
 	changes,
+	diff,
 	history,
 	results,
 	undoRedo,

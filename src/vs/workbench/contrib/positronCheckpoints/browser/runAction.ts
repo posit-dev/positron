@@ -23,7 +23,7 @@ export type RunActionMode = UnsavedEditorsMode | 'no-guard';
  * The URI of the engine's project root, with the scheme and authority of the workspace, so that
  * it compares equal to the resources of the editors open in a remote window.
  */
-function projectRootUri(workspaceContextService: IWorkspaceContextService, projectRoot: string): URI {
+export function projectRootUri(workspaceContextService: IWorkspaceContextService, projectRoot: string): URI {
 	const path = URI.file(projectRoot).path;
 	const folder = workspaceContextService.getWorkspace().folders[0];
 	return folder ? folder.uri.with({ path }) : URI.file(projectRoot);
