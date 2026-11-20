@@ -20,11 +20,23 @@ export interface UpstreamRef {
 
 export interface Branch {
 	readonly name?: string;
+	readonly commit?: string;
 	readonly upstream?: UpstreamRef;
+	readonly ahead?: number;
+	readonly behind?: number;
+}
+
+export interface Change {
+	readonly uri: Uri;
+	readonly status: number;
 }
 
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
+	readonly mergeChanges: Change[];
+	readonly indexChanges: Change[];
+	readonly workingTreeChanges: Change[];
+	readonly untrackedChanges: Change[];
 	readonly onDidChange: Event<void>;
 }
 

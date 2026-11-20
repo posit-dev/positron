@@ -14,6 +14,7 @@ import { createNodeFilePort } from './engine/nodeFilePort';
 import { EnginePorts, NetworkPort, NetworkResult } from './engine/ports';
 import type { API, Repository } from './gitApi';
 import { findRepository } from './repositoryMatch';
+import { repositorySignature } from './repositorySignature';
 
 /** How long the host waits after the last change it sees before it tells the engine (spec 5.1). */
 const CHANGE_DELAY_MS = 500;
@@ -217,7 +218,17 @@ export class EngineHost {
 		if (this.watchedRepositories.has(repository) || this.closedRepositories.has(repository)) {
 			return;
 		}
-		this.watchedRepositories.set(repository, repository.state.onDidChange(() => this.scheduleChange()));
+		// The git extension reads the repository again whenever a file in the git directory changes,
+		// and the engine's own reads write temporary files there. The engine is told only when
+		// what the git extension reports differs, so its reads do not cause the next read.
+		let signature = repositorySignature(repository.state);
+		this.watchedRepositories.set(repository, repository.state.onDidChange(() => {
+			const next = repositorySignature(repository.state);
+			if (next !== signature) {
+				signature = next;
+				this.scheduleChange();
+			}
+		}));
 	}
 
 	private fileChanged(uri: vscode.Uri): void {
