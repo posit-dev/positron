@@ -13,6 +13,8 @@ export interface FilePort {
 	remove(path: string): Promise<void>;
 	move(from: string, to: string): Promise<void>;
 	stat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean } | undefined>;
+	/** Like `stat`, but describes a symbolic link itself instead of its target. */
+	lstat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean; isSymbolicLink: boolean } | undefined>;
 	appendDurable(path: string, line: string): Promise<void>;
 	caseInsensitive(): Promise<boolean>;
 }

@@ -54,6 +54,12 @@ describe('createGitRunner', () => {
 		expect(Date.now() - started).toBeLessThan(2000);
 	});
 
+	test('a time-out reports timedOut even when the process exits while it is stopped', async () => {
+		const results = await Promise.all([1, 2, 3, 4, 5].map(() =>
+			createGitRunner('git', repo.root)(['-c', 'alias.s=!sleep 5', 's'], { timeoutMs: 100 })));
+		expect(results.map(result => result.timedOut)).toEqual([true, true, true, true, true]);
+	});
+
 	test('passes stdin to git', async () => {
 		const result = await repo.git(['hash-object', '--stdin'], { stdin: 'hello\n' });
 		expect(result.stdout.trim()).toBe('ce013625030ba8dba906f756967f9e9ca394464a');

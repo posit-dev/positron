@@ -24,6 +24,7 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 		const stdout: Buffer[] = [];
 		const stderr: Buffer[] = [];
 		let settled = false;
+		let timeoutFired = false;
 
 		const finish = (exitCode: number, timedOut: boolean, extraStderr = '') => {
 			if (settled) {
@@ -35,7 +36,7 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 				stdout: Buffer.concat(stdout).toString(encoding),
 				stderr: Buffer.concat(stderr).toString(encoding) + extraStderr,
 				exitCode,
-				timedOut,
+				timedOut: timedOut || timeoutFired,
 			});
 		};
 
@@ -62,6 +63,8 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 		}
 
 		const timer = setTimeout(() => {
+			// Recorded first: the process can exit while the tree is being stopped.
+			timeoutFired = true;
 			void killTree(child.pid).then(() => finish(-1, true));
 		}, timeoutMs);
 

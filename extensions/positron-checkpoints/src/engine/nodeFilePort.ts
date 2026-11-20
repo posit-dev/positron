@@ -18,7 +18,11 @@ import { FilePort } from './ports';
 export function createNodeFilePort(root: string, extraRoots: string[] = []): FilePort {
 	let caseInsensitive: Promise<boolean> | undefined;
 
-	const resolve = async (relative: string): Promise<string> => {
+	/**
+	 * Resolves `relative` to an absolute path. With `followFinal`, a symbolic link at the
+	 * final component must also point inside the root.
+	 */
+	const resolve = async (relative: string, followFinal = false): Promise<string> => {
 		const full = path.resolve(root, relative);
 		const base = [root, ...extraRoots].find(candidate => isInside(candidate, full));
 		if (base === undefined) {
@@ -29,13 +33,20 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 		if (!isInside(realRoot, realParent)) {
 			throw new Error(`Path is outside the project: ${relative}`);
 		}
+		if (followFinal && (await fsp.lstat(full).catch(() => undefined))?.isSymbolicLink()) {
+			const target = await fsp.realpath(full).catch(async () =>
+				path.resolve(path.dirname(full), await fsp.readlink(full)));
+			if (!isInside(realRoot, target)) {
+				throw new Error(`Path is outside the project: ${relative}`);
+			}
+		}
 		return full;
 	};
 
 	return {
 		async read(file) {
 			try {
-				return new Uint8Array(await fsp.readFile(await resolve(file)));
+				return new Uint8Array(await fsp.readFile(await resolve(file, true)));
 			} catch (error) {
 				if (isMissing(error)) {
 					return undefined;
@@ -74,7 +85,7 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 		},
 		async stat(file) {
 			try {
-				const info = await fsp.stat(await resolve(file));
+				const info = await fsp.stat(await resolve(file, true));
 				return { sizeBytes: info.size, isDirectory: info.isDirectory() };
 			} catch (error) {
 				if (isMissing(error)) {
@@ -83,8 +94,19 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				throw error;
 			}
 		},
+		async lstat(file) {
+			try {
+				const info = await fsp.lstat(await resolve(file));
+				return { sizeBytes: info.size, isDirectory: info.isDirectory(), isSymbolicLink: info.isSymbolicLink() };
+			} catch (error) {
+				if (isMissing(error)) {
+					return undefined;
+				}
+				throw error;
+			}
+		},
 		async appendDurable(file, line) {
-			const full = await resolve(file);
+			const full = await resolve(file, true);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
 			const handle = await fsp.open(full, 'a');
 			try {

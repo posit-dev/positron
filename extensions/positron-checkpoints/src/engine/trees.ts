@@ -66,8 +66,9 @@ export async function worktreeTree(ports: EnginePorts, largeFileBytes = LARGE_FI
 	const included: string[] = [];
 	const skipped: string[] = [];
 	for (const file of untracked) {
-		const info = await ports.files.stat(file);
-		if (info !== undefined && !info.isDirectory && info.sizeBytes > largeFileBytes) {
+		// A symbolic link is stored as a link, whatever its target's size.
+		const info = await ports.files.lstat(file);
+		if (info !== undefined && !info.isDirectory && !info.isSymbolicLink && info.sizeBytes > largeFileBytes) {
 			skipped.push(file);
 		} else {
 			included.push(file);
@@ -100,7 +101,10 @@ export async function indexTree(ports: EnginePorts): Promise<string> {
 /**
  * Records the working files and the index as they are now. The snapshot is a commit whose
  * tree is the working-file tree, stored at `refs/positron-checkpoints/snapshots/<operationId>`
- * (a ref git never pushes). The message ends with an `Index-Tree:` line naming the index tree.
+ * (a ref git never pushes). A second commit holds the index tree and is the snapshot's last
+ * parent, so every object of both trees stays reachable from the ref (the first parent, when
+ * given, comes before it). The ref must not exist yet: a reused operation id is an error.
+ * Snapshot commits are never signed.
  */
 export async function saveSnapshot(
 	ports: EnginePorts,
@@ -110,15 +114,16 @@ export async function saveSnapshot(
 	const { tree, skipped } = await worktreeTree(ports);
 	const index = await indexTree(ports);
 	const date = ports.now().toISOString();
-	const args = ['commit-tree', tree];
+	const env = { ...SNAPSHOT_IDENTITY, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
+	const indexCommit = (await mustGit(ports, ['commit-tree', '--no-gpg-sign', index, '-m', `Index of snapshot ${operationId}`], { env })).trim();
+	const args = ['commit-tree', '--no-gpg-sign', tree];
 	if (parent !== undefined) {
 		args.push('-p', parent);
 	}
-	args.push('-m', `Snapshot ${operationId}\n\nIndex-Tree: ${index}`);
-	const commit = (await mustGit(ports, args, {
-		env: { ...SNAPSHOT_IDENTITY, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
-	})).trim();
+	args.push('-p', indexCommit, '-m', `Snapshot ${operationId}`);
+	const commit = (await mustGit(ports, args, { env })).trim();
 	const ref = `${SNAPSHOT_REF_PREFIX}${operationId}`;
-	await mustGit(ports, ['update-ref', ref, commit]);
+	// The all-zero old value makes git refuse to replace an existing ref.
+	await mustGit(ports, ['update-ref', ref, commit, '0'.repeat(commit.length)]);
 	return { ref, commit, worktreeTree: tree, indexTree: index, skipped };
 }

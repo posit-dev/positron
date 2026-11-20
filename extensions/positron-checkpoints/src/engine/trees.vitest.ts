@@ -130,7 +130,7 @@ describe('trees', () => {
 		expect(await ls(repo, snapshot.commit)).toEqual(['a.txt', 'b.txt']);
 		expect((await repo.git(['rev-parse', `${snapshot.commit}^{tree}`])).stdout.trim()).toBe(snapshot.worktreeTree);
 		expect((await repo.git(['rev-parse', `${snapshot.commit}^`])).stdout.trim()).toBe(head);
-		expect((await repo.git(['log', '-1', '--format=%B', snapshot.commit])).stdout).toContain(`Index-Tree: ${snapshot.indexTree}`);
+		expect((await repo.git(['rev-parse', `${snapshot.commit}^2^{tree}`])).stdout.trim()).toBe(snapshot.indexTree);
 
 		await repo.git(['push', 'origin', 'main']);
 		const remoteRefs = (await repo.git(['ls-remote', 'origin'])).stdout;
@@ -138,12 +138,60 @@ describe('trees', () => {
 		expect(remoteRefs).not.toContain('positron-checkpoints');
 	});
 
+	test('saveSnapshot keeps the blobs of a staged and then edited file reachable', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		const head = await repo.commit('first');
+		await repo.write('a.txt', 'staged only\n');
+		await repo.git(['add', 'a.txt']);
+		await repo.write('a.txt', 'edited again\n');
+		const snapshot = await saveSnapshot(repo.ports, 'op-1', head);
+		const stagedBlob = (await repo.git(['rev-parse', `${snapshot.indexTree}:a.txt`])).stdout.trim();
+		const workBlob = (await repo.git(['rev-parse', `${snapshot.worktreeTree}:a.txt`])).stdout.trim();
+		expect(stagedBlob).not.toBe(workBlob);
+		const reachable = (await repo.git(['rev-list', '--objects', snapshot.ref])).stdout;
+		expect(reachable).toContain(stagedBlob);
+		expect(reachable).toContain(workBlob);
+		expect(reachable).toContain(snapshot.indexTree);
+		expect((await repo.git(['rev-parse', `${snapshot.commit}^`])).stdout.trim()).toBe(head);
+	});
+
+	test('saveSnapshot does not sign, even when signing is enabled and the signer fails', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.git(['config', 'commit.gpgsign', 'true']);
+		await repo.git(['config', 'gpg.program', 'false']);
+		const snapshot = await saveSnapshot(repo.ports, 'op-1');
+		expect((await repo.git(['cat-file', 'commit', snapshot.commit])).stdout).not.toContain('gpgsig');
+	});
+
+	test('saveSnapshot refuses to replace the snapshot of a reused operation id', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		const first = await saveSnapshot(repo.ports, 'op-1');
+		await repo.write('a.txt', 'two\n');
+		await expect(saveSnapshot(repo.ports, 'op-1')).rejects.toThrow();
+		expect((await repo.git(['rev-parse', first.ref])).stdout.trim()).toBe(first.commit);
+	});
+
+	test.skipIf(process.platform === 'win32')('worktreeTree stores an untracked symbolic link to a large file as a link', async () => {
+		const repo = await create();
+		await repo.write('big.bin', 'x'.repeat(100));
+		await fsp.symlink('big.bin', path.join(repo.root, 'link'));
+		const { tree, skipped } = await worktreeTree(repo.ports, 10);
+		expect(skipped).toEqual(['big.bin']);
+		expect(await ls(repo, tree)).toEqual(['link']);
+		expect((await repo.git(['ls-tree', tree, 'link'])).stdout).toMatch(/^120000 /);
+	});
+
 	test('saveSnapshot works with no checkpoints yet', async () => {
 		const repo = await create();
 		await repo.write('a.txt', 'one\n');
 		const snapshot = await saveSnapshot(repo.ports, 'op-1');
 		expect(await ls(repo, snapshot.commit)).toEqual(['a.txt']);
-		expect((await repo.git(['rev-list', '--parents', '-n', '1', snapshot.commit])).stdout.trim()).toBe(snapshot.commit);
+		// The only parent is the commit that holds the index tree.
+		expect((await repo.git(['rev-parse', `${snapshot.commit}^1^{tree}`])).stdout.trim()).toBe(snapshot.indexTree);
+		expect((await repo.git(['rev-parse', '--verify', '-q', `${snapshot.commit}^2`])).exitCode).not.toBe(0);
 		expect((await repo.git(['rev-parse', '--verify', '-q', 'HEAD'])).exitCode).not.toBe(0);
 		expect(snapshot.indexTree).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904');
 	});

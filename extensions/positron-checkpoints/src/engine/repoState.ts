@@ -60,7 +60,7 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 		return notProject;
 	}
 	const root = stripLineEnd(top.stdout);
-	const run = (args: string[]): Promise<GitResult> => runGit(ports.git, ['-C', root, ...args]);
+	const run = (args: string[], env?: Record<string, string>): Promise<GitResult> => runGit(ports.git, ['-C', root, ...args], env && { env });
 
 	const gitDirResult = await run(['rev-parse', '--absolute-git-dir']);
 	if (gitDirResult.exitCode !== 0) {
@@ -111,9 +111,15 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 	};
 }
 
-/** Git resolves the identity itself, so one given through the environment counts. */
-async function isIdentityMissing(run: (args: string[]) => Promise<GitResult>): Promise<boolean> {
-	const result = await run(['var', 'GIT_AUTHOR_IDENT']);
+/**
+ * True unless git has both a name and an email that were set explicitly (in configuration or
+ * through `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, or `EMAIL`). Without `user.useConfigOnly`
+ * git guesses an address such as `user@host.local`, which must not author checkpoints.
+ */
+async function isIdentityMissing(run: (args: string[], env?: Record<string, string>) => Promise<GitResult>): Promise<boolean> {
+	const email = process.env.EMAIL;
+	const env = email && !process.env.GIT_AUTHOR_EMAIL ? { GIT_AUTHOR_EMAIL: email } : undefined;
+	const result = await run(['-c', 'user.useConfigOnly=true', 'var', 'GIT_AUTHOR_IDENT'], env);
 	return result.exitCode !== 0 || result.stdout.trim() === '';
 }
 

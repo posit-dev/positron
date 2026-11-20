@@ -88,6 +88,22 @@ describe('createNodeFilePort', () => {
 			expect(await fsp.readdir(outside)).toEqual([]);
 		});
 
+		test('read, stat, and appendDurable refuse a final symbolic link that points outside', async () => {
+			const target = path.join(outside, 'target.txt');
+			await fsp.writeFile(target, 'secret');
+			await fsp.symlink(target, path.join(root, 'file.txt'));
+			await fsp.symlink(path.join(outside, 'missing.txt'), path.join(root, 'dangling.txt'));
+			await expect(files.read('file.txt')).rejects.toThrow(/outside the project/);
+			await expect(files.stat('file.txt')).rejects.toThrow(/outside the project/);
+			await expect(files.appendDurable('file.txt', 'x')).rejects.toThrow(/outside the project/);
+			await expect(files.appendDurable('dangling.txt', 'x')).rejects.toThrow(/outside the project/);
+			expect(await fsp.readFile(target, 'utf8')).toBe('secret');
+			expect(await fsp.readdir(outside)).toEqual(['target.txt']);
+			expect(await files.lstat('file.txt')).toMatchObject({ isSymbolicLink: true, isDirectory: false });
+			await files.remove('file.txt');
+			expect(await fsp.readFile(target, 'utf8')).toBe('secret');
+		});
+
 		test('allows a symbolic link that stays inside the root', async () => {
 			await fsp.mkdir(path.join(root, 'real'));
 			await fsp.symlink(path.join(root, 'real'), path.join(root, 'alias'));

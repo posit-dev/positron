@@ -90,15 +90,12 @@ describe('readRepoFacts', () => {
 	test.each(['user.name', 'user.email'])('missing %s sets identityMissing', async key => {
 		const repo = await create();
 		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(false);
-		// Without this git guesses a name or address from the machine and never reports one missing.
-		await repo.git(['config', 'user.useConfigOnly', 'true']);
 		await repo.git(['config', '--unset', key]);
 		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
 	});
 
 	test('an identity given through the environment is not missing', async () => {
 		const repo = await create();
-		await repo.git(['config', 'user.useConfigOnly', 'true']);
 		await repo.git(['config', '--unset', 'user.name']);
 		await repo.git(['config', '--unset', 'user.email']);
 		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
@@ -110,6 +107,23 @@ describe('readRepoFacts', () => {
 			}),
 		};
 		expect((await readRepoFacts(ports)).identityMissing).toBe(false);
+	});
+
+	test('an address from the EMAIL variable with a configured name is not missing', async () => {
+		const repo = await create();
+		await repo.git(['config', '--unset', 'user.email']);
+		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
+		const previous = process.env.EMAIL;
+		process.env.EMAIL = 'env@example.com';
+		try {
+			expect((await readRepoFacts(repo.ports)).identityMissing).toBe(false);
+		} finally {
+			if (previous === undefined) {
+				delete process.env.EMAIL;
+			} else {
+				process.env.EMAIL = previous;
+			}
+		}
 	});
 
 	test('a repository root that ends in a space is found', async () => {
