@@ -51,7 +51,7 @@ export interface TempRepoOptions {
 /**
  * Creates a repository on branch `main` in a new directory under the operating system's
  * temporary directory, with a local identity. `dispose` removes it and any bare
- * repository created by `clone`.
+ * repository created by `clone`. Disposing a clone removes only the clone.
  */
 export async function tempRepo(options: TempRepoOptions = {}): Promise<TempRepo> {
 	const base = await fsp.mkdtemp(path.join(os.tmpdir(), 'positron-checkpoints-'));
@@ -166,7 +166,9 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 			await mustRun(other.git, ['push', 'origin', 'main']);
 		},
 		async dispose() {
-			await fsp.rm(base, { recursive: true, force: true });
+			// A clone removes only its own directory; the repository that made the shared
+			// base removes the whole base.
+			await fsp.rm(sharedRemote ? root : base, { recursive: true, force: true });
 		},
 	};
 	return repo;

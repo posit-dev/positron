@@ -7,6 +7,7 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
+import { GitTimeoutError } from './git';
 import { EnginePorts } from './ports';
 import { readRepoFacts } from './repoState';
 import { tempRepo, TempRepo } from './test/tempRepo';
@@ -89,8 +90,62 @@ describe('readRepoFacts', () => {
 	test.each(['user.name', 'user.email'])('missing %s sets identityMissing', async key => {
 		const repo = await create();
 		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(false);
+		// Without this git guesses a name or address from the machine and never reports one missing.
+		await repo.git(['config', 'user.useConfigOnly', 'true']);
 		await repo.git(['config', '--unset', key]);
 		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
+	});
+
+	test('an identity given through the environment is not missing', async () => {
+		const repo = await create();
+		await repo.git(['config', 'user.useConfigOnly', 'true']);
+		await repo.git(['config', '--unset', 'user.name']);
+		await repo.git(['config', '--unset', 'user.email']);
+		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
+		const ports: EnginePorts = {
+			...repo.ports,
+			git: (args, options) => repo.ports.git(args, {
+				...options,
+				env: { GIT_AUTHOR_NAME: 'Env User', GIT_AUTHOR_EMAIL: 'env@example.com', ...options?.env },
+			}),
+		};
+		expect((await readRepoFacts(ports)).identityMissing).toBe(false);
+	});
+
+	test('a repository root that ends in a space is found', async () => {
+		const repo = await create({ init: 'none' });
+		const spaced = path.join(path.dirname(repo.root), 'trailing ');
+		await fsp.mkdir(spaced);
+		await repo.git(['init', '-b', 'main', spaced]);
+		const ports: EnginePorts = { ...repo.ports, openedFolder: spaced };
+		const facts = await readRepoFacts(ports);
+		expect(facts.isProject).toBe(true);
+		expect(facts.root).toBe(path.join(await fsp.realpath(path.dirname(repo.root)), 'trailing '));
+		expect(facts.gitDir).toBe(path.join(facts.root, '.git'));
+	});
+
+	test('a staged deletion whose file exists again gives staged-differs', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.commit('first');
+		await repo.git(['rm', 'a.txt']);
+		expect((await readRepoFacts(repo.ports)).unusual).toBeUndefined();
+		await repo.write('a.txt', 'again\n');
+		const facts = await readRepoFacts(repo.ports);
+		expect(facts.unusual?.kind).toBe('staged-differs');
+		expect(facts.unusual?.detail).toContain('a.txt');
+	});
+
+	test('a time-out is thrown instead of read as an answer', async () => {
+		const repo = await create();
+		let calls = 0;
+		const ports: EnginePorts = {
+			...repo.ports,
+			git: (args, options) => ++calls > 1
+				? Promise.resolve({ stdout: '', stderr: '', exitCode: -1, timedOut: true })
+				: repo.ports.git(args, options),
+		};
+		await expect(readRepoFacts(ports)).rejects.toBeInstanceOf(GitTimeoutError);
 	});
 
 	test.each(['MERGE_HEAD', 'rebase-merge', 'CHERRY_PICK_HEAD'])('%s gives operation-in-progress', async name => {

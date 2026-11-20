@@ -5,7 +5,7 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { splitZ } from './git';
+import { GitMissingError, runGit, splitZ } from './git';
 import { EnginePorts, GitResult } from './ports';
 import { UnusualKind } from './types';
 
@@ -47,21 +47,26 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 		syncAvailable: false,
 	};
 
-	const top = await ports.git(['-C', ports.openedFolder, 'rev-parse', '--show-toplevel']);
-	if (top.exitCode === -1) {
-		return { ...notProject, unusual: { kind: 'git-missing', detail: failureDetail(top) } };
+	let top: GitResult;
+	try {
+		top = await runGit(ports.git, ['-C', ports.openedFolder, 'rev-parse', '--show-toplevel']);
+	} catch (error) {
+		if (error instanceof GitMissingError) {
+			return { ...notProject, unusual: { kind: 'git-missing', detail: error.detail } };
+		}
+		throw error;
 	}
 	if (top.exitCode !== 0) {
 		return notProject;
 	}
-	const root = top.stdout.trim();
-	const run = (args: string[]): Promise<GitResult> => ports.git(['-C', root, ...args]);
+	const root = stripLineEnd(top.stdout);
+	const run = (args: string[]): Promise<GitResult> => runGit(ports.git, ['-C', root, ...args]);
 
 	const gitDirResult = await run(['rev-parse', '--absolute-git-dir']);
 	if (gitDirResult.exitCode !== 0) {
 		return notProject;
 	}
-	const gitDir = gitDirResult.stdout.trim();
+	const gitDir = stripLineEnd(gitDirResult.stdout);
 
 	const symbolic = await run(['symbolic-ref', '-q', '--short', 'HEAD']);
 	const branch = symbolic.exitCode === 0 ? symbolic.stdout.trim() : undefined;
@@ -102,22 +107,19 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 		behind,
 		identityMissing,
 		syncAvailable,
-		unusual: await findUnusual(run, gitDir, branch === undefined),
+		unusual: await findUnusual(run, root, gitDir, branch === undefined),
 	};
 }
 
+/** Git resolves the identity itself, so one given through the environment counts. */
 async function isIdentityMissing(run: (args: string[]) => Promise<GitResult>): Promise<boolean> {
-	for (const key of ['user.name', 'user.email']) {
-		const result = await run(['config', '--get', key]);
-		if (result.exitCode !== 0 || result.stdout.trim() === '') {
-			return true;
-		}
-	}
-	return false;
+	const result = await run(['var', 'GIT_AUTHOR_IDENT']);
+	return result.exitCode !== 0 || result.stdout.trim() === '';
 }
 
 async function findUnusual(
 	run: (args: string[]) => Promise<GitResult>,
+	root: string,
 	gitDir: string,
 	detached: boolean,
 ): Promise<RepoFacts['unusual']> {
@@ -139,16 +141,30 @@ async function findUnusual(
 			return { kind: 'staged-differs', detail: both.join(', ') };
 		}
 	}
+	// A staged deletion whose file exists again is untracked, so `git diff` does not list it.
+	const deleted = await run(['diff', '--cached', '--name-only', '--diff-filter=D', '-z']);
+	if (deleted.exitCode === 0) {
+		const recreated: string[] = [];
+		for (const file of splitZ(deleted.stdout)) {
+			if (await exists(path.join(root, file))) {
+				recreated.push(file);
+			}
+		}
+		if (recreated.length > 0) {
+			return { kind: 'staged-differs', detail: recreated.join(', ') };
+		}
+	}
 	return undefined;
 }
 
-function failureDetail(result: GitResult): string {
-	return result.timedOut ? 'git did not respond in time' : result.stderr.trim();
+/** Removes the line terminator git adds to a path, and nothing else (a path may end in a space). */
+function stripLineEnd(output: string): string {
+	return output.replace(/\r?\n$/, '');
 }
 
 async function exists(file: string): Promise<boolean> {
 	try {
-		await fsp.access(file);
+		await fsp.lstat(file);
 		return true;
 	} catch {
 		return false;

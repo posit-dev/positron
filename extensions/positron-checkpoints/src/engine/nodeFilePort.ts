@@ -3,29 +3,37 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomUUID } from 'crypto';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { FilePort } from './ports';
 
 /**
- * A `FilePort` backed by the real file system. Paths are relative to `root`, and a path
- * that resolves outside `root` is an error.
+ * A `FilePort` backed by the real file system. Paths are relative to `root`. A path that
+ * resolves outside `root`, lexically or through a symbolic link in one of its parent
+ * directories, is an error. `write` replaces a symbolic link at the target path instead of
+ * writing through it.
  */
 export function createNodeFilePort(root: string): FilePort {
-	const resolve = (relative: string): string => {
+	let caseInsensitive: Promise<boolean> | undefined;
+
+	const resolve = async (relative: string): Promise<string> => {
 		const full = path.resolve(root, relative);
-		const rel = path.relative(root, full);
-		if (rel.startsWith('..') || path.isAbsolute(rel)) {
+		if (!isInside(root, full)) {
+			throw new Error(`Path is outside the project: ${relative}`);
+		}
+		const realRoot = await fsp.realpath(root).catch(() => root);
+		const realParent = await realpathOfNearestParent(path.dirname(full));
+		if (!isInside(realRoot, realParent)) {
 			throw new Error(`Path is outside the project: ${relative}`);
 		}
 		return full;
 	};
-	let caseInsensitive: Promise<boolean> | undefined;
 
 	return {
 		async read(file) {
 			try {
-				return new Uint8Array(await fsp.readFile(resolve(file)));
+				return new Uint8Array(await fsp.readFile(await resolve(file)));
 			} catch (error) {
 				if (isMissing(error)) {
 					return undefined;
@@ -34,22 +42,37 @@ export function createNodeFilePort(root: string): FilePort {
 			}
 		},
 		async write(file, content, executable) {
-			const full = resolve(file);
+			const full = await resolve(file);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
+			let existing = await fsp.lstat(full).catch(() => undefined);
+			if (existing?.isSymbolicLink()) {
+				await fsp.rm(full, { force: true });
+				existing = undefined;
+			}
+			if (existing === undefined) {
+				// The umask applies to the mode of a new file.
+				await fsp.writeFile(full, content, { mode: executable ? 0o777 : 0o666 });
+				return;
+			}
 			await fsp.writeFile(full, content);
-			await fsp.chmod(full, executable ? 0o755 : 0o644);
+			const mode = existing.mode & 0o7777;
+			const wanted = executable ? mode | ((mode & 0o444) >> 2) : mode & ~0o111;
+			if (wanted !== mode) {
+				await fsp.chmod(full, wanted);
+			}
 		},
 		async remove(file) {
-			await fsp.rm(resolve(file), { recursive: true, force: true });
+			await fsp.rm(await resolve(file), { recursive: true, force: true });
 		},
 		async move(from, to) {
-			const target = resolve(to);
+			const source = await resolve(from);
+			const target = await resolve(to);
 			await fsp.mkdir(path.dirname(target), { recursive: true });
-			await fsp.rename(resolve(from), target);
+			await fsp.rename(source, target);
 		},
 		async stat(file) {
 			try {
-				const info = await fsp.stat(resolve(file));
+				const info = await fsp.stat(await resolve(file));
 				return { sizeBytes: info.size, isDirectory: info.isDirectory() };
 			} catch (error) {
 				if (isMissing(error)) {
@@ -59,7 +82,7 @@ export function createNodeFilePort(root: string): FilePort {
 			}
 		},
 		async appendDurable(file, line) {
-			const full = resolve(file);
+			const full = await resolve(file);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
 			const handle = await fsp.open(full, 'a');
 			try {
@@ -76,6 +99,28 @@ export function createNodeFilePort(root: string): FilePort {
 	};
 }
 
+/** True when `target` is `base` or a path below it. A name such as `..notes` is below `base`. */
+function isInside(base: string, target: string): boolean {
+	const rel = path.relative(base, target);
+	return rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+}
+
+/** The real path of the closest ancestor of `directory` (or `directory` itself) that exists. */
+async function realpathOfNearestParent(directory: string): Promise<string> {
+	let current = directory;
+	for (; ;) {
+		try {
+			return await fsp.realpath(current);
+		} catch (error) {
+			const parent = path.dirname(current);
+			if (!isMissing(error) || parent === current) {
+				throw error;
+			}
+			current = parent;
+		}
+	}
+}
+
 function isMissing(error: unknown): boolean {
 	const code = (error as NodeJS.ErrnoException).code;
 	return code === 'ENOENT' || code === 'ENOTDIR';
@@ -84,9 +129,9 @@ function isMissing(error: unknown): boolean {
 /** Creates a file with an upper-case name and looks for it under the lower-case name. */
 async function probeCaseInsensitive(root: string): Promise<boolean> {
 	await fsp.mkdir(root, { recursive: true });
-	const name = `.CHECKPOINTS-CASE-PROBE-${process.pid}-${Date.now()}`;
+	const name = `.CHECKPOINTS-CASE-PROBE-${randomUUID().toUpperCase()}`;
 	const upper = path.join(root, name);
-	await fsp.writeFile(upper, '');
+	await fsp.writeFile(upper, '', { flag: 'wx' });
 	try {
 		await fsp.stat(path.join(root, name.toLowerCase()));
 		return true;

@@ -59,6 +59,84 @@ describe('createNodeFilePort', () => {
 		await expect(files.read('../escape.txt')).rejects.toThrow();
 	});
 
+	test('accepts in-project names that start with two dots', async () => {
+		await files.write('..notes', new TextEncoder().encode('x'), false);
+		expect(await files.stat('..notes')).toMatchObject({ sizeBytes: 1 });
+		await files.write('..dir/a.txt', new Uint8Array(), false);
+		expect(await files.stat('..dir/a.txt')).toBeDefined();
+		await expect(files.read('..')).rejects.toThrow();
+		await expect(files.read('../x')).rejects.toThrow();
+		await expect(files.read('a/../../x')).rejects.toThrow();
+	});
+
+	describe.skipIf(process.platform === 'win32')('symbolic links and permissions', () => {
+		let outside: string;
+
+		beforeEach(async () => {
+			outside = await fsp.mkdtemp(path.join(os.tmpdir(), 'positron-checkpoints-outside-'));
+		});
+
+		afterEach(async () => {
+			await fsp.rm(outside, { recursive: true, force: true });
+		});
+
+		test('refuses a path that leaves the root through a symbolic link', async () => {
+			await fsp.symlink(outside, path.join(root, 'link'));
+			await expect(files.write('link/secret.txt', new Uint8Array(), false)).rejects.toThrow(/outside the project/);
+			await expect(files.write('link/new/secret.txt', new Uint8Array(), false)).rejects.toThrow(/outside the project/);
+			await expect(files.read('link/x')).rejects.toThrow(/outside the project/);
+			expect(await fsp.readdir(outside)).toEqual([]);
+		});
+
+		test('allows a symbolic link that stays inside the root', async () => {
+			await fsp.mkdir(path.join(root, 'real'));
+			await fsp.symlink(path.join(root, 'real'), path.join(root, 'alias'));
+			await files.write('alias/a.txt', new TextEncoder().encode('in'), false);
+			expect(await fsp.readFile(path.join(root, 'real/a.txt'), 'utf8')).toBe('in');
+		});
+
+		test('write replaces a symbolic link at the target instead of writing through it', async () => {
+			const target = path.join(outside, 'target.txt');
+			await fsp.writeFile(target, 'original');
+			await fsp.symlink(target, path.join(root, 'file.txt'));
+			await files.write('file.txt', new TextEncoder().encode('new'), false);
+			expect(await fsp.readFile(target, 'utf8')).toBe('original');
+			expect((await fsp.lstat(path.join(root, 'file.txt'))).isSymbolicLink()).toBe(false);
+			expect(await fsp.readFile(path.join(root, 'file.txt'), 'utf8')).toBe('new');
+		});
+
+		test('write keeps the permission bits of an existing file when toggling the executable bit', async () => {
+			const file = path.join(root, 'private.txt');
+			await fsp.writeFile(file, 'a');
+			await fsp.chmod(file, 0o600);
+			await files.write('private.txt', new TextEncoder().encode('b'), false);
+			expect((await fsp.stat(file)).mode & 0o777).toBe(0o600);
+			await files.write('private.txt', new TextEncoder().encode('c'), true);
+			expect((await fsp.stat(file)).mode & 0o777).toBe(0o700);
+			await files.write('private.txt', new TextEncoder().encode('d'), false);
+			expect((await fsp.stat(file)).mode & 0o777).toBe(0o600);
+		});
+
+		test('write gives a new file the mode the umask allows', async () => {
+			const previous = process.umask(0o077);
+			try {
+				await files.write('new.txt', new Uint8Array(), false);
+				await files.write('new.sh', new Uint8Array(), true);
+			} finally {
+				process.umask(previous);
+			}
+			expect((await fsp.stat(path.join(root, 'new.txt'))).mode & 0o777).toBe(0o600);
+			expect((await fsp.stat(path.join(root, 'new.sh'))).mode & 0o777).toBe(0o700);
+		});
+	});
+
+	test('caseInsensitive uses a unique probe name for each call', async () => {
+		const other = createNodeFilePort(root);
+		const [first, second] = await Promise.all([files.caseInsensitive(), other.caseInsensitive()]);
+		expect(first).toBe(second);
+		expect(await fsp.readdir(root)).toEqual([]);
+	});
+
 	test('caseInsensitive matches the file system and leaves no probe behind', async () => {
 		await fsp.writeFile(path.join(root, 'Probe.txt'), '');
 		const expected = await fsp.access(path.join(root, 'probe.txt')).then(() => true, () => false);

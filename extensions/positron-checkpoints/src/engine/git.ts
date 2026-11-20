@@ -62,8 +62,7 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 		}
 
 		const timer = setTimeout(() => {
-			killTree(child.pid);
-			finish(-1, true);
+			void killTree(child.pid).then(() => finish(-1, true));
 		}, timeoutMs);
 
 		child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
@@ -77,19 +76,60 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 	});
 }
 
-function killTree(pid: number | undefined): void {
+/** Stops the process and everything it started. Resolves once the stop command has finished. */
+async function killTree(pid: number | undefined): Promise<void> {
 	if (pid === undefined) {
 		return;
 	}
+	if (process.platform === 'win32') {
+		await new Promise<void>(resolve => {
+			try {
+				const killer = spawn('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true, stdio: 'ignore' });
+				killer.on('error', () => resolve());
+				killer.on('close', () => resolve());
+			} catch {
+				resolve();
+			}
+		});
+		return;
+	}
 	try {
-		if (process.platform === 'win32') {
-			process.kill(pid);
-		} else {
-			process.kill(-pid, 'SIGKILL');
-		}
+		process.kill(-pid, 'SIGKILL');
 	} catch {
 		// The process already exited.
 	}
+}
+
+/** A git call that outlived its time limit. */
+export class GitTimeoutError extends Error {
+	constructor(readonly args: string[]) {
+		super(`git ${args.join(' ')} did not respond in time`);
+		this.name = 'GitTimeoutError';
+	}
+}
+
+/** The git executable could not be started. */
+export class GitMissingError extends Error {
+	constructor(readonly detail: string) {
+		super(detail);
+		this.name = 'GitMissingError';
+	}
+}
+
+/**
+ * Runs git and returns its result. A time-out throws `GitTimeoutError` and a process that
+ * could not start throws `GitMissingError`, so neither is read as an answer. A non-zero
+ * exit code is returned for the caller to interpret.
+ */
+export async function runGit(git: GitRunner, args: string[], options?: Parameters<GitRunner>[1]): Promise<GitResult> {
+	const result = await git(args, options);
+	if (result.timedOut) {
+		throw new GitTimeoutError(args);
+	}
+	if (result.exitCode === -1) {
+		throw new GitMissingError(result.stderr.trim());
+	}
+	return result;
 }
 
 /**

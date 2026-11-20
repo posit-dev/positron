@@ -8,7 +8,7 @@
 import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { createGitRunner, splitZ } from './git';
+import { createGitRunner, GitMissingError, GitTimeoutError, runGit, splitZ } from './git';
 import { tempRepo, TempRepo } from './test/tempRepo';
 
 describe('createGitRunner', () => {
@@ -73,6 +73,30 @@ describe('createGitRunner', () => {
 	});
 });
 
+describe('runGit', () => {
+	test('returns the result of a successful or failing command', async () => {
+		const repo = await tempRepo();
+		try {
+			expect((await runGit(repo.git, ['rev-parse', '--is-inside-work-tree'])).stdout.trim()).toBe('true');
+			expect((await runGit(repo.git, ['rev-parse', '--verify', 'no-such-ref'])).exitCode).not.toBe(0);
+		} finally {
+			await repo.dispose();
+		}
+	});
+
+	test('throws GitTimeoutError when the call timed out', async () => {
+		await expect(runGit(() => Promise.resolve({ stdout: '', stderr: '', exitCode: -1, timedOut: true }), ['status']))
+			.rejects.toBeInstanceOf(GitTimeoutError);
+	});
+
+	test('throws GitMissingError when the process could not start', async () => {
+		await expect(runGit(() => Promise.resolve({ stdout: '', stderr: 'spawn git ENOENT', exitCode: -1, timedOut: false }), ['status']))
+			.rejects.toMatchObject({ name: 'GitMissingError', detail: 'spawn git ENOENT' });
+		await expect(runGit(() => Promise.resolve({ stdout: '', stderr: '', exitCode: -1, timedOut: false }), ['status']))
+			.rejects.toBeInstanceOf(GitMissingError);
+	});
+});
+
 describe('splitZ', () => {
 	test('splitZ handles names with spaces and newlines', () => {
 		expect(splitZ('a b.txt\0line\nbreak.txt\0')).toEqual(['a b.txt', 'line\nbreak.txt']);
@@ -123,6 +147,20 @@ describe('tempRepo', () => {
 			expect((await second.git(['log', '--format=%s', 'origin/main'])).stdout.trim().split('\n')).toEqual(['third', 'second', 'first']);
 		} finally {
 			await second.dispose();
+			await first.dispose();
+		}
+	});
+
+	test('disposing a clone leaves the original repository and the shared remote', async () => {
+		const first = await tempRepo();
+		await first.write('a.txt', 'one\n');
+		await first.commit('first');
+		const second = await first.clone();
+		try {
+			await second.dispose();
+			expect(await first.read('a.txt')).toBe('one\n');
+			expect((await first.git(['ls-remote', 'origin'])).exitCode).toBe(0);
+		} finally {
 			await first.dispose();
 		}
 	});
