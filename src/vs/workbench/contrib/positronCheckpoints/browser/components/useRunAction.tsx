@@ -5,12 +5,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ICheckpointsEngineProxy, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { ICheckpointsMessageService } from '../checkpointsMessages.js';
-import { runAction, RunActionMode } from '../runAction.js';
+import { runAction, RunActionCall, RunActionMode } from '../runAction.js';
 
 /** `runAction` for React components, which have the services context instead of an accessor. */
-export function useRunAction(): (mode: RunActionMode, call: (engine: ICheckpointsEngineProxy) => Promise<OperationResult>) => Promise<OperationResult | undefined> {
+export function useRunAction(): (mode: RunActionMode, call: RunActionCall) => Promise<OperationResult | undefined> {
 	const services = usePositronReactServicesContext();
 	return useCallback((mode, call) => runAction(services, mode, call), [services]);
 }

@@ -5,10 +5,11 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ICheckpointsEngineProxy, OperationResult } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { guardUnsavedEditors, UnsavedEditorsMode } from '../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
+import { guardUnsavedEditors, UnsavedEditorsDecision, UnsavedEditorsMode } from '../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from './checkpointsMessages.js';
 
@@ -52,22 +53,33 @@ function routeResult(messageService: ICheckpointsMessageService, result: Operati
 }
 
 /**
+ * What the guard decided, as `call` receives it. It is set in `checkpoint` mode only, so that a
+ * caller can compute its chunks again after a save, and is undefined in the other modes.
+ */
+export type RunActionDecision = Exclude<UnsavedEditorsDecision, 'cancel'> | undefined;
+
+/** The engine call of an action. */
+export type RunActionCall = (engine: ICheckpointsEngineProxy, decision: RunActionDecision) => Promise<OperationResult>;
+
+/**
  * Runs one action of the Checkpoints view: asks about unsaved editors (unless `mode` is
  * `no-guard`), calls the engine, and shows the result in the view.
  *
- * @returns The engine's result, or undefined when no engine is registered or the person cancelled
- * at the unsaved-editors question.
+ * @returns The engine's result, or undefined when no engine is registered, the person cancelled
+ * at the unsaved-editors question, or the engine call threw. A thrown error is logged and the view
+ * says the action could not finish.
  */
 export async function runAction(
 	accessor: ServicesAccessor,
 	mode: RunActionMode,
-	call: (engine: ICheckpointsEngineProxy) => Promise<OperationResult>
+	call: RunActionCall
 ): Promise<OperationResult | undefined> {
 	// An accessor is valid only until the first await, so every service is read here.
 	const checkpointsService = accessor.get(ICheckpointsService);
 	const messageService = accessor.get(ICheckpointsMessageService);
 	const workspaceContextService = accessor.get(IWorkspaceContextService);
 	const instantiationService = accessor.get(IInstantiationService);
+	const logService = accessor.get(ILogService);
 
 	const engine = checkpointsService.engine;
 	if (!engine) {
@@ -75,16 +87,27 @@ export async function runAction(
 		return undefined;
 	}
 
+	let decision: RunActionDecision;
 	if (mode !== 'no-guard') {
 		const state = await engine.getState();
 		const projectRoot = projectRootUri(workspaceContextService, state.projectRoot);
-		const decision = await instantiationService.invokeFunction(guardAccessor => guardUnsavedEditors(guardAccessor, projectRoot, mode));
-		if (decision === 'cancel') {
+		const guarded = await instantiationService.invokeFunction(guardAccessor => guardUnsavedEditors(guardAccessor, projectRoot, mode));
+		if (guarded === 'cancel') {
 			return undefined;
+		}
+		if (mode === 'checkpoint') {
+			decision = guarded;
 		}
 	}
 
-	const result = await call(engine);
+	let result: OperationResult;
+	try {
+		result = await call(engine, decision);
+	} catch (error) {
+		logService.error('The checkpoints engine call failed.', error);
+		messageService.show(Strings.results.couldNotFinish());
+		return undefined;
+	}
 	routeResult(messageService, result);
 	return result;
 }

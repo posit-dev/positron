@@ -5,8 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
+import { extUri, extUriIgnorePathCase } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../workingCopy/common/workingCopy.js';
@@ -32,12 +34,16 @@ describe('unsavedEditorsGuard', () => {
 	let pressLabel: string | undefined;
 	let prompted: IPrompt<UnsavedEditorsDecision>[] = [];
 	const error = vi.fn();
+	let pathExtUri = extUri;
+	let whileDialogOpen: (() => void) | undefined;
 
 	const ctx = createTestContainer()
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies() { return dirty; } })
+		.stub(IUriIdentityService, { get extUri() { return pathExtUri; } })
 		.stub(IDialogService, {
 			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
 				prompted.push(prompt);
+				whileDialogOpen?.();
 				const button = prompt.buttons?.find(candidate => candidate.label === pressLabel);
 				const chosen = button ?? (prompt.cancelButton as { run: () => UnsavedEditorsDecision });
 				return { result: await chosen.run({ checkboxChecked: false }) };
@@ -50,6 +56,8 @@ describe('unsavedEditorsGuard', () => {
 		dirty = [];
 		pressLabel = undefined;
 		prompted = [];
+		pathExtUri = extUri;
+		whileDialogOpen = undefined;
 		error.mockClear();
 	});
 
@@ -128,7 +136,44 @@ describe('unsavedEditorsGuard', () => {
 		pressLabel = 'Save 2 files and include them';
 
 		expect(await guard('checkpoint')).toBe('cancel');
-		expect(error).toHaveBeenCalledWith('1 file could not be saved. Nothing was changed.');
+		expect(error).toHaveBeenCalledWith('a.R could not be saved, so the action was not started. Files that were saved stay saved.');
+	});
+
+	test('a failed save counts the other files that failed', async () => {
+		dirty = [fakeWorkingCopy('/work/project/a.R'), fakeWorkingCopy('/work/project/b.R', { saveResult: false }), fakeWorkingCopy('/work/project/c.R', { saveResult: false })];
+		pressLabel = 'Save 3 files and include them';
+
+		expect(await guard('checkpoint')).toBe('cancel');
+		expect(error).toHaveBeenCalledWith('b.R and 1 more could not be saved, so the action was not started. Files that were saved stay saved.');
+	});
+
+	test('paths compare with the letter case rules of the file system', async () => {
+		const file = fakeWorkingCopy('/WORK/Project/a.R');
+		dirty = [file];
+
+		expect(countUnsavedInProject(ctx.get(IWorkingCopyService), extUri, projectRoot)).toBe(0);
+		expect(countUnsavedInProject(ctx.get(IWorkingCopyService), extUriIgnorePathCase, projectRoot)).toBe(1);
+
+		pathExtUri = extUriIgnorePathCase;
+		pressLabel = 'Save 1 file and include it';
+		expect(await guard('file-changing')).toBe('cancel');
+		expect(prompted).toHaveLength(1);
+	});
+
+	test('the unsaved list is read again after the dialog closes, before saving', async () => {
+		const first = fakeWorkingCopy('/work/project/a.R');
+		const second = fakeWorkingCopy('/work/project/b.R');
+		const late = fakeWorkingCopy('/work/project/late.R');
+		dirty = [first, second];
+		pressLabel = 'Save 2 files and include them';
+		// The person saves a.R and edits late.R while the dialog is open.
+		whileDialogOpen = () => { dirty = [second, late]; };
+
+		expect(await guard('checkpoint')).toBe('proceed');
+
+		expect(first.save).not.toHaveBeenCalled();
+		expect(second.save).toHaveBeenCalledTimes(1);
+		expect(late.save).toHaveBeenCalledTimes(1);
 	});
 
 	test('untitled files and files outside the project are ignored', async () => {
@@ -139,7 +184,7 @@ describe('unsavedEditorsGuard', () => {
 		dirty = [inside, untitled, outside, sibling];
 		pressLabel = 'Save 1 file and include it';
 
-		expect(countUnsavedInProject(ctx.get(IWorkingCopyService), projectRoot)).toBe(1);
+		expect(countUnsavedInProject(ctx.get(IWorkingCopyService), extUri, projectRoot)).toBe(1);
 		expect(await guard('checkpoint')).toBe('proceed');
 
 		expect(inside.save).toHaveBeenCalledTimes(1);

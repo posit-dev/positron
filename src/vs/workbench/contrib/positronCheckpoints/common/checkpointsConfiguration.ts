@@ -40,7 +40,7 @@ export function registerCheckpointsConfiguration(): void {
 				default: [],
 				markdownDescription: localize(
 					'positron.checkpoints.configuration.model',
-					"Model patterns for Checkpoints suggestions. Patterns are tried in order until one matches an available model (case-insensitive). When left empty, the default tier is used."
+					"Model patterns for Checkpoints suggestions. Patterns are tried in order until one matches an available model (case-insensitive). When left empty, the default fast tier is used."
 				),
 				scope: ConfigurationScope.WINDOW,
 				order: 2,

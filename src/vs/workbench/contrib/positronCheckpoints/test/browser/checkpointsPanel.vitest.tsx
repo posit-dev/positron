@@ -23,7 +23,7 @@ const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'stage
 const unusualSentences: Record<UnusualKind, string> = {
 	'detached': 'Another git tool left this project looking at an old version instead of the latest one.',
 	'operation-in-progress': 'Another git tool left this project in the middle of an operation',
-	'staged-differs': 'Another git tool set aside a version of a file that differs from the file on disk.',
+	'staged-differs': 'Another git tool prepared part of a file for its own use, and it no longer matches the file you see.',
 	'unrecovered': 'An action was interrupted and this view could not finish it. Your work is saved, and a person who knows git can restore it.',
 	'git-missing': 'Checkpoints need the git program, and it was not found on this computer.',
 };

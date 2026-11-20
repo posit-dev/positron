@@ -65,7 +65,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	changes: {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
 		renamedFile: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]], includeLargeFile: [[]],
-		titlePlaceholder: [[]], titleTooLong: [[72]], chunkTitle: [[1]], moveToCheckpoint: [[]], dialogTitle: [[]], changesMoved: [[]],
+		titlePlaceholder: [[]], titleTooLong: [[72]], chunkTitle: [[1]], moveToCheckpoint: [[]], dialogTitle: [[]],
 	},
 	history: {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],
@@ -75,7 +75,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		checkFailed: [[]], checkChangedCheckpoint: [[]], checkChangedFilesOnDisk: [[1], [2]], createAgain: [[]], couldNotFinish: [[]],
 		interrupted: [[]], interruptedBy: [['Getting Maya\'s changes', 1], ['Getting Maya\'s changes', 2]], changesMoved: [[]],
 		projectChanged: [[]], overlaps: [[1], [2]], pathCollisions: [[]], inputsChangedShared: [['Maya']], inputsChangedSharedUnknown: [[]],
-		inputsChangedFiles: [[[]], [['dose.R']], [['dose.R', 'a.R', 'b.R']]], inputsChangedMine: [[]], reviewAgain: [[]],
+		inputsChangedFiles: [[]], inputsChangedMine: [[]], reviewAgain: [[]],
 		rejected: rejectedReasons.map(reason => [reason]), unavailable: unavailableReasons.map(reason => [reason]),
 		forOperation: results.map(result => [result]),
 	},
@@ -96,7 +96,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	unsaved: {
 		cancel: [[]], saveAndInclude: [[1], [2]], continueWithout: [[]], saveAllAndContinue: [[]], checkpointMessage: [[1], [2]], checkpointDetail: [[]],
-		fileChangingMessage: [[1], [2]], fileChangingDetail: [[]], saveFailed: [[1], [2]],
+		fileChangingMessage: [[1], [2]], fileChangingDetail: [[]], saveFailed: [['a.R', 1], ['a.R', 3]],
 	},
 	interrupted: { heading: [[]], changedFiles: [[]], stagedWork: [[]] },
 	suggestions: { goodPlace: [[]] },
@@ -174,7 +174,7 @@ describe('checkpointsStrings', () => {
 			'A check set up for this project also changed these files',
 			'Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file.',
 			'1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet.',
-			'You created a checkpoint since you reviewed this. Maya added more changes since you reviewed this. You edited dose.R and 1 more since you reviewed this. The changes are shown again. Nothing was changed.',
+			'You created a checkpoint since you reviewed this. Maya added more changes since you reviewed this. One of the overlapping files changed since you reviewed this. The changes are shown again. Nothing was changed.',
 			'More changes were added to the shared copy since you reviewed this. The changes are shown again. Nothing was changed.',
 			'Your files changed while the checkpoints were being prepared. Nothing was created. Review the changes and try again.',
 			'Another tool changed this project after that action. Nothing was changed.',
@@ -187,14 +187,14 @@ describe('checkpointsStrings', () => {
 			'The shared copy could not be reached. Check your connection and try again.',
 			'The shared copy did not accept the request.',
 			'Another window is working on this project',
-			'Another git tool left this project in the middle of an operation',
+			'This project is in a state Checkpoints cannot work with. See the message at the top of the view.',
 			'Getting and sending changes needs git version 2.40 or newer. Update git to use them.',
 			'This folder is not keeping checkpoints yet.',
 			'That is no longer the latest action. The view has been refreshed.',
 			'That action cannot be undone.',
 			'This checkpoint is already in the shared copy, so it cannot be undone. Use Reverse This Checkpoint to make a new checkpoint with the opposite change.',
-			'The project did not respond in time. Try again.',
-			'There is nothing to do.',
+			'The project did not respond in time. No files were changed. Try again.',
+			'There were no changes to act on, so no files were changed.',
 		]);
 	});
 
@@ -210,7 +210,6 @@ describe('checkpointsStrings', () => {
 		expect(Strings.history.partialFiles(['dose.R'])).toBe('Contains part of the changes to dose.R');
 		expect(Strings.history.returnedTo('Tuesday\'s version')).toBe('Returned to Tuesday\'s version');
 		expect(Strings.results.interruptedBy('Getting Maya\'s changes', 2)).toBe('Getting Maya\'s changes was interrupted, and 2 files were changed afterwards.');
-		expect(Strings.results.inputsChangedFiles(['dose.R'])).toBe('You edited dose.R since you reviewed this');
 		expect(Strings.results.projectChanged()).toContain('Another tool changed this project after that action');
 		expect(Strings.undoRedo.filesChangedSince(3)).toBe('You changed 3 files since then. Undo will set them back, and Redo will return them.');
 		expect(Strings.collisions.explainWithAuthor('Maya', 'data.csv')).toBe('Maya added a file named data.csv. You have your own data.csv that is in no checkpoint.');
@@ -224,6 +223,21 @@ describe('checkpointsStrings', () => {
 		expect(Strings.changes.unsavedNote(2)).toBe('2 files have unsaved edits that are not shown');
 		expect(Strings.kept.heading()).toBe('Files kept aside');
 		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place for a checkpoint.');
+	});
+
+	test('the unavailable sentences for an unusual state, a time-out, and nothing to do are exact', () => {
+		expect(Strings.results.unavailable('unusual-state')).not.toContain('middle of an operation');
+		expect(Strings.results.unavailable('timed-out')).toContain('No files were changed');
+		expect(Strings.results.unavailable('nothing-to-do')).toContain('no changes to act on');
+	});
+
+	test('a failed save names the file and says the action was not started', () => {
+		expect(Strings.unsaved.saveFailed('a.R', 1)).toBe('a.R could not be saved, so the action was not started. Files that were saved stay saved.');
+		expect(Strings.unsaved.saveFailed('a.R', 3)).toBe('a.R and 2 more could not be saved, so the action was not started. Files that were saved stay saved.');
+	});
+
+	test('the staged-file sentence is plain', () => {
+		expect(Strings.status.unusual('staged-differs')).toBe('Another git tool prepared part of a file for its own use, and it no longer matches the file you see.');
 	});
 
 	test('every unusual state has its own sentence', () => {

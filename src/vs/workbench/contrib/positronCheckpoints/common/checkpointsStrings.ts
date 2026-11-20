@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ServiceStrings } from '../../../services/positronCheckpoints/common/checkpointsServiceStrings.js';
+import { plural, ServiceStrings } from '../../../services/positronCheckpoints/common/checkpointsServiceStrings.js';
 import { OperationResult, UnavailableReason, RejectedReason, UnusualKind } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
 
 // Every user-facing string of the Checkpoints view is defined here, so the vocabulary changes in
@@ -14,11 +14,6 @@ import { OperationResult, UnavailableReason, RejectedReason, UnusualKind } from 
 //
 // Each group below is a plain object of functions, so a test can walk the groups and call every
 // function.
-
-/** One string for a count of one and another for any other count. */
-function plural(count: number, one: string, other: string): string {
-	return count === 1 ? one : other;
-}
 
 /** Joins sentences into one string, giving each exactly one closing period. */
 function joinSentences(sentences: string[]): string {
@@ -64,7 +59,7 @@ const status = {
 			case 'operation-in-progress':
 				return localize('positron.checkpoints.status.unusual.operationInProgress', "Another git tool left this project in the middle of an operation");
 			case 'staged-differs':
-				return localize('positron.checkpoints.status.unusual.stagedDiffers', "Another git tool set aside a version of a file that differs from the file on disk.");
+				return localize('positron.checkpoints.status.unusual.stagedDiffers', "Another git tool prepared part of a file for its own use, and it no longer matches the file you see.");
 			case 'unrecovered':
 				return localize('positron.checkpoints.status.unusual.unrecovered', "An action was interrupted and this view could not finish it. Your work is saved, and a person who knows git can restore it.");
 			case 'git-missing':
@@ -131,7 +126,6 @@ const changes = {
 	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Checkpoint {0}", index),
 	moveToCheckpoint: () => localize('positron.checkpoints.changes.moveToCheckpoint', "Move to another checkpoint"),
 	dialogTitle: () => localize('positron.checkpoints.changes.dialogTitle', "Create Checkpoints"),
-	changesMoved: () => localize('positron.checkpoints.changes.changesMoved', "Your files changed while you were working on this. The changes are shown again so you can review them."),
 };
 
 const history = {
@@ -164,11 +158,7 @@ const resultSentences = {
 	pathCollisions: () => localize('positron.checkpoints.results.pathCollisions', "Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file."),
 	inputsChangedShared: (author: string) => localize('positron.checkpoints.results.inputsChangedShared', "{0} added more changes since you reviewed this", author),
 	inputsChangedSharedUnknown: () => localize('positron.checkpoints.results.inputsChangedSharedUnknown', "More changes were added to the shared copy since you reviewed this"),
-	inputsChangedFiles: (paths: string[]) => paths.length === 0
-		? localize('positron.checkpoints.results.inputsChangedFilesNone', "You edited files since you reviewed this")
-		: paths.length === 1
-			? localize('positron.checkpoints.results.inputsChangedFiles.one', "You edited {0} since you reviewed this", paths[0])
-			: localize('positron.checkpoints.results.inputsChangedFiles.other', "You edited {0} and {1} more since you reviewed this", paths[0], paths.length - 1),
+	inputsChangedFiles: () => localize('positron.checkpoints.results.inputsChangedFiles', "One of the overlapping files changed since you reviewed this."),
 	inputsChangedMine: () => localize('positron.checkpoints.results.inputsChangedMine', "You created a checkpoint since you reviewed this"),
 	reviewAgain: () => localize('positron.checkpoints.results.reviewAgain', "The changes are shown again. Nothing was changed."),
 	rejected: (reason: RejectedReason): string => {
@@ -192,7 +182,7 @@ const resultSentences = {
 			case 'busy':
 				return localize('positron.checkpoints.results.unavailable.busy', "Another window is working on this project");
 			case 'unusual-state':
-				return localize('positron.checkpoints.results.unavailable.unusualState', "Another git tool left this project in the middle of an operation");
+				return localize('positron.checkpoints.results.unavailable.unusualState', "This project is in a state Checkpoints cannot work with. See the message at the top of the view.");
 			case 'git-too-old':
 				return localize('positron.checkpoints.results.unavailable.gitTooOld', "Getting and sending changes needs git version 2.40 or newer. Update git to use them.");
 			case 'not-tracking':
@@ -204,9 +194,9 @@ const resultSentences = {
 			case 'shared-checkpoint':
 				return localize('positron.checkpoints.results.unavailable.sharedCheckpoint', "This checkpoint is already in the shared copy, so it cannot be undone. Use Reverse This Checkpoint to make a new checkpoint with the opposite change.");
 			case 'timed-out':
-				return localize('positron.checkpoints.results.unavailable.timedOut', "The project did not respond in time. Try again.");
+				return localize('positron.checkpoints.results.unavailable.timedOut', "The project did not respond in time. No files were changed. Try again.");
 			case 'nothing-to-do':
-				return localize('positron.checkpoints.results.unavailable.nothingToDo', "There is nothing to do.");
+				return localize('positron.checkpoints.results.unavailable.nothingToDo', "There were no changes to act on, so no files were changed.");
 		}
 	},
 };
@@ -240,8 +230,7 @@ function forOperation(result: OperationResult): string | undefined {
 				if (changed === 'shared') {
 					sentences.push(author ? resultSentences.inputsChangedShared(author) : resultSentences.inputsChangedSharedUnknown());
 				} else if (changed === 'files') {
-					const paths = [...result.preview.overlaps.map(overlap => overlap.path), ...result.preview.collisions.map(collision => collision.path)];
-					sentences.push(resultSentences.inputsChangedFiles([...new Set(paths)]));
+					sentences.push(resultSentences.inputsChangedFiles());
 				} else {
 					sentences.push(resultSentences.inputsChangedMine());
 				}

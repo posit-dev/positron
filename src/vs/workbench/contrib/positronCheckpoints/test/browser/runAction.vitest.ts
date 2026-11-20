@@ -5,9 +5,11 @@
 
 /// <reference types="vitest/globals" />
 
+import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -26,6 +28,7 @@ describe('runAction', () => {
 
 	const ctx = createTestContainer()
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies() { return dirty; } })
+		.stub(IUriIdentityService, { extUri })
 		.stub(IDialogService, {
 			// Presses the cancel button of every prompt.
 			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
@@ -38,6 +41,8 @@ describe('runAction', () => {
 		})
 		.build();
 
+	const logError = vi.fn();
+
 	let engine: FakeCheckpointsEngine;
 	let checkpointsService: CheckpointsService;
 	let messageService: CheckpointsMessageService;
@@ -45,6 +50,8 @@ describe('runAction', () => {
 	beforeEach(() => {
 		dirty = [];
 		prompted = [];
+		logError.mockClear();
+		ctx.instantiationService.stub(ILogService, { error: logError });
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		messageService = ctx.disposables.add(new CheckpointsMessageService());
@@ -112,5 +119,28 @@ describe('runAction', () => {
 		await run('no-guard');
 
 		expect(messageService.message).toBeUndefined();
+	});
+
+	test('an engine call that throws is logged, shown as could-not-finish, and returns undefined', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const failure = new Error('engine exploded');
+
+		const result = await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', async () => { throw failure; }));
+
+		expect(result).toBeUndefined();
+		expect(logError).toHaveBeenCalledWith(expect.any(String), failure);
+		expect(messageService.message).toBe('That action could not finish. Your project is as it was.');
+	});
+
+	test('checkpoint mode passes the guard decision to the call, and the other modes pass undefined', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const decisions: unknown[] = [];
+		const record = async (_engine: unknown, decision: unknown) => { decisions.push(decision); return engine.nextResult; };
+
+		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'checkpoint', record));
+		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'file-changing', record));
+		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', record));
+
+		expect(decisions).toEqual(['proceed', undefined, undefined]);
 	});
 });

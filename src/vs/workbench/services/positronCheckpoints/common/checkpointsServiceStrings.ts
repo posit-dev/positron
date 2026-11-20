@@ -11,7 +11,7 @@ import { localize } from '../../../../nls.js';
 // merge, pull, push, fetch, HEAD, or conflict.
 
 /** One string for a count of one and another for any other count. */
-function plural(count: number, one: string, other: string): string {
+export function plural(count: number, one: string, other: string): string {
 	return count === 1 ? one : other;
 }
 
@@ -30,9 +30,10 @@ const unsaved = {
 		localize('positron.checkpoints.unsaved.fileChangingMessage.one', "1 file in this project has unsaved edits."),
 		localize('positron.checkpoints.unsaved.fileChangingMessage.other', "{0} files in this project have unsaved edits.", count)),
 	fileChangingDetail: () => localize('positron.checkpoints.unsaved.fileChangingDetail', "This action can rewrite files, so unsaved edits must be saved first."),
-	saveFailed: (count: number) => plural(count,
-		localize('positron.checkpoints.unsaved.saveFailed.one', "1 file could not be saved. Nothing was changed."),
-		localize('positron.checkpoints.unsaved.saveFailed.other', "{0} files could not be saved. Nothing was changed.", count)),
+	/** Names the first file that failed to save. Other files may have been saved before it failed. */
+	saveFailed: (firstName: string, count: number) => plural(count,
+		localize('positron.checkpoints.unsaved.saveFailed.one', "{0} could not be saved, so the action was not started. Files that were saved stay saved.", firstName),
+		localize('positron.checkpoints.unsaved.saveFailed.other', "{0} and {1} more could not be saved, so the action was not started. Files that were saved stay saved.", firstName, count - 1)),
 };
 
 export const ServiceStrings = {

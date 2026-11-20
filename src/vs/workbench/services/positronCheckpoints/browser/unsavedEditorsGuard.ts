@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { extUri } from '../../../../base/common/resources.js';
+import { IExtUri } from '../../../../base/common/resources.js';
 import Severity from '../../../../base/common/severity.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { ServiceStrings } from '../common/checkpointsServiceStrings.js';
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../workingCopy/common/workingCopyService.js';
@@ -25,16 +26,19 @@ export type UnsavedEditorsDecision = 'proceed' | 'proceed-without-unsaved' | 'ca
  */
 export type UnsavedEditorsMode = 'checkpoint' | 'file-changing';
 
-/** The dirty working copies inside the project. Untitled working copies are ignored. */
-function unsavedInProject(workingCopyService: IWorkingCopyService, projectRoot: URI): IWorkingCopy[] {
+/**
+ * The dirty working copies inside the project. Untitled working copies are ignored. Paths compare
+ * with `extUri`, which treats letter case as the file system of each scheme does.
+ */
+function unsavedInProject(workingCopyService: IWorkingCopyService, extUri: IExtUri, projectRoot: URI): IWorkingCopy[] {
 	return workingCopyService.dirtyWorkingCopies.filter(workingCopy =>
 		!(workingCopy.capabilities & WorkingCopyCapabilities.Untitled)
 		&& extUri.isEqualOrParent(workingCopy.resource, projectRoot));
 }
 
 /** The number of files in the project that have unsaved edits. Untitled files are not counted. */
-export function countUnsavedInProject(workingCopyService: IWorkingCopyService, projectRoot: URI): number {
-	return unsavedInProject(workingCopyService, projectRoot).length;
+export function countUnsavedInProject(workingCopyService: IWorkingCopyService, extUri: IExtUri, projectRoot: URI): number {
+	return unsavedInProject(workingCopyService, extUri, projectRoot).length;
 }
 
 /**
@@ -49,17 +53,21 @@ export async function guardUnsavedEditors(
 ): Promise<UnsavedEditorsDecision> {
 	const workingCopyService = accessor.get(IWorkingCopyService);
 	const dialogService = accessor.get(IDialogService);
+	const { extUri } = accessor.get(IUriIdentityService);
 
-	const unsaved = unsavedInProject(workingCopyService, projectRoot);
+	const unsaved = unsavedInProject(workingCopyService, extUri, projectRoot);
 	if (unsaved.length === 0) {
 		return 'proceed';
 	}
 
+	// Runs after the dialog closes, so the list is read again: edits may have been saved or made
+	// while the dialog was open.
 	const saveAll = async (): Promise<UnsavedEditorsDecision> => {
-		const saved = await Promise.all(unsaved.map(workingCopy => workingCopy.save()));
-		const failures = saved.filter(ok => !ok).length;
-		if (failures > 0) {
-			await dialogService.error(ServiceStrings.unsaved.saveFailed(failures));
+		const toSave = unsavedInProject(workingCopyService, extUri, projectRoot);
+		const saved = await Promise.all(toSave.map(workingCopy => workingCopy.save()));
+		const failed = toSave.filter((_, index) => !saved[index]);
+		if (failed.length > 0) {
+			await dialogService.error(ServiceStrings.unsaved.saveFailed(extUri.basename(failed[0].resource), failed.length));
 			return 'cancel';
 		}
 		return 'proceed';
