@@ -91,6 +91,8 @@ const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => 
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
 /** A runtime picker row as "shown" writes it is a Python one: its label ("Python 3.12.3") or description ("uv: ws (Python 3.14.7)") leads with Python. */
 const pythonRow = (x: string) => /^Python |\(Python /.test(x);
+/** The plot shown is thumbnail n's. */
+const showsThumbnail = (o: Out, n: number) => o.json!.plot?.name !== o.json!.filmstrip?.[n - 1]?.name && `shows ${o.json!.plot?.name}, thumbnail ${n} is ${o.json!.filmstrip?.[n - 1]?.name}`;
 /** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
@@ -264,9 +266,13 @@ const cases: Case[] = [
 	{ name: 'plots unknown command is a usage error, logged', run: ['plots.sh', 'foo'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"foo" is not a command') || logged('plots.sh -s=net1: FAILED foo: "foo" is not a command') },
 	{ name: 'plots save --format=SVG takes the glued value', run: ['plots.sh', 'save', '--format=SVG'], check: o => includes(o.json!.tree, 'button "Format": SVG') },
 	{ name: 'ui click Cancel (save --format=SVG)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// R's plots are named, so their thumbnails' images have alt "" and no img role: select N must still find thumbnail N.
+	{ name: 'plots select 2 clicks the second thumbnail of named plots', before: showFilmstrip, run: ['plots.sh', 'select', '2'], check: o => showsThumbnail(o, 2) },
+	{ name: 'plots select 1 clicks the first thumbnail of named plots', run: ['plots.sh', 'select', '1'], check: o => showsThumbnail(o, 1) },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
 	{ name: 'plots open editor', run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "plot') },
 	{ name: 'plots read --editor', run: ['plots.sh', 'read', '--editor'], check: o => includes(o.json!.toolbar, 'Save Plot From Active Editor') },
+	{ name: 'plots remove 1 removes the first thumbnail of named plots', run: ['plots.sh', 'remove', '1'] },
 	{ name: 'plots clear', run: ['plots.sh', 'clear'] },
 	{ name: 'plots read after clear', wait: 500, run: ['plots.sh', 'read'], check: o => !o.json!.blank && 'a plot is still shown' },
 
@@ -542,6 +548,12 @@ function closeAllSessions(): string | undefined {
 	for (const s of list()) { sh([join(scripts, 'panel.sh'), '--session', SESSION, 'delete-session', s.id]); }
 	const left = list().length;
 	return left ? `${left} sessions still open after closing them all` : undefined;
+}
+
+/** A case's `before`: widens the secondary side bar, where the Plots view is, so its filmstrip shows (it needs 300 px and several plots). */
+function showFilmstrip(): string | undefined {
+	const o = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'resize', 'secondary', '600']);
+	return o.json?.ok ? undefined : `panel.sh resize secondary 600: ${o.json?.error ?? o.stderr}`;
 }
 
 // ---- Running ---------------------------------------------------------------------
