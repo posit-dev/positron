@@ -16,7 +16,7 @@ import { useDialogActions } from './useRunAction.js';
  * opens its dialog on a click, and never on its own.
  */
 export const StateCards = ({ view }: { view: ICheckpointsViewState }) => {
-	const dialogActions = useDialogActions(view.refresh);
+	const dialogActions = useDialogActions();
 	const state = view.state;
 	if (!state || state.tracking !== 'tracking' || state.unusual) {
 		return null;
@@ -57,7 +57,7 @@ export const StateCards = ({ view }: { view: ICheckpointsViewState }) => {
  * snapshot stays in the list until the person removes it.
  */
 export const RecoverySnapshotsSection = ({ view }: { view: ICheckpointsViewState }) => {
-	const dialogActions = useDialogActions(view.refresh);
+	const dialogActions = useDialogActions();
 	const snapshots = view.state?.recoverySnapshots ?? [];
 	if (snapshots.length === 0) {
 		return null;

@@ -25,7 +25,7 @@ import { IOverlap, OverlapKind } from '../../../../services/positronCheckpoints/
 import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
-import { keepBothText, proposedName } from '../../browser/overlapEditor/overlapChoices.js';
+import { keepBothText, proposedName, sanitizeNameLabel } from '../../browser/overlapEditor/overlapChoices.js';
 import { OverlapEditorView } from '../../browser/overlapEditor/overlapEditor.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
@@ -242,5 +242,12 @@ describe('Overlap editor', () => {
 	test('a proposed name cleans path separators and control characters from the label', () => {
 		expect(proposedName('figures/plot.png', '../Ma/ya\\x\n')).toBe('figures/plot (..Mayax).png');
 		expect(proposedName('plot.png', '/\u0000')).toBe('plot (copy).png');
+	});
+
+	test('a name label loses the characters Windows reserves and direction marks', () => {
+		expect(sanitizeNameLabel('M:a*y?a"<b>|c')).toBe('Mayabc');
+		expect(sanitizeNameLabel('Ma‮ya⁦‏؜\u0085\u009f')).toBe('Maya');
+		expect(sanitizeNameLabel(':*?"<>|‪')).toBe('copy');
+		expect(sanitizeNameLabel('Maya Ortiz')).toBe('Maya Ortiz');
 	});
 });

@@ -103,7 +103,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	start: {
 		dialogTitle: [[]], intro: [[]], startButton: [[]], identityWhy: [[]], nameLabel: [[]], emailLabel: [[]], emailInvalid: [[]],
-		leaveOut: [[]], leaveOutBox: [[]], leaveOutHelp: [[]],
+		leaveOut: [[]], leaveOutBox: [[]], leaveOutHelp: [[]], couldNotLoad: [[]], tryAgain: [[]], identityNotRecorded: [[]],
 	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],

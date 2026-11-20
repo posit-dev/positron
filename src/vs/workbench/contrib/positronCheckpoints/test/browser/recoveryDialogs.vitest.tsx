@@ -223,6 +223,20 @@ describe('Recovery and project check dialogs', () => {
 		await vi.waitFor(() => expect(screen.queryByText('Project as it was before recovery')).not.toBeInTheDocument());
 	});
 
+	test('removing a recovery snapshot in a dialog opened from a result refreshes the view', async () => {
+		engine.state = fakeEngineState({ interrupted, recoverySnapshots: [{ operationId: 'op-5', time: '2026-11-19T10:00:00Z' }] });
+		engine.nextResult = { kind: 'interrupted' };
+		const user = await renderWithSend();
+		const dialog = await screen.findByRole('dialog');
+		engine.state = fakeEngineState({ interrupted });
+		const readsBefore = engine.callsOf('getState').length;
+
+		await user.click(within(dialog).getByRole('button', { name: /^Remove: Project as it was before recovery/ }));
+
+		await vi.waitFor(() => expect(engine.callsOf('getState').length).toBeGreaterThan(readsBefore));
+		await vi.waitFor(() => expect(screen.queryByText('Project as it was before recovery')).not.toBeInTheDocument());
+	});
+
 	test('dismissing each dialog without a choice calls nothing on the engine', async () => {
 		const decisions = ['resolveInterrupted', 'acceptCheckedCheckpoint', 'declineCheckedCheckpoint', 'removeRecoverySnapshot'] as const;
 		const user = userEvent.setup();

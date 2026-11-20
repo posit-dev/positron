@@ -28,12 +28,11 @@ export type RunActionMode = UnsavedEditorsMode | 'no-guard';
 
 /**
  * The actions of the dialogs that `routeResult` opens, and that the view opens from state. A
- * dialog runs its engine calls through `runAction`, so their results are routed too.
- *
- * @param onStateChanged Called after a dialog action changed the state of the project outside
- * `runAction`, such as the removal of a recovery snapshot, so the view can read it again.
+ * dialog runs its engine calls through `runAction`, so their results are routed too. A change to
+ * the project made outside `runAction`, such as the removal of a recovery snapshot, is reported
+ * through `ICheckpointsService.reportStateChanged`, so every view reads the state again.
  */
-export function createDialogActions(instantiationService: IInstantiationService, onStateChanged?: () => void): IDialogActions {
+export function createDialogActions(instantiationService: IInstantiationService): IDialogActions {
 	return {
 		run: call => instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', call)),
 		removeRecoverySnapshot: async operationId => {
@@ -44,7 +43,7 @@ export function createDialogActions(instantiationService: IInstantiationService,
 			}));
 			try {
 				await checkpointsService.engine?.removeRecoverySnapshot(operationId);
-				onStateChanged?.();
+				checkpointsService.reportStateChanged();
 				return true;
 			} catch (error) {
 				logService.error('The recovery snapshot could not be removed.', error);

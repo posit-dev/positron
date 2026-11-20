@@ -41,6 +41,10 @@ export class CheckpointsService extends Disposable implements ICheckpointsServic
 		return this._engine;
 	}
 
+	reportStateChanged(): void {
+		this._onDidChangeState.fire();
+	}
+
 	registerEngine(engine: ICheckpointsEngineProxy): IDisposable {
 		if (this._engine) {
 			this._logService.warn('A checkpoints engine is already registered. The new engine is ignored.');

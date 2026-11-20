@@ -101,6 +101,47 @@ describe('SharedCopyChecker', () => {
 		expect(checks()).toBe(5);
 	});
 
+	test('an interval under one minute is checked once a minute', async () => {
+		configuration.setUserConfiguration(CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY, 0.001);
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		createChecker();
+
+		await vi.advanceTimersByTimeAsync(MINUTE - 1);
+		expect(checks()).toBe(0);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(checks()).toBe(1);
+	});
+
+	test('a check in flight when the checker is disposed does nothing afterwards', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const checker = createChecker();
+		const release = engine.holdGetState();
+		focus.fire(true);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(engine.callsOf('getState')).toHaveLength(1);
+
+		checker.dispose();
+		release(fakeEngineState());
+		await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+		expect(checks()).toBe(0);
+	});
+
+	test('a failure of a check in flight when the checker is disposed is not logged', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const checker = createChecker();
+		let fail!: () => void;
+		engine.checkShared = () => new Promise((_resolve, reject) => { fail = () => reject(new Error('offline')); });
+		focus.fire(true);
+		await vi.advanceTimersByTimeAsync(0);
+
+		checker.dispose();
+		fail();
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(logError).not.toHaveBeenCalled();
+	});
+
 	test('focus triggers a check at most once per minute', async () => {
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		createChecker();

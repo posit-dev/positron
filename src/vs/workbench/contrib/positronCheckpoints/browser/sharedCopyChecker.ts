@@ -15,14 +15,17 @@ import { CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY } from '../common/checkpointsConf
 /** The interval used when the setting does not hold a number. */
 const DEFAULT_INTERVAL_MINUTES = 5;
 
+/** The shortest interval between two timed checks. A shorter positive setting uses this. */
+const MINIMUM_INTERVAL_MINUTES = 1;
+
 /** The shortest time between two checks that start because the window gained focus. */
 const FOCUS_CHECK_MINIMUM_MS = 60 * 1000;
 
 /**
  * Looks for new checkpoints in the shared copy without being asked: when the window gains focus
- * (at most once a minute) and every `checkpoints.checkSharedInterval` minutes. A check changes no
- * files. It is skipped when the project has no shared copy or is in an unusual state, and a
- * failure is logged and never shown.
+ * (at most once a minute) and every `checkpoints.checkSharedInterval` minutes, at least one
+ * minute apart (0 turns timed checks off). A check changes no files. It is skipped when the
+ * project has no shared copy or is in an unusual state, and a failure is logged and never shown.
  */
 export class SharedCopyChecker extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronCheckpointsSharedCopyChecker';
@@ -61,29 +64,35 @@ export class SharedCopyChecker extends Disposable implements IWorkbenchContribut
 			this._timer.cancel();
 			return;
 		}
-		this._timer.cancelAndSet(() => void this._check(), minutes * 60 * 1000);
+		const intervalMinutes = Math.max(minutes, MINIMUM_INTERVAL_MINUTES);
+		this._timer.cancelAndSet(() => void this._check(), intervalMinutes * 60 * 1000);
 	}
 
 	private _focusCheckAllowed(): boolean {
 		return this._lastStartedAt === undefined || Date.now() - this._lastStartedAt >= FOCUS_CHECK_MINIMUM_MS;
 	}
 
-	/** Runs one check. Does nothing while another check runs. */
+	/**
+	 * Runs one check. Does nothing while another check runs. After the checker is disposed, a
+	 * check in flight neither asks the engine to check nor logs a failure.
+	 */
 	private async _check(): Promise<void> {
 		const engine = this._checkpointsService.engine;
-		if (!engine || this._running) {
+		if (!engine || this._running || this._store.isDisposed) {
 			return;
 		}
 		this._running = true;
 		this._lastStartedAt = Date.now();
 		try {
 			const state = await engine.getState();
-			if (state.tracking !== 'tracking' || !state.shared.exists || state.unusual) {
+			if (this._store.isDisposed || state.tracking !== 'tracking' || !state.shared.exists || state.unusual) {
 				return;
 			}
 			await engine.checkShared();
 		} catch (error) {
-			this._logService.error('The check of the shared copy failed.', error);
+			if (!this._store.isDisposed) {
+				this._logService.error('The check of the shared copy failed.', error);
+			}
 		} finally {
 			this._running = false;
 		}

@@ -14,8 +14,8 @@ export interface IDialogActions {
 	run(call: (engine: ICheckpointsEngineProxy) => Promise<OperationResult>): Promise<OperationResult | undefined>;
 
 	/**
-	 * Removes a recovery snapshot. After a removal, the view that opened the dialog reads its
-	 * state again.
+	 * Removes a recovery snapshot. After a removal, every view reads the state of the project
+	 * again.
 	 * @returns True when it was removed. On failure the view says the action could not finish.
 	 */
 	removeRecoverySnapshot(operationId: string): Promise<boolean>;

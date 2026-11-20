@@ -23,8 +23,17 @@ export interface ICheckpointsService {
 	/** Fires when the engine in use changes: one registers, or the engine in use goes away. */
 	readonly onDidChangeEngine: Event<void>;
 
-	/** Fires when the engine in use reports that its state may differ. */
+	/**
+	 * Fires when the engine in use reports that its state may differ, and when `reportStateChanged`
+	 * is called.
+	 */
 	readonly onDidChangeState: Event<void>;
+
+	/**
+	 * Fires `onDidChangeState` for a change that the engine does not report itself, such as the
+	 * removal of a recovery snapshot, so every view reads the state again.
+	 */
+	reportStateChanged(): void;
 
 	/**
 	 * Registers an engine. The first registered engine is used; while it is registered, each

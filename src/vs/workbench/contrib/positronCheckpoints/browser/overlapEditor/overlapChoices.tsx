@@ -40,24 +40,25 @@ export function keepBothText(mine: string, theirs: string): string {
 }
 
 /**
- * Removes what cannot be part of a single name from `name`: path separators and control
- * characters. Returns the localized fallback label when nothing is left.
+ * The characters that cannot be part of a single file name on some system: path separators, the
+ * characters Windows reserves, Unicode control characters, and the marks that change the
+ * direction of text (which can make a name read differently from what it is).
+ */
+const UNSAFE_NAME_CHARACTERS = /[\/\\:*?"<>|\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu;
+
+/**
+ * Removes what cannot be part of a single name from `name`: see `UNSAFE_NAME_CHARACTERS`.
+ * Returns the localized fallback label when nothing is left.
  */
 export function sanitizeNameLabel(name: string): string {
-	const cleaned = Array.from(name)
-		.filter(character => {
-			const code = character.charCodeAt(0);
-			return code >= 0x20 && code !== 0x7f && character !== '/' && character !== '\\';
-		})
-		.join('')
-		.trim();
+	const cleaned = name.replace(UNSAFE_NAME_CHARACTERS, '').trim();
 	return cleaned === '' ? Strings.overlaps.copyNameLabel() : cleaned;
 }
 
 /**
  * The name proposed for the renamed side of "Keep both": `<name> (<label>).<ext>` in the same
  * folder. A name that starts with a dot, or has none, keeps no extension apart. The label is
- * cleaned of path separators and control characters.
+ * cleaned by `sanitizeNameLabel`.
  */
 export function proposedName(path: string, rawLabel: string): string {
 	const label = sanitizeNameLabel(rawLabel);

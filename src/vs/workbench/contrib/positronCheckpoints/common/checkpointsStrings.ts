@@ -365,6 +365,9 @@ const start = {
 	leaveOut: () => localize('positron.checkpoints.start.leaveOut', "Leave these files out of checkpoints"),
 	leaveOutBox: () => localize('positron.checkpoints.start.leaveOutBox', "Files and folders to leave out, one per line"),
 	leaveOutHelp: () => localize('positron.checkpoints.start.leaveOutHelp', "These are files that data science projects usually do not keep, such as saved history and temporary files. You can change the list."),
+	couldNotLoad: () => localize('positron.checkpoints.start.couldNotLoad', "The list of files to leave out could not be read."),
+	tryAgain: () => localize('positron.checkpoints.start.tryAgain', "Try Again"),
+	identityNotRecorded: () => localize('positron.checkpoints.start.identityNotRecorded', "Checkpoints could not record your name and email. Try again."),
 };
 
 const kept = {

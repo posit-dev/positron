@@ -8,12 +8,21 @@
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { extUri } from '../../../../../base/common/resources.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
+import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { UnsavedEditorsDecision } from '../../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
+import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
+import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
@@ -22,8 +31,28 @@ import { ISyncController, SyncController } from '../../browser/syncController.js
 import { fakeCheckpoint, FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 describe('StartTrackingDialog', () => {
+	let dirty: IWorkingCopy[] = [];
+	let prompted: IPrompt<UnsavedEditorsDecision>[] = [];
+
 	const ctx = createTestContainer()
 		.withReactServices()
+		.stub(IWorkingCopyService, {
+			get dirtyWorkingCopies() { return dirty; },
+			onDidRegister: new Emitter<IWorkingCopy>().event,
+			onDidUnregister: new Emitter<IWorkingCopy>().event,
+			onDidChangeDirty: new Emitter<IWorkingCopy>().event,
+		})
+		.stub(IUriIdentityService, { extUri })
+		.stub(IWorkspaceContextService, {
+			getWorkspace: () => stubInterface<IWorkspace>({ folders: [{ uri: URI.file('/work/dose-model'), name: 'dose-model', index: 0, toResource: path => URI.file(path) }] }),
+		})
+		.stub(IDialogService, {
+			// Presses the cancel button of every prompt.
+			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
+				prompted.push(prompt);
+				return { result: await (prompt.cancelButton as { run: () => UnsavedEditorsDecision }).run() };
+			},
+		})
 		// The disclosure card of the panel reads the agent service; no job waits on it here.
 		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
@@ -32,6 +61,8 @@ describe('StartTrackingDialog', () => {
 	let engine: FakeCheckpointsEngine;
 
 	beforeEach(() => {
+		dirty = [];
+		prompted = [];
 		// PositronModalReactRenderer finds its container through this singleton.
 		PositronReactServices.services = ctx.reactServices;
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
@@ -151,6 +182,59 @@ describe('StartTrackingDialog', () => {
 
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 		expect(engine.callsOf('startTracking')).toEqual([]);
+	});
+
+	test('Start waits for the proposed list of files to leave out', async () => {
+		let answer!: (proposed: string) => void;
+		engine.proposedGitignore = () => new Promise(resolve => { answer = resolve; });
+		const { dialog } = await openDialog();
+
+		const start = within(dialog).getByRole('button', { name: 'Start' });
+		expect(start).toBeDisabled();
+		answer('.Rhistory\n');
+
+		await vi.waitFor(() => expect(start).toBeEnabled());
+		expect(within(dialog).getByRole('textbox', { name: 'Files and folders to leave out, one per line' })).toHaveValue('.Rhistory\n');
+	});
+
+	test('a list that cannot be read says so, keeps Start disabled, and can be read again', async () => {
+		engine.proposedGitignore = async () => { throw new Error('unreadable'); };
+		const { user, dialog } = await openDialog();
+
+		expect(await within(dialog).findByText('The list of files to leave out could not be read.')).toBeInTheDocument();
+		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeDisabled();
+
+		engine.proposedGitignore = async () => '*.tmp\n';
+		await user.click(within(dialog).getByRole('button', { name: 'Try Again' }));
+
+		await vi.waitFor(() => expect(within(dialog).getByRole('button', { name: 'Start' })).toBeEnabled());
+		expect(within(dialog).queryByText('The list of files to leave out could not be read.')).not.toBeInTheDocument();
+		expect(within(dialog).getByRole('textbox', { name: 'Files and folders to leave out, one per line' })).toHaveValue('*.tmp\n');
+	});
+
+	test('Start asks about unsaved editors first, and Cancel there starts nothing', async () => {
+		dirty = [stubInterface<IWorkingCopy>({ resource: URI.file('/work/dose-model/dose.R'), capabilities: WorkingCopyCapabilities.None })];
+		const { user, dialog } = await openDialog();
+
+		await user.click(await within(dialog).findByRole('button', { name: 'Start' }));
+
+		await vi.waitFor(() => expect(prompted.map(prompt => prompt.message)).toEqual(['1 file in this project has unsaved edits.']));
+		expect(engine.callsOf('startTracking')).toEqual([]);
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+	});
+
+	test('an identity-missing answer after the fields are filled says the name and email were not recorded', async () => {
+		engine.state = fakeEngineState({ tracking: 'not-a-project', identityMissing: true });
+		engine.nextResult = { kind: 'unavailable', reason: 'nothing-to-do', detail: 'identity-missing' };
+		const { user, dialog } = await openDialog();
+
+		await user.type(within(dialog).getByRole('textbox', { name: 'Your name' }), 'Maya Ortiz');
+		await user.type(within(dialog).getByRole('textbox', { name: 'Your email address' }), 'maya@example.org');
+		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
+
+		expect(await within(dialog).findByText('Checkpoints could not record your name and email. Try again.')).toBeInTheDocument();
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeEnabled();
 	});
 
 	test('an email needs text on both sides of an @', () => {

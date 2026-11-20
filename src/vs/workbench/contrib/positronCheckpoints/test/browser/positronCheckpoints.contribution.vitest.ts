@@ -10,7 +10,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '.
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../../common/views.js';
 import { POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID, POSITRON_CHECKPOINTS_VIEW_ID } from '../../browser/positronCheckpoints.contribution.js';
-import { CHECKPOINTS_MODEL_KEY } from '../../common/checkpointsConfiguration.js';
+import { CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY, CHECKPOINTS_MODEL_KEY } from '../../common/checkpointsConfiguration.js';
 import { PositronCheckpointsView } from '../../browser/positronCheckpointsView.js';
 import { OverlapEditorPane } from '../../browser/overlapEditor/overlapEditor.js';
 import { OverlapEditorInput } from '../../browser/overlapEditor/overlapEditorInput.js';
@@ -47,5 +47,10 @@ describe('positronCheckpoints.contribution', () => {
 	test('the model setting says an empty list uses the default fast tier', () => {
 		const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
 		expect(properties[CHECKPOINTS_MODEL_KEY]?.markdownDescription).toContain('the default fast tier is used');
+	});
+
+	test('the interval setting cannot be negative', () => {
+		const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
+		expect(properties[CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY]?.minimum).toBe(0);
 	});
 });

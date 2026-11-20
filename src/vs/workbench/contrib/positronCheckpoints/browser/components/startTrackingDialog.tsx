@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
@@ -25,6 +26,9 @@ const START_DIALOG_HEIGHT = 560;
 
 /** The detail of the engine's `unavailable` answer when git has no name and email to record. */
 const IDENTITY_MISSING_DETAIL = 'identity-missing';
+
+/** Where the proposed list of files to leave out is: being read, read, or not readable. */
+type ProposalState = 'loading' | 'loaded' | 'failed';
 
 /** What the caller gives the dialog. */
 export interface IStartTrackingDialogOptions {
@@ -53,8 +57,11 @@ export function isUsableEmail(email: string): boolean {
 
 /**
  * Starts keeping checkpoints in a plain folder. The person can edit the proposed list of files to
- * leave out, or untick it to leave nothing out. The name and email fields appear when git has
- * none, either because the engine said so up front or because starting reported it.
+ * leave out, or untick it to leave nothing out. Start waits for the proposed list while it is
+ * ticked; when the list cannot be read, the dialog says so and offers to read it again. The name
+ * and email fields appear when git has none, either because the engine said so up front or
+ * because starting reported it. Start asks about unsaved editors first, because the first
+ * checkpoint reads every file.
  */
 export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 	const services = usePositronReactServicesContext();
@@ -64,37 +71,60 @@ export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 	const [email, setEmail] = useState('');
 	const [leaveOut, setLeaveOut] = useState(true);
 	const [patterns, setPatterns] = useState('');
+	const [proposal, setProposal] = useState<ProposalState>('loading');
+	// Incremented by Try Again, which reads the proposed list again.
+	const [proposalAttempt, setProposalAttempt] = useState(0);
+	const [identityNotRecorded, setIdentityNotRecorded] = useState(false);
 	const [running, setRunning] = useState(false);
 
 	useEffect(() => {
 		let current = true;
+		setProposal('loading');
 		const engine = services.get(ICheckpointsService).engine;
-		engine?.proposedGitignore().then(
+		if (!engine) {
+			setProposal('failed');
+			return;
+		}
+		engine.proposedGitignore().then(
 			proposed => {
 				if (current) {
 					setPatterns(proposed);
+					setProposal('loaded');
 				}
 			},
-			error => services.get(ILogService).error('The proposed list of files to leave out could not be read.', error)
+			error => {
+				services.get(ILogService).error('The proposed list of files to leave out could not be read.', error);
+				if (current) {
+					setProposal('failed');
+				}
+			}
 		);
 		return () => { current = false; };
-	}, [services]);
+	}, [services, proposalAttempt]);
 
 	const emailProblem = identityNeeded && email.trim() !== '' && !isUsableEmail(email);
-	const ready = !identityNeeded || (name.trim() !== '' && isUsableEmail(email));
+	const identityReady = !identityNeeded || (name.trim() !== '' && isUsableEmail(email));
+	// With the list unticked, nothing is left out and the proposal is not needed.
+	const ready = identityReady && (proposal === 'loaded' || !leaveOut);
 
 	const submit = async () => {
 		if (!ready || running) {
 			return;
 		}
 		setRunning(true);
+		setIdentityNotRecorded(false);
 		const identity = identityNeeded ? { name: name.trim(), email: email.trim() } : undefined;
 		const gitignore = leaveOut && patterns.trim() !== '' ? patterns : undefined;
-		const result = await runAction('no-guard', async engine => {
+		const result = await runAction('checkpoint', async engine => {
 			const started = await engine.startTracking(identity, gitignore);
 			if (started.kind === 'unavailable' && started.detail === IDENTITY_MISSING_DETAIL) {
-				// The fields appear and nothing else is said: the dialog is the answer.
-				setIdentityNeeded(true);
+				if (identity) {
+					// The fields were filled and the engine still has no name and email.
+					setIdentityNotRecorded(true);
+				} else {
+					// The fields appear and nothing else is said: the dialog is the answer.
+					setIdentityNeeded(true);
+				}
 				return undefined;
 			}
 			return started;
@@ -136,6 +166,7 @@ export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 							value={email}
 							onChange={e => setEmail(e.target.value)}
 						/>
+						{identityNotRecorded && <p className='checkpoint-dialog-warning' role='alert'>{Strings.start.identityNotRecorded()}</p>}
 					</fieldset>
 				)}
 				<label>
@@ -145,12 +176,20 @@ export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 				<label className='checkpoint-dialog-body checkpoint-dialog-patterns'>
 					<span>{Strings.start.leaveOutBox()}</span>
 					<textarea
-						disabled={!leaveOut}
+						disabled={!leaveOut || proposal !== 'loaded'}
 						rows={8}
 						value={patterns}
 						onChange={e => setPatterns(e.target.value)}
 					/>
 				</label>
+				{proposal === 'failed' && (
+					<div className='checkpoint-dialog-warning' role='alert'>
+						<p>{Strings.start.couldNotLoad()}</p>
+						<Button className='checkpoints-link' onPressed={() => setProposalAttempt(attempt => attempt + 1)}>
+							{Strings.start.tryAgain()}
+						</Button>
+					</div>
+				)}
 				<p className='checkpoint-dialog-empty'>{Strings.start.leaveOutHelp()}</p>
 			</div>
 		</OKCancelModalDialog>
