@@ -3,7 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { workspace, Disposable, EventEmitter, Memento, window, MessageItem, ConfigurationTarget, Uri, ConfigurationChangeEvent, l10n, env } from 'vscode';
+// --- Start Positron ---
+// `extensions` is imported to look for the Checkpoints extension (see onFirstGoodRemoteOperation).
+// import { workspace, Disposable, EventEmitter, Memento, window, MessageItem, ConfigurationTarget, Uri, ConfigurationChangeEvent, l10n, env } from 'vscode';
+import { workspace, Disposable, EventEmitter, Memento, window, MessageItem, ConfigurationTarget, Uri, ConfigurationChangeEvent, l10n, env, extensions } from 'vscode';
+// --- End Positron ---
 import { Repository } from './repository';
 import { eventToPromise, filterEvent, onceEvent } from './util';
 import { GitErrorCodes } from './api/git.constants';
@@ -45,6 +49,15 @@ export class AutoFetcher {
 		if (!shouldInformUser) {
 			return;
 		}
+
+		// --- Start Positron ---
+		// The Checkpoints extension checks the shared copy on its own interval through this
+		// extension, and its users do not know git's words. With it installed, the question about
+		// periodic fetching is not asked, and the `git.autofetch` setting keeps its value.
+		if (extensions.getExtension('positron.positron-checkpoints')) {
+			return;
+		}
+		// --- End Positron ---
 
 		const yes: MessageItem = { title: l10n.t('Yes') };
 		const no: MessageItem = { isCloseAffordance: true, title: l10n.t('No') };
