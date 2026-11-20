@@ -608,7 +608,8 @@ export interface IRuntimeSessionDisplayInfo {
 	readonly languageName: string;
 	readonly languageId: string;
 	readonly base64EncodedIconSvg: string | undefined;
-	readonly sessionState: RuntimeState;
+	/** The session's runtime state, or undefined when no session has started. */
+	readonly sessionState: RuntimeState | undefined;
 }
 
 export interface ILanguageRuntimePackage {
