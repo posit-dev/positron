@@ -58,7 +58,7 @@ describe('WelcomeHeader', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Help' }));
 
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.positron.openHelp');
+		expect(executeCommand).toHaveBeenCalledWith('positron.help.showHelpPane');
 		expect(publicLog2).toHaveBeenCalledWith('gettingStarted.ActionExecuted', {
 			command: 'welcomeHeaderOpenHelp',
 			argument: undefined,

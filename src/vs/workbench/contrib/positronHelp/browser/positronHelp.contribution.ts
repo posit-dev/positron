@@ -14,13 +14,15 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronHelpView } from './positronHelpView.js';
-import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
+import { IPositronHelpService, POSITRON_HELP_SHOWN, POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { POSITRON_HELP_COPY, POSITRON_HELP_FIND } from './positronHelpIdentifiers.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ListPackageDocs, LookupHelpTopic, ReadHelpTopic, ReadVignette, ShowHelpAtCursor } from './positronHelpActions.js';
+import { CloseHelpPane, ListPackageDocs, LookupHelpTopic, ReadHelpTopic, ReadVignette, ShowHelpAtCursor, ShowHelpPane } from './positronHelpActions.js';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
@@ -43,7 +45,9 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	},
 	ViewContainerLocation.AuxiliaryBar,
 	{
-		doNotRegisterOpenCommand: false,
+		// The view registers its own open command below. A second one for the container
+		// would show up as a second "View: Toggle Help" in the command palette.
+		doNotRegisterOpenCommand: true,
 		isDefault: false
 	}
 );
@@ -58,6 +62,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canMoveView: true,
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronHelpView),
+	// In the simplified layout, the Help pane is hidden until it is shown.
+	when: ContextKeyExpr.or(ContextKeyExpr.notEquals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true), POSITRON_HELP_SHOWN),
 	positronAlwaysOpenView: true,
 	openCommandActionDescriptor: {
 		id: 'workbench.action.positron.openHelp',
@@ -109,6 +115,8 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 		registerAction2(ReadHelpTopic);
 		registerAction2(ListPackageDocs);
 		registerAction2(ReadVignette);
+		registerAction2(ShowHelpPane);
+		registerAction2(CloseHelpPane);
 	}
 }
 

@@ -14,7 +14,9 @@ import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js'
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronPreviewViewPane } from './positronPreviewView.js';
-import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_HAS_CONTENT } from './positronPreviewSevice.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -56,6 +58,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canMoveView: true,
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronPreviewViewPane),
+	// In the simplified layout, the Viewer pane is hidden while it has nothing to show.
+	when: ContextKeyExpr.or(ContextKeyExpr.notEquals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true), POSITRON_VIEWER_HAS_CONTENT),
 	openCommandActionDescriptor: {
 		id: 'workbench.action.positron.togglePreview',
 		mnemonicTitle: nls.localize({ key: 'miTogglePreview', comment: ['&& denotes a mnemonic'] }, "&&Preview"),

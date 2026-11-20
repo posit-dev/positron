@@ -15,7 +15,7 @@ Positron has panes built for data science alongside the editor, terminal, and so
 - [Variables](command:positronVariables.focus): Inspect the variables, dataframes, and objects defined in your session
 - [Data Explorer](https://positron.posit.co/data-explorer.html): Click any dataframe in the Variables pane to sort, filter, and profile your data
 - [Plots](command:workbench.panel.positronPlots.focus): Browse the plots you have created, with history and export
-- [Help](command:workbench.panel.positronHelp.focus): Read documentation for Python and R objects without leaving the IDE
+- [Help](command:positron.help.showHelpPane): Read documentation for Python and R objects without leaving the IDE
 - [Packages](command:workbench.view.positronPackages.view.focus): Browse installed packages and manage them in place
 - [Data Connections](command:workbench.panel.positronDataConnections.focus): Connect to databases and other data sources, and browse their tables
 

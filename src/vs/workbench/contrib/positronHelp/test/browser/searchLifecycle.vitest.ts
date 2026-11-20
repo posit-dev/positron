@@ -12,6 +12,8 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
@@ -41,6 +43,7 @@ describe('Help search lifecycle', () => {
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
 		.stub(IOpenerService, { open })
 		.stub(IViewsService, { openView })
+		.stub(IContextKeyService, new MockContextKeyService())
 		.build();
 
 	let cts: CancellationTokenSource;

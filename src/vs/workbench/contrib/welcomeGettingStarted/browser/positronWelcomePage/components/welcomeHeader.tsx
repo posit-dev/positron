@@ -22,7 +22,7 @@ const SHOW_RELEASE_NOTES_COMMAND_ID = 'update.showCurrentReleaseNotes';
  * its command rather than through IViewsService keeps this page from depending
  * on the positronHelp contribution.
  */
-const OPEN_HELP_COMMAND_ID = 'workbench.action.positron.openHelp';
+const OPEN_HELP_COMMAND_ID = 'positron.help.showHelpPane';
 
 /**
  * WelcomeHeader component. The Positron badge and name, and buttons that open

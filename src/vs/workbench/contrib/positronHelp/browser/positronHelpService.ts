@@ -29,6 +29,7 @@ import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../services/la
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
+import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * The help HTML file path.
@@ -44,6 +45,12 @@ const WELCOME_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resour
  * The Positron help view ID.
  */
 export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
+
+/**
+ * Whether the Help pane is shown in the simplified layout, where it is hidden until help
+ * content arrives or the user asks for it, and hidden again when the user closes it.
+ */
+export const POSITRON_HELP_SHOWN = new RawContextKey<boolean>('positronHelp.shown', false, localize('positronHelpShown', "Whether the Help pane is shown."));
 
 /**
  * Positron help service ID.
@@ -174,6 +181,16 @@ export interface IPositronHelpService {
 	 * Show the welcome page.
 	 */
 	showWelcomePage(): void;
+
+	/**
+	 * Shows and focuses the Help pane.
+	 */
+	showHelpPane(): Promise<void>;
+
+	/**
+	 * Hides the Help pane until help content arrives or it is shown again. Keeps the help history.
+	 */
+	closeHelpPane(): void;
 }
 
 /**
@@ -191,6 +208,11 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Gets or sets the welcome HTML.
 	 */
 	private _welcomeHTML = '<!DOCTYPE html><html><body></body></html>';
+
+	/**
+	 * Whether the Help pane is shown. See POSITRON_HELP_SHOWN.
+	 */
+	private readonly _helpShownContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets or sets the help entries.
@@ -255,10 +277,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		@IThemeService private readonly _themeService: IThemeService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IPositronDocsService private readonly _docsService: IPositronDocsService,
-
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		// Call the base class's constructor.
 		super();
+
+		this._helpShownContextKey = POSITRON_HELP_SHOWN.bindTo(contextKeyService);
 
 		// Load the help HTML file.
 		this._fileService.readFile(FileAccess.asFileUri(HELP_HTML_FILE_PATH))
@@ -923,6 +947,15 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this.addHelpEntry(this.createHelpEntry(this._welcomeHTML, '', '', '', 'welcome.html'));
 	}
 
+	async showHelpPane(): Promise<void> {
+		this._helpShownContextKey.set(true);
+		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, true);
+	}
+
+	closeHelpPane(): void {
+		this._helpShownContextKey.set(false);
+	}
+
 	/**
 	 * Shows help content from a runtime session.
 	 * @param session The session that sent the content.
@@ -976,7 +1009,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		// Open the help view.
+		// Open the help view. The Help pane must be shown first, or there is no view to open.
+		this._helpShownContextKey.set(true);
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
 		if (!isCurrent()) {
 			return;

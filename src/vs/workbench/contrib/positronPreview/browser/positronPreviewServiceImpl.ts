@@ -11,7 +11,8 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_HAS_CONTENT } from './positronPreviewSevice.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -50,6 +51,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _selectedItemId = '';
 
+	private readonly _hasContentContextKey: IContextKey<boolean>;
+
 	private _onDidCreatePreviewWebviewEmitter = new Emitter<PreviewWebview>();
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
@@ -69,8 +72,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IEditorService private readonly _editorService: IEditorService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
+		this._hasContentContextKey = POSITRON_VIEWER_HAS_CONTENT.bindTo(contextKeyService);
 		this._register(this._items);
 		this._register(this._onDidCreatePreviewWebviewEmitter);
 		this._register(this._onDidChangeActivePreviewWebview);
@@ -180,6 +185,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// Swap to new preview
 		this._selectedItemId = id;
+		this._hasContentContextKey.set(!!id);
 		this._onDidChangeActivePreviewWebview.fire(id);
 
 		// Notify new preview that it is active

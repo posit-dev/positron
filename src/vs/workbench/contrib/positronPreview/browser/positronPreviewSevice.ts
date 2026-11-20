@@ -6,12 +6,20 @@
 import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { localize } from '../../../../nls.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IOverlayWebview, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
+
+/**
+ * Whether the Viewer has a preview to show. In the simplified layout, the Viewer pane is hidden
+ * while this is false.
+ */
+export const POSITRON_VIEWER_HAS_CONTENT = new RawContextKey<boolean>('positronViewer.hasContent', false, localize('positronViewerHasContent', "Whether the Viewer has a preview to show."));
 
 export const POSITRON_PREVIEW_SERVICE_ID = 'positronPreviewService';
 

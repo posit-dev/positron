@@ -13,7 +13,9 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronHelpService } from './positronHelpService.js';
+import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -483,5 +485,60 @@ export class ReadVignette extends Action2 {
 		}
 		const vignette = result.value;
 		return { found: true, languageId: result.languageId, package: vignette.package, vignette: vignette.name, title: vignette.title, content: vignette.content };
+	}
+}
+
+/**
+ * The context key expression that is true while the simplified layout setting is on.
+ */
+const SIMPLIFIED_LAYOUT_ENABLED = ContextKeyExpr.equals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true);
+
+export class ShowHelpPane extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.showHelpPane',
+			title: {
+				value: localize('positron.help.showHelpPane', 'Show Help'),
+				original: 'Show Help'
+			},
+			category: Categories.Help,
+			f1: true,
+			keybinding: {
+				// Outranks the Help and Viewer open commands, which share this keybinding.
+				weight: KeybindingWeight.WorkbenchContrib + 1,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
+				when: SIMPLIFIED_LAYOUT_ENABLED,
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IPositronHelpService).showHelpPane();
+	}
+}
+
+export class CloseHelpPane extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.closeHelpPane',
+			title: {
+				value: localize('positron.help.closeHelpPane', 'Close Help'),
+				original: 'Close Help'
+			},
+			category: Categories.Help,
+			icon: Codicon.close,
+			f1: true,
+			precondition: SIMPLIFIED_LAYOUT_ENABLED,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(ContextKeyExpr.equals('view', POSITRON_HELP_VIEW_ID), SIMPLIFIED_LAYOUT_ENABLED),
+				group: 'navigation',
+				order: 100,
+			},
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		accessor.get(IPositronHelpService).closeHelpPane();
 	}
 }

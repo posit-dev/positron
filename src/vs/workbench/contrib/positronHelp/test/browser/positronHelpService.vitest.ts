@@ -19,6 +19,8 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
@@ -51,6 +53,7 @@ describe('PositronHelpService', () => {
 		// internally and only affects the HTML the pane would render.
 		.stub(IFileService, { readFile: () => Promise.reject(new Error('not needed')) })
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
+		.stub(IContextKeyService, new MockContextKeyService())
 		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None, onDidChangeForegroundSession: Event.None })
 		.build();
 
