@@ -37,8 +37,8 @@ describe('CheckpointsPanel', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(ICommandService, { executeCommand })
-		// The disclosure card of the panel reads the agent service; no job waits on it here.
-		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
+		// The panel reads the agent service, which is off here, so no job runs.
+		.stub(ICheckpointsAgentService, { available: false, onDidChangeAvailable: Event.None, pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

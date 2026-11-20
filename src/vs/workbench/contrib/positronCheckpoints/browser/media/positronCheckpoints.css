@@ -127,6 +127,10 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.positron-checkpoints .checkpoints-description {
+	margin: 0;
+}
+
 .positron-checkpoints .checkpoints-history-list {
 	display: flex;
 	flex-direction: column;

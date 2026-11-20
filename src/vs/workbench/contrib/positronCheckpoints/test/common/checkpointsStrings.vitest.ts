@@ -6,9 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import { Strings } from '../../common/checkpointsStrings.js';
+import { FORBIDDEN_WORDS } from '../../common/forbiddenWords.js';
 import { IIncomingPreview, OperationResult, RejectedReason, UnavailableReason, UnusualKind } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-
-const FORBIDDEN = /\b(branch|commit|stage[ds]?|rebase|merge|pull|push|fetch|HEAD|conflict)\b/i;
 
 const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-too-old', 'not-tracking', 'stale-operation-id', 'not-undoable', 'shared-checkpoint', 'timed-out', 'nothing-to-do', 'occupied'];
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
@@ -157,7 +156,7 @@ describe('checkpointsStrings', () => {
 				for (const args of samples[groupName][functionName]) {
 					const text = fn(...args);
 					checked++;
-					if (text !== undefined && FORBIDDEN.test(text)) {
+					if (text !== undefined && FORBIDDEN_WORDS.test(text)) {
 						offenders.push(`${groupName}.${functionName}: ${text}`);
 					}
 				}

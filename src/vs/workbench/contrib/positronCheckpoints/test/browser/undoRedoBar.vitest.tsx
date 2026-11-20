@@ -50,8 +50,8 @@ describe('Undo and Redo', () => {
 		.stub(IDialogService, {})
 		.stub(IFileService, {})
 		.stub(IEditorService, {})
-		// The disclosure card of the panel reads the agent service; no job waits on it here.
-		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
+		// The panel reads the agent service, which is off here, so no job runs.
+		.stub(ICheckpointsAgentService, { available: false, onDidChangeAvailable: Event.None, pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

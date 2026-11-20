@@ -33,6 +33,11 @@ export interface ICheckpointDialogOptions {
 	changes: IChangeSet;
 	/** A starting arrangement, such as one proposed by a model. Without it, one chunk has every file. */
 	initialChunks?: IChunk[];
+	/**
+	 * A title and description for the single chunk that holds every file, such as the agent's
+	 * description of the changes. Not used with `initialChunks`.
+	 */
+	suggestedText?: { title: string; body: string };
 	/** Called after the action ran, with its result (undefined when it did not run). */
 	onFinished?: (result: OperationResult | undefined) => void;
 }
@@ -47,6 +52,15 @@ interface ICheckpointDialogProps extends ICheckpointDialogOptions {
 	renderer: PositronModalReactRenderer;
 }
 
+/** The first draft: the given chunks, or one chunk with every file and the suggested text. */
+function initialDraft(options: ICheckpointDialogOptions): IChunkDraft {
+	const draft = createDraft(options.changes.files, options.initialChunks);
+	if (options.initialChunks?.length || !options.suggestedText) {
+		return draft;
+	}
+	return setChunkText(draft, draft.chunks[0].id, options.suggestedText);
+}
+
 /**
  * The checkpoint dialog. Each chunk becomes one checkpoint with its own title and description.
  * The person ticks the files that belong in a chunk, moves a file to another chunk, and adds
@@ -58,7 +72,7 @@ interface ICheckpointDialogProps extends ICheckpointDialogOptions {
  */
 export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 	const runAction = useRunAction();
-	const [draft, setDraft] = useState<IChunkDraft>(() => createDraft(props.changes.files, props.initialChunks));
+	const [draft, setDraft] = useState<IChunkDraft>(() => initialDraft(props));
 	// The changes the draft was built from. They are replaced only after a save changed the files.
 	const [changes, setChanges] = useState<IChangeSet>(props.changes);
 	const [addedPaths, setAddedPaths] = useState<ReadonlySet<string>>(new Set());

@@ -98,7 +98,7 @@ export class PositronCheckpointsView extends PositronViewPane implements IReactC
 		container.appendChild(panelContainer);
 
 		const renderer = this._register(new PositronReactRenderer(panelContainer));
-		renderer.render(<CheckpointsPanel />);
+		renderer.render(<CheckpointsPanel container={this} />);
 	}
 
 	protected override layoutBody(height: number, width: number): void {

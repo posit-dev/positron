@@ -8,7 +8,8 @@
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { Emitter, Event } from '../../../../../base/common/event.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { Emitter } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -30,6 +31,7 @@ import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
+import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 function changedFile(path: string, overrides: Partial<IChangedFile> = {}): IChangedFile {
@@ -64,13 +66,12 @@ describe('Changes section and checkpoint dialog', () => {
 		})
 		.stub(IFileService, {})
 		.stub(IEditorService, {})
-		// The disclosure card of the panel reads the agent service; no job waits on it here.
-		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	let engine: FakeCheckpointsEngine;
 	let messageService: CheckpointsMessageService;
+	let agent: FakeCheckpointsAgentService;
 
 	beforeEach(() => {
 		dirty = [];
@@ -84,6 +85,9 @@ describe('Changes section and checkpoint dialog', () => {
 		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		// Off unless a test turns it on, so the plain list shows.
+		agent = ctx.disposables.add(new FakeCheckpointsAgentService(false));
+		ctx.instantiationService.stub(ICheckpointsAgentService, agent);
 	});
 
 	afterEach(async () => {
@@ -383,5 +387,131 @@ describe('Changes section and checkpoint dialog', () => {
 
 		rerender(<Probe root='/work/dose-model' />);
 		await vi.waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'));
+	});
+
+	describe('description by the agent', () => {
+		const description = {
+			title: 'Fixed the axis labels',
+			summary: 'You fixed the axis labels on the dose-response plot.',
+			fileNotes: [{ path: 'plot_dose.R', note: 'fixed axis labels' }],
+		};
+		const twoFiles: IChangeSet = { basis: 'b1', files: [changedFile('plot_dose.R'), changedFile('theme.R')] };
+
+		/** The text of each row of the file list, without its action. */
+		async function rowTexts() {
+			const rows = await screen.findAllByRole('listitem');
+			return rows.map(row => row.textContent?.replace(/View detailed differences/, ''));
+		}
+
+		test('the view shows the summary above the files and a note beside a file', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
+			renderPanel(twoFiles);
+
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+			expect(await rowTexts()).toEqual(['plot_dose.Rchangedfixed axis labels', 'theme.Rchanged']);
+			expect(agent.runsOf('describe-changes').map(run => run.input)).toEqual([twoFiles]);
+		});
+
+		test('the view shows the file list when the job fails', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: false, reason: 'failed-check', detail: 'rejected' });
+			renderPanel(twoFiles);
+
+			await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
+			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
+			expect(screen.queryByText(description.summary)).not.toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Create checkpoint...' })).toBeEnabled();
+		});
+
+		test('while the description loads, the plain list shows and a checkpoint can be created', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('describe-changes');
+			renderPanel(twoFiles);
+
+			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
+			const user = await openDialog();
+			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('');
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			answer({ ok: true, value: description, fromCache: false });
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+		});
+
+		test('no description is requested while the agent is not available', async () => {
+			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
+			renderPanel(twoFiles);
+
+			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
+			expect(agent.runs).toEqual([]);
+
+			agent.setAvailable(true);
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+
+			agent.setAvailable(false);
+			await vi.waitFor(() => expect(screen.queryByText(description.summary)).not.toBeInTheDocument());
+		});
+
+		test('new changes request a new description and cancel the earlier request', async () => {
+			agent.setAvailable(true);
+			agent.hold('describe-changes');
+			renderPanel(twoFiles);
+			await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
+
+			const newer = { title: 'Changed the theme', summary: 'You made the font larger.', fileNotes: [] };
+			agent.answers.set('describe-changes', { ok: true, value: newer, fromCache: false });
+			engine.changes = { basis: 'b2', files: [changedFile('theme.R')] };
+			engine.fireChange();
+
+			expect(await screen.findByText('You made the font larger.')).toBeInTheDocument();
+			const runs = agent.runsOf('describe-changes');
+			expect(runs.map(run => (run.input as IChangeSet).basis)).toEqual(['b1', 'b2']);
+			expect(runs.map(run => run.token.isCancellationRequested)).toEqual([true, false]);
+		});
+
+		test('the same changes read again make no new request', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
+			renderPanel(twoFiles);
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+
+			engine.changes = { ...twoFiles, files: [...twoFiles.files] };
+			engine.fireChange();
+			await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(1));
+
+			expect(agent.runsOf('describe-changes')).toHaveLength(1);
+			expect(screen.getByText(description.summary)).toBeInTheDocument();
+		});
+
+		test('no description is requested while the view is hidden', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
+			const visibility = ctx.disposables.add(new Emitter<boolean>());
+			const container = stubInterface<IReactComponentContainer>({ containerVisible: false, onVisibilityChanged: visibility.event });
+			engine.changes = twoFiles;
+			rtl.render(<CheckpointsPanel container={container} />);
+
+			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
+			expect(agent.runs).toEqual([]);
+
+			visibility.fire(true);
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+		});
+
+		test('the dialog starts with the title and summary of the description', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
+			renderPanel(twoFiles);
+			expect(await screen.findByText(description.summary)).toBeInTheDocument();
+
+			const user = await openDialog();
+			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue(description.title);
+			expect(screen.getByRole('textbox', { name: 'Description (optional)' })).toHaveValue(description.summary);
+			await user.click(createButton(1));
+
+			await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+				['b1', [{ title: description.title, body: description.summary, hunkIds: [], wholeFiles: ['plot_dose.R', 'theme.R'] }]],
+			]));
+		});
 	});
 });
