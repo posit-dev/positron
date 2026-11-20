@@ -75,7 +75,7 @@ export const showSavePlotModalDialog = (
 
 	renderer.render(
 		<SavePlotModalDialog
-			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
+			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic && !!plotClient.intrinsicSize}
 			plotClient={plotClient}
 			plotIntrinsicSize={plotClient.intrinsicSize}
 			plotSize={plotClient.lastRender?.size}

@@ -187,13 +187,30 @@
 
 .image-placeholder {
 	display: flex;
-	justify-content: center;
-	align-items: center;
+	flex-direction: column;
+	/* 'safe' keeps the message reachable when the pane is shorter than it. */
+	justify-content: safe center;
+	align-items: safe center;
+	overflow: auto;
+	gap: 4px;
+	text-align: center;
 }
 
 .image-placeholder .image-placeholder-text {
 	font-size: 12px;
 	font-style: italic;
+}
+
+.image-placeholder .image-placeholder-link {
+	font-size: 12px;
+	color: var(--vscode-textLink-foreground);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.image-placeholder .image-placeholder-link:hover {
+	text-decoration: underline;
 }
 
 .plot-close {
