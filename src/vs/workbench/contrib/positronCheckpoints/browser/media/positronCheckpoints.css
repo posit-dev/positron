@@ -304,3 +304,64 @@
 .positron-checkpoints .checkpoints-overlap-error {
 	color: var(--vscode-errorForeground);
 }
+
+/* Image comparison editor. */
+
+.positron-checkpoints-image-diff-container {
+	overflow: auto;
+}
+
+.positron-checkpoints.checkpoints-image-diff {
+	height: auto;
+	min-height: 100%;
+	gap: var(--vscode-spacing-size160);
+	background-color: var(--vscode-editor-background);
+}
+
+.positron-checkpoints .checkpoints-image-modes {
+	display: flex;
+	gap: var(--vscode-spacing-size80);
+}
+
+.positron-checkpoints .checkpoints-image-panels {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--vscode-spacing-size160);
+}
+
+.positron-checkpoints .checkpoints-image-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	min-width: 0;
+}
+
+.positron-checkpoints .checkpoints-image-label,
+.positron-checkpoints .checkpoints-image-panel p {
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+.positron-checkpoints .checkpoints-image-stack {
+	position: relative;
+	display: inline-block;
+	max-width: 100%;
+}
+
+.positron-checkpoints .checkpoints-image-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+.positron-checkpoints .checkpoints-image-slider {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+	align-items: flex-start;
+}

@@ -165,6 +165,20 @@ const diff = {
 	pendingTitle: (path: string) => localize('positron.checkpoints.diff.pendingTitle', "{0} (as the check changed it)", path),
 };
 
+const imageDiff = {
+	before: () => localize('positron.checkpoints.imageDiff.before', "Before"),
+	after: () => localize('positron.checkpoints.imageDiff.after', "After"),
+	sideBySide: () => localize('positron.checkpoints.imageDiff.sideBySide', "Side by side"),
+	slider: () => localize('positron.checkpoints.imageDiff.slider', "Slider"),
+	modes: () => localize('positron.checkpoints.imageDiff.modes', "How to compare"),
+	sliderLabel: () => localize('positron.checkpoints.imageDiff.sliderLabel', "How much of the After image shows"),
+	isNew: () => localize('positron.checkpoints.imageDiff.isNew', "This image is new."),
+	wasRemoved: () => localize('positron.checkpoints.imageDiff.wasRemoved', "This image was removed."),
+	cannotShow: () => localize('positron.checkpoints.imageDiff.cannotShow', "This image could not be shown."),
+	size: (width: number, height: number, bytes: string) => localize('positron.checkpoints.imageDiff.size', "{0} x {1} pixels, {2}", width, height, bytes),
+	editorLabel: () => localize('positron.checkpoints.imageDiff.editorLabel', "Image Differences"),
+};
+
 const history = {
 	heading: () => localize('positron.checkpoints.history.heading', "History"),
 	empty: () => localize('positron.checkpoints.history.empty', "No checkpoints yet. Create the first one when your work is in a good place."),
@@ -531,6 +545,7 @@ export const Strings = {
 	actions,
 	changes,
 	diff,
+	imageDiff,
 	history,
 	results,
 	undoRedo,

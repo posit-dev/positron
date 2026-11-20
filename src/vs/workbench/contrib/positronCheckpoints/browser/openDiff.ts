@@ -7,27 +7,35 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ContentRef, DiffTarget } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { LARGE_FILE_LIMIT_BYTES, LARGE_FILE_LIMIT_MEGABYTES } from '../common/checkpointsLimits.js';
+import { LARGE_FILE_LIMIT_BYTES } from '../common/checkpointsLimits.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { blobResource, messageResource } from './checkpointsContentProvider.js';
 import { projectRootUri } from './projectRoot.js';
+import { IRichDiffProvider, IRichDiffSides, richDiffRegistry } from './richDiff/richDiffRegistry.js';
 
 /** The number of leading bytes that are searched for a zero byte, which marks a data file. */
 const BINARY_SNIFF_BYTES = 8000;
 
 /** What opens: the two sides in the diff editor, or a message that says why they are not compared. */
-type IComparison = { kind: 'sides'; left: IDiffSide; right: IDiffSide } | { kind: 'message'; message: string };
+type IComparison =
+	| { kind: 'sides'; left: IDiffSide; right: IDiffSide }
+	| { kind: 'provider'; provider: IRichDiffProvider; sides: IRichDiffSides }
+	| { kind: 'message'; message: string };
 
 /** One side of a comparison: where the editor reads it, and what the content is like. */
 interface IDiffSide {
 	resource: URI;
 	sizeBytes: number;
 	binary: boolean;
+	/** The whole content of a stored side. A side on disk is read only when a provider needs it. */
+	bytes?: VSBuffer;
+	/** Absent for an empty side (a new or removed file). */
+	present: boolean;
 }
 
 /**
@@ -46,7 +54,9 @@ function looksBinary(bytes: VSBuffer): boolean {
 }
 
 /**
- * Opens the line-by-line comparison of one file in the diff editor. The stored side is a
+ * Opens the comparison of one file. A file whose extension has a provider in `richDiffRegistry`
+ * opens in the provider's editor. Any other file opens the line-by-line comparison in the diff
+ * editor. The stored side is a
  * `positron-checkpoints` resource and the side on disk is the real file. A file that is a data
  * file, or is over the size limit, opens a text that states the sizes instead.
  *
@@ -60,21 +70,24 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 	const editorService = accessor.get(IEditorService);
 	const fileService = accessor.get(IFileService);
 	const workspaceContextService = accessor.get(IWorkspaceContextService);
+	const instantiationService = accessor.get(IInstantiationService);
 
 	const engine = checkpointsService.engine;
 	if (!engine) {
 		return;
 	}
 
-	const openComparison = async (): Promise<IComparison> => {
+	const openComparison = async (provider: IRichDiffProvider | undefined): Promise<IComparison> => {
+		const limitBytes = provider?.maxSideBytes ?? LARGE_FILE_LIMIT_BYTES;
+		const limitMegabytes = limitBytes / ByteSize.MB;
 		const knownTooLarge = known !== undefined && (known.tooLarge === true
-			|| [known.before, known.after].some(size => size !== undefined && size > LARGE_FILE_LIMIT_BYTES));
+			|| [known.before, known.after].some(size => size !== undefined && size > limitBytes));
 		if (knownTooLarge) {
 			const formatKnown = (size: number | undefined) => size === undefined ? undefined : ByteSize.formatSize(size);
 			const sizes = known.before === undefined && known.after === undefined
 				? ''
 				: Strings.diff.sizes(formatKnown(known.before), formatKnown(known.after));
-			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, LARGE_FILE_LIMIT_MEGABYTES, sizes).trim() };
+			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, limitMegabytes, sizes).trim() };
 		}
 
 		const state = await engine.getState();
@@ -85,20 +98,20 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 			const resource = joinPath(root, ref.path);
 			try {
 				const stat = await fileService.stat(resource);
-				const head = stat.size > LARGE_FILE_LIMIT_BYTES ? VSBuffer.alloc(0) : (await fileService.readFile(resource, { length: BINARY_SNIFF_BYTES })).value;
-				return { resource, sizeBytes: stat.size, binary: looksBinary(head) };
+				const head = stat.size > limitBytes ? VSBuffer.alloc(0) : (await fileService.readFile(resource, { length: BINARY_SNIFF_BYTES })).value;
+				return { resource, sizeBytes: stat.size, binary: looksBinary(head), present: true };
 			} catch {
-				return { resource, sizeBytes: 0, binary: false };
+				return { resource, sizeBytes: 0, binary: false, present: true };
 			}
 		};
 		const measureStored = async (ref: ContentRef & { kind: 'blob' | 'empty' }): Promise<IDiffSide> => {
 			if (ref.kind === 'empty') {
-				return { resource: blobResource(target.path, ''), sizeBytes: 0, binary: false };
+				return { resource: blobResource(target.path, ''), sizeBytes: 0, binary: false, present: false };
 			}
 			const bytes = await engine.readBlob(ref.oid);
-			return { resource: blobResource(target.path, ref.oid), sizeBytes: bytes.byteLength, binary: looksBinary(bytes) };
+			return { resource: blobResource(target.path, ref.oid), sizeBytes: bytes.byteLength, binary: looksBinary(bytes), bytes, present: true };
 		};
-		const tooLarge = (...measured: (IDiffSide | undefined)[]) => measured.some(side => side !== undefined && side.sizeBytes > LARGE_FILE_LIMIT_BYTES);
+		const tooLarge = (...measured: (IDiffSide | undefined)[]) => measured.some(side => side !== undefined && side.sizeBytes > limitBytes);
 		const sizeOf = (side: IDiffSide | undefined) => side ? ByteSize.formatSize(side.sizeBytes) : undefined;
 
 		// Files on disk are measured first, so that a file that is too large stops the comparison
@@ -106,14 +119,29 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 		const leftFile = left.kind === 'file' ? await measureFile(left) : undefined;
 		const rightFile = right.kind === 'file' ? await measureFile(right) : undefined;
 		if (tooLarge(leftFile, rightFile)) {
-			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, LARGE_FILE_LIMIT_MEGABYTES, Strings.diff.sizes(sizeOf(leftFile), sizeOf(rightFile))) };
+			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, limitMegabytes, Strings.diff.sizes(sizeOf(leftFile), sizeOf(rightFile))) };
 		}
 
 		const leftSide = leftFile ?? await measureStored(left as ContentRef & { kind: 'blob' | 'empty' });
 		const rightSide = rightFile ?? await measureStored(right as ContentRef & { kind: 'blob' | 'empty' });
 		const sizes = Strings.diff.sizes(sizeOf(leftSide), sizeOf(rightSide));
 		if (tooLarge(leftSide, rightSide)) {
-			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, LARGE_FILE_LIMIT_MEGABYTES, sizes) };
+			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, limitMegabytes, sizes) };
+		}
+		if (provider) {
+			const sideContent = async (side: IDiffSide, label: string) => side.present
+				? { bytes: side.bytes ?? (await fileService.readFile(side.resource)).value, label }
+				: undefined;
+			return {
+				kind: 'provider',
+				provider,
+				sides: {
+					left: await sideContent(leftSide, Strings.imageDiff.before()),
+					right: await sideContent(rightSide, Strings.imageDiff.after()),
+					path: target.path,
+					title,
+				},
+			};
 		}
 		if (leftSide.binary || rightSide.binary) {
 			return { kind: 'message', message: Strings.diff.binaryMessage(target.path, sizes) };
@@ -121,13 +149,32 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 		return { kind: 'sides', left: leftSide, right: rightSide };
 	};
 
-	let sides: IComparison;
-	try {
-		sides = await openComparison();
-	} catch {
-		sides = { kind: 'message', message: Strings.diff.unavailable(target.path) };
+	// A provider that cannot open its comparison leaves the file to the text and data file handling.
+	const provider = richDiffRegistry.find(target.path);
+	let sides: IComparison | undefined;
+	if (provider) {
+		try {
+			sides = await openComparison(provider);
+			if (sides.kind === 'provider') {
+				const { provider: found, sides: richSides } = sides;
+				await instantiationService.invokeFunction(providerAccessor => found.open(providerAccessor, richSides));
+				return;
+			}
+		} catch {
+			sides = undefined;
+		}
+	}
+	if (!sides) {
+		try {
+			sides = await openComparison(undefined);
+		} catch {
+			sides = { kind: 'message', message: Strings.diff.unavailable(target.path) };
+		}
 	}
 
+	if (sides.kind === 'provider') {
+		return;
+	}
 	if (sides.kind === 'message') {
 		await editorService.openEditor({ resource: messageResource(target.path, sides.message), label: title, options: { pinned: true } });
 		return;

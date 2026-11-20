@@ -73,6 +73,10 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],
 		binaryMessage: [['plot.png', 'Before: 1 MB. Now: 2 MB.']], tooLargeMessage: [['big.csv', 50, 'Now: 80 MB.']], unavailable: [['dose.R']], pendingTitle: [['dose.R']],
 	},
+	imageDiff: {
+		before: [[]], after: [[]], sideBySide: [[]], slider: [[]], modes: [[]], sliderLabel: [[]], isNew: [[]], wasRemoved: [[]],
+		cannotShow: [[]], size: [[640, 480, '2.00KB']], editorLabel: [[]],
+	},
 	history: {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],
 		returnedTo: [['Tuesday\'s version']], loadMore: [[]], showDetails: [['Fixed the plot']], editDialogTitle: [[]], editSave: [[]],

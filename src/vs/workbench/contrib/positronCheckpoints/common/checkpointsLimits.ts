@@ -17,3 +17,9 @@ export const UNDO_LIMIT_OPERATIONS = 50;
 
 /** The number of days an operation stays on the undo list (spec 6.2). */
 export const UNDO_LIMIT_DAYS = 30;
+
+/** The size in megabytes above which an image is not shown in the image comparison. */
+export const IMAGE_DIFF_LIMIT_MEGABYTES = 20;
+
+/** `IMAGE_DIFF_LIMIT_MEGABYTES` in bytes. */
+export const IMAGE_DIFF_LIMIT_BYTES = IMAGE_DIFF_LIMIT_MEGABYTES * 1024 * 1024;

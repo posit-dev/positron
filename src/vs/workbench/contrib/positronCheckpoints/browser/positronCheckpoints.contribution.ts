@@ -28,6 +28,8 @@ import { SharedCopyChecker } from './sharedCopyChecker.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
 import { OverlapEditorPane } from './overlapEditor/overlapEditor.js';
 import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
+import { ImageDiffEditorInput, ImageDiffEditorPane, imageDiffProvider } from './richDiff/imageDiffEditor.js';
+import { richDiffRegistry } from './richDiff/richDiffRegistry.js';
 import { showJoinDialog } from './components/joinDialog.js';
 
 /** The id of the Explorer view that shows while no folder is open. */
@@ -109,6 +111,13 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	EditorPaneDescriptor.create(OverlapEditorPane, OverlapEditorInput.EditorID, Strings.overlaps.editorLabel()),
 	[new SyncDescriptor(OverlapEditorInput)]
 );
+
+// The image comparison. It is a view of two stored buffers, so it is not restored after a restart.
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(ImageDiffEditorPane, ImageDiffEditorInput.EditorID, Strings.imageDiff.editorLabel()),
+	[new SyncDescriptor(ImageDiffEditorInput)]
+);
+richDiffRegistry.register(imageDiffProvider);
 
 export const JOIN_PROJECT_COMMAND_ID = 'positronCheckpoints.joinProject';
 
