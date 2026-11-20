@@ -31,6 +31,8 @@ import { layoutDescriptionToViewInfo } from '../../positronLayout/browser/utils/
 import { IPaneCompositePartService } from '../../panecomposite/browser/panecomposite.js';
 import { PaneCompositeBar } from '../../../browser/parts/paneCompositeBar.js';
 import { CustomPositronLayoutDescription } from '../../positronLayout/common/positronCustomViews.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { SIMPLIFIED_LAYOUT_ENABLED_KEY, SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS } from '../../positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 
 // A list of views we don't want shown in the UI. This will be for situations where we reimplement
 // the logic that the view would show in our own custom views or other parts of the UI. The matching
@@ -83,6 +85,10 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 
 	private readonly logger: Lazy<ILogger>;
 	private readonly isSessionsWindow: boolean;
+	// --- Start Positron ---
+	// View containers left out of the UI while the simplified layout setting is on.
+	private readonly positronHiddenViewContainerIds: ReadonlySet<string>;
+	// --- End Positron ---
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -94,9 +100,17 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		// --- Start Positron ---
 		@IPaneCompositePartService private readonly paneCompositePartService: IPaneCompositePartService,
+		@IConfigurationService configurationService: IConfigurationService,
 		// --- End Positron ---
 	) {
 		super();
+
+		// --- Start Positron ---
+		// Read once: the simplified layout setting takes effect after a reload.
+		this.positronHiddenViewContainerIds = configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true
+			? SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS
+			: new Set();
+		// --- End Positron ---
 
 		this.logger = new Lazy(() => loggerService.createLogger(VIEWS_LOG_ID, { name: VIEWS_LOG_NAME, group: windowLogGroup }));
 		this.isSessionsWindow = environmentService.isSessionsWindow;
@@ -347,6 +361,11 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	}
 
 	private isViewContainerEnabled(viewContainer: ViewContainer): boolean {
+		// --- Start Positron ---
+		if (this.positronHiddenViewContainerIds.has(viewContainer.id)) {
+			return false;
+		}
+		// --- End Positron ---
 		return this.isEnabled(viewContainer.windowEnablement);
 	}
 

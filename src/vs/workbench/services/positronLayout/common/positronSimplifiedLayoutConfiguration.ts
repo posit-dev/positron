@@ -17,6 +17,21 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
  */
 export const SIMPLIFIED_LAYOUT_ENABLED_KEY = 'workbench.experimental.simplifiedLayout';
 
+/**
+ * View containers the simplified layout removes from the UI: the bottom panel's Problems,
+ * Output, Debug Console, and Ports, and the activity bar's Run and Debug, Remote Explorer,
+ * and Testing.
+ */
+export const SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS: ReadonlySet<string> = new Set([
+	'workbench.panel.markers',
+	'workbench.panel.output',
+	'workbench.panel.repl',
+	'~remote.forwardedPortsContainer',
+	'workbench.view.debug',
+	'workbench.view.remote',
+	'workbench.view.extension.test',
+]);
+
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	...workbenchConfigurationNodeBase,
 	properties: {
