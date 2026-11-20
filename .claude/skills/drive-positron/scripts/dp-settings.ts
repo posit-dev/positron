@@ -7,13 +7,14 @@
 // run's disposable profile) or the open folder's .vscode/settings.json,
 // merged in with jsonc-parser so the file's other settings and comments stay.
 // The page says where both files are: the window's configuration names the
-// profile's settings file and the folder, as URI paths (/c:/... on Windows)
-// that fsPath turns into file paths. settings.sh wraps this.
+// profile's settings file and the folder, as URIs that fsPath turns into file
+// paths (/c:/... is c:\... on Windows). A folder that is not on this machine
+// (a remote window) is refused, not written. settings.sh wraps this.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { applyEdits, modify, parse as parseJsonc, type ParseError } from 'jsonc-parser';
-import { commandWord, Exit, fsPath, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, Exit, fsPath, inPage, log, parse, shownPath, usage, type Json, type PageFn, type UriParts } from './dp-lib.ts';
 
 /**
  * The user settings file and the open folder, from the window's configuration
@@ -21,11 +22,12 @@ import { commandWord, Exit, fsPath, inPage, log, parse, usage, type Json, type P
  * runs in run-code
  */
 const paths: PageFn<Record<string, never>> = async page => page.evaluate(() => {
-	type Uri = { path: string };
+	type Uri = { scheme?: string; authority?: string; path?: string };
 	const c = (globalThis as unknown as { vscode?: { context?: { configuration?: () => { profiles?: { profile?: { settingsResource?: Uri } }; workspace?: { uri?: Uri; configPath?: Uri } } } } })
 		.vscode?.context?.configuration?.();
 	if (!c) { return { ok: false, error: 'the window does not expose its configuration' }; }
-	return { ok: true, user: c.profiles?.profile?.settingsResource?.path ?? null, folder: c.workspace?.uri?.path ?? null, workspaceFile: c.workspace?.configPath?.path ?? null };
+	const parts = (u?: Uri) => u?.path ? { scheme: u.scheme, authority: u.authority, path: u.path } : null;
+	return { ok: true, user: parts(c.profiles?.profile?.settingsResource), folder: parts(c.workspace?.uri), workspaceFile: parts(c.workspace?.configPath) };
 });
 
 /** VALUE as JSON when it parses (true, 3, "x", [1]), else as the string it is. */
@@ -46,12 +48,20 @@ export const settingsCommands: Record<string, (argv: string[]) => Json | string>
 		if (!w.ok) { return w; }
 		let file: string;
 		if (where === 'user') {
-			if (!w.user) { return { ok: false, error: 'the window names no user settings file' }; }
-			file = fsPath(String(w.user));
+			const user = w.user as UriParts | null;
+			if (!user) { return { ok: false, error: 'the window names no user settings file' }; }
+			// The desktop app names the profile's files with vscode-userdata:,
+			// which it maps to the file of the same path.
+			const onDisk = fsPath(user.scheme === 'vscode-userdata' ? { ...user, scheme: 'file' } : user);
+			if (!onDisk) { return { ok: false, error: `the user settings file is ${shownPath(user)}, not a file on this machine: not written` }; }
+			file = onDisk;
 		} else {
-			if (w.workspaceFile) { return { ok: false, error: `the window has a .code-workspace open (${w.workspaceFile}); its settings are in that file: not written` }; }
-			if (!w.folder) { return { ok: false, error: 'no folder is open, so there is no workspace settings file; use --user' }; }
-			file = join(fsPath(String(w.folder)), '.vscode', 'settings.json');
+			const workspaceFile = w.workspaceFile as UriParts | null, folder = w.folder as UriParts | null;
+			if (workspaceFile) { return { ok: false, error: `the window has a .code-workspace open (${shownPath(workspaceFile)}); its settings are in that file: not written` }; }
+			if (!folder) { return { ok: false, error: 'no folder is open, so there is no workspace settings file; use --user' }; }
+			const onDisk = fsPath(folder);
+			if (!onDisk) { return { ok: false, error: `the folder is ${shownPath(folder)}, not on this machine (a remote window?); its settings are not written` }; }
+			file = join(onDisk, '.vscode', 'settings.json');
 		}
 		const text = existsSync(file) ? readFileSync(file, 'utf8') : '{}\n';
 		const errors: ParseError[] = [];

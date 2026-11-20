@@ -32,7 +32,7 @@ import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { playwrightCli } from '../scripts/dp-lib.ts';
+import { playwrightCli, samePath } from '../scripts/dp-lib.ts';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
@@ -518,12 +518,12 @@ const cases: Case[] = [
 	{ name: 'shot --list', run: ['shot.sh', '--list'], check: o => (o.json!.windows?.length !== 1 && `${o.json!.windows?.length} windows`) || (!o.json!.windows?.[0]?.attached && 'not attached') },
 	{ name: 'window select missing', run: ['window.sh', 'select', '9'], fail: true },
 	{ name: 'window select 0 is a usage error', run: ['window.sh', 'select', '0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'select N must be the window number shot.sh --list shows: a whole number from 1') },
-	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (o.json!.folder !== ws && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
+	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (!samePath(String(o.json!.folder), ws) && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
 	// Sessions that did not reconnect raise a dialog after the reload, now and then: answer it.
 	{ name: 'notifications after the reload', quick: true, run: () => found.reloadDialog ? ['notifications.sh', '--click', found.reloadDialog] : ['notifications.sh'] },
 	{ name: 'palette-run after the reload', run: ['palette-run.sh', '--dry-run', 'View: Show Explorer'] },
 	{ name: 'window open-folder missing', run: ['window.sh', 'open-folder', join(root, 'no-such-folder')], fail: true },
-	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (o.json!.folder !== join(ws, 'sub') && `folder ${o.json!.folder}`) || (o.json!.was?.folder !== ws && `was ${JSON.stringify(o.json!.was)}`) },
+	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (!samePath(String(o.json!.folder), join(ws, 'sub')) && `folder ${o.json!.folder}`) || (!samePath(String(o.json!.was?.folder), ws) && `was ${JSON.stringify(o.json!.was)}`) },
 ];
 
 // What each section needs from the ones before it, built on a fresh launch.

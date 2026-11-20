@@ -38,16 +38,37 @@ export function playwrightCli(args: string[], options: SpawnSyncOptions = {}): S
 }
 export const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 
+// ---- Paths the window reports -------------------------------------------------
+
+/** A URI as the window's configuration gives it (VS Code's UriComponents, path decoded). */
+export type UriParts = { scheme?: string; authority?: string; path?: string };
+
 /**
- * The file system path of a file URI's path as the window reports it
- * (`uri.path`, already decoded): on Windows `/c:/Users/x` is `c:\Users\x`,
- * where path functions would read it as `C:\c:\Users\x`. A path that is
- * already a Windows path (`C:/Users/x`) is kept; elsewhere the path is
- * returned as it is. The same rule as VS Code's `URI.fsPath`.
+ * The file system path of a `file:` URI from the window's configuration, by
+ * the rule of VS Code's `URI.fsPath`: a UNC server name is kept
+ * (`//server/share`), and the drive letter is lower-cased with no slash before
+ * it (`/C:/x` is `c:\x` on Windows, which path functions would read as
+ * `C:\C:\x`). null for any other scheme, such as a remote window's
+ * `vscode-remote:` folder, which is not on this machine's disk.
  */
-export function fsPath(uriPath: string, platform: NodeJS.Platform = process.platform): string {
-	if (platform !== 'win32') { return uriPath; }
-	return win32.normalize(uriPath.replace(/^\/(?=[A-Za-z]:)/, ''));
+export function fsPath(uri: UriParts | null | undefined, platform: NodeJS.Platform = process.platform): string | null {
+	if (uri?.scheme !== 'file' || !uri.path) { return null; }
+	const p = uri.authority && uri.path.length > 1 ? `//${uri.authority}${uri.path}`
+		: /^\/[A-Za-z]:/.test(uri.path) ? uri.path[1].toLowerCase() + uri.path.slice(2)
+			: uri.path;
+	return platform === 'win32' ? p.replace(/\//g, '\\') : p;
+}
+
+/** A URI from the window as a person would name it: its file path, else the URI itself; null for none. */
+export function shownPath(uri: UriParts | null | undefined, platform: NodeJS.Platform = process.platform): string | null {
+	if (!uri?.path) { return null; }
+	return fsPath(uri, platform) ?? `${uri.scheme}://${uri.authority ?? ''}${uri.path}`;
+}
+
+/** Whether two file paths name the same file: on Windows, case and slash direction aside. */
+export function samePath(a: string, b: string, platform: NodeJS.Platform = process.platform): boolean {
+	if (platform !== 'win32') { return a === b; }
+	return win32.normalize(a).toLowerCase() === win32.normalize(b).toLowerCase();
 }
 
 // makeLib's source with the registry as its argument, built once per command.
