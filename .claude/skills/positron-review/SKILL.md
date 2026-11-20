@@ -224,7 +224,7 @@ List every new or changed piece of UI in the diff:
 - panes, tabs, slides, or sections that are shown, hidden, or swapped at runtime;
 - CSS that styles focus, selection, active, hover, or disabled states, or that hides content.
 
-Check each item against the "Accessibility" section of `AGENTS.md` at `TARGET`, from the point of view of a keyboard-only user and a screen reader user. Treat its rules as defaults. Raise a finding only when one of those users would hit a real gap, not when the code meets the need another way. Merge any gap already raised in 4c.
+Check each item against `.claude/rules/accessibility.md` at `TARGET`, from the point of view of a keyboard-only user and a screen reader user. Treat its rules as defaults. Raise a finding only when one of those users would hit a real gap, not when the code meets the need another way. Merge any gap already raised in 4c.
 
 Step 5 sets the floor for the worst gaps. Rate other gaps in new or changed UI `minor (accessibility)`. Rate a gap that predates the change and sits next to it `minor (preexisting)`. Suggest fixing that gap in this PR only when the fix is small and self-contained. Otherwise suggest a follow-up issue.
 
