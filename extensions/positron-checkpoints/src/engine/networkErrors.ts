@@ -8,8 +8,9 @@ import { NetworkResult } from './ports';
 /**
  * The failed `NetworkResult` for an error the git extension threw while fetching or pushing.
  * The extension's `GitError` has a `gitErrorCode` and git's `stderr`. A push that a protected
- * branch refuses (`GH006`, or `protected branch` in stderr) gives `review-required`; that test
- * comes before the code, because git reports such a push as `PushRejected` too. Then
+ * branch or a repository rule refuses (`GH006`, `protected branch`, or `must be made through a
+ * pull request` in stderr, in any case) gives `review-required`; that test comes before the
+ * code, because git reports such a push as `PushRejected` too. Then
  * `AuthenticationFailed` gives `sign-in-required`, `PushRejected` gives `shared-copy-moved`,
  * `RemoteConnectionError` gives `offline`, and anything else `unknown`. The detail is the
  * stderr, or the error's message when there is none.
@@ -21,7 +22,7 @@ export function mapGitError(error: unknown): Extract<NetworkResult, { ok: false 
 	const { gitErrorCode, stderr } = error as Error & { gitErrorCode?: unknown; stderr?: unknown };
 	const output = typeof stderr === 'string' ? stderr.trim() : '';
 	const detail = output === '' ? error.message : output;
-	if (/GH006|protected branch/i.test(output)) {
+	if (/GH006|protected branch|must be made through a pull request/i.test(output)) {
 		return { ok: false, reason: 'review-required', detail };
 	}
 	switch (gitErrorCode) {

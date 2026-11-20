@@ -12,7 +12,7 @@ import { acquireLock, engineDirectory, PathPlan, readBranch, readIndexTree, TriS
 import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts, NetworkResult } from './ports';
-import { sharedReference } from './proposals';
+import { readProposal, sharedReference } from './proposals';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
 import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
@@ -451,9 +451,14 @@ export async function getIncoming(ports: EnginePorts, basis: string, resolutions
 }
 
 /**
- * Sends the local checkpoints to the shared copy with `ports.network.push`. Returns `rejected
- * no-shared-copy` when the branch has no upstream, `unavailable nothing-to-do` when no local
- * checkpoint is ahead of it, and `rejected` with the port's reason when the push fails. After a
+ * Sends the local checkpoints to the shared copy with `ports.network.push`. On a proposal with
+ * no upstream configured (proposals spec 5.4), the first send uses `ports.network.publish` with
+ * the configured URL of `origin`, which sets the upstream, and counts ahead against the base's
+ * upstream. A proposal whose configured upstream no longer resolves (deleted on the host) is
+ * never published again: the result is `unavailable nothing-to-do` detail `proposal-ended`.
+ * Returns `rejected no-shared-copy` when the branch has no upstream (and, for a proposal, no
+ * `origin` or no base upstream), `unavailable nothing-to-do` when no local checkpoint is ahead
+ * of it, and `rejected` with the port's reason when the push fails. After a
  * push, the record of the shared copy is refreshed (as `checkShared` does). When the upstream
  * then does not contain HEAD, nothing is recorded and the result is `rejected unknown not-sent`.
  * Otherwise a `send-changes` operation is recorded and both lists are cleared (spec 6.3). The
@@ -467,7 +472,14 @@ export async function sendChanges(ports: EnginePorts): Promise<OperationResult> 
 		return { kind: 'unavailable', reason: 'unusual-state' };
 	}
 	const branch = ref.slice('refs/heads/'.length);
-	const upstream = await revision(ports, '@{upstream}');
+	const proposal = await readProposal(ports);
+	const own = await revision(ports, '@{upstream}');
+	if (own === undefined && proposal?.sent) {
+		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'proposal-ended' };
+	}
+	// The first send of a proposal publishes it to `origin`, measured against its base's upstream.
+	const publishUrl = own === undefined && proposal !== undefined ? await originUrl(ports) : undefined;
+	const upstream = own ?? (publishUrl === undefined ? undefined : await sharedReference(ports));
 	if (upstream === undefined) {
 		return { kind: 'rejected', reason: 'no-shared-copy', detail: 'The branch has no shared copy.' };
 	}
@@ -476,7 +488,7 @@ export async function sendChanges(ports: EnginePorts): Promise<OperationResult> 
 	if (head === undefined || ahead === 0) {
 		return { kind: 'unavailable', reason: 'nothing-to-do' };
 	}
-	const pushed = await ports.network.push(branch);
+	const pushed = publishUrl === undefined ? await ports.network.push(branch) : await ports.network.publish(publishUrl, branch);
 	if (!pushed.ok) {
 		return { kind: 'rejected', reason: pushed.reason, detail: pushed.detail };
 	}

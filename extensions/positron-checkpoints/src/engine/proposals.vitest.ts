@@ -10,10 +10,11 @@ import { editDescription } from './checkpoints';
 import { createEngine } from './engine';
 import { getHistory } from './history';
 import { engineDirectory, readRecords } from './journal';
-import { redo, undo, undoHead } from './operationLog';
+import { redo, redoHead, undo, undoHead } from './operationLog';
 import { proposalSlug, readProposal, sharedReference, startProposal } from './proposals';
 import { recoverOnStart } from './recovery';
 import { readRepoFacts } from './repoState';
+import { checkShared, getIncoming, previewIncoming, sendChanges } from './sync';
 import { faultPorts } from './test/faultPorts';
 import { must, refExists } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
@@ -43,55 +44,55 @@ describe('proposalSlug', () => {
 	});
 });
 
+const repos: TempRepo[] = [];
+
+afterEach(async () => {
+	await Promise.all(repos.splice(0).map(repo => repo.dispose()));
+});
+
+/**
+ * A project on `main` whose shared copy has checkpoint A, with the unshared checkpoints
+ * "Fit the dose model!" and "Add the residual plot", an unrecorded edit, and an untracked file.
+ */
+async function create() {
+	const repo = await tempRepo();
+	repos.push(repo);
+	await repo.write('a.txt', 'one\n');
+	const a = await repo.commit('A');
+	repos.push(await repo.clone());
+	await repo.write('a.txt', 'two\n');
+	const b = await repo.commit('Fit the dose model!\n\nWith a random slope.');
+	await repo.write('b.txt', 'plot\n');
+	const c = await repo.commit('Add the residual plot');
+	await repo.write('a.txt', 'two\nunrecorded\n');
+	await repo.write('u.txt', 'untracked\n');
+	return { repo, a, b, c };
+}
+
+/** HEAD, the refs and configuration a proposal changes, the index, and the working files. */
+async function state(repo: TempRepo) {
+	const ref = async (name: string) => {
+		const result = await repo.git(['rev-parse', '--verify', '-q', name]);
+		return result.exitCode === 0 ? result.stdout.trim() : undefined;
+	};
+	return {
+		head: await must(repo, ['symbolic-ref', 'HEAD']),
+		main: await ref('refs/heads/main'),
+		proposal: await ref(`refs/heads/${PROPOSAL}`),
+		config: (await repo.git(['config', '--local', '--get-regexp', '^branch\\.proposal/'])).stdout,
+		index: await must(repo, ['write-tree']),
+		worktree: (await worktreeTree(repo.ports)).tree,
+		untracked: await repo.read('u.txt'),
+	};
+}
+
+function doneId(result: OperationResult): string {
+	expect(result.kind).toBe('done');
+	return result.kind === 'done' ? result.operationId : '';
+}
+
 // Each test runs full operations, which exceed the default limit under a loaded test run.
 describe('startProposal', { timeout: 60_000 }, () => {
-	const repos: TempRepo[] = [];
-
-	afterEach(async () => {
-		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
-	});
-
-	/**
-	 * A project on `main` whose shared copy has checkpoint A, with the unshared checkpoints
-	 * "Fit the dose model!" and "Add the residual plot", an unrecorded edit, and an untracked file.
-	 */
-	const create = async () => {
-		const repo = await tempRepo();
-		repos.push(repo);
-		await repo.write('a.txt', 'one\n');
-		const a = await repo.commit('A');
-		repos.push(await repo.clone());
-		await repo.write('a.txt', 'two\n');
-		const b = await repo.commit('Fit the dose model!\n\nWith a random slope.');
-		await repo.write('b.txt', 'plot\n');
-		const c = await repo.commit('Add the residual plot');
-		await repo.write('a.txt', 'two\nunrecorded\n');
-		await repo.write('u.txt', 'untracked\n');
-		return { repo, a, b, c };
-	};
-
-	/** HEAD, the refs and configuration a proposal changes, the index, and the working files. */
-	const state = async (repo: TempRepo) => {
-		const ref = async (name: string) => {
-			const result = await repo.git(['rev-parse', '--verify', '-q', name]);
-			return result.exitCode === 0 ? result.stdout.trim() : undefined;
-		};
-		return {
-			head: await must(repo, ['symbolic-ref', 'HEAD']),
-			main: await ref('refs/heads/main'),
-			proposal: await ref(`refs/heads/${PROPOSAL}`),
-			config: (await repo.git(['config', '--local', '--get-regexp', '^branch\\.proposal/'])).stdout,
-			index: await must(repo, ['write-tree']),
-			worktree: (await worktreeTree(repo.ports)).tree,
-			untracked: await repo.read('u.txt'),
-		};
-	};
-
-	const doneId = (result: OperationResult) => {
-		expect(result.kind).toBe('done');
-		return result.kind === 'done' ? result.operationId : '';
-	};
-
 	test('start puts the unshared checkpoints on proposal/<slug>, leaves files and index unchanged, and the base equals its upstream', async () => {
 		const { repo, a, c } = await create();
 		const before = await state(repo);
@@ -297,5 +298,105 @@ describe('startProposal', { timeout: 60_000 }, () => {
 		doneId(await redo(repo.ports, id, []));
 		expect(await state(repo)).toEqual(started);
 		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: false });
+	});
+});
+
+describe('sending a proposal', { timeout: 60_000 }, () => {
+	/** The commit the shared copy's `ref` names, or undefined. */
+	const remoteRef = async (repo: TempRepo, ref: string) => {
+		const line = await must(repo, ['ls-remote', 'origin', ref]);
+		return line === '' ? undefined : line.split('\t')[0];
+	};
+
+	/** A started proposal with a Redo entry (an undone edit) and the start on the undo list. */
+	const started = async () => {
+		const project = await create();
+		const { repo, b } = project;
+		doneId(await startProposal(repo.ports));
+		const edit = doneId(await editDescription(repo.ports, b, 'Fit the dose model', ''));
+		doneId(await undo(repo.ports, edit, []));
+		expect((await redoHead(repo.ports))?.id).toBe(edit);
+		return project;
+	};
+
+	test('the first send of a proposal sets its upstream and clears undo and redo', async () => {
+		const { repo, a, c } = await started();
+		expect((await undoHead(repo.ports))?.kind).toBe('start-proposal');
+
+		doneId(await sendChanges(repo.ports));
+
+		expect(await remoteRef(repo, `refs/heads/${PROPOSAL}`)).toBe(c);
+		expect(await remoteRef(repo, 'refs/heads/main')).toBe(a);
+		expect(await must(repo, ['config', '--get', `branch.${PROPOSAL}.merge`])).toBe(`refs/heads/${PROPOSAL}`);
+		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: true });
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ upstream: `origin/${PROPOSAL}`, ahead: 0, behind: 0 });
+		expect(await undoHead(repo.ports)).toBeUndefined();
+		expect(await redoHead(repo.ports)).toBeUndefined();
+		expect((await readRecords(repo.ports)).at(-1)).toMatchObject({ kind: 'send-changes', status: 'complete' });
+	});
+
+	test('a later send goes to the proposal\'s upstream', async () => {
+		const { repo, a } = await started();
+		doneId(await sendChanges(repo.ports));
+		await repo.write('b.txt', 'plot\nlegend\n');
+		const d = await repo.commit('Add a legend');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ upstream: `origin/${PROPOSAL}`, ahead: 1 });
+
+		doneId(await sendChanges(repo.ports));
+
+		expect(await remoteRef(repo, `refs/heads/${PROPOSAL}`)).toBe(d);
+		expect(await remoteRef(repo, 'refs/heads/main')).toBe(a);
+	});
+
+	test('Get changes on a sent proposal gets a colleague\'s commit from the proposal branch', async () => {
+		const { repo } = await started();
+		doneId(await sendChanges(repo.ports));
+		const colleague = await repo.clone();
+		repos.push(colleague);
+		await must(colleague, ['checkout', '-q', '-b', PROPOSAL, `origin/${PROPOSAL}`]);
+		await colleague.write('c.txt', 'from a colleague\n');
+		await colleague.commit('A colleague\'s change');
+		await must(colleague, ['push', '-q', 'origin', PROPOSAL]);
+
+		expect((await checkShared(repo.ports)).kind).toBe('done');
+		const preview = await previewIncoming(repo.ports);
+		expect(preview.incoming.map(checkpoint => checkpoint.title)).toEqual(['A colleague\'s change']);
+		doneId(await getIncoming(repo.ports, preview.basis, [], []));
+
+		expect(await repo.read('c.txt')).toBe('from a colleague\n');
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: PROPOSAL, upstream: `origin/${PROPOSAL}`, ahead: 0, behind: 0 });
+	});
+
+	test('with the remote branch deleted and the tracking ref pruned, state.proposal.sent is true and sendChanges returns proposal-ended', async () => {
+		const { repo, a } = await started();
+		doneId(await sendChanges(repo.ports));
+		await must(repo, ['push', '-q', 'origin', '--delete', PROPOSAL]);
+		await must(repo, ['fetch', '-q', '--prune']);
+		expect(await refExists(repo, `refs/remotes/origin/${PROPOSAL}`)).toBe(false);
+		await repo.write('b.txt', 'plot\nlegend\n');
+		await repo.commit('Add a legend');
+
+		const engine = await createEngine(repo.ports);
+		try {
+			const result = await engine.getState();
+			expect(result.proposal).toEqual({ branch: PROPOSAL, base: 'main', sent: true });
+			expect(result.shared).toMatchObject({ exists: true, name: 'origin/main', ahead: 3 });
+		} finally {
+			engine.dispose();
+		}
+		expect(await sharedReference(repo.ports)).toBe(a);
+		expect(await sendChanges(repo.ports)).toEqual({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'proposal-ended' });
+		expect(await remoteRef(repo, `refs/heads/${PROPOSAL}`)).toBeUndefined();
+	});
+
+	test('a first send that the shared copy refuses changes nothing and keeps the undo list', async () => {
+		const { repo } = await started();
+		const ports = { ...repo.ports, network: { ...repo.ports.network, publish: async () => ({ ok: false as const, reason: 'review-required' as const, detail: 'refused' }) } };
+
+		expect(await sendChanges(ports)).toEqual({ kind: 'rejected', reason: 'review-required', detail: 'refused' });
+
+		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: false });
+		expect((await undoHead(repo.ports))?.kind).toBe('start-proposal');
 	});
 });

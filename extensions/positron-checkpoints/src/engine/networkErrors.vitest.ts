@@ -29,6 +29,25 @@ describe('mapGitError', () => {
 		expect(mapGitError(gitError({ gitErrorCode: 'PushRejected', stderr }))).toEqual({ ok: false, reason: 'review-required', detail: stderr.trim() });
 	});
 
+	test('GH013 output that names a pull request maps to review-required', () => {
+		const stderr = [
+			'remote: error: GH013: Repository rule violations found for refs/heads/main.',
+			'remote: - Changes Must Be Made Through A Pull Request.',
+			' ! [remote rejected] main -> main (push declined due to repository rule violations)',
+		].join('\n');
+		expect(mapGitError(gitError({ gitErrorCode: 'PushRejected', stderr }))).toEqual({ ok: false, reason: 'review-required', detail: stderr });
+	});
+
+	test('GH013 without that text keeps its current mapping', () => {
+		const stderr = [
+			'remote: error: GH013: Repository rule violations found for refs/heads/main.',
+			'remote: - Cannot update this protected ref.',
+			' ! [remote rejected] main -> main (push declined due to repository rule violations)',
+		].join('\n');
+		expect(mapGitError(gitError({ gitErrorCode: 'PushRejected', stderr }))).toEqual({ ok: false, reason: 'shared-copy-moved', detail: stderr });
+		expect(mapGitError(gitError({ gitErrorCode: 'GitError', stderr }))).toEqual({ ok: false, reason: 'unknown', detail: stderr });
+	});
+
 	test('an error without stderr gives its message as the detail', () => {
 		expect(mapGitError(gitError({ message: 'the remote hung up', gitErrorCode: 'RemoteConnectionError' }))).toEqual({ ok: false, reason: 'offline', detail: 'the remote hung up' });
 	});
