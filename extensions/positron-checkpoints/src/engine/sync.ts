@@ -12,6 +12,7 @@ import { acquireLock, engineDirectory, PathPlan, readBranch, readIndexTree, TriS
 import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts, NetworkResult } from './ports';
+import { sharedReference } from './proposals';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
 import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
@@ -37,7 +38,7 @@ interface SyncContext {
 	/** The latest checkpoint, or null in a repository with none. */
 	head: string | null;
 	headTree: string;
-	/** The upstream commit as git last saw it, or undefined when the branch has none. */
+	/** The commit of the shared copy (`sharedReference`) as git last saw it, or undefined when the branch has none. */
 	upstream?: string;
 	/** The commit both histories share, or a commit of the empty tree when they share none. */
 	mergeBase: string;
@@ -50,7 +51,7 @@ interface SyncContext {
 /** Reads the project for sync. */
 async function readContext(ports: EnginePorts): Promise<SyncContext> {
 	const head = await revision(ports, 'HEAD') ?? null;
-	const upstream = head === null ? undefined : await revision(ports, '@{upstream}');
+	const upstream = head === null ? undefined : await sharedReference(ports);
 	const empty = await emptyTree(ports);
 	const headTree = head === null ? empty : (await git(ports, ['rev-parse', `${head}^{tree}`])).trim();
 	let mergeBase: string | undefined;
@@ -196,8 +197,8 @@ const latestOverlaps = new Map<string, OverlapPlan[]>();
 
 /**
  * The preview of getting the incoming changes (spec 6.4), computed in the object database with
- * `replay`; nothing visible changes. `incoming` lists the checkpoints in the upstream that HEAD
- * does not have (`git log HEAD..@{upstream}`), and `changedPaths` the files they change.
+ * `replay`; nothing visible changes. `incoming` lists the checkpoints in the upstream (the commit
+ * `sharedReference` names) that HEAD does not have, and `changedPaths` the files they change.
  * `touchesLocalWork` is true when a changed path is also changed by the unrecorded changes or by a
  * local checkpoint not in the upstream. `collisions` lists the files outside every snapshot that
  * the clean result would replace (see `findCollisions`), each with the incoming author; it is
@@ -271,7 +272,7 @@ export async function basisOf(
 ): Promise<string> {
 	const hash = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
 	const head = commits === undefined ? await revision(ports, 'HEAD') ?? '' : commits.head ?? '';
-	const upstream = head === '' ? '' : (commits === undefined ? await revision(ports, '@{upstream}') : commits.upstream) ?? '';
+	const upstream = head === '' ? '' : (commits === undefined ? await sharedReference(ports) : commits.upstream) ?? '';
 	const [overlaps, collisions] = [[...new Set(overlapPaths)].sort(), [...new Set(collisionPaths)].sort()];
 	const files = async (paths: string[]) => {
 		const ids = await diskIds(ports, paths);
@@ -513,7 +514,7 @@ async function connectRecordFile(ports: EnginePorts): Promise<string> {
  * The URL of the remote `origin` as its configuration has it (before any `insteadOf` rewriting),
  * or undefined when there is no such remote.
  */
-async function originUrl(ports: EnginePorts): Promise<string | undefined> {
+export async function originUrl(ports: EnginePorts): Promise<string | undefined> {
 	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--get', 'remote.origin.url']);
 	return result.exitCode === 0 ? result.stdout.replace(/\r?\n$/, '') : undefined;
 }

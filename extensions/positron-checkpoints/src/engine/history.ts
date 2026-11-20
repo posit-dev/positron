@@ -7,6 +7,7 @@ import { emptyTree, parseRaw } from './changes';
 import { FULL_OBJECT_ID, readCheckpoints, readPendingTrees, resolveCommit, revision } from './checkpoints';
 import { mustGit, runGit, splitZ } from './git';
 import { EnginePorts } from './ports';
+import { sharedReference } from './proposals';
 import { findOverlap } from './sync';
 import { LARGE_FILE_BYTES } from './trees';
 import { ChangedFile, Checkpoint, ContentRef, DiffTarget } from './types';
@@ -100,7 +101,7 @@ export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{
 			return { left: await blobAt(ports, parent, renamed ?? target.path), right: await blobAt(ports, commit, target.path) };
 		}
 		case 'incoming': {
-			const upstream = await revision(ports, '@{upstream}');
+			const upstream = await sharedReference(ports);
 			const head = await revision(ports, 'HEAD');
 			const base = upstream === undefined || head === undefined
 				? undefined

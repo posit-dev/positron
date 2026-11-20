@@ -16,10 +16,11 @@ import { getCheckpointFiles, getDiff, getHistory, getPendingFiles, readBlob } fr
 import { classify, JournalRecord, readRecords } from './journal';
 import { expire, redo, redoHead, undo, undoHead } from './operationLog';
 import { EnginePorts } from './ports';
+import { finishProposal, readProposal, sharedReference, startProposal, stopProposal } from './proposals';
 import { listRecoverySnapshots, recoverOnStart, removeRecoverySnapshot, resolveInterrupted } from './recovery';
 import { isSyncAvailable, readRepoFacts, RepoFacts } from './repoState';
 import { proposedGitignore, startTracking } from './startTracking';
-import { checkShared, connectSharedCopy, getIncoming, previewIncoming, repairConnect, sendChanges } from './sync';
+import { checkShared, connectSharedCopy, getIncoming, originUrl, previewIncoming, repairConnect, sendChanges } from './sync';
 import { ChangeSet, CheckpointsEngine, EngineState, IncomingPreview, OperationKind, OperationResult } from './types';
 
 /** The engine that `createEngine` returns: the bridge interface, plus the host's own calls. */
@@ -238,7 +239,7 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			overlapInputs = undefined;
 			return;
 		}
-		overlapInputs = { head: await revision(ports, 'HEAD') ?? '', upstream: await revision(ports, '@{upstream}') ?? '' };
+		overlapInputs = { head: await revision(ports, 'HEAD') ?? '', upstream: await sharedReference(ports) ?? '' };
 	};
 
 	/** The interrupted action, classified as the project is now (the classification reads only the paths its record names). */
@@ -300,6 +301,14 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		}
 		if (facts.branch !== undefined) {
 			state.branch = facts.branch;
+			const proposal = await readProposal(ports);
+			if (proposal !== undefined) {
+				state.proposal = proposal;
+			}
+		}
+		const sharedUrl = await originUrl(ports);
+		if (sharedUrl !== undefined) {
+			state.sharedUrl = sharedUrl;
 		}
 		if (facts.upstream !== undefined) {
 			state.shared.name = facts.upstream;
@@ -316,7 +325,7 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			state.unusual = { kind: 'unrecovered', detail: unrecovered };
 		}
 		if (overlapInputs !== undefined) {
-			const now = { head: await revision(ports, 'HEAD') ?? '', upstream: await revision(ports, '@{upstream}') ?? '' };
+			const now = { head: await revision(ports, 'HEAD') ?? '', upstream: await sharedReference(ports) ?? '' };
 			state.pendingOverlap = now.head === overlapInputs.head && now.upstream === overlapInputs.upstream;
 		}
 		const pendingApproval = await readPendingApproval(ports);
@@ -454,6 +463,9 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		startTracking: (identity, gitignore) => mutate({ plainFolder: true }, current => startTracking(current, identity, gitignore)),
 		proposedGitignore: () => proposedGitignore(ports),
 		connectSharedCopy: url => mutate({}, async current => noteChecked(await connectSharedCopy(current, url))),
+		startProposal: () => mutate({}, startProposal),
+		finishProposal: acceptedCommit => mutate({}, current => finishProposal(current, acceptedCommit)),
+		stopProposal: () => mutate({}, stopProposal),
 		onDidChangeState: listener => {
 			listeners.add(listener);
 			return { dispose: () => listeners.delete(listener) };

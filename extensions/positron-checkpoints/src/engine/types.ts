@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export type UnusualKind = 'detached' | 'operation-in-progress' | 'staged-differs' | 'unrecovered' | 'git-missing';
-export type OperationKind = 'create-checkpoints' | 'edit-description' | 'get-changes' | 'go-back' | 'reverse-checkpoint' | 'check-changed-files' | 'start-tracking' | 'send-changes';
+export type OperationKind = 'create-checkpoints' | 'edit-description' | 'get-changes' | 'go-back' | 'reverse-checkpoint' | 'check-changed-files' | 'start-tracking' | 'send-changes' | 'start-proposal' | 'finish-proposal' | 'stop-proposal';
 
 export interface EngineState {
 	tracking: 'not-a-project' | 'tracking';
@@ -27,6 +27,10 @@ export interface EngineState {
 	undo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 	redo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 	keptFileCount: number;
+	/** The proposal HEAD is on: its branch, the name of its base branch, and whether an upstream is configured for it. */
+	proposal?: { branch: string; base: string; sent: boolean };
+	/** The URL of the remote `origin` as configured, when there is one. */
+	sharedUrl?: string;
 }
 
 export interface Hunk { id: string; header: string; addedLines: number; removedLines: number; patch: string }
@@ -136,5 +140,8 @@ export interface CheckpointsEngine {
 	startTracking(identity?: { name: string; email: string }, gitignore?: string): Promise<OperationResult>;
 	proposedGitignore(): Promise<string>;
 	connectSharedCopy(url: string): Promise<OperationResult>;
+	startProposal(): Promise<OperationResult>;
+	finishProposal(acceptedCommit: string): Promise<OperationResult>;
+	stopProposal(): Promise<OperationResult>;
 	onDidChangeState(listener: () => void): { dispose(): void };
 }

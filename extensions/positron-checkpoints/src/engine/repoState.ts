@@ -7,6 +7,7 @@ import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { GitMissingError, mustGit, runGit, splitZ } from './git';
 import { EnginePorts, GitResult } from './ports';
+import { sharedUpstream } from './proposals';
 import { UnusualKind } from './types';
 
 /** What the engine knows about the repository at one moment. */
@@ -20,6 +21,7 @@ export interface RepoFacts {
 	branch?: string;
 	/** Undefined for a repository with no checkpoints. */
 	headCommit?: string;
+	/** The shared copy's branch as git names it (see `sharedUpstream`); `ahead` and `behind` count against it. */
 	upstream?: string;
 	ahead: number;
 	behind: number;
@@ -81,10 +83,10 @@ export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable
 	let ahead = 0;
 	let behind = 0;
 	if (branch !== undefined) {
-		const upstreamResult = await run(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
-		if (upstreamResult.exitCode === 0 && upstreamResult.stdout.trim() !== '') {
-			upstream = upstreamResult.stdout.trim();
-			const counts = await run(['rev-list', '--left-right', '--count', 'HEAD...@{upstream}']);
+		const shared = await sharedUpstream({ ...ports, projectRoot: root }, branch);
+		if (shared !== undefined && shared.name !== '') {
+			upstream = shared.name;
+			const counts = await run(['rev-list', '--left-right', '--count', `HEAD...${shared.commit}`]);
 			if (counts.exitCode === 0) {
 				const [left, right] = counts.stdout.trim().split(/\s+/).map(Number);
 				ahead = left || 0;

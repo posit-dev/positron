@@ -12,6 +12,7 @@ import {
 import { mergeTrees, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts } from './ports';
+import { sharedReference } from './proposals';
 import { runOperation } from './runOperation';
 import { worktreeTree } from './trees';
 import { Checkpoint, Chunk, EngineState, OperationKind, OperationResult } from './types';
@@ -118,7 +119,7 @@ const LOG_FIELDS = 5;
 
 /**
  * The checkpoints `git log <logArgs>` lists, in its order. `shared` is true for a checkpoint in
- * the upstream as git last saw it (with no upstream, nothing is shared). `authorIsMe` is true
+ * the shared copy as git last saw it (`sharedReference`; with none, nothing is shared). `authorIsMe` is true
  * when the author's email equals `user.email`, ignoring case. The title is the first line of the
  * message and the body the rest, without the blank line between them. `time` is the author time.
  */
@@ -127,7 +128,7 @@ export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Pr
 	// message comes last.
 	const output = await git(ports, ['log', '-z', '--format=%H%x00%an%x00%ae%x00%aI%x00%B', ...logArgs, '--']);
 	const head = await revision(ports, 'HEAD');
-	const upstream = await revision(ports, '@{upstream}');
+	const upstream = await sharedReference(ports);
 	const unshared = upstream === undefined
 		? undefined
 		: new Set(head === undefined ? [] : (await git(ports, ['rev-list', head, `^${upstream}`, '--'])).split('\n').filter(id => id !== ''));
@@ -570,14 +571,16 @@ export async function resolveCommit(ports: EnginePorts, id: string): Promise<str
 	return result.exitCode === 0 ? result.stdout.trim() : undefined;
 }
 
-/** True when `commit` is in the upstream of `branch` as git last saw it. A branch with no upstream has nothing shared. */
+/**
+ * True when `commit` is in the shared copy of `branch` as git last saw it (see `sharedReference`).
+ * A branch with no shared copy has nothing shared.
+ */
 export async function isSharedCommit(ports: EnginePorts, branch: string, commit: string): Promise<boolean> {
-	// `<branch>@{upstream}` needs the short name; the full ref name is not resolved.
-	const upstream = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', '--end-of-options', `${branch}@{upstream}`]);
-	if (upstream.exitCode !== 0) {
+	const upstream = await sharedReference(ports, branch);
+	if (upstream === undefined) {
 		return false;
 	}
-	const args = ['-C', ports.projectRoot, 'merge-base', '--is-ancestor', commit, upstream.stdout.trim()];
+	const args = ['-C', ports.projectRoot, 'merge-base', '--is-ancestor', commit, upstream];
 	const result = await runGit(ports.git, args);
 	if (result.exitCode > 1) {
 		throw new GitFailedError(args, result.exitCode, result.stderr);
