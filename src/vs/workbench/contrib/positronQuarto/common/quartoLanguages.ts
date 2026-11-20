@@ -34,3 +34,102 @@ export function hasRuntimeProvider(language: string, runtimeStartupService: IRun
 export function isExecutableLanguage(language: string, runtimeStartupService: IRuntimeStartupService): boolean {
 	return isShellLanguage(language) || hasRuntimeProvider(language, runtimeStartupService);
 }
+
+/** The language ggsql registers its runtime under. */
+export const GGSQL_LANGUAGE = 'ggsql';
+
+/** What a cell needs to know about its document to decide which runtime runs it. */
+export interface ICellRuntimeContext {
+	readonly primaryLanguage: string | undefined;
+	/** The engine the frontmatter declares: knitr (true), another (false), or none. */
+	readonly knitrEngine: boolean | undefined;
+	readonly cells: readonly { readonly language: string }[];
+}
+
+/**
+ * Whether Quarto renders the document with knitr: the engine its frontmatter
+ * declares (`engine`, else a `knitr` or `jupyter` key) or, when it declares
+ * none, whether it has any `{r}` cell. This is how Quarto picks the engine,
+ * and how the Quarto extension's `isKnitrDocument` decides which cells it
+ * can run, so the two agree on `{sql}` cells.
+ */
+export function rendersWithKnitr(document: ICellRuntimeContext): boolean {
+	return document.knitrEngine
+		?? document.cells.some(cell => cell.language.toLowerCase() === 'r');
+}
+
+/**
+ * The language of the runtime that runs a cell, which is the cell's own
+ * language except for SQL.
+ *
+ * A `{sql}` cell runs in ggsql, as a `{ggsql}` cell does: ggsql is SQL with
+ * a visualization clause on the end, and the only SQL runtime there is. Not
+ * under knitr, though, which renders `{sql}` cells with DBI against the R
+ * connection the chunk names; running them in ggsql would query some other
+ * database than the one the document renders from.
+ */
+export function runtimeLanguageOf(cellLanguage: string, document: ICellRuntimeContext): string {
+	const language = cellLanguage.toLowerCase();
+	return language === 'sql' && !rendersWithKnitr(document) ? GGSQL_LANGUAGE : language;
+}
+
+/**
+ * Whether a cell can be run in its document: something runs its language, or
+ * it is the document's primary language, whose kernel the run starts even when
+ * no extension provides runtimes for it.
+ */
+export function isRunnableCell(
+	cellLanguage: string,
+	document: ICellRuntimeContext,
+	runtimeStartupService: IRuntimeStartupService,
+): boolean {
+	const language = runtimeLanguageOf(cellLanguage, document);
+	return isExecutableLanguage(language, runtimeStartupService)
+		|| language === document.primaryLanguage?.toLowerCase();
+}
+
+/** A ggsql connection directive, matched exactly as ggsql matches it. */
+const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
+
+/**
+ * A Quarto cell option line in a SQL or ggsql cell. A run strips the block of
+ * them at the very top of a cell before ggsql sees the code (see
+ * `parseCellExecutionOptions`), so they don't end its leading directives.
+ */
+const OPTION_LINE = /^\s*(?:--|#)\|/;
+
+/**
+ * Lines ggsql reads past among an execution's leading directives, as its
+ * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything
+ * else, a cell option that wasn't stripped or a misspelled directive
+ * included, ends them.
+ */
+const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
+
+/**
+ * The `-- @connect: <uri>` line a piece of ggsql starts with, in the form ggsql
+ * reports the connection back in, or undefined if it starts with none. Of
+ * several, the last: ggsql applies each in turn.
+ *
+ * Mirrors ggsql's own reading of an execution's leading directives, and
+ * positron-sql's `connectIn`, which decides the tables a cell completes from;
+ * the three must agree on which database a cell runs against.
+ */
+export function leadingConnectLine(code: string): string | undefined {
+	let uri: string | undefined;
+	const lines = code.split(/\r?\n/);
+	// the option lines a run strips, which are only those at the very top
+	let first = 0;
+	while (first < lines.length && OPTION_LINE.test(lines[first])) {
+		first++;
+	}
+	for (const line of lines.slice(first)) {
+		const match = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
+		if (match) {
+			uri = match;
+		} else if (!LEADING_NOISE.test(line)) {
+			break;
+		}
+	}
+	return uri ? `-- @connect: ${uri}` : undefined;
+}

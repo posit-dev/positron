@@ -63,6 +63,18 @@ describe('parseQuartoDocument', () => {
 			expect(frontmatter.location).toEqual({ begin: { line: 0 }, end: { line: 2 } });
 		});
 
+		it('reads the declared engine as Quarto does: engine, else a knitr or jupyter key', () => {
+			const knitrEngine = (yaml: string) => assertReturnsDefined(parseQuarto(`---\n${yaml}\n---\n`).frontmatter).knitrEngine;
+			expect([
+				knitrEngine('engine: knitr'),
+				knitrEngine('engine: jupyter'),
+				knitrEngine('engine: markdown\nknitr: true'),
+				knitrEngine('knitr:\n  opts_chunk:\n    echo: false'),
+				knitrEngine('jupyter:\n  jupytext: {}'),
+				knitrEngine('title: Test'),
+			]).toEqual([true, false, false, true, false, undefined]);
+		});
+
 		it('frontmatter with no jupyter key has no kernel', () => {
 			const content = '---\ntitle: Test\nformat: html\n---\n';
 			const result = parseQuarto(content);
@@ -78,6 +90,10 @@ describe('parseQuartoDocument', () => {
 
 		it('maps ir to r', () => {
 			expect(kernelToLanguageId('ir')).toBe('r');
+		});
+
+		it('maps ggsql kernels to ggsql', () => {
+			expect(kernelToLanguageId('ggsql')).toBe('ggsql');
 		});
 
 		it('maps ark to r', () => {

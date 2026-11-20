@@ -55,6 +55,8 @@ import '../common/positronQuartoConfig.js';
 // Import commands to ensure they're registered
 import './quartoCommands.js';
 import './quartoEmbeddedFormatting.js';
+// Tells the Quarto extension which cell languages Positron serves, and why a cell can't run.
+import './quartoHostCellLanguages.js';
 
 // Import editor action bar menu wiring to ensure it's registered
 import './quartoEditorActionBar.js';

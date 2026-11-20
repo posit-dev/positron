@@ -251,6 +251,25 @@ export interface IQuartoExecutionManager {
 	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void>;
 
 	/**
+	 * The `-- @connect:` line to run ahead of code taken from a cell that runs
+	 * in ggsql, or an empty string when none is needed.
+	 *
+	 * A cell's database is its own leading `@connect` line, or the nearest
+	 * earlier ggsql-run cell's; ggsql applies the line only at the top of an
+	 * execution, so a statement run from the middle of a cell, or a cell that
+	 * inherits its connection, would otherwise run wherever the session happens
+	 * to be. Not needed when the code starts with its own line, or when the
+	 * session is known to be on that database already: sending it again would
+	 * reconnect and drop the session's temporary state.
+	 *
+	 * @param documentUri The Quarto document.
+	 * @param lineNumber A line of the cell the code comes from (1-based).
+	 * @param code The code about to run.
+	 * @param sessionId The session it will run in, if known.
+	 */
+	connectPreamble(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string>;
+
+	/**
 	 * Cancel execution for a document.
 	 * @param documentUri URI of the document
 	 * @param cellId Optional specific cell ID to cancel. If not provided, cancels all.

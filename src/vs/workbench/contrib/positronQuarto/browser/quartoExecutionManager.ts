@@ -55,7 +55,8 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
-import { isExecutableLanguage, isShellLanguage } from '../common/quartoLanguages.js';
+import { GGSQL_LANGUAGE, isRunnableCell, isShellLanguage, leadingConnectLine, runtimeLanguageOf } from '../common/quartoLanguages.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 import type { EditorLayoutMetadata } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
@@ -231,6 +232,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IPositronConnectionsService private readonly _connectionsService: IPositronConnectionsService,
 	) {
 		super();
 
@@ -278,11 +280,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (isMultiCellExecution) {
 			const textModel = await this._getTextModel(documentUri);
 			if (textModel) {
-				const primaryLanguage = this._documentModelService.getModel(textModel).primaryLanguage;
+				const quartoModel = this._documentModelService.getModel(textModel);
 				filteredCells = cells.filter(cell => {
 					// Skip diagram/markup cells (mermaid, dot, ...) that have no
 					// way to execute, so one of them can't abort the run.
-					if (!this._isExecutableLanguage(cell.language, primaryLanguage)) {
+					if (!isRunnableCell(cell.language, quartoModel, this._runtimeStartupService)) {
 						this._logService.debug(
 							`[QuartoExecutionManager] Skipping cell ${cell.id} with non-executable language '${cell.language}'`
 						);
@@ -295,7 +297,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						textModel.getLineMaxColumn(cell.codeEndLine)
 					);
 					const code = textModel.getValueInRange(codeRange);
-					const { options } = parseCellExecutionOptions(code);
+					const { options } = parseCellExecutionOptions(code, cell.language);
 					if (!options.eval) {
 						this._logService.debug(
 							`[QuartoExecutionManager] Skipping cell ${cell.id} due to eval: false`
@@ -510,7 +512,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 			// Get the code content and parse execution options
 			const code = textModel.getValueInRange(clampedRange);
-			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
+			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code, containingCell.language);
 
 			// Calculate effective code range (excluding option lines at the start)
 			let effectiveCodeRange = clampedRange;
@@ -676,14 +678,34 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return executionPromise;
 	}
 
-	/**
-	 * Whether a cell's language can be executed: an executable language, or the
-	 * document's primary language, whose kernel the run starts even when no
-	 * extension provides runtimes for it.
-	 */
-	private _isExecutableLanguage(language: string, primaryLanguage: string | undefined): boolean {
-		return isExecutableLanguage(language, this._runtimeStartupService)
-			|| language.toLowerCase() === primaryLanguage?.toLowerCase();
+	async connectPreamble(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string> {
+		if (leadingConnectLine(code)) {
+			return '';
+		}
+		const textModel = await this._getTextModel(documentUri);
+		if (!textModel) {
+			return '';
+		}
+		const quartoModel = this._documentModelService.getModel(textModel);
+		const runsInGgsql = (cell: QuartoCodeCell) => runtimeLanguageOf(cell.language, quartoModel) === GGSQL_LANGUAGE;
+		const cells = quartoModel.cells;
+		const index = cells.findIndex(cell => cell.codeStartLine <= lineNumber && lineNumber <= cell.codeEndLine);
+		if (index < 0 || !runsInGgsql(cells[index])) {
+			return '';
+		}
+		// The nearest declaration at or above the cell, as positron-sql reads it for completions.
+		let line: string | undefined;
+		for (let i = index; i >= 0 && !line; i--) {
+			const cell = cells[i];
+			if (runsInGgsql(cell) && cell.codeEndLine >= cell.codeStartLine) {
+				line = leadingConnectLine(textModel.getValueInRange(
+					new Range(cell.codeStartLine, 1, cell.codeEndLine, textModel.getLineMaxColumn(cell.codeEndLine))));
+			}
+		}
+		if (!line || (sessionId && this._connectionsService.getSessionConnectionCode(sessionId) === line)) {
+			return '';
+		}
+		return `${line}\n`;
 	}
 
 	/**
@@ -718,10 +740,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (textModel) {
 			const quartoModel = this._documentModelService.getModel(textModel);
 			const primaryLanguage = quartoModel.primaryLanguage?.toLowerCase();
+			// The runtime's language rather than the cell's: a `{sql}` cell runs in ggsql.
+			const runtimeLanguage = runtimeLanguageOf(cellLanguage, quartoModel);
 
-			if (primaryLanguage && cellLanguage !== primaryLanguage) {
+			// A cell nothing can run, such as a diagram or a `{sql}` cell that
+			// knitr renders, is left alone rather than failed: nothing went wrong.
+			if (!isRunnableCell(cellLanguage, quartoModel, this._runtimeStartupService)) {
+				this._logService.debug(
+					`[QuartoExecutionManager] Not running cell ${cell.id}: nothing runs '${cell.language}' cells in this document`);
+				this._setCellState(cell.id, CellExecutionState.Idle, documentUri);
+				return false;
+			}
+
+			if (primaryLanguage && runtimeLanguage !== primaryLanguage) {
 				// Non-primary language: execute via console service
-				return this._executeRangeViaConsole(documentUri, cell, codeRange, options, token);
+				return this._executeRangeViaConsole(documentUri, cell, codeRange, options, token, runtimeLanguage);
 			}
 		}
 
@@ -775,7 +808,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				});
 				cancellationPromise.catch(() => undefined);
 
-				const { fragments: codeFragments, lineRanges } = await this._getCodeFragments(cellLanguage, code, cts.token);
+				const { fragments, lineRanges } = await this._getCodeFragments(cellLanguage, code, cts.token);
+				// The cell's database ahead of its first fragment, if the code does not say it itself.
+				const preamble = await this.connectPreamble(documentUri, codeRange.startLineNumber, code, session.sessionId);
+				const codeFragments = preamble && fragments.length > 0
+					? [preamble + fragments[0], ...fragments.slice(1)]
+					: fragments;
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
@@ -913,10 +951,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		cell: QuartoCodeCell,
 		codeRange: Range,
 		options: QuartoCellExecutionOptions = DEFAULT_CELL_EXECUTION_OPTIONS,
-		token?: CancellationToken
+		token?: CancellationToken,
+		language: string = cell.language
 	): Promise<boolean> {
 		this._logService.debug(
-			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
+			`[QuartoExecutionManager] Executing ${cell.language} code via ${language} console (non-primary language)`
 		);
 
 		return this._withExecutionTracking(
@@ -936,7 +975,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				// Set up message handlers BEFORE executing to avoid race conditions.
 				// If a session already exists, set up handlers on it directly.
 				// If not, listen for the new session to start so we capture it immediately.
-				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
+				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(language);
 				if (existingSession) {
 					this._setupMessageHandlers(tracker, existingSession, documentUri, () => {
 						hadError = true;
@@ -945,7 +984,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					// Listen for the session to start so we can set up handlers
 					// before any messages arrive
 					disposables.add(this._runtimeSessionService.onDidStartRuntime(session => {
-						if (session.runtimeMetadata.languageId === cell.language) {
+						if (session.runtimeMetadata.languageId === language) {
 							this._setupMessageHandlers(tracker, session, documentUri, () => {
 								hadError = true;
 							});
@@ -961,10 +1000,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				// Attribute the code to its source location in the document so
 				// that outputs (e.g. plots) can link back to the source chunk.
+				// Run in the session the preamble was decided for, which is also the one
+				// the output handlers above are listening to.
+				const sessionId = existingSession?.sessionId;
+				const preamble = await this.connectPreamble(documentUri, codeRange.startLineNumber, code, sessionId);
 				await this._consoleService.executeCode(
-					cell.language,
-					undefined,
-					code,
+					language,
+					sessionId,
+					preamble + code,
 					{
 						source: CodeAttributionSource.Notebook,
 						metadata: {
@@ -978,7 +1021,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						},
 					},
 					false, // focus
-					false, // allowIncomplete
+					// A cell is a whole unit, as it is to the kernel path: incomplete
+					// code is sent as it is, for the runtime to report, rather than
+					// held in the console waiting for more input that never comes.
+					true, // allowIncomplete
 					RuntimeCodeExecutionMode.Interactive,
 					errorBehavior,
 					executionId,
@@ -2071,7 +2117,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Parse execution options from cell code
 		const code = textModel.getValueInRange(codeRange);
-		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
+		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code, currentCell.language);
 
 		// Calculate effective code range (excluding option lines at the start)
 		let effectiveCodeRange = codeRange;

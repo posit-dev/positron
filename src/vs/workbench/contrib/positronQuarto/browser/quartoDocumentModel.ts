@@ -12,7 +12,7 @@ import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
 import { kernelToLanguageId, parseQuarto } from '../common/quartoParser.js';
-import { hasRuntimeProvider } from '../common/quartoLanguages.js';
+import { GGSQL_LANGUAGE, hasRuntimeProvider } from '../common/quartoLanguages.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 /**
@@ -65,6 +65,7 @@ export function parseCellId(id: string): ParsedCellId {
 interface ParsedDocument {
 	cells: QuartoCodeCell[];
 	jupyterKernel: string | undefined;
+	knitrEngine: boolean | undefined;
 }
 
 /**
@@ -75,6 +76,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _cells: QuartoCodeCell[] = [];
 	private _reportedLanguage: string | undefined;
 	private _jupyterKernel: string | undefined;
+	private _knitrEngine: boolean | undefined;
 	private _cellsById = new Map<string, QuartoCodeCell>();
 	private _parseTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -132,6 +134,10 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 
 	get jupyterKernel(): string | undefined {
 		return this._jupyterKernel;
+	}
+
+	get knitrEngine(): boolean | undefined {
+		return this._knitrEngine;
 	}
 
 	get cells(): readonly QuartoCodeCell[] {
@@ -276,6 +282,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 
 		this._jupyterKernel = parsed.jupyterKernel;
+		this._knitrEngine = parsed.knitrEngine;
 
 		const primaryLanguage = this._derivePrimaryLanguage();
 		if (primaryLanguage !== this._reportedLanguage) {
@@ -320,7 +327,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			cellIndex++;
 		}
 
-		return { cells, jupyterKernel: doc.frontmatter?.jupyterKernel };
+		return { cells, jupyterKernel: doc.frontmatter?.jupyterKernel, knitrEngine: doc.frontmatter?.knitrEngine };
 	}
 
 	/**
@@ -339,6 +346,9 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _derivePrimaryLanguage(): string | undefined {
 		return (this._jupyterKernel ? kernelToLanguageId(this._jupyterKernel) : undefined)
 			?? this._cells.find(
-				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language;
+				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language
+			// A document of `{sql}` cells alone runs them in ggsql; see `runtimeLanguageOf`.
+			?? (this._cells.some(cell => cell.language.toLowerCase() === 'sql')
+				&& hasRuntimeProvider(GGSQL_LANGUAGE, this._runtimeStartupService) ? GGSQL_LANGUAGE : undefined);
 	}
 }

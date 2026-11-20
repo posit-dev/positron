@@ -48,6 +48,21 @@ export const DEFAULT_CELL_EXECUTION_OPTIONS: QuartoCellExecutionOptions = {
 const OPTION_LINE_REGEX = /^\s*#\|\s?(.*)$/;
 
 /**
+ * Option lines in a SQL cell, where `#` is not a comment: `--|`, as Quarto writes
+ * them, or `#|`, which is what Quarto's renderer looks for in a `{ggsql}` cell
+ * until it learns ggsql's comment character.
+ */
+const SQL_OPTION_LINE_REGEX = /^\s*(?:--|#)\|\s?(.*)$/;
+
+/** Cell languages whose comment is `--`, and so whose option lines are `--|`. */
+const SQL_CELL_LANGUAGES = new Set(['sql', 'ggsql']);
+
+/** The pattern an option line of a cell in this language matches. */
+function optionLineRegex(language: string | undefined): RegExp {
+	return language && SQL_CELL_LANGUAGES.has(language.toLowerCase()) ? SQL_OPTION_LINE_REGEX : OPTION_LINE_REGEX;
+}
+
+/**
  * Result of parsing cell execution options.
  */
 export interface ParsedCellOptions {
@@ -114,16 +129,19 @@ const EXECUTION_OPTION_KEYS = new Set(['eval', 'error']);
  * These are parsed as YAML (after stripping the `#|` prefix).
  *
  * @param code The full cell code (including any option lines)
+ * @param language The cell's language, which decides the option-line prefix:
+ *   `--|` for SQL, `#|` otherwise.
  * @returns Parsed options and the number of option lines at the start
  */
-export function parseCellExecutionOptions(code: string): ParsedCellOptions {
+export function parseCellExecutionOptions(code: string, language?: string): ParsedCellOptions {
+	const optionLine = optionLineRegex(language);
 	const lines = code.replace(/\r\n?/g, '\n').split('\n');
 	const optionLines: string[] = [];
 	let optionLineCount = 0;
 
 	// Collect all leading option lines
 	for (const line of lines) {
-		const match = line.match(OPTION_LINE_REGEX);
+		const match = line.match(optionLine);
 		if (match) {
 			optionLines.push(match[1]);
 			optionLineCount++;
@@ -179,8 +197,8 @@ export function parseCellExecutionOptions(code: string): ParsedCellOptions {
  * @param code The full cell code (including any option lines)
  * @returns The code with option lines removed
  */
-export function extractExecutableCode(code: string): string {
-	const { optionLineCount } = parseCellExecutionOptions(code);
+export function extractExecutableCode(code: string, language?: string): string {
+	const { optionLineCount } = parseCellExecutionOptions(code, language);
 	const lines = code.replace(/\r\n?/g, '\n').split('\n');
 	return lines.slice(optionLineCount).join('\n');
 }
@@ -192,7 +210,7 @@ export function extractExecutableCode(code: string): string {
  * @param code The full cell code (including any option lines)
  * @returns The number of option lines
  */
-export function getOptionLineCount(code: string): number {
-	const { optionLineCount } = parseCellExecutionOptions(code);
+export function getOptionLineCount(code: string, language?: string): number {
+	const { optionLineCount } = parseCellExecutionOptions(code, language);
 	return optionLineCount;
 }
