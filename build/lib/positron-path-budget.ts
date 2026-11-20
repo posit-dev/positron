@@ -105,7 +105,6 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
  * and the budget comes from that count.
  */
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
-	['copilot', 8_500], // 7,728
 	['positron-python', 3_850], // about 3,100; about 3,500 on win32-x64
 	['positron-pdf-server', 450], // 407
 	['node_modules', 345], // about 312, with the shared DuckDB runtime (#14265)
@@ -129,8 +128,8 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
  * into the app. These declarations own the longest paths in the tree, because
  * `@aws-sdk/*` publishes a `dist-types/ts3.4/` variant.
  *
- * `build/.moduleignore` already removes `**\/*.ts` from the shared and Copilot
- * dependency streams. But `cleanNodeModules` never ran over the per-extension
+ * `build/.moduleignore` already removes `**\/*.ts` from the shared dependency
+ * stream. But `cleanNodeModules` never ran over the per-extension
  * dependencies that vsce collects, so these extensions never got that treatment.
  *
  * Only the bundled extensions use these patterns. The extensions that go through
@@ -237,47 +236,4 @@ export function isPrunedServerDependencyFile(relativePath: string): boolean {
 
 	return SERVER_NODE_MODULES_EXCLUDES.some(
 		pattern => minimatch(normalizedPath, pattern, { dot: true }));
-}
-
-/**
- * The `@opentelemetry/*` packages that the Copilot extension needs at runtime.
- *
- * The extension bundles OpenTelemetry into `dist/extension.js`. It keeps
- * `@opentelemetry/instrumentation` external, as the `external` list in
- * extensions/copilot/.esbuild.mts shows. That package and its dependency closure
- * must therefore ship.
- *
- * The other 17 `@opentelemetry/*` packages in the production dependencies are
- * already inside the bundle, so the copies in `node_modules` are dead weight.
- * They are also deep. Each OTLP exporter carries its own nested
- * `@opentelemetry/resources`, which is the source of the paths in the original
- * report.
- */
-export const COPILOT_RUNTIME_OPENTELEMETRY_PACKAGES = new Set([
-	'api',
-	'core',
-	'instrumentation',
-]);
-
-/**
- * Whether a resolved production-dependency directory is an `@opentelemetry`
- * package that the Copilot extension does not need at runtime.
- *
- * The function examines every `@opentelemetry/` segment, not only the last one.
- * The build therefore removes a nested copy together with its parent package. An
- * example is
- * `@opentelemetry/exporter-trace-otlp-grpc/node_modules/@opentelemetry/core`.
- * Without this rule, the glob of the parent returns that copy to the package.
- */
-export function isUnusedCopilotOpenTelemetryPackage(dependencyPath: string): boolean {
-	const segments = dependencyPath.split(/[\\/]/);
-
-	for (let i = 0; i < segments.length - 1; i++) {
-		if (segments[i] === '@opentelemetry'
-			&& !COPILOT_RUNTIME_OPENTELEMETRY_PACKAGES.has(segments[i + 1])) {
-			return true;
-		}
-	}
-
-	return false;
 }

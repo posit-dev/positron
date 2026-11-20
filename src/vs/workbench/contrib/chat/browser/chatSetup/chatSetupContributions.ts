@@ -263,8 +263,12 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					id: CHAT_SETUP_ACTION_ID,
 					title: ChatSetupTriggerAction.CHAT_SETUP_ACTION_LABEL,
 					category: CHAT_CATEGORY,
-					f1: true,
 					// --- Start Positron ---
+					// f1: true,
+					// Positron doesn't ship GitHub Copilot and always reports chat setup as
+					// hidden (see ChatEntitlementContext.withConfiguration), which is the
+					// state upstream shows this command in. Keep it out of the palette.
+					f1: false,
 					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ContextKeyExpr.or(
@@ -286,10 +290,16 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 				const dialogService = accessor.get(IDialogService);
 				const commandService = accessor.get(ICommandService);
 				const lifecycleService = accessor.get(ILifecycleService);
-				const configurationService = accessor.get(IConfigurationService);
-
+				// --- Start Positron ---
+				// Upstream turns AI features back on (`chat.disableAIFeatures: false`)
+				// whenever setup runs. In Positron that setting is how users hide the chat
+				// view, and setup can still be reached from sign-in prompts (the chat
+				// model picker, the language models editor, agent host sign-in), so
+				// running it must not change the user's choice.
+				// const configurationService = accessor.get(IConfigurationService);
 				await context.update({ hidden: false });
-				configurationService.updateValue(ChatAIDisabledSettingId, false);
+				// configurationService.updateValue(ChatAIDisabledSettingId, false);
+				// --- End Positron ---
 
 				if (mode) {
 					const chatWidget = await widgetService.revealWidget();
@@ -467,11 +477,10 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							// --- Start Positron ---
 							// Don't show the Copilot Sign In button in the title bar when AI
 							// features are disabled. Positron sets `chat.disableAIFeatures` to
-							// true by default to hide the built-in Copilot chat UI while keeping
-							// the extension's `vscode.lm` model provider registered, so the chat
-							// entitlement never resolves and `Entitlement.signedOut` stays true
-							// even though the user is signed in to GitHub. Match the guard used
-							// on the other Copilot sign-in surfaces in this file.
+							// true by default to hide the chat view, so the chat entitlement
+							// never resolves and `Entitlement.signedOut` stays true even when
+							// the user is signed in to GitHub. Match the guard used on the
+							// other Copilot sign-in surfaces in this file.
 							ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 							// --- End Positron ---
 						),
@@ -919,10 +928,10 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 				// --- Start Positron ---
 				// Upstream resets `chat.disableAIFeatures` to false whenever the default
 				// chat extension becomes enabled, because upstream disables that extension
-				// to turn AI features off. Positron never disables the extension (it
-				// provides the `vscode.lm` model provider), so the extension is always
-				// enabled and this reset would wipe the user's `chat.disableAIFeatures`
-				// setting on every load. Intentionally do nothing.
+				// to turn AI features off. Positron does not ship the extension and never
+				// toggles its enablement (see maybeEnableOrDisableExtension), so a
+				// sideloaded copy stays enabled and this reset would wipe the user's
+				// `chat.disableAIFeatures` setting on every load. Intentionally do nothing.
 				/*
 				if (defaultChatExtension.enablementState === EnablementState.EnabledWorkspace) {
 					if (this.configurationService.inspect(ChatAIDisabledSettingId).workspaceValue === true) {
@@ -940,12 +949,12 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 	private async maybeEnableOrDisableExtension(_state: EnablementState.EnabledGlobally | EnablementState.EnabledWorkspace | EnablementState.DisabledGlobally | EnablementState.DisabledWorkspace): Promise<void> {
 		// --- Start Positron ---
 		// Upstream couples AI features to the default chat extension's enablement:
-		// `chat.disableAIFeatures` disables the whole extension. In Positron the
-		// chat extension (GitHub Copilot) contributes a language model provider
-		// through the `vscode.lm` API that we want available regardless of this
-		// setting, so we never toggle the extension's enablement here. The setting
-		// still gates the Chat UI via chat context keys. Upstream implementation
-		// kept below for merge reference:
+		// `chat.disableAIFeatures` disables the whole extension. Positron does not
+		// ship the default chat extension (GitHub Copilot Chat) and defaults the
+		// setting to true, so this coupling would disable a sideloaded copy for
+		// every user who hasn't opted in to the chat view. Positron never toggles the
+		// extension's enablement here; the setting gates the Chat UI via chat
+		// context keys instead. Upstream implementation kept below for merge reference:
 		/*
 		const defaultChatExtension = this.extensionsWorkbenchService.local.find(value => ExtensionIdentifier.equals(value.identifier.id, defaultChat.chatExtensionId));
 		if (!defaultChatExtension?.local) {

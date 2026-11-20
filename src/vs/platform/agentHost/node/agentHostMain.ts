@@ -22,7 +22,10 @@ import { AgentService } from './agentService.js';
 import { AgentHostStateManager, IAgentHostStateManager } from './agentHostStateManager.js';
 import { IAgentConfigurationService } from './agentConfigurationService.js';
 import { IAgentHostCompletions } from './agentHostCompletions.js';
-import { CopilotAgent } from './copilot/copilotAgent.js';
+// --- Start Positron ---
+// Positron does not register the Copilot agent provider; see below.
+// import { CopilotAgent } from './copilot/copilotAgent.js';
+// --- End Positron ---
 import { ClaudeAgent } from './claude/claudeAgent.js';
 import { ClaudeSdkPackage } from './claude/claudeAgentSdkService.js';
 import { CodexAgent } from './codex/codexAgent.js';
@@ -150,7 +153,11 @@ async function startAgentHost(): Promise<void> {
 		const agentSdkDownloader = runtimeServices.agentSdkDownloader;
 		const providerService = runtimeServices.providerService;
 		sdkDownloadProgress = runtime.sdkDownloadProgress;
-		providerService.registerProvider(instantiationService.createInstance(CopilotAgent));
+		// --- Start Positron ---
+		// Positron does not ship GitHub Copilot, so don't offer the Copilot agent.
+		// The Claude and Codex providers below don't depend on it.
+		// providerService.registerProvider(instantiationService.createInstance(CopilotAgent));
+		// --- End Positron ---
 		// Claude and Codex providers are gated on two things:
 		//  1. The user-facing enable toggle (`chat.agentHost.<x>Agent.enabled`,
 		//     forwarded as an env var by the starters). Claude defaults to on.

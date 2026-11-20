@@ -96,19 +96,22 @@ accept the upstream change and then reapply the Positron change by adding the
 missing fields, matching the new formatting and adding appropriate change
 markers..
 
-### Copilot AI commands and menus
+### Chat gating
 
-Don't add `chatAiFeaturesEnabled` to Copilot's AI commands or menu items by hand.
-Positron already gates every command and menu item from `GitHub.copilot-chat`
-where the extension points read them, via `gateCopilotContribution` in
-`src/vs/workbench/services/actions/common/menusExtensionPoint.ts`, so anything
-upstream adds is covered.
+Positron doesn't ship a chat extension, so it keeps upstream's chat setup permanently hidden. `ChatEntitlementContext.withConfiguration` in `src/vs/workbench/services/chat/common/chatEntitlementService.ts` always reports `hidden: true` (Positron-marked). This keeps upstream's setup agents from registering, and hides every surface gated on `Setup.hidden.negate()`, including the chat view's own fallback. Without it, a user with `chat.disableAIFeatures: false` gets an empty chat view. The chat view appears only when an extension registers a default chat participant, such as a sideloaded Copilot Chat.
 
-- Check that the two Positron-marked call sites in `menusExtensionPoint.ts`
-  survived the merge, one on `precondition:` and one on `item.when =`. Nothing
-  else does the gating, so if they're gone the gate is gone.
-- `test/e2e/tests/assistant/chat-command-palette-gating.test.ts` checks this end
-  to end.
+`chat.disableAIFeatures` still defaults to `true` (Positron-marked in `src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts`), and `ai.enabled: false` hides chat regardless. After each merge, check that these Positron changes survived:
+
+- the always-hidden `withConfiguration`
+- the `true` default
+- the `ai.enabled` and `chat.disableAIFeatures` checks in `_isAIDisabled` and the default-agent gating in `src/vs/workbench/contrib/chat/common/participants/chatAgents.ts`
+- the Copilot sign-in suppression in `chatSetup/chatSetupContributions.ts`, including `f1: false` on the "Use AI Features with Copilot for free..." command, which upstream shows while setup is hidden
+- the dropped `chat.disableAIFeatures: false` write in that command's `run`. Setup is still reachable from sign-in prompts, and the write would undo the user's choice to hide the chat view.
+- `ChatStatusBarEntry` stays unregistered in `src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts`. It is Copilot's status, sign-in, and quota menu.
+
+If upstream adds a setup surface gated on `Setup.hidden` being true, or one that ignores it, suppress it. `gateCopilotContribution` was removed with the Copilot Chat extension; don't bring it back.
+
+`test/e2e/tests/assistant/chat-command-palette-gating.test.ts` checks the two switches end to end, and `test/e2e/tests/assistant/copilot-signin-suppressed.test.ts` checks the setup surfaces stay hidden.
 
 ## Upstream Divergence
 
@@ -164,7 +167,67 @@ Known cases, with what to do on every merge:
 
 - **Root `.mcp.json`.** In 1.143 upstream renamed `.vscode/mcp.json` to `.mcp.json`. Claude Code reads a root `.mcp.json` and prompts every engineer to enable its servers; `.vscode/mcp.json` is read only by VS Code, and `test/mcp/README.md` links to it. Keep the file at `.vscode/mcp.json` (with the `servers` / `cwd` format) and port any server changes into it. Don't take the rename.
 - **GitHub cloud agent config.** `.github/sandbox.yml` and `.github/hooks/` (plus `build/npm/cloudSandboxSetup.ts` and `build/lib/test/cloudSandbox.test.ts`) configure GitHub's cloud coding agent. Positron removed them in 1.143. Resolve modify/delete conflicts on them by deleting, and delete any new hook files upstream adds there.
-- **Copilot CLI shim.** Positron deleted the `copilot_shim/` Rust crate in 1.143 (only upstream's Azure pipelines build it) and commented out its `rust-analyzer.linkedProjects` entry in `.vscode/settings.json`. Resolve modify/delete conflicts under `copilot_shim/` by deleting. The references to it elsewhere (`build/azure-pipelines/copilot-shim/`, `resources/linux/copilot-link.sh`, the `#ifdef CopilotShim` parts of `code.iss`) do nothing in Positron; leave them for the Copilot removal rather than adding conflicts in ~30 upstream files. The Windows launcher is the exception because it ships, see "Check what ships" below.
+- **Copilot CLI shim.** Positron deleted the `copilot_shim/` Rust crate in 1.143 (only upstream's Azure pipelines build it) and commented out its `rust-analyzer.linkedProjects` entry in `.vscode/settings.json`. Resolve modify/delete conflicts under `copilot_shim/` by deleting. The references to it elsewhere (`build/azure-pipelines/copilot-shim/`, `resources/linux/copilot-link.sh`, the `#ifdef CopilotShim` parts of `code.iss`) do nothing in Positron; leave them rather than adding conflicts in ~30 upstream files. They stay even though Positron removed the Copilot Chat extension, because the Copilot SDK stays (see "Copilot Chat extension (removed)" below). The Windows launcher is the exception because it ships, see "Check what ships" below.
+
+### Copilot Chat extension (removed)
+
+Positron removed the built-in Copilot Chat extension (`extensions/copilot`, `GitHub.copilot-chat`) in 2026.12.0. Positron doesn't build, ship, or test it. Users may sideload it, and Positron makes no effort to keep it working. Upstream changes hundreds of files in the directory each release, so expect it to come back on every merge.
+
+**1. Delete it again after the cherry-pick.** Files upstream modified show up as "deleted by us" conflicts. Files upstream added are staged without any conflict, so the directory partly comes back even when `git status` shows no conflicts there.
+
+```bash
+git rm -r -q --ignore-unmatch extensions/copilot
+rm -rf extensions/copilot
+```
+
+**2. Handle files upstream moved out of the directory.** A file upstream moves from `extensions/copilot` to another path shows up as a rename/delete conflict at the new path, which the `git rm` above doesn't catch. List what's still conflicted with `git diff --name-only --diff-filter=U` and look for those paths.
+
+- Keep the file if its new home is outside `extensions/copilot` and something Positron builds imports it.
+- Otherwise delete it.
+
+**3. Keep its install, build, and test wiring out.** Positron removed or disabled:
+
+- the root `package.json` scripts: `compile` and `watch`/`watch-transpile` without the copilot part, and `compile-copilot`, `watch-copilot`, `watch-copilotd`, `kill-watch-copilotd`, `copilot:setup`, `copilot:get_token`
+- the `extensions/copilot` entry in `build/npm/dirs.ts`
+- the copilot lane in `build/next/build-fast.ts` (Positron-marked). Upstream's `copilot` types and fields stay; Positron takes the lane out of `buildLanes`, `fullPlan`, `runAllFull` and `readEnvironment`, so it always plans `skip`. `build/next/test/build-fast.test.ts` expects `skip` for it (Positron-marked).
+- the Copilot ripgrep shim step in the package tasks in `build/gulpfile.vscode.ts` and `build/gulpfile.reh.ts` (Positron-marked)
+- the "Copilot - Build" and "Kill Copilot - Build" tasks in `.vscode/tasks.json`, and their entries in the compound tasks' `dependsOn`
+- the copilot suite in `.vscode-test.js` (Positron-marked), `scripts/test-integration.sh`, and `scripts/test-integration.bat`
+
+Don't take upstream changes that add these back. Root `package.json`, `.vscode/tasks.json`, and the two `test-integration` scripts don't carry change markers for this, so check them by hand even when they merge cleanly.
+
+These stay, as no-ops when the directory is missing. Check that the Positron ones survived:
+
+- The gulp task `compile-copilot-extension-build`. Release workflows in this repo and in `positron-builds` call it by name. Positron makes it a no-op (Positron-marked in `build/gulpfile.extensions.ts`); keep the task name.
+- `packageCopilotExtensionStream` in `build/lib/extensions.ts` returns an empty stream when the directory is missing. It matches vscode-server, so take upstream changes to it.
+- `checkCopilotEnginesVersion` in `build/hygiene.ts` returns early when `extensions/copilot/package.json` is missing (Positron-marked). Without that, the precommit hook fails whenever root `package.json` is staged, and `gulp hygiene` always fails.
+- `eslint.config.js` replaces the `pluginCopilotLocal` import from `extensions/copilot/.eslintplugin/` with a stand-in plugin (Positron-marked). Without it, ESLint can't load its config at all. Leave upstream's `copilot-local` config blocks alone; they only match files under `extensions/copilot`. If upstream adds another import from `extensions/copilot` to `eslint.config.js`, stub it the same way.
+
+Then list every remaining reference:
+
+```bash
+git grep -n "extensions/copilot" -- ':!build/azure-pipelines' ':!.github/CODENOTIFY' ':!.github/skills' ':!.github/instructions' ':!*.md'
+```
+
+References that are only globs or test fixtures (eslint, the `.eslint-*` lists, hygiene, filters, `.vscode/launch.json` `outFiles`, in-memory test paths) do nothing; leave them so they keep merging cleanly. The same goes for `.github/actions/detect-changes` and `.github/actions/test-chat-lib`, which no Positron workflow uses. Anything that installs, compiles, packages, reads files from, or runs tests in `extensions/copilot` has to go. `npm install` fails if `build/npm/dirs.ts` lists a missing directory.
+
+**4. Check that no built-in extension depends on it.** This should print nothing:
+
+```bash
+git grep -l -i "github.copilot-chat" -- 'extensions/*/package.json'
+```
+
+If upstream adds a built-in extension that depends on Copilot Chat, stop and raise it with the user.
+
+**5. Check that these Positron changes survived:**
+
+- `CopilotAgent` is neither imported nor registered (Positron-marked) in `src/vs/platform/agentHost/node/agentHostMain.ts` and `agentHostServerMain.ts`. If upstream adds another place that registers `CopilotAgent`, skip it there too.
+- `github.copilot-chat` is in neither list in `src/vs/platform/extensionManagement/common/positronExtensionBlocklist.ts`. Don't add it back.
+
+**Don't remove these along with the extension:**
+
+- `@github/copilot-sdk` (root and `remote/package.json`), `copilotRuntimeVersion`, `build/lib/copilot.ts`, and the agent host under `src/vs/platform/agentHost/`. The agent host imports the SDK at startup, and it runs third-party agents (Claude, Codex). Take upstream SDK bumps and agent host changes as normal.
+- `product.json` `defaultChatAgent`. Chat setup code reads it in many places; accept upstream changes to it.
 
 ### Before deleting an unused upstream file
 
