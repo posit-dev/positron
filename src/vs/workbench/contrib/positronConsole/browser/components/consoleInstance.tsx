@@ -23,6 +23,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
+import { isWheelScrollUp } from './consoleWheel.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -750,9 +751,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// Negative delta Y immediately engages scroll lock, if the console is scrollable. Shift +
-		// wheel scrolls horizontally, so it does not count as scrolling up.
-		if (!props.positronConsoleInstance.scrollLocked && shiftWheelToHorizontal(e, isMacintosh).deltaY < 0) {
+		// Scrolling up immediately engages scroll lock, if the console is scrollable.
+		if (!props.positronConsoleInstance.scrollLocked && isWheelScrollUp(e, isMacintosh)) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
 			return;
 		}
