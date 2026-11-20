@@ -76,4 +76,8 @@ export interface FilePort {
 }
 export type NetworkResult = { ok: true } | { ok: false; reason: RejectedReason; detail: string };
 export interface NetworkPort { fetch(): Promise<NetworkResult>; push(branch: string): Promise<NetworkResult> }
-export interface EnginePorts { git: GitRunner; files: FilePort; network: NetworkPort; now: () => Date; newId: () => string; projectRoot: string; openedFolder: string }
+export interface EnginePorts {
+	git: GitRunner; files: FilePort; network: NetworkPort; now: () => Date; newId: () => string; projectRoot: string; openedFolder: string;
+	/** Receives a description of each unexpected error that the engine facade turns into `could-not-finish`. */
+	log?: (message: string) => void;
+}

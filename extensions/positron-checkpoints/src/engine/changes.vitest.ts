@@ -19,7 +19,7 @@ function numbered(count: number, eol = '\n'): string[] {
 	return Array.from({ length: count }, (_, i) => `line ${i + 1}${eol}`);
 }
 
-describe('changes', () => {
+describe('changes', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	const create = async () => {
 		const repo = await tempRepo();

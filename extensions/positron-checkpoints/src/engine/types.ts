@@ -12,7 +12,8 @@ export interface EngineState {
 	projectRoot: string;
 	openedFolderIsInsideProject: boolean;
 	branch?: string;
-	shared: { exists: boolean; ahead: number; behind: number; lastChecked?: string };
+	/** `name` is the shared copy's branch as git names it (for example `origin/main`). */
+	shared: { exists: boolean; ahead: number; behind: number; lastChecked?: string; name?: string };
 	identityMissing: boolean;
 	syncAvailable: boolean;
 	requiredGitVersion: '2.40';
@@ -22,8 +23,9 @@ export interface EngineState {
 	interrupted?: { operationId: string; description: string; unexpectedPaths: string[]; indexUnexpected: boolean };
 	recoveryNotice?: 'reversed' | 'completed';
 	recoverySnapshots: { operationId: string; time: string }[];
-	undo?: { operationId: string; description: string };
-	redo?: { operationId: string; description: string };
+	/** `restoresFiles` is true when undoing or redoing the operation changes working files. */
+	undo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
+	redo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 	keptFileCount: number;
 }
 

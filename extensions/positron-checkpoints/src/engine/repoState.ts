@@ -34,9 +34,10 @@ const OPERATION_MARKERS = ['MERGE_HEAD', 'rebase-merge', 'rebase-apply', 'CHERRY
 
 /**
  * Reads the repository facts for the folder the user opened. The top level comes from
- * `git rev-parse --show-toplevel` run in `openedFolder`; every later call runs in it.
+ * `git rev-parse --show-toplevel` run in `openedFolder`; every later call runs in it. With
+ * `options.syncAvailable`, that value is reported and git is not asked again.
  */
-export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
+export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable?: boolean } = {}): Promise<RepoFacts> {
 	const notProject: RepoFacts = {
 		isProject: false,
 		root: ports.openedFolder,
@@ -93,7 +94,7 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 
 	const identityMissing = await isIdentityMissing(run);
 
-	const syncAvailable = await isSyncAvailable(ports, root);
+	const syncAvailable = options.syncAvailable ?? await isSyncAvailable(ports, root);
 
 	return {
 		isProject: true,
