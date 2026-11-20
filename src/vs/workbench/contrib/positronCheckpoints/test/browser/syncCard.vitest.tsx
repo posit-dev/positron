@@ -239,6 +239,24 @@ describe('Sync card and collision dialog', () => {
 			expect(input.incomingDiff).toBe('File: dosing.csv (new, contents not shown)\nFile: README.md (new, contents not shown)');
 		});
 
+		test('a card that mounts again reuses the rendered changes of the same preview', async () => {
+			agent.answers.set('summarize-incoming', { ok: true, value: { summary: 'Maya updated the dosing table.', relation: 'unrelated' }, fromCache: false });
+			const first = rtl.render(<CheckpointsPanel />);
+			await vi.waitFor(() => expect(agent.runsOf('summarize-incoming')).toHaveLength(1));
+			const reads = engine.callsOf('getDiff').length;
+			expect(reads).toBe(2);
+			first.unmount();
+
+			rtl.render(<CheckpointsPanel />);
+			await vi.waitFor(() => expect(agent.runsOf('summarize-incoming')).toHaveLength(2));
+
+			expect(engine.callsOf('getDiff')).toHaveLength(reads);
+			expect(agent.runsOf('summarize-incoming').map(run => (run.input as ISummarizeIncomingInput).incomingDiff)).toEqual([
+				'File: dosing.csv (new, contents not shown)\nFile: README.md (new, contents not shown)',
+				'File: dosing.csv (new, contents not shown)\nFile: README.md (new, contents not shown)',
+			]);
+		});
+
 		test('overlapping changes name the number of places', async () => {
 			engine.incoming = { ...mayaPreview, touchesLocalWork: true, overlaps: [{ id: 'o1', kind: 'text', path: 'dosing.csv', otherPaths: [], theirAuthor: 'Maya', detail: '' }] };
 			agent.answers.set('summarize-incoming', { ok: true, value: { summary: 'Maya updated the dosing table.', relation: 'overlapping' }, fromCache: false });

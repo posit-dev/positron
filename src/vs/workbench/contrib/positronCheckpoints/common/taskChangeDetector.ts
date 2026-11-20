@@ -44,7 +44,8 @@ export type DetectorEvent =
  *
  * There is never a signal while there are no changes, or within the current gap after the
  * previous signal. The gap starts at `minGapMs` and doubles after each dismissal. A caller whose
- * signal led to no suggestion calls `retract`, so that the gap is spent only on real suggestions.
+ * signal started no job calls `retract`, so that the gap is spent only on signals that reached the
+ * model. A signal whose job ran keeps the gap spent, whatever the job gave.
  */
 export class TaskChangeDetector {
 	private readonly _config: DetectorConfig;
@@ -86,8 +87,8 @@ export class TaskChangeDetector {
 	}
 
 	/**
-	 * Undoes the effect of the signal given at `time` on the gap, for a signal that led to no
-	 * suggestion. The dismissal doubling stays. Does nothing when the latest signal was at another
+	 * Undoes the effect of the signal given at `time` on the gap, for a signal that started no
+	 * job. The dismissal doubling stays. Does nothing when the latest signal was at another
 	 * time.
 	 */
 	retract(time: number): void {

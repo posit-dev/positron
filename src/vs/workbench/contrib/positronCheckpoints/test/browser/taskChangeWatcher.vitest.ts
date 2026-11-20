@@ -244,7 +244,7 @@ describe('TaskChangeWatcher', () => {
 		await vi.waitFor(() => expect(suggestions.current).toBeUndefined());
 	});
 
-	test('a signal that publishes nothing does not use up the wait between suggestions', async () => {
+	test('a job that ran and published nothing still uses up the wait between suggestions', async () => {
 		const agent = disposables.add(new FakeCheckpointsAgentService());
 		agent.answers.set('split-into-chunks', proposal(chunk({ finished: false })));
 		await createWatcher(agent);
@@ -254,11 +254,30 @@ describe('TaskChangeWatcher', () => {
 		await new Promise(resolve => setTimeout(resolve, 0));
 		expect(suggestions.current).toBeUndefined();
 
-		// The first signal was retracted, so the next one is not held back by the gap.
 		agent.answers.set('split-into-chunks', proposal(chunk()));
 		save('import_march.R');
-		await vi.waitFor(() => expect(suggestions.current).toBeDefined());
-		expect(agent.runsOf('split-into-chunks')).toHaveLength(2);
+		await vi.waitFor(() => expect(engine.callsOf('getChanges')).toHaveLength(3));
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		expect(agent.runsOf('split-into-chunks')).toHaveLength(1);
+		expect(suggestions.current).toBeUndefined();
+	});
+
+	test('a change set above 300 lines starts one job, not one on every read', async () => {
+		const agent = disposables.add(new FakeCheckpointsAgentService());
+		agent.answers.set('split-into-chunks', proposal(chunk({ finished: false })));
+		engine.changes = { basis: 'basis-1', files: [changedFile('plot_dose.R', 400)] };
+		await createWatcher(agent);
+		await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+
+		for (let read = 2; read <= 4; read++) {
+			engine.changes = { basis: `basis-${read}`, files: [changedFile('plot_dose.R', 400 + read)] };
+			engine.fireChange();
+			await vi.waitFor(() => expect(engine.callsOf('getChanges')).toHaveLength(read));
+			await new Promise(resolve => setTimeout(resolve, 0));
+		}
+
+		expect(agent.runsOf('split-into-chunks')).toHaveLength(1);
 	});
 
 	test('a signal while the agent is unavailable is retracted too', async () => {

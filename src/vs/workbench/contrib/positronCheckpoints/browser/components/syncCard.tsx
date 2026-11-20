@@ -8,7 +8,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ICheckpointsEngineProxy, IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IIncomingSummary, IncomingRelation, incomingDiffBudget, renderIncomingForModel, summarizeIncomingJob } from '../../common/agent/summarizeIncoming.js';
 import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
@@ -17,6 +17,29 @@ import { openDiff } from '../openDiff.js';
 import { ISyncController } from '../syncController.js';
 import { useAgentAvailable } from './useChangesDescription.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
+
+/** The text of the incoming changes last rendered for the model, by engine, preview basis, and budget. */
+let renderedIncoming: { engine: ICheckpointsEngineProxy; basis: string; budget: number; text: Promise<string> } | undefined;
+
+/**
+ * The incoming changes of `preview` as text for the model. The text of the latest preview basis is
+ * kept, so the card renders it once even when it mounts again. A failed render is not kept.
+ */
+function incomingDiffFor(engine: ICheckpointsEngineProxy, preview: IIncomingPreview, budget: number): Promise<string> {
+	const kept = renderedIncoming;
+	if (kept && kept.engine === engine && kept.basis === preview.basis && kept.budget === budget) {
+		return kept.text;
+	}
+	const text = renderIncomingForModel(engine, preview, budget);
+	const entry = { engine, basis: preview.basis, budget, text };
+	renderedIncoming = entry;
+	text.catch(() => {
+		if (renderedIncoming === entry) {
+			renderedIncoming = undefined;
+		}
+	});
+	return text;
+}
 
 /**
  * The agent's summary of the incoming changes of `preview`, or undefined while there is none:
@@ -44,7 +67,7 @@ function useIncomingSummary(preview: IIncomingPreview | undefined, myChangedPath
 		const { preview, myChangedPaths } = requested;
 		const source = new CancellationTokenSource();
 		const summarize = async () => {
-			const incomingDiff = await renderIncomingForModel(engine, preview, incomingDiffBudget(preview, myChangedPaths));
+			const incomingDiff = await incomingDiffFor(engine, preview, incomingDiffBudget(preview, myChangedPaths));
 			if (source.token.isCancellationRequested) {
 				return;
 			}

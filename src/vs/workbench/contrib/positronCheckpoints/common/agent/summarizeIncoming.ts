@@ -6,9 +6,9 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ISequence, LcsDiff } from '../../../../../base/common/diff/diff.js';
 import { ContentRef, ICheckpointsEngineProxy, IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { containsForbiddenWord, field, PROMPT_ALLOWANCE_CHARS } from './describeChanges.js';
+import { containsForbiddenWord, field, PROMPT_ALLOWANCE_CHARS, startsWithYou } from './describeChanges.js';
 import { fitFilesToLength } from './diffText.js';
-import { Job, MAX_INPUT_CHARS, wrapUntrusted } from './jobTypes.js';
+import { Job, MAX_INPUT_CHARS, STYLE_THIRD_PERSON, wrapUntrusted } from './jobTypes.js';
 
 /** The longest summary of incoming changes the view shows. */
 export const MAX_INCOMING_SUMMARY_CHARS = 500;
@@ -27,6 +27,18 @@ const MAX_PARALLEL_READS = 4;
 
 /** The largest side of a file, in bytes, that is compared. A larger file is listed by name and size. */
 const MAX_SIDE_BYTES = 512 * 1024;
+
+/** The longest time, in milliseconds, spent comparing one file. A slower file is listed by name and line counts. */
+export const MAX_DIFF_MS = 50;
+
+/** The most changed lines shown for one file. */
+export const MAX_RENDERED_LINES_PER_FILE = 2000;
+
+/** The most incoming checkpoints listed in a request. */
+export const MAX_LISTED_CHECKPOINTS = 30;
+
+/** The most of the person's changed files listed in a request. */
+export const MAX_LISTED_PATHS = 100;
 
 /** How colleagues' changes relate to the person's own work. */
 export type IncomingRelation = 'unrelated' | 'nearby' | 'overlapping';
@@ -67,9 +79,17 @@ function isBinary(bytes: VSBuffer): boolean {
 	return bytes.buffer.subarray(0, BINARY_SNIFF_BYTES).includes(0);
 }
 
-/** The lines that differ between `before` and `after`, each group after a line that says where it is. */
-function changedLines(before: string[], after: string[]): string[] {
-	const changes = new LcsDiff(new LineSequence(before), new LineSequence(after)).ComputeDiff(false).changes;
+/**
+ * The lines that differ between `before` and `after`, each group after a line that says where it
+ * is, or undefined when the comparison takes longer than `MAX_DIFF_MS`.
+ */
+function changedLines(before: string[], after: string[], now: () => number): string[] | undefined {
+	const started = now();
+	const result = new LcsDiff(new LineSequence(before), new LineSequence(after), () => now() - started < MAX_DIFF_MS).ComputeDiff(false);
+	if (result.quitEarly) {
+		return undefined;
+	}
+	const changes = result.changes;
 	const lines: string[] = [];
 	for (const change of changes) {
 		lines.push(`@@ line ${change.originalStart + 1} before, line ${change.modifiedStart + 1} now @@`);
@@ -84,11 +104,12 @@ function changedLines(before: string[], after: string[]): string[] {
 }
 
 /**
- * The texts of one incoming file, from the full one to the shortest: its changed lines, then its
- * "File:" line with line counts. A data file, a side that is a file on disk, or a file too large
- * to compare has its "File:" line only.
+ * The texts of one incoming file, from the full one to the shortest: its changed lines (at most
+ * `MAX_RENDERED_LINES_PER_FILE`), then its "File:" line with line counts. A data file, a side that
+ * is a file on disk, a file too large to compare, or a file whose comparison takes longer than
+ * `MAX_DIFF_MS` has its "File:" line only.
  */
-async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string): Promise<string[]> {
+async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string, now: () => number): Promise<string[]> {
 	const { left, right } = await engine.getDiff({ kind: 'incoming', path });
 	const read = async (ref: ContentRef): Promise<VSBuffer | undefined> => {
 		switch (ref.kind) {
@@ -113,11 +134,17 @@ async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string)
 	if (beforeLines.length + afterLines.length > MAX_COMPARED_LINES) {
 		return [`File: ${path} (${status}, ${beforeLines.length} lines before, ${afterLines.length} lines now, contents not shown)`];
 	}
-	const lines = changedLines(beforeLines, afterLines);
+	const lines = changedLines(beforeLines, afterLines, now);
+	if (!lines) {
+		return [`File: ${path} (${status}, ${beforeLines.length} lines before, ${afterLines.length} lines now, contents not shown)`];
+	}
 	const added = lines.filter(line => line.startsWith('+')).length;
 	const removed = lines.filter(line => line.startsWith('-')).length;
+	const shown = lines.length > MAX_RENDERED_LINES_PER_FILE
+		? [...lines.slice(0, MAX_RENDERED_LINES_PER_FILE), `(${lines.length - MAX_RENDERED_LINES_PER_FILE} more lines are not shown)`]
+		: lines;
 	return [
-		[`File: ${path} (${status})`, ...lines].join('\n'),
+		[`File: ${path} (${status})`, ...shown].join('\n'),
 		`File: ${path} (${status}, +${added} -${removed} lines, contents not shown)`,
 	];
 }
@@ -126,12 +153,15 @@ async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string)
  * The incoming changes of `preview` as text for a model request, at most `maxChars` characters
  * long. Each changed file is a "File:" line followed by its changed lines, read from both sides of
  * the engine's comparison. A data file (a zero byte in its first 8000 bytes) and a file with a side
- * over 512 KB appear as their name and sizes only. At most 4 files are read at a time, at most 40
- * files are read, and reading stops once the full texts reach `maxChars`; the other files appear
- * as their name only. When the text is too long, files are shortened largest first to their "File:"
- * line, and then the last files are left out.
+ * over 512 KB appear as their name and sizes only, and a file whose comparison takes longer than
+ * 50 ms as its name and line counts. A file shows at most 2,000 changed lines. At most 4 files are
+ * read at a time, at most 40 files are read, and reading stops once the full texts reach
+ * `maxChars`; the other files appear as their name only. When the text is too long, files are
+ * shortened largest first to their "File:" line, and then the last files are left out.
+ *
+ * @param now The clock that times each comparison, in milliseconds.
  */
-export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, preview: IIncomingPreview, maxChars: number): Promise<string> {
+export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, preview: IIncomingPreview, maxChars: number, now: () => number = Date.now): Promise<string> {
 	const paths = preview.changedPaths;
 	const forms: string[][] = paths.map(path => [`File: ${path} (contents not shown)`]);
 	let next = 0;
@@ -139,7 +169,7 @@ export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, pr
 	const worker = async () => {
 		while (length < maxChars && next < Math.min(paths.length, MAX_FILES_READ)) {
 			const index = next++;
-			forms[index] = await renderIncomingFile(engine, paths[index]);
+			forms[index] = await renderIncomingFile(engine, paths[index], now);
 			length += forms[index][0].length + 1;
 		}
 	};
@@ -147,14 +177,19 @@ export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, pr
 	return fitFilesToLength(forms, maxChars);
 }
 
-/** The list of incoming checkpoints, for the prompt. */
-function listCheckpoints(preview: IIncomingPreview): string {
-	return preview.incoming.map(checkpoint => `- "${checkpoint.title}" by ${checkpoint.authorName}`).join('\n');
+/** The first `max` of `lines`, followed by a line that counts the others when there are more. */
+function capList(lines: readonly string[], max: number): string[] {
+	return lines.length > max ? [...lines.slice(0, max), `... and ${lines.length - max} more`] : [...lines];
 }
 
-/** The list of the person's changed files, for the prompt. */
+/** The list of incoming checkpoints, for the prompt: at most `MAX_LISTED_CHECKPOINTS`. */
+function listCheckpoints(preview: IIncomingPreview): string {
+	return capList(preview.incoming.map(checkpoint => `- "${checkpoint.title}" by ${checkpoint.authorName}`), MAX_LISTED_CHECKPOINTS).join('\n');
+}
+
+/** The list of the person's changed files, for the prompt: at most `MAX_LISTED_PATHS`. */
 function listMine(myChangedPaths: readonly string[]): string {
-	return myChangedPaths.length > 0 ? myChangedPaths.join('\n') : '(none)';
+	return myChangedPaths.length > 0 ? capList(myChangedPaths, MAX_LISTED_PATHS).join('\n') : '(none)';
 }
 
 /**
@@ -182,18 +217,25 @@ const SYSTEM_PROMPT = [
 	'Colleagues of a person added checkpoints of their work to the shared copy of a project. You summarize what the colleagues changed, for the person, before the person gets those changes.',
 	'Answer with a JSON object of this form:',
 	'{"summary": "...", "relation": "unrelated"}',
-	`- "summary" is one to three sentences, at most ${MAX_INCOMING_SUMMARY_CHARS} characters, about what the colleagues changed and why it matters. Name the colleagues by the names given. Write in the third person, for example "Maya updated the dosing table."`,
+	`- "summary" is one to three sentences, at most ${MAX_INCOMING_SUMMARY_CHARS} characters, about what the colleagues changed and why it matters. Name the colleagues by the names given, for example "Maya updated the dosing table."`,
 	'- "relation" says how the colleagues\' changes relate to the person\'s own changes:',
 	'  "overlapping" when the facts say that both changed the same lines, and only then.',
-	'  "nearby" when the facts say that some of the colleagues\' changes are in files the person also changed, or when the changes are close to the person\'s work in purpose.',
-	'  "unrelated" only when the facts say that none of the colleagues\' changes are in files the person changed.',
+	'  "nearby" when the facts say that some of the colleagues\' changes are in files the person also changed and no lines are in common.',
+	'  "unrelated" when the facts say that none of the colleagues\' changes are in files the person changed.',
+	STYLE_THIRD_PERSON,
 ].join('\n');
 
-/** The plain-language summary of colleagues' changes, checked against the engine's facts. */
+/**
+ * The plain-language summary of colleagues' changes, checked against the engine's facts: the
+ * relation is `overlapping` exactly when the engine found overlaps, `nearby` only when the engine
+ * reports that local work is touched and there are no overlaps, and `unrelated` only when local
+ * work is not touched. The summary has 1 to 500 characters, no git words, and does not start with
+ * "You ".
+ */
 export const summarizeIncomingJob: Job<ISummarizeIncomingInput, IIncomingSummary> = {
 	name: 'summarize-incoming',
 	weight: 'light',
-	version: 1,
+	version: 2,
 
 	buildPrompt(input) {
 		const content = [
@@ -223,7 +265,7 @@ export const summarizeIncomingJob: Job<ISummarizeIncomingInput, IIncomingSummary
 			return undefined;
 		}
 		const trimmed = summary.trim();
-		if (trimmed.length === 0 || trimmed.length > MAX_INCOMING_SUMMARY_CHARS) {
+		if (trimmed.length === 0 || trimmed.length > MAX_INCOMING_SUMMARY_CHARS || startsWithYou(trimmed)) {
 			return undefined;
 		}
 		// The relation must agree with the engine, which decides what overlaps.
@@ -232,6 +274,9 @@ export const summarizeIncomingJob: Job<ISummarizeIncomingInput, IIncomingSummary
 			return undefined;
 		}
 		if (relation === 'unrelated' && input.preview.touchesLocalWork) {
+			return undefined;
+		}
+		if (relation === 'nearby' && (!input.preview.touchesLocalWork || overlapping)) {
 			return undefined;
 		}
 		if (containsForbiddenWord(trimmed, [...input.preview.changedPaths, ...input.myChangedPaths])) {

@@ -396,7 +396,8 @@ const overlaps = {
 	chooseMyself: () => localize('positron.checkpoints.overlaps.chooseMyself', "Choose myself"),
 	oneSideKept: () => localize('positron.checkpoints.overlaps.oneSideKept', "The suggestion keeps the changes of only one side."),
 	dropsBothChanges: () => localize('positron.checkpoints.overlaps.dropsBothChanges', "The suggestion drops both changes."),
-	mostlyNewLines: () => localize('positron.checkpoints.overlaps.mostlyNewLines', "Most lines of the suggestion are in neither version."),
+	newText: () => localize('positron.checkpoints.overlaps.newText', "The suggestion contains text that neither of you wrote."),
+	leavesOutPartOfChange: () => localize('positron.checkpoints.overlaps.leavesOutPartOfChange', "The suggestion leaves out part of a change."),
 };
 
 const start = {

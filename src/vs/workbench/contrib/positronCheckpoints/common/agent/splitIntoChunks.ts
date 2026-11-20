@@ -6,7 +6,7 @@
 import { IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { checkTitle, containsForbiddenWord, field, MAX_SUMMARY_CHARS, PROMPT_ALLOWANCE_CHARS } from './describeChanges.js';
 import { renderHunksForModel } from './diffText.js';
-import { Job, MAX_INPUT_CHARS, wrapUntrusted } from './jobTypes.js';
+import { Job, MAX_INPUT_CHARS, STYLE_SECOND_PERSON, wrapUntrusted } from './jobTypes.js';
 
 /** The most chunks a proposal can have. */
 export const MAX_PROPOSED_CHUNKS = 8;
@@ -37,18 +37,19 @@ const SYSTEM_PROMPT = [
 	'- Put the id of every part in "hunkIds" of exactly one checkpoint. Put the path of every whole file in "wholeFiles" of exactly one checkpoint. Use only the ids and paths that are listed.',
 	'- "title" is one line of at most 72 characters that names the work. "summary" is one or two sentences about it.',
 	'- "finished" is true when the work in the checkpoint looks complete, and false when it looks started but not done.',
+	STYLE_SECOND_PERSON,
 ].join('\n');
 
 /**
  * Splits the unrecorded changes into suggested checkpoints. The check accepts 1 to 8 chunks whose
  * hunk ids and file paths are exactly a partition of the input: every hunk of every text file
  * once, every file without hunks once in `wholeFiles`, and nothing else. Titles and summaries
- * follow the rules of `describeChangesJob`.
+ * follow the rules of `describeChangesJob`, and a summary is never empty.
  */
 export const splitIntoChunksJob: Job<IChangeSet, IChunkProposal> = {
 	name: 'split-into-chunks',
 	weight: 'careful',
-	version: 1,
+	version: 2,
 
 	buildPrompt(changes) {
 		const text = renderHunksForModel(changes, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS);
@@ -82,7 +83,7 @@ export const splitIntoChunksJob: Job<IChangeSet, IChunkProposal> = {
 			const hunkIds = field(rawChunk, 'hunkIds');
 			const wholeFiles = field(rawChunk, 'wholeFiles');
 			const finished = field(rawChunk, 'finished');
-			if (title === undefined || typeof summary !== 'string' || summary.trim().length > MAX_SUMMARY_CHARS || typeof finished !== 'boolean') {
+			if (title === undefined || typeof summary !== 'string' || summary.trim().length === 0 || summary.trim().length > MAX_SUMMARY_CHARS || typeof finished !== 'boolean') {
 				return undefined;
 			}
 			if (!isStringArray(hunkIds) || !isStringArray(wholeFiles) || hunkIds.length + wholeFiles.length === 0) {

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { extUri } from '../../../../../base/common/resources.js';
@@ -374,6 +374,32 @@ describe('Overlap editor', () => {
 			expect(screen.getByText('The two changes are on different lines.')).toBeInTheDocument();
 			expect(screen.queryByText('This suggestion may not be right, so nothing is selected.')).not.toBeInTheDocument();
 			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
+		});
+
+		test('turning the agent off clears an unedited preselected proposal', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			await renderEditor([dose]);
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: combined });
+
+			act(() => agent.setAvailable(false));
+
+			await vi.waitFor(() => expect(controller.resolutions.has('dose')).toBe(false));
+			expect(applyButton()).toBeDisabled();
+		});
+
+		test('turning the agent off keeps a preselected proposal the person edited', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			const user = await renderEditor([dose]);
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+			await user.type(screen.getByRole('textbox', { name: 'Combined text' }), '# note');
+
+			act(() => agent.setAvailable(false));
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: `${combined}# note` });
 		});
 
 		test('editing the result of a preselected proposal shows the manual choices and says so', async () => {

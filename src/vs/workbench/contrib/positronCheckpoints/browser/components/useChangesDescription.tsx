@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
@@ -26,11 +27,16 @@ export function useAgentAvailable(): boolean {
 	return available;
 }
 
+/** How long the basis of the changes must stay the same before a changed basis is described. */
+export const DESCRIBE_DELAY_MS = 3000;
+
 /**
  * The description of `changes` by the agent, or undefined while there is none: while it loads,
  * when the agent is not available, when the job gave no output, or when `active` is false. It is
- * requested while `active` is true, the agent is available, and there are changes, and requested
- * again when the basis of the changes differs, with the earlier request cancelled.
+ * requested while `active` is true, the agent is available, and there are changes. When the basis
+ * differs from the one last requested, the earlier request is cancelled and the new one is made
+ * only after the basis stayed the same for `DESCRIBE_DELAY_MS`, so a burst of saves makes one
+ * request.
  */
 export function useChangesDescription(changes: IChangeSet | undefined, active: boolean): IChangesDescription | undefined {
 	const services = usePositronReactServicesContext();
@@ -42,22 +48,37 @@ export function useChangesDescription(changes: IChangeSet | undefined, active: b
 	const latestChanges = useRef(changes);
 	latestChanges.current = changes;
 	const basis = changes && changes.files.length > 0 ? changes.basis : undefined;
+	const lastRequestedBasis = useRef<string>(undefined);
 
 	useEffect(() => {
-		const requested = latestChanges.current;
-		if (!active || !available || basis === undefined || !requested) {
+		if (!active || !available || basis === undefined || !latestChanges.current) {
 			return;
 		}
 		const source = new CancellationTokenSource();
-		agentService.run(describeChangesJob, requested, source.token).then(outcome => {
-			if (outcome.ok && !source.token.isCancellationRequested) {
-				setDescribed({ basis, description: outcome.value });
+		const request = () => {
+			const requested = latestChanges.current;
+			if (!requested) {
+				return;
 			}
-		}, error => {
-			// A failed outcome: the plain file list stays.
-			services.get(ILogService).error('The changes could not be described.', error);
-		});
-		return () => source.dispose(true);
+			lastRequestedBasis.current = basis;
+			agentService.run(describeChangesJob, requested, source.token).then(outcome => {
+				if (outcome.ok && !source.token.isCancellationRequested) {
+					setDescribed({ basis, description: outcome.value });
+				}
+			}, error => {
+				// A failed outcome: the plain file list stays.
+				services.get(ILogService).error('The changes could not be described.', error);
+			});
+		};
+		const changed = lastRequestedBasis.current !== undefined && lastRequestedBasis.current !== basis;
+		const timer = changed ? disposableTimeout(request, DESCRIBE_DELAY_MS) : undefined;
+		if (!changed) {
+			request();
+		}
+		return () => {
+			timer?.dispose();
+			source.dispose(true);
+		};
 	}, [services, agentService, active, available, basis]);
 
 	return active && available && described && described.basis === basis ? described.description : undefined;

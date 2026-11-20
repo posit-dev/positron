@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RunOnceScheduler } from '../../../../../base/common/async.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { StringSHA1 } from '../../../../../base/common/hash.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ModelSelection, StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { ILanguageModelMessage } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { extractJson, Job, JobOutcome, STYLE_RULES, withoutDataTokens } from './jobTypes.js';
@@ -18,6 +20,12 @@ export const MAX_RESPONSE_CHARS = 200000;
 
 /** The number of answers kept in the cache. */
 export const MAX_CACHE_ENTRIES = 200;
+
+/** The longest stored form of an answer, in characters, that is cached. A longer answer is not. */
+export const MAX_CACHED_VALUE_CHARS = 20000;
+
+/** The shortest time between two writes of the cache index to storage. */
+export const INDEX_WRITE_DELAY_MS = 2000;
 
 /** The prefix of every storage key of the agent. */
 export const AGENT_STORAGE_PREFIX = 'positronCheckpoints.agent';
@@ -51,14 +59,37 @@ export interface IJobCacheStorage {
 }
 
 /**
- * Checked job outputs, at most `MAX_CACHE_ENTRIES`. Each output is stored under its own key, and
- * an index key lists the keys from least to most recently used. Adding past the limit removes the
- * least recently used output.
+ * Checked job outputs, at most `MAX_CACHE_ENTRIES`, each at most `MAX_CACHED_VALUE_CHARS` long
+ * when stored. Each output is stored under its own key, and an index key lists the keys from least
+ * to most recently used. Adding past the limit removes the least recently used output. The index
+ * is kept in memory and written to storage at most once per `INDEX_WRITE_DELAY_MS`, and on
+ * `flush` or disposal.
  */
-export class JobCache {
+export class JobCache implements IDisposable {
 	static readonly INDEX_KEY = `${AGENT_STORAGE_PREFIX}.cacheIndex`;
 
-	constructor(private readonly _storage: IJobCacheStorage, private readonly _maxEntries = MAX_CACHE_ENTRIES) { }
+	/** The index, read from storage on first use. */
+	private _index: string[] | undefined;
+	private readonly _indexWrite: RunOnceScheduler;
+
+	constructor(private readonly _storage: IJobCacheStorage, private readonly _maxEntries = MAX_CACHE_ENTRIES) {
+		this._indexWrite = new RunOnceScheduler(() => this.flush(), INDEX_WRITE_DELAY_MS);
+	}
+
+	/** Writes the index to storage now, once it has been read or changed. */
+	flush(): void {
+		this._indexWrite.cancel();
+		if (this._index !== undefined) {
+			this._storage.store(JobCache.INDEX_KEY, JSON.stringify(this._index));
+		}
+	}
+
+	dispose(): void {
+		if (this._indexWrite.isScheduled()) {
+			this.flush();
+		}
+		this._indexWrite.dispose();
+	}
 
 	/** The output stored under `key`, or undefined when there is none or it cannot be read. */
 	get<T>(key: string): T | undefined {
@@ -83,8 +114,15 @@ export class JobCache {
 		this._writeIndex(this._readIndex().filter(entry => entry !== key));
 	}
 
-	/** Stores a checked output under `key`, removing the least recently used ones past the limit. */
+	/**
+	 * Stores a checked output under `key`, removing the least recently used ones past the limit.
+	 * An output longer than `MAX_CACHED_VALUE_CHARS` when stored is not cached.
+	 */
 	set(key: string, value: unknown): void {
+		const stored = JSON.stringify(value);
+		if (stored.length > MAX_CACHED_VALUE_CHARS) {
+			return;
+		}
 		const index = [...this._readIndex().filter(entry => entry !== key), key];
 		while (index.length > this._maxEntries) {
 			const oldest = index.shift();
@@ -92,12 +130,18 @@ export class JobCache {
 				this._storage.remove(oldest);
 			}
 		}
-		this._storage.store(key, JSON.stringify(value));
+		this._storage.store(key, stored);
 		this._writeIndex(index);
 	}
 
 	private _readIndex(): string[] {
-		const stored = this._storage.get(JobCache.INDEX_KEY);
+		if (this._index === undefined) {
+			this._index = JobCache._parseIndex(this._storage.get(JobCache.INDEX_KEY));
+		}
+		return this._index;
+	}
+
+	private static _parseIndex(stored: string | undefined): string[] {
 		if (stored === undefined) {
 			return [];
 		}
@@ -109,8 +153,12 @@ export class JobCache {
 		}
 	}
 
+	/** Replaces the index in memory, and writes it to storage within `INDEX_WRITE_DELAY_MS`. */
 	private _writeIndex(index: string[]): void {
-		this._storage.store(JobCache.INDEX_KEY, JSON.stringify(index));
+		this._index = index;
+		if (!this._indexWrite.isScheduled()) {
+			this._indexWrite.schedule();
+		}
 	}
 }
 

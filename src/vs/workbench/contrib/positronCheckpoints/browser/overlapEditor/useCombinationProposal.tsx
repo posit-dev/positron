@@ -75,7 +75,9 @@ export type CombinationProposalState =
  *
  * When a `high` confidence proposal arrives and `readChoice` gives no choice for the overlap, the
  * proposed text becomes the choice through `onChoose`. A proposal that arrives after the person
- * chose leaves the choice alone. Nothing is applied: the person still presses Apply.
+ * chose leaves the choice alone. Nothing is applied: the person still presses Apply. When the
+ * agent becomes unavailable while the preselected text is still the choice, unedited, the choice
+ * is cleared, so no model text stays selected after the person turned the agent off.
  *
  * @param readChoice Reads the current choice for the overlap where it is kept, so that a choice
  * made just before the proposal arrives is seen even before the component renders it.
@@ -97,6 +99,23 @@ export function useCombinationProposal(
 
 	const eligible = available && fitsInOneRequest(overlap);
 	const overlapId = overlap.id;
+
+	// The text that became the choice as the proposal arrived, for the overlap it was made for.
+	const preselectedText = useRef<{ overlapId: string; content: string }>(undefined);
+	useEffect(() => {
+		if (available) {
+			return;
+		}
+		const preselected = preselectedText.current;
+		preselectedText.current = undefined;
+		if (!preselected || preselected.overlapId !== latest.current.overlap.id) {
+			return;
+		}
+		const choice = latest.current.readChoice();
+		if (choice?.type === 'text' && choice.content === preselected.content) {
+			latest.current.onChoose(undefined);
+		}
+	}, [available]);
 
 	useEffect(() => {
 		if (!eligible) {
@@ -131,6 +150,7 @@ export function useCombinationProposal(
 			const proposal = outcome.value;
 			const preselected = proposal.confidence === 'high' && latest.current.readChoice() === undefined;
 			if (preselected) {
+				preselectedText.current = { overlapId, content: proposal.combined };
 				latest.current.onChoose({ type: 'text', content: proposal.combined });
 			}
 			settle({ status: 'ready', proposal, preselected });

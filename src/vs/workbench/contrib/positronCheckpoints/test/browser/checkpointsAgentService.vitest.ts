@@ -235,7 +235,39 @@ describe('CheckpointsAgentService', () => {
 
 		expect(await service.run(titleJob, 'diff', source.token)).toEqual({ ok: false, reason: 'cancelled' });
 		expect(pulled).toBe(1);
-		expect(streamText.mock.calls[0][0].cancellationToken).toBe(source.token);
+		expect(streamText.mock.calls[0][0].cancellationToken?.isCancellationRequested).toBe(true);
+	});
+
+	test.each([
+		[AI_ENABLED_KEY, 'ai-off'],
+		[CHECKPOINTS_SUGGESTIONS_ENABLED_KEY, 'suggestions-off'],
+	])('turning %s off cancels a request in flight, which ends with %s and caches nothing', async (key, reason) => {
+		let requestToken: CancellationToken | undefined;
+		let finish!: () => void;
+		const finished = new Promise<void>(resolve => { finish = resolve; });
+		streamText.mockImplementation(async request => {
+			requestToken = request.cancellationToken;
+			return {
+				available: true,
+				model: { id: 'model-1', name: 'Model 1' },
+				usedFallback: false,
+				text: (async function* () {
+					await finished;
+					yield '{"title": "Fixed the dose units"}';
+				})(),
+			};
+		});
+		const running = service.run(titleJob, 'diff', none);
+		await vi.waitFor(() => expect(requestToken).toBeDefined());
+
+		await setSetting(key, false);
+		expect(requestToken!.isCancellationRequested).toBe(true);
+		finish();
+
+		expect(await running).toEqual({ ok: false, reason });
+		await setSetting(key, true);
+		streamText.mockImplementation(async () => answer('{"title": "Asked again"}'));
+		expect(await service.run(titleJob, 'diff', none)).toEqual({ ok: true, value: { title: 'Asked again' }, fromCache: false });
 	});
 
 	test('cancelling one of two waiting jobs leaves the notice, and cancelling the last removes it', async () => {

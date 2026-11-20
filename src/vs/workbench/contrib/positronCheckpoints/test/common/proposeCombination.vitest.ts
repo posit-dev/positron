@@ -103,15 +103,41 @@ describe('proposeCombinationJob', () => {
 		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'a\nC\n' }, input({ ...overlap, mine: 'a\nc\n' }))?.confidence).toBe('high');
 	});
 
-	test('a combination with mostly new lines is low confidence', () => {
+	test('a combination with any line that is in no version is low confidence', () => {
 		const invented = ['dose <- read.csv("dose.csv")', 'cap <- 500', 'cap <- min(cap, 600)', 'units <- toupper("mg/kg")', 'scale <- 2', 'plot(dose)', ''].join('\n');
+		const oneNew = both.replace('plot(dose)\n', 'plot(dose)\nabline(h = cap)\n');
 
 		expect(proposeCombinationJob.check({ ...goodResponse, combined: invented }, input())).toEqual({
-			...goodResponse, combined: invented, confidence: 'low', reason: 'Most lines of the suggestion are in neither version.',
+			...goodResponse, combined: invented, confidence: 'low', reason: 'The suggestion contains text that neither of you wrote.',
 		});
-		// Two new lines out of five is 40 percent, which is not more than 40 percent.
-		const twoNew = both.replace('plot(dose)\n', 'plot(dose)\nabline(h = cap)\nlegend("top")\n').replace('dose <- read.csv("dose.csv")\n', '');
-		expect(proposeCombinationJob.check({ ...goodResponse, combined: twoNew }, input())?.confidence).toBe('high');
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: oneNew }, input())).toEqual({
+			...goodResponse, combined: oneNew, confidence: 'low', reason: 'The suggestion contains text that neither of you wrote.',
+		});
+	});
+
+	test('a combination that keeps only part of the lines a side added is low confidence', () => {
+		const overlap = { base: 'a\nz\n', mine: 'a\nm1\nm2\nz\n', theirs: 'a\nz\nt1\n' };
+
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'a\nm1\nz\nt1\n' }, input(overlap))).toEqual({
+			...goodResponse, combined: 'a\nm1\nz\nt1\n', confidence: 'low', reason: 'The suggestion leaves out part of a change.',
+		});
+		// Leaving out every line a side added, while keeping its removal, is the same failure.
+		const dropsMine = { base: 'a\nz\n', mine: 'm1\nz\n', theirs: 'a\nz\nt1\n' };
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'z\nt1\n' }, input(dropsMine))?.reason).toBe('The suggestion leaves out part of a change.');
+		// Every line of both sides, in a correct interleaving of two independent edits, stays high.
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'a\nm1\nm2\nz\nt1\n' }, input(overlap))?.confidence).toBe('high');
+	});
+
+	test('a correct interleaving of two independent edits is high confidence, and blank lines do not count', () => {
+		const overlap = {
+			base: 'load()\nfit()\nplot()\n',
+			mine: 'load()\nclean()\nfit()\nplot()\n',
+			theirs: 'load()\nfit()\nsummary()\nplot()\n',
+		};
+
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'load()\nclean()\nfit()\nsummary()\nplot()\n' }, input(overlap))?.confidence).toBe('high');
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'load()\nclean()\n\nfit()\nsummary()\nplot()\n' }, input(overlap))?.confidence).toBe('high');
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'load()\nclean()\nfit()\nsummary()\nplot()\n' }, input({ ...overlap, mine: 'load()\nclean()\n\nfit()\nplot()\n' }))?.confidence).toBe('high');
 	});
 
 	test('lines compare without their trailing whitespace', () => {

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { raceCancellation } from '../../../../base/common/async.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -80,6 +80,12 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 	private readonly _onDidChangePendingDisclosure = this._register(new Emitter<void>());
 	readonly onDidChangePendingDisclosure = this._onDidChangePendingDisclosure.event;
 
+	/**
+	 * The runs in progress, each with the source of its cancellation and whether the agent became
+	 * unavailable during it. A request in flight stops when the settings turn off.
+	 */
+	private readonly _runs = new Set<{ source: CancellationTokenSource; withdrawn: boolean }>();
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -87,12 +93,15 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
-		this._cache = new JobCache({
+		this._cache = this._register(new JobCache({
 			get: key => this._storageService.get(key, StorageScope.WORKSPACE),
 			store: (key, value) => this._storageService.store(key, value, StorageScope.WORKSPACE, StorageTarget.MACHINE),
 			remove: key => this._storageService.remove(key, StorageScope.WORKSPACE),
-		});
+		}));
+		// The cache writes its index at most every two seconds, so it is written before storage is saved.
+		this._register(this._storageService.onWillSaveState(() => this._cache.flush()));
 		this._available = this._readAvailable();
+		this._register(toDisposable(() => this._withdrawRuns()));
 		this._register(this._configurationService.onDidChangeConfiguration(event => {
 			if (!event.affectsConfiguration(AI_ENABLED_KEY) && !event.affectsConfiguration(CHECKPOINTS_SUGGESTIONS_ENABLED_KEY)) {
 				return;
@@ -103,7 +112,9 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 			}
 			this._available = available;
 			if (!available) {
-				// The notice goes away, and the jobs waiting on it end with the reason that applies.
+				// Requests in flight stop. The notice goes away, and the jobs waiting on it end with
+				// the reason that applies.
+				this._withdrawRuns();
 				this._settleDisclosure('withdrawn');
 			}
 			this._onDidChangeAvailable.fire();
@@ -139,7 +150,31 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		if (token.isCancellationRequested) {
 			return { ok: false, reason: 'cancelled' };
 		}
+		// The run ends when the caller cancels it or when the agent becomes unavailable.
+		const run = { source: new CancellationTokenSource(token), withdrawn: false };
+		this._runs.add(run);
+		try {
+			return await this._run(job, input, run.source.token, () => run.withdrawn);
+		} finally {
+			this._runs.delete(run);
+			run.source.dispose();
+		}
+	}
 
+	/** Cancels every run in progress, as withdrawn. */
+	private _withdrawRuns(): void {
+		for (const run of this._runs) {
+			run.withdrawn = true;
+			run.source.cancel();
+		}
+	}
+
+	/**
+	 * The body of `run`. `token` is cancelled by the caller, or when the agent becomes unavailable,
+	 * which `withdrawn` then reports. A withdrawn run caches nothing and ends with the reason of the
+	 * closed gate.
+	 */
+	private async _run<I, O>(job: Job<I, O>, input: I, token: CancellationToken, withdrawn: () => boolean): Promise<JobOutcome<O>> {
 		let systemPrompt: string;
 		let user: string;
 		let key: string;
@@ -160,18 +195,18 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		}
 
 		const answer = await this._waitForDisclosure(token);
+		if (answer === 'withdrawn' || withdrawn()) {
+			// The agent became unavailable while the notice waited. The job ends here, even when
+			// the settings were switched back on since, and the next run shows the notice again.
+			// The outcome is the gate's reason while a gate is closed (for example `ai-off`), and
+			// `cancelled` when the settings are open again.
+			return this._gate() ?? { ok: false, reason: 'cancelled' };
+		}
 		if (answer === 'cancelled' || token.isCancellationRequested) {
 			return { ok: false, reason: 'cancelled' };
 		}
 		if (answer === 'turn-off') {
 			return { ok: false, reason: 'suggestions-off' };
-		}
-		if (answer === 'withdrawn') {
-			// The agent became unavailable while the notice waited. The job ends here, even when
-			// the settings were switched back on since, and the next run shows the notice again.
-			// The outcome is the gate's reason while a gate is closed (for example `ai-disabled`),
-			// and `cancelled` when the settings are open again.
-			return this._gate() ?? { ok: false, reason: 'cancelled' };
 		}
 		// The settings are read again right before the call, because they can change while the
 		// notice waits.
@@ -186,6 +221,9 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 			model: this._selectionFor(job.weight),
 			streamText: request => this._languageModelService.streamText(request),
 		}, token);
+		if (withdrawn()) {
+			return this._gate() ?? { ok: false, reason: 'cancelled' };
+		}
 		if (outcome.ok) {
 			this._cache.set(key, outcome.value);
 		} else if (outcome.reason === 'error') {

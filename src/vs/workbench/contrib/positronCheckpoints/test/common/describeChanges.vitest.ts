@@ -8,7 +8,7 @@
 import { IChangedFile, IChangeSet, IHunk } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { containsForbiddenWord, describeChangesJob, MAX_FILE_NOTE_CHARS } from '../../common/agent/describeChanges.js';
 import { fullSystemPrompt } from '../../common/agent/jobRunner.js';
-import { MAX_INPUT_CHARS, STYLE_RULES } from '../../common/agent/jobTypes.js';
+import { MAX_INPUT_CHARS, STYLE_RULES, STYLE_SECOND_PERSON, STYLE_THIRD_PERSON } from '../../common/agent/jobTypes.js';
 
 function hunk(id: string, body: string, overrides: Partial<IHunk> = {}): IHunk {
 	return { id, header: '@@ -1,2 +1,2 @@', addedLines: 1, removedLines: 1, patch: `@@ -1,2 +1,2 @@\n${body}`, ...overrides };
@@ -160,7 +160,26 @@ describe('describeChangesJob', () => {
 		expect(containsForbiddenWord('Ready to merge', ['erg'])).toBe(true);
 		expect(containsForbiddenWord('Ready to push', ['data/pus'])).toBe(true);
 		expect(containsForbiddenWord('Updated merge.R and R/merge.R', ['R/merge.R'])).toBe(false);
-		expect(containsForbiddenWord('Updated push', ['scripts/push'])).toBe(false);
+		expect(containsForbiddenWord('Updated scripts/push', ['scripts/push'])).toBe(false);
+	});
+
+	test('a file or author name that is itself a git word does not let the word through', () => {
+		expect(containsForbiddenWord('Updated push', ['scripts/push'])).toBe(true);
+		expect(containsForbiddenWord('Ready to merge', ['merge'])).toBe(true);
+		expect(containsForbiddenWord('Work from Merge', ['Merge'])).toBe(true);
+		expect(containsForbiddenWord('Updated merge.R', ['merge.R'])).toBe(false);
+	});
+
+	test('check rejects an empty summary', () => {
+		expect(describeChangesJob.check({ ...goodResponse, summary: '' }, changes)).toBeUndefined();
+		expect(describeChangesJob.check({ ...goodResponse, summary: '   ' }, changes)).toBeUndefined();
+	});
+
+	test('the prompt asks for the second person', () => {
+		const prompt = describeChangesJob.buildPrompt(changes);
+
+		expect(prompt.systemPrompt).toContain(STYLE_SECOND_PERSON);
+		expect(fullSystemPrompt(prompt.systemPrompt)).not.toContain(STYLE_THIRD_PERSON);
 	});
 
 	test('check rejects a file note over 120 characters', () => {

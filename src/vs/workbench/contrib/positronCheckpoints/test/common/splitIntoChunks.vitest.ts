@@ -7,7 +7,7 @@
 
 import { IChangedFile, IChangeSet, IHunk } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { fullSystemPrompt } from '../../common/agent/jobRunner.js';
-import { MAX_INPUT_CHARS, STYLE_RULES } from '../../common/agent/jobTypes.js';
+import { MAX_INPUT_CHARS, STYLE_RULES, STYLE_SECOND_PERSON } from '../../common/agent/jobTypes.js';
 import { splitIntoChunksJob } from '../../common/agent/splitIntoChunks.js';
 
 function hunk(id: string, body: string, overrides: Partial<IHunk> = {}): IHunk {
@@ -105,7 +105,7 @@ describe('splitIntoChunksJob', () => {
 	test('check rejects more than 8 chunks', () => {
 		const files = Array.from({ length: 9 }, (_, index) => changedFile(`f${index}.R`, [hunk(`h${index}`, '+x\n')]));
 		const nine: IChangeSet = { basis: 'b1', files };
-		const chunk = (index: number) => ({ title: `Step ${index}`, summary: '', hunkIds: [`h${index}`], wholeFiles: [], finished: true });
+		const chunk = (index: number) => ({ title: `Step ${index}`, summary: `You did step ${index}.`, hunkIds: [`h${index}`], wholeFiles: [], finished: true });
 
 		expect(splitIntoChunksJob.check({ chunks: [0, 1, 2, 3, 4, 5, 6, 7].map(chunk).concat([{ ...chunk(8), hunkIds: [] }]) }, nine)).toBeUndefined();
 		const eight = { chunks: [0, 1, 2, 3, 4, 5, 6].map(chunk).concat([{ ...chunk(7), hunkIds: ['h7', 'h8'] }]) };
@@ -120,5 +120,14 @@ describe('splitIntoChunksJob', () => {
 		expect(splitIntoChunksJob.check(withFirstChunk({ title: 'Commit the dose cap' }), changes)).toBeUndefined();
 		expect(splitIntoChunksJob.check(withFirstChunk({ summary: 'Ready to push.' }), changes)).toBeUndefined();
 		expect(splitIntoChunksJob.check(withFirstChunk({ finished: 'yes' }), changes)).toBeUndefined();
+	});
+
+	test('check rejects an empty summary', () => {
+		expect(splitIntoChunksJob.check(withFirstChunk({ summary: '' }), changes)).toBeUndefined();
+		expect(splitIntoChunksJob.check(withFirstChunk({ summary: '  ' }), changes)).toBeUndefined();
+	});
+
+	test('the prompt asks for the second person', () => {
+		expect(splitIntoChunksJob.buildPrompt(changes).systemPrompt).toContain(STYLE_SECOND_PERSON);
 	});
 });

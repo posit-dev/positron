@@ -48,7 +48,8 @@ export const MAX_INPUT_CHARS = 60000;
 
 /**
  * The tone of every text the model writes for the view, part of every system prompt. It follows
- * the human-focused description style of spec 7.
+ * the human-focused description style of spec 7. Who the text speaks about is a rule of each job:
+ * `STYLE_SECOND_PERSON` for the person's own work, `STYLE_THIRD_PERSON` for a colleague's.
  */
 export const STYLE_RULES = [
 	'Rules for every text you write:',
@@ -56,10 +57,16 @@ export const STYLE_RULES = [
 	'- Lead with what changed and why it matters to the analysis or its results.',
 	'- Group related changes by their purpose, not by file. Mention file names second, after the purpose.',
 	'- Use plain words. Where a plain word exists, do not use a programming or version control term.',
-	'- Write in the second person and the past tense, for example "You fixed the dose units in the model."',
+	'- Write in the past tense.',
 	'- State only what the changes show. Do not praise the work and do not guess at the reasons behind it.',
 	'- Never use these words: branch, commit, stage, rebase, merge, pull, push, fetch, HEAD, conflict.',
 ].join('\n');
+
+/** The person rule of the jobs about the person's own work: describe changes and split. */
+export const STYLE_SECOND_PERSON = '- Write in the second person, for example "You fixed the dose units in the model."';
+
+/** The person rule of the jobs about a colleague's work: summarize incoming and describe history. */
+export const STYLE_THIRD_PERSON = '- Write in the third person. Name the colleague or say "they"; never say "you".';
 
 /**
  * The most opening braces `extractJson` tries as the start of an object. Each try scans the text

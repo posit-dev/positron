@@ -5,8 +5,8 @@
 
 import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { CHECKPOINT_TITLE_LIMIT } from '../checkpointsLimits.js';
-import { checkTitle, containsForbiddenWord, field, PROMPT_ALLOWANCE_CHARS } from './describeChanges.js';
-import { Job, MAX_INPUT_CHARS, wrapUntrusted } from './jobTypes.js';
+import { checkTitle, containsForbiddenWord, field, PROMPT_ALLOWANCE_CHARS, startsWithYou } from './describeChanges.js';
+import { Job, MAX_INPUT_CHARS, STYLE_THIRD_PERSON, wrapUntrusted } from './jobTypes.js';
 
 /** The longest summary of a colleague's checkpoint. */
 export const MAX_HISTORY_SUMMARY_CHARS = 400;
@@ -37,17 +37,18 @@ const SYSTEM_PROMPT = [
 	`- "title" is one line of at most ${CHECKPOINT_TITLE_LIMIT} characters that names the work, for example "Changed the dose units to mg/kg".`,
 	`- "summary" is one or two sentences, at most ${MAX_HISTORY_SUMMARY_CHARS} characters, about what the colleague changed and why it matters. Name the colleague by the name given and write in the third person, for example "Maya changed the dose calculation to use body weight."`,
 	'- Use only what the message and the changes show. When the message says little, keep the title close to it.',
+	STYLE_THIRD_PERSON,
 ].join('\n');
 
 /**
  * Rewrites the message of a colleague's checkpoint in plain language (spec 7). The check accepts
  * only a one-line title of 1 to 72 characters and a summary of 1 to 400 characters without git
- * words, and never describes the person's own checkpoint.
+ * words that does not start with "You ", and never describes the person's own checkpoint.
  */
 export const describeHistoryJob: Job<IDescribeHistoryInput, IHistoryDescription> = {
 	name: 'describe-history',
 	weight: 'light',
-	version: 1,
+	version: 2,
 
 	buildPrompt({ checkpoint, diff }) {
 		const maxChars = MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS;
@@ -73,7 +74,7 @@ export const describeHistoryJob: Job<IDescribeHistoryInput, IHistoryDescription>
 			return undefined;
 		}
 		const trimmedSummary = summary.trim();
-		if (trimmedSummary.length === 0 || trimmedSummary.length > MAX_HISTORY_SUMMARY_CHARS) {
+		if (trimmedSummary.length === 0 || trimmedSummary.length > MAX_HISTORY_SUMMARY_CHARS || startsWithYou(trimmedSummary)) {
 			return undefined;
 		}
 		if ([title, trimmedSummary].some(text => containsForbiddenWord(text, [checkpoint.authorName]))) {

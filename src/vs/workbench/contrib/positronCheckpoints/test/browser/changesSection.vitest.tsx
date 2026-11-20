@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -32,6 +32,8 @@ import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggesti
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
+import { DESCRIBE_DELAY_MS } from '../../browser/components/useChangesDescription.js';
+import { STATE_CHANGE_DELAY_MS } from '../../browser/components/useCheckpointsState.js';
 import { IChunkProposal } from '../../common/agent/splitIntoChunks.js';
 import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
@@ -462,21 +464,38 @@ describe('Changes section and checkpoint dialog', () => {
 			await vi.waitFor(() => expect(screen.queryByText(description.summary)).not.toBeInTheDocument());
 		});
 
-		test('new changes request a new description and cancel the earlier request', async () => {
-			agent.setAvailable(true);
-			agent.hold('describe-changes');
-			renderPanel(twoFiles);
-			await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
+		test('new changes cancel the earlier request and are described once they stay the same for 3 seconds', async () => {
+			// The timers of the view are faked; React and vi.waitFor keep their own.
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			try {
+				agent.setAvailable(true);
+				agent.hold('describe-changes');
+				renderPanel(twoFiles);
+				await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
 
-			const newer = { title: 'Changed the theme', summary: 'You made the font larger.', fileNotes: [] };
-			agent.answers.set('describe-changes', { ok: true, value: newer, fromCache: false });
-			engine.changes = { basis: 'b2', files: [changedFile('theme.R')] };
-			engine.fireChange();
+				const newer = { title: 'Changed the theme', summary: 'You made the font larger.', fileNotes: [] };
+				agent.answers.set('describe-changes', { ok: true, value: newer, fromCache: false });
+				// Each save gives a new basis; the view reads the changes after each one.
+				for (const basis of ['b2', 'b3']) {
+					engine.changes = { basis, files: [changedFile(`${basis}.R`)] };
+					engine.fireChange();
+					await vi.advanceTimersByTimeAsync(STATE_CHANGE_DELAY_MS);
+					await vi.waitFor(() => expect(screen.getByText(`${basis}.R`)).toBeInTheDocument());
+					await vi.advanceTimersByTimeAsync(DESCRIBE_DELAY_MS / 2);
+				}
+				// The last change was read during the gathering delay of the state, so the request is due
+				// 3 seconds after a moment within that delay.
+				await vi.advanceTimersByTimeAsync(DESCRIBE_DELAY_MS / 2 - STATE_CHANGE_DELAY_MS);
+				expect(agent.runsOf('describe-changes').map(run => (run.input as IChangeSet).basis)).toEqual(['b1']);
+				expect(agent.runsOf('describe-changes')[0].token.isCancellationRequested).toBe(true);
 
-			expect(await screen.findByText('You made the font larger.')).toBeInTheDocument();
-			const runs = agent.runsOf('describe-changes');
-			expect(runs.map(run => (run.input as IChangeSet).basis)).toEqual(['b1', 'b2']);
-			expect(runs.map(run => run.token.isCancellationRequested)).toEqual([true, false]);
+				await vi.advanceTimersByTimeAsync(STATE_CHANGE_DELAY_MS);
+
+				await vi.waitFor(() => expect(screen.getByText('You made the font larger.')).toBeInTheDocument());
+				expect(agent.runsOf('describe-changes').map(run => (run.input as IChangeSet).basis)).toEqual(['b1', 'b3']);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 
 		test('the same changes read again make no new request', async () => {
@@ -611,6 +630,21 @@ describe('Changes section and checkpoint dialog', () => {
 			await new Promise(resolve => setTimeout(resolve, 0));
 			expect(chunkGroups()).toHaveLength(1);
 			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Mine');
+		});
+
+		test('a proposal that arrives after the agent became unavailable is ignored', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('split-into-chunks');
+			renderPanel(changes);
+			await openDialog();
+			await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+
+			act(() => agent.setAvailable(false));
+			answer({ ok: true, value: proposal, fromCache: false });
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			expect(chunkGroups()).toHaveLength(1);
+			expect(screen.queryByDisplayValue('Capped the dose')).not.toBeInTheDocument();
 		});
 
 		test('a proposal that arrives while the unsaved-files question is open does not replace the draft', async () => {

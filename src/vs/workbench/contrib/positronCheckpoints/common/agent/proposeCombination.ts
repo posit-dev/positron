@@ -17,9 +17,6 @@ export const MAX_EXPLANATION_CHARS = 200;
 /** The longest reason the view shows. */
 export const MAX_REASON_CHARS = 300;
 
-/** Above this share of lines that are in no version, a combination is low confidence. */
-export const MAX_NEW_LINE_SHARE = 0.4;
-
 /**
  * Room in a request for the text around the versions: the instructions, the wrapping of six
  * `wrapUntrusted` blocks, and the name, language, and colleague block.
@@ -145,14 +142,16 @@ const SYSTEM_PROMPT = [
  * overlap, explanations of 1 to 200 characters and a reason of 1 to 300 characters without git
  * words, and a combined text with no marker lines that is empty only when a version is empty and
  * ends with a line break when both the person's and the colleague's versions do. A combined text
- * equal to the version before both changes (when both changed it), equal to one version, without
- * any line that a side added, or with more than 40 percent of its lines in no version, is lowered to
- * `low` confidence with a reason that says why. Lines are compared without trailing whitespace.
+ * is lowered to `low` confidence, with a reason that says why, when it equals one version, when it
+ * equals the version before both changes (when both changed it), when any of its lines is in no
+ * version, or when it leaves out any line that a side added. So a `high` proposal has only lines
+ * from the three versions and every line each side added. Lines are compared without trailing
+ * whitespace, and blank lines are not counted.
  */
 export const proposeCombinationJob: Job<IProposeCombinationInput, ICombinationProposal> = {
 	name: 'propose-combination',
 	weight: 'careful',
-	version: 1,
+	version: 2,
 
 	buildPrompt({ overlap, contextBefore, contextAfter, language }) {
 		const contextBudget = Math.max(0, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS - versionsLength(overlap) - overlap.path.length - overlap.theirAuthor.length);
@@ -213,19 +212,16 @@ export const proposeCombinationJob: Job<IProposeCombinationInput, ICombinationPr
 		if (sameLines(lines, baseLines) && !sameLines(normalizedLines(mine), baseLines) && !sameLines(normalizedLines(theirs), baseLines)) {
 			return { ...proposal, confidence: 'low', reason: Strings.overlaps.dropsBothChanges() };
 		}
-		const newLines = lines.filter(line => !known.has(line)).length;
-		if (lines.length > 0 && newLines / lines.length > MAX_NEW_LINE_SHARE) {
-			return { ...proposal, confidence: 'low', reason: Strings.overlaps.mostlyNewLines() };
+		const nonBlank = (texts: readonly string[]) => texts.filter(line => line !== '');
+		if (nonBlank(lines).some(line => !known.has(line))) {
+			return { ...proposal, confidence: 'low', reason: Strings.overlaps.newText() };
 		}
-		// A side that added lines has dropped them all when none of them is in the combination.
 		const inCombination = new Set(lines);
 		const inBase = new Set(baseLines);
-		const dropsASide = [mine, theirs].some(side => {
-			const added = normalizedLines(side).filter(line => !inBase.has(line));
-			return added.length > 0 && !added.some(line => inCombination.has(line));
-		});
-		if (dropsASide) {
-			return { ...proposal, confidence: 'low', reason: Strings.overlaps.oneSideKept() };
+		const leavesOutAddedLine = [mine, theirs].some(side =>
+			nonBlank(normalizedLines(side)).some(line => !inBase.has(line) && !inCombination.has(line)));
+		if (leavesOutAddedLine) {
+			return { ...proposal, confidence: 'low', reason: Strings.overlaps.leavesOutPartOfChange() };
 		}
 		return proposal;
 	},

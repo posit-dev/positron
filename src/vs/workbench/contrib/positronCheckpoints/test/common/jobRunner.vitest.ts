@@ -7,7 +7,7 @@
 
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
-import { cacheKey, fullSystemPrompt, IJobCacheStorage, IModelRequest, JobCache, MAX_RESPONSE_CHARS, requestJob } from '../../common/agent/jobRunner.js';
+import { cacheKey, fullSystemPrompt, IJobCacheStorage, IModelRequest, INDEX_WRITE_DELAY_MS, JobCache, MAX_CACHED_VALUE_CHARS, MAX_RESPONSE_CHARS, requestJob } from '../../common/agent/jobRunner.js';
 import { extractJson, Job, MAX_JSON_STARTS, STYLE_RULES, wrapUntrusted } from '../../common/agent/jobTypes.js';
 
 /** A job whose answer must be an object with a string `title`. */
@@ -171,9 +171,56 @@ describe('JobCache', () => {
 		cache.set('a', { title: 'A' });
 
 		cache.remove('a');
+		cache.flush();
 
 		expect(storage.values.has('a')).toBe(false);
 		expect(storage.values.get(JobCache.INDEX_KEY)).toBe('[]');
+		cache.dispose();
+	});
+
+	test('writes the index at most once per 2 seconds, and on disposal', async () => {
+		vi.useFakeTimers();
+		try {
+			const storage = memoryStorage();
+			const indexWrites: string[] = [];
+			const store = storage.store;
+			storage.store = (key, value) => {
+				if (key === JobCache.INDEX_KEY) {
+					indexWrites.push(value);
+				}
+				store(key, value);
+			};
+			const cache = new JobCache(storage);
+
+			cache.set('a', { title: 'A' });
+			cache.set('b', { title: 'B' });
+			cache.get('a');
+			await vi.advanceTimersByTimeAsync(INDEX_WRITE_DELAY_MS - 1);
+			expect(indexWrites).toEqual([]);
+			await vi.advanceTimersByTimeAsync(1);
+			expect(indexWrites).toEqual(['["b","a"]']);
+
+			cache.set('c', { title: 'C' });
+			cache.dispose();
+			expect(indexWrites).toEqual(['["b","a"]', '["b","a","c"]']);
+			expect(INDEX_WRITE_DELAY_MS).toBe(2000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test('an output over 20,000 characters when stored is not cached', () => {
+		const storage = memoryStorage();
+		const cache = new JobCache(storage);
+
+		cache.set('big', { text: 'x'.repeat(MAX_CACHED_VALUE_CHARS) });
+		cache.set('small', { text: 'x'.repeat(MAX_CACHED_VALUE_CHARS - 20) });
+
+		expect(MAX_CACHED_VALUE_CHARS).toBe(20000);
+		expect(cache.get('big')).toBeUndefined();
+		expect(storage.values.has('big')).toBe(false);
+		expect(cache.get('small')).toBeDefined();
+		cache.dispose();
 	});
 });
 

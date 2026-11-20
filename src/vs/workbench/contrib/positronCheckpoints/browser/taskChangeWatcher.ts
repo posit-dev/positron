@@ -235,48 +235,40 @@ export class TaskChangeWatcher extends Disposable implements IWorkbenchContribut
 		}
 	}
 
-	/** Suggests, and retracts the signal at `time` when no suggestion was published. */
+	/**
+	 * Suggests, and retracts the signal at `time` when no job started. A job that ran keeps the gap
+	 * spent whatever it gave, so a large change set does not start a model call on every save.
+	 */
 	private async _suggestOrRetract(time: number): Promise<void> {
-		let published = false;
+		const changes = this._changes;
+		if (!changes || this._job || !this._agentService.available || this._suggestionService.current?.changes.basis === changes.basis) {
+			this._detector.retract(time);
+			return;
+		}
 		try {
-			published = await this._suggest();
+			await this._suggest(changes);
 		} catch (error) {
 			if (!this._store.isDisposed) {
 				this._logService.error('The checkpoint suggestion failed.', error);
 			}
 		}
-		if (!published) {
-			this._detector.retract(time);
-		}
 	}
 
 	/**
-	 * Runs the "split into chunks" job on the current changes, while the agent is available and no
-	 * job runs, and publishes the proposal when a chunk looks finished and the changes are still
-	 * the same.
-	 *
-	 * @returns True when a suggestion was published.
+	 * Runs the "split into chunks" job on `changes`, and publishes the proposal when a chunk looks
+	 * finished and the changes are still the same.
 	 */
-	private async _suggest(): Promise<boolean> {
-		const changes = this._changes;
-		if (!changes || this._job || !this._agentService.available) {
-			return false;
-		}
-		if (this._suggestionService.current?.changes.basis === changes.basis) {
-			return false;
-		}
+	private async _suggest(changes: IChangeSet): Promise<void> {
 		const source = new CancellationTokenSource();
 		this._job = source;
 		try {
 			const outcome = await this._agentService.run(splitIntoChunksJob, changes, source.token);
 			if (source.token.isCancellationRequested || !outcome.ok || !this._agentService.available || this._changes?.basis !== changes.basis) {
-				return false;
+				return;
 			}
-			if (!outcome.value.chunks.some(chunk => chunk.finished)) {
-				return false;
+			if (outcome.value.chunks.some(chunk => chunk.finished)) {
+				this._suggestionService.publish({ changes, chunks: outcome.value.chunks });
 			}
-			this._suggestionService.publish({ changes, chunks: outcome.value.chunks });
-			return true;
 		} finally {
 			if (this._job === source) {
 				this._job = undefined;

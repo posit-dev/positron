@@ -123,7 +123,8 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 		}
 		const source = new CancellationTokenSource();
 		agentService.run(splitIntoChunksJob, splitRequest, source.token).then(outcome => {
-			if (!outcome.ok || source.token.isCancellationRequested || edited.current) {
+			// A proposal that arrives after the agent became unavailable is not shown.
+			if (!outcome.ok || source.token.isCancellationRequested || edited.current || !agentService.available) {
 				return;
 			}
 			setDraft(createDraft(splitRequest.files, outcome.value.chunks.map(chunk => ({

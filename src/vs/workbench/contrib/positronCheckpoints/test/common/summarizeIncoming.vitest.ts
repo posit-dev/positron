@@ -8,8 +8,12 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { DiffTarget, ICheckpoint, ICheckpointsEngineProxy, IIncomingPreview, IOverlap } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { incomingDiffBudget, ISummarizeIncomingInput, MAX_INCOMING_SUMMARY_CHARS, renderIncomingForModel, summarizeIncomingJob } from '../../common/agent/summarizeIncoming.js';
-import { MAX_INPUT_CHARS } from '../../common/agent/jobTypes.js';
+import {
+	incomingDiffBudget, ISummarizeIncomingInput, MAX_DIFF_MS, MAX_INCOMING_SUMMARY_CHARS, MAX_LISTED_CHECKPOINTS, MAX_LISTED_PATHS, MAX_RENDERED_LINES_PER_FILE,
+	renderIncomingForModel, summarizeIncomingJob
+} from '../../common/agent/summarizeIncoming.js';
+import { MAX_INPUT_CHARS, STYLE_SECOND_PERSON, STYLE_THIRD_PERSON } from '../../common/agent/jobTypes.js';
+import { fullSystemPrompt } from '../../common/agent/jobRunner.js';
 
 const mayaCheckpoint: ICheckpoint = {
 	id: 'm1', title: 'Updated the dosing table', body: '', authorName: 'Maya', authorIsMe: false, time: '2026-11-19T10:00:00Z', shared: true, partialFiles: [],
@@ -41,9 +45,41 @@ describe('summarizeIncomingJob', () => {
 	test('accepts a relation that agrees with the engine', () => {
 		const summary = '  Maya updated the dosing table.  ';
 		expect(summarizeIncomingJob.check({ summary, relation: 'unrelated' }, input())).toEqual({ summary: 'Maya updated the dosing table.', relation: 'unrelated' });
-		expect(summarizeIncomingJob.check({ summary, relation: 'nearby' }, input())).toEqual({ summary: 'Maya updated the dosing table.', relation: 'nearby' });
 		expect(summarizeIncomingJob.check({ summary, relation: 'nearby' }, input({ touchesLocalWork: true }))).toEqual({ summary: 'Maya updated the dosing table.', relation: 'nearby' });
 		expect(summarizeIncomingJob.check({ summary, relation: 'overlapping' }, input({ touchesLocalWork: true, overlaps: [overlap] }))).toEqual({ summary: 'Maya updated the dosing table.', relation: 'overlapping' });
+	});
+
+	test('check rejects nearby unless the engine says local work is touched and there are no overlaps', () => {
+		const summary = 'Maya updated the dosing table.';
+		expect(summarizeIncomingJob.check({ summary, relation: 'nearby' }, input())).toBeUndefined();
+		expect(summarizeIncomingJob.check({ summary, relation: 'nearby' }, input({ touchesLocalWork: true, overlaps: [overlap] }))).toBeUndefined();
+	});
+
+	test('check rejects a summary that speaks to the person as the author', () => {
+		expect(summarizeIncomingJob.check({ summary: 'You updated the dosing table.', relation: 'unrelated' }, input())).toBeUndefined();
+		expect(summarizeIncomingJob.check({ summary: 'Your colleague Maya updated the dosing table.', relation: 'unrelated' }, input())).toBeDefined();
+	});
+
+	test('the prompt asks for the third person', () => {
+		const prompt = summarizeIncomingJob.buildPrompt(input());
+
+		expect(prompt.systemPrompt).toContain(STYLE_THIRD_PERSON);
+		expect(prompt.systemPrompt).not.toContain(STYLE_SECOND_PERSON);
+		expect(fullSystemPrompt(prompt.systemPrompt)).not.toMatch(/second person/);
+	});
+
+	test('the lists of checkpoints and changed files are capped, with a count of the rest', () => {
+		const many = Array.from({ length: 35 }, (_, index) => ({ ...mayaCheckpoint, id: `m${index}`, title: `Step ${index}` }));
+		const paths = Array.from({ length: 120 }, (_, index) => `file${index}.R`);
+
+		const user = summarizeIncomingJob.buildPrompt({ ...input({ incoming: many }), myChangedPaths: paths }).user;
+
+		expect(user).toContain('- "Step 29" by Maya\n... and 5 more');
+		expect(user).not.toContain('"Step 30"');
+		expect(user).toContain('file99.R\n... and 20 more');
+		expect(user).not.toContain('file100.R');
+		expect(MAX_LISTED_CHECKPOINTS).toBe(30);
+		expect(MAX_LISTED_PATHS).toBe(100);
 	});
 
 	test('check rejects overlapping when the engine found no overlaps', () => {
@@ -188,6 +224,34 @@ describe('renderIncomingForModel', () => {
 				'-old-f1 <- 1',
 				'+new-f1 <- 1',
 			].join('\n'));
+		});
+
+		test('a file whose comparison takes longer than 50 ms is listed by name and line counts', async () => {
+			const lines = (prefix: string) => VSBuffer.fromString(Array.from({ length: 50 }, (_, index) => `${prefix}${index}`).join('\n') + '\n');
+			const { engine: fake } = manyFiles(2, { 'old-f0': lines('a'), 'new-f0': lines('b') });
+			// Every reading of the clock is 30 ms later, so the comparison of f0 runs out of time.
+			let clock = 0;
+			const now = () => {
+				clock += 30;
+				return clock;
+			};
+
+			const result = await renderIncomingForModel(fake, preview({ changedPaths: ['f0'] }), MAX_INPUT_CHARS, now);
+
+			expect(MAX_DIFF_MS).toBe(50);
+			expect(result).toBe('File: f0 (changed, 50 lines before, 50 lines now, contents not shown)');
+		});
+
+		test('a file shows at most 2,000 changed lines', async () => {
+			const lines = (prefix: string) => VSBuffer.fromString(Array.from({ length: 1500 }, (_, index) => `${prefix}${index}`).join('\n') + '\n');
+			const { engine: fake } = manyFiles(1, { 'old-f0': lines('a'), 'new-f0': lines('b') });
+
+			const result = await renderIncomingForModel(fake, preview({ changedPaths: ['f0'] }), MAX_INPUT_CHARS);
+
+			expect(MAX_RENDERED_LINES_PER_FILE).toBe(2000);
+			const shown = result.split('\n');
+			expect(shown).toHaveLength(1 + 2000 + 1);
+			expect(shown.at(-1)).toBe('(1001 more lines are not shown)');
 		});
 
 		test('reads at most 40 files and lists the rest by name', async () => {

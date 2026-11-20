@@ -6,7 +6,8 @@
 /// <reference types="vitest/globals" />
 
 import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { cacheKey } from '../../common/agent/jobRunner.js';
+import { cacheKey, fullSystemPrompt } from '../../common/agent/jobRunner.js';
+import { STYLE_THIRD_PERSON } from '../../common/agent/jobTypes.js';
 import { describeHistoryJob, IDescribeHistoryInput, MAX_HISTORY_SUMMARY_CHARS } from '../../common/agent/describeHistory.js';
 
 const checkpoint: ICheckpoint = {
@@ -58,6 +59,17 @@ describe('describeHistoryJob', () => {
 		expect(describeHistoryJob.check({ ...goodResponse, summary: 'Maya made a commit.' }, input())).toBeUndefined();
 		expect(describeHistoryJob.check({ title: goodResponse.title }, input())).toBeUndefined();
 		expect(describeHistoryJob.check('Changed the units', input())).toBeUndefined();
+	});
+
+	test('check rejects a summary that starts with You, and the prompt asks for the third person', () => {
+		expect(describeHistoryJob.check({ ...goodResponse, summary: 'You updated the dose units.' }, input())).toBeUndefined();
+		expect(describeHistoryJob.check({ ...goodResponse, summary: 'Your colleague Maya updated the dose units.' }, input())).toBeDefined();
+		expect(describeHistoryJob.buildPrompt(input()).systemPrompt).toContain(STYLE_THIRD_PERSON);
+		expect(fullSystemPrompt(describeHistoryJob.buildPrompt(input()).systemPrompt)).not.toMatch(/second person/);
+	});
+
+	test('a colleague named like a git word does not let the word through', () => {
+		expect(describeHistoryJob.check({ ...goodResponse, summary: 'Merge changed the dose units.' }, input({ authorName: 'Merge' }))).toBeUndefined();
 	});
 
 	test('check rejects a description of the person\'s own checkpoint', () => {
