@@ -27,12 +27,14 @@ export interface RecoveryOutcome {
  * project before it exists. Then it classifies the record:
  *
  * - The branch is at neither commit: nothing is written and the record stays as it is;
- *   `unrecovered` names the refs.
+ *   `unrecovered` names the refs. For a record with ref changes, the change at the commit point
+ *   stands for the branch, and a change the record started that is at neither value also gives
+ *   `unrecovered` (see `classify`).
  * - Any path or the index is "unexpected", or the record is `interrupted` (a live reversal that
  *   could not finish): nothing is written, the record becomes `interrupted`, and it is reported
  *   through `interrupted`. Only `resolveInterrupted` resolves it.
- * - Otherwise, with the branch at the after commit the operation is completed, and else it is
- *   reversed; `notice` says which. Content that changes during the reversal is left and reported
+ * - Otherwise, with the branch at the after commit (or the change at the commit point applied)
+ *   the operation is completed, and else it is reversed; `notice` says which. Content that changes during the reversal is left and reported
  *   through `interrupted`.
  *
  * A failed step gives `unrecovered`. When another window holds the engine lock, that window
@@ -79,7 +81,10 @@ async function recoverRecord(ports: EnginePorts, record: JournalRecord): Promise
 		await saveRecoverySnapshot(ports, record);
 		const classification = await classify(ports, record);
 		if (classification.branch === 'unexpected') {
-			return { unrecovered: unrecoveredDetail(record, `The branch ${record.branch} is at neither the commit before nor the commit after the action.`) };
+			const reason = record.refChanges === undefined
+				? `The branch ${record.branch} is at neither the commit before nor the commit after the action.`
+				: 'A ref, HEAD, or configuration section the action changes is at neither its value before nor its value after the action.';
+			return { unrecovered: unrecoveredDetail(record, reason) };
 		}
 		const unexpectedPaths = classification.paths.filter(({ part }) => part === 'unexpected').map(({ path }) => path);
 		const indexUnexpected = classification.index === 'unexpected';

@@ -21,6 +21,20 @@ export interface FaultPorts extends EnginePorts {
 /** Git commands that change the branch, the index, or working files. */
 const MUTATING_GIT_COMMANDS = new Set(['update-ref', 'read-tree', 'reset', 'checkout-index']);
 
+/** Options of `git config` that change the configuration. */
+const CONFIG_WRITES = new Set(['--add', '--remove-section', '--unset', '--unset-all', '--replace-all']);
+
+/** True when the git call changes something: a mutating command, a `config` write, or a `symbolic-ref` that sets HEAD. */
+function isMutating(command: string, rest: string[]): boolean {
+	if (command === 'config') {
+		return rest.some(arg => CONFIG_WRITES.has(arg));
+	}
+	if (command === 'symbolic-ref') {
+		return rest.filter(arg => !arg.startsWith('-')).length >= 2;
+	}
+	return MUTATING_GIT_COMMANDS.has(command);
+}
+
 /** The git command of `args`, after global options such as `-C <dir>` and `-c <setting>`. */
 function gitCommand(args: string[]): { command: string; rest: string[] } {
 	let index = 0;
@@ -34,7 +48,9 @@ function gitCommand(args: string[]): { command: string; rest: string[] } {
  * Wraps `ports` for failure injection. Mutating calls are counted: `files.write`,
  * `files.createLinkExclusive`, `files.remove`, `files.removeEmptyDirectory`, `files.move`,
  * `files.linkOrCopy`, `files.setPermissions`, git calls whose command is `update-ref`,
- * `read-tree`, `reset`, or `checkout-index`, and git calls with `stdoutToFile` (labeled
+ * `read-tree`, `reset`, or `checkout-index`, `git config` calls that write (`--add`,
+ * `--remove-section`, `--unset`, `--unset-all`, `--replace-all`), `git symbolic-ref` calls that
+ * set HEAD, and git calls with `stdoutToFile` (labeled
  * `<command> > <file>`). Mutating call number `failAt` rejects without being made.
  * From mutating call number `stopAt` onward, every call (reading ones too) rejects with
  * `EngineStopped`, which simulates a crash.
@@ -84,7 +100,7 @@ export function faultPorts(ports: EnginePorts, plan: { failAt?: number; stopAt?:
 		if (options?.stdoutToFile !== undefined) {
 			gate(`${command} > ${options.stdoutToFile}`);
 		} else {
-			gate(MUTATING_GIT_COMMANDS.has(command) ? `${command} ${rest.filter(arg => !arg.startsWith('-'))[0] ?? ''}` : undefined);
+			gate(isMutating(command, rest) ? `${command} ${rest.filter(arg => !arg.startsWith('-'))[0] ?? ''}` : undefined);
 		}
 		return ports.git(args, options);
 	};

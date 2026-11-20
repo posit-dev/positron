@@ -11,7 +11,7 @@ import { EnginePorts, GitRunner } from './ports';
 import { listRecoverySnapshots, recoverOnStart, removeRecoverySnapshot, resolveInterrupted } from './recovery';
 import { runOperation } from './runOperation';
 import { EngineStopped, faultPorts } from './test/faultPorts';
-import { must, projectState, referenceProject, refExists } from './test/operationFixtures';
+import { must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX } from './trees';
 
@@ -385,5 +385,80 @@ describe('resolveInterrupted', { timeout: 30_000 }, () => {
 		await removeRecoverySnapshot(repo.ports, 'op-1');
 		expect(await listRecoverySnapshots(repo.ports)).toEqual([]);
 		expect(await refExists(repo, `${RECOVERY_REF_PREFIX}op-1`)).toBe(false);
+	});
+});
+
+/** The mutating calls of the `refChangeProject` operation, measured once. */
+const refChangeCalls = await (async () => {
+	const repo = await tempRepo();
+	try {
+		const { plan } = await refChangeProject(repo);
+		const ports = faultPorts(repo.ports, {});
+		await runOperation(ports, plan);
+		return ports.mutatingCalls;
+	} finally {
+		await repo.dispose();
+	}
+})();
+
+/** Runs the `refChangeProject` operation with a crash at the mutating call of change `index`, and forgets the crashed run's lock. */
+async function crashAtChange(repo: TempRepo, index: number) {
+	const stopAt = refChangeCalls.findIndex(call => REF_CHANGE_CALLS[index].test(call)) + 1;
+	expect(stopAt).toBeGreaterThan(0);
+	const project = await refChangeProject(repo);
+	const before = await refState(repo);
+	expect(await runOperation(faultPorts(repo.ports, { stopAt }), project.plan)).toEqual({ kind: 'interrupted' });
+	await forgetLock(repo);
+	expect((await readRecords(repo.ports))[0].status).toBe('prepared');
+	return { ...project, before };
+}
+
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('recoverOnStart with ref changes', { timeout: 30_000 }, () => {
+	const repos: TempRepo[] = [];
+	const create = async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		return repo;
+	};
+
+	afterEach(async () => {
+		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
+	});
+
+	test.each([0, 1, 2, 3])('recovery reverses a record that stopped before the commit point (change %i)', async index => {
+		const repo = await create();
+		const { before } = await crashAtChange(repo, index);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'reversed' });
+
+		expect(await refState(repo)).toEqual(before);
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test('recovery completes a record that stopped after the commit point', async () => {
+		const repo = await create();
+		const { a, c, before } = await crashAtChange(repo, 4);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'completed' });
+
+		expect(await refState(repo)).toEqual({
+			...before, head: 'refs/heads/proposal/x', main: a, proposal: c,
+			config: 'branch.proposal/x.positroncheckpointsbase main\n', engineFile: '{"branch":"main"}\n',
+		});
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
+	});
+
+	test('a ref another tool moved after the crash leaves the record unrecovered and writes nothing', async () => {
+		const repo = await create();
+		const { a } = await crashAtChange(repo, 3);
+		await must(repo, ['update-ref', 'refs/heads/proposal/x', a]);
+		const found = await refState(repo);
+
+		const outcome = await recoverOnStart(repo.ports);
+
+		expect(outcome.unrecovered).toContain(`${RECOVERY_REF_PREFIX}op-1`);
+		expect(await refState(repo)).toEqual(found);
+		expect((await readRecords(repo.ports))[0].status).toBe('prepared');
 	});
 });

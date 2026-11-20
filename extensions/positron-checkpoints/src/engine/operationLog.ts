@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { mustGit, runGit, splitZ } from './git';
-import { acquireLock, engineDirectory, JournalRecord, OperationRole, PathPlan, readBranch, readIndexTree, readRecords, TriState } from './journal';
+import {
+	acquireLock, commitPointOf, engineDirectory, invertRefChange, JournalRecord, OperationRole, PathPlan, readBranch, readIndexTree, readRecords, TriState,
+} from './journal';
 import { EnginePorts } from './ports';
-import { CreatedFile, runOperation } from './runOperation';
+import { CreatedFile, OperationPlan, runOperation } from './runOperation';
 import { SNAPSHOT_REF_PREFIX, withTempIndex, worktreeTree } from './trees';
 import { CollisionChoice, OperationKind, OperationResult } from './types';
 
@@ -195,6 +197,30 @@ function latestRole(records: JournalRecord[], target: string, kind: OperationRol
 	return last(records.filter(record => record.status === 'complete' && record.role?.kind === kind && record.role.target === target));
 }
 
+/**
+ * The branch HEAD points at once `record` is complete: the target of its last `head` change, or
+ * the branch it started on.
+ */
+function branchAfter(record: JournalRecord): string {
+	const head = record.refChanges?.filter(change => change.type === 'head').pop();
+	return head?.type === 'head' ? head.after.replace(/^refs\/heads\//, '') : record.branch;
+}
+
+/**
+ * The ref changes of the Undo of `record`: each change inverted, in the opposite order, with the
+ * inverse of the change at the commit point as the commit point. Empty for a record without ref
+ * changes.
+ */
+function undoRefChanges(record: JournalRecord): Pick<OperationPlan, 'refChanges' | 'commitPoint'> {
+	if (record.refChanges === undefined) {
+		return {};
+	}
+	return {
+		refChanges: [...record.refChanges].reverse().map(invertRefChange),
+		commitPoint: record.refChanges.length - 1 - commitPointOf(record),
+	};
+}
+
 /** The branch HEAD points at and the three parts of the project now, or undefined when HEAD is detached or the index is unreadable. */
 async function readProject(ports: EnginePorts): Promise<{ branch: string; state: TriState } | undefined> {
 	const symbolic = await runGit(ports.git, ['-C', ports.projectRoot, 'symbolic-ref', '-q', 'HEAD']);
@@ -231,6 +257,9 @@ async function readProject(ports: EnginePorts): Promise<{ branch: string; state:
  * Files the operation (or, after a Redo, that Redo) kept aside move back where nothing else is
  * at their place, once the Undo is complete and before the lock is released.
  *
+ * An operation with ref changes is undone by its inverse changes in the opposite order (see
+ * `undoRefChanges`). Its undo expects HEAD on the branch its last `head` change named.
+ *
  * Returns `unavailable stale-operation-id` when `operationId` is not the head,
  * `project-changed` when the branch is not at the operation's after commit, and `unavailable
  * shared-checkpoint` when the operation created checkpoints that are in the shared copy.
@@ -251,7 +280,7 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 		return { kind: 'unavailable', reason: 'unusual-state' };
 	}
 	const { state } = project;
-	if (project.branch !== record.branch || state.branchCommit !== record.after.branchCommit) {
+	if (project.branch !== branchAfter(record) || state.branchCommit !== record.after.branchCommit) {
 		return { kind: 'project-changed' };
 	}
 	if (CREATES_CHECKPOINTS.has(record.kind) && await isShared(ports, record)) {
@@ -270,6 +299,7 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 		returnKept: { operationId: restored.id, moves: restored.keptMoves },
 		// The files the restored operation created are not in its snapshot, and it may remove them.
 		...(RESTORES_SNAPSHOT.has(record.kind) ? { removableCreated: createdFiles(restored) } : {}),
+		...undoRefChanges(record),
 	});
 }
 
@@ -288,7 +318,7 @@ function createdFiles(record: JournalRecord): CreatedFile[] {
  * For every other kind, the index returns to the operation's after tree only when the Undo moved
  * it from that tree and it is still at the tree the Undo left, and each recorded file returns to
  * the content the check wrote only while it still has the content the Undo restored. The Redo's own snapshot is kept with the
- * entry.
+ * entry. An operation with ref changes applies them again, with the same commit point.
  *
  * Returns `unavailable stale-operation-id` when `operationId` is not the head, and
  * `project-changed` when the branch is not at the operation's before commit. Otherwise returns
@@ -323,6 +353,7 @@ export async function redo(ports: EnginePorts, operationId: string, collisionCho
 	return runOperation(ports, {
 		kind: record.kind, description: `Redo: ${record.description}`, expected: state, after, collisionChoices,
 		role: { kind: 'redo', target: record.id },
+		...(record.refChanges === undefined ? {} : { refChanges: record.refChanges, commitPoint: commitPointOf(record) }),
 	});
 }
 

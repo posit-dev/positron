@@ -10,9 +10,10 @@ import * as path from 'path';
 import { splitZ } from './git';
 import { acquireLock, classify, classifyPaths, engineDirectory, readRecords, TriState, writeRecord } from './journal';
 import { EnginePorts, GitRunner } from './ports';
+import { recoverOnStart } from './recovery';
 import { OperationPlan, reverse, runOperation } from './runOperation';
 import { faultPorts } from './test/faultPorts';
-import { afterJournal, currentState, must, projectState, referenceProject, refExists, treeWith } from './test/operationFixtures';
+import { afterJournal, currentState, must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState, treeWith } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { LARGE_FILE_BYTES, RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX, worktreeTree } from './trees';
 
@@ -567,5 +568,142 @@ describe('runOperation failure injection', { timeout: 30_000 }, () => {
 		} finally {
 			await repo.dispose();
 		}
+	});
+});
+
+/** The mutating calls of the `refChangeProject` operation, and the number of the call of each change. */
+const refChangeCalls = await (async () => {
+	const repo = await tempRepo();
+	try {
+		const { plan } = await refChangeProject(repo);
+		const ports = faultPorts(repo.ports, {});
+		const result = await runOperation(ports, plan);
+		if (result.kind !== 'done') {
+			throw new Error(`the ref change operation did not finish: ${JSON.stringify(result)}`);
+		}
+		return ports.mutatingCalls;
+	} finally {
+		await repo.dispose();
+	}
+})();
+const changeCall = (index: number) => refChangeCalls.findIndex(call => REF_CHANGE_CALLS[index].test(call)) + 1;
+
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('runOperation with ref changes', { timeout: 30_000 }, () => {
+	const repos: TempRepo[] = [];
+	const create = async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		return repo;
+	};
+
+	afterEach(async () => {
+		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
+	});
+
+	/** The state `refChangeProject`'s plan leads to from `before`. */
+	const stateAfter = (before: Awaited<ReturnType<typeof refState>>, a: string, c: string) => ({
+		...before,
+		head: 'refs/heads/proposal/x',
+		main: a,
+		proposal: c,
+		config: 'branch.proposal/x.positroncheckpointsbase main\n',
+		engineFile: '{"branch":"main"}\n',
+	});
+
+	test('applies ref, head, config-section, and engine-file changes in order', async () => {
+		const repo = await create();
+		const { a, c, plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+		const ports = faultPorts(repo.ports, {});
+
+		expect(await runOperation(ports, plan)).toEqual({ kind: 'done', operationId: 'op-1', hookEditedFiles: [] });
+
+		expect(await refState(repo)).toEqual(stateAfter(before, a, c));
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		const [record] = await readRecords(repo.ports);
+		expect(record.status).toBe('complete');
+		expect(record.progress).toEqual([0, 1, 2, 3, 4].map(index => ({ step: 'ref-change', index })));
+		const order = REF_CHANGE_CALLS.map(pattern => ports.mutatingCalls.findIndex(call => pattern.test(call)));
+		expect(order.every((position, index) => position >= 0 && (index === 0 || position > order[index - 1]))).toBe(true);
+	});
+
+	test('a ref change whose old value differs fails and reverses the earlier changes', async () => {
+		const repo = await create();
+		const { a, c, plan } = await refChangeProject(repo);
+		await must(repo, ['update-ref', 'refs/heads/side', c]);
+		const before = await refState(repo);
+		const refChanges = [...plan.refChanges!];
+		refChanges[3] = { type: 'ref', name: 'refs/heads/side', before: c, after: a };
+		// Another tool moves the ref after the operation checked it and recorded its intent.
+		const ports = afterJournal(repo.ports, async () => {
+			await must(repo, ['update-ref', 'refs/heads/side', a]);
+		});
+
+		const result = await runOperation(ports, { ...plan, refChanges });
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await refState(repo)).toEqual(before);
+		expect(await must(repo, ['rev-parse', 'refs/heads/side'])).toBe(a);
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test('a ref change target that is not at its before value returns changes-moved and changes nothing', async () => {
+		const repo = await create();
+		const { a, plan } = await refChangeProject(repo);
+		await must(repo, ['update-ref', 'refs/heads/proposal/x', a]);
+		const before = await refState(repo);
+
+		expect(await runOperation(repo.ports, plan)).toEqual({ kind: 'changes-moved' });
+		expect(await refState(repo)).toEqual(before);
+		expect(await readRecords(repo.ports)).toEqual([]);
+	});
+
+	test.each([0, 1, 2, 3])('a fault before the commit point restores the exact state before (change %i)', async index => {
+		const repo = await create();
+		const { plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+
+		const result = await runOperation(faultPorts(repo.ports, { failAt: changeCall(index) }), plan);
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await refState(repo)).toEqual(before);
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test('a fault after the commit point is completed by recovery', async () => {
+		const repo = await create();
+		const { a, c, plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+
+		expect(await runOperation(faultPorts(repo.ports, { stopAt: changeCall(4) }), plan)).toEqual({ kind: 'interrupted' });
+		expect((await readRecords(repo.ports))[0].status).toBe('prepared');
+		await fsp.rm(`${await engineDirectory(repo.ports)}/lock`, { force: true });
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'completed' });
+		expect(await refState(repo)).toEqual(stateAfter(before, a, c));
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
+	});
+
+	test('a single failure after the commit point is completed in the same run', async () => {
+		const repo = await create();
+		const { a, c, plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+
+		expect(await runOperation(faultPorts(repo.ports, { failAt: changeCall(4) }), plan)).toEqual({ kind: 'done', operationId: 'op-1', hookEditedFiles: [] });
+		expect(await refState(repo)).toEqual(stateAfter(before, a, c));
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
+	});
+
+	test('a plan with ref changes whose branch commit changes is refused before anything changes', async () => {
+		const repo = await create();
+		const { a, plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+
+		const result = await runOperation(repo.ports, { ...plan, after: { ...plan.after, branchCommit: a } });
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await refState(repo)).toEqual(before);
+		expect(await readRecords(repo.ports)).toEqual([]);
 	});
 });

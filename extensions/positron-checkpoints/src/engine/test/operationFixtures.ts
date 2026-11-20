@@ -7,7 +7,7 @@ import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { splitZ } from '../git';
-import { TriState } from '../journal';
+import { engineDirectory, TriState } from '../journal';
 import { EnginePorts, GitRunner } from '../ports';
 import { OperationPlan } from '../runOperation';
 import { worktreeTree } from '../trees';
@@ -88,6 +88,58 @@ export async function referenceProject(repo: TempRepo): Promise<{ a: string; b: 
 	await repo.write('debug.log', 'ignored\n');
 	const after: TriState = { branchCommit: b, indexTree: treeB, worktreeTree: await treeWith(repo, treeB, { 'u.txt': 'untracked\n' }) };
 	return { a, b, plan: { kind: 'go-back', description: 'Go back', expected: await currentState(repo), after, collisionChoices: [] } };
+}
+
+/**
+ * A project at commit C (a.txt "two\n") whose parent is commit A, on `main`, with an unrecorded
+ * edit of a.txt, and the plan of an operation with five ref changes and no file work: create
+ * `proposal/x` at C, write its configuration section, point HEAD at it, move `main` back to A
+ * (the commit point), and write the engine file `accepted.json`.
+ */
+export async function refChangeProject(repo: TempRepo): Promise<{ a: string; c: string; plan: OperationPlan }> {
+	await repo.write('a.txt', 'one\n');
+	const a = await repo.commit('A');
+	await repo.write('a.txt', 'two\n');
+	const c = await repo.commit('C');
+	await repo.write('a.txt', 'two\nunrecorded\n');
+	const state = await currentState(repo);
+	return {
+		a, c, plan: {
+			kind: 'check-changed-files', description: 'Change several refs', expected: state, after: state, collisionChoices: [],
+			refChanges: [
+				{ type: 'ref', name: 'refs/heads/proposal/x', after: c },
+				{ type: 'config-section', section: 'branch.proposal/x', before: [], after: [['positronCheckpointsBase', 'main']] },
+				{ type: 'head', before: 'refs/heads/main', after: 'refs/heads/proposal/x' },
+				{ type: 'ref', name: 'refs/heads/main', before: c, after: a },
+				{ type: 'engine-file', name: 'accepted.json', after: '{"branch":"main"}\n' },
+			],
+			commitPoint: 3,
+		},
+	};
+}
+
+/** One pattern for the mutating call of each change of the `refChangeProject` plan, in order. */
+export const REF_CHANGE_CALLS = [
+	/^update-ref refs\/heads\/proposal\/x$/,
+	/^config branch\.proposal\/x\.positronCheckpointsBase$/,
+	/^symbolic-ref HEAD$/,
+	/^update-ref refs\/heads\/main$/,
+	/^write .*\/positron-checkpoints\/accepted\.json$/,
+];
+
+/** What the `refChangeProject` plan changes, with the index and the working files. */
+export async function refState(repo: TempRepo) {
+	const proposal = await repo.git(['rev-parse', '--verify', '-q', 'refs/heads/proposal/x']);
+	const config = await repo.git(['config', '--local', '--get-regexp', '^branch\\.proposal/x\\.']);
+	return {
+		head: await must(repo, ['symbolic-ref', 'HEAD']),
+		main: await must(repo, ['rev-parse', 'refs/heads/main']),
+		proposal: proposal.exitCode === 0 ? proposal.stdout.trim() : undefined,
+		config: config.stdout,
+		engineFile: await fsp.readFile(`${await engineDirectory(repo.ports)}/accepted.json`, 'utf8').catch(() => undefined),
+		index: await must(repo, ['write-tree']),
+		worktree: (await worktreeTree(repo.ports)).tree,
+	};
 }
 
 /** Ports whose journal runs `fn` once, right after the operation's record is written. */

@@ -8,13 +8,13 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { listKept } from './collisions';
-import { engineDirectory, PathPlan, readRecords } from './journal';
+import { engineDirectory, PathPlan, readConfigSection, readRecords } from './journal';
 import { expire, noteNewOperation, readOperationLog, redo, redoHead, undo, undoHead } from './operationLog';
 import { EnginePorts } from './ports';
 import { recoverOnStart } from './recovery';
 import { runOperation } from './runOperation';
 import { faultPorts } from './test/faultPorts';
-import { collidingProject, currentState, must, projectState, refExists, treeWith } from './test/operationFixtures';
+import { collidingProject, currentState, must, projectState, refChangeProject, refExists, refState, treeWith } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { SNAPSHOT_REF_PREFIX } from './trees';
 import { OperationKind, OperationResult } from './types';
@@ -417,6 +417,57 @@ describe('operationLog', { timeout: 30_000 }, () => {
 		expect(await projectState(repo)).toEqual(before);
 		expect((await undoHead(repo.ports))?.id).toBe(id);
 		expect(await redoHead(repo.ports)).toBeUndefined();
+	});
+
+	test('undo restores refs, HEAD, and the whole configuration section; redo applies them again', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		const { a, c, plan } = await refChangeProject(repo);
+		const original = await refState(repo);
+		const startId = doneId(await runOperation(repo.ports, plan));
+		// Keys another tool adds to the section after the start.
+		await must(repo, ['config', 'branch.proposal/x.remote', 'origin']);
+		await must(repo, ['config', 'branch.proposal/x.merge', 'refs/heads/proposal/x']);
+		const started = await refState(repo);
+		const section = await readConfigSection(repo.ports, 'branch.proposal/x');
+		expect(section).toHaveLength(3);
+		const stopId = doneId(await runOperation(repo.ports, {
+			kind: 'check-changed-files', description: 'Stop', collisionChoices: [],
+			expected: { branchCommit: c, indexTree: started.index, worktreeTree: started.worktree },
+			after: { branchCommit: c, indexTree: started.index, worktreeTree: started.worktree },
+			refChanges: [
+				{ type: 'head', before: 'refs/heads/proposal/x', after: 'refs/heads/main' },
+				{ type: 'ref', name: 'refs/heads/main', before: a, after: c },
+				{ type: 'ref', name: 'refs/heads/proposal/x', before: c },
+				{ type: 'config-section', section: 'branch.proposal/x', before: section, after: [] },
+				{ type: 'engine-file', name: 'accepted.json', before: '{"branch":"main"}\n' },
+			],
+			commitPoint: 1,
+		}));
+		const stopped = { ...started, head: 'refs/heads/main', main: c, proposal: undefined, config: '', engineFile: undefined };
+		expect(await refState(repo)).toEqual(stopped);
+
+		expect((await undo(repo.ports, stopId, [])).kind).toBe('done');
+		expect(await refState(repo)).toEqual(started);
+		expect((await redo(repo.ports, stopId, [])).kind).toBe('done');
+		expect(await refState(repo)).toEqual(stopped);
+		expect((await undo(repo.ports, stopId, [])).kind).toBe('done');
+		expect(await refState(repo)).toEqual(started);
+
+		// The start's undo expects the section the start wrote, so the added keys refuse it.
+		expect(await undo(repo.ports, startId, [])).toEqual({ kind: 'changes-moved' });
+		expect(await refState(repo)).toEqual(started);
+		await must(repo, ['config', '--unset', 'branch.proposal/x.remote']);
+		await must(repo, ['config', '--unset', 'branch.proposal/x.merge']);
+		// The undo of the start switches HEAD back from the branch the start switched to.
+		expect((await undo(repo.ports, startId, [])).kind).toBe('done');
+		expect(await refState(repo)).toEqual(original);
+		expect((await redo(repo.ports, startId, [])).kind).toBe('done');
+		expect(await refState(repo)).toEqual({
+			...original, head: 'refs/heads/proposal/x', main: a, proposal: c,
+			config: 'branch.proposal/x.positroncheckpointsbase main\n', engineFile: '{"branch":"main"}\n',
+		});
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
 	});
 
 	test('undo moves a file kept aside by the operation back', async () => {

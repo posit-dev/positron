@@ -8,8 +8,9 @@ import * as path from 'path';
 import { findCollisions, keptPath, moveAside, moveBack } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
-	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, KeptMove, OperationRole, Part, PathPlan,
-	Progress, readBranch, readDiskEntries, readIndexTree, readRecords, setStatus, TriState, writeRecord,
+	acquireLock, appendProgress, classify, classifyPaths, commitPointOf, engineDirectory, engineFilePath, FileMode, invertRefChange, JournalRecord,
+	KeptMove, OperationRole, Part, PathPlan, Progress, readBranch, readDiskEntries, readIndexTree, readRecords, readRefTarget, RefChange,
+	refChangeSide, setStatus, TriState, writeRecord,
 } from './journal';
 import { EnginePorts } from './ports';
 import { RECOVERY_REF_PREFIX, saveSnapshot, SNAPSHOT_REF_PREFIX, STAGING_TIMEOUT_MS } from './trees';
@@ -44,6 +45,15 @@ export interface OperationPlan {
 	 * check finds. They are answered and moved aside as its collisions are.
 	 */
 	extraCollisions?: PathCollision[];
+	/**
+	 * Changes to refs, HEAD, configuration sections, and engine files, applied in order after the
+	 * working files and the index; copied into the record. A plan with ref changes keeps
+	 * `after.branchCommit` equal to `expected.branchCommit`, and moves every ref as a ref change.
+	 * `before` may equal `after` (no file work).
+	 */
+	refChanges?: RefChange[];
+	/** The index into `refChanges` of the change that decides the operation (see `JournalRecord.commitPoint`); copied into the record. */
+	commitPoint?: number;
 }
 
 /** A file an earlier operation created, with the id of the bytes it wrote when it is a regular file. */
@@ -52,16 +62,28 @@ export interface CreatedFile extends PathPlan { raw?: string }
 /** A step found a part that is no longer at the value the record expects. */
 class StepRefused extends Error { }
 
+/** Set by `applyRecord` once the change at the commit point of a record with ref changes is applied. */
+interface Decision { committed: boolean }
+
 /**
  * Runs an operation through the protocol of spec 6.3.1: take the lock, refuse while an earlier
  * operation is unresolved, record the before state with a snapshot, return `changes-moved` when
- * it differs from `plan.expected`, derive the paths to write, run the collision check and add
+ * it differs from `plan.expected` or a target of `plan.refChanges` is not at its before value,
+ * derive the paths to write, run the collision check and add
  * `plan.extraCollisions` (a collision without a `use-theirs-keep-copy` choice returns
  * `path-collisions`), journal the
  * record, then move the chosen collided files aside, change the working files (each only while it still has its before content),
  * the index (only while it still has its before tree), and last the branch (a compare-and-swap),
- * and mark the record complete. A durable progress entry is appended before each change, so the
- * journal lists every part the engine may have changed, even after a crash.
+ * then each of `plan.refChanges` in order (each only while its target still has its before
+ * value), and mark the record complete. A durable progress entry is appended before each change,
+ * so the journal lists every part the engine may have changed, even after a crash.
+ *
+ * In a record with ref changes, a failure once the change at the commit point is applied does not
+ * reverse the operation: the remaining steps are tried once more as recovery completes them
+ * (`rollForward`). When that fails too, the record stays `prepared`, the result is `interrupted`,
+ * and recovery completes it when the engine starts next. A plan with ref changes whose branch
+ * commit changes, or whose commit point is not one of its changes, returns `could-not-finish`
+ * before anything is recorded.
  *
  * A run that ends before its record exists removes its snapshot. On any later failure it runs
  * `reverse(record, 'all-or-report')`: a clean reversal returns `could-not-finish` with status
@@ -93,6 +115,12 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		return { kind: 'unavailable', reason: 'unusual-state', detail: 'HEAD does not point at a branch' };
 	}
 	const branch = headRef.slice('refs/heads/'.length);
+	if (plan.refChanges !== undefined) {
+		const decisive = commitPointOf(plan);
+		if (plan.after.branchCommit !== plan.expected.branchCommit || !Number.isInteger(decisive) || decisive < 0 || decisive >= plan.refChanges.length) {
+			return { kind: 'could-not-finish', detail: 'An operation with ref changes keeps the branch commit and names one of its changes as the commit point.' };
+		}
+	}
 	const id = ports.newId();
 	const extraPaths = plan.extraPaths ?? [];
 
@@ -101,7 +129,8 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		const branchCommit = await readBranch(ports, branch);
 		const snapshot = await saveSnapshot(ports, id, branchCommit ?? undefined);
 		const before: TriState = { branchCommit, indexTree: snapshot.indexTree, worktreeTree: snapshot.worktreeTree };
-		if (before.branchCommit !== plan.expected.branchCommit || before.indexTree !== plan.expected.indexTree || before.worktreeTree !== plan.expected.worktreeTree) {
+		if (before.branchCommit !== plan.expected.branchCommit || before.indexTree !== plan.expected.indexTree || before.worktreeTree !== plan.expected.worktreeTree
+			|| !await refChangesAtBefore(ports, plan.refChanges ?? [])) {
 			await removeSnapshot(ports, id);
 			return { kind: 'changes-moved' };
 		}
@@ -131,6 +160,12 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		if (plan.returnKept !== undefined && plan.returnKept.moves.length > 0) {
 			record.returnKept = plan.returnKept;
 		}
+		if (plan.refChanges !== undefined) {
+			record.refChanges = plan.refChanges;
+			if (plan.commitPoint !== undefined) {
+				record.commitPoint = plan.commitPoint;
+			}
+		}
 		await writeRecord(ports, record);
 	} catch (error) {
 		// Nothing visible has changed yet. A record whose write reported an error may still have
@@ -146,9 +181,20 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 
 	// The progress entries of the parts the engine may have changed, in the order of the journal.
 	const started: Progress[] = [];
+	const decision: Decision = { committed: false };
 	try {
-		await applyRecord(ports, record, new Set(extraPaths.map(extra => extra.path)), started);
+		await applyRecord(ports, record, new Set(extraPaths.map(extra => extra.path)), started, decision);
 	} catch (error) {
+		if (decision.committed) {
+			try {
+				await rollForward(ports, { ...record, progress: started });
+			} catch {
+				// The record stays prepared; recovery completes it when the engine starts next.
+				return { kind: 'interrupted' };
+			}
+			await returnKeptFiles(ports, record).catch(() => undefined);
+			return { kind: 'done', operationId: id, hookEditedFiles: extraPaths.map(extra => extra.path) };
+		}
 		try {
 			const outcome = await reverse(ports, { ...record, progress: started }, 'all-or-report');
 			return outcome === 'reversed' ? { kind: 'could-not-finish', detail: errorText(error) } : { kind: 'interrupted' };
@@ -181,11 +227,12 @@ export async function returnKeptFiles(ports: EnginePorts, record: JournalRecord)
 }
 
 /**
- * Steps 4 to 7 of the protocol. Before each change, the progress entry is appended to the
- * journal and to `started`. Once the record is complete, the originals kept in its backup folder
- * are removed.
+ * Steps 4 to 7 of the protocol, with the record's ref changes after the branch. Before each
+ * change, the progress entry is appended to the journal and to `started`. `decision.committed`
+ * is set once the change at the commit point is applied. Once the record is complete, the
+ * originals kept in its backup folder are removed.
  */
-async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWritten: Set<string>, started: Progress[]): Promise<void> {
+async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWritten: Set<string>, started: Progress[], decision: Decision): Promise<void> {
 	const backups = await backupDirectory(ports, record.id);
 	// Files outside the snapshot that the person chose to keep a copy of go aside first (spec 6.2).
 	for (const move of record.keptMoves) {
@@ -226,7 +273,98 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 		}
 	}
 
+	const decisive = commitPointOf(record);
+	for (const [index, change] of (record.refChanges ?? []).entries()) {
+		await applyRefChangeStep(ports, record.id, index, change, started);
+		if (index === decisive) {
+			decision.committed = true;
+		}
+	}
+
 	await markComplete(ports, record.id, backups);
+}
+
+/** True when the target of every change is at its before value. */
+async function refChangesAtBefore(ports: EnginePorts, changes: RefChange[]): Promise<boolean> {
+	for (const change of changes) {
+		if (await readRefTarget(ports, change) !== refChangeSide(change, 'before')) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * Appends the progress entry of ref change `index`, then applies the change. A change refused
+ * because its target is no longer at its before value changed nothing, so its entry is taken back
+ * out of `started`.
+ */
+async function applyRefChangeStep(ports: EnginePorts, id: string, index: number, change: RefChange, started: Progress[]): Promise<void> {
+	await announce(ports, id, started, { step: 'ref-change', index });
+	try {
+		await applyRefChange(ports, change);
+	} catch (error) {
+		if (error instanceof StepRefused) {
+			started.pop();
+		}
+		throw error;
+	}
+}
+
+/**
+ * Sets the target of `change` from its before value to its after value, only while it has its
+ * before value; a target at any other value throws `StepRefused` and is left as it is. A ref
+ * moves with a compare-and-swap. HEAD, a configuration section, and an engine file are checked
+ * right before they are written; another tool could still change one in the few milliseconds
+ * between, and that window is accepted. A configuration section is removed whole, then its after
+ * keys are added in order, so it ends with exactly the after keys and values (none: no section).
+ * An engine file is replaced by a rename (`FilePort.write`).
+ */
+async function applyRefChange(ports: EnginePorts, change: RefChange): Promise<void> {
+	const git = (args: string[]) => mustGit(ports.git, ['-C', ports.projectRoot, ...args]);
+	if (change.type === 'ref') {
+		try {
+			if (change.after !== undefined) {
+				// The all-zero old value means the ref must not exist.
+				await git(['update-ref', change.name, change.after, change.before ?? '0'.repeat(change.after.length)]);
+			} else if (change.before !== undefined) {
+				await git(['update-ref', '-d', change.name, change.before]);
+			} else if (await readRefTarget(ports, change) !== undefined) {
+				throw new StepRefused(`${change.name} exists`);
+			}
+		} catch (error) {
+			if (error instanceof GitFailedError) {
+				throw new StepRefused(`${change.name} is not at the commit the operation expects`);
+			}
+			throw error;
+		}
+		return;
+	}
+	if (await readRefTarget(ports, change) !== refChangeSide(change, 'before')) {
+		throw new StepRefused(`${change.type === 'head' ? 'HEAD' : change.type === 'config-section' ? change.section : change.name} changed after the operation started`);
+	}
+	switch (change.type) {
+		case 'head':
+			await git(['symbolic-ref', 'HEAD', change.after]);
+			return;
+		case 'config-section':
+			if (change.before.length > 0) {
+				await git(['config', '--local', '--remove-section', change.section]);
+			}
+			for (const [key, value] of change.after) {
+				await git(['config', '--local', '--add', `${change.section}.${key}`, value]);
+			}
+			return;
+		case 'engine-file': {
+			const file = await engineFilePath(ports, change.name);
+			if (change.after === undefined) {
+				await ports.files.remove(file);
+			} else {
+				await ports.files.write(file, Buffer.from(change.after, 'utf8'), false);
+			}
+			return;
+		}
+	}
 }
 
 /**
@@ -251,11 +389,13 @@ async function markComplete(ports: EnginePorts, id: string, backups: string): Pr
 }
 
 /**
- * Finishes an operation whose branch is already at its after commit (recovery after a crash,
- * spec 6.3.1 step 3). Temporary files the journal names are removed. Each path not yet at its
- * after value is written as `runOperation` writes it (only while it is at its before value),
- * then the index is set when it is still at its before tree, and the record becomes complete.
- * The caller has confirmed that no part is unexpected.
+ * Finishes an operation whose branch is already at its after commit, or whose change at the
+ * commit point is applied (recovery after a crash, spec 6.3.1 step 3). Temporary files the
+ * journal names are removed. Each path not yet at its after value is written as `runOperation`
+ * writes it (only while it is at its before value), then the index is set when it is still at its
+ * before tree, then each ref change still at its before value is applied in order, and the record
+ * becomes complete. The caller has confirmed that no part is unexpected; a ref change found at
+ * neither value stops it.
  */
 export async function rollForward(ports: EnginePorts, record: JournalRecord): Promise<void> {
 	const backups = await backupDirectory(ports, record.id);
@@ -269,6 +409,17 @@ export async function rollForward(ports: EnginePorts, record: JournalRecord): Pr
 	}
 	if (await readIndexTree(ports) !== record.after.indexTree) {
 		await applyIndex(ports, record, started);
+	}
+	for (const [index, change] of (record.refChanges ?? []).entries()) {
+		const now = await readRefTarget(ports, change);
+		const after = refChangeSide(change, 'after');
+		if (now === after) {
+			continue;
+		}
+		if (now !== refChangeSide(change, 'before')) {
+			throw new StepRefused(`ref change ${index} is at neither its before nor its after value`);
+		}
+		await applyRefChangeStep(ports, record.id, index, change, started);
 	}
 	await markComplete(ports, record.id, backups);
 }
@@ -511,6 +662,8 @@ async function moveBranch(ports: EnginePorts, branch: string, to: string | null,
  * before it is restored, and "unexpected" content is never written over. A path gets back the
  * original kept in the record's backup folder; a path whose original is missing there is left
  * as it is and counts as unexpected. A temporary file that a listed entry names is removed.
+ * Each ref change with a progress entry that is "after" is undone, while its target still has
+ * its after value, before the parts listed ahead of it.
  * Once the record is `rolled-back`, its backup folder is removed.
  *
  * A conflict is a part that is "unexpected" and listed, so the engine may have changed it
@@ -528,16 +681,23 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 	const classification = await classify(ports, record);
 	const backups = await backupDirectory(ports, record.id);
 	const listed = (step: Progress['step'], file?: string) => record.progress.some(entry => entry.step === step && (entry.step !== 'path' || entry.path === file));
+	const refParts = classification.refChanges ?? [];
+	const listedChange = (index: number) => record.progress.some(entry => entry.step === 'ref-change' && entry.index === index);
 	const conflict = (classification.branch === 'unexpected' && listed('branch'))
 		|| (classification.index === 'unexpected' && listed('index'))
-		|| classification.paths.some(({ path, part }) => part === 'unexpected' && listed('path', path));
+		|| classification.paths.some(({ path, part }) => part === 'unexpected' && listed('path', path))
+		|| refParts.some((part, index) => part === 'unexpected' && listedChange(index));
 	let leftUnexpected = mode === 'all-or-report'
 		? conflict
-		: classification.branch === 'unexpected' || classification.index === 'unexpected' || classification.paths.some(({ part }) => part === 'unexpected');
+		: classification.branch === 'unexpected' || classification.index === 'unexpected' || classification.paths.some(({ part }) => part === 'unexpected')
+		|| refParts.some(part => part === 'unexpected');
 
 	if (mode === 'all-or-report' && conflict) {
 		await saveRecoverySnapshot(ports, record);
 	}
+
+	// A change listed twice (a completion that was tried again) is undone once.
+	const undoneChanges = new Set<number>();
 
 	for (const entry of [...record.progress].reverse()) {
 		if (entry.step === 'branch' && classification.branch === 'after') {
@@ -573,6 +733,21 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 		} else if (entry.step === 'kept') {
 			// A kept file whose place is taken stays in the kept folder, listed for the person.
 			await moveBack(ports, record.id, entry);
+		} else if (entry.step === 'ref-change') {
+			const change = record.refChanges?.[entry.index];
+			if (change === undefined || refParts[entry.index] !== 'after' || undoneChanges.has(entry.index)) {
+				continue;
+			}
+			undoneChanges.add(entry.index);
+			try {
+				await applyRefChange(ports, invertRefChange(change));
+			} catch (error) {
+				if (!(error instanceof StepRefused)) {
+					throw error;
+				}
+				// Another tool changed the target since it was classified.
+				leftUnexpected = true;
+			}
 		}
 	}
 

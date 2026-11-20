@@ -34,7 +34,24 @@ export interface PathPlan { path: string; before: string | null; after: string |
  */
 export type Progress =
 	| ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'written'; path: string; raw: string }
-	| { step: 'index' } | { step: 'branch' } | { step: 'kept-returned' };
+	| { step: 'index' } | { step: 'branch' } | { step: 'kept-returned' } | { step: 'ref-change'; index: number };
+
+/**
+ * One change to a ref, the symbolic value of HEAD, or a configuration section. `undefined` means
+ * absent.
+ *
+ * - `ref`: a full ref name (`refs/heads/main`) and commit ids.
+ * - `head`: full ref names, for example `refs/heads/main`.
+ * - `config-section`: a section of the repository's own configuration (`branch.<name>`), with
+ *   every key and value it has, in file order. An empty list means the section is absent. Key
+ *   names compare without regard to case, as git compares them.
+ * - `engine-file`: a file in the engine's folder, by its name, with its text.
+ */
+export type RefChange =
+	| { type: 'ref'; name: string; before?: string; after?: string }
+	| { type: 'head'; before: string; after: string }
+	| { type: 'config-section'; section: string; before: [string, string][]; after: [string, string][] }
+	| { type: 'engine-file'; name: string; before?: string; after?: string };
 
 /**
  * A file outside the snapshot that an operation moves aside (spec 6.2), from its place in the
@@ -62,10 +79,29 @@ export interface JournalRecord {
 	 * this record is complete. Set for an Undo.
 	 */
 	returnKept?: { operationId: string; moves: KeptMove[] };
+	/**
+	 * Changes the operation applies in order after the working files and the index. In a record
+	 * with ref changes, `before.branchCommit` and `after.branchCommit` are equal: they name the
+	 * commit HEAD's branch is at before and after the operation, and every ref the operation moves
+	 * is a ref change.
+	 */
+	refChanges?: RefChange[];
+	/**
+	 * The index into `refChanges` of the change that decides the operation: once it is applied, the
+	 * operation is completed and never reversed. Without it, the last change decides.
+	 */
+	commitPoint?: number;
 }
 
 export type Part = 'before' | 'after' | 'unexpected';
-export interface Classification { branch: Part; index: Part; paths: { path: string; part: Part }[] }
+
+/**
+ * `refChanges` has the part of each ref change of a record that has them, by index. For such a
+ * record `branch` describes the ref changes together: `unexpected` when the change at the commit
+ * point, or a change with a progress entry, is unexpected; otherwise the part of the change at
+ * the commit point.
+ */
+export interface Classification { branch: Part; index: Part; paths: { path: string; part: Part }[]; refChanges?: Part[] }
 
 /** A lock this old is taken over when the engine cannot tell whether the process that took it runs. */
 const STALE_LOCK_MS = 10 * 60_000;
@@ -302,11 +338,108 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
  * moved or removed counts as before (see `explainPending`).
  */
 export async function classify(ports: EnginePorts, record: JournalRecord): Promise<Classification> {
-	return {
-		branch: partOf(await readBranch(ports, record.branch), record.before.branchCommit, record.after.branchCommit),
-		index: partOf(await readIndexTree(ports), record.before.indexTree, record.after.indexTree),
-		paths: await explainPending(ports, record, await classifyPaths(ports, record.paths)),
-	};
+	const index = partOf(await readIndexTree(ports), record.before.indexTree, record.after.indexTree);
+	const paths = await explainPending(ports, record, await classifyPaths(ports, record.paths));
+	if (record.refChanges === undefined) {
+		return { branch: partOf(await readBranch(ports, record.branch), record.before.branchCommit, record.after.branchCommit), index, paths };
+	}
+	const refChanges: Part[] = [];
+	for (const change of record.refChanges) {
+		refChanges.push(partOf(await readRefTarget(ports, change), refChangeSide(change, 'before'), refChangeSide(change, 'after')));
+	}
+	const decisive = commitPointOf(record);
+	const listed = (position: number) => record.progress.some(entry => entry.step === 'ref-change' && entry.index === position);
+	const branch = refChanges.some((part, position) => part === 'unexpected' && (position === decisive || listed(position)))
+		? 'unexpected'
+		: refChanges[decisive] ?? 'before';
+	return { branch, index, paths, refChanges };
+}
+
+/** The index of the ref change that decides `record`: its `commitPoint`, or else its last change. */
+export function commitPointOf(record: Pick<JournalRecord, 'refChanges' | 'commitPoint'>): number {
+	return record.commitPoint ?? (record.refChanges?.length ?? 0) - 1;
+}
+
+/** The change that undoes `change`: the same target, with its before and after values swapped. */
+export function invertRefChange(change: RefChange): RefChange {
+	switch (change.type) {
+		case 'head':
+			return { type: 'head', before: change.after, after: change.before };
+		case 'config-section':
+			return { type: 'config-section', section: change.section, before: change.after, after: change.before };
+		default:
+			return withoutUndefined({ type: change.type, name: change.name, before: change.after, after: change.before });
+	}
+}
+
+/** `change` without the keys whose value is undefined, so it reads the same after a trip through JSON. */
+function withoutUndefined<T extends RefChange>(change: T): T {
+	return Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)) as T;
+}
+
+/**
+ * One side of `change` in the form `readRefTarget` reads its target: the commit id, the full ref
+ * name, the file's text, or for a configuration section a JSON text of its keys (in lower case)
+ * and values; undefined for an absent ref or file.
+ */
+export function refChangeSide(change: RefChange, side: 'before' | 'after'): string | undefined {
+	if (change.type === 'config-section') {
+		return sectionText(change[side]);
+	}
+	return change[side];
+}
+
+function sectionText(entries: [string, string][]): string {
+	return JSON.stringify(entries.map(([key, value]) => [key.toLowerCase(), value]));
+}
+
+/** The target of `change` as it is now, in the form `refChangeSide` gives. A HEAD that names no branch reads as undefined. */
+export async function readRefTarget(ports: EnginePorts, change: RefChange): Promise<string | undefined> {
+	switch (change.type) {
+		case 'ref': {
+			const result = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', '--end-of-options', change.name]);
+			return result.exitCode === 0 ? result.stdout.trim() : undefined;
+		}
+		case 'head': {
+			const result = await runGit(ports.git, ['-C', ports.projectRoot, 'symbolic-ref', '-q', 'HEAD']);
+			return result.exitCode === 0 ? result.stdout.trim() : undefined;
+		}
+		case 'config-section':
+			return sectionText(await readConfigSection(ports, change.section));
+		case 'engine-file': {
+			const content = await ports.files.read(await engineFilePath(ports, change.name));
+			return content === undefined ? undefined : Buffer.from(content).toString('utf8');
+		}
+	}
+}
+
+/** The path of the engine file `name`, a plain file name in the engine's folder. */
+export async function engineFilePath(ports: EnginePorts, name: string): Promise<string> {
+	if (name === '' || name === '.' || name === '..' || /[\\/]/.test(name)) {
+		throw new Error(`${name} is not a file name in the engine's folder`);
+	}
+	return `${await engineDirectory(ports)}/${name}`;
+}
+
+/**
+ * Every key and value of the configuration section `section` (`branch.<name>`, or a section with
+ * no subsection) in the repository's own configuration file, in file order. Git gives key names
+ * in lower case. A key with no value (a boolean written as the key alone) reads as an empty value.
+ */
+export async function readConfigSection(ports: EnginePorts, section: string): Promise<[string, string][]> {
+	const dot = section.indexOf('.');
+	const prefix = (dot === -1 ? section.toLowerCase() : section.slice(0, dot).toLowerCase() + section.slice(dot)) + '.';
+	const output = (await mustGit(ports.git, ['-C', ports.projectRoot, 'config', '--local', '--no-includes', '-z', '--list'])).stdout;
+	const entries: [string, string][] = [];
+	for (const item of splitZ(output)) {
+		const newline = item.indexOf('\n');
+		const key = newline === -1 ? item : item.slice(0, newline);
+		const name = key.slice(prefix.length);
+		if (key.startsWith(prefix) && name !== '' && !name.includes('.')) {
+			entries.push([name, newline === -1 ? '' : item.slice(newline + 1)]);
+		}
+	}
+	return entries;
 }
 
 /**
