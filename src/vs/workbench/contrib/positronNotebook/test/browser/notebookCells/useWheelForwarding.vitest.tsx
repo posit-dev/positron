@@ -8,6 +8,13 @@ import { mainWindow } from '../../../../../../base/browser/window.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
+// The shift + wheel conversion depends on the platform, so let each test choose it.
+const platform = vi.hoisted(() => ({ isMacintosh: false }));
+vi.mock('../../../../../../base/common/platform.js', async importOriginal => ({
+	...await importOriginal<typeof import('../../../../../../base/common/platform.js')>(),
+	get isMacintosh() { return platform.isMacintosh; },
+}));
+
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */
 function TestComponent({ targetRef }: {
 	targetRef: React.RefObject<HTMLElement | null>;
@@ -41,6 +48,7 @@ describe('useWheelForwarding', () => {
 
 	afterEach(() => {
 		scrollTarget.remove();
+		platform.isMacintosh = false;
 	});
 
 	/* Render the hook and return the source element that receives wheel events. */
@@ -67,6 +75,30 @@ describe('useWheelForwarding', () => {
 		source.dispatchEvent(new WheelEvent('wheel', { deltaX: 30, cancelable: true }));
 
 		expect(scrollTarget.scrollLeft).toBe(30);
+	});
+
+	/* A shift + wheel event. happy-dom's WheelEvent extends UIEvent rather than MouseEvent, so it drops the modifier keys. */
+	function shiftWheel(init: WheelEventInit) {
+		const event = new WheelEvent('wheel', { cancelable: true, ...init });
+		Object.defineProperty(event, 'shiftKey', { value: true });
+		return event;
+	}
+
+	it('forwards shift + vertical wheel to scrollLeft on Windows and Linux (#11063)', () => {
+		const source = renderHook();
+
+		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
+
+		expect({ top: scrollTarget.scrollTop, left: scrollTarget.scrollLeft }).toEqual({ top: 0, left: 30 });
+	});
+
+	it('forwards shift + vertical wheel unchanged on macOS, which converts it itself', () => {
+		platform.isMacintosh = true;
+		const source = renderHook();
+
+		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
+
+		expect({ top: scrollTarget.scrollTop, left: scrollTarget.scrollLeft }).toEqual({ top: 30, left: 0 });
 	});
 
 	it('does not preventDefault at scroll boundary', () => {

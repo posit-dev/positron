@@ -3,31 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Other dependencies.
+import { shiftWheelToHorizontal, WheelDeltas } from '../../../../base/common/positronWheel.js';
+
 /**
  * The parts of a wheel event that determine how far the data grid scrolls.
  */
-export interface WheelInput {
-	readonly deltaX: number;
-	readonly deltaY: number;
+export interface WheelInput extends WheelDeltas {
 	readonly shiftKey: boolean;
 	readonly altKey: boolean;
-}
-
-/**
- * Horizontal and vertical scroll deltas, in pixels.
- */
-export interface ScrollDeltas {
-	readonly deltaX: number;
-	readonly deltaY: number;
 }
 
 /**
  * Converts a wheel event into the scroll deltas the data grid applies.
  * @param e The wheel event.
  * @param isMacintosh Whether the platform is macOS.
- * @returns The scroll deltas.
+ * @returns The scroll deltas, in pixels.
  */
-export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): ScrollDeltas {
+export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): WheelDeltas {
 	// Get the delta X and delta Y.
 	let deltaX = e.deltaX;
 	let deltaY = e.deltaY;
@@ -47,15 +40,8 @@ export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): S
 		}
 	}
 
-	// When the shift key is held, convert vertical scrolling to horizontal scrolling. macOS does
-	// this before the event arrives, so the event already carries delta X and swapping again would
-	// scroll vertically (#3755). Windows and Linux deliver delta Y with the shift key set and leave
-	// the conversion to the scroller (#11063). The !deltaX check leaves alone an event that a mouse
-	// driver has already converted. This matches VS Code's ScrollableElement.
-	if (e.shiftKey && !isMacintosh && !deltaX) {
-		deltaX = deltaY;
-		deltaY = 0;
-	}
+	// When the shift key is held, convert vertical scrolling to horizontal scrolling.
+	({ deltaX, deltaY } = shiftWheelToHorizontal({ deltaX, deltaY, shiftKey: e.shiftKey }, isMacintosh));
 
 	// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
 	if (e.altKey) {

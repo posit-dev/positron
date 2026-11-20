@@ -205,6 +205,18 @@ function webviewMessageCode() {
 	//    reached its top/bottom edge. In both cases, wheeling should
 	//    move the notebook, so we forward the event.
 	//
+	// Shift + wheel scrolls horizontally, so it is never forwarded as a
+	// vertical scroll. On Windows and Linux the event carries delta Y
+	// with the shift key set, and the browser turns it into a horizontal
+	// scroll of the output (#11063). macOS has already moved the delta
+	// to delta X, so the delta Y check below skips it there. This matches
+	// shiftWheelToHorizontal in base/common/positronWheel.ts, which this
+	// script cannot import because it is injected into the webview as a
+	// string.
+	const isMacintosh = navigator.userAgent.indexOf('Macintosh') >= 0;
+	const isShiftWheelToHorizontal = (event: WheelEvent) =>
+		event.shiftKey && !isMacintosh && !event.deltaX;
+
 	// The viewport has at most one element that scrolls on wheel. This
 	// returns that element when viewport scrolling is enabled, or null
 	// when the page disables it via overflow-y: hidden or clip. CSS
@@ -286,7 +298,7 @@ function webviewMessageCode() {
 	let lastSeenDelta = 0;
 	let lastEventAt = 0;
 	window.addEventListener('wheel', (event: WheelEvent) => {
-		if (event.defaultPrevented || event.deltaY === 0) {
+		if (event.defaultPrevented || event.deltaY === 0 || isShiftWheelToHorizontal(event)) {
 			return;
 		}
 		const now = Date.now();

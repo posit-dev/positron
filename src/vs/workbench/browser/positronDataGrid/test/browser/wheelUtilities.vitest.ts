@@ -20,26 +20,11 @@ describe('computeWheelScrollDeltas', () => {
 		]);
 	});
 
+	// The platform cases of the shift conversion are covered by positronWheel.vitest.ts. These
+	// check that the data grid applies it, and in the right order with its own adjustments.
 	test('shift with a vertical wheel scrolls horizontally on Windows and Linux (#11063)', () => {
-		expect([
-			computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true }), false),
-			computeWheelScrollDeltas(wheel(0, -100, { shiftKey: true }), false),
-		]).toEqual([
-			{ deltaX: 100, deltaY: 0 },
-			{ deltaX: -100, deltaY: 0 },
-		]);
-	});
-
-	test('shift leaves an event that already carries delta X alone (macOS, #3755; converting drivers)', () => {
-		// macOS converts shift + wheel before the event arrives, so swapping again would scroll
-		// vertically. On other platforms, a mouse driver may have done the same conversion.
-		expect([
-			computeWheelScrollDeltas(wheel(100, 0, { shiftKey: true }), true),
-			computeWheelScrollDeltas(wheel(100, 0, { shiftKey: true }), false),
-		]).toEqual([
-			{ deltaX: 100, deltaY: 0 },
-			{ deltaX: 100, deltaY: 0 },
-		]);
+		expect(computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true }), false))
+			.toEqual({ deltaX: 100, deltaY: 0 });
 	});
 
 	test('shift does not swap delta Y on macOS', () => {

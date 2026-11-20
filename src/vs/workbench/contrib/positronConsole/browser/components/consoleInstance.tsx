@@ -22,6 +22,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -737,7 +738,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
 		if (isWeb) {
-			consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
+			// The browser's default scroll is cancelled, and with it the browser's conversion of
+			// shift + wheel to horizontal scrolling, so do that conversion here.
+			const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMacintosh);
+			consoleInstanceRef.current.scrollBy(deltaX, deltaY);
 		}
 	};
 
@@ -746,8 +750,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
-		if (e.deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
+		// Negative delta Y immediantly engages scroll lock, if the console is scrollable. Shift +
+		// wheel scrolls horizontally, so it does not count as scrolling up.
+		if (shiftWheelToHorizontal(e, isMacintosh).deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
 			return;
 		}

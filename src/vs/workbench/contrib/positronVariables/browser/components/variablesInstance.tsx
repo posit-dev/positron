@@ -12,6 +12,7 @@ import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -546,7 +547,10 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			return;
 		}
 
-		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
+		// The browser's default scroll is cancelled, and with it the browser's conversion of shift +
+		// wheel to horizontal scrolling, so do that conversion here.
+		const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMacintosh);
+		innerRef.current.parentElement?.scrollBy(deltaX, deltaY);
 	};
 
 	// Build the row data passed to the stable virtualized row component. Identity changes

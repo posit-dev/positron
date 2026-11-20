@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, type RefObject } from 'react';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
 
 /**
  * Forwards wheel events from `sourceRef` to `targetRef` so that scrolling
@@ -25,8 +27,11 @@ export function useWheelForwarding(
 			if (scrollable) {
 				const prevTop = scrollable.scrollTop;
 				const prevLeft = scrollable.scrollLeft;
-				scrollable.scrollTop += e.deltaY;
-				scrollable.scrollLeft += e.deltaX;
+				// The source is outside the target, so the browser's conversion of shift + wheel
+				// to horizontal scrolling would not reach the target. Do that conversion here.
+				const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMacintosh);
+				scrollable.scrollTop += deltaY;
+				scrollable.scrollLeft += deltaX;
 				if (scrollable.scrollTop !== prevTop || scrollable.scrollLeft !== prevLeft) {
 					e.preventDefault();
 				}
