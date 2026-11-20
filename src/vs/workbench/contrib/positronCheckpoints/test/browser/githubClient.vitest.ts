@@ -225,6 +225,207 @@ describe('GitHubClient', () => {
 		});
 	});
 
+	describe('proposals', () => {
+		const PULL = { number: 7, html_url: 'https://github.com/me/proj/pull/7', state: 'open', merged_at: null, head: { sha: 'abc123' } };
+		const PULLS_URL = 'https://api.github.com/repos/me/proj/pulls';
+
+		function respondToOpenProposal(reviews: unknown[], mergeableState = 'clean'): void {
+			requests.respondOnceWith({ status: 200, body: [PULL] });
+			requests.respondOnceWith({ status: 200, body: { ...PULL, mergeable_state: mergeableState } });
+			requests.respondOnceWith({ status: 200, body: reviews });
+		}
+
+		describe('openProposal', () => {
+			test('creates a pull request and returns its link and number', async () => {
+				requests.respondWith({ status: 201, body: { number: 7, html_url: 'https://github.com/me/proj/pull/7' } });
+				expect(await client.openProposal('me', 'proj', 'proposal/dose', 'main', 'Title', 'Body')).toEqual({ ok: true, url: 'https://github.com/me/proj/pull/7', number: 7 });
+				expect(requests.requests[0]).toMatchObject({
+					type: 'POST',
+					url: PULLS_URL,
+					data: JSON.stringify({ head: 'proposal/dose', base: 'main', title: 'Title', body: 'Body' }),
+				});
+			});
+
+			test('reports a pull request that already exists', async () => {
+				requests.respondWith({ status: 422, body: { message: 'Validation Failed', errors: [{ message: 'A pull request already exists for me:proposal/dose.' }] } });
+				expect(await client.openProposal('me', 'proj', 'proposal/dose', 'main', 't', 'b')).toMatchObject({ ok: false, reason: 'already-open' });
+			});
+
+			test('treats another 422 as unknown', async () => {
+				requests.respondWith({ status: 422, body: { message: 'Validation Failed', errors: [{ message: 'No commits between main and proposal/dose' }] } });
+				expect(await client.openProposal('me', 'proj', 'proposal/dose', 'main', 't', 'b')).toMatchObject({ ok: false, reason: 'unknown' });
+			});
+
+			test('treats a success reply that cannot be read as unknown', async () => {
+				requests.respondWith({ status: 201 });
+				expect(await client.openProposal('me', 'proj', 'proposal/dose', 'main', 't', 'b')).toMatchObject({ ok: false, reason: 'unknown' });
+			});
+
+			test.each([
+				[401, 'sign-in-required'],
+				[403, 'not-allowed'],
+				[404, 'not-allowed'],
+				[500, 'unknown'],
+			])('maps status %i to %s', async (status, reason) => {
+				requests.respondWith({ status, body: { message: 'x' } });
+				expect(await client.openProposal('me', 'proj', 'b', 'main', 't', 'b')).toMatchObject({ ok: false, reason });
+			});
+
+			test('maps a network error to offline', async () => {
+				requests.respondWith(new Error('offline'));
+				expect(await client.openProposal('me', 'proj', 'b', 'main', 't', 'b')).toMatchObject({ ok: false, reason: 'offline' });
+			});
+
+			test('without a sign-in it sends no request', async () => {
+				sessions = [];
+				expect(await client.openProposal('me', 'proj', 'b', 'main', 't', 'b')).toMatchObject({ ok: false, reason: 'sign-in-required' });
+				expect(requests.requests).toHaveLength(0);
+			});
+		});
+
+		describe('findProposal', () => {
+			test('returns no proposal when GitHub lists none', async () => {
+				requests.respondWith({ status: 200, body: [] });
+				expect(await client.findProposal('me', 'proj', 'proposal/dose')).toEqual({ ok: true });
+				expect(requests.requests).toHaveLength(1);
+				expect(requests.requests[0]).toMatchObject({
+					type: 'GET',
+					url: `${PULLS_URL}?head=me%3Aproposal%2Fdose&state=all&sort=created&direction=desc&per_page=1`,
+				});
+			});
+
+			test('a merged pull request is accepted', async () => {
+				requests.respondWith({ status: 200, body: [{ ...PULL, state: 'closed', merged_at: '2026-01-01T00:00:00Z' }] });
+				expect(await client.findProposal('me', 'proj', 'b')).toEqual({
+					ok: true,
+					proposal: { number: 7, url: PULL.html_url, state: 'accepted', overlapsShared: false, headCommit: 'abc123' },
+				});
+				expect(requests.requests).toHaveLength(1);
+			});
+
+			test('a closed pull request that was not merged is closed', async () => {
+				requests.respondWith({ status: 200, body: [{ ...PULL, state: 'closed' }] });
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'closed', overlapsShared: false } });
+			});
+
+			test('an open pull request without reviews is waiting', async () => {
+				respondToOpenProposal([]);
+				expect(await client.findProposal('me', 'proj', 'b')).toEqual({
+					ok: true,
+					proposal: { number: 7, url: PULL.html_url, state: 'waiting', overlapsShared: false, headCommit: 'abc123' },
+				});
+				expect(requests.requests.map(request => request.url).slice(1)).toEqual([`${PULLS_URL}/7`, `${PULLS_URL}/7/reviews?per_page=100`]);
+			});
+
+			test('comments alone leave the proposal waiting', async () => {
+				respondToOpenProposal([{ state: 'COMMENTED', user: { login: 'a' } }]);
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'waiting' } });
+			});
+
+			test('an approval makes it approved', async () => {
+				respondToOpenProposal([{ state: 'APPROVED', user: { login: 'a' } }]);
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'approved' } });
+			});
+
+			test('a requested change makes it changes-requested even with another approval', async () => {
+				respondToOpenProposal([{ state: 'APPROVED', user: { login: 'a' } }, { state: 'CHANGES_REQUESTED', user: { login: 'b' } }]);
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'changes-requested' } });
+			});
+
+			test('a later approval replaces an earlier change request by the same person', async () => {
+				respondToOpenProposal([{ state: 'CHANGES_REQUESTED', user: { login: 'a' } }, { state: 'APPROVED', user: { login: 'a' } }]);
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'approved' } });
+			});
+
+			test('a comment after a change request does not clear it', async () => {
+				respondToOpenProposal([{ state: 'CHANGES_REQUESTED', user: { login: 'a' } }, { state: 'COMMENTED', user: { login: 'a' } }]);
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'changes-requested' } });
+			});
+
+			test('a dirty merge state sets overlapsShared', async () => {
+				respondToOpenProposal([], 'dirty');
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { overlapsShared: true } });
+			});
+
+			test.each([
+				[401, 'sign-in-required'],
+				[403, 'not-allowed'],
+				[404, 'not-allowed'],
+				[500, 'unknown'],
+			])('maps status %i of the list to %s', async (status, reason) => {
+				requests.respondWith({ status, body: { message: 'x' } });
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason });
+			});
+
+			test('maps a failure of the detail request', async () => {
+				requests.respondOnceWith({ status: 200, body: [PULL] });
+				requests.respondOnceWith({ status: 403, body: { message: 'x' } });
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason: 'not-allowed' });
+			});
+
+			test('maps a failure of the reviews request', async () => {
+				requests.respondOnceWith({ status: 200, body: [PULL] });
+				requests.respondOnceWith({ status: 200, body: { mergeable_state: 'clean' } });
+				requests.respondOnceWith(new Error('offline'));
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason: 'offline' });
+			});
+
+			test('maps a network error to offline', async () => {
+				requests.respondWith(new Error('offline'));
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason: 'offline' });
+			});
+
+			test('a list that cannot be read is unknown', async () => {
+				requests.respondWith({ status: 200, body: { message: 'odd' } });
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason: 'unknown' });
+			});
+
+			test('without a sign-in it sends no request', async () => {
+				sessions = [];
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: false, reason: 'sign-in-required' });
+				expect(requests.requests).toHaveLength(0);
+			});
+		});
+
+		describe('closeProposal', () => {
+			test('closes the pull request', async () => {
+				requests.respondWith({ status: 200, body: { number: 7 } });
+				expect(await client.closeProposal('me', 'proj', 7)).toEqual({ ok: true });
+				expect(requests.requests[0]).toMatchObject({
+					type: 'PATCH',
+					url: `${PULLS_URL}/7`,
+					data: JSON.stringify({ state: 'closed' }),
+				});
+			});
+
+			test.each([
+				[401, 'sign-in-required'],
+				[403, 'not-allowed'],
+				[404, 'not-allowed'],
+				[500, 'unknown'],
+			])('maps status %i to %s', async (status, reason) => {
+				requests.respondWith({ status, body: { message: 'x' } });
+				expect(await client.closeProposal('me', 'proj', 7)).toMatchObject({ ok: false, reason });
+			});
+
+			test('maps a network error to offline', async () => {
+				requests.respondWith(new Error('offline'));
+				expect(await client.closeProposal('me', 'proj', 7)).toMatchObject({ ok: false, reason: 'offline' });
+			});
+
+			test('without a sign-in it sends no request', async () => {
+				sessions = [];
+				expect(await client.closeProposal('me', 'proj', 7)).toMatchObject({ ok: false, reason: 'sign-in-required' });
+				expect(requests.requests).toHaveLength(0);
+			});
+		});
+
+		test('never writes the token to the details it returns', async () => {
+			requests.respondWith({ status: 403, body: { message: 'Forbidden' } });
+			expect(JSON.stringify(await client.findProposal('me', 'proj', 'b'))).not.toContain(TOKEN);
+		});
+	});
+
 	describe('parseProjectLink', () => {
 		const expected = { owner: 'o', name: 'n', cloneUrl: 'https://github.com/o/n.git' };
 

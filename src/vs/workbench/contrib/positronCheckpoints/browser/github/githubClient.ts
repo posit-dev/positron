@@ -30,6 +30,29 @@ export type InviteResult =
 	| { ok: true }
 	| { ok: false; reason: InviteFailure; detail: string };
 
+export type ProposalState = 'waiting' | 'changes-requested' | 'approved' | 'accepted' | 'closed';
+export type ProposalFailure = 'sign-in-required' | 'not-allowed' | 'offline' | 'unknown';
+
+export interface ProposalInfo {
+	number: number;
+	url: string;
+	state: ProposalState;
+	overlapsShared: boolean;
+	headCommit: string;
+}
+
+export type OpenProposalResult =
+	| { ok: true; url: string; number: number }
+	| { ok: false; reason: ProposalFailure | 'already-open'; detail: string };
+
+export type FindProposalResult =
+	| { ok: true; proposal?: ProposalInfo }
+	| { ok: false; reason: ProposalFailure; detail: string };
+
+export type CloseProposalResult =
+	| { ok: true }
+	| { ok: false; reason: ProposalFailure; detail: string };
+
 export interface ProjectLink {
 	owner: string;
 	name: string;
@@ -44,6 +67,9 @@ export interface IGitHubClient {
 	createRepository(name: string, isPrivate: boolean, owner?: string): Promise<CreateRepositoryResult>;
 	invite(owner: string, name: string, login: string): Promise<InviteResult>;
 	parseProjectLink(text: string): ProjectLink | undefined;
+	openProposal(owner: string, name: string, branch: string, base: string, title: string, body: string): Promise<OpenProposalResult>;
+	findProposal(owner: string, name: string, branch: string): Promise<FindProposalResult>;
+	closeProposal(owner: string, name: string, number: number): Promise<CloseProposalResult>;
 }
 
 export const IGitHubClient = createDecorator<IGitHubClient>('positronCheckpointsGitHubClient');
@@ -104,6 +130,62 @@ interface GitHubErrorBody {
 interface CreatedRepository {
 	clone_url: string;
 	html_url: string;
+}
+
+interface PullRequestSummary {
+	number?: unknown;
+	html_url?: unknown;
+	state?: unknown;
+	merged_at?: unknown;
+	mergeable_state?: unknown;
+	head?: { sha?: unknown };
+}
+
+interface PullRequestReview {
+	state?: unknown;
+	user?: { login?: unknown } | null;
+}
+
+type GitHubReply =
+	| { kind: 'network-error'; detail: string }
+	| { kind: 'response'; status: number; text: string; json: unknown; detail: string };
+
+/** Maps a reply that is not a success to the failure reasons of the proposal calls. */
+function proposalFailure(response: GitHubReply): { ok: false; reason: ProposalFailure; detail: string } {
+	if (response.kind === 'network-error') {
+		return { ok: false, reason: 'offline', detail: response.detail };
+	}
+	switch (response.status) {
+		case 401:
+			return { ok: false, reason: 'sign-in-required', detail: response.detail };
+		case 403:
+		case 404:
+			return { ok: false, reason: 'not-allowed', detail: response.detail };
+		default:
+			return { ok: false, reason: 'unknown', detail: response.detail };
+	}
+}
+
+function isSuccess(response: GitHubReply): response is Extract<GitHubReply, { kind: 'response' }> {
+	return response.kind === 'response' && response.status >= 200 && response.status < 300;
+}
+
+/** The state of an open proposal from its reviews: the latest review of each person decides. */
+function stateFromReviews(reviews: PullRequestReview[]): ProposalState {
+	const latest = new Map<string, string>();
+	for (const review of reviews) {
+		if (typeof review.user?.login !== 'string' || typeof review.state !== 'string') {
+			continue;
+		}
+		if (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED') {
+			latest.set(review.user.login, review.state);
+		}
+	}
+	const states = [...latest.values()];
+	if (states.includes('CHANGES_REQUESTED')) {
+		return 'changes-requested';
+	}
+	return states.includes('APPROVED') ? 'approved' : 'waiting';
 }
 
 /**
@@ -198,6 +280,89 @@ export class GitHubClient implements IGitHubClient {
 		}
 	}
 
+	async openProposal(owner: string, name: string, branch: string, base: string, title: string, body: string): Promise<OpenProposalResult> {
+		if (!isValidOwner(owner) || !isValidName(name)) {
+			return { ok: false, reason: 'not-allowed', detail: 'The project name is not one GitHub allows.' };
+		}
+		const token = await this._getToken();
+		if (token === undefined) {
+			return { ok: false, reason: 'sign-in-required', detail: 'No GitHub sign-in.' };
+		}
+		const response = await this._send('POST', `${pullsPath(owner, name)}`, token, { head: branch, base, title, body });
+		if (response.kind === 'response') {
+			if (response.status >= 200 && response.status < 300) {
+				const created = response.json as Partial<PullRequestSummary> | undefined;
+				if (typeof created?.html_url === 'string' && typeof created.number === 'number') {
+					return { ok: true, url: created.html_url, number: created.number };
+				}
+				return { ok: false, reason: 'unknown', detail: 'GitHub did not return the new review request.' };
+			}
+			if (response.status === 422 && /pull request already exists/i.test(response.text)) {
+				return { ok: false, reason: 'already-open', detail: response.detail };
+			}
+		}
+		return proposalFailure(response);
+	}
+
+	async findProposal(owner: string, name: string, branch: string): Promise<FindProposalResult> {
+		if (!isValidOwner(owner) || !isValidName(name)) {
+			return { ok: false, reason: 'not-allowed', detail: 'The project name is not one GitHub allows.' };
+		}
+		const token = await this._getToken();
+		if (token === undefined) {
+			return { ok: false, reason: 'sign-in-required', detail: 'No GitHub sign-in.' };
+		}
+		const head = encodeURIComponent(`${owner}:${branch}`);
+		const listed = await this._send('GET', `${pullsPath(owner, name)}?head=${head}&state=all&sort=created&direction=desc&per_page=1`, token);
+		if (!isSuccess(listed)) {
+			return proposalFailure(listed);
+		}
+		if (!Array.isArray(listed.json)) {
+			return { ok: false, reason: 'unknown', detail: 'GitHub returned a list that could not be read.' };
+		}
+		if (listed.json.length === 0) {
+			return { ok: true };
+		}
+		const item = listed.json[0] as PullRequestSummary;
+		if (typeof item.number !== 'number' || typeof item.html_url !== 'string' || typeof item.head?.sha !== 'string') {
+			return { ok: false, reason: 'unknown', detail: 'GitHub returned a review request that could not be read.' };
+		}
+		const common = { number: item.number, url: item.html_url, headCommit: item.head.sha };
+		if (typeof item.merged_at === 'string') {
+			return { ok: true, proposal: { ...common, state: 'accepted', overlapsShared: false } };
+		}
+		if (item.state === 'closed') {
+			return { ok: true, proposal: { ...common, state: 'closed', overlapsShared: false } };
+		}
+
+		const detailPath = `${pullsPath(owner, name)}/${item.number}`;
+		const detail = await this._send('GET', detailPath, token);
+		if (!isSuccess(detail)) {
+			return proposalFailure(detail);
+		}
+		const overlapsShared = (detail.json as PullRequestSummary | undefined)?.mergeable_state === 'dirty';
+		const reviews = await this._send('GET', `${detailPath}/reviews?per_page=100`, token);
+		if (!isSuccess(reviews)) {
+			return proposalFailure(reviews);
+		}
+		if (!Array.isArray(reviews.json)) {
+			return { ok: false, reason: 'unknown', detail: 'GitHub returned reviews that could not be read.' };
+		}
+		return { ok: true, proposal: { ...common, state: stateFromReviews(reviews.json as PullRequestReview[]), overlapsShared } };
+	}
+
+	async closeProposal(owner: string, name: string, number: number): Promise<CloseProposalResult> {
+		if (!isValidOwner(owner) || !isValidName(name) || !Number.isInteger(number) || number <= 0) {
+			return { ok: false, reason: 'not-allowed', detail: 'The project name is not one GitHub allows.' };
+		}
+		const token = await this._getToken();
+		if (token === undefined) {
+			return { ok: false, reason: 'sign-in-required', detail: 'No GitHub sign-in.' };
+		}
+		const response = await this._send('PATCH', `${pullsPath(owner, name)}/${number}`, token, { state: 'closed' });
+		return isSuccess(response) ? { ok: true } : proposalFailure(response);
+	}
+
 	/** The links of a project named `name` under `owner`, or under the signed-in user when `owner` is empty. */
 	private async _linksFromNames(owner: string | undefined, name: string, token: string): Promise<{ cloneUrl: string; htmlUrl: string } | undefined> {
 		let login = owner;
@@ -220,10 +385,7 @@ export class GitHubClient implements IGitHubClient {
 		}
 	}
 
-	private async _send(method: 'GET' | 'POST' | 'PUT', path: string, token: string, body?: object): Promise<
-		| { kind: 'network-error'; detail: string }
-		| { kind: 'response'; status: number; text: string; json: unknown; detail: string }
-	> {
+	private async _send(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, token: string, body?: object): Promise<GitHubReply> {
 		let context;
 		try {
 			context = await this._requestService.request({
@@ -260,6 +422,10 @@ export class GitHubClient implements IGitHubClient {
 		this._logService.info(`[Checkpoints] GitHub ${method} ${path} returned ${status}.`);
 		return { kind: 'response', status, text, json, detail };
 	}
+}
+
+function pullsPath(owner: string, name: string): string {
+	return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls`;
 }
 
 function describeReply(status: number, text: string): string {
