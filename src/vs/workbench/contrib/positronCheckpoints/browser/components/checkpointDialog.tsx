@@ -20,8 +20,8 @@ import { IChangedFile, IChangeSet, IChunk, OperationResult } from '../../../../s
 import { CHECKPOINT_TITLE_LIMIT, LARGE_FILE_LIMIT_MEGABYTES } from '../../common/checkpointsLimits.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { openDiff } from '../openDiff.js';
-import { addChunk, createDraft, IChunkDraft, IDraftChunk, isDraftReady, moveFile, reconcileDraft, setChunkText, setFileTicked, titleProblem, toChunks, usedChunkCount } from './chunkDraft.js';
-import { statusWord } from './fileStatus.js';
+import { addChunk, createDraft, draftPaths, IChunkDraft, IDraftChunk, isDraftReady, moveFile, reconcileDraft, setChunkText, setFileTicked, titleProblem, toChunks, usedChunkCount } from './chunkDraft.js';
+import { knownSizes, statusWord } from './fileStatus.js';
 import { useRunAction } from './useRunAction.js';
 
 const CHECKPOINT_DIALOG_WIDTH = 640;
@@ -51,30 +51,60 @@ interface ICheckpointDialogProps extends ICheckpointDialogOptions {
  * The checkpoint dialog. Each chunk becomes one checkpoint with its own title and description.
  * The person ticks the files that belong in a chunk, moves a file to another chunk, and adds
  * chunks. Chunks hold whole files.
+ *
+ * The dialog stays open until the action finishes, so a cancel at the unsaved-files question or a
+ * failed save keeps what the person typed. When saving the files changes the list of files, the
+ * dialog shows the new list for review instead of creating anything.
  */
 export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 	const runAction = useRunAction();
 	const [draft, setDraft] = useState<IChunkDraft>(() => createDraft(props.changes.files, props.initialChunks));
+	// The changes the draft was built from. They are replaced only after a save changed the files.
+	const [changes, setChanges] = useState<IChangeSet>(props.changes);
+	const [addedPaths, setAddedPaths] = useState<ReadonlySet<string>>(new Set());
+	const [notice, setNotice] = useState<string>();
+	const [running, setRunning] = useState(false);
 
-	const filesByPath = new Map(props.changes.files.map(file => [file.path, file]));
+	const filesByPath = new Map(changes.files.map(file => [file.path, file]));
 	const ready = isDraftReady(draft);
 
 	const submit = async () => {
+		if (!ready || running) {
+			return;
+		}
 		const arranged = draft;
-		props.renderer.dispose();
+		setRunning(true);
 		const result = await runAction('checkpoint', async (engine, decision) => {
-			let basis = props.changes.basis;
-			let chunks = toChunks(arranged);
-			// A save can change the files, so the chunks are fitted to the files as they are now.
-			if (decision === 'proceed') {
-				const current = await engine.getChanges();
-				if (current.basis !== basis) {
-					basis = current.basis;
-					chunks = toChunks(reconcileDraft(arranged, current.files));
-				}
+			// Only a save made by this action can change the files the person reviewed. In every
+			// other case the reviewed basis is sent, so the engine refuses with changes-moved when
+			// the files changed in any other way.
+			if (decision !== 'proceed-after-save') {
+				return engine.createCheckpoints(changes.basis, toChunks(arranged));
 			}
-			return engine.createCheckpoints(basis, chunks);
+			const current = await engine.getChanges();
+			if (current.basis === changes.basis) {
+				return engine.createCheckpoints(changes.basis, toChunks(arranged));
+			}
+			const reconciled = reconcileDraft(arranged, current.files);
+			const before = draftPaths(arranged);
+			const after = draftPaths(reconciled);
+			const added = [...after].filter(path => !before.has(path));
+			const removed = [...before].some(path => !after.has(path));
+			if (added.length === 0 && !removed && isDraftReady(reconciled)) {
+				// The person chose to include the saved edits, and the files are the ones reviewed.
+				return engine.createCheckpoints(current.basis, toChunks(reconciled));
+			}
+			setDraft(reconciled);
+			setChanges(current);
+			setAddedPaths(new Set(added));
+			setNotice(added.length > 0 ? Strings.changes.savedAndAdded(added.length) : Strings.changes.savedAndChanged());
+			return undefined;
 		});
+		if (result === undefined) {
+			setRunning(false);
+			return;
+		}
+		props.renderer.dispose();
 		props.onFinished?.(result);
 	};
 
@@ -83,7 +113,7 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 			cancelButtonTitle={Strings.actions.cancel()}
 			height={CHECKPOINT_DIALOG_HEIGHT}
 			okButtonTitle={Strings.actions.createCheckpoints(Math.max(usedChunkCount(draft), 1))}
-			okDisabled={!ready}
+			okDisabled={!ready || running}
 			renderer={props.renderer}
 			title={Strings.changes.dialogTitle()}
 			width={CHECKPOINT_DIALOG_WIDTH}
@@ -91,9 +121,11 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 			onCancel={() => props.renderer.dispose()}
 		>
 			<div className='checkpoint-dialog'>
+				{notice !== undefined && <p className='checkpoint-dialog-warning' role='status'>{notice}</p>}
 				{draft.chunks.map((chunk, index) => (
 					<ChunkEditor
 						key={chunk.id}
+						addedPaths={addedPaths}
 						chunk={chunk}
 						chunks={draft.chunks}
 						filesByPath={filesByPath}
@@ -112,6 +144,8 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 };
 
 interface IChunkEditorProps {
+	/** Files that a save added after the person first arranged the chunks. */
+	addedPaths: ReadonlySet<string>;
 	chunk: IDraftChunk;
 	chunks: IDraftChunk[];
 	index: number;
@@ -155,6 +189,7 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 								<span className='checkpoint-dialog-path'>{draftFile.path}</span>
 							</label>
 							{file && <span className='checkpoints-file-status'>{statusWord(file)}</span>}
+							{props.addedPaths.has(draftFile.path) && <span className='checkpoint-dialog-added'>{Strings.changes.savedAndAddedTag()}</span>}
 							{props.chunks.length > 1 && (
 								<select
 									aria-label={Strings.changes.moveFileTo(draftFile.path)}
@@ -167,9 +202,9 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 								</select>
 							)}
 							<Button
-								ariaLabel={`${Strings.actions.viewDetailedDifferences()}: ${draftFile.path}`}
+								ariaLabel={Strings.actions.viewDetailedDifferencesOf(draftFile.path)}
 								className='checkpoints-link'
-								onPressed={() => openDiff(services, { kind: 'change', path: draftFile.path }, Strings.diff.changeTitle(draftFile.path))}
+								onPressed={() => openDiff(services, { kind: 'change', path: draftFile.path }, Strings.diff.changeTitle(draftFile.path), file && knownSizes(file))}
 							>
 								{Strings.actions.viewDetailedDifferences()}
 							</Button>

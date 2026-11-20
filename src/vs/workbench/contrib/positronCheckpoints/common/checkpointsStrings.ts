@@ -84,6 +84,8 @@ const actions = {
 	editDescription: () => localize('positron.checkpoints.actions.editDescription', "Edit Description"),
 	startKeepingCheckpoints: () => localize('positron.checkpoints.actions.startKeepingCheckpoints', "Start keeping checkpoints"),
 	viewDetailedDifferences: () => localize('positron.checkpoints.actions.viewDetailedDifferences', "View detailed differences"),
+	/** The accessible name of a "View detailed differences" action of one file. */
+	viewDetailedDifferencesOf: (path: string) => localize('positron.checkpoints.actions.viewDetailedDifferencesOf', "View detailed differences: {0}", path),
 	showGitDetails: () => localize('positron.checkpoints.actions.showGitDetails', "Show git details"),
 	edit: () => localize('positron.checkpoints.actions.edit', "Edit"),
 	dismiss: () => localize('positron.checkpoints.actions.dismiss', "Dismiss"),
@@ -121,18 +123,19 @@ const changes = {
 	changedFile: () => localize('positron.checkpoints.changes.changedFile', "changed"),
 	binaryFile: (size: string) => localize('positron.checkpoints.changes.binaryFile', "data file, {0}", size),
 	tooLarge: (path: string, limitMegabytes: number) => localize('positron.checkpoints.changes.tooLarge', "{0} is over {1} MB. It is left out of the checkpoint unless you include it.", path, limitMegabytes),
-	includeLargeFile: () => localize('positron.checkpoints.changes.includeLargeFile', "Include it anyway"),
-	titlePlaceholder: () => localize('positron.checkpoints.changes.titlePlaceholder', "Describe this checkpoint in a few words"),
 	titleTooLong: (limit: number) => localize('positron.checkpoints.changes.titleTooLong', "The title can have up to {0} characters.", limit),
 	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Checkpoint {0}", index),
-	moveToCheckpoint: () => localize('positron.checkpoints.changes.moveToCheckpoint', "Move to another checkpoint"),
 	dialogTitle: () => localize('positron.checkpoints.changes.dialogTitle', "Create Checkpoints"),
 	titleLabel: () => localize('positron.checkpoints.changes.titleLabel', "Title"),
 	bodyLabel: () => localize('positron.checkpoints.changes.bodyLabel', "Description (optional)"),
 	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add another checkpoint"),
-	includeFile: (path: string) => localize('positron.checkpoints.changes.includeFile', "Include {0}", path),
 	moveFileTo: (path: string) => localize('positron.checkpoints.changes.moveFileTo', "Move {0} to", path),
 	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this checkpoint."),
+	savedAndAdded: (count: number) => plural(count,
+		localize('positron.checkpoints.changes.savedAndAdded.one', "This file was saved and added. Review it, then create the checkpoint again."),
+		localize('positron.checkpoints.changes.savedAndAdded.other', "These files were saved and added. Review them, then create the checkpoint again.")),
+	savedAndAddedTag: () => localize('positron.checkpoints.changes.savedAndAddedTag', "saved and added"),
+	savedAndChanged: () => localize('positron.checkpoints.changes.savedAndChanged', "Saving changed the list of files. Review the checkpoints, then create them again."),
 };
 
 const diff = {

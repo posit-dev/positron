@@ -57,16 +57,17 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	actions: {
 		createCheckpoint: [[]], createCheckpoints: [[1], [2]], getChanges: [[]], getAuthorsChanges: [['Maya']], sendChanges: [[]],
 		checkSharedCopy: [[]], goBack: [[]], reverseCheckpoint: [[]], editDescription: [[]], startKeepingCheckpoints: [[]],
-		viewDetailedDifferences: [[]], showGitDetails: [[]], edit: [[]], dismiss: [[]], accept: [[]], chooseMyself: [[]], backOut: [[]],
+		viewDetailedDifferences: [[]], viewDetailedDifferencesOf: [['dose.R']], showGitDetails: [[]], edit: [[]], dismiss: [[]], accept: [[]], chooseMyself: [[]], backOut: [[]],
 		cancel: [[]], undo: [['Get Maya\'s changes']], redo: [['Get Maya\'s changes']], undoLastAction: [[]], undoProjectCheckChanges: [[]],
 		undoHover: [[50, 30]], acceptCheckedCheckpoint: [[]], declineCheckedCheckpoint: [[]], reverseKeepNewer: [[]], leaveAsIs: [[]],
 		removeRecoverySnapshot: [[]], openSourceControl: [[]], useTheirsKeepCopy: [[]],
 	},
 	changes: {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
-		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]], includeLargeFile: [[]],
-		titlePlaceholder: [[]], titleTooLong: [[72]], chunkTitle: [[1]], moveToCheckpoint: [[]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
-		addAnotherCheckpoint: [[]], includeFile: [['dose.R']], moveFileTo: [['dose.R']], noFilesInChunk: [[]],
+		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]],
+		titleTooLong: [[72]], chunkTitle: [[1]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
+		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], noFilesInChunk: [[]],
+		savedAndAdded: [[1], [2]], savedAndAddedTag: [[]], savedAndChanged: [[]],
 	},
 	diff: {
 		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],

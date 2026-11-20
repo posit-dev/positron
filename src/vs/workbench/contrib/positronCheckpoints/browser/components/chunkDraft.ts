@@ -42,7 +42,8 @@ function startsTicked(file: IChangedFile): boolean {
 /**
  * The first draft. Without `initialChunks`, one chunk holds every file. With them, each chunk
  * holds its whole files ticked, and a file that no chunk names goes into the first chunk unticked.
- * A file over the size limit is unticked either way.
+ * A file that two chunks name stays in the first of them only. A file over the size limit is
+ * unticked either way.
  */
 export function createDraft(files: IChangedFile[], initialChunks?: IChunk[]): IChunkDraft {
 	if (!initialChunks || initialChunks.length === 0) {
@@ -55,19 +56,16 @@ export function createDraft(files: IChangedFile[], initialChunks?: IChunk[]): IC
 	const byPath = new Map(files.map(file => [file.path, file]));
 	const named = new Set<string>();
 	const chunks = initialChunks.map((chunk, index): IDraftChunk => {
+		const files: IDraftFile[] = [];
 		for (const path of chunk.wholeFiles) {
+			if (named.has(path)) {
+				continue;
+			}
 			named.add(path);
+			const file = byPath.get(path);
+			files.push({ path, ticked: file ? startsTicked(file) : true });
 		}
-		return {
-			id: index + 1,
-			title: chunk.title,
-			body: chunk.body,
-			files: chunk.wholeFiles.map(path => {
-				const file = byPath.get(path);
-				return { path, ticked: file ? startsTicked(file) : true };
-			}),
-			hunkIds: [...chunk.hunkIds],
-		};
+		return { id: index + 1, title: chunk.title, body: chunk.body, files, hunkIds: [...chunk.hunkIds] };
 	});
 	for (const file of files) {
 		if (!named.has(file.path)) {
@@ -132,7 +130,7 @@ export function setChunkText(draft: IChunkDraft, chunkId: number, text: { title?
  */
 export function reconcileDraft(draft: IChunkDraft, files: IChangedFile[]): IChunkDraft {
 	const current = new Set(files.map(file => file.path));
-	const known = new Set(draft.chunks.flatMap(chunk => chunk.files.map(file => file.path)));
+	const known = draftPaths(draft);
 	const chunks = draft.chunks.map(chunk => ({ ...chunk, files: chunk.files.filter(file => current.has(file.path)) }));
 	if (chunks.length > 0) {
 		for (const file of files) {
@@ -142,6 +140,11 @@ export function reconcileDraft(draft: IChunkDraft, files: IChangedFile[]): IChun
 		}
 	}
 	return { ...draft, chunks };
+}
+
+/** The paths of every file in the draft, ticked or not. */
+export function draftPaths(draft: IChunkDraft): Set<string> {
+	return new Set(draft.chunks.flatMap(chunk => chunk.files.map(file => file.path)));
 }
 
 /** What is wrong with a title, or undefined when it can be used. The title is measured trimmed. */

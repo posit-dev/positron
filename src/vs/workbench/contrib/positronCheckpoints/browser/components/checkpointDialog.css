@@ -75,6 +75,11 @@
 	color: var(--vscode-editorWarning-foreground);
 }
 
+.checkpoint-dialog-added {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
 .checkpoint-dialog-empty {
 	margin: 0;
 	color: var(--vscode-descriptionForeground);

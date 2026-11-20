@@ -5,6 +5,7 @@
 
 import { IChangedFile } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { IKnownSizes } from '../openDiff.js';
 
 /** The plain word for what happened to a file. */
 export function statusWord(file: IChangedFile): string {
@@ -18,4 +19,12 @@ export function statusWord(file: IChangedFile): string {
 		case 'modified':
 			return Strings.changes.changedFile();
 	}
+}
+
+/**
+ * What a changed file says about its size, for `openDiff`. The engine measures the file on disk,
+ * so a removed file has no known size.
+ */
+export function knownSizes(file: IChangedFile): IKnownSizes {
+	return { tooLarge: file.tooLarge, after: file.status === 'deleted' ? undefined : file.sizeBytes };
 }

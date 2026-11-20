@@ -12,12 +12,19 @@ import { countUnsavedInProject } from '../../../../services/positronCheckpoints/
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { projectRootUri } from '../runAction.js';
 
-/** The number of files in the project with unsaved edits, kept current as editors change. */
+/**
+ * The number of files in the project with unsaved edits, kept current as editors change. An empty
+ * `projectRoot` (the project is not known yet) counts as no files.
+ */
 export function useUnsavedCount(projectRoot: string): number {
 	const services = usePositronReactServicesContext();
 	const [count, setCount] = useState(0);
 
 	useEffect(() => {
+		if (projectRoot === '') {
+			setCount(0);
+			return undefined;
+		}
 		const workingCopyService = services.get(IWorkingCopyService);
 		const { extUri } = services.get(IUriIdentityService);
 		const root = projectRootUri(services.get(IWorkspaceContextService), projectRoot);

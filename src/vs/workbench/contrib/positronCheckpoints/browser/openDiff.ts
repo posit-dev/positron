@@ -30,6 +30,17 @@ interface IDiffSide {
 	binary: boolean;
 }
 
+/**
+ * What the caller already knows about the two sides, in bytes. When either side is known to be
+ * over the size limit, the comparison is not read at all.
+ */
+export interface IKnownSizes {
+	/** True when the engine reported the file as over the size limit. */
+	tooLarge?: boolean;
+	before?: number;
+	after?: number;
+}
+
 function looksBinary(bytes: VSBuffer): boolean {
 	return bytes.slice(0, BINARY_SNIFF_BYTES).buffer.includes(0);
 }
@@ -39,9 +50,12 @@ function looksBinary(bytes: VSBuffer): boolean {
  * `positron-checkpoints` resource and the side on disk is the real file. A file that is a data
  * file, or is over the size limit, opens a text that states the sizes instead.
  *
+ * `known` gives sizes the caller already has, such as those of a changed file, so that a side
+ * over the size limit is never read just to measure it.
+ *
  * Every service is read before the first await, because an accessor is valid only until then.
  */
-export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, title: string): Promise<void> {
+export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, title: string, known?: IKnownSizes): Promise<void> {
 	const checkpointsService = accessor.get(ICheckpointsService);
 	const editorService = accessor.get(IEditorService);
 	const fileService = accessor.get(IFileService);
@@ -53,6 +67,16 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 	}
 
 	const openComparison = async (): Promise<IComparison> => {
+		const knownTooLarge = known !== undefined && (known.tooLarge === true
+			|| [known.before, known.after].some(size => size !== undefined && size > LARGE_FILE_LIMIT_BYTES));
+		if (knownTooLarge) {
+			const formatKnown = (size: number | undefined) => size === undefined ? undefined : ByteSize.formatSize(size);
+			const sizes = known.before === undefined && known.after === undefined
+				? ''
+				: Strings.diff.sizes(formatKnown(known.before), formatKnown(known.after));
+			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, LARGE_FILE_LIMIT_MEGABYTES, sizes).trim() };
+		}
+
 		const state = await engine.getState();
 		const root = projectRootUri(workspaceContextService, state.projectRoot);
 		const { left, right } = await engine.getDiff(target);

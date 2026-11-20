@@ -10,7 +10,7 @@ import { IChangedFile } from '../../../../services/positronCheckpoints/common/ch
 import { Strings } from '../../common/checkpointsStrings.js';
 import { openDiff } from '../openDiff.js';
 import { showCheckpointDialog } from './checkpointDialog.js';
-import { statusWord } from './fileStatus.js';
+import { knownSizes, statusWord } from './fileStatus.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { useUnsavedCount } from './useUnsavedCount.js';
 
@@ -29,7 +29,7 @@ export const ChangesSection = ({ view }: { view: ICheckpointsViewState }) => {
 	}
 
 	const create = () => showCheckpointDialog({ changes, onFinished: () => view.refresh() });
-	const viewDifferences = (file: IChangedFile) => openDiff(services, { kind: 'change', path: file.path }, Strings.diff.changeTitle(file.path));
+	const viewDifferences = (file: IChangedFile) => openDiff(services, { kind: 'change', path: file.path }, Strings.diff.changeTitle(file.path), knownSizes(file));
 
 	return (
 		<section aria-labelledby='checkpoints-changes-heading' className='checkpoints-section checkpoints-changes'>
@@ -51,7 +51,7 @@ export const ChangesSection = ({ view }: { view: ICheckpointsViewState }) => {
 								{file.binary && (
 									<span className='checkpoints-file-note'>{Strings.changes.binaryFile(ByteSize.formatSize(file.sizeBytes))}</span>
 								)}
-								<Button ariaLabel={`${Strings.actions.viewDetailedDifferences()}: ${file.path}`} className='checkpoints-link' onPressed={() => viewDifferences(file)}>
+								<Button ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)} className='checkpoints-link' onPressed={() => viewDifferences(file)}>
 									{Strings.actions.viewDetailedDifferences()}
 								</Button>
 							</li>

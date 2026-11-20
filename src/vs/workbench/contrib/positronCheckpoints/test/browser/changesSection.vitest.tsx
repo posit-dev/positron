@@ -36,6 +36,8 @@ function changedFile(path: string, overrides: Partial<IChangedFile> = {}): IChan
 
 describe('Changes section and checkpoint dialog', () => {
 	let dirty: IWorkingCopy[] = [];
+	/** The label of the button to press at the unsaved-files prompt, or undefined for Cancel. */
+	let pressLabel: string | undefined;
 	const onDidChangeDirty = new Emitter<IWorkingCopy>();
 
 	const ctx = createTestContainer()
@@ -51,8 +53,12 @@ describe('Changes section and checkpoint dialog', () => {
 			getWorkspace: () => stubInterface<IWorkspace>({ folders: [{ uri: URI.file('/work/dose-model'), name: 'dose-model', index: 0, toResource: path => URI.file(path) }] }),
 		})
 		.stub(IDialogService, {
-			// Presses the first button of the unsaved-editors prompt, which saves the files.
-			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => ({ result: await prompt.buttons![0].run({ checkboxChecked: false }) }),
+			// Presses the button named by `pressLabel`, or Cancel.
+			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
+				const button = prompt.buttons?.find(candidate => candidate.label === pressLabel);
+				const chosen = button ?? (prompt.cancelButton as { run: () => UnsavedEditorsDecision });
+				return { result: await chosen.run({ checkboxChecked: false }) };
+			},
 		})
 		.stub(IFileService, {})
 		.stub(IEditorService, {})
@@ -64,6 +70,7 @@ describe('Changes section and checkpoint dialog', () => {
 
 	beforeEach(() => {
 		dirty = [];
+		pressLabel = 'Save 1 file and include it';
 		// PositronModalReactRenderer finds its container through this singleton.
 		PositronReactServices.services = ctx.reactServices;
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
@@ -237,19 +244,132 @@ describe('Changes section and checkpoint dialog', () => {
 		await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(loadsBefore));
 	});
 
-	test('after a save changed the files, the checkpoint uses the current basis and includes the newly saved file', async () => {
-		const unsaved = stubInterface<IWorkingCopy>({ resource: URI.file('/work/dose-model/new.R'), capabilities: WorkingCopyCapabilities.None, save: async () => true });
+	/** An unsaved file in the project. Saving it empties the list of unsaved files. */
+	function unsavedFile(path: string): IWorkingCopy {
+		return stubInterface<IWorkingCopy>({
+			resource: URI.file(path),
+			capabilities: WorkingCopyCapabilities.None,
+			save: async () => { dirty = []; return true; },
+		});
+	}
+
+	test('with no unsaved files and moved files, the engine receives the basis the person reviewed', async () => {
+		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
+		const user = await openDialog();
+		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Reviewed');
+		// Another tool changes the files while the dialog is open.
+		engine.changes = { basis: 'b2', files: [changedFile('a.R'), changedFile('other.R', { status: 'added' })] };
+
+		await user.click(createButton(1));
+
+		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+			['b1', [{ title: 'Reviewed', body: '', hunkIds: [], wholeFiles: ['a.R'] }]],
+		]));
+	});
+
+	test('continuing without the unsaved edits sends the basis of the dialog', async () => {
+		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
+		const user = await openDialog();
+		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Without edits');
+		dirty = [unsavedFile('/work/dose-model/new.R')];
+		engine.changes = { basis: 'b2', files: [changedFile('a.R'), changedFile('new.R', { status: 'added' })] };
+		pressLabel = 'Continue without the unsaved edits';
+		const firstCall = engine.calls.length;
+
+		await user.click(createButton(1));
+
+		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+			['b1', [{ title: 'Without edits', body: '', hunkIds: [], wholeFiles: ['a.R'] }]],
+		]));
+		// The chunks are not rebuilt, so the changes are not read before the checkpoint is created.
+		const methods = engine.calls.slice(firstCall).map(call => call.method);
+		expect(methods.slice(0, methods.indexOf('createCheckpoints'))).not.toContain('getChanges');
+	});
+
+	test('a save that adds a file shows the dialog again with the file marked, and creates nothing until confirmed', async () => {
 		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
 		const user = await openDialog();
 		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'With saved file');
 		// The person edits new.R in an editor while the dialog is open; saving it changes the files.
-		dirty = [unsaved];
+		dirty = [unsavedFile('/work/dose-model/new.R')];
 		engine.changes = { basis: 'b2', files: [changedFile('a.R'), changedFile('new.R', { status: 'added' })] };
+
+		await user.click(createButton(1));
+
+		const dialog = await screen.findByRole('dialog');
+		expect(await within(dialog).findByText('This file was saved and added. Review it, then create the checkpoint again.')).toBeInTheDocument();
+		expect(within(dialog).getByText('saved and added')).toBeInTheDocument();
+		expect(within(dialog).getByRole('checkbox', { name: 'new.R' })).toBeChecked();
+		expect(within(dialog).getByRole('textbox', { name: 'Title' })).toHaveValue('With saved file');
+		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 
 		await user.click(createButton(1));
 
 		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
 			['b2', [{ title: 'With saved file', body: '', hunkIds: [], wholeFiles: ['a.R', 'new.R'] }]],
 		]));
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	test('a save into a new chunk with no title shows the dialog again and never sends an empty title', async () => {
+		engine.changes = { basis: 'b1', files: [changedFile('a.R')] };
+		const { showCheckpointDialog } = await import('../../browser/components/checkpointDialog.js');
+		showCheckpointDialog({
+			changes: engine.changes,
+			initialChunks: [{ title: '', body: '', hunkIds: [], wholeFiles: [] }, { title: 'Plot', body: '', hunkIds: [], wholeFiles: ['a.R'] }],
+		});
+		const user = userEvent.setup();
+		expect(await screen.findByRole('dialog')).toBeInTheDocument();
+		dirty = [unsavedFile('/work/dose-model/new.R')];
+		engine.changes = { basis: 'b2', files: [changedFile('a.R'), changedFile('new.R', { status: 'added' })] };
+
+		await user.click(createButton(1));
+
+		expect(await screen.findByText('This file was saved and added. Review it, then create the checkpoint again.')).toBeInTheDocument();
+		expect(createButton(2)).toBeDisabled();
+		expect(engine.callsOf('createCheckpoints')).toEqual([]);
+	});
+
+	test('a save that changes only the content of listed files creates the checkpoint with the new basis', async () => {
+		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
+		const user = await openDialog();
+		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Saved');
+		dirty = [unsavedFile('/work/dose-model/a.R')];
+		engine.changes = { basis: 'b2', files: [changedFile('a.R')] };
+
+		await user.click(createButton(1));
+
+		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+			['b2', [{ title: 'Saved', body: '', hunkIds: [], wholeFiles: ['a.R'] }]],
+		]));
+	});
+
+	test('Cancel at the unsaved-files question keeps the dialog open with the typed text', async () => {
+		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
+		const user = await openDialog();
+		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Keep me');
+		await user.type(screen.getByRole('textbox', { name: 'Description (optional)' }), 'And me');
+		dirty = [unsavedFile('/work/dose-model/a.R')];
+		pressLabel = undefined;
+
+		await user.click(createButton(1));
+
+		await vi.waitFor(() => expect(createButton(1)).toBeEnabled());
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Keep me');
+		expect(screen.getByRole('textbox', { name: 'Description (optional)' })).toHaveValue('And me');
+		expect(engine.callsOf('createCheckpoints')).toEqual([]);
+	});
+
+	test('the unsaved count is zero while the project root is not known', async () => {
+		dirty = [unsavedFile('/work/dose-model/a.R')];
+		const { useUnsavedCount } = await import('../../browser/components/useUnsavedCount.js');
+		const Probe = ({ root }: { root: string }) => <span data-testid='count'>{useUnsavedCount(root)}</span>;
+
+		const { rerender } = rtl.render(<Probe root='' />);
+		expect(screen.getByTestId('count')).toHaveTextContent('0');
+
+		rerender(<Probe root='/work/dose-model' />);
+		await vi.waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'));
 	});
 });

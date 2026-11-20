@@ -7,7 +7,7 @@
 
 import { IChangedFile } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import {
-	addChunk, chunkIsUsed, createDraft, isDraftReady, moveFile, reconcileDraft, setChunkText, setFileTicked, titleProblem, toChunks, usedChunkCount
+	addChunk, chunkIsUsed, createDraft, draftPaths, isDraftReady, moveFile, reconcileDraft, setChunkText, setFileTicked, titleProblem, toChunks, usedChunkCount
 } from '../../browser/components/chunkDraft.js';
 
 function file(path: string, overrides: Partial<IChangedFile> = {}): IChangedFile {
@@ -33,6 +33,19 @@ describe('chunkDraft', () => {
 			id: 1, title: 'Fix plot', body: 'Axis', hunkIds: ['h1'],
 			files: [{ path: 'b.R', ticked: true }, { path: 'a.R', ticked: false }],
 		}]);
+	});
+
+	test('a file named by two initial chunks stays in the first of them only', () => {
+		const draft = createDraft(files.slice(0, 2), [
+			{ title: 'One', body: '', hunkIds: [], wholeFiles: ['a.R', 'b.R'] },
+			{ title: 'Two', body: '', hunkIds: [], wholeFiles: ['b.R'] },
+		]);
+
+		expect(draft.chunks.map(chunk => chunk.files)).toEqual([
+			[{ path: 'a.R', ticked: true }, { path: 'b.R', ticked: true }],
+			[],
+		]);
+		expect(toChunks(setChunkText(draft, 2, { title: 'Two' })).map(chunk => chunk.wholeFiles)).toEqual([['a.R', 'b.R']]);
 	});
 
 	test('moving a file keeps its tick and leaves the other chunks alone', () => {
@@ -105,5 +118,11 @@ describe('chunkDraft', () => {
 			[{ path: 'c.R', ticked: true }, { path: 'huge.bin', ticked: false }],
 			[{ path: 'b.R', ticked: true }],
 		]);
+	});
+
+	test('draftPaths lists every file, ticked or not', () => {
+		const draft = setFileTicked(createDraft(files), 'a.R', false);
+
+		expect([...draftPaths(draft)]).toEqual(['a.R', 'b.R', 'big.csv']);
 	});
 });

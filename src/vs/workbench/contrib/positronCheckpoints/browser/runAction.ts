@@ -58,16 +58,19 @@ function routeResult(messageService: ICheckpointsMessageService, result: Operati
  */
 export type RunActionDecision = Exclude<UnsavedEditorsDecision, 'cancel'> | undefined;
 
-/** The engine call of an action. */
-export type RunActionCall = (engine: ICheckpointsEngineProxy, decision: RunActionDecision) => Promise<OperationResult>;
+/**
+ * The engine call of an action. It returns undefined when it decides not to call the engine, for
+ * example because a save changed what the person reviewed.
+ */
+export type RunActionCall = (engine: ICheckpointsEngineProxy, decision: RunActionDecision) => Promise<OperationResult | undefined>;
 
 /**
  * Runs one action of the Checkpoints view: asks about unsaved editors (unless `mode` is
  * `no-guard`), calls the engine, and shows the result in the view.
  *
  * @returns The engine's result, or undefined when no engine is registered, the person cancelled
- * at the unsaved-editors question, or the engine call threw. A thrown error is logged and the view
- * says the action could not finish.
+ * at the unsaved-editors question, `call` did not call the engine, or the engine call threw. A
+ * thrown error is logged and the view says the action could not finish.
  */
 export async function runAction(
 	accessor: ServicesAccessor,
@@ -100,12 +103,15 @@ export async function runAction(
 		}
 	}
 
-	let result: OperationResult;
+	let result: OperationResult | undefined;
 	try {
 		result = await call(engine, decision);
 	} catch (error) {
 		logService.error('The checkpoints engine call failed.', error);
 		messageService.show(Strings.results.couldNotFinish());
+		return undefined;
+	}
+	if (!result) {
 		return undefined;
 	}
 	routeResult(messageService, result);

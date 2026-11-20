@@ -112,6 +112,26 @@ describe('openDiff', () => {
 		expect(engine.callsOf('readBlob')).toEqual([]);
 	});
 
+	test('a removed file known to be over 50 MB opens a message without reading the stored side', async () => {
+		engine.diff = { left: { kind: 'blob', oid: 'huge' }, right: { kind: 'empty' } };
+		const removed: DiffTarget = { kind: 'change', path: 'data/huge.csv' };
+
+		await ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, removed, 'huge.csv (changes)', { tooLarge: true }));
+
+		const [input] = openEditor.mock.calls[0] as unknown as [{ resource: URI }];
+		expect(input.resource.toString()).toBe(messageResource('data/huge.csv', 'data/huge.csv is over 50 MB, so there is no line-by-line comparison.').toString());
+		expect(engine.callsOf('readBlob')).toEqual([]);
+		expect(engine.callsOf('getDiff')).toEqual([]);
+	});
+
+	test('a known size over 50 MB is stated in the message', async () => {
+		await ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, target, 'dose.R (changes)', { before: 60 * MEGABYTE, after: 10 }));
+
+		const [input] = openEditor.mock.calls[0] as unknown as [{ resource: URI }];
+		expect(input.resource.toString()).toBe(messageResource('analysis/dose.R', 'analysis/dose.R is over 50 MB, so there is no line-by-line comparison. Before: 60.00MB. Now: 10B.').toString());
+		expect(engine.callsOf('getDiff')).toEqual([]);
+	});
+
 	test('without an engine nothing opens', async () => {
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);

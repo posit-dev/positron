@@ -143,4 +143,14 @@ describe('runAction', () => {
 
 		expect(decisions).toEqual(['proceed', undefined, undefined]);
 	});
+
+	test('a call that does not call the engine returns undefined and leaves the status line alone', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		messageService.show('Earlier sentence');
+
+		const result = await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'checkpoint', async () => undefined));
+
+		expect(result).toBeUndefined();
+		expect(messageService.message).toBe('Earlier sentence');
+	});
 });

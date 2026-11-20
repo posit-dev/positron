@@ -14,10 +14,12 @@ import { IWorkingCopy, WorkingCopyCapabilities } from '../../workingCopy/common/
 import { IWorkingCopyService } from '../../workingCopy/common/workingCopyService.js';
 
 /**
- * What the caller does next. `proceed` means every unsaved file was saved, or there were none.
- * `proceed-without-unsaved` leaves the unsaved edits out and is only offered in `checkpoint` mode.
+ * What the caller does next. `proceed` means there were no unsaved files, so nothing on disk
+ * changed. `proceed-after-save` means every unsaved file was saved, so files on disk may differ
+ * from what the caller read before. `proceed-without-unsaved` leaves the unsaved edits out and is
+ * only offered in `checkpoint` mode.
  */
-export type UnsavedEditorsDecision = 'proceed' | 'proceed-without-unsaved' | 'cancel';
+export type UnsavedEditorsDecision = 'proceed' | 'proceed-after-save' | 'proceed-without-unsaved' | 'cancel';
 
 /**
  * `checkpoint` is the creation of checkpoints, which can continue without the unsaved edits.
@@ -43,8 +45,8 @@ export function countUnsavedInProject(workingCopyService: IWorkingCopyService, e
 
 /**
  * Asks what to do about files in the project with unsaved edits, and saves them when the person
- * chooses to. With no unsaved files it returns `proceed` without a dialog. When a save fails, no
- * action proceeds.
+ * chooses to. With no unsaved files it returns `proceed` without a dialog, and after a save it
+ * returns `proceed-after-save`. When a save fails, no action proceeds.
  */
 export async function guardUnsavedEditors(
 	accessor: ServicesAccessor,
@@ -70,7 +72,7 @@ export async function guardUnsavedEditors(
 			await dialogService.error(ServiceStrings.unsaved.saveFailed(extUri.basename(failed[0].resource), failed.length));
 			return 'cancel';
 		}
-		return 'proceed';
+		return 'proceed-after-save';
 	};
 
 	const cancelButton = { label: ServiceStrings.unsaved.cancel(), run: (): UnsavedEditorsDecision => 'cancel' };

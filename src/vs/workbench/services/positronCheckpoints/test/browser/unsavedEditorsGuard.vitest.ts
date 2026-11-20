@@ -98,7 +98,7 @@ describe('unsavedEditorsGuard', () => {
 		dirty = [first, second];
 		pressLabel = 'Save 2 files and include them';
 
-		expect(await guard('checkpoint')).toBe('proceed');
+		expect(await guard('checkpoint')).toBe('proceed-after-save');
 
 		expect(first.save).toHaveBeenCalledTimes(1);
 		expect(second.save).toHaveBeenCalledTimes(1);
@@ -109,7 +109,7 @@ describe('unsavedEditorsGuard', () => {
 		dirty = [file];
 		pressLabel = 'Save all and continue';
 
-		expect(await guard('file-changing')).toBe('proceed');
+		expect(await guard('file-changing')).toBe('proceed-after-save');
 		expect(file.save).toHaveBeenCalledTimes(1);
 	});
 
@@ -169,7 +169,7 @@ describe('unsavedEditorsGuard', () => {
 		// The person saves a.R and edits late.R while the dialog is open.
 		whileDialogOpen = () => { dirty = [second, late]; };
 
-		expect(await guard('checkpoint')).toBe('proceed');
+		expect(await guard('checkpoint')).toBe('proceed-after-save');
 
 		expect(first.save).not.toHaveBeenCalled();
 		expect(second.save).toHaveBeenCalledTimes(1);
@@ -185,7 +185,7 @@ describe('unsavedEditorsGuard', () => {
 		pressLabel = 'Save 1 file and include it';
 
 		expect(countUnsavedInProject(ctx.get(IWorkingCopyService), extUri, projectRoot)).toBe(1);
-		expect(await guard('checkpoint')).toBe('proceed');
+		expect(await guard('checkpoint')).toBe('proceed-after-save');
 
 		expect(inside.save).toHaveBeenCalledTimes(1);
 		expect(untitled.save).not.toHaveBeenCalled();
