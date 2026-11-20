@@ -25,14 +25,15 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
 import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
 import { DynamicPlotInstance } from '../../browser/components/dynamicPlotInstance.js';
+import { JsonRpcErrorCode } from '../../../../services/languageRuntime/common/positronBaseComm.js';
 
-// The errors R returns when the pane is too small for the plot's margins (#8049).
-const R_RENDER_ERROR = 'Failed to render plot with `id` plot-1 due to: Error evaluating \'.ps.graphics.render_plot_from_recording(...)\': invalid graphics state R backtrace: 0. tryCatchOne(expr, names, parentenv, handlers[[1L]])';
-const R_MARGINS_ERROR = 'Failed to render plot with `id` plot-1 due to: Error in plot.new(): figure margins too large';
-const R_FIGURE_REGION_ERROR = 'Failed to render plot with `id` plot-1 due to: Error in plot.new(): figure region too large';
-const R_PLOT_REGION_ERROR = 'Failed to render plot with `id` plot-1 due to: Error in plot.new(): plot region too large';
+// A render error as the runtime replies with it: a message and a JSON-RPC code.
+const rpcError = (code: JsonRpcErrorCode, message: string) => Object.assign(new Error(message), { code });
 
-const OTHER_RENDER_ERROR = 'Failed to render plot with `id` plot-1 due to: object \'x\' not found';
+// The runtime says the plot area is too small for the plot (#8049, #17441).
+const tooSmallError = () => rpcError(JsonRpcErrorCode.PlotTooSmall, 'Plot plot-1 is too small to render: invalid graphics state');
+// Any other failure. Its text no longer matters, even when it looks like a size error.
+const otherError = () => rpcError(JsonRpcErrorCode.InternalError, 'Failed to render plot with `id` plot-1 due to: invalid graphics state');
 
 describe('DynamicPlotInstance', () => {
 	const promptNotification = vi.fn();
@@ -63,7 +64,7 @@ describe('DynamicPlotInstance', () => {
 		lastRenderIsPreRender = false;
 	});
 
-	function makeFailingPlotClient(lastRender?: IRenderedPlot, error = new Error(R_RENDER_ERROR), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
+	function makeFailingPlotClient(lastRender?: IRenderedPlot, error: Error = tooSmallError(), sizingPolicy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto()): PlotClientInstance {
 		renderWithSizingPolicy.mockRejectedValue(error);
 		return stubInterface<PlotClientInstance>({
 			id: 'plot-1',
@@ -89,18 +90,13 @@ describe('DynamicPlotInstance', () => {
 	}
 
 	describe('when a render fails', () => {
-		it.each([
-			['invalid graphics state', R_RENDER_ERROR],
-			['figure margins too large', R_MARGINS_ERROR],
-			['figure region too large', R_FIGURE_REGION_ERROR],
-			['plot region too large', R_PLOT_REGION_ERROR],
-		])('suggests a larger plot area when R reports "%s"', async (_error, message) => {
-			renderPlot(makeFailingPlotClient(undefined, new Error(message)));
+		it('suggests a larger plot area when the runtime says the plot is too small', async () => {
+			const error = tooSmallError();
+			renderPlot(makeFailingPlotClient(undefined, error));
 
 			expect(await screen.findByText(/plot area is too small\. Try making it larger/)).toBeInTheDocument();
-			expect(screen.queryByText(/R backtrace/)).not.toBeInTheDocument();
 			expect(promptNotification).not.toHaveBeenCalled();
-			expect(logWarn).toHaveBeenCalledWith(expect.stringContaining(message));
+			expect(logWarn).toHaveBeenCalledWith(expect.stringContaining(error.message));
 		});
 
 		it.each([
@@ -138,7 +134,7 @@ describe('DynamicPlotInstance', () => {
 
 		it('shows a general message with a way to the logs for other errors', async () => {
 			const user = userEvent.setup();
-			renderPlot(makeFailingPlotClient(undefined, new Error(OTHER_RENDER_ERROR)));
+			renderPlot(makeFailingPlotClient(undefined, otherError()));
 
 			expect(await screen.findByText(/^Couldn't render this plot\.$/)).toBeInTheDocument();
 			expect(screen.queryByText(/too small/)).not.toBeInTheDocument();
@@ -199,7 +195,7 @@ describe('DynamicPlotInstance', () => {
 
 			renderWithSizingPolicy.mockReturnValue(new Promise(() => { }));
 			rerender(plotAt(plotClient, 700));
-			rejectEarlier(new Error(R_RENDER_ERROR));
+			rejectEarlier(tooSmallError());
 			// The component's catch was chained first, so it has run once this settles.
 			await expect(earlier).rejects.toThrow();
 
@@ -209,10 +205,10 @@ describe('DynamicPlotInstance', () => {
 		});
 
 		it.each([
-			['a too-small error', R_RENDER_ERROR, true],
-			['another error', OTHER_RENDER_ERROR, false],
-		])('shows a popup for %s when the user picks a size that fails, since the earlier image hides it', async (_label, message, tooSmall) => {
-			renderPlot(makeFailingPlotClient(earlierRender, new Error(message)));
+			['a too-small error', tooSmallError, true],
+			['another error', otherError, false],
+		])('shows a popup for %s when the user picks a size that fails, since the earlier image hides it', async (_label, makeError, tooSmall) => {
+			renderPlot(makeFailingPlotClient(earlierRender, makeError()));
 			await vi.waitFor(() => expect(logWarn).toHaveBeenCalled());
 			expect(promptNotification).not.toHaveBeenCalled();
 
@@ -289,7 +285,7 @@ describe('DynamicPlotInstance', () => {
 			renderPlot(makeFailingPlotClient(undefined, new CancellationError()));
 			await vi.waitFor(() => expect(renderWithSizingPolicy).toHaveBeenCalled());
 
-			act(() => onDidFailRenderUpdate.fire(new Error(R_MARGINS_ERROR)));
+			act(() => onDidFailRenderUpdate.fire(tooSmallError()));
 
 			expect(await screen.findByText(/plot area is too small\. Try making it larger/)).toBeInTheDocument();
 			expect(promptNotification).not.toHaveBeenCalled();
@@ -302,7 +298,7 @@ describe('DynamicPlotInstance', () => {
 				expect(screen.getByRole('img', { name: 'My Plot' })).toBeInTheDocument();
 
 				lastRenderStale = true;
-				act(() => onDidFailRenderUpdate.fire(new Error(R_MARGINS_ERROR)));
+				act(() => onDidFailRenderUpdate.fire(tooSmallError()));
 
 				expect(await screen.findByText(/plot area is too small/)).toBeInTheDocument();
 				expect(screen.queryByRole('img', { name: 'My Plot' })).not.toBeInTheDocument();
