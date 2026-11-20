@@ -24,6 +24,7 @@ import { Strings } from '../common/checkpointsStrings.js';
 import { CheckpointsContentProvider } from './checkpointsContentProvider.js';
 import { ICheckpointsSuggestionService } from './checkpointsSuggestionService.js';
 import { TaskChangeWatcher } from './taskChangeWatcher.js';
+import { IncomingChangesBadge } from './incomingChangesBadge.js';
 import { SharedCopyChecker } from './sharedCopyChecker.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
 import { OverlapEditorPane } from './overlapEditor/overlapEditor.js';
@@ -107,6 +108,7 @@ registerWorkbenchContribution2(CheckpointsContentProvider.ID, CheckpointsContent
 registerWorkbenchContribution2(SharedCopyChecker.ID, SharedCopyChecker, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(TaskChangeWatcher.ID, TaskChangeWatcher, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CheckpointsSuggestionBadge.ID, CheckpointsSuggestionBadge, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(IncomingChangesBadge.ID, IncomingChangesBadge, WorkbenchPhase.AfterRestored);
 
 // The overlap editor. Its input has no serializer, so it is not restored after a restart.
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(

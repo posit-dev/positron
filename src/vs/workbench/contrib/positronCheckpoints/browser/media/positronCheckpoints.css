@@ -328,6 +328,27 @@
 	margin: 0;
 }
 
+/* The card for new versions in the shared copy stands out from the rest of the view. */
+.positron-checkpoints .checkpoints-sync-card {
+	align-self: stretch;
+	padding: var(--vscode-spacing-size120);
+	border-color: var(--vscode-inputValidation-infoBorder, var(--vscode-focusBorder));
+	border-left-width: 4px;
+	background-color: var(--vscode-inputValidation-infoBackground);
+}
+
+.positron-checkpoints .checkpoints-card-heading {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	font-weight: 600;
+}
+
+.positron-checkpoints .checkpoints-card-heading .codicon {
+	flex: none;
+	color: var(--vscode-notificationsInfoIcon-foreground, var(--vscode-focusBorder));
+}
+
 .positron-checkpoints .checkpoints-card-actions,
 .positron-checkpoints .checkpoints-overlaps-actions {
 	display: flex;

@@ -105,12 +105,12 @@ describe('SharedCopyChecker', () => {
 		expect(checks()).toBe(5);
 	});
 
-	test('an interval under one minute is checked once a minute', async () => {
+	test('an interval under 5 seconds is checked every 5 seconds', async () => {
 		configuration.setUserConfiguration(CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY, 0.001);
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		createChecker();
 
-		await vi.advanceTimersByTimeAsync(MINUTE - 1);
+		await vi.advanceTimersByTimeAsync(5000 - 1);
 		expect(checks()).toBe(0);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(checks()).toBe(1);

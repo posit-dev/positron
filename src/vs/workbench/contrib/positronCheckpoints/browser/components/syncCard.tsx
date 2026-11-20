@@ -166,7 +166,12 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 
 	return (
 		<section aria-label={Strings.actions.getChanges()} className='checkpoints-card checkpoints-sync-card'>
-			{count > 0 && <p>{heading}</p>}
+			{count > 0 && (
+				<p className='checkpoints-card-heading'>
+					<span aria-hidden='true' className='codicon codicon-cloud-download' />
+					{heading}
+				</p>
+			)}
 			{summary && preview && (
 				<>
 					<p className='checkpoints-description'>{summary.summary}</p>

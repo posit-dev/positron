@@ -51,7 +51,7 @@ export function registerCheckpointsConfiguration(): void {
 				minimum: 0,
 				description: localize(
 					'positron.checkpoints.configuration.checkSharedInterval',
-					"Minutes between background checks of the shared copy. Set to 0 to turn background checks off."
+					"Minutes between background checks of the shared copy. A fraction is allowed, and the shortest time is 5 seconds. Set to 0 to turn background checks off."
 				),
 				scope: ConfigurationScope.WINDOW,
 				order: 3,
