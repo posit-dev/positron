@@ -411,7 +411,7 @@ describe('runOperation', () => {
 		expect(await repo.read('u.txt')).toBe('untracked\n');
 
 		// A skipped large file and an ignored file are in no snapshot, so an incoming file at
-		// their path stops the operation before either is replaced.
+		// their path is a collision, and the operation changes nothing.
 		const big = path.join(repo.root, 'big.bin');
 		await fsp.writeFile(big, '');
 		await fsp.truncate(big, LARGE_FILE_BYTES + 1);
@@ -421,7 +421,7 @@ describe('runOperation', () => {
 			const tree = await treeWith(repo, headTree, { [file]: 'incoming\n' });
 			const commit = await must(repo, ['commit-tree', tree, '-p', head, '-m', 'Incoming']);
 			const refused = await runOperation(repo.ports, { ...plan, expected: await currentState(repo), after: { branchCommit: commit, indexTree: tree, worktreeTree: tree } });
-			expect(refused.kind).toBe('could-not-finish');
+			expect(refused.kind).toBe('path-collisions');
 			expect(await must(repo, ['rev-parse', 'HEAD'])).toBe(head);
 		}
 		expect((await fsp.stat(big)).size).toBe(LARGE_FILE_BYTES + 1);

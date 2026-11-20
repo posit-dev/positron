@@ -5,7 +5,7 @@
 
 import { randomBytes } from 'crypto';
 import * as path from 'path';
-import { findCollisions } from './collisions';
+import { findCollisions, keptPath, moveAside, moveBack } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
 	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, Part, PathPlan,
@@ -35,8 +35,9 @@ class StepRefused extends Error { }
 /**
  * Runs an operation through the protocol of spec 6.3.1: take the lock, refuse while an earlier
  * operation is unresolved, record the before state with a snapshot, return `changes-moved` when
- * it differs from `plan.expected`, derive the paths to write, run the collision check, journal
- * the record, then change the working files (each only while it still has its before content),
+ * it differs from `plan.expected`, derive the paths to write, run the collision check (a
+ * collision without a `use-theirs-keep-copy` choice returns `path-collisions`), journal the
+ * record, then move the chosen collided files aside, change the working files (each only while it still has its before content),
  * the index (only while it still has its before tree), and last the branch (a compare-and-swap),
  * and mark the record complete. A durable progress entry is appended before each change, so the
  * journal lists every part the engine may have changed, even after a crash.
@@ -90,10 +91,14 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 			await removeSnapshot(ports, id);
 			return { kind: 'path-collisions', collisions: unanswered };
 		}
+		const keptMoves: { from: string; to: string }[] = [];
+		for (const collision of collisions) {
+			keptMoves.push({ from: collision.path, to: await keptPath(ports, id, collision.path) });
+		}
 		record = {
 			id, kind: plan.kind, description: plan.description, time: ports.now().toISOString(), branch,
 			before, after: plan.after, paths, skipped: snapshot.skipped,
-			keptMoves: [], progress: [], status: 'prepared',
+			keptMoves, progress: [], status: 'prepared',
 		};
 		await writeRecord(ports, record);
 	} catch (error) {
@@ -132,6 +137,13 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
  */
 async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWritten: Set<string>, started: Progress[]): Promise<void> {
 	const backups = await backupDirectory(ports, record.id);
+	// Files outside the snapshot that the person chose to keep a copy of go aside first (spec 6.2).
+	for (const move of record.keptMoves) {
+		await announce(ports, record.id, started, { step: 'kept', ...move });
+		if (await ports.files.lstat(move.from) !== undefined) {
+			await moveAside(ports, record.id, move.from, record.description);
+		}
+	}
 	for (const plan of record.paths) {
 		if (alreadyWritten.has(plan.path)) {
 			const [{ part }] = await classifyPaths(ports, [plan]);
@@ -475,9 +487,8 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 				leftUnexpected = true;
 			}
 		} else if (entry.step === 'kept') {
-			if (await ports.files.lstat(entry.from) === undefined && await ports.files.lstat(entry.to) !== undefined) {
-				await ports.files.move(entry.to, entry.from);
-			}
+			// A kept file whose place is taken stays in the kept folder, listed for the person.
+			await moveBack(ports, record.id, entry);
 		}
 	}
 
