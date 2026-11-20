@@ -115,7 +115,8 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 		return { ok: false, reason: 'unknown', detail };
 	};
 	const network: NetworkPort = {
-		fetch: () => runNetwork(['fetch']),
+		// The host fetches with pruning (`engineHost.ts`).
+		fetch: () => runNetwork(['fetch', '--prune']),
 		push: branch => runNetwork(['push', 'origin', branch]),
 		publish: (_remoteUrl, branch) => runNetwork(['push', '-u', 'origin', branch]),
 	};

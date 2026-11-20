@@ -412,8 +412,9 @@ async function markComplete(ports: EnginePorts, id: string, backups: string): Pr
 export async function rollForward(ports: EnginePorts, record: JournalRecord): Promise<void> {
 	const backups = await backupDirectory(ports, record.id);
 	const started = [...record.progress];
+	const parts = record.refChanges === undefined ? [] : (await classify(ports, record)).refChanges ?? [];
 	if (record.refChanges !== undefined) {
-		const unexpected = ((await classify(ports, record)).refChanges ?? []).findIndex(part => part === 'unexpected');
+		const unexpected = parts.findIndex(part => part === 'unexpected');
 		if (unexpected !== -1) {
 			throw new StepRefused(`ref change ${unexpected} is not where the operation left it`);
 		}
@@ -429,7 +430,10 @@ export async function rollForward(ports: EnginePorts, record: JournalRecord): Pr
 		await applyIndex(ports, record, started);
 	}
 	for (const [index, change] of (record.refChanges ?? []).entries()) {
-		if (await readRefTarget(ports, change) !== refChangeSide(change, 'after')) {
+		// A change classified as after is applied, apart from a section a write left part way
+		// (and a ref another tool moved forward from its after commit, which stays where it is).
+		const applied = change.type !== 'config-section' && parts[index] === 'after';
+		if (!applied && await readRefTarget(ports, change) !== refChangeSide(change, 'after')) {
 			await applyRefChangeStep(ports, record.id, index, change, started, true);
 		}
 	}

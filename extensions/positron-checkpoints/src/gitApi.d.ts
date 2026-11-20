@@ -28,12 +28,20 @@ export interface RepositoryState {
 	readonly onDidChange: Event<void>;
 }
 
+export interface FetchOptions {
+	remote?: string;
+	ref?: string;
+	all?: boolean;
+	prune?: boolean;
+	depth?: number;
+}
+
 export interface Repository {
 	readonly rootUri: Uri;
 	readonly state: RepositoryState;
 	getConfig(key: string): Promise<string>;
 	addRemote(name: string, url: string): Promise<void>;
-	fetch(): Promise<void>;
+	fetch(options?: FetchOptions): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
 }
 

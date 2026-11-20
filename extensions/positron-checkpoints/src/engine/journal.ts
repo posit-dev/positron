@@ -339,6 +339,8 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
  * For a record with ref changes:
  * - A configuration section with a progress entry that has only part of the keys the engine
  *   writes (see `isPartialSection`) counts as after: the engine wrote it, and nothing else has.
+ * - A change at the commit point that is a ref whose after commit is an ancestor of the ref's
+ *   commit now counts as after: it was applied, and another tool added checkpoints on top.
  * - Once the change at the commit point is after, every change before it was applied first, so
  *   such a change found at its before value was put back by another tool, and is unexpected.
  */
@@ -356,6 +358,14 @@ export async function classify(ports: EnginePorts, record: JournalRecord): Promi
 		refChanges.push(part === 'unexpected' && listed(position) && isPartialSection(change, now) ? 'after' : part);
 	}
 	const decisive = commitPointOf(record);
+	const point = record.refChanges[decisive];
+	if (refChanges[decisive] === 'unexpected' && point?.type === 'ref' && point.after !== undefined) {
+		// Another tool added checkpoints on top of the ref's after commit; the change was applied.
+		const now = await readRefTarget(ports, point);
+		if (now !== undefined && (await runGit(ports.git, ['-C', ports.projectRoot, 'merge-base', '--is-ancestor', point.after, now])).exitCode === 0) {
+			refChanges[decisive] = 'after';
+		}
+	}
 	if (refChanges[decisive] === 'after') {
 		record.refChanges.forEach((change, position) => {
 			if (position < decisive && refChanges[position] === 'before' && refChangeSide(change, 'before') !== refChangeSide(change, 'after')) {

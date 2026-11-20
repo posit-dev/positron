@@ -500,7 +500,8 @@ describe('recoverOnStart with ref changes', { timeout: 30_000 }, () => {
 	test('a change at the commit point that another tool moved leaves the record unrecovered and writes nothing', async () => {
 		const repo = await create();
 		const { c } = await crashAtChange(repo, 4);
-		const other = await must(repo, ['commit-tree', `${c}^{tree}`, '-p', c, '-m', 'other']);
+		// A commit that does not descend from the change's after commit.
+		const other = await must(repo, ['commit-tree', `${c}^{tree}`, '-m', 'other']);
 		await must(repo, ['update-ref', 'refs/heads/main', other]);
 		const found = await refState(repo);
 

@@ -152,9 +152,11 @@ async function freeName(ports: EnginePorts, slug: string): Promise<string> {
  * working files do not change. A completed start is noted in the undo list.
  *
  * Returns `unavailable unusual-state` when HEAD is detached or the index cannot be read,
- * `unavailable unusual-state proposal-exists` on a proposal, and `unavailable nothing-to-do`
- * when the branch has no resolvable upstream or no checkpoint the upstream lacks. Otherwise
- * returns the result of `runOperation`.
+ * `unavailable unusual-state proposal-exists` on a proposal, `unavailable nothing-to-do
+ * get-changes-first` when the branch's accepted point applies (`acceptedThrough`) and the branch
+ * is behind its upstream, and `unavailable nothing-to-do` when the branch has no resolvable
+ * upstream or no checkpoint that the upstream lacks and that is after the accepted point.
+ * Otherwise returns the result of `runOperation`.
  */
 export async function startProposal(ports: EnginePorts): Promise<OperationResult> {
 	const branch = await currentBranch(ports);
@@ -170,7 +172,14 @@ export async function startProposal(ports: EnginePorts): Promise<OperationResult
 	if (upstream === undefined || head === null) {
 		return { kind: 'unavailable', reason: 'nothing-to-do' };
 	}
-	const unshared = (await mustGit(ports.git, ['-C', ports.projectRoot, 'rev-list', '--reverse', '--first-parent', head, `^${upstream.commit}`, '--'])).stdout
+	// The accepted checkpoints of a finished proposal count as shared, as in the ahead count. Until
+	// Get changes brings in the shared copy's version of them, nothing can be proposed.
+	const accepted = await acceptedThrough(ports, branch);
+	if (accepted !== undefined && !await isAncestor(ports, upstream.commit, head)) {
+		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' };
+	}
+	const excluded = accepted === undefined ? [`^${upstream.commit}`] : [`^${upstream.commit}`, `^${accepted}`];
+	const unshared = (await mustGit(ports.git, ['-C', ports.projectRoot, 'rev-list', '--reverse', '--first-parent', head, ...excluded, '--'])).stdout
 		.split('\n').filter(id => id !== '');
 	if (unshared.length === 0) {
 		return { kind: 'unavailable', reason: 'nothing-to-do' };
@@ -195,21 +204,38 @@ export async function startProposal(ports: EnginePorts): Promise<OperationResult
 	return result;
 }
 
-/** The name of the accepted record in the engine's folder. */
+/** The name of the file of accepted records in the engine's folder. */
 const ACCEPTED_FILE = 'accepted.json';
 
-/** The accepted record: checkpoints of `branch` up to `through` are in the shared copy (proposals spec 5.5). */
-interface AcceptedRecord { branch: string; through: string }
+/**
+ * The accepted records (proposals spec 5.5), one per branch: for each branch name, the accepted
+ * point, the last checkpoint of a finished proposal whose work the shared copy has.
+ */
+type AcceptedRecords = Record<string, string>;
 
-/** The text of the accepted record as `finishProposal` writes it. */
-function acceptedText(record: AcceptedRecord): string {
-	return `${JSON.stringify(record)}\n`;
+/** The text of the file of accepted records as `finishProposal` writes it, or undefined (no file) when there are none. */
+function acceptedText(records: AcceptedRecords): string | undefined {
+	return Object.keys(records).length === 0 ? undefined : `${JSON.stringify(records)}\n`;
 }
 
-/** The text of the accepted record in the engine's folder, or undefined when there is none. */
+/** The text of the file of accepted records, or undefined when there is none. */
 async function readAcceptedText(ports: EnginePorts): Promise<string | undefined> {
 	const content = await ports.files.read(await engineFilePath(ports, ACCEPTED_FILE));
 	return content === undefined ? undefined : Buffer.from(content).toString('utf8');
+}
+
+/** The accepted records in `text`. Text that cannot be read, and entries that are not two strings, count as absent. */
+function parseAccepted(text: string | undefined): AcceptedRecords {
+	let parsed: unknown;
+	try {
+		parsed = text === undefined ? {} : JSON.parse(text);
+	} catch {
+		return {};
+	}
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+		return {};
+	}
+	return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
 }
 
 /** True when `ancestor` is `commit` or an ancestor of it. An unknown commit is no ancestor. */
@@ -218,51 +244,43 @@ async function isAncestor(ports: EnginePorts, ancestor: string, commit: string):
 }
 
 /**
- * The accepted point of `branch` (the branch HEAD points at when left out), from the accepted
- * record that `finishProposal` writes, or undefined. While it is defined, the checkpoints it
- * names and their ancestors count as shared: `readContext` and `basisOf` in sync, the ahead
- * count, `readCheckpoints`, `isSharedCommit`, and the undo refusal leave them out of the
- * unshared ones. A record whose checkpoint is not in its branch (a Get changes replaced the
- * branch's checkpoints, or another tool moved the branch) is removed. A record that cannot be
- * read counts as absent.
+ * The accepted point of `branch` (the branch HEAD points at when left out), or undefined. It is
+ * the branch's entry in the file of accepted records, when that commit is an ancestor of the
+ * branch (or the branch's commit) and not in the shared copy (`sharedReference`); an entry that
+ * is not is ignored and kept, so an Undo that puts the branch back makes it apply again. While it
+ * is defined, the accepted point and its
+ * ancestors count as shared: `readContext` and `basisOf` in sync, the ahead count,
+ * `startProposal`, `readCheckpoints`, `isSharedCommit`, and the undo refusal leave them out of
+ * the unshared ones. Reading never changes the file.
  */
 export async function acceptedThrough(ports: EnginePorts, branch?: string): Promise<string | undefined> {
-	const text = await readAcceptedText(ports);
-	if (text === undefined) {
+	const name = branch ?? await currentBranch(ports);
+	if (name === undefined) {
 		return undefined;
 	}
-	let record: Partial<AcceptedRecord>;
-	try {
-		record = JSON.parse(text);
-	} catch {
+	const through = parseAccepted(await readAcceptedText(ports))[name];
+	if (through === undefined) {
 		return undefined;
 	}
-	if (typeof record.branch !== 'string' || typeof record.through !== 'string') {
+	const tip = await readBranch(ports, name);
+	if (tip === null || !await isAncestor(ports, through, tip)) {
 		return undefined;
 	}
-	const tip = await readBranch(ports, record.branch);
-	if (tip === null || !await isAncestor(ports, record.through, tip)) {
-		await clearAccepted(ports);
-		return undefined;
-	}
-	return record.branch === (branch ?? await currentBranch(ports)) ? record.through : undefined;
-}
-
-/** Removes the accepted record, when there is one. */
-export async function clearAccepted(ports: EnginePorts): Promise<void> {
-	const file = await engineFilePath(ports, ACCEPTED_FILE);
-	if (await ports.files.lstat(file) !== undefined) {
-		await ports.files.remove(file);
-	}
+	// A point the shared copy already has (an acceptance by merge, or after Get changes) adds nothing.
+	const shared = await sharedReference(ports, name);
+	return shared !== undefined && await isAncestor(ports, through, shared) ? undefined : through;
 }
 
 /**
  * The current proposal, its tip, and the commit of its base branch, for `finishProposal` and
  * `stopProposal`, or the result that refuses them: `unavailable unusual-state` when HEAD is
  * detached or the index cannot be read, `unavailable nothing-to-do` when no proposal is current,
- * and `unavailable nothing-to-do get-changes-first` when the proposal is behind an upstream of
+ * `unavailable nothing-to-do get-changes-first` when the proposal is behind an upstream of
  * its own that git can resolve (a colleague added to it, and this computer does not have that
- * work yet).
+ * work yet), and `unavailable unusual-state base-moved` when the base branch has a commit that is
+ * neither in the proposal nor in the base's upstream (another tool added a checkpoint to the
+ * base during the review). Moving the base to the tip would leave that checkpoint on no branch;
+ * a base that a pull moved forward passes, because the upstream has its checkpoints.
  */
 async function endingProposal(ports: EnginePorts): Promise<{ refused: false; proposal: Proposal; tip: string; state: TriState } | { refused: OperationResult }> {
 	const branch = await currentBranch(ports);
@@ -278,6 +296,13 @@ async function endingProposal(ports: EnginePorts): Promise<{ refused: false; pro
 	const own = await upstreamOf(ports, branch);
 	if (own !== undefined && !await isAncestor(ports, own.commit, tip)) {
 		return { refused: { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' } };
+	}
+	const baseCommit = await readBranch(ports, proposal.base);
+	if (baseCommit !== null && !await isAncestor(ports, baseCommit, tip)) {
+		const baseUpstream = (await upstreamOf(ports, proposal.base))?.commit;
+		if (baseUpstream === undefined || !await isAncestor(ports, baseCommit, baseUpstream)) {
+			return { refused: { kind: 'unavailable', reason: 'unusual-state', detail: 'base-moved' } };
+		}
 	}
 	return { refused: false, proposal, tip, state: { branchCommit: tip, indexTree, worktreeTree: (await worktreeTree(ports)).tree } };
 }
@@ -341,18 +366,24 @@ async function acceptedPoint(ports: EnginePorts, acceptedCommit: string, tip: st
 /**
  * Finishes the current proposal after the shared copy accepted it (proposals spec 5.5). The
  * caller runs `checkShared` first; nothing is fetched here. Only refs change: the files and the
- * index stay as they are, and Get changes then does the file work. `acceptedCommit` is the last
- * checkpoint of the proposal the host accepted, as a commit id; it becomes the accepted point
- * only when `acceptedPoint` confirms it against the base's upstream.
+ * index stay as they are, and Get changes then does the file work.
+ *
+ * `acceptedCommit` is the last commit of the proposal that the host accepted (the head of the
+ * accepted review), as the host reports it. The caller passes the host's value and never a commit
+ * it chooses itself, such as the proposal's tip: a checkpoint made after acceptance that reverses
+ * an accepted one also passes the content test of `acceptedPoint`, and would then never be
+ * replayed. The engine confirms the host's value against the base's upstream (`acceptedPoint`)
+ * and uses it only when the check passes.
  *
  * One `finish-proposal` operation makes these ref changes (see `endingChanges`): the base
- * branch to the proposal's tip (the commit point), HEAD to the base branch, the accepted record
- * `{ "branch": <base>, "through": <accepted point> }` in the engine's folder (`accepted.json`;
- * with no accepted point an existing record is removed, and with neither the change is left
- * out), then the proposal branch and its configuration section are removed. A failure before
- * the commit point changes nothing; each change after it is completed by `rollForward` or by
- * recovery. Undo restores the proposal, its whole configuration section, and the record as it
- * was. A completed finish is noted in the undo list.
+ * branch to the proposal's tip (the commit point), HEAD to the base branch, the file of accepted
+ * records in the engine's folder (`accepted.json`, a JSON object from branch name to accepted
+ * point) with the base's entry set to the accepted point, or removed when there is none, and the
+ * entries of branches that no longer exist left out (no change when the file stays the same),
+ * then the proposal branch and its configuration section are removed. A failure before the
+ * commit point changes nothing; each change after it is completed by `rollForward` or by
+ * recovery. Undo restores the proposal, its whole configuration section, and the file as it was.
+ * A completed finish is noted in the undo list.
  *
  * Refused as `endingProposal` describes. Otherwise returns the result of `runOperation`.
  */
@@ -364,8 +395,17 @@ export async function finishProposal(ports: EnginePorts, acceptedCommit: string)
 	const { proposal, tip, state } = ending;
 	const through = await acceptedPoint(ports, acceptedCommit, tip, (await upstreamOf(ports, proposal.base))?.commit);
 	const existing = await readAcceptedText(ports);
-	const after = through === undefined ? undefined : acceptedText({ branch: proposal.base, through });
-	const record: RefChange[] = existing === undefined && after === undefined ? [] : [{
+	const records: AcceptedRecords = {};
+	for (const [branch, commit] of Object.entries(parseAccepted(existing))) {
+		if (branch !== proposal.base && await readBranch(ports, branch) !== null) {
+			records[branch] = commit;
+		}
+	}
+	if (through !== undefined) {
+		records[proposal.base] = through;
+	}
+	const after = acceptedText(records);
+	const record: RefChange[] = existing === after ? [] : [{
 		type: 'engine-file', name: ACCEPTED_FILE, ...(existing === undefined ? {} : { before: existing }), ...(after === undefined ? {} : { after }),
 	}];
 	return endProposal(ports, 'finish-proposal', 'Finish the proposal', state, await endingChanges(ports, proposal, tip, record));

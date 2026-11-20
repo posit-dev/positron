@@ -12,7 +12,7 @@ import { acquireLock, engineDirectory, PathPlan, readBranch, readIndexTree, TriS
 import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts, NetworkResult } from './ports';
-import { acceptedThrough, clearAccepted, readProposal, sharedReference } from './proposals';
+import { acceptedThrough, readProposal, sharedReference } from './proposals';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
 import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
@@ -404,8 +404,10 @@ function describeGet(preview: IncomingPreview): string {
  *    (including one that edits made since the review produced) gives `overlaps`, with the
  *    overlaps of the step that stopped and a basis over their paths.
  * 5. A clean result is applied through `runOperation` as `get-changes`: files and index first,
- *    the branch last, with `collisionChoices` for files outside every snapshot. The accepted
- *    record (`acceptedThrough`) is removed, and the new operation is noted in the undo list.
+ *    the branch last, with `collisionChoices` for files outside every snapshot. The new
+ *    operation is noted in the undo list. The accepted record stays: once the branch is on the
+ *    shared copy's version, its accepted point is no longer an ancestor and it is ignored, and
+ *    an Undo of this operation makes it apply again.
  *
  * The local checkpoints replayed are those after the accepted point, when there is one
  * (`readContext`). A failure before `runOperation` starts changes nothing and gives `could-not-finish`.
@@ -457,9 +459,6 @@ export async function getIncoming(ports: EnginePorts, basis: string, resolutions
 	const result = await runOperation(ports, { kind: 'get-changes', ...plan, collisionChoices });
 	if (result.kind === 'done') {
 		latestOverlaps.delete(ports.projectRoot);
-		// The accepted checkpoints are replaced by the shared copy's. A record that cannot be
-		// removed now is removed once its checkpoint is no longer in the branch.
-		await clearAccepted(ports).catch(() => undefined);
 		await noteNewOperation(ports, 'get-changes');
 	}
 	return result;

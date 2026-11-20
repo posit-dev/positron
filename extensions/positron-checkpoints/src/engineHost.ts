@@ -253,7 +253,9 @@ export class EngineHost {
 		};
 		const config = (repository: Repository, key: string) => repository.getConfig(key).then(value => value.trim(), () => '');
 		return {
-			fetch: () => run(repository => repository.fetch()),
+			// Pruning removes the record of a branch the host deleted, such as an accepted proposal's,
+			// so a sent proposal whose branch is gone counts as ended and is never sent again.
+			fetch: () => run(repository => repository.fetch({ prune: true })),
 			push: branch => run(async repository => {
 				// The upstream can have another name than the local branch; the push goes to it.
 				const remote = await config(repository, `branch.${branch}.remote`) || 'origin';
