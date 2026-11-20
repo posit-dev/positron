@@ -24,6 +24,7 @@ import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
+import { keepWheelFromWorkbench } from '../../../../browser/positronWorkbenchWheel.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
@@ -736,15 +737,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// On web, BrowserWindow (window.ts) calls preventDefault() on every wheel event that
-		// reaches the workbench container, to block the macOS back/forward swipe gestures. That
-		// cancels the browser's native scrolling of the console. Stopping propagation here keeps
-		// the event from reaching that listener, so the browser scrolls the console itself, with
-		// shift + wheel, deltaMode, smooth scrolling and momentum handled natively. Ctrl + wheel
-		// (and a macOS pinch, which arrives as one) zooms the page rather than scrolling, so let
-		// it propagate and stay cancelled, as it is everywhere else in the workbench.
-		if (!e.ctrlKey) {
-			e.stopPropagation();
+		// Let the browser scroll the console natively on web. Ctrl + wheel does not scroll the
+		// console, so it must not engage scroll lock either.
+		if (!keepWheelFromWorkbench(e)) {
+			return;
 		}
 
 		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.

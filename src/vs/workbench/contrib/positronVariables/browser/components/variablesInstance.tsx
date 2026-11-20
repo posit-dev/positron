@@ -7,7 +7,7 @@
 import './variablesInstance.css';
 
 // React.
-import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -26,6 +26,7 @@ import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableI
 import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { keepWheelFromWorkbench } from '../../../../browser/positronWorkbenchWheel.js';
 
 /**
  * Constants.
@@ -540,23 +541,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
-	/**
-	 * onWheel event handler.
-	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
-	 */
-	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
-		// On web, BrowserWindow (window.ts) calls preventDefault() on every wheel event that
-		// reaches the workbench container, to block the macOS back/forward swipe gestures. That
-		// cancels the browser's native scrolling of the list. Stopping propagation here keeps the
-		// event from reaching that listener, so the browser scrolls the list itself, with shift +
-		// wheel, deltaMode, smooth scrolling and momentum handled natively. Ctrl + wheel (and a
-		// macOS pinch, which arrives as one) zooms the page rather than scrolling, so let it
-		// propagate and stay cancelled, as it is everywhere else in the workbench.
-		if (!e.ctrlKey) {
-			e.stopPropagation();
-		}
-	};
-
 	// Build the row data passed to the stable virtualized row component. Identity changes
 	// each render, but `VariableEntryRow` itself is hoisted at module scope so react-window
 	// re-renders rows with new props instead of unmounting and remounting them.
@@ -591,7 +575,8 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onBlur={blurHandler}
 			onFocus={focusHandler}
 			onKeyDown={keyDownHandler}
-			onWheel={wheelHandler}
+			// Let the browser scroll the list natively on web.
+			onWheel={keepWheelFromWorkbench}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :
