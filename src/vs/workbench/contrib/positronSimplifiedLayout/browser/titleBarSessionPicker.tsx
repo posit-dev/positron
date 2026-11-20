@@ -14,6 +14,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { TopActionBarSessionPicker } from '../../../browser/parts/positronTopActionBar/components/topActionBarSessionPicker.js';
+import { TitleBarLeadingActionsGroup } from '../../../browser/parts/titlebar/titlebarActions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 
@@ -31,7 +32,7 @@ registerAction2(class extends Action2 {
 			menu: {
 				id: MenuId.TitleBar,
 				when: ContextKeyExpr.equals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true),
-				group: 'navigation',
+				group: TitleBarLeadingActionsGroup,
 				order: 0,
 			},
 		});
