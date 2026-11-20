@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { createHash } from 'crypto';
 import { mustGit, runGit } from './git';
 import { engineFilePath, readBranch, readConfigSection, readIndexTree, RefChange, TriState } from './journal';
 import { noteNewOperation } from './operationLog';
@@ -17,7 +18,7 @@ const PROPOSAL_PREFIX = 'proposal/';
 /** The configuration key, under `branch.<name>`, that names the base branch of a proposal. */
 const BASE_KEY = 'positronCheckpointsBase';
 
-/** A slug has at most this many characters, before any `-2` suffix. */
+/** A slug has at most this many characters; the name adds `-<suffix>` (and `-2`, `-3` when that is used) after it. */
 const SLUG_LIMIT = 40;
 
 /** A proposal: its branch name, the name of its base branch, and whether an upstream is configured for it. */
@@ -106,8 +107,21 @@ export function proposalSlug(title: string): string {
 }
 
 /**
- * `proposal/<slug>`, with `-2`, `-3`, and so on added while a local branch or a remote-tracking
- * branch has that name, or has it as a folder of its name.
+ * The six lower-case hex characters that end a proposal name made with the id `id`: the first six
+ * of the id when it is hex (hyphens left out, as in a UUID), and else the first six of its SHA-256.
+ * The same id always gives the same characters.
+ */
+export function proposalSuffix(id: string): string {
+	const hex = id.toLowerCase().replace(/-/g, '');
+	return /^[0-9a-f]{6,}$/.test(hex) ? hex.slice(0, 6) : createHash('sha256').update(id).digest('hex').slice(0, 6);
+}
+
+/**
+ * `proposal/<slug>-<suffix>`, where `<suffix>` comes from a new id (`proposalSuffix`), so a name
+ * is never used twice: after the host deletes an accepted proposal's branch and a fetch prunes
+ * it, a later proposal with the same slug still gets a name of its own, and the host's newest
+ * review for that name is never the old one. While a local branch or a remote-tracking branch has
+ * that name, or has it as a folder of its name, `-2`, `-3`, and so on are added.
  */
 async function freeName(ports: EnginePorts, slug: string): Promise<string> {
 	const refs = (await mustGit(ports.git, ['-C', ports.projectRoot, 'for-each-ref', '--format=%(refname)', 'refs/heads/', 'refs/remotes/'])).stdout
@@ -119,17 +133,19 @@ async function freeName(ports: EnginePorts, slug: string): Promise<string> {
 			? short === name || short.startsWith(`${name}/`)
 			: short.endsWith(`/${name}`) || short.includes(`/${name}/`);
 	});
-	let name = `${PROPOSAL_PREFIX}${slug}`;
-	for (let suffix = 2; used(name); suffix++) {
-		name = `${PROPOSAL_PREFIX}${slug}-${suffix}`;
+	const unique = `${PROPOSAL_PREFIX}${slug}-${proposalSuffix(ports.newId())}`;
+	let name = unique;
+	for (let count = 2; used(name); count++) {
+		name = `${unique}-${count}`;
 	}
 	return name;
 }
 
 /**
  * Starts a proposal (proposals spec 5.3): the checkpoints the current branch's upstream does not
- * have move to a new branch `proposal/<slug>`, and the current branch returns to its upstream.
- * The slug comes from the title of the oldest such checkpoint (`proposalSlug`, then `freeName`).
+ * have move to a new branch `proposal/<slug>-<suffix>`, and the current branch returns to its
+ * upstream. The slug comes from the title of the oldest such checkpoint (`proposalSlug`), and the
+ * suffix from a new id (`freeName`).
  * One `start-proposal` operation makes four ref changes, in order: create the proposal branch at
  * the current commit, write `branch.<name>.positronCheckpointsBase`, point HEAD at the proposal
  * branch, and move the base branch to its upstream commit (the commit point). The index and the

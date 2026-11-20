@@ -12,7 +12,7 @@ import { getHistory } from './history';
 import { engineDirectory, readRecords } from './journal';
 import { redo, redoHead, undo, undoHead } from './operationLog';
 import { EnginePorts } from './ports';
-import { acceptedThrough, clearAccepted, finishProposal, proposalSlug, readProposal, sharedReference, startProposal, stopProposal } from './proposals';
+import { acceptedThrough, clearAccepted, finishProposal, proposalSlug, proposalSuffix, readProposal, sharedReference, startProposal, stopProposal } from './proposals';
 import { recoverOnStart } from './recovery';
 import { readRepoFacts } from './repoState';
 import { checkShared, getIncoming, previewIncoming, sendChanges } from './sync';
@@ -22,7 +22,17 @@ import { tempRepo, TempRepo } from './test/tempRepo';
 import { worktreeTree } from './trees';
 import { OperationResult } from './types';
 
-const PROPOSAL = 'proposal/fit-the-dose-model';
+/** The name of the proposal `create()` gives, started as the project's first operation (id `op-1`). */
+const PROPOSAL = `proposal/fit-the-dose-model-${proposalSuffix('op-1')}`;
+
+describe('proposalSuffix', () => {
+	test('takes the first six hex characters of a hex id, and hashes any other id, the same way each time', () => {
+		expect(proposalSuffix('3F2A9C1E-0000-4000-8000-000000000000')).toBe('3f2a9c');
+		expect(proposalSuffix('op-1')).toMatch(/^[0-9a-f]{6}$/);
+		expect(proposalSuffix('op-1')).toBe(proposalSuffix('op-1'));
+		expect(proposalSuffix('op-2')).not.toBe(proposalSuffix('op-1'));
+	});
+});
 
 describe('proposalSlug', () => {
 	test('keeps lower-case ASCII letters and digits, and makes each other run one hyphen', () => {
@@ -124,7 +134,7 @@ describe('startProposal', { timeout: 60_000 }, () => {
 	test.each([
 		['a local', 'refs/heads/'],
 		['a remote', 'refs/remotes/origin/'],
-	])('start adds -2 when %s branch has the name', async (_label, prefix) => {
+	])('start adds -2 when %s branch has the exact name', async (_label, prefix) => {
 		const { repo, a, c } = await create();
 		await must(repo, ['update-ref', `${prefix}${PROPOSAL}`, a]);
 
@@ -134,7 +144,7 @@ describe('startProposal', { timeout: 60_000 }, () => {
 		expect(await must(repo, ['rev-parse', `refs/heads/${PROPOSAL}-2`])).toBe(c);
 	});
 
-	test('start adds -3 when the names with no suffix and with -2 are used', async () => {
+	test('start adds -3 when the exact name and the name with -2 are used', async () => {
 		const { repo, a } = await create();
 		await must(repo, ['update-ref', `refs/heads/${PROPOSAL}`, a]);
 		await must(repo, ['update-ref', `refs/remotes/origin/${PROPOSAL}-2`, a]);
@@ -142,6 +152,20 @@ describe('startProposal', { timeout: 60_000 }, () => {
 		doneId(await startProposal(repo.ports));
 
 		expect(await must(repo, ['symbolic-ref', 'HEAD'])).toBe(`refs/heads/${PROPOSAL}-3`);
+	});
+
+	test('two proposals started from the same title get different names', async () => {
+		const { repo } = await create();
+		doneId(await startProposal(repo.ports));
+		const first = (await readProposal(repo.ports))!.branch;
+		doneId(await stopProposal(repo.ports));
+
+		doneId(await startProposal(repo.ports));
+
+		const second = (await readProposal(repo.ports))!.branch;
+		expect(first).toBe(PROPOSAL);
+		expect(second).toMatch(/^proposal\/fit-the-dose-model-[0-9a-f]{6}$/);
+		expect(second).not.toBe(first);
 	});
 
 	test('state reports proposal { branch, base: \'main\', sent: false } and sharedUrl', async () => {
