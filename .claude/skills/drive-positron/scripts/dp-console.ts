@@ -65,17 +65,22 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			const several = / rows match /.test(p.error);
 			const all = (a.name && none) || several ? await lib.allRows() : null;
 			const fits = lib.hasWords(several ? a.words : a.word);
-			const ours = (all?.rows ?? []).filter(r => ofLanguage(r) && fits(r)).map(lib.shownAs);
+			const rows = (all?.rows ?? []).filter(r => ofLanguage(r) && fits(r));
+			const ours = rows.map(lib.shownAs);
+			// Several match (no --name, a version two installs share): take the first in
+			// picker order, where Suggested leads, as a person would.
+			if (several && rows.length && await lib.scrollToRow(rows[0].index)) {
+				const row = rows[0];
+				await lib.clickRow({ ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && lib.shownAs(r) === ours[0]).length });
+				const others = [...new Set(ours)].filter(x => x !== ours[0]);
+				return { ok: true, runtime: row.label, picked: ours[0], ...(others.length ? { others } : {}) };
+			}
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
 			const listed = ours.length > 0 || (await lib.rows()).some(ofLanguage);
 			await lib.closeQuickInput();
 			const more = all?.complete ? {} : { more: 'the picker lists more rows than were read' };
-			const how = 'pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version';
 			if (ours.length && none) {
-				return { ok: false, error: `--name "${a.name}" matches no ${a.word} interpreter the picker could pick; ${how}`, shown: ours, ...more, listed };
-			}
-			if (ours.length > 1) {
-				return { ok: false, error: `${ours.length} ${a.word} interpreters match${a.name ? ` --name "${a.name}"` : ''}; ${how}`, shown: ours, ...more, listed };
+				return { ok: false, error: `--name "${a.name}" matches no ${a.word} interpreter the picker could pick; pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version`, shown: ours, ...more, listed };
 			}
 			return { ...p, listed };
 		}
@@ -101,7 +106,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 		const { listed, ...r } = chosen;
 		return listed === false ? { ...r, error: `${r.error}: no ${word} interpreter was listed after waiting 30 s for interpreter discovery` } : r;
 	}
-	log('start-session.sh', session, String(chosen.runtime));
+	log('start-session.sh', session, String(chosen.runtime) + (chosen.others ? ` (first of: ${[chosen.picked, ...(chosen.others as string[])].join('; ')})` : ''));
 	// Ready: a new console of this language is active, its input is there, and
 	// nothing is running. A dialog (create a virtual environment?) holds start-up.
 	// runs in run-code
@@ -131,7 +136,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 				await lib.sleep(500);
 				continue;
 			}
-			if (d.length) { return { ok: false, sessionId: id || null, error: 'a dialog is waiting for an answer; answer it with notifications.sh --click, then run this again or wait for the console, or pass --answer BUTTON', dialogs: d }; }
+			if (d.length) { return { ok: false, sessionId: id || null, error: 'a dialog is waiting for an answer; answer it with notifications.sh --click BUTTON and the console goes on starting (run this again, without --new, to wait for it); --answer BUTTON answers it only when passed at the start', dialogs: d }; }
 			await lib.sleep(500);
 		}
 		return { ok: false, sessionId: id || null, error: `the console was not ready within ${a.timeout} s` };
@@ -139,7 +144,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 	const ids = [...(before.tabs as { id: string }[]).map(t => t.id), String(before.active)].filter(Boolean);
 	const r = inPage(session, wait, { lang: language, before: ids, timeout, answer });
 	if (r.answered) { log('start-session.sh', session, `answered ${(r.answered as string[]).join('; ')}`); }
-	return { ok: r.ok, started: true, runtime: chosen.runtime, sessionId: r.sessionId ?? null, ...(r.ok ? { session: r.session, ...(r.answered ? { answered: r.answered } : {}) } : { error: r.error, dialogs: r.dialogs }) };
+	return { ok: r.ok, started: true, runtime: chosen.runtime, ...(chosen.others ? { picked: chosen.picked, others: chosen.others } : {}), sessionId: r.sessionId ?? null, ...(r.ok ? { session: r.session, ...(r.answered ? { answered: r.answered } : {}) } : { error: r.error, dialogs: r.dialogs }) };
 }
 
 /**
