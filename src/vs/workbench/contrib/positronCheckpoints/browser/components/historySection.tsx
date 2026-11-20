@@ -3,15 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { fromNow } from '../../../../../base/common/date.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { ICheckpointsMessageService } from '../checkpointsMessages.js';
 import { CheckpointDetails } from './checkpointDetails.js';
-import { HISTORY_PAGE_SIZE, ICheckpointsViewState } from './useCheckpointsState.js';
+import { ICheckpointsViewState } from './useCheckpointsState.js';
+import { useHistoryPaging } from './useHistoryPaging.js';
 import { useRunAction } from './useRunAction.js';
 
 /**
@@ -22,31 +24,22 @@ import { useRunAction } from './useRunAction.js';
 export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
 	const services = usePositronReactServicesContext();
 	const runAction = useRunAction();
-	const [older, setOlder] = useState<ICheckpoint[]>([]);
-	const [exhausted, setExhausted] = useState(false);
 	const [expandedId, setExpandedId] = useState<string>();
 
-	// A new first page makes the older pages stale.
-	useEffect(() => {
-		setOlder([]);
-		setExhausted(false);
-	}, [view.history]);
+	const fetchPage = useCallback(async (skip: number, limit: number) => {
+		const engine = services.get(ICheckpointsService).engine;
+		return engine ? engine.getHistory(skip, limit) : [];
+	}, [services]);
+	const showCouldNotFinish = useCallback((error: unknown) => {
+		services.get(ILogService).error('The next page of history could not be read.', error);
+		services.get(ICheckpointsMessageService).show(Strings.results.couldNotFinish());
+	}, [services]);
+	const { checkpoints, hasMore, loadMore } = useHistoryPaging(view.history, fetchPage, showCouldNotFinish);
 
-	const checkpoints = [...view.history, ...older];
-	const hasMore = !exhausted && checkpoints.length > 0 && checkpoints.length % HISTORY_PAGE_SIZE === 0;
 	const hasUnshared = checkpoints.some(checkpoint => !checkpoint.shared);
 	const branch = view.state?.branch;
-	const upstream = branch !== undefined && view.state?.shared.exists ? `origin/${branch}` : undefined;
-
-	const loadMore = async () => {
-		const engine = services.get(ICheckpointsService).engine;
-		if (!engine) {
-			return;
-		}
-		const page = await engine.getHistory(checkpoints.length, HISTORY_PAGE_SIZE);
-		setOlder([...older, ...page]);
-		setExhausted(page.length < HISTORY_PAGE_SIZE);
-	};
+	// The engine does not report the name of the shared copy yet. Until it does, none is shown.
+	const upstream = (view.state?.shared as { name?: string } | undefined)?.name;
 
 	const send = async () => {
 		await runAction('no-guard', engine => engine.sendChanges());

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -233,7 +233,19 @@ describe('History section', () => {
 		await user.click(screen.getByRole('button', { name: 'Show git details' }));
 
 		const details = screen.getByLabelText('Git details');
-		expect(details).toHaveTextContent('Commit idabc123BranchmainUpstreamorigin/main');
+		expect(details).toHaveTextContent(/^Commit idabc123Branchmain$/);
+	});
+
+	test('git details show the name of the shared copy when the engine reports it', async () => {
+		const state = fakeEngineState({ branch: 'main' });
+		Object.assign(state.shared, { name: 'origin/main' });
+		engine.state = state;
+		renderHistory([fakeCheckpoint({ id: 'abc123', title: 'Described' })]);
+		const user = await expandRow('Described');
+
+		await user.click(screen.getByRole('button', { name: 'Show git details' }));
+
+		expect(screen.getByLabelText('Git details')).toHaveTextContent('Upstreamorigin/main');
 	});
 
 	test('loads the next page when the first page is full', async () => {
@@ -246,6 +258,81 @@ describe('History section', () => {
 		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
 		expect(engine.callsOf('getHistory').at(-1)).toEqual([50, 50]);
 		expect(screen.queryByRole('button', { name: 'Show older checkpoints' })).not.toBeInTheDocument();
+	});
+
+	const manyCheckpoints = (count: number) => Array.from({ length: count }, (_, index) => fakeCheckpoint({ id: `c${index}`, title: `Checkpoint ${index}` }));
+
+	/** Makes the next `getHistory` call wait. The returned function answers it with the given page. */
+	function holdNextPage(): (page: ICheckpoint[]) => void {
+		const original = engine.getHistory.bind(engine);
+		let release!: (page: ICheckpoint[]) => void;
+		const held = new Promise<ICheckpoint[]>(resolve => { release = resolve; });
+		let first = true;
+		engine.getHistory = (skip, limit) => {
+			if (first && skip > 0) {
+				first = false;
+				return held;
+			}
+			return original(skip, limit);
+		};
+		return release;
+	}
+
+	test('a refresh that arrives while a page loads leaves no duplicate and no missing row', async () => {
+		const all = manyCheckpoints(60);
+		renderHistory(all);
+		const user = userEvent.setup();
+		expect(await screen.findByText('Checkpoint 49')).toBeInTheDocument();
+		const release = holdNextPage();
+
+		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+		// A new checkpoint arrives, so every row moves down by one.
+		const added = fakeCheckpoint({ id: 'new', title: 'Newest' });
+		engine.history = [added, ...all];
+		await act(async () => engine.fireChange());
+		expect(await screen.findByText('Newest')).toBeInTheDocument();
+		// The page that was asked for before the refresh arrives now, with the old offsets.
+		await act(async () => release(all.slice(50)));
+
+		expect(screen.queryByText('Checkpoint 59')).not.toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
+		const titles = screen.getAllByRole('listitem').map(row => within(row).getAllByRole('button')[0].textContent);
+		expect(titles).toEqual(engine.history.map(checkpoint => checkpoint.title));
+		expect(engine.callsOf('getHistory').at(-1)).toEqual([50, 50]);
+	});
+
+	test('a refresh that leaves the first page unchanged keeps the older pages', async () => {
+		renderHistory(manyCheckpoints(60));
+		const user = userEvent.setup();
+		await user.click(await screen.findByRole('button', { name: 'Show older checkpoints' }));
+		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
+
+		engine.history = manyCheckpoints(60);
+		await act(async () => engine.fireChange());
+		await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(1));
+
+		expect(screen.getByText('Checkpoint 59')).toBeInTheDocument();
+		expect(screen.getAllByRole('listitem')).toHaveLength(60);
+	});
+
+	test('a page that cannot be read says so and keeps Show older checkpoints available', async () => {
+		renderHistory(manyCheckpoints(60));
+		const user = userEvent.setup();
+		expect(await screen.findByText('Checkpoint 49')).toBeInTheDocument();
+		const original = engine.getHistory.bind(engine);
+		engine.getHistory = async (skip, limit) => {
+			if (skip > 0) {
+				throw new Error('git did not answer');
+			}
+			return original(skip, limit);
+		};
+
+		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+
+		expect(await screen.findByText('That action could not finish. Your project is as it was.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show older checkpoints' })).toBeInTheDocument();
+		expect(screen.getAllByRole('listitem')).toHaveLength(50);
 	});
 
 	test('with no checkpoints the section says so', async () => {
