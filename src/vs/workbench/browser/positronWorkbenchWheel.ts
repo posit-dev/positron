@@ -10,8 +10,7 @@
  * workbench container, to block the macOS back/forward swipe gestures. That also cancels the
  * browser's native scrolling of any `overflow: auto` element inside the workbench. Stopping
  * propagation keeps the event from reaching that listener, so the browser scrolls the element
- * itself, with shift + wheel, deltaMode, smooth scrolling and momentum handled natively. On
- * desktop, window.ts registers no such listener.
+ * itself. On desktop, window.ts registers no such listener.
  *
  * Ctrl + wheel, and a pinch on a macOS touchpad, which Chromium delivers as ctrl + wheel, zooms
  * rather than scrolls. It is left to propagate, so window.ts keeps cancelling it and it does not

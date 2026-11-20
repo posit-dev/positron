@@ -737,8 +737,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// Let the browser scroll the console natively on web. Ctrl + wheel does not scroll the
-		// console, so it must not engage scroll lock either.
+		// Ctrl + wheel does not scroll the console, so it must not engage scroll lock.
 		if (!keepWheelFromWorkbench(e)) {
 			return;
 		}

@@ -575,7 +575,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onBlur={blurHandler}
 			onFocus={focusHandler}
 			onKeyDown={keyDownHandler}
-			// Let the browser scroll the list natively on web.
 			onWheel={keepWheelFromWorkbench}
 		>
 			{!variableEntries.length ?

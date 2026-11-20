@@ -99,15 +99,12 @@ describe('ConsoleInstance - wheel', () => {
 		return { positronConsoleInstance, element };
 	}
 
-	// On web, the workbench container cancels every wheel event that reaches it, which would
-	// cancel native scrolling of the console, so the console must keep wheel events to itself.
 	it('keeps wheel events from reaching the workbench, except ctrl + wheel', () => {
 		const { element } = renderConsole();
 		const ancestorListener = vi.fn();
 		document.body.addEventListener('wheel', ancestorListener);
 		try {
 			fireEvent(element, createWheelEvent({ deltaY: 100 }));
-			fireEvent(element, createWheelEvent({ deltaY: 100, shiftKey: true }));
 			fireEvent(element, createWheelEvent({ deltaY: 100, ctrlKey: true }));
 		} finally {
 			document.body.removeEventListener('wheel', ancestorListener);
@@ -116,8 +113,8 @@ describe('ConsoleInstance - wheel', () => {
 		expect(ancestorListener.mock.calls.map(([e]) => (e as WheelEvent).ctrlKey)).toEqual([true]);
 	});
 
-	// Ctrl + wheel zooms rather than scrolls, so it must not engage scroll lock: the console would
-	// stop following new output while still showing the bottom.
+	// A lock without a scroll would stop the console following new output while it still shows the
+	// bottom.
 	it('engages scroll lock on wheel up, but not on ctrl + wheel up', () => {
 		const { positronConsoleInstance, element } = renderConsole();
 

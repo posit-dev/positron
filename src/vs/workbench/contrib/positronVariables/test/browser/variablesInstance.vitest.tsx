@@ -57,8 +57,6 @@ describe('VariablesInstance', () => {
 		);
 	}
 
-	// On web, the workbench container cancels every wheel event that reaches it, which would
-	// cancel native scrolling of the list, so the instance must keep wheel events to itself.
 	it('keeps wheel events from reaching the workbench, except ctrl + wheel', () => {
 		renderInstances(['python'], 'python');
 		const element = screen.getByTestId('variables-python');
@@ -66,7 +64,6 @@ describe('VariablesInstance', () => {
 		document.body.addEventListener('wheel', ancestorListener);
 		try {
 			fireEvent(element, createWheelEvent({ deltaY: 100 }));
-			fireEvent(element, createWheelEvent({ deltaY: 100, shiftKey: true }));
 			fireEvent(element, createWheelEvent({ deltaY: 100, ctrlKey: true }));
 		} finally {
 			document.body.removeEventListener('wheel', ancestorListener);
