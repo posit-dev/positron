@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, branchRate, resolveLastSeen, runApiPath, deriveFixHeld, daysSince, countPostFixFailures } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, branchRate, resolveLastSeen, runApiPath, deriveFixHeld, daysSince, countPostFixFailures, estimatePostFixRuns } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -247,4 +247,14 @@ test('countPostFixFailures counts undated and unlisted failures as post-fix', ()
 		{ pattern: 'x', count: 4, occurrences: [{ run_url: 'r1' }, { run_url: 'gone' }] },
 	], Date.parse('2026-11-19T21:58:00Z'), o => (o.run_url === 'r1' ? '2026-11-19T10:00:00Z' : null));
 	assert.deepEqual(r, { count: 3, undated: 3 });
+});
+
+test('estimatePostFixRuns moves the pre-merge share of the day window out', () => {
+	// 1-day window opens 2026-11-19T12:00Z; merged 6h later, so 1/4 of 20 runs are pre-merge.
+	const now = Date.parse('2026-11-20T12:00:00Z');
+	const r = estimatePostFixRuns(20, Date.parse('2026-11-19T18:00:00Z'), 1, now);
+	assert.deepEqual(r, { runs: 15, leadHours: 6 });
+	// No lead: count passes through. Missing breakdown stays null for deriveFixHeld to refuse.
+	assert.deepEqual(estimatePostFixRuns(20, Date.parse('2026-11-19T11:00:00Z'), 1, now), { runs: 20, leadHours: 0 });
+	assert.deepEqual(estimatePostFixRuns(null, 0, 1, now), { runs: null, leadHours: 0 });
 });

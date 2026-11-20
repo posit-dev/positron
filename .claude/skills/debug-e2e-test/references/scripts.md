@@ -102,10 +102,11 @@ additionally holds each pattern's full ordered `occurrences[]`, which
 - `id` is a spreadsheet-style label: `A`..`Z`, then `AA`, `AB`, ...
 - **`fixHeld`** appears only with `--since-fix`: `{ sinceFix, daysSinceFix,
   usable, note, postFixRuns, postFixFailures, baselineRuns, baselineFailures,
-  baselineRate, environment, postFixRunsIsUpperBound }`. The API counts in whole
+  baselineRate, environment, postFixRunsEstimated }`. The API counts in whole
   days, so `postFixFailures` is dated per CI run against `sinceFix` (undated ones
-  count as post-fix), but `postFixRuns` still includes the hours of the merge day
-  before the merge -- an upper bound that `note` quantifies. Both windows are scoped to the environments the
+  count as post-fix). Runs can't be dated, so the share of the window before the
+  merge is moved to the baseline in proportion to time (`postFixRunsEstimated`,
+  quantified in `note`); it is safe to pass on to `find-prior-triage.js`. Both windows are scoped to the environments the
   pattern occurs in, and the baseline is the **pre-fix remainder** (full window
   minus the post-fix window) -- counting the post-fix runs in the baseline would
   drag the rate toward zero exactly when the fix worked. `usable: false` means
