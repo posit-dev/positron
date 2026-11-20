@@ -332,7 +332,7 @@ describe('Save Plot dialog resolution', () => {
 		await user.click(await screen.findByRole('button', { name: entry }));
 	}
 
-	it('starts at the screen density rounded up and saves at it', async () => {
+	it('starts at the screen density rounded up and saves at it without remembering it', async () => {
 		const user = userEvent.setup();
 		const { render, savePlotCallback } = await open(PlotRenderFormat.Png);
 
@@ -341,10 +341,12 @@ describe('Save Plot dialog resolution', () => {
 		await save(user, savePlotCallback);
 
 		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
-		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 2 }));
+		// Saved at the default, which is reported as not picked, so it isn't remembered: a 1x
+		// default on a 1x monitor must not stick when the window moves to a 2x screen.
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 2, resolutionPicked: false }));
 	});
 
-	it('saves at a picked resolution', async () => {
+	it('saves at a picked resolution and reports it', async () => {
 		const user = userEvent.setup();
 		const { render, savePlotCallback } = await open(PlotRenderFormat.Jpeg);
 
@@ -352,6 +354,7 @@ describe('Save Plot dialog resolution', () => {
 		await save(user, savePlotCallback);
 
 		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Jpeg, true);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 3, resolutionPicked: true }));
 	});
 
 	it('starts at the remembered resolution', async () => {

@@ -41,6 +41,12 @@ export interface SavePlotOptions {
 	format?: PlotRenderFormat;
 	/** The resolution the plot was saved at; undefined for vector formats. */
 	resolution?: number;
+	/**
+	 * Whether the user picked the resolution, rather than keeping the dialog's default. Only a
+	 * picked resolution should be remembered: a default comes from the screen the dialog opened
+	 * on, so remembering it would carry a 1x save on a 1x monitor over to a 2x screen.
+	 */
+	resolutionPicked?: boolean;
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -117,6 +123,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		props.renderer.services.configurationService.getValue(SaveResolutionsConfigKey)));
 	const [resolution, setResolution] = React.useState(() => defaultSaveResolution(
 		resolutions, DOM.getActiveWindow().devicePixelRatio, props.suggestedResolution));
+	// Whether the user picked a resolution, rather than keeping the default.
+	const [resolutionPicked, setResolutionPicked] = React.useState(false);
 	// The aspect ratio (width / height) kept while editing the size, or undefined when unlocked.
 	// Locked by default when the plot has a known size to take the ratio from.
 	const [lockedRatio, setLockedRatio] = React.useState<number | undefined>(
@@ -226,6 +234,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						path: filePath,
 						format,
 						resolution: isRasterFormat(format) ? resolution : undefined,
+						resolutionPicked,
 					});
 				})
 				.catch((error) => {
@@ -415,7 +424,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 										}))}
 										selectedIdentifier={resolution}
 										title={localize('positron.savePlotModalDialog.resolution', "Resolution")}
-										onSelectionChanged={item => setResolution(item.options.identifier)} />
+										onSelectionChanged={item => {
+											setResolution(item.options.identifier);
+											setResolutionPicked(true);
+										}} />
 								</label>
 							</div>}
 							<div className='error'>

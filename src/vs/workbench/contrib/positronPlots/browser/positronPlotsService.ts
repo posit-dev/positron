@@ -1494,7 +1494,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			return;
 		}
-		await this._saveMemory.remember(dirname(options.path), options.format, options.resolution);
+		// Only remember a resolution the user picked; a default comes from the current screen.
+		await this._saveMemory.remember(dirname(options.path), options.format, options.resolutionPicked ? options.resolution : undefined);
 	};
 
 	async showSavePlotDialog(uri: string, suggestedFileName?: string) {
