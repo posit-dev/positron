@@ -212,7 +212,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					maximum: MAX_SAVE_RESOLUTION,
 				},
 				default: DEFAULT_SAVE_RESOLUTIONS,
-				description: localize('positron.plots.saveResolutions', "Resolution multipliers offered when saving a plot as PNG, JPEG, or TIFF. The saved image is the plot's width and height times the chosen resolution, in pixels. The default choice is the smallest that is at least the screen's pixel density."),
+				description: localize('positron.plots.saveResolutions', "Resolution multipliers offered when saving a plot as PNG, JPEG, or TIFF. The saved image is the plot's width and height times the chosen resolution, in pixels."),
 			}
 		}
 	});
