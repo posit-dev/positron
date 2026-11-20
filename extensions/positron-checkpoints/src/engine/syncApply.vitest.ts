@@ -8,15 +8,16 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { readChanges } from './changes';
-import { createCheckpoints } from './checkpoints';
-import { engineDirectory, readRecords } from './journal';
-import { readOperationLog, redoHead, undo, undoHead } from './operationLog';
+import { createCheckpoints, readPartialFiles } from './checkpoints';
+import { acquireLock, engineDirectory, readRecords } from './journal';
+import { expire, readOperationLog, redoHead, undo, undoHead } from './operationLog';
 import { GitRunner } from './ports';
 import { getIncoming, previewIncoming, sendChanges } from './sync';
 import { faultPorts } from './test/faultPorts';
-import { must } from './test/operationFixtures';
+import { must, refExists } from './test/operationFixtures';
 import { LINES, mayaShares, overlapProject, parts, sharedProject, text, withLine } from './test/syncFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
+import { SNAPSHOT_REF_PREFIX } from './trees';
 import { OperationResult, OverlapChoice, OverlapKind, Resolution } from './types';
 
 const doneId = (result: OperationResult): string => {
@@ -51,11 +52,18 @@ const everything = async (repo: TempRepo) => ({ ...await parts(repo), files: awa
 
 /**
  * A shared project where Maya changed line 1 of a.txt, removed b.txt, and added c.txt, while I
- * have an unrecorded edit of line 10 of a.txt and an untracked u.txt. Getting her changes is clean.
+ * have an unrecorded edit of line 10 of a.txt and an untracked u.txt. With `localCheckpoints`, I
+ * also have two checkpoints she does not have, which add d.txt and e.txt. Getting her changes is clean.
  */
-async function cleanIncoming(repos: TempRepo[]) {
+async function cleanIncoming(repos: TempRepo[], options: { localCheckpoints?: boolean } = {}) {
 	const project = await sharedProject(repos);
 	await mayaShares(project.repo, project.maya, { 'a.txt': withLine(0, 'theirs'), 'b.txt': null, 'c.txt': 'new\n' });
+	if (options.localCheckpoints) {
+		await project.repo.write('d.txt', 'dee\n');
+		await project.repo.commit('Local 1');
+		await project.repo.write('e.txt', 'ee\n');
+		await project.repo.commit('Local 2');
+	}
 	await project.repo.write('a.txt', withLine(9, 'mine'));
 	await project.repo.write('u.txt', 'untracked\n');
 	return project;
@@ -320,16 +328,168 @@ describe('getting and sending changes', { timeout: 60_000 }, () => {
 		expect(await sendChanges(alone.ports)).toMatchObject({ kind: 'rejected', reason: 'no-shared-copy' });
 		expect(await readRecords(alone.ports)).toEqual([]);
 	});
+
+	test('after a file is added to a reviewed folder, a file-folder resolution is refused and nothing changes', async () => {
+		const { repo, maya } = await sharedProject(repos, { ff: 'a file\n' });
+		await mayaShares(repo, maya, { ff: 'their edit of the file\n' });
+		await fsp.rm(path.join(repo.root, 'ff'));
+		await repo.write('ff/inside.txt', 'in my folder\n');
+		const { preview, resolution } = await resolve(repo, { type: 'take', side: 'theirs' });
+		expect(preview.overlaps[0]).toMatchObject({ kind: 'file-folder', path: 'ff', fileSide: 'theirs' });
+		await repo.write('ff/new.txt', 'added after the review\n');
+		const before = await everything(repo);
+
+		const result = await getIncoming(repo.ports, preview.basis, [resolution], []);
+
+		expect(result).toMatchObject({ kind: 'inputs-changed', changed: ['files'] });
+		if (result.kind === 'inputs-changed') {
+			expect(result.preview.overlaps.map(overlap => overlap.id)).not.toContain(resolution.overlapId);
+		}
+		expect(await everything(repo)).toEqual(before);
+	});
+
+	/** A shared project where Maya and a local checkpoint of mine both changed data.bin and data2.bin. */
+	const twoBinaryOverlaps = async () => {
+		const project = await sharedProject(repos, { 'data.bin': 'base\0data', 'data2.bin': 'base\0two' });
+		await mayaShares(project.repo, project.maya, { 'data.bin': 'theirs\0data', 'data2.bin': 'theirs\0two' });
+		await project.repo.write('data.bin', 'mine\0data');
+		await project.repo.write('data2.bin', 'mine\0two');
+		await project.repo.commit('Mine');
+		const preview = await previewIncoming(project.repo.ports);
+		expect(preview.overlaps.map(overlap => [overlap.kind, overlap.path])).toEqual([['binary', 'data.bin'], ['binary', 'data2.bin']]);
+		return { repo: project.repo, preview };
+	};
+
+	test('one new name used by two keep-both choices is refused and nothing changes', async () => {
+		const { repo, preview } = await twoBinaryOverlaps();
+		const before = await everything(repo);
+		const resolutions: Resolution[] = preview.overlaps.map(overlap => ({ overlapId: overlap.id, choice: { type: 'keep-both', renamedSide: 'mine', newPath: 'same.bin' } }));
+
+		expect(await getIncoming(repo.ports, preview.basis, resolutions, [])).toMatchObject({ kind: 'inputs-changed', changed: [] });
+
+		expect(await everything(repo)).toEqual(before);
+	});
+
+	test('on a file system that ignores case, a new name equal to another name or overlap path in other case is refused', async () => {
+		const { repo, preview } = await twoBinaryOverlaps();
+		const before = await everything(repo);
+		const ports = { ...repo.ports, files: { ...repo.ports.files, caseInsensitive: async () => true } };
+		const [first, second] = preview.overlaps;
+		const keepBoth = (newPath: string): OverlapChoice => ({ type: 'keep-both', renamedSide: 'mine', newPath });
+
+		for (const resolutions of [
+			[{ overlapId: first.id, choice: keepBoth('DATA2.bin') }, { overlapId: second.id, choice: { type: 'take', side: 'theirs' } }],
+			[{ overlapId: first.id, choice: keepBoth('same.bin') }, { overlapId: second.id, choice: keepBoth('SAME.bin') }],
+		] as Resolution[][]) {
+			expect(await getIncoming(ports, preview.basis, resolutions, [])).toMatchObject({ kind: 'inputs-changed', changed: [] });
+		}
+
+		expect(await everything(repo)).toEqual(before);
+	});
+
+	test('an overlap of a later replay step comes with a basis that binds its paths', async () => {
+		const { repo, maya } = await sharedProject(repos);
+		await mayaShares(repo, maya, { 'a.txt': withLine(1, 'theirs'), 'b.txt': 'theirs\n' });
+		await repo.write('a.txt', withLine(1, 'mine'));
+		await repo.commit('Mine');
+		await repo.write('b.txt', 'mine\n');
+		const first = await resolve(repo, { type: 'take', side: 'theirs' });
+		expect(first.preview.overlaps[0].path).toBe('a.txt');
+
+		const stopped = await getIncoming(repo.ports, first.preview.basis, [first.resolution], []);
+
+		expect(stopped.kind).toBe('overlaps');
+		if (stopped.kind !== 'overlaps') {
+			return;
+		}
+		expect(stopped.preview.overlaps.map(overlap => overlap.path)).toEqual(['b.txt']);
+		const second: Resolution = { overlapId: stopped.preview.overlaps[0].id, choice: { type: 'take', side: 'mine' } };
+		await repo.write('b.txt', 'mine, edited after the review\n');
+		const before = await everything(repo);
+
+		expect(await getIncoming(repo.ports, stopped.preview.basis, [first.resolution, second], [])).toMatchObject({ kind: 'inputs-changed', changed: ['files'] });
+
+		expect(await everything(repo)).toEqual(before);
+	});
+
+	test('replayed checkpoints keep the record of files they took only part of', async () => {
+		const long = Array.from({ length: 20 }, (_, index) => `row ${index + 1}`);
+		const { repo, maya } = await sharedProject(repos, { 'c.txt': text(long) });
+		await mayaShares(repo, maya, { 'b.txt': 'theirs\n' });
+		await repo.write('c.txt', text(long.map((line, index) => index === 0 || index === 19 ? `${line} mine` : line)));
+		const changes = await readChanges(repo.ports);
+		const hunks = changes.files.find(file => file.path === 'c.txt')!.hunks;
+		expect(hunks).toHaveLength(2);
+		doneId(await createCheckpoints(repo.ports, changes.basis, [{ title: 'Part of c', body: '', hunkIds: [hunks[0].id], wholeFiles: [] }]));
+
+		doneId(await getIncoming(repo.ports, (await previewIncoming(repo.ports)).basis, [], []));
+
+		const head = await must(repo, ['rev-parse', 'HEAD']);
+		expect(await must(repo, ['log', '-1', '--format=%s', head])).toBe('Part of c');
+		expect((await readPartialFiles(repo.ports)).get(head)).toEqual(['c.txt']);
+	});
+
+	test.skipIf(process.platform === 'win32')('replayed checkpoints are signed when commit.gpgsign is set', async () => {
+		const { repo, maya } = await sharedProject(repos);
+		await mayaShares(repo, maya, { 'b.txt': 'theirs\n' });
+		await repo.write('c.txt', 'mine\n');
+		await repo.commit('Mine');
+		const stub = path.join(repo.root, '.git', 'gpg-stub.sh');
+		await fsp.writeFile(stub, [
+			'#!/bin/sh',
+			'cat > /dev/null',
+			'echo "[GNUPG:] SIG_CREATED D 1 8 00 1700000000 0123456789ABCDEF" >&2',
+			'echo "-----BEGIN PGP SIGNATURE-----"',
+			'echo "stub"',
+			'echo "-----END PGP SIGNATURE-----"',
+			'',
+		].join('\n'), { mode: 0o755 });
+		await must(repo, ['config', 'commit.gpgsign', 'true']);
+		await must(repo, ['config', 'gpg.program', stub]);
+
+		doneId(await getIncoming(repo.ports, (await previewIncoming(repo.ports)).basis, [], []));
+
+		expect(await must(repo, ['log', '-1', '--format=%s', 'HEAD'])).toBe('Mine');
+		expect(await must(repo, ['cat-file', 'commit', 'HEAD'])).toContain('gpgsig -----BEGIN PGP SIGNATURE-----');
+	});
+
+	test('a send while another window holds the lock clears both lists, and the next expiry removes their snapshots', async () => {
+		const { repo } = await sharedProject(repos);
+		const checkpoint = async (file: string) => {
+			await repo.write(file, 'mine\n');
+			return doneId(await createCheckpoints(repo.ports, (await readChanges(repo.ports)).basis, [{ title: `Add ${file}`, body: '', hunkIds: [], wholeFiles: [file] }]));
+		};
+		const first = await checkpoint('c.txt');
+		const second = await checkpoint('d.txt');
+		const lock = (await acquireLock(await repo.freshPorts()))!;
+		expect(lock).toBeDefined();
+
+		const result = await sendChanges(repo.ports);
+
+		expect(result).toEqual({ kind: 'done', operationId: '', hookEditedFiles: [] });
+		expect(await undoHead(repo.ports)).toBeUndefined();
+		expect(await redoHead(repo.ports)).toBeUndefined();
+		const pending = `${await engineDirectory(repo.ports)}/operations-pending.json`;
+		expect(JSON.parse(await fsp.readFile(pending, 'utf8'))).toEqual([first, second]);
+
+		await lock.release();
+		await expire(repo.ports);
+
+		expect(await refExists(repo, `${SNAPSHOT_REF_PREFIX}${first}`)).toBe(false);
+		expect(await refExists(repo, `${SNAPSHOT_REF_PREFIX}${second}`)).toBe(false);
+		expect(await fsp.stat(pending).catch(() => undefined)).toBeUndefined();
+		expect(await undoHead(repo.ports)).toBeUndefined();
+	});
 });
 
 /**
- * The mutating calls of a clean get-changes, measured once. Every call up to and including the
+ * The mutating calls of a clean get-changes that replays two local checkpoints, measured once. Every call up to and including the
  * branch move is a point where getting the changes can fail.
  */
 const referenceCalls = await (async () => {
 	const repos: TempRepo[] = [];
 	try {
-		const { repo } = await cleanIncoming(repos);
+		const { repo } = await cleanIncoming(repos, { localCheckpoints: true });
 		const ports = faultPorts(repo.ports, {});
 		doneId(await getIncoming(ports, (await previewIncoming(repo.ports)).basis, [], []));
 		return ports.mutatingCalls;
@@ -349,7 +509,7 @@ describe('get-changes failure injection', { timeout: 60_000 }, () => {
 	test.each(failurePoints)('get-changes failing at mutating call %i restores the exact before state', async failAt => {
 		const repos: TempRepo[] = [];
 		try {
-			const { repo } = await cleanIncoming(repos);
+			const { repo } = await cleanIncoming(repos, { localCheckpoints: true });
 			const { basis } = await previewIncoming(repo.ports);
 			const before = await everything(repo);
 

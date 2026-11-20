@@ -44,6 +44,8 @@ interface Lists {
 	/** The redo list, in the order the entries were undone: its head is the last id. */
 	redo: string[];
 	expired: Set<string>;
+	/** The ids a pending clear names (see `noteNewOperation`): out of both lists, and expired by the next `updateExpired`. */
+	pending: Set<string>;
 }
 
 function last<T>(items: T[]): T | undefined {
@@ -52,6 +54,25 @@ function last<T>(items: T[]): T | undefined {
 
 async function stateFile(ports: EnginePorts): Promise<string> {
 	return `${await engineDirectory(ports)}/operations-state.json`;
+}
+
+/** The file that names entries to expire once the lock is free: a JSON array of ids. */
+async function pendingFile(ports: EnginePorts): Promise<string> {
+	return `${await engineDirectory(ports)}/operations-pending.json`;
+}
+
+/** The ids of `operations-pending.json`, and its content as read. A missing or unreadable file names none. */
+async function readPending(ports: EnginePorts): Promise<{ ids: string[]; content?: Uint8Array }> {
+	const content = await ports.files.read(await pendingFile(ports));
+	if (content === undefined) {
+		return { ids: [] };
+	}
+	try {
+		const parsed: unknown = JSON.parse(Buffer.from(content).toString('utf8'));
+		return { ids: Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [], content };
+	} catch {
+		return { ids: [], content };
+	}
 }
 
 /**
@@ -81,12 +102,14 @@ async function readState(ports: EnginePorts): Promise<OperationsState> {
  * - `send-changes` and `start-tracking` clear both lists;
  * - any other operation clears the redo list and becomes the head of the undo list.
  *
- * Entries listed as expired, and entries whose snapshot ref is missing, are then left out of
- * both lists.
+ * Entries listed as expired or pending, and entries whose snapshot ref is missing, are then
+ * left out of both lists. An entry on the undo list whose undo restores the snapshot of its
+ * latest Redo is also left out when that Redo's snapshot ref is missing.
  */
 async function readLists(ports: EnginePorts): Promise<Lists> {
 	const records = await readRecords(ports);
 	const expired = new Set((await readState(ports)).expired);
+	const pending = new Set((await readPending(ports)).ids);
 	const entries: JournalRecord[] = [];
 	let undo: string[] = [];
 	let redo: string[] = [];
@@ -115,12 +138,19 @@ async function readLists(ports: EnginePorts): Promise<Lists> {
 	// (the file may be unreadable). On the redo list, the snapshot of its Undo is needed too.
 	const snapshots = await snapshotRefs(ports);
 	const hasSnapshot = (id: string | undefined) => id !== undefined && snapshots.has(`${SNAPSHOT_REF_PREFIX}${id}`);
+	const live = (id: string) => !expired.has(id) && !pending.has(id) && hasSnapshot(id);
+	const redoneSnapshot = (id: string) => {
+		const record = entries.find(entry => entry.id === id);
+		const redone = latestRole(records, id, 'redo');
+		return record === undefined || !RESTORES_SNAPSHOT.has(record.kind) || redone === undefined || hasSnapshot(redone.id);
+	};
 	return {
 		records,
 		entries,
-		undo: undo.filter(id => !expired.has(id) && hasSnapshot(id)),
-		redo: redo.filter(id => !expired.has(id) && hasSnapshot(id) && hasSnapshot(latestRole(records, id, 'undo')?.id)),
+		undo: undo.filter(id => live(id) && redoneSnapshot(id)),
+		redo: redo.filter(id => live(id) && hasSnapshot(latestRole(records, id, 'undo')?.id)),
 		expired,
+		pending,
 	};
 }
 
@@ -351,20 +381,41 @@ async function treeEntries(ports: EnginePorts, tree: string, paths: string[]): P
 	return found;
 }
 
+/** How many more times `noteNewOperation` tries to take the lock, and how long it waits before each try. */
+const LOCK_RETRIES = 10;
+const LOCK_RETRY_MS = 100;
+
 /**
  * Records that a new operation of `kind` finished (spec 6.3): the redo list is cleared, and
  * `send-changes` and `start-tracking` clear both lists. Cleared entries expire with their
  * snapshots. Call it after the operation completes. Kept files are never touched.
+ *
+ * While another window holds the lock, it waits and tries again. When the lock stays taken, the
+ * entries to clear are added to `operations-pending.json`: they leave both lists at once, and the
+ * next `expire` (after the next operation, or at engine start) expires them.
  */
 export async function noteNewOperation(ports: EnginePorts, kind: OperationKind): Promise<void> {
-	await updateExpired(ports, lists => CLEARS_BOTH_LISTS.has(kind) ? [...lists.undo, ...lists.redo] : [...lists.redo]);
+	const choose = (lists: Lists) => CLEARS_BOTH_LISTS.has(kind) ? [...lists.undo, ...lists.redo] : [...lists.redo];
+	for (let attempt = 0; attempt <= LOCK_RETRIES; attempt++) {
+		if (attempt > 0) {
+			await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_MS));
+		}
+		if (await updateExpired(ports, choose)) {
+			return;
+		}
+	}
+	const cleared = choose(await readLists(ports));
+	if (cleared.length > 0) {
+		const pending = await readPending(ports);
+		await ports.files.write(await pendingFile(ports), Buffer.from(JSON.stringify([...new Set([...pending.ids, ...cleared])])), false);
+	}
 }
 
 /**
  * Applies the retention rule of spec 6.2: entries on the undo list beyond the newest 50, or
  * older than 30 days, expire, and their snapshot refs are removed in the same call. Entries on
- * the redo list stay until a new operation clears it. Recovery refs, pending refs, and kept
- * files are never touched.
+ * the redo list stay until a new operation clears it. Entries `operations-pending.json` names
+ * expire too. Recovery refs, pending refs, and kept files are never touched.
  */
 export async function expire(ports: EnginePorts): Promise<void> {
 	const oldest = ports.now().getTime() - UNDO_AGE_MS;
@@ -376,29 +427,41 @@ export async function expire(ports: EnginePorts): Promise<void> {
 }
 
 /**
- * Under the lock, marks as expired the entries `choose` returns and every entry that is on
- * neither list (cleared by a later operation), writes `operations-state.json`, and only then
- * removes the snapshot refs of those entries and of their Undo and Redo records. A record that
- * is not complete or rolled back keeps its snapshot, because recovery may need it. Does nothing
- * while another window holds the lock; the next call catches up.
+ * Under the lock, marks as expired the entries `choose` returns, the entries
+ * `operations-pending.json` names, and every entry that is on neither list (cleared by a later
+ * operation), writes `operations-state.json`, removes `operations-pending.json` when it is
+ * unchanged since it was read, and only then removes the snapshot refs of those entries and of
+ * their Undo and Redo records. A record that is not complete or rolled back keeps its snapshot,
+ * because recovery may need it. Returns false, and does nothing, while another window holds the
+ * lock; the next call catches up.
  */
-async function updateExpired(ports: EnginePorts, choose: (lists: Lists) => string[]): Promise<void> {
+async function updateExpired(ports: EnginePorts, choose: (lists: Lists) => string[]): Promise<boolean> {
 	const lock = await acquireLock(ports);
 	if (lock === undefined) {
-		return;
+		return false;
 	}
 	try {
+		const pending = await readPending(ports);
 		const lists = await readLists(ports);
+		// The lists leave out pending entries, so `live` never has them.
 		const live = new Set([...lists.undo, ...lists.redo]);
 		for (const id of choose(lists)) {
 			live.delete(id);
 		}
 		const newlyExpired = lists.entries.filter(record => !live.has(record.id) && !lists.expired.has(record.id)).map(record => record.id);
-		if (newlyExpired.length === 0) {
-			return;
+		if (newlyExpired.length > 0) {
+			const state: OperationsState = { expired: [...lists.expired, ...newlyExpired] };
+			await ports.files.write(await stateFile(ports), Buffer.from(JSON.stringify(state)), false);
 		}
-		const state: OperationsState = { expired: [...lists.expired, ...newlyExpired] };
-		await ports.files.write(await stateFile(ports), Buffer.from(JSON.stringify(state)), false);
+		if (pending.content !== undefined) {
+			const now = await ports.files.read(await pendingFile(ports));
+			if (now !== undefined && Buffer.compare(Buffer.from(now), Buffer.from(pending.content)) === 0) {
+				await ports.files.remove(await pendingFile(ports));
+			}
+		}
+		if (newlyExpired.length === 0) {
+			return true;
+		}
 		const expiring = new Set(newlyExpired);
 		const owned = lists.records
 			.filter(record => record.role !== undefined && expiring.has(record.role.target) && (record.status === 'complete' || record.status === 'rolled-back'))
@@ -407,6 +470,7 @@ async function updateExpired(ports: EnginePorts, choose: (lists: Lists) => strin
 			// A ref that is already gone is not an error.
 			await runGit(ports.git, ['-C', ports.projectRoot, 'update-ref', '-d', `${SNAPSHOT_REF_PREFIX}${id}`]);
 		}
+		return true;
 	} finally {
 		await lock.release().catch(() => undefined);
 	}

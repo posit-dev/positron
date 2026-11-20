@@ -332,6 +332,21 @@ describe('operationLog', { timeout: 30_000 }, () => {
 		expect((await readOperationLog(repo.ports)).find(entry => entry.record.id === first)?.expired).toBe(true);
 	});
 
+	test('an entry whose undo would restore a redo snapshot that is gone is not offered', async () => {
+		const repo = await create();
+		const id = await getChanges(repo, { 'c.txt': 'theirs\n' });
+		expect((await undo(repo.ports, id, [])).kind).toBe('done');
+		expect((await redo(repo.ports, id, [])).kind).toBe('done');
+		expect((await undoHead(repo.ports))?.id).toBe(id);
+		const redoRecord = (await readRecords(repo.ports)).at(-1)!;
+		expect(redoRecord.role).toEqual({ kind: 'redo', target: id });
+
+		await must(repo, ['update-ref', '-d', `${SNAPSHOT_REF_PREFIX}${redoRecord.id}`]);
+
+		expect(await undoHead(repo.ports)).toBeUndefined();
+		expect(await undo(repo.ports, id, [])).toEqual({ kind: 'unavailable', reason: 'stale-operation-id' });
+	});
+
 	test('undo is refused after another tool adds a commit', async () => {
 		const repo = await create();
 		const id = await getChanges(repo, { 'a.txt': 'theirs\n' });

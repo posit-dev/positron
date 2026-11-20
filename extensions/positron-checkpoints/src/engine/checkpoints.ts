@@ -81,7 +81,7 @@ async function metaFile(ports: EnginePorts): Promise<string> {
  * saved for a checkpoint made of whole files. Each line starts with a line break, so a line a
  * crash cut short never joins the next one.
  */
-async function savePartialFiles(ports: EnginePorts, commit: string, partialFiles: string[]): Promise<void> {
+export async function savePartialFiles(ports: EnginePorts, commit: string, partialFiles: string[]): Promise<void> {
 	if (partialFiles.length > 0) {
 		await ports.files.appendDurable(await metaFile(ports), '\n' + JSON.stringify({ commit, partialFiles }));
 	}

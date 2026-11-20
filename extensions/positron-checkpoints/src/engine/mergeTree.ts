@@ -157,8 +157,9 @@ export async function mergeTrees(
 		return { tree: parsed.tree, plans: [] };
 	}
 	const plans: OverlapPlan[] = [];
+	const commits = { ours: input.ours, theirs: input.theirs };
 	for (const group of groupMessages(parsed)) {
-		plans.push(await describeGroup(ports, parsed, group, input.oursSide, input.authorOf));
+		plans.push(await describeGroup(ports, parsed, group, input.oursSide, commits, input.authorOf));
 	}
 	return { tree: parsed.tree, plans };
 }
@@ -215,7 +216,8 @@ function mergedMode(base: string | undefined, mine: string | undefined, theirs: 
 
 /** Describes one group as an overlap of the kind its first message gives (spec 6.4), or `unsupported`. */
 async function describeGroup(
-	ports: EnginePorts, parsed: ParsedMerge, group: Group, oursSide: Side, authorOf: (paths: string[]) => Promise<string>,
+	ports: EnginePorts, parsed: ParsedMerge, group: Group, oursSide: Side, commits: { ours: string; theirs: string },
+	authorOf: (paths: string[]) => Promise<string>,
 ): Promise<OverlapPlan> {
 	const sideOf = (stage: number): 'base' | Side => stage === 1 ? 'base' : (stage === 2) === (oursSide === 'mine') ? 'mine' : 'theirs';
 	const entryAt = (file: string, side: 'base' | Side): SideEntry | undefined => {
@@ -251,11 +253,28 @@ async function describeGroup(
 	if (kind !== 'unsupported') {
 		await describeContent(ports, overlap, sides);
 	}
-	// The kind and the three blobs identify what the person reviewed (spec 6.4).
+	let folderTree: string | undefined;
+	if (kind === 'file-folder') {
+		const folderSide: Side = fileSide === 'mine' ? 'theirs' : 'mine';
+		folderTree = await treeAt(ports, folderSide === oursSide ? commits.ours : commits.theirs, path);
+	}
+	// The kind, the three blobs, and a file-folder overlap's folder identify what the person reviewed (spec 6.4).
 	overlap.id = createHash('sha256')
-		.update(`${overlap.kind}\0${path}\0${sides.base?.oid ?? ''}\0${sides.mine?.oid ?? ''}\0${sides.theirs?.oid ?? ''}`)
+		.update(`${overlap.kind}\0${path}\0${sides.base?.oid ?? ''}\0${sides.mine?.oid ?? ''}\0${sides.theirs?.oid ?? ''}\0${folderTree ?? ''}`)
 		.digest('hex').slice(0, 16);
 	return { overlap, ...sides };
+}
+
+/** The id of the tree at `folder` in `commit`, or an empty string when `commit` has no folder there. */
+async function treeAt(ports: EnginePorts, commit: string, folder: string): Promise<string> {
+	const output = await git(ports, ['--literal-pathspecs', 'ls-tree', '-z', commit, '--', folder]);
+	for (const line of splitZ(output)) {
+		const match = /^\d+ tree (?<oid>\w+)\t(?<file>[\s\S]*)$/.exec(line);
+		if (match?.groups !== undefined && match.groups.file === folder) {
+			return match.groups.oid;
+		}
+	}
+	return '';
 }
 
 /** The kind and sides of a group whose first message is `primary`, or undefined when the engine does not recognize it. */
@@ -367,7 +386,8 @@ async function describeContent(ports: EnginePorts, overlap: Overlap, sides: { ba
  * ignored. Every resolution that matches an overlap is checked first: a choice the kind does not
  * allow (`ALLOWED_CHOICES`), a path to keep that is not one of the overlap's paths, a file-folder
  * file renamed on the side that has the folder, and a new name that is unsafe or already used
- * (see `checkNewPath`; `sideTrees` are the trees of both inputs) throw `ResolutionRefused`. When
+ * (see `checkNewPath`; `sideTrees` are the trees of both inputs), and a new name that another
+ * choice also uses or that is a path of an overlap (`checkNewPathsDistinct`) throw `ResolutionRefused`. When
  * an overlap has no resolution, the result is undefined. Otherwise the conflicted entries are
  * replaced in a temporary index that starts from the merge result, and the written tree is
  * returned. Replacement text is stored exactly as given, with no filter.
@@ -382,6 +402,7 @@ export async function resolveMerge(ports: EnginePorts, merge: MergeResult, resol
 			await checkChoice(ports, plan, choice, [merge.tree, ...sideTrees]);
 		}
 	}
+	await checkNewPathsDistinct(ports, merge.plans, chosen.map(({ choice }) => choice));
 	if (chosen.some(({ choice }) => choice === undefined)) {
 		return undefined;
 	}
@@ -457,6 +478,27 @@ async function checkNewPath(ports: EnginePorts, newPath: string, trees: string[]
 				throw new ResolutionRefused(`${newPath} is already used`);
 			}
 		}
+	}
+}
+
+/**
+ * Throws `ResolutionRefused` when two `keep-both` choices use one new name, or a new name is a
+ * path of any overlap of `plans`. On a file system that ignores letter case, names that differ
+ * only in case count as one.
+ */
+async function checkNewPathsDistinct(ports: EnginePorts, plans: OverlapPlan[], choices: (OverlapChoice | undefined)[]): Promise<void> {
+	const newPaths = choices.flatMap(choice => choice?.type === 'keep-both' ? [choice.newPath] : []);
+	if (newPaths.length === 0) {
+		return;
+	}
+	const key = await ports.files.caseInsensitive() ? (file: string) => file.toLowerCase() : (file: string) => file;
+	const overlapPaths = new Set(plans.flatMap(plan => [plan.overlap.path, ...plan.overlap.otherPaths]).map(key));
+	const seen = new Set<string>();
+	for (const newPath of newPaths) {
+		if (seen.has(key(newPath)) || overlapPaths.has(key(newPath))) {
+			throw new ResolutionRefused(`${newPath} is used by another overlap`);
+		}
+		seen.add(key(newPath));
 	}
 }
 

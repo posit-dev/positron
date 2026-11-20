@@ -5,7 +5,7 @@
 
 import { createHash } from 'crypto';
 import { emptyTree } from './changes';
-import { readCheckpoints, readCommit, revision } from './checkpoints';
+import { readCheckpoints, readCommit, readPartialFiles, revision, savePartialFiles } from './checkpoints';
 import { findCollisions } from './collisions';
 import { mustGit, runGit, splitZ } from './git';
 import { PathPlan, readBranch, readIndexTree, TriState } from './journal';
@@ -14,7 +14,7 @@ import { noteNewOperation } from './operationLog';
 import { EnginePorts } from './ports';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
-import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
+import { LARGE_FILE_BYTES, STAGING_TIMEOUT_MS, worktreeTree } from './trees';
 import { CollisionChoice, IncomingPreview, OperationResult, Overlap, PathCollision, Resolution } from './types';
 
 export interface ReplayResult {
@@ -89,7 +89,8 @@ export async function replay(ports: EnginePorts, resolutions: Resolution[]): Pro
  * Each local checkpoint not in the upstream, oldest first, is replayed with `git merge-tree
  * --write-tree -z --merge-base=<its parent> <new parent> <checkpoint>` and made again with `git
  * commit-tree`: same author, author date, and message; the committer is the person; signed when
- * `commit.gpgsign` is true. A checkpoint whose change the upstream already has is left out. Then
+ * `commit.gpgsign` is true; with `final`, each made checkpoint gets the partial-file record of the
+ * checkpoint it replays. A checkpoint whose change the upstream already has is left out. Then
  * the unrecorded changes (the working-file tree, as a commit on HEAD) are replayed the same way
  * onto the new tip, which gives the working files' after tree; the index after tree is the new
  * tip's tree. Hooks do not run.
@@ -110,6 +111,7 @@ async function replayContext(
 	}
 	const authorOf = (paths: string[]) => incomingAuthor(ports, context, paths);
 	const sign = options.final && (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--type=bool', '--get', 'commit.gpgsign'])).stdout.trim() === 'true';
+	const partial = options.final ? await readPartialFiles(ports) : new Map<string, string[]>();
 	const empty = await emptyTree(ports);
 	let parent = context.upstream;
 	let parentTree = (await git(ports, ['rev-parse', `${parent}^{tree}`])).trim();
@@ -142,6 +144,7 @@ async function replayContext(
 		parent = made.stdout.trim();
 		parentTree = tree;
 		newCommits.push(parent);
+		await savePartialFiles(ports, parent, partial.get(commit) ?? []);
 	}
 
 	let worktreeAfter = parentTree;
@@ -305,7 +308,8 @@ async function basisDifference(ports: EnginePorts, reviewed: string): Promise<('
 
 /**
  * An id of what is on disk at each path: the blob id of a file's bytes (no filters, nothing
- * written to the object database), `link:<size>:<time>` for a symbolic link, `folder`, or `none`.
+ * written to the object database), `link:<size>:<time>` for a symbolic link, `folder:<hash>`
+ * for a folder (see `folderId`), or `none`.
  */
 async function diskIds(ports: EnginePorts, paths: string[]): Promise<string[]> {
 	const ids: string[] = [];
@@ -314,7 +318,7 @@ async function diskIds(ports: EnginePorts, paths: string[]): Promise<string[]> {
 		if (info === undefined) {
 			ids.push('none');
 		} else if (info.isDirectory) {
-			ids.push('folder');
+			ids.push(`folder:${await folderId(ports, file)}`);
 		} else if (info.isSymbolicLink) {
 			ids.push(`link:${info.sizeBytes}:${info.mtimeMs}`);
 		} else {
@@ -322,6 +326,45 @@ async function diskIds(ports: EnginePorts, paths: string[]): Promise<string[]> {
 		}
 	}
 	return ids;
+}
+
+/**
+ * A SHA-256 over every file in `folder`: each file git would store (tracked, or untracked and
+ * not ignored) with its blob id as git would store it, and each ignored file and each untracked
+ * file over `LARGE_FILE_BYTES` with its size. A symbolic link counts by its size and time, and a
+ * missing tracked file as `none`. Nothing is written to the object database.
+ */
+async function folderId(ports: EnginePorts, folder: string): Promise<string> {
+	const pathspec = `:(literal)${folder}/`;
+	const tracked = splitZ(await git(ports, ['ls-files', '-z', '--cached', '--', pathspec]));
+	const untracked = splitZ(await git(ports, ['ls-files', '-z', '--others', '--exclude-standard', '--', pathspec]));
+	const ignored = splitZ(await git(ports, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--', pathspec]));
+	const entries = new Map<string, string>();
+	const hashed: string[] = [];
+	for (const [files, stored] of [[tracked, true], [untracked, true], [ignored, false]] as const) {
+		for (const file of files) {
+			const info = await ports.files.lstat(file);
+			if (info === undefined) {
+				entries.set(file, 'none');
+			} else if (info.isSymbolicLink || info.isDirectory) {
+				entries.set(file, `entry:${info.isDirectory}:${info.sizeBytes}:${info.mtimeMs}`);
+			} else if (!stored || (files === untracked && info.sizeBytes > LARGE_FILE_BYTES)) {
+				entries.set(file, `size:${info.sizeBytes}`);
+			} else {
+				hashed.push(file);
+			}
+		}
+	}
+	for (let start = 0; start < hashed.length; start += 200) {
+		const batch = hashed.slice(start, start + 200);
+		const blobs = (await git(ports, ['hash-object', '--', ...batch], { timeoutMs: STAGING_TIMEOUT_MS })).split('\n').filter(line => line !== '');
+		batch.forEach((file, index) => entries.set(file, blobs[index] ?? ''));
+	}
+	const hash = createHash('sha256');
+	for (const file of [...entries.keys()].sort()) {
+		hash.update(`${file}\0${entries.get(file)}\0`);
+	}
+	return hash.digest('hex').slice(0, 16);
 }
 
 /** `Get changes from <names>`, with the authors of the incoming checkpoints other than the person. */
@@ -344,7 +387,7 @@ function describeGet(preview: IncomingPreview): string {
  * 4. `replay(resolutions)`. A resolution the overlap does not allow, or cannot use, gives
  *    `inputs-changed` with no part named and the fresh preview. An overlap with no resolution
  *    (including one that edits made since the review produced) gives `overlaps`, with the
- *    overlaps of the step that stopped.
+ *    overlaps of the step that stopped and a basis over their paths.
  * 5. A clean result is applied through `runOperation` as `get-changes`: files and index first,
  *    the branch last, with `collisionChoices` for files outside every snapshot. The new
  *    operation is noted in the undo list.
@@ -383,7 +426,9 @@ export async function getIncoming(ports: EnginePorts, basis: string, resolutions
 		}
 		if (replayed.result.after === undefined) {
 			latestOverlaps.set(ports.projectRoot, replayed.plans);
-			return { kind: 'overlaps', preview: { ...preview, overlaps: replayed.result.overlaps, collisions: [] } };
+			// A later step may stop at other overlaps than the preview's first step, so the basis binds the ones reported.
+			const reported = replayed.result.overlaps;
+			return { kind: 'overlaps', preview: { ...preview, basis: await basisOf(ports, overlapPaths(reported), []), overlaps: reported, collisions: [] } };
 		}
 		plan = {
 			expected: { branchCommit: context.head, indexTree: context.indexTree, worktreeTree: context.worktree.tree },

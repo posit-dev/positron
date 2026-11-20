@@ -320,6 +320,12 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			log(`Startup recovery failed: ${errorText(error)}`);
 			unrecovered = `Startup recovery stopped: ${errorText(error)}.`;
 		}
+		try {
+			// Also expires the entries that a send which could not take the lock left pending.
+			await expire(ports);
+		} catch (error) {
+			log(`Expiring old undo entries failed: ${errorText(error)}`);
+		}
 	}
 
 	const emptyChanges: ChangeSet = { basis: '', files: [] };
