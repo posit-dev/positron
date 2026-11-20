@@ -130,7 +130,7 @@ describe('engine', { timeout: 120_000 }, () => {
 		const undone = await engine.getState();
 		expect([undone.undo, undone.redo]).toEqual([
 			undefined,
-			{ operationId: created, description: 'Create checkpoint "Edit a"', kind: 'create-checkpoints', restoresFiles: false },
+			{ operationId: created, description: 'Save version "Edit a"', kind: 'create-checkpoints', restoresFiles: false },
 		]);
 	});
 

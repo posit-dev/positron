@@ -94,7 +94,7 @@ export async function buildCandidate(
 
 			const message = await readMessage(ports, messageFile);
 			if (message === '') {
-				return finish('rejected', 'The checkpoint description is empty after the project checks ran.', message);
+				return finish('rejected', 'The description of the version is empty after the project checks ran.', message);
 			}
 			const sign = (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--type=bool', '--get', 'commit.gpgsign'])).stdout.trim() === 'true';
 			const date = ports.now().toISOString();

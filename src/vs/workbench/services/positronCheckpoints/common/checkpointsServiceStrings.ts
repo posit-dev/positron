@@ -25,7 +25,7 @@ const unsaved = {
 	checkpointMessage: (count: number) => plural(count,
 		localize('positron.checkpoints.unsaved.checkpointMessage.one', "1 file in this project has unsaved edits."),
 		localize('positron.checkpoints.unsaved.checkpointMessage.other', "{0} files in this project have unsaved edits.", count)),
-	checkpointDetail: () => localize('positron.checkpoints.unsaved.checkpointDetail', "A checkpoint records the files as they are saved on disk."),
+	checkpointDetail: () => localize('positron.checkpoints.unsaved.checkpointDetail', "A version records the files as they are saved on disk."),
 	fileChangingMessage: (count: number) => plural(count,
 		localize('positron.checkpoints.unsaved.fileChangingMessage.one', "1 file in this project has unsaved edits."),
 		localize('positron.checkpoints.unsaved.fileChangingMessage.other', "{0} files in this project have unsaved edits.", count)),

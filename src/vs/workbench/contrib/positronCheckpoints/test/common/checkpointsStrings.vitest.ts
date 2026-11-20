@@ -124,7 +124,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		dialogTitle: [[]], action: [[]], nameLabel: [[]], organizationLabel: [[]], organizationHelp: [[]], privateLabel: [[]], inviteLabel: [[]],
 		inviteHelp: [[]], shareButton: [[]], creating: [[]], copying: [[]], inviting: [['maya-ortiz']], shared: [[]],
 		sendLink: [['https://github.com/me/dose-model']], projectLink: [['https://github.com/me/dose-model']], invited: [['maya-ortiz']],
-		copyLink: [[]], signInNeeded: [[]], signInButton: [[]], tryAgain: [[]], signInMissing: [[]], noAnswer: [[]], createFirst: [[]], notLinked: [['this folder has no checkpoints yet.']], notLinkedReason: [['origin-exists'], ['no-checkpoints'], ['already-shared'], ['bad-link'], ['inside-another-project'], [undefined]], nameTaken: [['dose-model']],
+		copyLink: [[]], signInNeeded: [[]], signInButton: [[]], tryAgain: [[]], signInMissing: [[]], noAnswer: [[]], createFirst: [[]], notLinked: [['this folder has no versions yet.']], notLinkedReason: [['origin-exists'], ['no-checkpoints'], ['already-shared'], ['bad-link'], ['inside-another-project'], [undefined]], nameTaken: [['dose-model']],
 		organizationRefuses: [['acme']], accountRefuses: [[]], createFailed: [[''], ['GitHub replied 500.']], copyFailed: [['dose-model']],
 		alreadyShared: [[]], noSuchUser: [['maya-ortiz', 'https://github.com/me/dose-model']], emailEntered: [[]],
 		inviteNotAllowed: [['https://github.com/me/dose-model']], signInLost: [['maya-ortiz']], inviteFailed: [['maya-ortiz', 'https://github.com/me/dose-model']],
@@ -205,6 +205,32 @@ describe('checkpointsStrings', () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test('no user-facing string contains the word checkpoint', () => {
+		const offenders: string[] = [];
+		let checked = 0;
+		for (const [groupName, group] of groupsToCheck()) {
+			for (const [functionName, fn] of Object.entries(group)) {
+				for (const args of samples[groupName][functionName]) {
+					const text = fn(...args);
+					checked++;
+					if (text !== undefined && /checkpoint/i.test(text)) {
+						offenders.push(`${groupName}.${functionName}: ${text}`);
+					}
+				}
+			}
+		}
+		// The git details labels take no arguments, and this rule applies to them as well.
+		for (const [functionName, fn] of Object.entries(Strings.gitDetails)) {
+			const text = fn();
+			checked++;
+			if (/checkpoint/i.test(text)) {
+				offenders.push(`gitDetails.${functionName}: ${text}`);
+			}
+		}
+		expect(checked).toBeGreaterThan(150);
+		expect(offenders).toEqual([]);
+	});
+
 	test('every string function returns text except forOperation on a plain success', () => {
 		for (const [groupName, group] of groupsToCheck()) {
 			for (const [functionName, fn] of Object.entries(group)) {
@@ -227,13 +253,13 @@ describe('checkpointsStrings', () => {
 			undefined,
 			'The check also changed 2 files on disk.',
 			'A check set up for this project did not pass.',
-			'A check set up for this project did not pass. The check also changed 1 file on disk. Create the checkpoint again to include these changes.',
+			'A check set up for this project did not pass. The check also changed 1 file on disk. Save the version again to include these changes.',
 			'A check set up for this project also changed these files.',
-			'Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file.',
+			'Some files on this computer are in no version, and this action would replace them. Nothing has changed yet. Choose what to do with each file.',
 			'1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet.',
-			'You created a checkpoint since you reviewed this. Maya added more changes since you reviewed this. One of the overlapping files changed since you reviewed this. The changes are shown again. Nothing was changed.',
+			'You saved a version since you reviewed this. Maya added more changes since you reviewed this. One of the overlapping files changed since you reviewed this. The changes are shown again. Nothing was changed.',
 			'More changes were added to the shared copy since you reviewed this. The changes are shown again. Nothing was changed.',
-			'Your files changed while the checkpoints were being prepared. Nothing was created. Review the changes and try again.',
+			'Your files changed while the versions were being prepared. Nothing was saved. Review the changes and try again.',
 			'Another tool changed this project after that action. Nothing was changed.',
 			'That action could not finish. Your project is as it was.',
 			'That action was interrupted, and some files were changed while it ran. Choose what to do next.',
@@ -244,18 +270,18 @@ describe('checkpointsStrings', () => {
 			'The shared copy could not be reached. Check your connection and try again.',
 			'The shared copy did not accept the request.',
 			'Another window is working on this project.',
-			'This project is in a state Checkpoints cannot work with. See the message at the top of the view.',
-			'Getting and sending changes needs git version 2.40 or newer. Update git to use them.',
-			'This folder is not keeping checkpoints yet.',
+			'This project is in a state Version History cannot work with. See the message at the top of the view.',
+			'Getting and sending changes needs git 2.40 or newer. Update git to use them.',
+			'This folder is not keeping versions yet.',
 			'That is no longer the latest action. The view has been refreshed.',
 			'That action cannot be undone.',
-			'This checkpoint is already in the shared copy, so it cannot be undone. Use Reverse This Checkpoint to make a new checkpoint with the opposite change.',
+			'This version is already in the shared copy, so it cannot be undone. Use Reverse This Version to save a new version with the opposite change.',
 			'The project did not respond in time. No files were changed. Try again.',
 			'There were no changes to act on, so no files were changed.',
 			'A file is already in that place. Choose a new name or place for the kept file.',
 			'Another git tool set some work aside for its own use. Open the Source Control view to finish with it, then try again. No files were changed.',
 			'An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.',
-			'A checkpoint title must be one line of 1 to 72 characters. No files were changed.',
+			'The title of a version must be one line of 1 to 72 characters. No files were changed.',
 			'A colleague added changes to your proposal. Get changes, then finish.',
 			'A colleague added changes to your proposal. Get changes, then stop it.',
 			'Get changes from the shared copy first, then ask for a review.',
@@ -281,14 +307,14 @@ describe('checkpointsStrings', () => {
 		expect(Strings.status.recoveryNotice('reversed')).toBe('An action was interrupted when Positron closed. It has been reversed.');
 		expect(Strings.status.recoveryNotice('completed')).toBe('An action was interrupted when Positron closed. It has been completed.');
 		expect(Strings.status.recoverySnapshot()).toBe('Project as it was before recovery');
-		expect(Strings.status.incoming('Maya', 2)).toBe('Maya added 2 checkpoints to the shared copy.');
+		expect(Strings.status.incoming('Maya', 2)).toBe('Maya added 2 versions to the shared copy.');
 		expect(Strings.status.needsGitTool()).toBe('This needs a git tool');
 		expect(Strings.history.partialFiles(['dose.R'])).toBe('Contains part of the changes to dose.R');
 		expect(Strings.history.returnedTo('Tuesday\'s version')).toBe('Returned to Tuesday\'s version');
 		expect(Strings.results.interruptedBy('Getting Maya\'s changes', 2)).toBe('Getting Maya\'s changes was interrupted, and 2 files were changed afterwards.');
 		expect(Strings.results.projectChanged()).toContain('Another tool changed this project after that action');
 		expect(Strings.undoRedo.filesChangedSince(3)).toBe('You changed 3 files since then. Undo will set them back, and Redo will return them.');
-		expect(Strings.collisions.explainWithAuthor('Maya', 'data.csv')).toBe('Maya added a file named data.csv. You have your own data.csv that is in no checkpoint.');
+		expect(Strings.collisions.explainWithAuthor('Maya', 'data.csv')).toBe('Maya added a file named data.csv. You have your own data.csv that is in no version.');
 		expect(Strings.actions.useTheirsKeepCopy()).toBe('Use Theirs and Keep a Copy of Mine');
 		expect(Strings.actions.undoProjectCheckChanges()).toBe('Undo: changes made by the project check');
 		expect(Strings.actions.reverseKeepNewer()).toBe('Reverse the Action and Keep My Newer Files');
@@ -298,7 +324,7 @@ describe('checkpointsStrings', () => {
 		expect(Strings.unsaved.saveAllAndContinue()).toBe('Save all and continue');
 		expect(Strings.changes.unsavedNote(2)).toBe('2 files have unsaved edits that are not shown');
 		expect(Strings.kept.heading()).toBe('Files kept aside');
-		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place for a checkpoint.');
+		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place to save a version.');
 	});
 
 	test('the sentence for an ended proposal names no button', () => {
@@ -316,19 +342,19 @@ describe('checkpointsStrings', () => {
 			Strings.results.unavailableDetail('get-changes-first'), Strings.proposals.stopConfirm(), Strings.proposals.notClosed(),
 		]).toEqual([
 			'This project needs a colleague to review changes before they join the shared copy.', 'Ask for a Review', 'Ask for a Review',
-			'3 checkpoints go to your colleagues for review. Your files do not change.',
-			'Sending your checkpoints...', 'Asking for the review...',
-			'Your proposal is on this computer only.', 'Your checkpoints were sent, but the review was not asked for.',
+			'3 versions go to your colleagues for review. Your files do not change.',
+			'Sending your versions...', 'Asking for the review...',
+			'Your proposal is on this computer only.', 'Your versions were sent, but the review was not asked for.',
 			'Waiting for a colleague to review your proposal.',
-			'A colleague asked for changes. Read their comments on GitHub, create checkpoints for your changes, then send them.',
+			'A colleague asked for changes. Read their comments on GitHub, save versions of your changes, then send them.',
 			'A colleague approved your proposal. It joins the shared copy when it is accepted on GitHub.', 'Your proposal joined the shared copy.',
-			'Your proposal was closed without joining the shared copy. Your checkpoints are still here.',
+			'Your proposal was closed without joining the shared copy. Your versions are still here.',
 			'Positron could not read the state of your proposal.',
 			'Your proposal and the shared copy changed the same places. Open it on GitHub to choose what to keep.',
 			'Open on GitHub', 'Stop This Proposal', 'Finish', 'Sign in to GitHub', 'Check Again', 'Send More Changes',
-			'3 checkpoints not in your proposal yet',
+			'3 versions not in your proposal yet',
 			'A colleague added changes to your proposal. Get changes, then finish.',
-			'Your checkpoints stay on this computer and are no longer in review.',
+			'Your versions stay on this computer and are no longer in review.',
 			'Your proposal was stopped on this computer, but Positron could not close it on GitHub.',
 		]);
 	});

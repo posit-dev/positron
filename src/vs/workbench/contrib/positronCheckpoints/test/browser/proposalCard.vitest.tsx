@@ -100,10 +100,10 @@ describe('ProposalCard', () => {
 
 	test.each([
 		['waiting', 'Waiting for a colleague to review your proposal.', ['Open on GitHub', 'Stop This Proposal']],
-		['changes-requested', 'A colleague asked for changes. Read their comments on GitHub, create checkpoints for your changes, then send them.', ['Open on GitHub', 'Stop This Proposal']],
+		['changes-requested', 'A colleague asked for changes. Read their comments on GitHub, save versions of your changes, then send them.', ['Open on GitHub', 'Stop This Proposal']],
 		['approved', 'A colleague approved your proposal. It joins the shared copy when it is accepted on GitHub.', ['Open on GitHub']],
 		['accepted', 'Your proposal joined the shared copy.', ['Finish']],
-		['closed', 'Your proposal was closed without joining the shared copy. Your checkpoints are still here.', ['Stop This Proposal', 'Open on GitHub']],
+		['closed', 'Your proposal was closed without joining the shared copy. Your versions are still here.', ['Stop This Proposal', 'Open on GitHub']],
 	] as const)('%s shows its sentence and buttons', async (state, sentence, buttons) => {
 		findResult = { ok: true, proposal: info({ state }) };
 		renderPanel(proposalState(true));
@@ -122,7 +122,7 @@ describe('ProposalCard', () => {
 		findResult = { ok: true };
 		renderPanel(proposalState(true));
 
-		await vi.waitFor(async () => expect(await card()).toEqual({ text: ['Your checkpoints were sent, but the review was not asked for.'], buttons: ['Ask for a Review', 'Stop This Proposal'] }));
+		await vi.waitFor(async () => expect(await card()).toEqual({ text: ['Your versions were sent, but the review was not asked for.'], buttons: ['Ask for a Review', 'Stop This Proposal'] }));
 	});
 
 	test.each([
@@ -191,7 +191,7 @@ describe('ProposalCard', () => {
 
 		await user.click(await screen.findByRole('button', { name: 'Stop This Proposal' }));
 
-		expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'Your checkpoints stay on this computer and are no longer in review.', primaryButton: 'Stop This Proposal' }));
+		expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'Your versions stay on this computer and are no longer in review.', primaryButton: 'Stop This Proposal' }));
 		await vi.waitFor(() => expect(github.closeProposal).toHaveBeenCalledWith('me', 'dose-model', 7));
 		expect(engine.callsOf('stopProposal')).toEqual([[]]);
 	});
@@ -221,7 +221,7 @@ describe('ProposalCard', () => {
 		renderPanel(proposalState(true, { shared: { exists: true, ahead: 1, behind: 0 } }));
 
 		expect(await screen.findByRole('button', { name: 'Send More Changes' })).toBeEnabled();
-		expect(screen.getByText('1 checkpoint not in your proposal yet')).toBeInTheDocument();
+		expect(screen.getByText('1 version not in your proposal yet')).toBeInTheDocument();
 	});
 
 	test.each(['accepted', 'closed'] as const)('Send is disabled when the proposal is %s', async state => {

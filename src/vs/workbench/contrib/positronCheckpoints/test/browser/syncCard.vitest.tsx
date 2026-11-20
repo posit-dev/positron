@@ -102,7 +102,7 @@ describe('Sync card and collision dialog', () => {
 
 	async function renderCard() {
 		rtl.render(<CheckpointsPanel />);
-		expect(await screen.findByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Maya added 2 versions to the shared copy.')).toBeInTheDocument();
 		return userEvent.setup();
 	}
 
@@ -168,7 +168,7 @@ describe('Sync card and collision dialog', () => {
 		await user.click(screen.getByRole('button', { name: 'Get Maya\'s Changes' }));
 
 		const dialog = await screen.findByRole('dialog');
-		expect(within(dialog).getByText('Maya added a file named data.csv. You have your own data.csv that is in no checkpoint.')).toBeInTheDocument();
+		expect(within(dialog).getByText('Maya added a file named data.csv. You have your own data.csv that is in no version.')).toBeInTheDocument();
 		expect(within(dialog).getByRole('button', { name: 'Continue' })).toBeDisabled();
 
 		await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -204,9 +204,9 @@ describe('Sync card and collision dialog', () => {
 		const user = userEvent.setup();
 
 		await user.click(await screen.findByRole('button', { name: 'Show details of First version' }));
-		await user.click(screen.getByRole('button', { name: 'Go Back to This Checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Go Back to This Version' }));
 		const dialog = await screen.findByRole('dialog');
-		expect(within(dialog).getByText('This action would replace your file big.bin (80.00MB), which is too large to keep in a checkpoint.')).toBeInTheDocument();
+		expect(within(dialog).getByText('This action would replace your file big.bin (80.00MB), which is too large to keep in a version.')).toBeInTheDocument();
 		await user.click(within(dialog).getByRole('checkbox', { name: 'Use Theirs and Keep a Copy of Mine' }));
 		await user.click(within(dialog).getByRole('button', { name: 'Continue' }));
 
@@ -231,7 +231,7 @@ describe('Sync card and collision dialog', () => {
 
 			const card = await screen.findByRole('region', { name: 'Get Changes' });
 			expect(await within(card).findByText('Maya updated the dosing table and fixed a typo in the README.')).toBeInTheDocument();
-			expect(within(card).getByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(within(card).getByText('Maya added 2 versions to the shared copy.')).toBeInTheDocument();
 			expect(within(card).getByText('Their changes do not touch your work.')).toBeInTheDocument();
 			expect(within(card).queryAllByRole('listitem')).toEqual([]);
 			expect(within(card).getByRole('button', { name: 'Get Maya\'s Changes' })).toBeEnabled();
@@ -278,7 +278,7 @@ describe('Sync card and collision dialog', () => {
 			rtl.render(<CheckpointsPanel />);
 
 			const card = await screen.findByRole('region', { name: 'Get Changes' });
-			expect(await within(card).findByText('2 colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(await within(card).findByText('2 colleagues added 2 versions to the shared copy.')).toBeInTheDocument();
 			expect(within(card).getByText('Their changes are close to your work and fit together.')).toBeInTheDocument();
 			expect(within(card).getByRole('button', { name: 'Get Your Colleagues\' Changes' })).toBeEnabled();
 		});
@@ -289,7 +289,7 @@ describe('Sync card and collision dialog', () => {
 
 			const card = await screen.findByRole('region', { name: 'Get Changes' });
 			await vi.waitFor(() => expect(agent.runsOf('summarize-incoming')).toHaveLength(1));
-			expect(within(card).getByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(within(card).getByText('Maya added 2 versions to the shared copy.')).toBeInTheDocument();
 			expect(within(card).getByText('These changes do not touch your work.')).toBeInTheDocument();
 			expect(within(card).getAllByRole('listitem').map(row => row.textContent)).toEqual([
 				'Updated the dosing tableMaya',

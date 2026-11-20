@@ -10,7 +10,7 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 // checked before use (spec 7).
 
 /**
- * How demanding a job is. Both weights use the model from `checkpoints.model` today; the field
+ * How demanding a job is. Both weights use the model from `versionHistory.model` today; the field
  * lets careful jobs use a stronger model later.
  */
 export type JobWeight = 'light' | 'careful';
@@ -53,10 +53,10 @@ export const MAX_INPUT_CHARS = 60000;
  */
 export const STYLE_RULES = [
 	'Rules for every text you write:',
-	'- The reader is a data scientist who does not use version control tools. Write for that person.',
+	'- The reader is a data scientist who does not use tools such as git. Write for that person.',
 	'- Lead with what changed and why it matters to the analysis or its results.',
 	'- Group related changes by their purpose, not by file. Mention file names second, after the purpose.',
-	'- Use plain words. Where a plain word exists, do not use a programming or version control term.',
+	'- Use plain words. Where a plain word exists, do not use a term from programming or from git.',
 	'- Write in the past tense.',
 	'- State only what the changes show. Do not praise the work and do not guess at the reasons behind it.',
 	'- Never use these words: branch, commit, stage, rebase, merge, pull, push, fetch, HEAD, conflict.',

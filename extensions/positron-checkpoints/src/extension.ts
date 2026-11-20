@@ -14,7 +14,7 @@ import type { API, GitExtension } from './gitApi';
  * extension, or in a Positron that has no `positron.checkpoints` API.
  */
 export function activate(context: vscode.ExtensionContext): void {
-	const log = vscode.window.createOutputChannel('Checkpoints', { log: true });
+	const log = vscode.window.createOutputChannel('Version History', { log: true });
 	context.subscriptions.push(log);
 	start(context, log).catch(error => {
 		log.error(`The checkpoints engine could not start: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);

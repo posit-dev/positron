@@ -38,7 +38,7 @@ const STATE: positron.checkpoints.EngineState = {
 	tracking: 'tracking', projectName: 'dose-model', projectRoot: '/work/dose-model', openedFolderIsInsideProject: false,
 	branch: 'main', shared: { exists: true, ahead: 1, behind: 0, name: 'origin/main' }, identityMissing: false,
 	syncAvailable: true, requiredGitVersion: '2.40', pendingOverlap: false, recoverySnapshots: [],
-	undo: { operationId: 'op1', description: 'Create checkpoint', kind: 'create-checkpoints', restoresFiles: false },
+	undo: { operationId: 'op1', description: 'Save version', kind: 'create-checkpoints', restoresFiles: false },
 	keptFileCount: 0,
 };
 

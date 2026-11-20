@@ -33,7 +33,7 @@ const unusualSentences: Record<UnusualKind, string> = {
 	'operation-in-progress': 'Another git tool left this project in the middle of an operation',
 	'staged-differs': 'Another git tool prepared part of a file for its own use, and it no longer matches the file you see.',
 	'unrecovered': 'An action was interrupted and this view could not finish it. Your work is saved, and a person who knows git can restore it.',
-	'git-missing': 'Checkpoints need the git program, and it was not found on this computer.',
+	'git-missing': 'Version History needs the git program, and it was not found on this computer.',
 };
 
 describe('CheckpointsPanel', () => {
@@ -76,13 +76,13 @@ describe('CheckpointsPanel', () => {
 		rtl.render(<CheckpointsPanel />);
 	}
 
-	test('plain folder shows "Start Keeping Checkpoints"', async () => {
+	test('plain folder shows "Start Keeping Versions"', async () => {
 		const user = userEvent.setup();
 		engine.state = fakeEngineState({ tracking: 'not-a-project' });
 		renderPanel();
 
-		const start = await screen.findByRole('button', { name: 'Start Keeping Checkpoints' });
-		expect(screen.getByText('This folder is not keeping checkpoints yet.')).toBeInTheDocument();
+		const start = await screen.findByRole('button', { name: 'Start Keeping Versions' });
+		expect(screen.getByText('This folder is not keeping versions yet.')).toBeInTheDocument();
 		expect(screen.queryByTestId('checkpoints-sections')).not.toBeInTheDocument();
 
 		await user.click(start);
@@ -113,14 +113,14 @@ describe('CheckpointsPanel', () => {
 		renderPanel();
 
 		expect(await screen.findByText(unusualSentences['git-missing'])).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Start Keeping Checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Start Keeping Versions' })).not.toBeInTheDocument();
 	});
 
 	test('behind 2 shows the colleagues-changed sentence', async () => {
 		engine.state = fakeEngineState({ shared: { exists: true, ahead: 1, behind: 2 } });
 		renderPanel();
 
-		expect(await screen.findByText('Colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Colleagues added 2 versions to the shared copy.')).toBeInTheDocument();
 		expect(screen.getByTestId('checkpoints-sections')).toBeEnabled();
 	});
 
@@ -128,7 +128,7 @@ describe('CheckpointsPanel', () => {
 		engine.state = fakeEngineState({ shared: { exists: true, ahead: 1, behind: 0 } });
 		renderPanel();
 
-		expect(await screen.findByText('1 checkpoint is not yet in the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('1 version is not yet in the shared copy.')).toBeInTheDocument();
 	});
 
 	test('no shared copy shows "This project is only on this computer"', async () => {
@@ -142,7 +142,7 @@ describe('CheckpointsPanel', () => {
 		engine.state = fakeEngineState({ syncAvailable: false, shared: { exists: false, ahead: 0, behind: 0 } });
 		renderPanel();
 
-		expect(await screen.findByText('Getting and sending changes needs git version 2.40 or newer.')).toBeInTheDocument();
+		expect(await screen.findByText('Getting and sending changes needs git 2.40 or newer.')).toBeInTheDocument();
 	});
 
 	test('an interrupted action comes before the sync status', async () => {
@@ -166,7 +166,7 @@ describe('CheckpointsPanel', () => {
 	test('without an engine the panel says checkpoints are not available, and loads when one registers', async () => {
 		rtl.render(<CheckpointsPanel />);
 
-		expect(await screen.findByText('Checkpoints are not available yet.')).toBeInTheDocument();
+		expect(await screen.findByText('Version History is not available yet.')).toBeInTheDocument();
 
 		act(() => { ctx.disposables.add(checkpointsService.registerEngine(engine)); });
 
@@ -203,7 +203,7 @@ describe('CheckpointsPanel', () => {
 		renderPanel();
 
 		expect(await screen.findByText('The state of this project could not be read.')).toBeInTheDocument();
-		expect(within(screen.getByRole('status')).getByText('Checkpoints need the git program, and it was not found on this computer.')).toBeInTheDocument();
+		expect(within(screen.getByRole('status')).getByText('Version History needs the git program, and it was not found on this computer.')).toBeInTheDocument();
 		expect(logError).toHaveBeenCalledWith('The state of the project could not be read.', failure);
 	});
 
@@ -214,7 +214,7 @@ describe('CheckpointsPanel', () => {
 		engine.state = fakeEngineState({ shared: { exists: true, ahead: 0, behind: 1 } });
 		act(() => engine.fireChange());
 
-		expect(await screen.findByText('Colleagues added 1 checkpoint to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Colleagues added 1 version to the shared copy.')).toBeInTheDocument();
 	});
 
 	test('a change during a load queues one more load, and the older response is dropped', async () => {
@@ -231,7 +231,7 @@ describe('CheckpointsPanel', () => {
 		expect(engine.callsOf('getState')).toHaveLength(1);
 		await act(async () => releaseFirst(fakeEngineState()));
 
-		expect(await screen.findByText('Colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Colleagues added 2 versions to the shared copy.')).toBeInTheDocument();
 		expect(screen.queryByText('You have everything in the shared copy.')).not.toBeInTheDocument();
 		expect(engine.callsOf('getState')).toHaveLength(2);
 	});
@@ -246,7 +246,7 @@ describe('CheckpointsPanel', () => {
 		engine.state = fakeEngineState({ recoveryNotice: 'reversed', shared: { exists: true, ahead: 0, behind: 1 } });
 		act(() => engine.fireChange());
 
-		expect(await screen.findByText('Colleagues added 1 checkpoint to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Colleagues added 1 version to the shared copy.')).toBeInTheDocument();
 		expect(screen.getByRole('status')).toHaveTextContent('A later sentence');
 	});
 
@@ -256,7 +256,7 @@ describe('CheckpointsPanel', () => {
 		engine.nextResult = { kind: 'unavailable', reason: 'busy' };
 		renderPanel();
 
-		await user.click(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' }));
+		await user.click(await screen.findByRole('button', { name: 'Start Keeping Versions' }));
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
 		expect(await screen.findByRole('status')).toHaveTextContent('Another window is working on this project');

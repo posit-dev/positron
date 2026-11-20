@@ -200,7 +200,7 @@ describe('Recovery and project check dialogs', () => {
 		const user = await renderWithSend();
 
 		const dialog = await screen.findByRole('dialog');
-		expect(within(dialog).getByText('A check set up for this project did not pass. The check also changed 1 file on disk. Create the checkpoint again to include these changes.')).toBeInTheDocument();
+		expect(within(dialog).getByText('A check set up for this project did not pass. The check also changed 1 file on disk. Save the version again to include these changes.')).toBeInTheDocument();
 		expect(within(dialog).getByRole('list', { name: 'Files the check changed on disk:' })).toHaveTextContent('a.R');
 		expect(screen.queryByText('lint error on line 3')).not.toBeInTheDocument();
 
@@ -218,14 +218,14 @@ describe('Recovery and project check dialogs', () => {
 		const changed = within(dialog).getByRole('list', { name: 'Files the check changed:' });
 		await vi.waitFor(() => expect(within(changed).getAllByRole('listitem').map(item => item.firstChild?.textContent)).toEqual(['a.R', 'b.R']));
 		engine.nextResult = { kind: 'done', operationId: 'op-6', hookEditedFiles: [] };
-		await user.click(within(dialog).getByRole('button', { name: 'Create the Checkpoint with These Changes' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Save the Version with These Changes' }));
 		await vi.waitFor(() => expect(engine.callsOf('acceptCheckedCheckpoint')).toEqual([['tok-1']]));
 
 		engine.nextResult = { kind: 'check-changed-checkpoint', token: 'tok-2', changedPaths: ['a.R'], hookEditedFiles: [] };
 		await user.click(await screen.findByRole('button', { name: 'Send Changes' }));
 		dialog = await screen.findByRole('dialog');
 		engine.nextResult = { kind: 'done', operationId: 'op-7', hookEditedFiles: ['a.R'] };
-		await user.click(within(dialog).getByRole('button', { name: 'Do Not Create the Checkpoint' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Do Not Save the Version' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('declineCheckedCheckpoint')).toEqual([['tok-2']]));
 		expect(await screen.findByText('The check also changed 1 file on disk.')).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('Recovery and project check dialogs', () => {
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByRole('list', { name: 'Files the check changed:' })).toHaveTextContent(/^dose\.R/);
-		await user.click(within(dialog).getByRole('button', { name: 'Create the Checkpoint with These Changes' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Save the Version with These Changes' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('acceptCheckedCheckpoint')).toEqual([['tok-9']]));
 	});
@@ -358,7 +358,7 @@ describe('Recovery and project check dialogs', () => {
 		showCheckResultDialog({ kind: 'check-failed', output: '', hookEditedFiles: [], chunkIndex: 1 }, actions, 3);
 
 		const dialog = await screen.findByRole('dialog');
-		expect(within(dialog).getByText('Checkpoint 2 of 3 was not created.')).toBeInTheDocument();
+		expect(within(dialog).getByText('Version 2 of 3 was not saved.')).toBeInTheDocument();
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
 
 		showCheckResultDialog({ kind: 'check-failed', output: '', hookEditedFiles: [], chunkIndex: 0 }, actions, 1);

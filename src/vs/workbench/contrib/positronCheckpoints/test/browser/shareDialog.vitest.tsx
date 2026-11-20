@@ -184,7 +184,7 @@ describe('ShareDialog', () => {
 		await share(user, dialog, { colleague: 'maya-ortiz' });
 		expect(await within(dialog).findByText('Creating the project on GitHub...')).toBeInTheDocument();
 		finishCreate({ ok: true, cloneUrl: CLONE_URL, htmlUrl: WEB_URL });
-		expect(await within(dialog).findByText('Copying your checkpoints to GitHub...')).toBeInTheDocument();
+		expect(await within(dialog).findByText('Copying your versions to GitHub...')).toBeInTheDocument();
 		await vi.waitFor(() => expect(finishConnect).toBeDefined());
 		finishConnect();
 		expect(await within(dialog).findByText('Inviting maya-ortiz...')).toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('ShareDialog', () => {
 
 			await share(user, dialog);
 
-			expect(await within(dialog).findByText('Create a checkpoint first, then share.')).toBeInTheDocument();
+			expect(await within(dialog).findByText('Save a version first, then share.')).toBeInTheDocument();
 			expect(createRepository).not.toHaveBeenCalled();
 			expect(engine.callsOf('connectSharedCopy')).toEqual([]);
 		});
@@ -308,7 +308,7 @@ describe('ShareDialog', () => {
 
 			await share(user, dialog, { colleague: 'maya-ortiz' });
 
-			expect(await within(dialog).findByText('The project dose-model was created on GitHub, but Positron could not copy your checkpoints to it. Your files are safe. Select Try Again.')).toBeInTheDocument();
+			expect(await within(dialog).findByText('The project dose-model was created on GitHub, but Positron could not copy your versions to it. Your files are safe. Select Try Again.')).toBeInTheDocument();
 			expect(within(dialog).getByText(`The project is at ${WEB_URL}`)).toBeInTheDocument();
 			expect(invite).not.toHaveBeenCalled();
 			expectNoGitWords(dialog);
@@ -327,16 +327,16 @@ describe('ShareDialog', () => {
 
 			await share(user, dialog);
 
-			expect(await within(dialog).findByText(/was created on GitHub, but Positron could not copy your checkpoints to it/)).toBeInTheDocument();
+			expect(await within(dialog).findByText(/was created on GitHub, but Positron could not copy your versions to it/)).toBeInTheDocument();
 			expect(within(dialog).getByRole('button', { name: 'Try Again' })).toBeEnabled();
 		});
 
 		test.each([
 			{ detail: 'origin-exists', reason: 'this folder is already linked to a different shared copy.' },
-			{ detail: 'no-checkpoints', reason: 'this folder has no checkpoints yet. Create a checkpoint, then link it.' },
+			{ detail: 'no-checkpoints', reason: 'this folder has no versions yet. Save a version, then link it.' },
 			{ detail: 'already-shared', reason: 'this project is already shared.' },
 			{ detail: 'bad-link', reason: 'the link GitHub gave is not one Positron can use.' },
-			{ detail: 'inside-another-project', reason: 'this folder is inside another project that keeps its own checkpoints. Share that project instead.' },
+			{ detail: 'inside-another-project', reason: 'this folder is inside another project that keeps its own versions. Share that project instead.' },
 		])('a permanent refusal ($detail) has its own sentence, keeps the link, and offers no retry', async ({ detail, reason }) => {
 			engine.queuedResults = [{ kind: 'unavailable', reason: 'nothing-to-do', detail }];
 			const { user, dialog } = await openDialog();

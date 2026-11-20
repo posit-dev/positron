@@ -29,14 +29,14 @@ export interface IChunkProposal {
 }
 
 const SYSTEM_PROMPT = [
-	'You sort the changes a person made to the files of their project into checkpoints, one for each separate piece of work, so that each checkpoint can be saved on its own.',
+	'You sort the changes a person made to the files of their project into versions, one for each separate piece of work, so that each version can be saved on its own.',
 	'The changes are listed as parts. Each part of a file has an id on its "Part <id> of <path>" line. A file that has no parts is listed on a "Whole file <path>" line.',
 	'Answer with a JSON object of this form:',
 	'{"chunks": [{"title": "...", "summary": "...", "hunkIds": ["..."], "wholeFiles": ["..."], "finished": true}]}',
-	`- Use 1 to ${MAX_PROPOSED_CHUNKS} checkpoints. Keep parts that belong to the same piece of work together.`,
-	'- Put the id of every part in "hunkIds" of exactly one checkpoint. Put the path of every whole file in "wholeFiles" of exactly one checkpoint. Use only the ids and paths that are listed.',
+	`- Use 1 to ${MAX_PROPOSED_CHUNKS} versions. Keep parts that belong to the same piece of work together.`,
+	'- Put the id of every part in "hunkIds" of exactly one version. Put the path of every whole file in "wholeFiles" of exactly one version. Use only the ids and paths that are listed.',
 	'- "title" is one line of at most 72 characters that names the work. "summary" is one or two sentences about it.',
-	'- "finished" is true when the work in the checkpoint looks complete, and false when it looks started but not done.',
+	'- "finished" is true when the work in the version looks complete, and false when it looks started but not done.',
 	STYLE_SECOND_PERSON,
 ].join('\n');
 
@@ -49,7 +49,7 @@ const SYSTEM_PROMPT = [
 export const splitIntoChunksJob: Job<IChangeSet, IChunkProposal> = {
 	name: 'split-into-chunks',
 	weight: 'careful',
-	version: 2,
+	version: 3,
 
 	buildPrompt(changes) {
 		const text = renderHunksForModel(changes, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS);
@@ -59,8 +59,8 @@ export const splitIntoChunksJob: Job<IChangeSet, IChunkProposal> = {
 		return {
 			systemPrompt: SYSTEM_PROMPT,
 			user: [
-				'Sort these changes into checkpoints.',
-				wrapUntrusted('the changes to the files since the last checkpoint, as parts', text),
+				'Sort these changes into versions.',
+				wrapUntrusted('the changes to the files since the last version, as parts', text),
 			].join('\n\n'),
 		};
 	},

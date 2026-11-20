@@ -82,7 +82,7 @@ export function field(raw: unknown, key: string): unknown {
 }
 
 const SYSTEM_PROMPT = [
-	'You describe the changes a person made to the files of their project since they last saved a checkpoint of their work.',
+	'You describe the changes a person made to the files of their project since they last saved a version of their work.',
 	'Answer with a JSON object of this form:',
 	'{"title": "...", "summary": "...", "fileNotes": [{"path": "...", "note": "..."}]}',
 	`- "title" is one line of at most ${CHECKPOINT_TITLE_LIMIT} characters that names the work, for example "Fixed the units in the dose model".`,
@@ -100,7 +100,7 @@ const SYSTEM_PROMPT = [
 export const describeChangesJob: Job<IChangeSet, IChangesDescription> = {
 	name: 'describe-changes',
 	weight: 'light',
-	version: 3,
+	version: 4,
 
 	buildPrompt(changes) {
 		const text = renderChangesForModel(changes, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS);
@@ -108,7 +108,7 @@ export const describeChangesJob: Job<IChangeSet, IChangesDescription> = {
 			systemPrompt: SYSTEM_PROMPT,
 			user: [
 				'Describe these changes.',
-				wrapUntrusted('the changes to the files since the last checkpoint', text),
+				wrapUntrusted('the changes to the files since the last version', text),
 			].join('\n\n'),
 		};
 	},

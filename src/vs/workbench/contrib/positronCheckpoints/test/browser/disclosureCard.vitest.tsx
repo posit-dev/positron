@@ -83,7 +83,7 @@ describe('DisclosureCard', () => {
 	test('the notice shows in a folder that is not keeping checkpoints', async () => {
 		engine.state = fakeEngineState({ tracking: 'not-a-project' });
 		rtl.render(<CheckpointsPanel />);
-		expect(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Start Keeping Versions' })).toBeInTheDocument();
 
 		void agentService.run(titleJob, 'diff', CancellationToken.None);
 
@@ -98,7 +98,7 @@ describe('DisclosureCard', () => {
 
 		const outcome = agentService.run(titleJob, 'diff', CancellationToken.None);
 		const card = await screen.findByRole('region', { name: 'Descriptions of your changes' });
-		expect(within(card).getByText('Checkpoints sends your changes to your configured model provider to describe them.')).toBeInTheDocument();
+		expect(within(card).getByText('Version History sends your changes to your configured model provider to describe them.')).toBeInTheDocument();
 		expect(streamText).not.toHaveBeenCalled();
 
 		await user.click(within(card).getByRole('button', { name: 'OK' }));

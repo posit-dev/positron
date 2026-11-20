@@ -121,14 +121,14 @@ describe('Changes section and checkpoint dialog', () => {
 
 	async function openDialog() {
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Create Checkpoint...' }));
+		await user.click(await screen.findByRole('button', { name: 'Save a Version...' }));
 		expect(await screen.findByRole('dialog')).toBeInTheDocument();
 		return user;
 	}
 
 	/** The button that submits the dialog. */
 	function createButton(count: number) {
-		return screen.getByRole('button', { name: count === 1 ? 'Create 1 Checkpoint' : `Create ${count} Checkpoints` });
+		return screen.getByRole('button', { name: count === 1 ? 'Save a Version' : `Save ${count} Versions` });
 	}
 
 	test('lists changed files with plain status words', async () => {
@@ -175,8 +175,8 @@ describe('Changes section and checkpoint dialog', () => {
 	test('with no changes there is no list and the create button is disabled', async () => {
 		renderPanel({ basis: 'b1', files: [] });
 
-		expect(await screen.findByText('No changes since your last checkpoint.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Create Checkpoint...' })).toBeDisabled();
+		expect(await screen.findByText('No changes since your last version.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Save a Version...' })).toBeDisabled();
 	});
 
 	test('the create button is disabled with an empty or over-long title', async () => {
@@ -211,9 +211,9 @@ describe('Changes section and checkpoint dialog', () => {
 		renderPanel({ basis: 'b1', files: [changedFile('a.R'), changedFile('b.R'), changedFile('c.R')] });
 		const user = await openDialog();
 
-		await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
-		await user.selectOptions(screen.getByRole('combobox', { name: 'Move c.R to' }), 'Checkpoint 2');
-		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Checkpoint 2');
+		await user.click(screen.getByRole('button', { name: 'Add Another Version' }));
+		await user.selectOptions(screen.getByRole('combobox', { name: 'Move c.R to' }), 'Version 2');
+		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Version 2');
 		await user.click(screen.getByRole('checkbox', { name: 'b.R' }));
 		const titles = screen.getAllByRole('textbox', { name: 'Title' });
 		await user.type(titles[0], 'First');
@@ -235,14 +235,14 @@ describe('Changes section and checkpoint dialog', () => {
 		engine.nextResult = { kind: 'check-failed', output: 'lint error', hookEditedFiles: [], chunkIndex: 1 };
 		const user = await openDialog();
 
-		await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
-		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Checkpoint 2');
+		await user.click(screen.getByRole('button', { name: 'Add Another Version' }));
+		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Version 2');
 		const titles = screen.getAllByRole('textbox', { name: 'Title' });
 		await user.type(titles[0], 'First');
 		await user.type(titles[1], 'Second');
 		await user.click(createButton(2));
 
-		expect(await screen.findByText('Checkpoint 2 of 2 was not created.')).toBeInTheDocument();
+		expect(await screen.findByText('Version 2 of 2 was not saved.')).toBeInTheDocument();
 		await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 	});
 
@@ -253,7 +253,7 @@ describe('Changes section and checkpoint dialog', () => {
 		const dialog = screen.getByRole('dialog');
 		expect(within(dialog).getByRole('checkbox', { name: 'big.csv' })).not.toBeChecked();
 		expect(within(dialog).getByRole('checkbox', { name: 'a.R' })).toBeChecked();
-		expect(within(dialog).getByText('big.csv is over 50 MB. It is left out of the checkpoint unless you include it.')).toBeInTheDocument();
+		expect(within(dialog).getByText('big.csv is over 50 MB. It is left out of the version unless you include it.')).toBeInTheDocument();
 
 		await user.type(within(dialog).getByRole('textbox', { name: 'Title' }), 'Code only');
 		await user.click(createButton(1));
@@ -291,7 +291,7 @@ describe('Changes section and checkpoint dialog', () => {
 		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Fixed it');
 		await user.click(createButton(1));
 
-		expect(await screen.findByText('Your files changed while the checkpoints were being prepared. Nothing was created. Review the changes and try again.')).toBeInTheDocument();
+		expect(await screen.findByText('Your files changed while the versions were being prepared. Nothing was saved. Review the changes and try again.')).toBeInTheDocument();
 		await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(loadsBefore));
 	});
 
@@ -348,7 +348,7 @@ describe('Changes section and checkpoint dialog', () => {
 		await user.click(createButton(1));
 
 		const dialog = await screen.findByRole('dialog');
-		expect(await within(dialog).findByText('This file was saved and added. Review it, then create the checkpoint again.')).toBeInTheDocument();
+		expect(await within(dialog).findByText('This file was saved and added. Review it, then save the version again.')).toBeInTheDocument();
 		expect(within(dialog).getByText('saved and added')).toBeInTheDocument();
 		expect(within(dialog).getByRole('checkbox', { name: 'new.R' })).toBeChecked();
 		expect(within(dialog).getByRole('textbox', { name: 'Title' })).toHaveValue('With saved file');
@@ -376,7 +376,7 @@ describe('Changes section and checkpoint dialog', () => {
 
 		await user.click(createButton(1));
 
-		expect(await screen.findByText('This file was saved and added. Review it, then create the checkpoint again.')).toBeInTheDocument();
+		expect(await screen.findByText('This file was saved and added. Review it, then save the version again.')).toBeInTheDocument();
 		expect(createButton(2)).toBeDisabled();
 		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 	});
@@ -463,7 +463,7 @@ describe('Changes section and checkpoint dialog', () => {
 			await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
 			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
 			expect(screen.queryByText(description.summary)).not.toBeInTheDocument();
-			expect(screen.getByRole('button', { name: 'Create Checkpoint...' })).toBeEnabled();
+			expect(screen.getByRole('button', { name: 'Save a Version...' })).toBeEnabled();
 		});
 
 		test('while the description loads, the plain list shows and a checkpoint can be created', async () => {
@@ -607,7 +607,7 @@ describe('Changes section and checkpoint dialog', () => {
 
 		/** The chunks of the dialog, in order. */
 		function chunkGroups(): HTMLElement[] {
-			return within(screen.getByRole('dialog')).getAllByRole('group', { name: /^Checkpoint \d+$/ });
+			return within(screen.getByRole('dialog')).getAllByRole('group', { name: /^Version \d+$/ });
 		}
 
 		test('the dialog starts with proposed chunks and ticks the finished ones', async () => {
@@ -618,8 +618,8 @@ describe('Changes section and checkpoint dialog', () => {
 
 			expect(await screen.findByDisplayValue('Capped the dose')).toBeInTheDocument();
 			const [first, second] = chunkGroups();
-			expect(within(first).getByRole('checkbox', { name: 'Checkpoint 1' })).toBeChecked();
-			expect(within(second).getByRole('checkbox', { name: 'Checkpoint 2' })).not.toBeChecked();
+			expect(within(first).getByRole('checkbox', { name: 'Version 1' })).toBeChecked();
+			expect(within(second).getByRole('checkbox', { name: 'Version 2' })).not.toBeChecked();
 			expect(within(second).getByDisplayValue('Started the units change')).toBeInTheDocument();
 			expect(within(second).getByDisplayValue('You began changing units.')).toBeInTheDocument();
 			expect(agent.runsOf('split-into-chunks').map(run => run.input)).toEqual([changes]);
@@ -715,12 +715,12 @@ describe('Changes section and checkpoint dialog', () => {
 		test('moving a part into its file where that file is not selected says so beside the file', async () => {
 			renderPanel(changes);
 			const user = await openDialog();
-			await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
-			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
+			await user.click(screen.getByRole('button', { name: 'Add Another Version' }));
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Version 2');
 			await user.click(within(chunkGroups()[1]).getByRole('checkbox', { name: 'dose.R' }));
 			expect(screen.queryByText('Moved to a part that is not selected.')).not.toBeInTheDocument();
 
-			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 1 of dose.R to' }), 'Checkpoint 2');
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 1 of dose.R to' }), 'Version 2');
 
 			expect(within(chunkGroups()[1]).getByText('Moved to a part that is not selected.')).toBeInTheDocument();
 			await user.click(within(chunkGroups()[1]).getByRole('checkbox', { name: 'dose.R' }));
@@ -755,9 +755,9 @@ describe('Changes section and checkpoint dialog', () => {
 		test('moving a hunk between chunks updates both chunks', async () => {
 			renderPanel(changes);
 			const user = await openDialog();
-			await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
+			await user.click(screen.getByRole('button', { name: 'Add Another Version' }));
 
-			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Version 2');
 
 			const [first, second] = chunkGroups();
 			const partsOf = (chunk: HTMLElement) => within(within(chunk).getByRole('list', { name: 'dose.R' })).getAllByText(/^Part \d+:/).map(part => part.textContent);
@@ -787,7 +787,7 @@ describe('Changes section and checkpoint dialog', () => {
 			expect(within(first).getByRole('note')).toHaveTextContent('Contains part of the changes to dose.R');
 			expect(within(second).getByRole('note')).toHaveTextContent('Contains part of the changes to dose.R');
 
-			await userEvent.selectOptions(within(second).getByRole('combobox', { name: 'Move dose.R to' }), 'Checkpoint 1');
+			await userEvent.selectOptions(within(second).getByRole('combobox', { name: 'Move dose.R to' }), 'Version 1');
 			expect(screen.queryByRole('note')).not.toBeInTheDocument();
 		});
 

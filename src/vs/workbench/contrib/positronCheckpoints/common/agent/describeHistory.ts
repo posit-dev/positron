@@ -60,7 +60,7 @@ export interface IHistoryDescription {
 }
 
 const SYSTEM_PROMPT = [
-	'A colleague of a person saved a checkpoint of their work in a shared project and wrote a short message about it, often in technical shorthand. You rewrite the message in plain language for the person.',
+	'A colleague of a person saved a version of their work in a shared project and wrote a short message about it, often in technical shorthand. You rewrite the message in plain language for the person.',
 	'Answer with a JSON object of this form:',
 	'{"title": "...", "summary": "..."}',
 	`- "title" is one line of at most ${CHECKPOINT_TITLE_LIMIT} characters that names the work, for example "Changed the dose units to mg/kg".`,
@@ -77,18 +77,18 @@ const SYSTEM_PROMPT = [
 export const describeHistoryJob: Job<IDescribeHistoryInput, IHistoryDescription> = {
 	name: 'describe-history',
 	weight: 'light',
-	version: 2,
+	version: 3,
 
 	buildPrompt({ checkpoint, diff }) {
 		const maxChars = MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS;
 		const message = [`Author: ${checkpoint.authorName}`, checkpoint.title, checkpoint.body].filter(part => part !== '').join('\n\n').slice(0, maxChars);
 		const blocks = [
-			'Rewrite this checkpoint message in plain language.',
+			'Rewrite the message of this version in plain language.',
 			wrapUntrusted('the colleague\'s name and the message they wrote', message),
 		];
 		if (diff !== '') {
 			const budget = Math.max(0, maxChars - message.length);
-			blocks.push(wrapUntrusted('the changes of the checkpoint', diff.slice(0, budget)));
+			blocks.push(wrapUntrusted('the changes of the version', diff.slice(0, budget)));
 		}
 		return { systemPrompt: SYSTEM_PROMPT, user: blocks.join('\n\n') };
 	},

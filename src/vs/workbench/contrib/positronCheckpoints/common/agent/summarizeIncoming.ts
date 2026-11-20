@@ -215,7 +215,7 @@ function describeFacts(preview: IIncomingPreview): string {
 }
 
 const SYSTEM_PROMPT = [
-	'Colleagues of a person added checkpoints of their work to the shared copy of a project. You summarize what the colleagues changed, for the person, before the person gets those changes.',
+	'Colleagues of a person added versions of their work to the shared copy of a project. You summarize what the colleagues changed, for the person, before the person gets those changes.',
 	'Answer with a JSON object of this form:',
 	'{"summary": "...", "relation": "unrelated"}',
 	`- "summary" is one to three sentences, at most ${MAX_INCOMING_SUMMARY_CHARS} characters, about what the colleagues changed and why it matters. Name the colleagues by the names given, for example "Maya updated the dosing table."`,
@@ -236,14 +236,14 @@ const SYSTEM_PROMPT = [
 export const summarizeIncomingJob: Job<ISummarizeIncomingInput, IIncomingSummary> = {
 	name: 'summarize-incoming',
 	weight: 'light',
-	version: 2,
+	version: 3,
 
 	buildPrompt(input) {
 		const content = [
-			'Checkpoints from the colleagues:',
+			'Versions from the colleagues:',
 			listCheckpoints(input.preview),
 			'',
-			'Files the person changed since their last checkpoint:',
+			'Files the person changed since their last version:',
 			listMine(input.myChangedPaths),
 			'',
 			'What the colleagues changed:',
@@ -254,7 +254,7 @@ export const summarizeIncomingJob: Job<ISummarizeIncomingInput, IIncomingSummary
 			user: [
 				'Summarize the colleagues\' changes.',
 				describeFacts(input.preview),
-				wrapUntrusted('the colleagues\' checkpoints, the names of the person\'s changed files, and the colleagues\' changes', content),
+				wrapUntrusted('the colleagues\' versions, the names of the person\'s changed files, and the colleagues\' changes', content),
 			].join('\n\n'),
 		};
 	},

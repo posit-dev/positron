@@ -94,13 +94,13 @@ describe('Files kept aside', () => {
 		const section = await screen.findByRole('region', { name: 'Files kept aside' });
 		expect(await within(section).findByText('data.csv')).toBeInTheDocument();
 		expect(within(section).getByText('out/model.rds')).toBeInTheDocument();
-		expect(within(section).getByText(/^3(\.0+)? ?MB in total\. These files are in no checkpoint\.$/)).toBeInTheDocument();
+		expect(within(section).getByText(/^3(\.0+)? ?MB in total\. These files are in no version\.$/)).toBeInTheDocument();
 
 		await user.click(within(section).getByRole('button', { name: 'Delete: data.csv' }));
 
 		expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
 			message: 'Delete data.csv?',
-			detail: 'This file is in no checkpoint. After you delete it, it cannot be recovered.',
+			detail: 'This file is in no version. After you delete it, it cannot be recovered.',
 		}));
 		expect(engine.callsOf('deleteKeptFile')).toEqual([]);
 

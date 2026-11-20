@@ -88,7 +88,7 @@ describe('runAction', () => {
 		const result = await run('no-guard');
 
 		expect(result).toBeUndefined();
-		expect(messageService.message).toBe('Checkpoints are not available yet.');
+		expect(messageService.message).toBe('Version History is not available yet.');
 	});
 
 	test('no-guard calls the engine without asking about unsaved files', async () => {
@@ -174,7 +174,7 @@ describe('runAction', () => {
 		expect(result).toEqual(repeated);
 		expect(showCollisionDialog).toHaveBeenCalledTimes(1);
 		expect(engine.callsOf('sendChanges')).toHaveLength(2);
-		expect(messageService.message).toBe('Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file.');
+		expect(messageService.message).toBe('Some files on this computer are in no version, and this action would replace them. Nothing has changed yet. Choose what to do with each file.');
 	});
 
 	test('collisions with other files after an answer are asked about again', async () => {

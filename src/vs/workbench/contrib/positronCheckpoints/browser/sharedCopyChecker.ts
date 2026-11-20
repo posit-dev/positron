@@ -24,7 +24,7 @@ const FOCUS_CHECK_MINIMUM_MS = 60 * 1000;
 
 /**
  * Looks for new checkpoints in the shared copy without being asked: when the window gains focus
- * (at most once a minute) and every `checkpoints.checkSharedInterval` minutes, at least one
+ * (at most once a minute) and every `versionHistory.checkSharedInterval` minutes, at least one
  * minute apart. The setting 0 turns both kinds of check off. A check changes no files. It is skipped when the
  * project has no shared copy or is in an unusual state, and a failure is logged and never shown.
  * While a proposal exists, each check also reads its state on GitHub.

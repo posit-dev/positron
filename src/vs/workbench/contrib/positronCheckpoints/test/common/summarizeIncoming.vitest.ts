@@ -107,8 +107,8 @@ describe('summarizeIncomingJob', () => {
 
 		expect(user).toContain('in 2 places, the colleagues and the person changed the same lines');
 		expect(user).toContain('Some of the colleagues\' changes are in files the person also changed.');
-		expect(user).toMatch(/BEGIN-DATA-[0-9a-f]{32}\nCheckpoints from the colleagues:\n- "Updated the dosing table" by Maya\n/);
-		expect(user).toContain('Files the person changed since their last checkpoint:\nplot_dose.R');
+		expect(user).toMatch(/BEGIN-DATA-[0-9a-f]{32}\nVersions from the colleagues:\n- "Updated the dosing table" by Maya\n/);
+		expect(user).toContain('Files the person changed since their last version:\nplot_dose.R');
 		expect(user).toContain('File: dosing.csv (changed)');
 	});
 });

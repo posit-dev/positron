@@ -23,7 +23,7 @@ function joinSentences(sentences: string[]): string {
 }
 
 const status = {
-	noEngine: () => localize('positron.checkpoints.status.noEngine', "Checkpoints are not available yet."),
+	noEngine: () => localize('positron.checkpoints.status.noEngine', "Version History is not available yet."),
 	couldNotRead: () => localize('positron.checkpoints.status.couldNotRead', "The state of this project could not be read."),
 	/** The sentence for a part of the view that could not be read from the project. */
 	couldNotLoad: (kind: ReadFailureKind): string => {
@@ -37,24 +37,24 @@ const status = {
 		}
 	},
 	interrupted: (description: string) => localize('positron.checkpoints.status.interrupted', "The action \"{0}\" was interrupted before it finished.", description),
-	syncUnavailable: (version: string) => localize('positron.checkpoints.status.syncUnavailable', "Getting and sending changes needs git version {0} or newer.", version),
+	syncUnavailable: (version: string) => localize('positron.checkpoints.status.syncUnavailable', "Getting and sending changes needs git {0} or newer.", version),
 	behind: (count: number) => plural(count,
-		localize('positron.checkpoints.status.behind.one', "Colleagues added 1 checkpoint to the shared copy."),
-		localize('positron.checkpoints.status.behind.other', "Colleagues added {0} checkpoints to the shared copy.", count)),
+		localize('positron.checkpoints.status.behind.one', "Colleagues added 1 version to the shared copy."),
+		localize('positron.checkpoints.status.behind.other', "Colleagues added {0} versions to the shared copy.", count)),
 	partOfProject: (projectName: string) => localize('positron.checkpoints.status.partOfProject', "This folder is part of the project {0}", projectName),
 	onlyOnThisComputer: () => localize('positron.checkpoints.status.onlyOnThisComputer', "This project is only on this computer"),
-	notKeepingCheckpoints: () => localize('positron.checkpoints.status.notKeepingCheckpoints', "This folder is not keeping checkpoints yet."),
-	identityMissing: () => localize('positron.checkpoints.status.identityMissing', "Checkpoints need your name and email address, so that colleagues can see who made them."),
+	notKeepingCheckpoints: () => localize('positron.checkpoints.status.notKeepingCheckpoints', "This folder is not keeping versions yet."),
+	identityMissing: () => localize('positron.checkpoints.status.identityMissing', "Version History needs your name and email address, so that colleagues can see who saved each version."),
 	upToDate: () => localize('positron.checkpoints.status.upToDate', "You have everything in the shared copy."),
 	waitingToSend: (count: number) => plural(count,
-		localize('positron.checkpoints.status.waitingToSend.one', "1 checkpoint is not yet in the shared copy."),
-		localize('positron.checkpoints.status.waitingToSend.other', "{0} checkpoints are not yet in the shared copy.", count)),
+		localize('positron.checkpoints.status.waitingToSend.one', "1 version is not yet in the shared copy."),
+		localize('positron.checkpoints.status.waitingToSend.other', "{0} versions are not yet in the shared copy.", count)),
 	incoming: (author: string, count: number) => plural(count,
-		localize('positron.checkpoints.status.incoming.one', "{0} added 1 checkpoint to the shared copy.", author),
-		localize('positron.checkpoints.status.incoming.other', "{0} added {1} checkpoints to the shared copy.", author, count)),
+		localize('positron.checkpoints.status.incoming.one', "{0} added 1 version to the shared copy.", author),
+		localize('positron.checkpoints.status.incoming.other', "{0} added {1} versions to the shared copy.", author, count)),
 	incomingWithoutAuthor: (count: number) => plural(count,
-		localize('positron.checkpoints.status.incomingNoAuthor.one', "1 new checkpoint is in the shared copy."),
-		localize('positron.checkpoints.status.incomingNoAuthor.other', "{0} new checkpoints are in the shared copy.", count)),
+		localize('positron.checkpoints.status.incomingNoAuthor.one', "1 new version is in the shared copy."),
+		localize('positron.checkpoints.status.incomingNoAuthor.other', "{0} new versions are in the shared copy.", count)),
 	incomingTouchesWork: () => localize('positron.checkpoints.status.incomingTouchesWork', "Some of these changes are in files you also changed."),
 	incomingSeparate: () => localize('positron.checkpoints.status.incomingSeparate', "These changes do not touch your work."),
 	lastChecked: (when: string) => localize('positron.checkpoints.status.lastChecked', "Last checked {0}.", when),
@@ -76,7 +76,7 @@ const status = {
 			case 'unrecovered':
 				return localize('positron.checkpoints.status.unusual.unrecovered', "An action was interrupted and this view could not finish it. Your work is saved, and a person who knows git can restore it.");
 			case 'git-missing':
-				return localize('positron.checkpoints.status.unusual.gitMissing', "Checkpoints need the git program, and it was not found on this computer.");
+				return localize('positron.checkpoints.status.unusual.gitMissing', "Version History needs the git program, and it was not found on this computer.");
 		}
 	},
 	unusualHelp: () => localize('positron.checkpoints.status.unusualHelp', "Open the Source Control view to look at this project."),
@@ -84,19 +84,19 @@ const status = {
 };
 
 const actions = {
-	createCheckpoint: () => localize('positron.checkpoints.actions.createCheckpoint', "Create Checkpoint..."),
+	createCheckpoint: () => localize('positron.checkpoints.actions.createCheckpoint', "Save a Version..."),
 	createCheckpoints: (count: number) => plural(count,
-		localize('positron.checkpoints.actions.createCheckpoints.one', "Create 1 Checkpoint"),
-		localize('positron.checkpoints.actions.createCheckpoints.other', "Create {0} Checkpoints", count)),
+		localize('positron.checkpoints.actions.createCheckpoints.one', "Save a Version"),
+		localize('positron.checkpoints.actions.createCheckpoints.other', "Save {0} Versions", count)),
 	getChanges: () => localize('positron.checkpoints.actions.getChanges', "Get Changes"),
 	getAuthorsChanges: (author: string) => localize('positron.checkpoints.actions.getAuthorsChanges', "Get {0}'s Changes", author),
 	getColleaguesChanges: () => localize('positron.checkpoints.actions.getColleaguesChanges', "Get Your Colleagues' Changes"),
 	sendChanges: () => localize('positron.checkpoints.actions.sendChanges', "Send Changes"),
 	checkSharedCopy: () => localize('positron.checkpoints.actions.checkSharedCopy', "Check the Shared Copy"),
-	goBack: () => localize('positron.checkpoints.actions.goBack', "Go Back to This Checkpoint"),
-	reverseCheckpoint: () => localize('positron.checkpoints.actions.reverseCheckpoint', "Reverse This Checkpoint"),
+	goBack: () => localize('positron.checkpoints.actions.goBack', "Go Back to This Version"),
+	reverseCheckpoint: () => localize('positron.checkpoints.actions.reverseCheckpoint', "Reverse This Version"),
 	editDescription: () => localize('positron.checkpoints.actions.editDescription', "Edit Description"),
-	startKeepingCheckpoints: () => localize('positron.checkpoints.actions.startKeepingCheckpoints', "Start Keeping Checkpoints"),
+	startKeepingCheckpoints: () => localize('positron.checkpoints.actions.startKeepingCheckpoints', "Start Keeping Versions"),
 	viewDetailedDifferences: () => localize('positron.checkpoints.actions.viewDetailedDifferences', "View Detailed Differences"),
 	/** The accessible name of a "View Detailed Differences" action of one file. */
 	viewDetailedDifferencesOf: (path: string) => localize('positron.checkpoints.actions.viewDetailedDifferencesOf', "View Detailed Differences: {0}", path),
@@ -112,8 +112,8 @@ const actions = {
 	undoLastAction: () => localize('positron.checkpoints.actions.undoLastAction', "Undo Last Action"),
 	undoProjectCheckChanges: () => localize('positron.checkpoints.actions.undoProjectCheckChanges', "Undo: changes made by the project check"),
 	undoHover: (operations: number, days: number) => localize('positron.checkpoints.actions.undoHover', "Undo covers your last {0} actions from the last {1} days.", operations, days),
-	acceptCheckedCheckpoint: () => localize('positron.checkpoints.actions.acceptCheckedCheckpoint', "Create the Checkpoint with These Changes"),
-	declineCheckedCheckpoint: () => localize('positron.checkpoints.actions.declineCheckedCheckpoint', "Do Not Create the Checkpoint"),
+	acceptCheckedCheckpoint: () => localize('positron.checkpoints.actions.acceptCheckedCheckpoint', "Save the Version with These Changes"),
+	declineCheckedCheckpoint: () => localize('positron.checkpoints.actions.declineCheckedCheckpoint', "Do Not Save the Version"),
 	reverseKeepNewer: () => localize('positron.checkpoints.actions.reverseKeepNewer', "Reverse the Action and Keep My Newer Files"),
 	leaveAsIs: () => localize('positron.checkpoints.actions.leaveAsIs', "Leave the Project as It Is"),
 	removeRecoverySnapshot: () => localize('positron.checkpoints.actions.removeRecoverySnapshot', "Remove"),
@@ -125,8 +125,8 @@ const actions = {
 };
 
 const changes = {
-	heading: () => localize('positron.checkpoints.changes.heading', "Changes since your last checkpoint"),
-	none: () => localize('positron.checkpoints.changes.none', "No changes since your last checkpoint."),
+	heading: () => localize('positron.checkpoints.changes.heading', "Changes since your last version"),
+	none: () => localize('positron.checkpoints.changes.none', "No changes since your last version."),
 	unsavedNote: (count: number) => plural(count,
 		localize('positron.checkpoints.changes.unsavedNote.one', "1 file has unsaved edits that are not shown"),
 		localize('positron.checkpoints.changes.unsavedNote.other', "{0} files have unsaved edits that are not shown", count)),
@@ -139,31 +139,31 @@ const changes = {
 	previousName: (oldPath: string) => localize('positron.checkpoints.changes.previousName', "was {0}", oldPath),
 	changedFile: () => localize('positron.checkpoints.changes.changedFile', "changed"),
 	binaryFile: (size: string) => localize('positron.checkpoints.changes.binaryFile', "data file, {0}", size),
-	tooLarge: (path: string, limitMegabytes: number) => localize('positron.checkpoints.changes.tooLarge', "{0} is over {1} MB. It is left out of the checkpoint unless you include it.", path, limitMegabytes),
+	tooLarge: (path: string, limitMegabytes: number) => localize('positron.checkpoints.changes.tooLarge', "{0} is over {1} MB. It is left out of the version unless you include it.", path, limitMegabytes),
 	titleTooLong: (limit: number) => localize('positron.checkpoints.changes.titleTooLong', "The title can have up to {0} characters.", limit),
-	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Checkpoint {0}", index),
-	dialogTitle: () => localize('positron.checkpoints.changes.dialogTitle', "Create Checkpoints"),
+	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Version {0}", index),
+	dialogTitle: () => localize('positron.checkpoints.changes.dialogTitle', "Save Versions"),
 	titleLabel: () => localize('positron.checkpoints.changes.titleLabel', "Title"),
 	bodyLabel: () => localize('positron.checkpoints.changes.bodyLabel', "Description (optional)"),
-	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add Another Checkpoint"),
+	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add Another Version"),
 	moveFileTo: (path: string) => localize('positron.checkpoints.changes.moveFileTo', "Move {0} to", path),
 	/** A part of a file, one of the places where its lines changed. */
 	partLabel: (index: number, added: number, removed: number) => plural(added,
 		localize('positron.checkpoints.changes.partLabel.one', "Part {0}: 1 line added, {1} removed", index, removed),
 		localize('positron.checkpoints.changes.partLabel.other', "Part {0}: {1} lines added, {2} removed", index, added, removed)),
 	movePartTo: (index: number, path: string) => localize('positron.checkpoints.changes.movePartTo', "Move part {0} of {1} to", index, path),
-	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this checkpoint."),
+	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this version."),
 	savedAndAdded: (count: number) => plural(count,
-		localize('positron.checkpoints.changes.savedAndAdded.one', "This file was saved and added. Review it, then create the checkpoint again."),
-		localize('positron.checkpoints.changes.savedAndAdded.other', "These files were saved and added. Review them, then create the checkpoint again.")),
+		localize('positron.checkpoints.changes.savedAndAdded.one', "This file was saved and added. Review it, then save the version again."),
+		localize('positron.checkpoints.changes.savedAndAdded.other', "These files were saved and added. Review them, then save the version again.")),
 	savedAndAddedTag: () => localize('positron.checkpoints.changes.savedAndAddedTag', "saved and added"),
 	savedContentChanged: () => localize('positron.checkpoints.changes.savedContentChanged', "These files were saved. Review and confirm."),
 	movedIntoUnselected: () => localize('positron.checkpoints.changes.movedIntoUnselected', "Moved to a part that is not selected."),
-	savedAndChanged: () => localize('positron.checkpoints.changes.savedAndChanged', "Saving changed the list of files. Review the checkpoints, then create them again."),
+	savedAndChanged: () => localize('positron.checkpoints.changes.savedAndChanged', "Saving changed the list of files. Review the versions, then save them again."),
 };
 
 const diff = {
-	changeTitle: (path: string) => localize('positron.checkpoints.diff.changeTitle', "{0} (changes since your last checkpoint)", path),
+	changeTitle: (path: string) => localize('positron.checkpoints.diff.changeTitle', "{0} (changes since your last version)", path),
 	sizes: (before: string | undefined, after: string | undefined): string => {
 		if (before !== undefined && after !== undefined) {
 			return localize('positron.checkpoints.diff.sizesBoth', "Before: {0}. Now: {1}.", before, after);
@@ -197,22 +197,22 @@ const imageDiff = {
 
 const history = {
 	heading: () => localize('positron.checkpoints.history.heading', "History"),
-	empty: () => localize('positron.checkpoints.history.empty', "No checkpoints yet. Create the first one when your work is in a good place."),
+	empty: () => localize('positron.checkpoints.history.empty', "No versions yet. Save the first one when your work is in a good place."),
 	you: () => localize('positron.checkpoints.history.you', "You"),
 	notYetShared: () => localize('positron.checkpoints.history.notYetShared', "not yet shared"),
 	partialFiles: (files: string[]) => localize('positron.checkpoints.history.partialFiles', "Contains part of the changes to {0}", files.join(', ')),
 	returnedTo: (label: string) => localize('positron.checkpoints.history.returnedTo', "Returned to {0}", label),
-	loadMore: () => localize('positron.checkpoints.history.loadMore', "Show older checkpoints"),
+	loadMore: () => localize('positron.checkpoints.history.loadMore', "Show older versions"),
 	showDetails: (title: string) => localize('positron.checkpoints.history.showDetails', "Show details of {0}", title),
 	editDialogTitle: () => localize('positron.checkpoints.history.editDialogTitle', "Edit Description"),
 	editSave: () => localize('positron.checkpoints.history.editSave', "Save"),
-	reverseDialogTitle: () => localize('positron.checkpoints.history.reverseDialogTitle', "Reverse This Checkpoint"),
-	reverseExplain: (title: string) => localize('positron.checkpoints.history.reverseExplain', "Reversing \"{0}\" creates a new checkpoint that makes the opposite change. The original checkpoint stays in the history.", title),
+	reverseDialogTitle: () => localize('positron.checkpoints.history.reverseDialogTitle', "Reverse This Version"),
+	reverseExplain: (title: string) => localize('positron.checkpoints.history.reverseExplain', "Reversing \"{0}\" saves a new version that makes the opposite change. The original version stays in the history.", title),
 	reverseConfirm: () => localize('positron.checkpoints.history.reverseConfirm', "Reverse"),
 	combinedWorkFrom: (author: string) => localize('positron.checkpoints.history.combinedWorkFrom', "Combined work from {0}", author),
 	workFrom: (author: string) => localize('positron.checkpoints.history.workFrom', "Work from {0}", author),
-	files: () => localize('positron.checkpoints.history.files', "Files in this checkpoint"),
-	noFiles: () => localize('positron.checkpoints.history.noFiles', "This checkpoint changed no files."),
+	files: () => localize('positron.checkpoints.history.files', "Files in this version"),
+	noFiles: () => localize('positron.checkpoints.history.noFiles', "This version changed no files."),
 };
 
 const resultSentences = {
@@ -221,22 +221,22 @@ const resultSentences = {
 	checkChangedFilesOnDisk: (count: number) => plural(count,
 		localize('positron.checkpoints.results.checkChangedFilesOnDisk.one', "The check also changed 1 file on disk"),
 		localize('positron.checkpoints.results.checkChangedFilesOnDisk.other', "The check also changed {0} files on disk", count)),
-	createAgain: () => localize('positron.checkpoints.results.createAgain', "Create the checkpoint again to include these changes."),
+	createAgain: () => localize('positron.checkpoints.results.createAgain', "Save the version again to include these changes."),
 	couldNotFinish: () => localize('positron.checkpoints.results.couldNotFinish', "That action could not finish. Your project is as it was."),
 	interrupted: () => localize('positron.checkpoints.results.interrupted', "That action was interrupted, and some files were changed while it ran. Choose what to do next."),
 	interruptedBy: (description: string, fileCount: number) => plural(fileCount,
 		localize('positron.checkpoints.results.interruptedBy.one', "{0} was interrupted, and 1 file was changed afterwards.", description),
 		localize('positron.checkpoints.results.interruptedBy.other', "{0} was interrupted, and {1} files were changed afterwards.", description, fileCount)),
-	changesMoved: () => localize('positron.checkpoints.results.changesMoved', "Your files changed while the checkpoints were being prepared. Nothing was created. Review the changes and try again."),
+	changesMoved: () => localize('positron.checkpoints.results.changesMoved', "Your files changed while the versions were being prepared. Nothing was saved. Review the changes and try again."),
 	projectChanged: () => localize('positron.checkpoints.results.projectChanged', "Another tool changed this project after that action. Nothing was changed."),
 	overlaps: (count: number) => plural(count,
 		localize('positron.checkpoints.results.overlaps.one', "1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet."),
 		localize('positron.checkpoints.results.overlaps.other', "{0} changes overlap with your work. Choose how to combine them. Nothing has changed in your project yet.", count)),
-	pathCollisions: () => localize('positron.checkpoints.results.pathCollisions', "Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file."),
+	pathCollisions: () => localize('positron.checkpoints.results.pathCollisions', "Some files on this computer are in no version, and this action would replace them. Nothing has changed yet. Choose what to do with each file."),
 	inputsChangedShared: (author: string) => localize('positron.checkpoints.results.inputsChangedShared', "{0} added more changes since you reviewed this", author),
 	inputsChangedSharedUnknown: () => localize('positron.checkpoints.results.inputsChangedSharedUnknown', "More changes were added to the shared copy since you reviewed this"),
 	inputsChangedFiles: () => localize('positron.checkpoints.results.inputsChangedFiles', "One of the overlapping files changed since you reviewed this."),
-	inputsChangedMine: () => localize('positron.checkpoints.results.inputsChangedMine', "You created a checkpoint since you reviewed this"),
+	inputsChangedMine: () => localize('positron.checkpoints.results.inputsChangedMine', "You saved a version since you reviewed this"),
 	reviewAgain: () => localize('positron.checkpoints.results.reviewAgain', "The changes are shown again. Nothing was changed."),
 	rejected: (reason: RejectedReason): string => {
 		switch (reason) {
@@ -259,17 +259,17 @@ const resultSentences = {
 			case 'busy':
 				return localize('positron.checkpoints.results.unavailable.busy', "Another window is working on this project.");
 			case 'unusual-state':
-				return localize('positron.checkpoints.results.unavailable.unusualState', "This project is in a state Checkpoints cannot work with. See the message at the top of the view.");
+				return localize('positron.checkpoints.results.unavailable.unusualState', "This project is in a state Version History cannot work with. See the message at the top of the view.");
 			case 'git-too-old':
-				return localize('positron.checkpoints.results.unavailable.gitTooOld', "Getting and sending changes needs git version 2.40 or newer. Update git to use them.");
+				return localize('positron.checkpoints.results.unavailable.gitTooOld', "Getting and sending changes needs git 2.40 or newer. Update git to use them.");
 			case 'not-tracking':
-				return localize('positron.checkpoints.results.unavailable.notTracking', "This folder is not keeping checkpoints yet.");
+				return localize('positron.checkpoints.results.unavailable.notTracking', "This folder is not keeping versions yet.");
 			case 'stale-operation-id':
 				return localize('positron.checkpoints.results.unavailable.staleOperationId', "That is no longer the latest action. The view has been refreshed.");
 			case 'not-undoable':
 				return localize('positron.checkpoints.results.unavailable.notUndoable', "That action cannot be undone.");
 			case 'shared-checkpoint':
-				return localize('positron.checkpoints.results.unavailable.sharedCheckpoint', "This checkpoint is already in the shared copy, so it cannot be undone. Use Reverse This Checkpoint to make a new checkpoint with the opposite change.");
+				return localize('positron.checkpoints.results.unavailable.sharedCheckpoint', "This version is already in the shared copy, so it cannot be undone. Use Reverse This Version to save a new version with the opposite change.");
 			case 'timed-out':
 				return localize('positron.checkpoints.results.unavailable.timedOut', "The project did not respond in time. No files were changed. Try again.");
 			case 'nothing-to-do':
@@ -289,7 +289,7 @@ const resultSentences = {
 			case 'unresolved-operation':
 				return localize('positron.checkpoints.results.unavailableDetail.unresolvedOperation', "An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.");
 			case 'bad-title':
-				return localize('positron.checkpoints.results.unavailableDetail.badTitle', "A checkpoint title must be one line of 1 to {0} characters. No files were changed.", CHECKPOINT_TITLE_LIMIT);
+				return localize('positron.checkpoints.results.unavailableDetail.badTitle', "The title of a version must be one line of 1 to {0} characters. No files were changed.", CHECKPOINT_TITLE_LIMIT);
 			case 'get-changes-first':
 				return localize('positron.checkpoints.results.unavailableDetail.getChangesFirst', "A colleague added changes to your proposal. Get changes, then finish.");
 			case 'get-changes-before-stop':
@@ -370,11 +370,11 @@ const undoRedo = {
 };
 
 const collisions = {
-	explainWithAuthor: (author: string, path: string) => localize('positron.checkpoints.collisions.explainWithAuthor', "{0} added a file named {1}. You have your own {1} that is in no checkpoint.", author, path),
-	explainIgnored: (path: string) => localize('positron.checkpoints.collisions.explainIgnored', "This action would replace your file {0}, which is in no checkpoint.", path),
-	explainTooLarge: (path: string, size: string) => localize('positron.checkpoints.collisions.explainTooLarge', "This action would replace your file {0} ({1}), which is too large to keep in a checkpoint.", path, size),
+	explainWithAuthor: (author: string, path: string) => localize('positron.checkpoints.collisions.explainWithAuthor', "{0} added a file named {1}. You have your own {1} that is in no version.", author, path),
+	explainIgnored: (path: string) => localize('positron.checkpoints.collisions.explainIgnored', "This action would replace your file {0}, which is in no version.", path),
+	explainTooLarge: (path: string, size: string) => localize('positron.checkpoints.collisions.explainTooLarge', "This action would replace your file {0} ({1}), which is too large to keep in a version.", path, size),
 	keepCopyHelp: (path: string) => localize('positron.checkpoints.collisions.keepCopyHelp', "A copy of your {0} is kept aside, and you can restore it later.", path),
-	dialogTitle: () => localize('positron.checkpoints.collisions.dialogTitle', "Files in No Checkpoint"),
+	dialogTitle: () => localize('positron.checkpoints.collisions.dialogTitle', "Files in No Version"),
 	continue: () => localize('positron.checkpoints.collisions.continue', "Continue"),
 	cancelled: () => localize('positron.checkpoints.collisions.cancelled', "Nothing was changed."),
 };
@@ -384,8 +384,8 @@ const sync = {
 	changedFiles: () => localize('positron.checkpoints.sync.changedFiles', "Files these changes touch"),
 	diffTitle: (path: string) => localize('positron.checkpoints.sync.diffTitle', "{0} (changes from the shared copy)", path),
 	fromColleagues: (colleagues: number, count: number) => plural(count,
-		localize('positron.checkpoints.sync.fromColleagues.one', "{0} colleagues added 1 checkpoint to the shared copy.", colleagues),
-		localize('positron.checkpoints.sync.fromColleagues.other', "{0} colleagues added {1} checkpoints to the shared copy.", colleagues, count)),
+		localize('positron.checkpoints.sync.fromColleagues.one', "{0} colleagues added 1 version to the shared copy.", colleagues),
+		localize('positron.checkpoints.sync.fromColleagues.other', "{0} colleagues added {1} versions to the shared copy.", colleagues, count)),
 	relationUnrelated: () => localize('positron.checkpoints.sync.relationUnrelated', "Their changes do not touch your work."),
 	relationNearby: () => localize('positron.checkpoints.sync.relationNearby', "Their changes are close to your work and fit together."),
 	relationOverlapping: (places: number) => plural(places,
@@ -403,7 +403,7 @@ const overlaps = {
 	acceptDeletion: () => localize('positron.checkpoints.overlaps.acceptDeletion', "Accept the deletion"),
 	newNameFor: (path: string) => localize('positron.checkpoints.overlaps.newNameFor', "New name for {0}", path),
 	textExplain: (author: string, path: string) => localize('positron.checkpoints.overlaps.textExplain', "You and {0} both changed the same lines of {1}.", author, path),
-	binaryExplain: (author: string, path: string) => localize('positron.checkpoints.overlaps.binaryExplain', "You and {0} both changed {1}, which is a data file. Choose one version, or keep both under different names.", author, path),
+	binaryExplain: (author: string, path: string) => localize('positron.checkpoints.overlaps.binaryExplain', "You and {0} both changed {1}, which is a data file. Choose whose file to keep, or keep both under different names.", author, path),
 	editDeleteExplain: (author: string, path: string, deletedBy: 'me' | 'them') => deletedBy === 'them'
 		? localize('positron.checkpoints.overlaps.editDeleteThem', "You edited {1}, and {0} deleted it.", author, path)
 		: localize('positron.checkpoints.overlaps.editDeleteMe', "You deleted {1}, and {0} edited it.", author, path),
@@ -423,7 +423,7 @@ const overlaps = {
 	sizes: (mine: string, author: string, theirs: string) => localize('positron.checkpoints.overlaps.sizes', "Yours: {0}. {1}'s: {2}.", mine, author, theirs),
 	mineNameLabel: () => localize('positron.checkpoints.overlaps.mineNameLabel', "mine"),
 	copyNameLabel: () => localize('positron.checkpoints.overlaps.copyNameLabel', "copy"),
-	combinedTextEmpty: () => localize('positron.checkpoints.overlaps.combinedTextEmpty', "The combined text is empty. Neither version was empty, so choose one of the options above or type the text to keep."),
+	combinedTextEmpty: () => localize('positron.checkpoints.overlaps.combinedTextEmpty', "The combined text is empty. Your text and their text both had content, so choose one of the options above or type the text to keep."),
 	newNameInvalid: (path: string) => localize('positron.checkpoints.overlaps.newNameInvalid', "Choose a new name that differs from {0}.", path),
 	choicesFor: (path: string) => localize('positron.checkpoints.overlaps.choicesFor', "Choices for {0}", path),
 	chooseEach: () => localize('positron.checkpoints.overlaps.chooseEach', "Choose what to keep for every overlap, then apply your choices. Nothing changes in your project until then."),
@@ -449,19 +449,19 @@ const overlaps = {
 };
 
 const start = {
-	dialogTitle: () => localize('positron.checkpoints.start.dialogTitle', "Start Keeping Checkpoints"),
-	intro: () => localize('positron.checkpoints.start.intro', "Checkpoints will keep a record of the files in this folder, starting with a first checkpoint of everything that is here now."),
+	dialogTitle: () => localize('positron.checkpoints.start.dialogTitle', "Start Keeping Versions"),
+	intro: () => localize('positron.checkpoints.start.intro', "Version History will keep a record of the files in this folder, starting with a first version of everything that is here now."),
 	startButton: () => localize('positron.checkpoints.start.startButton', "Start"),
-	identityWhy: () => localize('positron.checkpoints.start.identityWhy', "Checkpoints records who made each one."),
+	identityWhy: () => localize('positron.checkpoints.start.identityWhy', "Version History records who saved each version."),
 	nameLabel: () => localize('positron.checkpoints.start.nameLabel', "Your name"),
 	emailLabel: () => localize('positron.checkpoints.start.emailLabel', "Your email address"),
 	emailInvalid: () => localize('positron.checkpoints.start.emailInvalid', "Enter an email address that contains @."),
-	leaveOut: () => localize('positron.checkpoints.start.leaveOut', "Leave these files out of checkpoints"),
+	leaveOut: () => localize('positron.checkpoints.start.leaveOut', "Leave these files out of versions"),
 	leaveOutBox: () => localize('positron.checkpoints.start.leaveOutBox', "Files and folders to leave out, one per line"),
 	leaveOutHelp: () => localize('positron.checkpoints.start.leaveOutHelp', "These are files that data science projects usually do not keep, such as saved history and temporary files. You can change the list."),
 	couldNotLoad: () => localize('positron.checkpoints.start.couldNotLoad', "The list of files to leave out could not be read."),
 	tryAgain: () => localize('positron.checkpoints.start.tryAgain', "Try Again"),
-	identityNotRecorded: () => localize('positron.checkpoints.start.identityNotRecorded', "Checkpoints could not record your name and email. Try again."),
+	identityNotRecorded: () => localize('positron.checkpoints.start.identityNotRecorded', "Version History could not record your name and email. Try again."),
 };
 
 const share = {
@@ -475,7 +475,7 @@ const share = {
 	inviteHelp: () => localize('positron.checkpoints.share.inviteHelp', "Enter the person's GitHub user name."),
 	shareButton: () => localize('positron.checkpoints.share.shareButton', "Share"),
 	creating: () => localize('positron.checkpoints.share.creating', "Creating the project on GitHub..."),
-	copying: () => localize('positron.checkpoints.share.copying', "Copying your checkpoints to GitHub..."),
+	copying: () => localize('positron.checkpoints.share.copying', "Copying your versions to GitHub..."),
 	inviting: (login: string) => localize('positron.checkpoints.share.inviting', "Inviting {0}...", login),
 	shared: () => localize('positron.checkpoints.share.shared', "This project is shared."),
 	sendLink: (link: string) => localize('positron.checkpoints.share.sendLink', "Send this link to your colleague: {0}", link),
@@ -487,7 +487,7 @@ const share = {
 	tryAgain: () => localize('positron.checkpoints.share.tryAgain', "Try Again"),
 	signInMissing: () => localize('positron.checkpoints.share.signInMissing', "Positron did not get a GitHub sign-in. Nothing was changed."),
 	noAnswer: () => localize('positron.checkpoints.share.noAnswer', "GitHub did not answer. The project may have been created; check your GitHub account before trying again."),
-	createFirst: () => localize('positron.checkpoints.share.createFirst', "Create a checkpoint first, then share."),
+	createFirst: () => localize('positron.checkpoints.share.createFirst', "Save a version first, then share."),
 	/** The sentence for a created project that this folder could not be linked to. `reason` is one of the `notLinkedReason` sentences. */
 	notLinked: (reason: string) => localize('positron.checkpoints.share.notLinked', "A project was created on GitHub, but this folder could not be linked to it: {0}", reason),
 	notLinkedReason: (detail: string | undefined): string => {
@@ -495,13 +495,13 @@ const share = {
 			case 'origin-exists':
 				return localize('positron.checkpoints.share.notLinkedReason.originExists', "this folder is already linked to a different shared copy.");
 			case 'no-checkpoints':
-				return localize('positron.checkpoints.share.notLinkedReason.noCheckpoints', "this folder has no checkpoints yet. Create a checkpoint, then link it.");
+				return localize('positron.checkpoints.share.notLinkedReason.noCheckpoints', "this folder has no versions yet. Save a version, then link it.");
 			case 'already-shared':
 				return localize('positron.checkpoints.share.notLinkedReason.alreadyShared', "this project is already shared.");
 			case 'bad-link':
 				return localize('positron.checkpoints.share.notLinkedReason.badLink', "the link GitHub gave is not one Positron can use.");
 			case 'inside-another-project':
-				return localize('positron.checkpoints.share.notLinkedReason.insideAnotherProject', "this folder is inside another project that keeps its own checkpoints. Share that project instead.");
+				return localize('positron.checkpoints.share.notLinkedReason.insideAnotherProject', "this folder is inside another project that keeps its own versions. Share that project instead.");
 			default:
 				return localize('positron.checkpoints.share.notLinkedReason.other', "this folder is in a state that cannot be linked.");
 		}
@@ -512,7 +512,7 @@ const share = {
 	createFailed: (detail: string) => detail === ''
 		? localize('positron.checkpoints.share.createFailed', "GitHub could not create the project. Nothing was changed.")
 		: localize('positron.checkpoints.share.createFailedWithDetail', "GitHub could not create the project. Nothing was changed. {0}", detail),
-	copyFailed: (name: string) => localize('positron.checkpoints.share.copyFailed', "The project {0} was created on GitHub, but Positron could not copy your checkpoints to it. Your files are safe. Select Try Again.", name),
+	copyFailed: (name: string) => localize('positron.checkpoints.share.copyFailed', "The project {0} was created on GitHub, but Positron could not copy your versions to it. Your files are safe. Select Try Again.", name),
 	alreadyShared: () => localize('positron.checkpoints.share.alreadyShared', "This project is already shared."),
 	noSuchUser: (login: string, link: string) => localize('positron.checkpoints.share.noSuchUser', "The project is shared, but there is no GitHub user named {0}. Send this link instead: {1}", login, link),
 	emailEntered: () => localize('positron.checkpoints.share.emailEntered', "The project is shared. Enter the person's GitHub user name."),
@@ -540,7 +540,7 @@ const join = {
 
 const kept = {
 	heading: () => localize('positron.checkpoints.kept.heading', "Files kept aside"),
-	totalSize: (size: string) => localize('positron.checkpoints.kept.totalSize', "{0} in total. These files are in no checkpoint.", size),
+	totalSize: (size: string) => localize('positron.checkpoints.kept.totalSize', "{0} in total. These files are in no version.", size),
 	restore: () => localize('positron.checkpoints.kept.restore', "Restore"),
 	/** A kept file is moved, not copied, so the label says so. */
 	moveToAnotherPlace: () => localize('positron.checkpoints.kept.moveToAnotherPlace', "Move to Another Place..."),
@@ -549,7 +549,7 @@ const kept = {
 	moveOf: (path: string) => localize('positron.checkpoints.kept.moveOf', "Move to Another Place: {0}", path),
 	deleteOf: (path: string) => localize('positron.checkpoints.kept.deleteOf', "Delete: {0}", path),
 	deleteConfirm: (path: string) => localize('positron.checkpoints.kept.deleteConfirm', "Delete {0}?", path),
-	deleteDetail: () => localize('positron.checkpoints.kept.deleteDetail', "This file is in no checkpoint. After you delete it, it cannot be recovered."),
+	deleteDetail: () => localize('positron.checkpoints.kept.deleteDetail', "This file is in no version. After you delete it, it cannot be recovered."),
 	keptBy: (action: string) => localize('positron.checkpoints.kept.keptBy', "Kept aside by: {0}", action),
 	chooseNewPlace: (path: string) => localize('positron.checkpoints.kept.chooseNewPlace', "Choose a place for {0}", path),
 	moveHere: () => localize('positron.checkpoints.kept.moveHere', "Move Here"),
@@ -565,7 +565,7 @@ const interrupted = {
 	dialogTitle: () => localize('positron.checkpoints.interrupted.dialogTitle', "Interrupted Action"),
 	reviewButton: () => localize('positron.checkpoints.interrupted.reviewButton', "Choose What to Do"),
 	reverseHelp: () => localize('positron.checkpoints.interrupted.reverseHelp', "The action is reversed. The files listed above stay as they are."),
-	leaveHelp: () => localize('positron.checkpoints.interrupted.leaveHelp', "Nothing changes. Whatever differs from your last checkpoint appears under Changes since your last checkpoint."),
+	leaveHelp: () => localize('positron.checkpoints.interrupted.leaveHelp', "Nothing changes. Whatever differs from your last version appears under Changes since your last version."),
 	decideLater: () => localize('positron.checkpoints.interrupted.decideLater', "Decide Later"),
 };
 
@@ -577,18 +577,18 @@ const checkResult = {
 	editedFiles: () => localize('positron.checkpoints.checkResult.editedFiles', "Files the check changed on disk:"),
 	filesChangedOnDisk: (count: number) => joinSentences([resultSentences.checkChangedFilesOnDisk(count)]),
 	/** `number` counts from 1. */
-	chunkNotCreated: (number: number, count: number) => localize('positron.checkpoints.checkResult.chunkNotCreated', "Checkpoint {0} of {1} was not created.", number, count),
+	chunkNotCreated: (number: number, count: number) => localize('positron.checkpoints.checkResult.chunkNotCreated', "Version {0} of {1} was not saved.", number, count),
 };
 
 const suggestions = {
-	goodPlace: () => localize('positron.checkpoints.suggestions.goodPlace', "This looks like a good place for a checkpoint."),
-	heading: () => localize('positron.checkpoints.suggestions.heading', "Suggested checkpoints"),
-	badge: () => localize('positron.checkpoints.suggestions.badge', "A checkpoint is suggested"),
+	goodPlace: () => localize('positron.checkpoints.suggestions.goodPlace', "This looks like a good place to save a version."),
+	heading: () => localize('positron.checkpoints.suggestions.heading', "Suggested versions"),
+	badge: () => localize('positron.checkpoints.suggestions.badge', "A new version is suggested"),
 };
 
 const aiNotice = {
 	heading: () => localize('positron.checkpoints.aiNotice.heading', "Descriptions of your changes"),
-	disclosure: () => localize('positron.checkpoints.aiNotice.disclosure', "Checkpoints sends your changes to your configured model provider to describe them."),
+	disclosure: () => localize('positron.checkpoints.aiNotice.disclosure', "Version History sends your changes to your configured model provider to describe them."),
 	ok: () => localize('positron.checkpoints.aiNotice.ok', "OK"),
 	turnOff: () => localize('positron.checkpoints.aiNotice.turnOff', "Turn off suggestions"),
 	openSetting: () => localize('positron.checkpoints.aiNotice.openSetting', "Open the setting"),
@@ -603,16 +603,16 @@ const proposals = {
 	titleLabel: () => localize('positron.checkpoints.proposals.titleLabel', "Title"),
 	messageLabel: () => localize('positron.checkpoints.proposals.messageLabel', "Message"),
 	goesForReview: (count: number) => plural(count,
-		localize('positron.checkpoints.proposals.goesForReview.one', "1 checkpoint goes to your colleagues for review. Your files do not change."),
-		localize('positron.checkpoints.proposals.goesForReview.other', "{0} checkpoints go to your colleagues for review. Your files do not change.", count)),
-	goesForReviewNoCount: () => localize('positron.checkpoints.proposals.goesForReviewNoCount', "Your checkpoints go to your colleagues for review. Your files do not change."),
+		localize('positron.checkpoints.proposals.goesForReview.one', "1 version goes to your colleagues for review. Your files do not change."),
+		localize('positron.checkpoints.proposals.goesForReview.other', "{0} versions go to your colleagues for review. Your files do not change.", count)),
+	goesForReviewNoCount: () => localize('positron.checkpoints.proposals.goesForReviewNoCount', "Your versions go to your colleagues for review. Your files do not change."),
 	starting: () => localize('positron.checkpoints.proposals.starting', "Preparing your proposal..."),
-	sending: () => localize('positron.checkpoints.proposals.sending', "Sending your checkpoints..."),
+	sending: () => localize('positron.checkpoints.proposals.sending', "Sending your versions..."),
 	asking: () => localize('positron.checkpoints.proposals.asking', "Asking for the review..."),
 	/** `reason` is the sentence for the engine's result. */
 	startFailed: (reason: string) => localize('positron.checkpoints.proposals.startFailed', "Positron could not prepare your proposal. {0}", reason),
-	sendFailed: (reason: string) => localize('positron.checkpoints.proposals.sendFailed', "Your proposal is ready on this computer, but your checkpoints could not be sent. {0}", reason),
-	askFailed: (reason: string) => localize('positron.checkpoints.proposals.askFailed', "Your checkpoints were sent, but the review could not be asked for. {0}", reason),
+	sendFailed: (reason: string) => localize('positron.checkpoints.proposals.sendFailed', "Your proposal is ready on this computer, but your versions could not be sent. {0}", reason),
+	askFailed: (reason: string) => localize('positron.checkpoints.proposals.askFailed', "Your versions were sent, but the review could not be asked for. {0}", reason),
 	gitHubFailure: (reason: 'sign-in-required' | 'not-allowed' | 'offline' | 'unknown'): string => {
 		switch (reason) {
 			case 'sign-in-required':
@@ -626,12 +626,12 @@ const proposals = {
 		}
 	},
 	notSent: () => localize('positron.checkpoints.proposals.notSent', "Your proposal is on this computer only."),
-	notAsked: () => localize('positron.checkpoints.proposals.notAsked', "Your checkpoints were sent, but the review was not asked for."),
+	notAsked: () => localize('positron.checkpoints.proposals.notAsked', "Your versions were sent, but the review was not asked for."),
 	waiting: () => localize('positron.checkpoints.proposals.waiting', "Waiting for a colleague to review your proposal."),
-	changesRequested: () => localize('positron.checkpoints.proposals.changesRequested', "A colleague asked for changes. Read their comments on GitHub, create checkpoints for your changes, then send them."),
+	changesRequested: () => localize('positron.checkpoints.proposals.changesRequested', "A colleague asked for changes. Read their comments on GitHub, save versions of your changes, then send them."),
 	approved: () => localize('positron.checkpoints.proposals.approved', "A colleague approved your proposal. It joins the shared copy when it is accepted on GitHub."),
 	accepted: () => localize('positron.checkpoints.proposals.accepted', "Your proposal joined the shared copy."),
-	closed: () => localize('positron.checkpoints.proposals.closed', "Your proposal was closed without joining the shared copy. Your checkpoints are still here."),
+	closed: () => localize('positron.checkpoints.proposals.closed', "Your proposal was closed without joining the shared copy. Your versions are still here."),
 	unreadable: () => localize('positron.checkpoints.proposals.unreadable', "Positron could not read the state of your proposal."),
 	mayStillBeOpen: () => localize('positron.checkpoints.proposals.mayStillBeOpen', "If you asked for a review, it may still be open on GitHub."),
 	checking: () => localize('positron.checkpoints.proposals.checking', "Checking the state of your proposal..."),
@@ -643,15 +643,15 @@ const proposals = {
 	checkAgain: () => localize('positron.checkpoints.proposals.checkAgain', "Check Again"),
 	sendMoreChanges: () => localize('positron.checkpoints.proposals.sendMoreChanges', "Send More Changes"),
 	notInProposal: (count: number) => plural(count,
-		localize('positron.checkpoints.proposals.notInProposal.one', "1 checkpoint not in your proposal yet"),
-		localize('positron.checkpoints.proposals.notInProposal.other', "{0} checkpoints not in your proposal yet", count)),
-	stopConfirm: () => localize('positron.checkpoints.proposals.stopConfirm', "Your checkpoints stay on this computer and are no longer in review."),
+		localize('positron.checkpoints.proposals.notInProposal.one', "1 version not in your proposal yet"),
+		localize('positron.checkpoints.proposals.notInProposal.other', "{0} versions not in your proposal yet", count)),
+	stopConfirm: () => localize('positron.checkpoints.proposals.stopConfirm', "Your versions stay on this computer and are no longer in review."),
 	notClosed: () => localize('positron.checkpoints.proposals.notClosed', "Your proposal was stopped on this computer, but Positron could not close it on GitHub."),
 };
 
 const view = {
-	title: () => localize('positron.checkpoints.view.title', "Checkpoints"),
-	iconDescription: () => localize('positron.checkpoints.view.iconDescription', "View icon of the Checkpoints view."),
+	title: () => localize('positron.checkpoints.view.title', "Version History"),
+	iconDescription: () => localize('positron.checkpoints.view.iconDescription', "View icon of the Version History view."),
 };
 
 /**

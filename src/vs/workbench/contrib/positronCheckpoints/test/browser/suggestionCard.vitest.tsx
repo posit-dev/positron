@@ -126,13 +126,13 @@ describe('SuggestionCard', () => {
 		rtl.render(<CheckpointsPanel />);
 		expect(await screen.findByRole('heading', { name: 'History' })).toBeInTheDocument();
 		act(() => suggestions.publish({ changes, chunks }));
-		return screen.findByRole('region', { name: 'Suggested checkpoints' });
+		return screen.findByRole('region', { name: 'Suggested versions' });
 	}
 
 	test('the card sets a badge and never calls the notification service', async () => {
 		const card = await renderWithSuggestion();
 
-		expect(within(card).getByText('This looks like a good place for a checkpoint.')).toBeInTheDocument();
+		expect(within(card).getByText('This looks like a good place to save a version.')).toBeInTheDocument();
 		expect(badges).toHaveLength(1);
 		expect(badges[0].containerId).toBe(POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID);
 		expect(badges[0].shown).toBe(true);
@@ -141,7 +141,7 @@ describe('SuggestionCard', () => {
 
 		await userEvent.click(within(card).getByRole('button', { name: 'Dismiss' }));
 
-		expect(screen.queryByRole('region', { name: 'Suggested checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('region', { name: 'Suggested versions' })).not.toBeInTheDocument();
 		expect(badges[0].shown).toBe(false);
 		expect(suggestions.current).toBeUndefined();
 		for (const spy of notificationSpies) {
@@ -156,27 +156,27 @@ describe('SuggestionCard', () => {
 		expect(rows.map(row => row.textContent)).toEqual(['Fixed the dose-response plot2 files', 'Started the import script1 file']);
 		expect(within(card).getByRole('checkbox', { name: 'Fixed the dose-response plot' })).toBeChecked();
 		expect(within(card).getByRole('checkbox', { name: 'Started the import script' })).not.toBeChecked();
-		expect(within(card).getByRole('button', { name: 'Create 1 Checkpoint' })).toBeInTheDocument();
+		expect(within(card).getByRole('button', { name: 'Save a Version' })).toBeInTheDocument();
 
 		await userEvent.click(within(card).getByRole('checkbox', { name: 'Started the import script' }));
-		expect(within(card).getByRole('button', { name: 'Create 2 Checkpoints' })).toBeInTheDocument();
+		expect(within(card).getByRole('button', { name: 'Save 2 Versions' })).toBeInTheDocument();
 	});
 
 	test('Create opens the dialog with the chunks and creates nothing by itself', async () => {
 		const card = await renderWithSuggestion();
 		const user = userEvent.setup();
 
-		await user.click(within(card).getByRole('button', { name: 'Create 1 Checkpoint' }));
+		await user.click(within(card).getByRole('button', { name: 'Save a Version' }));
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByDisplayValue('Fixed the dose-response plot')).toBeInTheDocument();
 		expect(within(dialog).getByDisplayValue('Started the import script')).toBeInTheDocument();
-		const groups = within(dialog).getAllByRole('group', { name: /^Checkpoint \d+$/ });
-		expect(within(groups[0]).getByRole('checkbox', { name: 'Checkpoint 1' })).toBeChecked();
-		expect(within(groups[1]).getByRole('checkbox', { name: 'Checkpoint 2' })).not.toBeChecked();
+		const groups = within(dialog).getAllByRole('group', { name: /^Version \d+$/ });
+		expect(within(groups[0]).getByRole('checkbox', { name: 'Version 1' })).toBeChecked();
+		expect(within(groups[1]).getByRole('checkbox', { name: 'Version 2' })).not.toBeChecked();
 		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 
-		await user.click(within(dialog).getByRole('button', { name: 'Create 1 Checkpoint' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Save a Version' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
 			// Every part of a file is sent as the whole file.

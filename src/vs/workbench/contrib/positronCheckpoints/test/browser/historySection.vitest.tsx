@@ -202,19 +202,19 @@ describe('History section', () => {
 		renderHistory([mine, theirs]);
 
 		await expandRow('Theirs');
-		expect(screen.getByRole('button', { name: 'Reverse This Checkpoint' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Reverse This Version' })).toBeInTheDocument();
 		await expandRow('Theirs');
 		await expandRow('Mine');
 
-		expect(screen.queryByRole('button', { name: 'Reverse This Checkpoint' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Reverse This Version' })).not.toBeInTheDocument();
 	});
 
 	test('Reverse explains the new checkpoint and runs only after confirmation', async () => {
 		renderHistory([theirs]);
 		const user = await expandRow('Theirs');
 
-		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
-		expect(await screen.findByText(/creates a new checkpoint that makes the opposite change/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Reverse This Version' }));
+		expect(await screen.findByText(/saves a new version that makes the opposite change/)).toBeInTheDocument();
 		expect(engine.callsOf('reverseCheckpoint')).toEqual([]);
 		await user.click(screen.getByRole('button', { name: 'Reverse' }));
 
@@ -226,7 +226,7 @@ describe('History section', () => {
 		renderHistory([theirs]);
 		const user = await expandRow('Theirs');
 
-		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Reverse This Version' }));
 		await user.click(await screen.findByRole('button', { name: 'Reverse' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('reverseCheckpoint')).toEqual([['c2']]));
@@ -238,7 +238,7 @@ describe('History section', () => {
 		renderHistory([theirs]);
 		const user = await expandRow('Theirs');
 
-		await user.click(screen.getByRole('button', { name: 'Go Back to This Checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Go Back to This Version' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('goBackTo')).toEqual([['c2', []]]));
 		expect(prompts).toEqual(['1 file in this project has unsaved edits.']);
@@ -254,7 +254,7 @@ describe('History section', () => {
 
 		await expandRow('Fixed the plot');
 
-		const files = await screen.findByRole('list', { name: 'Files in this checkpoint' });
+		const files = await screen.findByRole('list', { name: 'Files in this version' });
 		expect(within(files).getAllByRole('listitem').map(item => item.textContent)).toEqual([
 			'dose.RchangedView Detailed Differences',
 			'notes.mdnewView Detailed Differences',
@@ -282,7 +282,7 @@ describe('History section', () => {
 
 		await expandRow('Empty');
 
-		expect(await screen.findByText('This checkpoint changed no files.')).toBeInTheDocument();
+		expect(await screen.findByText('This version changed no files.')).toBeInTheDocument();
 	});
 
 	test('checkpoint files that cannot be read say so on the status line', async () => {
@@ -292,8 +292,8 @@ describe('History section', () => {
 
 		await expandRow('Fixed the plot');
 
-		expect(await screen.findByText('Checkpoints need the git program, and it was not found on this computer.')).toBeInTheDocument();
-		expect(screen.queryByRole('list', { name: 'Files in this checkpoint' })).not.toBeInTheDocument();
+		expect(await screen.findByText('Version History needs the git program, and it was not found on this computer.')).toBeInTheDocument();
+		expect(screen.queryByRole('list', { name: 'Files in this version' })).not.toBeInTheDocument();
 	});
 
 	test('a checkpoint with partialFiles shows the partial note', async () => {
@@ -321,7 +321,7 @@ describe('History section', () => {
 		const user = await expandRow('Combined work from Maya');
 
 		expect(screen.queryByText(/Merge pull request/)).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Reverse This Version' }));
 		expect(await screen.findByText(/Reversing "Combined work from Maya"/)).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Cancel' }));
 		await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
@@ -340,18 +340,18 @@ describe('History section', () => {
 	});
 
 	test('loads the next page when the first page is full', async () => {
-		const all = Array.from({ length: 60 }, (_, index) => fakeCheckpoint({ id: `c${index}`, title: `Checkpoint ${index}` }));
+		const all = Array.from({ length: 60 }, (_, index) => fakeCheckpoint({ id: `c${index}`, title: `Version ${index}` }));
 		renderHistory(all);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Show older checkpoints' }));
+		await user.click(await screen.findByRole('button', { name: 'Show older versions' }));
 
-		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
+		expect(await screen.findByText('Version 59')).toBeInTheDocument();
 		expect(engine.callsOf('getHistory').at(-1)).toEqual([50, 50]);
-		expect(screen.queryByRole('button', { name: 'Show older checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Show older versions' })).not.toBeInTheDocument();
 	});
 
-	const manyCheckpoints = (count: number) => Array.from({ length: count }, (_, index) => fakeCheckpoint({ id: `c${index}`, title: `Checkpoint ${index}` }));
+	const manyCheckpoints = (count: number) => Array.from({ length: count }, (_, index) => fakeCheckpoint({ id: `c${index}`, title: `Version ${index}` }));
 
 	/** Makes the next `getHistory` call wait. The returned function answers it with the given page. */
 	function holdNextPage(): (page: ICheckpoint[]) => void {
@@ -373,10 +373,10 @@ describe('History section', () => {
 		const all = manyCheckpoints(60);
 		renderHistory(all);
 		const user = userEvent.setup();
-		expect(await screen.findByText('Checkpoint 49')).toBeInTheDocument();
+		expect(await screen.findByText('Version 49')).toBeInTheDocument();
 		const release = holdNextPage();
 
-		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+		await user.click(screen.getByRole('button', { name: 'Show older versions' }));
 		// A new checkpoint arrives, so every row moves down by one.
 		const added = fakeCheckpoint({ id: 'new', title: 'Newest' });
 		engine.history = [added, ...all];
@@ -385,9 +385,9 @@ describe('History section', () => {
 		// The page that was asked for before the refresh arrives now, with the old offsets.
 		await act(async () => release(all.slice(50)));
 
-		expect(screen.queryByText('Checkpoint 59')).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
-		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
+		expect(screen.queryByText('Version 59')).not.toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Show older versions' }));
+		expect(await screen.findByText('Version 59')).toBeInTheDocument();
 		const titles = screen.getAllByRole('listitem').map(row => within(row).getAllByRole('button')[0].textContent);
 		expect(titles).toEqual(engine.history.map(checkpoint => checkpoint.title));
 		expect(engine.callsOf('getHistory').at(-1)).toEqual([50, 50]);
@@ -396,21 +396,21 @@ describe('History section', () => {
 	test('a refresh that leaves the first page unchanged keeps the older pages', async () => {
 		renderHistory(manyCheckpoints(60));
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Show older checkpoints' }));
-		expect(await screen.findByText('Checkpoint 59')).toBeInTheDocument();
+		await user.click(await screen.findByRole('button', { name: 'Show older versions' }));
+		expect(await screen.findByText('Version 59')).toBeInTheDocument();
 
 		engine.history = manyCheckpoints(60);
 		await act(async () => engine.fireChange());
 		await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(1));
 
-		expect(screen.getByText('Checkpoint 59')).toBeInTheDocument();
+		expect(screen.getByText('Version 59')).toBeInTheDocument();
 		expect(screen.getAllByRole('listitem')).toHaveLength(60);
 	});
 
-	test('a page that cannot be read says so and keeps Show older checkpoints available', async () => {
+	test('a page that cannot be read says so and keeps Show older versions available', async () => {
 		renderHistory(manyCheckpoints(60));
 		const user = userEvent.setup();
-		expect(await screen.findByText('Checkpoint 49')).toBeInTheDocument();
+		expect(await screen.findByText('Version 49')).toBeInTheDocument();
 		const original = engine.getHistory.bind(engine);
 		engine.getHistory = async (skip, limit) => {
 			if (skip > 0) {
@@ -419,10 +419,10 @@ describe('History section', () => {
 			return original(skip, limit);
 		};
 
-		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+		await user.click(screen.getByRole('button', { name: 'Show older versions' }));
 
 		expect(await screen.findByText('Part of this view could not be loaded.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Show older checkpoints' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show older versions' })).toBeInTheDocument();
 		expect(screen.getAllByRole('listitem')).toHaveLength(50);
 	});
 
@@ -505,7 +505,7 @@ describe('History section', () => {
 
 			await vi.waitFor(() => expect(describedIds()).toHaveLength(50));
 			expect(describedIds()).toEqual(Array.from({ length: 50 }, (_, index) => `c${index}`));
-			await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+			await user.click(screen.getByRole('button', { name: 'Show older versions' }));
 
 			expect(await screen.findByText('Plain c51')).toBeInTheDocument();
 			expect(describedIds().slice(50)).toEqual(['c50', 'c51']);
@@ -589,7 +589,7 @@ describe('History section', () => {
 	test('with no checkpoints the section says so', async () => {
 		renderHistory([]);
 
-		expect(await screen.findByText(/No checkpoints yet/)).toBeInTheDocument();
+		expect(await screen.findByText(/No versions yet/)).toBeInTheDocument();
 	});
 });
 

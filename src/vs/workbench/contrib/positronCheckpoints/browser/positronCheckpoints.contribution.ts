@@ -42,7 +42,7 @@ export const POSITRON_CHECKPOINTS_VIEW_ID = 'workbench.view.positronCheckpoints.
 
 const checkpointsViewIcon = registerIcon('positron-checkpoints-view-icon', Codicon.history, Strings.view.iconDescription());
 
-const title = { value: Strings.view.title(), original: 'Checkpoints' };
+const title = { value: Strings.view.title(), original: 'Version History' };
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID,

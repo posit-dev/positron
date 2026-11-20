@@ -16,7 +16,7 @@ import { LARGE_FILE_BYTES, STAGING_TIMEOUT_MS } from './trees';
 import { OperationResult } from './types';
 
 /** The title of the first checkpoint of a project. */
-export const FIRST_CHECKPOINT_TITLE = 'Started keeping checkpoints';
+export const FIRST_CHECKPOINT_TITLE = 'Started keeping versions';
 
 /** The patterns every proposed `.gitignore` has: files that data science tools create and that belong in no checkpoint. */
 const PROPOSED_PATTERNS = [

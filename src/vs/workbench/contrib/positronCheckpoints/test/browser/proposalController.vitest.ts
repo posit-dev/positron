@@ -123,7 +123,7 @@ describe('ProposalController', () => {
 		expect(first).toEqual({
 			ok: false,
 			failedStep: 'asking',
-			message: 'Your checkpoints were sent, but the review could not be asked for. GitHub could not be reached. Check your connection and try again.',
+			message: 'Your versions were sent, but the review could not be asked for. GitHub could not be reached. Check your connection and try again.',
 		});
 		expect(controller.state).toEqual({ kind: 'not-asked' });
 
@@ -148,7 +148,7 @@ describe('ProposalController', () => {
 		expect(result).toEqual({
 			ok: false,
 			failedStep: 'sending',
-			message: 'Your proposal is ready on this computer, but your checkpoints could not be sent. The shared copy could not be reached. Check your connection and try again.',
+			message: 'Your proposal is ready on this computer, but your versions could not be sent. The shared copy could not be reached. Check your connection and try again.',
 		});
 		expect(controller.state).toEqual({ kind: 'not-sent' });
 		expect(github.openProposal).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe('ProposalController', () => {
 		expect(result).toEqual({
 			ok: false,
 			failedStep: 'sending',
-			message: 'Your proposal is ready on this computer, but your checkpoints could not be sent. The state of this project could not be read.',
+			message: 'Your proposal is ready on this computer, but your versions could not be sent. The state of this project could not be read.',
 		});
 	});
 

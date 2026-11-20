@@ -89,7 +89,7 @@ describe('AskForReviewDialog', () => {
 		rtl.render(<CheckpointsPanel />);
 		await user.click(await screen.findByRole('button', { name: 'Ask for a Review' }));
 		const dialog = await screen.findByRole('dialog');
-		expect(await within(dialog).findByText('2 checkpoints go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
+		expect(await within(dialog).findByText('2 versions go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
 		return { user, dialog };
 	}
 
@@ -162,7 +162,7 @@ describe('AskForReviewDialog', () => {
 
 		await user.click(within(dialog).getByRole('button', { name: 'Ask for a Review' }));
 
-		expect(await within(dialog).findByRole('alert')).toHaveTextContent('Your proposal is ready on this computer, but your checkpoints could not be sent. The shared copy could not be reached. Check your connection and try again.');
+		expect(await within(dialog).findByRole('alert')).toHaveTextContent('Your proposal is ready on this computer, but your versions could not be sent. The shared copy could not be reached. Check your connection and try again.');
 		await user.click(within(dialog).getByRole('button', { name: 'Try Again' }));
 
 		await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -175,7 +175,7 @@ describe('AskForReviewDialog', () => {
 
 		await user.click(within(dialog).getByRole('button', { name: 'Ask for a Review' }));
 
-		expect(await within(dialog).findByRole('alert')).toHaveTextContent('Your checkpoints were sent, but the review could not be asked for. GitHub does not let your account ask for a review in this project.');
+		expect(await within(dialog).findByRole('alert')).toHaveTextContent('Your versions were sent, but the review could not be asked for. GitHub does not let your account ask for a review in this project.');
 	});
 
 	test('the dialog opened again for the same proposal keeps the title, message, and count of the last attempt', async () => {
@@ -197,7 +197,7 @@ describe('AskForReviewDialog', () => {
 		await user.click(await screen.findByRole('button', { name: 'Ask for a Review' }));
 		const reopened = await screen.findByRole('dialog');
 
-		expect(await within(reopened).findByText('2 checkpoints go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
+		expect(await within(reopened).findByText('2 versions go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
 		expect(within(reopened).getByRole('textbox', { name: 'Title' })).toHaveValue('Random slope');
 		expect(within(reopened).getByRole('textbox', { name: 'Message' })).toHaveValue('- Fit the dose model with a random slope\n  Uses lme4.\n- Add the residual plot');
 	});
@@ -210,7 +210,7 @@ describe('AskForReviewDialog', () => {
 		await user.click(await screen.findByRole('button', { name: 'Ask for a Review' }));
 		const dialog = await screen.findByRole('dialog');
 
-		expect(await within(dialog).findByText('Your checkpoints go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
+		expect(await within(dialog).findByText('Your versions go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
 		expect(within(dialog).getByRole('textbox', { name: 'Title' })).toHaveValue('Add the residual plot');
 	});
 });

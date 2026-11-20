@@ -189,7 +189,7 @@ export async function recordStartTracking(ports: EnginePorts): Promise<Operation
 		return UNUSUAL;
 	}
 	const state: Published = { branchCommit: await readBranch(ports, branch), indexTree };
-	return publish(ports, 'start-tracking', 'Start keeping checkpoints', state, state, []);
+	return publish(ports, 'start-tracking', 'Start keeping versions', state, state, []);
 }
 
 /**
@@ -243,7 +243,7 @@ function splitEdits(earlier: PathPlan[], current: PathPlan[]): { kept: PathPlan[
 }
 
 function describeCreate(chunks: Chunk[]): string {
-	return chunks.length === 1 ? `Create checkpoint "${chunks[0].title}"` : `Create ${chunks.length} checkpoints`;
+	return chunks.length === 1 ? `Save version "${chunks[0].title}"` : `Save ${chunks.length} versions`;
 }
 
 // --- Creating --------------------------------------------------------------------------------

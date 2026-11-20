@@ -90,7 +90,7 @@ describe('StartTrackingDialog', () => {
 	async function openDialog() {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' }));
+		await user.click(await screen.findByRole('button', { name: 'Start Keeping Versions' }));
 		const dialog = await screen.findByRole('dialog');
 		return { user, dialog };
 	}
@@ -100,14 +100,14 @@ describe('StartTrackingDialog', () => {
 
 		expect(within(dialog).queryByRole('textbox', { name: 'Your name' })).not.toBeInTheDocument();
 		expect(within(dialog).queryByRole('textbox', { name: 'Your email address' })).not.toBeInTheDocument();
-		expect(within(dialog).queryByText('Checkpoints records who made each one.')).not.toBeInTheDocument();
+		expect(within(dialog).queryByText('Version History records who saved each version.')).not.toBeInTheDocument();
 	});
 
 	test('identity fields explain why they are needed, and the email needs an @', async () => {
 		engine.state = fakeEngineState({ tracking: 'not-a-project', identityMissing: true });
 		const { user, dialog } = await openDialog();
 
-		expect(within(dialog).getByText('Checkpoints records who made each one.')).toBeInTheDocument();
+		expect(within(dialog).getByText('Version History records who saved each version.')).toBeInTheDocument();
 		const start = within(dialog).getByRole('button', { name: 'Start' });
 		expect(start).toBeDisabled();
 
@@ -133,7 +133,7 @@ describe('StartTrackingDialog', () => {
 		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
 
 		expect(await within(dialog).findByRole('textbox', { name: 'Your name' })).toBeInTheDocument();
-		expect(within(dialog).getByText('Checkpoints records who made each one.')).toBeInTheDocument();
+		expect(within(dialog).getByText('Version History records who saved each version.')).toBeInTheDocument();
 		expect(screen.getByRole('dialog')).toBeInTheDocument();
 		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeDisabled();
 	});
@@ -168,7 +168,7 @@ describe('StartTrackingDialog', () => {
 		const { user, dialog } = await openDialog();
 
 		expect(dialog).not.toHaveTextContent(/gitignore/i);
-		expect(within(dialog).getByRole('checkbox', { name: 'Leave these files out of checkpoints' })).toBeChecked();
+		expect(within(dialog).getByRole('checkbox', { name: 'Leave these files out of versions' })).toBeChecked();
 		const box = await within(dialog).findByRole('textbox', { name: 'Files and folders to leave out, one per line' });
 		expect(box).toHaveValue('.Rhistory\n');
 
@@ -181,7 +181,7 @@ describe('StartTrackingDialog', () => {
 	test('unticking the ignore list passes no gitignore', async () => {
 		const { user, dialog } = await openDialog();
 
-		await user.click(within(dialog).getByRole('checkbox', { name: 'Leave these files out of checkpoints' }));
+		await user.click(within(dialog).getByRole('checkbox', { name: 'Leave these files out of versions' }));
 		expect(within(dialog).getByRole('textbox', { name: 'Files and folders to leave out, one per line' })).toBeDisabled();
 		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
 
@@ -203,7 +203,7 @@ describe('StartTrackingDialog', () => {
 
 		expect(await screen.findByText('Start of the dose model')).toBeInTheDocument();
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Start Keeping Checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Start Keeping Versions' })).not.toBeInTheDocument();
 	});
 
 	test('Cancel changes nothing', async () => {
@@ -263,7 +263,7 @@ describe('StartTrackingDialog', () => {
 		await user.type(within(dialog).getByRole('textbox', { name: 'Your email address' }), 'maya@example.org');
 		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
 
-		expect(await within(dialog).findByText('Checkpoints could not record your name and email. Try again.')).toBeInTheDocument();
+		expect(await within(dialog).findByText('Version History could not record your name and email. Try again.')).toBeInTheDocument();
 		expect(screen.getByRole('dialog')).toBeInTheDocument();
 		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeEnabled();
 	});

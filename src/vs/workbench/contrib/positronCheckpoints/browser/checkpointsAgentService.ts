@@ -25,13 +25,13 @@ export type DisclosureChoice = 'ok' | 'turn-off';
 
 /**
  * Runs the jobs of the Checkpoints agent (spec 7): gates every model call on `ai.enabled` and
- * `checkpoints.suggestions.enabled`, answers repeated requests from a workspace cache, and shows a
+ * `versionHistory.suggestions.enabled`, answers repeated requests from a workspace cache, and shows a
  * one-time notice in the view before the first model call of a workspace.
  */
 export interface ICheckpointsAgentService {
 	readonly _serviceBrand: undefined;
 
-	/** True while `ai.enabled` and `checkpoints.suggestions.enabled` are both true, read live. */
+	/** True while `ai.enabled` and `versionHistory.suggestions.enabled` are both true, read live. */
 	readonly available: boolean;
 
 	/** Fires when `available` changes. */
@@ -48,7 +48,7 @@ export interface ICheckpointsAgentService {
 
 	/**
 	 * Answers the disclosure notice. `ok` records that the notice was seen in this workspace, and
-	 * the waiting jobs continue. `turn-off` turns off `checkpoints.suggestions.enabled`, and the
+	 * the waiting jobs continue. `turn-off` turns off `versionHistory.suggestions.enabled`, and the
 	 * waiting jobs end with `suggestions-off`.
 	 */
 	answerDisclosure(choice: DisclosureChoice): Promise<void>;
@@ -275,7 +275,7 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		return this._configurationService.getValue<string[]>(CHECKPOINTS_MODEL_KEY);
 	}
 
-	/** The model for a job of the given weight. Both weights use `checkpoints.model` today. */
+	/** The model for a job of the given weight. Both weights use `versionHistory.model` today. */
 	private _selectionFor(_weight: JobWeight): ModelSelection {
 		return intentFromSetting(this._modelSetting());
 	}
