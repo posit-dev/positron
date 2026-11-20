@@ -25,17 +25,24 @@ interface Cell { n: number; language: string; fenceLine: number; firstCodeLine: 
  * runs in run-code
  */
 const activeFile: PageFn<{ want: string }> = async (page, a, lib) => {
-	const read = () => page.evaluate(({ g, label, monaco }) => {
+	const read = () => page.evaluate(({ g, label, monaco, suffix }) => {
 		const group = document.querySelector(g.active);
 		const tab = group?.querySelector(g.activeTab);
 		if (!tab) { return { ok: false, error: 'no editor is active' }; }
 		// The tab's label names the full path, then any problems: /x/doc.qmd \u2022 1 problem.
 		const path = (tab.querySelector(label.icon)?.getAttribute('aria-label') ?? '').split(' \u2022 ')[0];
 		const drawn = !!group?.querySelector(`${monaco.editor} ${monaco.lineNumbers}`);
-		return { ok: true, name: (tab.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, ''), path, dirty: tab.matches(g.dirty), drawn };
-	}, { g: lib.css.editorGroup, label: lib.css.label, monaco: lib.css.monaco });
+		return { ok: true, name: (tab.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), ''), path, dirty: tab.matches(g.dirty), drawn };
+	}, { g: lib.css.editorGroup, label: lib.css.label, monaco: lib.css.monaco, suffix: lib.tabSuffix });
 	let f = await read();
 	for (let i = 0; i < 15 && a.want && !(f.ok && f.name === a.want && f.drawn); i++) { await lib.sleep(200); f = await read(); }
+	// A preview tab (an Explorer click opens one) names only the file, not its path
+	// (upstream getHoverTitle): double-click keeps it open, as a user would.
+	const named = () => !f.ok || /^(\/|~\/|[A-Za-z]:)/.test(f.path ?? '');
+	if (!named()) {
+		await page.locator(`${lib.css.editorGroup.active} ${lib.css.editorGroup.activeTab}`).dblclick({ timeout: 3000 }).catch(() => { });
+		for (let i = 0; i < 10 && !named(); i++) { await lib.sleep(200); f = await read(); }
+	}
 	return f;
 };
 
@@ -242,7 +249,7 @@ const cellAction: PageFn<Target> = async (page, a, lib) => {
 		// a view there (Fix and Explain open the assistant's chat), shown by the
 		// view the part now shows ("views": its heading or selected tab, or
 		// hidden). Where focus lands is reported, not counted as a change.
-		const editors = () => page.evaluate(({ g, part, tabLabel }) => {
+		const editors = () => page.evaluate(({ g, part, tabLabel, suffix }) => {
 			const view = (sel: string) => {
 				const p = document.querySelector(sel);
 				if (!p || !p.getClientRects().length || getComputedStyle(p).display === 'none') { return 'hidden'; }
@@ -251,12 +258,12 @@ const cellAction: PageFn<Target> = async (page, a, lib) => {
 			};
 			const focus = document.activeElement;
 			return {
-				active: (document.querySelector(`${g.active} ${g.activeTab}`)?.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '') || null,
-				tabs: [...document.querySelectorAll(`${g.group} [role=tab]`)].map(t => (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '')),
+				active: (document.querySelector(`${g.active} ${g.activeTab}`)?.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), '') || null,
+				tabs: [...document.querySelectorAll(`${g.group} [role=tab]`)].map(t => (t.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), '')),
 				views: { sidebar: view(part.sidebar), secondary: view(part.secondary), panel: view(part.panel) } as Record<string, string>,
 				focus: (['sidebar', 'secondary', 'panel', 'editor'] as const).find(k => focus?.closest(part[k])) ?? null,
 			};
-		}, { g: lib.css.editorGroup, part: lib.css.part, tabLabel: lib.css.workbench.tabLabel });
+		}, { g: lib.css.editorGroup, part: lib.css.part, tabLabel: lib.css.workbench.tabLabel, suffix: lib.tabSuffix });
 		const was = await editors();
 		await link.click({ timeout: 3000 });
 		const moved = (x: typeof was) => JSON.stringify([x.active, x.tabs, x.views]) !== JSON.stringify([was.active, was.tabs, was.views]);

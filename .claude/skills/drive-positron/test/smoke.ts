@@ -367,7 +367,10 @@ const cases: Case[] = [
 	{ name: 'ui click the current editor type (closes the menu)', run: ['ui.sh', 'click', 'menuitemcheckbox', 'Positron Notebook', '--partial', '--in', 'menu'], check: o => includes(o.json!.note, 'the menu closed') },
 	{ name: 'ui choose an editor type from the editor-type button', run: ['ui.sh', 'choose', 'button', 'Positron Notebook', 'Positron Notebook - Native .ipynb Support', '--in', 'editor'], check: o => o.json!.chose !== 'Positron Notebook - Native .ipynb Support' && `chose ${o.json!.chose}` },
 	{ name: 'open-file report.qmd', quick: true, run: ['open-file.sh', 'report.qmd'] },
-	{ name: 'qmd cells', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
+	// An Explorer click opens a preview tab, named "report.qmd, preview": the helpers compare the file name alone.
+	{ name: 'palette-run Close Editor (report.qmd, to reopen it as a preview)', run: ['palette-run.sh', 'View: Close Editor'] },
+	{ name: 'tree click report.qmd opens a preview tab', run: ['tree.sh', '--view', 'Explorer', 'click', 'report.qmd'], check: o => includes(o.json!.text, 'report.qmd') },
+	{ name: 'qmd cells on a preview tab', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
 	// run reports the cell before and after the click; wait waits for its Run button to show again.
 	{ name: 'qmd run 1', quick: true, run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => (!o.json!.changed && 'nothing changed') || keys(o.json!.before, 'toolbar', 'output') },
 	{ name: 'qmd wait 1', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.text, 'qmd-answer 42') || includes(o.json!.toolbar?.buttons, 'Run this cell') || logged('qmd.sh -s=net1: read report.qmd cell 1 after wait: completed') },
