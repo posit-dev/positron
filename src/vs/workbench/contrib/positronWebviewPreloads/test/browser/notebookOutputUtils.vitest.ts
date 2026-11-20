@@ -20,11 +20,12 @@ function runWebviewScript(userAgent: string): number[] {
 			forwarded.push(message.deltaY);
 		}
 	};
+	// This runs while the describe block is collected, outside any test, so the global restoreMocks
+	// would not undo the spy before the first test. Restore it here.
 	const userAgentSpy = vi.spyOn(mainWindow.navigator, 'userAgent', 'get').mockReturnValue(userAgent);
 	Object.assign(mainWindow, { acquireVsCodeApi: () => ({ postMessage }) });
 	try {
 		// Run the exact string that ships, not the function it is built from.
-		// eslint-disable-next-line no-new-func
 		new Function(webviewMessageCodeString)();
 	} finally {
 		userAgentSpy.mockRestore();
@@ -50,6 +51,9 @@ describe('webview output wheel forwarding', () => {
 	beforeEach(() => {
 		windows.length = 0;
 		mac.length = 0;
+	});
+	afterAll(() => {
+		Reflect.deleteProperty(mainWindow, 'acquireVsCodeApi');
 	});
 
 	test('forwards a vertical wheel to the notebook', () => {

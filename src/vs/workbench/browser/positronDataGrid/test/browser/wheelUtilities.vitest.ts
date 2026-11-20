@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { computeWheelScrollDeltas, WheelInput } from '../../utilities/wheelUtilities.js';
+import { computeWheelScrollDeltas } from '../../utilities/wheelUtilities.js';
+
+type WheelInput = Parameters<typeof computeWheelScrollDeltas>[0];
 
 // A wheel event with no modifier keys held.
 const wheel = (deltaX: number, deltaY: number, modifiers: Partial<WheelInput> = {}): WheelInput =>

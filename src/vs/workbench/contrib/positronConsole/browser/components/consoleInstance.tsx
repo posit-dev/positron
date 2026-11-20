@@ -750,9 +750,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
-		// Negative delta Y immediantly engages scroll lock, if the console is scrollable. Shift +
+		// Negative delta Y immediately engages scroll lock, if the console is scrollable. Shift +
 		// wheel scrolls horizontally, so it does not count as scrolling up.
-		if (shiftWheelToHorizontal(e, isMacintosh).deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
+		if (!props.positronConsoleInstance.scrollLocked && shiftWheelToHorizontal(e, isMacintosh).deltaY < 0) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
 			return;
 		}

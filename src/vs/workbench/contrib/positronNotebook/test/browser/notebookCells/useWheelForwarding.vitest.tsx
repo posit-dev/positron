@@ -8,19 +8,13 @@ import { mainWindow } from '../../../../../../base/browser/window.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
-// The shift + wheel conversion depends on the platform, so let each test choose it.
-const platform = vi.hoisted(() => ({ isMacintosh: false }));
-vi.mock('../../../../../../base/common/platform.js', async importOriginal => ({
-	...await importOriginal<typeof import('../../../../../../base/common/platform.js')>(),
-	get isMacintosh() { return platform.isMacintosh; },
-}));
-
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */
-function TestComponent({ targetRef }: {
+function TestComponent({ targetRef, isMac }: {
 	targetRef: React.RefObject<HTMLElement | null>;
+	isMac?: boolean;
 }) {
 	const sourceRef = React.useRef<HTMLDivElement>(null);
-	useWheelForwarding(sourceRef, targetRef);
+	useWheelForwarding(sourceRef, targetRef, isMac);
 	return <div ref={sourceRef} />;
 }
 
@@ -48,12 +42,11 @@ describe('useWheelForwarding', () => {
 
 	afterEach(() => {
 		scrollTarget.remove();
-		platform.isMacintosh = false;
 	});
 
 	/* Render the hook and return the source element that receives wheel events. */
-	function renderHook() {
-		const { container } = rtl.render(<TestComponent targetRef={scrollTargetRef} />);
+	function renderHook(isMac?: boolean) {
+		const { container } = rtl.render(<TestComponent isMac={isMac} targetRef={scrollTargetRef} />);
 		const source = container.firstElementChild as HTMLDivElement;
 		expect(source).not.toBeNull();
 		return source;
@@ -85,7 +78,7 @@ describe('useWheelForwarding', () => {
 	}
 
 	it('forwards shift + vertical wheel to scrollLeft on Windows and Linux (#11063)', () => {
-		const source = renderHook();
+		const source = renderHook(false);
 
 		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
 
@@ -93,8 +86,7 @@ describe('useWheelForwarding', () => {
 	});
 
 	it('forwards shift + vertical wheel unchanged on macOS, which converts it itself', () => {
-		platform.isMacintosh = true;
-		const source = renderHook();
+		const source = renderHook(true);
 
 		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
 

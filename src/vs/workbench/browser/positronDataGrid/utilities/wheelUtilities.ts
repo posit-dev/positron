@@ -9,7 +9,7 @@ import { shiftWheelToHorizontal, WheelDeltas } from '../../../../base/common/pos
 /**
  * The parts of a wheel event that determine how far the data grid scrolls.
  */
-export interface WheelInput extends WheelDeltas {
+interface WheelInput extends WheelDeltas {
 	readonly shiftKey: boolean;
 	readonly altKey: boolean;
 }
