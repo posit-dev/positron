@@ -41,6 +41,11 @@ export type PartLayoutDescription = {
 	 */
 	hidden: boolean;
 	/**
+	 * For the panel only: when `hidden` is true, close the panel instead of shrinking it down
+	 * to its tab row.
+	 */
+	closeWhenHidden?: boolean;
+	/**
 	 * Alignment of the part. Only used for the panel part. Matches `PanelAlignment` type that can't
 	 * be imported because its in a `browser` path.
 	 */

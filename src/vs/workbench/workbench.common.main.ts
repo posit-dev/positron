@@ -362,6 +362,7 @@ import './contrib/positronEditorActions/browser/positronEditorActions.contributi
 import './contrib/positronControlGallery/browser/positronControlGalleryEditor.contribution.js';
 import './contrib/positronSettings/browser/positronSettings.contribution.js';
 import './services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
+import './contrib/positronSimplifiedLayout/browser/positronSimplifiedLayout.contribution.js';
 // --- End Positron ---
 
 // Terminal

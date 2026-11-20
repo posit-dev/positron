@@ -3186,7 +3186,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 
 		// If we try and resize after we run this then we risk re-opening the panel.
-		hideFn(hidden, true);
+		if (part === Parts.PANEL_PART && hidden && desc.closeWhenHidden) {
+			this.setPanelHidden(true, true);
+		} else {
+			hideFn(hidden, true);
+		}
 	}
 
 	/**

@@ -751,6 +751,15 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 			this.moveViewContainerToLocationWithoutSaving(container, location);
 		}
 		// Execute View Movements
+		// Move views out of the container each part is showing last. Emptying the showing
+		// container makes the part switch to its next one, and that one must not hold a view
+		// that is about to move: the view would be shown in the old place mid-move (the
+		// terminal starts a shell and expands itself when it is shown).
+		const showingContainerIds = new Set(
+			[ViewContainerLocation.Sidebar, ViewContainerLocation.Panel, ViewContainerLocation.AuxiliaryBar]
+				.map(location => this.paneCompositePartService.getActivePaneComposite(location)?.getId())
+		);
+		viewsToMove.sort((a, b) => Number(showingContainerIds.has(a.from.id)) - Number(showingContainerIds.has(b.from.id)));
 		for (const { views, from, to } of viewsToMove) {
 			this.moveViewsWithoutSaving(views, from, to, ViewVisibilityState.Default);
 		}
