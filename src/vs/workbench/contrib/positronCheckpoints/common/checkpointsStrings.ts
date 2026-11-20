@@ -193,6 +193,8 @@ const history = {
 	reverseDialogTitle: () => localize('positron.checkpoints.history.reverseDialogTitle', "Reverse This Checkpoint"),
 	reverseExplain: (title: string) => localize('positron.checkpoints.history.reverseExplain', "Reversing \"{0}\" creates a new checkpoint that makes the opposite change. The original checkpoint stays in the history.", title),
 	reverseConfirm: () => localize('positron.checkpoints.history.reverseConfirm', "Reverse"),
+	combinedWorkFrom: (author: string) => localize('positron.checkpoints.history.combinedWorkFrom', "Combined work from {0}", author),
+	workFrom: (author: string) => localize('positron.checkpoints.history.workFrom', "Work from {0}", author),
 };
 
 const resultSentences = {

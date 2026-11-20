@@ -49,7 +49,9 @@ const InterruptedDialog = ({ actions, interrupted, renderer, snapshots }: IInter
 
 	const choose = async (choice: 'reverse-keep-newer' | 'leave-as-is') => {
 		renderer.dispose();
-		await actions.run(engine => engine.resolveInterrupted(choice));
+		// Reversing rewrites files, so unsaved edits are saved first; leaving the project as it is
+		// writes nothing.
+		await actions.run(choice === 'reverse-keep-newer' ? 'file-changing' : 'no-guard', engine => engine.resolveInterrupted(choice));
 	};
 
 	const remove = async (operationId: string) => {

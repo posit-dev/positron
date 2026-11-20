@@ -5,7 +5,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { RunOnceScheduler } from '../../../../../base/common/async.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ICheckpoint, ICheckpointsEngineProxy, IChangeSet, IEngineState } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 
@@ -53,51 +54,117 @@ async function loadSnapshot(engine: ICheckpointsEngineProxy): Promise<Snapshot> 
 	return { hasEngine: true, state, changes, history };
 }
 
+/** How long state change events are gathered before they start one load. */
+export const STATE_CHANGE_DELAY_MS = 300;
+
+/**
+ * Runs loads one at a time. A request while a load runs queues one more load, however many
+ * requests arrive, and the result of the running load is dropped, because the queued load reads
+ * newer values. `requestSoon` gathers the requests of `delayMs` into one. After disposal nothing
+ * runs and no result is applied.
+ */
+export class CoalescingLoader<T> implements IDisposable {
+	private _running = false;
+	private _queued = false;
+	private _disposed = false;
+	private readonly _soon: RunOnceScheduler;
+
+	constructor(
+		private readonly _load: () => Promise<T>,
+		private readonly _apply: (value: T) => void,
+		delayMs: number,
+	) {
+		this._soon = new RunOnceScheduler(() => this.request(), delayMs);
+	}
+
+	/** Starts a load now, or queues one while a load runs. */
+	request(): void {
+		if (this._disposed) {
+			return;
+		}
+		if (this._running) {
+			this._queued = true;
+			return;
+		}
+		void this._run();
+	}
+
+	/** Starts a load after `delayMs`, together with every other request in that time. */
+	requestSoon(): void {
+		if (!this._disposed && !this._soon.isScheduled()) {
+			this._soon.schedule();
+		}
+	}
+
+	dispose(): void {
+		this._disposed = true;
+		this._soon.dispose();
+	}
+
+	private async _run(): Promise<void> {
+		this._running = true;
+		let value: T;
+		try {
+			value = await this._load();
+		} finally {
+			this._running = false;
+		}
+		if (this._disposed) {
+			return;
+		}
+		if (this._queued) {
+			this._queued = false;
+			void this._run();
+			return;
+		}
+		this._apply(value);
+	}
+}
+
 /**
  * The state of the Checkpoints view. It loads when mounted and again whenever the engine changes
- * or reports a change of state. When loads overlap, only the latest one updates the view.
+ * or reports a change of state. At most one load runs at a time, with at most one more queued, and
+ * the state change events of `STATE_CHANGE_DELAY_MS` start one load.
  */
 export function useCheckpointsState(): ICheckpointsViewState {
 	const services = usePositronReactServicesContext();
 	const [snapshot, setSnapshot] = useState<Snapshot>({ hasEngine: false, history: [] });
 	const [loading, setLoading] = useState(true);
 
-	// Counts loads, so that a response from a superseded load is dropped.
-	const latestRequest = useRef(0);
+	// The loader of the mounted view, which `refresh` asks for a load.
+	const loader = useRef<CoalescingLoader<Snapshot>>(undefined);
 
-	const refresh = useCallback(() => {
-		const request = ++latestRequest.current;
-		const engine = services.get(ICheckpointsService).engine;
-		if (!engine) {
-			setSnapshot({ hasEngine: false, history: [] });
-			setLoading(false);
-			return;
-		}
-
-		setLoading(true);
-		loadSnapshot(engine).then(loaded => {
-			if (request !== latestRequest.current) {
-				return;
-			}
-			setSnapshot(loaded);
-			setLoading(false);
-		});
-	}, [services]);
+	const refresh = useCallback(() => loader.current?.request(), []);
 
 	useEffect(() => {
 		const checkpointsService = services.get(ICheckpointsService);
-		// The counter itself, not a value read from it, so the cleanup increments the live count.
-		const requests = latestRequest;
 		const disposables = new DisposableStore();
-		disposables.add(checkpointsService.onDidChangeEngine(refresh));
-		disposables.add(checkpointsService.onDidChangeState(refresh));
-		refresh();
+		const current = disposables.add(new CoalescingLoader<Snapshot>(
+			async () => {
+				const engine = checkpointsService.engine;
+				if (!engine) {
+					return { hasEngine: false, history: [] };
+				}
+				setLoading(true);
+				return loadSnapshot(engine);
+			},
+			loaded => {
+				setSnapshot(loaded);
+				setLoading(false);
+			},
+			STATE_CHANGE_DELAY_MS,
+		));
+		loader.current = current;
+		disposables.add(checkpointsService.onDidChangeEngine(() => current.request()));
+		disposables.add(checkpointsService.onDidChangeState(() => current.requestSoon()));
+		current.request();
 		return () => {
-			// Drops the response of a load that is still running.
-			requests.current++;
+			if (loader.current === current) {
+				loader.current = undefined;
+			}
 			disposables.dispose();
 		};
-	}, [services, refresh]);
+	}, [services]);
 
 	return { ...snapshot, loading, refresh };
 }

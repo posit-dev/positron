@@ -50,7 +50,7 @@ const CheckResultDialog = ({ actions, renderer, result }: ICheckResultDialogProp
 			return;
 		}
 		renderer.dispose();
-		await actions.run(engine => accept ? engine.acceptCheckedCheckpoint(result.token) : engine.declineCheckedCheckpoint(result.token));
+		await actions.run('no-guard', engine => accept ? engine.acceptCheckedCheckpoint(result.token) : engine.declineCheckedCheckpoint(result.token));
 	};
 
 	return (

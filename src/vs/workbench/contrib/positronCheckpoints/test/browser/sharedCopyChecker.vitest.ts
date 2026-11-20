@@ -163,6 +163,21 @@ describe('SharedCopyChecker', () => {
 		expect(checks()).toBe(2);
 	});
 
+	test('interval 0 also turns off the check on focus', async () => {
+		configuration.setUserConfiguration(CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY, 0);
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		createChecker();
+
+		focus.fire(true);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(checks()).toBe(0);
+
+		setInterval(5);
+		focus.fire(true);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(checks()).toBe(1);
+	});
+
 	test('losing focus does not check', async () => {
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		createChecker();

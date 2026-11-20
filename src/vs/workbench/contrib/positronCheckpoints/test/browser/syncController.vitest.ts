@@ -17,7 +17,7 @@ import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { IIncomingPreview, IOverlap } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { IIncomingPreview, IOverlap, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
@@ -241,19 +241,35 @@ describe('SyncController', () => {
 		expect(controller.preview).toBeUndefined();
 	});
 
-	test('changed files clear the collision choices, and changed shared checkpoints keep them', async () => {
+	test('collision choices are kept after overlaps and cleared after every other result', async () => {
 		const collisionChoice = { path: 'data.csv', choice: 'use-theirs-keep-copy' } as const;
 		vi.mocked(showCollisionDialog).mockResolvedValue([collisionChoice]);
-		engine.incoming = preview('b1', []);
 		const collision = { path: 'data.csv', reason: 'ignored', sizeBytes: 1 } as const;
 		const fresh = preview('b2', [overlap('o1')]);
+		const ending: OperationResult[] = [
+			{ kind: 'inputs-changed', changed: ['shared'], preview: fresh },
+			{ kind: 'inputs-changed', changed: ['files'], preview: fresh },
+			{ kind: 'rejected', reason: 'offline', detail: 'd' },
+			{ kind: 'could-not-finish', detail: 'd' },
+			{ kind: 'unavailable', reason: 'occupied' },
+		];
 
-		engine.queuedResults = [{ kind: 'path-collisions', collisions: [collision] }, { kind: 'inputs-changed', changed: ['shared'], preview: fresh }];
-		await controller.getChanges();
-		expect(controller.collisionChoices).toEqual([collisionChoice]);
+		const kept: OperationResult['kind'][] = [];
+		for (const result of ending) {
+			controller.backOut();
+			engine.incoming = preview('b1', []);
+			engine.queuedResults = [{ kind: 'path-collisions', collisions: [collision] }, { kind: 'overlaps', preview: fresh }];
+			await controller.getChanges();
+			expect(controller.collisionChoices).toEqual([collisionChoice]);
 
-		engine.queuedResults = [{ kind: 'inputs-changed', changed: ['files'], preview: fresh }];
-		await controller.getChanges();
-		expect(controller.collisionChoices).toEqual([]);
+			engine.queuedResults = [result];
+			controller.setChoice('o1', { type: 'take', side: 'mine' });
+			await controller.apply();
+			if (controller.collisionChoices.length > 0) {
+				kept.push(result.kind);
+			}
+		}
+
+		expect(kept).toEqual([]);
 	});
 });

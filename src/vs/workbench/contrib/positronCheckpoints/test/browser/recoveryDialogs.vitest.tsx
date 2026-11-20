@@ -11,7 +11,7 @@ import { PositronReactServices } from '../../../../../base/browser/positronReact
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
@@ -22,7 +22,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
+import { UnsavedEditorsDecision } from '../../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
+import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
@@ -33,11 +34,13 @@ import { FakeCheckpointsEngine, fakeCheckpoint, fakeEngineState } from './fakeCh
 
 describe('Recovery and project check dialogs', () => {
 	const openEditor = vi.fn(async () => undefined);
+	let dirty: IWorkingCopy[] = [];
+	let prompted: string[][] = [];
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IWorkingCopyService, {
-			dirtyWorkingCopies: [],
+			get dirtyWorkingCopies() { return dirty; },
 			onDidRegister: new Emitter<IWorkingCopy>().event,
 			onDidUnregister: new Emitter<IWorkingCopy>().event,
 			onDidChangeDirty: new Emitter<IWorkingCopy>().event,
@@ -46,7 +49,13 @@ describe('Recovery and project check dialogs', () => {
 		.stub(IWorkspaceContextService, {
 			getWorkspace: () => stubInterface<IWorkspace>({ folders: [{ uri: URI.file('/work/dose-model'), name: 'dose-model', index: 0, toResource: path => URI.file(path) }] }),
 		})
-		.stub(IDialogService, {})
+		.stub(IDialogService, {
+			// Records the buttons of every prompt and presses its cancel button.
+			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
+				prompted.push(prompt.buttons!.map(button => button.label));
+				return { result: await (prompt.cancelButton as { run: () => UnsavedEditorsDecision }).run() };
+			},
+		})
 		.stub(IFileService, {})
 		.stub(IEditorService, { openEditor })
 		// The panel reads the agent service, which is off here, so no job runs.
@@ -66,6 +75,8 @@ describe('Recovery and project check dialogs', () => {
 
 	beforeEach(() => {
 		openEditor.mockClear();
+		dirty = [];
+		prompted = [];
 		PositronReactServices.services = ctx.reactServices;
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
@@ -123,6 +134,25 @@ describe('Recovery and project check dialogs', () => {
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the project as it is' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('resolveInterrupted')).toEqual([['leave-as-is']]));
+	});
+
+	test('reversing asks to save unsaved files first, and leaving the project as it is does not', async () => {
+		dirty = [stubInterface<IWorkingCopy>({ resource: URI.file('/work/dose-model/a.R'), capabilities: WorkingCopyCapabilities.None })];
+		engine.state = fakeEngineState({ interrupted });
+		rtl.render(<CheckpointsPanel />);
+		const user = userEvent.setup();
+
+		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Reverse the action and keep my newer files' }));
+
+		await vi.waitFor(() => expect(prompted).toEqual([['Save all and continue']]));
+		expect(engine.callsOf('resolveInterrupted')).toEqual([]);
+
+		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the project as it is' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('resolveInterrupted')).toEqual([['leave-as-is']]));
+		expect(prompted).toHaveLength(1);
 	});
 
 	test('a recovery snapshot can be removed from the dialog', async () => {

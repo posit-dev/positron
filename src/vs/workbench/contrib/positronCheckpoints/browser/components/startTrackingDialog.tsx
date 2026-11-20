@@ -115,22 +115,26 @@ export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 		setIdentityNotRecorded(false);
 		const identity = identityNeeded ? { name: name.trim(), email: email.trim() } : undefined;
 		const gitignore = leaveOut && patterns.trim() !== '' ? patterns : undefined;
-		const result = await runAction('checkpoint', async engine => {
-			const started = await engine.startTracking(identity, gitignore);
-			if (started.kind === 'unavailable' && started.detail === IDENTITY_MISSING_DETAIL) {
-				if (identity) {
-					// The fields were filled and the engine still has no name and email.
-					setIdentityNotRecorded(true);
-				} else {
-					// The fields appear and nothing else is said: the dialog is the answer.
-					setIdentityNeeded(true);
+		let result: OperationResult | undefined;
+		try {
+			result = await runAction('checkpoint', async engine => {
+				const started = await engine.startTracking(identity, gitignore);
+				if (started.kind === 'unavailable' && started.detail === IDENTITY_MISSING_DETAIL) {
+					if (identity) {
+						// The fields were filled and the engine still has no name and email.
+						setIdentityNotRecorded(true);
+					} else {
+						// The fields appear and nothing else is said: the dialog is the answer.
+						setIdentityNeeded(true);
+					}
+					return undefined;
 				}
-				return undefined;
-			}
-			return started;
-		});
-		if (result === undefined) {
+				return started;
+			});
+		} finally {
 			setRunning(false);
+		}
+		if (result === undefined) {
 			return;
 		}
 		props.renderer.dispose();

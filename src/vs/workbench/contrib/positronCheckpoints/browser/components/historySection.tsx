@@ -9,6 +9,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { fromNow } from '../../../../../base/common/date.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from '../checkpointsMessages.js';
 import { CheckpointDetails } from './checkpointDetails.js';
@@ -59,7 +60,7 @@ export const HistorySection = ({ view, visible = true }: { view: ICheckpointsVie
 						{checkpoints.map(checkpoint => {
 							const expanded = checkpoint.id === expandedId;
 							const description = descriptions.get(checkpoint.id);
-							const title = description?.title ?? checkpoint.title;
+							const title = description?.title ?? displayTitle(checkpoint);
 							return (
 								<li key={checkpoint.id} className='checkpoints-history-row'>
 									<Button

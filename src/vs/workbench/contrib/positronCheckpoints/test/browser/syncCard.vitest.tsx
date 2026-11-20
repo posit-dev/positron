@@ -122,6 +122,20 @@ describe('Sync card and collision dialog', () => {
 		]);
 	});
 
+	test('an incoming title with a git word is shown as a neutral sentence', async () => {
+		engine.incoming = {
+			...mayaPreview,
+			incoming: [fakeCheckpoint({ id: 'm3', title: 'Merge pull request #12 from x/branch', authorName: 'Maya', authorIsMe: false }), mayaPreview.incoming[1]],
+		};
+		await renderCard();
+
+		const card = screen.getByRole('region', { name: 'Get Changes' });
+		expect(within(card).getAllByRole('listitem').map(row => row.textContent)).toEqual([
+			'Combined work from MayaMaya',
+			'Fixed a typo in the READMEMaya',
+		]);
+	});
+
 	test('the card is hidden when nothing is waiting in the shared copy', async () => {
 		engine.state = fakeEngineState();
 		rtl.render(<CheckpointsPanel />);

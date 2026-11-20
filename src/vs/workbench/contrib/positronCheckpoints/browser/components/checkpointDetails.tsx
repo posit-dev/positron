@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IHistoryDescription } from '../../common/agent/describeHistory.js';
+import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { GitDetails } from './gitDetails.js';
 import { showEditDescriptionDialog, showReverseDialog } from './historyDialogs.js';
@@ -28,7 +29,8 @@ export interface ICheckpointDetailsProps {
  * The expanded row of a checkpoint: its description, the note about partly included files, and
  * the actions that fit it. An unshared checkpoint can be reworded; a shared one can be reversed.
  * With a plain-language `description`, its summary takes the place of the original description,
- * and the original message shows in the git details.
+ * and the original message shows in the git details. The original message also shows there when
+ * the row shows a neutral title in place of one with a git word (`displayTitle`).
  */
 export const CheckpointDetails = ({ checkpoint, description, branch, upstream, onChanged }: ICheckpointDetailsProps) => {
 	const runAction = useRunAction();
@@ -58,7 +60,7 @@ export const CheckpointDetails = ({ checkpoint, description, branch, upstream, o
 				<GitDetails
 					branch={branch}
 					commitId={checkpoint.id}
-					originalMessage={description ? [checkpoint.title, checkpoint.body].filter(part => part !== '').join('\n\n') : undefined}
+					originalMessage={description || displayTitle(checkpoint) !== checkpoint.title ? [checkpoint.title, checkpoint.body].filter(part => part !== '').join('\n\n') : undefined}
 					upstream={upstream}
 				/>
 			)}

@@ -135,6 +135,21 @@ describe('StartTrackingDialog', () => {
 		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeDisabled();
 	});
 
+	test('a failed state read leaves the dialog open with Start enabled again', async () => {
+		const { user, dialog } = await openDialog();
+		const readState = engine.getState.bind(engine);
+		engine.getState = async () => {
+			engine.getState = readState;
+			throw new Error('state unreadable');
+		};
+
+		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
+
+		expect(await screen.findByText('That action could not finish. Your project is as it was.')).toBeInTheDocument();
+		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeEnabled();
+		expect(engine.callsOf('startTracking')).toEqual([]);
+	});
+
 	test('the dialog never names the ignore file and proposes the list in an editable box', async () => {
 		const { user, dialog } = await openDialog();
 

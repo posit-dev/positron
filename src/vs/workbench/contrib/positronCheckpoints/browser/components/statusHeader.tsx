@@ -3,9 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { useEffect, useRef } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { ICheckpointsMessageService } from '../checkpointsMessages.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { showShareDialog } from './shareDialog.js';
 import { showStartTrackingDialog } from './startTrackingDialog.js';
@@ -61,10 +63,21 @@ export function describeStatus(view: ICheckpointsViewState): IStatus | undefined
 
 /**
  * The status at the top of the Checkpoints view: the project the opened folder belongs to, when
- * it is a folder inside a project, and one status sentence with its action.
+ * it is a folder inside a project, and one status sentence with its action. The notice that an
+ * interrupted action was finished at startup is published once on the status line of the view,
+ * so a later load that still reports it does not replace the sentence of a later action.
  */
 export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 	const services = usePositronReactServicesContext();
+
+	const recoveryNotice = view.state?.recoveryNotice;
+	const noticeShown = useRef(false);
+	useEffect(() => {
+		if (recoveryNotice !== undefined && !noticeShown.current) {
+			noticeShown.current = true;
+			services.get(ICheckpointsMessageService).show(Strings.status.recoveryNotice(recoveryNotice));
+		}
+	}, [services, recoveryNotice]);
 
 	const status = describeStatus(view);
 	const state = view.state;

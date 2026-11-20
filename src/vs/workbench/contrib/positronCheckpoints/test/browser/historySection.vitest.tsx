@@ -43,6 +43,7 @@ const HOUR = 60 * 60 * 1000;
 describe('History section', () => {
 	let dirty: IWorkingCopy[] = [];
 	let prompts: string[] = [];
+	let promptButtons: string[][] = [];
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -60,6 +61,7 @@ describe('History section', () => {
 			// Presses the first button of the unsaved-editors prompt, which saves the files.
 			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
 				prompts.push(prompt.message);
+				promptButtons.push(prompt.buttons!.map(button => button.label));
 				return { result: await prompt.buttons![0].run({ checkboxChecked: false }) };
 			},
 		})
@@ -76,6 +78,7 @@ describe('History section', () => {
 	beforeEach(() => {
 		dirty = [];
 		prompts = [];
+		promptButtons = [];
 		// PositronModalReactRenderer finds its container through this singleton.
 		PositronReactServices.services = ctx.reactServices;
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
@@ -214,6 +217,18 @@ describe('History section', () => {
 		await vi.waitFor(() => expect(engine.callsOf('reverseCheckpoint')).toEqual([['c2']]));
 	});
 
+	test('Reverse rewrites files, so it asks to save every unsaved file first', async () => {
+		dirty = [stubInterface<IWorkingCopy>({ resource: URI.file('/work/dose-model/a.R'), capabilities: WorkingCopyCapabilities.None, save: async () => true })];
+		renderHistory([theirs]);
+		const user = await expandRow('Theirs');
+
+		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
+		await user.click(await screen.findByRole('button', { name: 'Reverse' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('reverseCheckpoint')).toEqual([['c2']]));
+		expect(promptButtons).toEqual([['Save all and continue']]);
+	});
+
 	test('Go back asks to save unsaved files first', async () => {
 		dirty = [stubInterface<IWorkingCopy>({ resource: URI.file('/work/dose-model/a.R'), capabilities: WorkingCopyCapabilities.None, save: async () => true })];
 		renderHistory([theirs]);
@@ -243,6 +258,19 @@ describe('History section', () => {
 
 		const details = screen.getByLabelText('Git details');
 		expect(details).toHaveTextContent(/^Commit idabc123Branchmain$/);
+	});
+
+	test('a title with a git word is shown as a neutral sentence, and the original only in the git details', async () => {
+		renderHistory([fakeCheckpoint({ id: 'abc123', title: 'Merge pull request #12 from x/branch', authorName: 'Maya', authorIsMe: false, shared: true })]);
+		const user = await expandRow('Combined work from Maya');
+
+		expect(screen.queryByText(/Merge pull request/)).not.toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
+		expect(await screen.findByText(/Reversing "Combined work from Maya"/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Cancel' }));
+		await user.click(screen.getByRole('button', { name: 'Show git details' }));
+
+		expect(screen.getByLabelText('Git details')).toHaveTextContent('Merge pull request #12 from x/branch');
 	});
 
 	test('git details show the name of the shared copy when the engine reports it', async () => {

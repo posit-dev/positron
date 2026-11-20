@@ -21,6 +21,7 @@ import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggesti
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
+import { STATE_CHANGE_DELAY_MS } from '../../browser/components/useCheckpointsState.js';
 import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
@@ -186,18 +187,34 @@ describe('CheckpointsPanel', () => {
 		expect(await screen.findByText('Colleagues added 1 checkpoint to the shared copy.')).toBeInTheDocument();
 	});
 
-	test('a response from a superseded load is ignored', async () => {
+	test('a change during a load queues one more load, and the older response is dropped', async () => {
 		const releaseFirst = engine.holdGetState();
 		engine.state = fakeEngineState({ shared: { exists: true, ahead: 0, behind: 2 } });
 		renderPanel();
 
 		act(() => engine.fireChange());
-		expect(await screen.findByText('Colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
-
+		// The change waits out the gathering delay, then queues behind the running load.
+		await act(() => new Promise(resolve => setTimeout(resolve, STATE_CHANGE_DELAY_MS + 50)));
+		expect(engine.callsOf('getState')).toHaveLength(1);
 		await act(async () => releaseFirst(fakeEngineState()));
 
-		expect(screen.getByText('Colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+		expect(await screen.findByText('Colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
 		expect(screen.queryByText('You have everything in the shared copy.')).not.toBeInTheDocument();
+		expect(engine.callsOf('getState')).toHaveLength(2);
+	});
+
+	test('a recovery notice is shown once on the status line', async () => {
+		engine.state = fakeEngineState({ recoveryNotice: 'reversed' });
+		renderPanel();
+
+		await vi.waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('An action was interrupted when Positron closed. It has been reversed.'));
+
+		act(() => ctx.instantiationService.get(ICheckpointsMessageService).show('A later sentence'));
+		engine.state = fakeEngineState({ recoveryNotice: 'reversed', shared: { exists: true, ahead: 0, behind: 1 } });
+		act(() => engine.fireChange());
+
+		expect(await screen.findByText('Colleagues added 1 checkpoint to the shared copy.')).toBeInTheDocument();
+		expect(screen.getByRole('status')).toHaveTextContent('A later sentence');
 	});
 
 	test('the result of an action is shown on the status line', async () => {

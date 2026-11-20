@@ -209,34 +209,43 @@ export class SyncController extends Disposable implements ISyncController {
 		return result;
 	}
 
+	/**
+	 * Takes the result of one engine call. The collision choices are kept only for the next call of
+	 * the same attempt: after overlaps, which the person resolves next, and after path collisions,
+	 * which `runAction` asks about and retries. Every other result ends the attempt, so the person
+	 * decides again on the next one.
+	 */
 	private _takeResult(result: OperationResult): void {
 		if (result.kind === 'overlaps' || result.kind === 'inputs-changed' || result.kind === 'done') {
 			// A read that started earlier must not replace the preview or the cleared state below.
 			this._previewRequest++;
 		}
+		let changed = false;
+		if (result.kind !== 'overlaps' && result.kind !== 'path-collisions' && this._collisionChoices.length > 0) {
+			this._collisionChoices = [];
+			changed = true;
+		}
 		switch (result.kind) {
 			case 'overlaps':
 				this._setPreview(result.preview);
 				this._inputsChanged = undefined;
+				changed = true;
 				break;
 			case 'inputs-changed':
 				this._setPreview(result.preview);
 				this._inputsChanged = result;
-				if (result.changed.includes('files')) {
-					// The files the choices were made for changed, so the person decides again.
-					this._collisionChoices = [];
-				}
+				changed = true;
 				break;
 			case 'done':
 				this._preview = undefined;
 				this._resolutions.clear();
-				this._collisionChoices = [];
 				this._inputsChanged = undefined;
+				changed = true;
 				break;
-			default:
-				return;
 		}
-		this._onDidChange.fire();
+		if (changed) {
+			this._onDidChange.fire();
+		}
 	}
 
 	/**

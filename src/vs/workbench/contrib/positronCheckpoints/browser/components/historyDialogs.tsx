@@ -15,6 +15,7 @@ import { OKCancelModalDialog } from '../../../../browser/positronComponents/posi
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { CHECKPOINT_TITLE_LIMIT } from '../../common/checkpointsLimits.js';
+import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { titleProblem } from './chunkDraft.js';
 import { useRunAction } from './useRunAction.js';
@@ -91,7 +92,7 @@ const ReverseDialog = ({ checkpoint, renderer, onFinished }: IDialogProps) => {
 
 	const submit = async () => {
 		renderer.dispose();
-		await runAction('checkpoint', engine => engine.reverseCheckpoint(checkpoint.id));
+		await runAction('file-changing', engine => engine.reverseCheckpoint(checkpoint.id));
 		onFinished?.();
 	};
 
@@ -106,7 +107,7 @@ const ReverseDialog = ({ checkpoint, renderer, onFinished }: IDialogProps) => {
 			onAccept={submit}
 			onCancel={() => renderer.dispose()}
 		>
-			<p>{Strings.history.reverseExplain(checkpoint.title)}</p>
+			<p>{Strings.history.reverseExplain(displayTitle(checkpoint))}</p>
 		</OKCancelModalDialog>
 	);
 };

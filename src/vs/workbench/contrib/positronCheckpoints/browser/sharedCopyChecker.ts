@@ -24,7 +24,7 @@ const FOCUS_CHECK_MINIMUM_MS = 60 * 1000;
 /**
  * Looks for new checkpoints in the shared copy without being asked: when the window gains focus
  * (at most once a minute) and every `checkpoints.checkSharedInterval` minutes, at least one
- * minute apart (0 turns timed checks off). A check changes no files. It is skipped when the
+ * minute apart. The setting 0 turns both kinds of check off. A check changes no files. It is skipped when the
  * project has no shared copy or is in an unusual state, and a failure is logged and never shown.
  */
 export class SharedCopyChecker extends Disposable implements IWorkbenchContribution {
@@ -43,7 +43,7 @@ export class SharedCopyChecker extends Disposable implements IWorkbenchContribut
 		super();
 
 		this._register(hostService.onDidChangeFocus(focused => {
-			if (focused && this._focusCheckAllowed()) {
+			if (focused && this._intervalMinutes() > 0 && this._focusCheckAllowed()) {
 				void this._check();
 			}
 		}));
@@ -56,10 +56,15 @@ export class SharedCopyChecker extends Disposable implements IWorkbenchContribut
 		this._updateTimer();
 	}
 
+	/** The configured minutes between checks; 0 or less means background checks are off. */
+	private _intervalMinutes(): number {
+		const configured = this._configurationService.getValue<unknown>(CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY);
+		return typeof configured === 'number' && Number.isFinite(configured) ? configured : DEFAULT_INTERVAL_MINUTES;
+	}
+
 	/** Starts, restarts, or stops the timer from the current engine and setting. */
 	private _updateTimer(): void {
-		const configured = this._configurationService.getValue<unknown>(CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY);
-		const minutes = typeof configured === 'number' && Number.isFinite(configured) ? configured : DEFAULT_INTERVAL_MINUTES;
+		const minutes = this._intervalMinutes();
 		if (!this._checkpointsService.hasEngine || minutes <= 0) {
 			this._timer.cancel();
 			return;

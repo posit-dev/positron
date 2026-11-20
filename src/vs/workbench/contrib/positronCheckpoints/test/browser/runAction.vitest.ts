@@ -22,12 +22,14 @@ import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/work
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { showCheckResultDialog } from '../../browser/components/checkResultDialog.js';
+import { showCollisionDialog } from '../../browser/components/collisionDialog.js';
 import { showInterruptedDialog } from '../../browser/components/interruptedDialog.js';
 import { IRunActionContext, runAction, RunActionMode } from '../../browser/runAction.js';
 import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 vi.mock('../../browser/components/checkResultDialog.js', () => ({ showCheckResultDialog: vi.fn() }));
 vi.mock('../../browser/components/interruptedDialog.js', () => ({ showInterruptedDialog: vi.fn() }));
+vi.mock('../../browser/components/collisionDialog.js', () => ({ showCollisionDialog: vi.fn() }));
 
 describe('runAction', () => {
 	let dirty: IWorkingCopy[] = [];
@@ -61,6 +63,7 @@ describe('runAction', () => {
 	beforeEach(() => {
 		vi.mocked(showCheckResultDialog).mockClear();
 		vi.mocked(showInterruptedDialog).mockClear();
+		vi.mocked(showCollisionDialog).mockReset();
 		notify.mockClear();
 		dirty = [];
 		prompted = [];
@@ -144,6 +147,48 @@ describe('runAction', () => {
 		expect(result).toBeUndefined();
 		expect(logError).toHaveBeenCalledWith(expect.any(String), failure);
 		expect(messageService.message).toBe('That action could not finish. Your project is as it was.');
+	});
+
+	test('a state read that fails before the guard is logged, shown as could-not-finish, and returns undefined', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const failure = new Error('state unreadable');
+		engine.getState = async () => { throw failure; };
+
+		const result = await run('file-changing');
+
+		expect(result).toBeUndefined();
+		expect(logError).toHaveBeenCalledWith(expect.any(String), failure);
+		expect(messageService.message).toBe('That action could not finish. Your project is as it was.');
+		expect(engine.callsOf('sendChanges')).toEqual([]);
+	});
+
+	test('collisions are asked about once; the same files again stop the action with the collision sentence', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const collisions = [{ path: 'data.csv', reason: 'ignored', sizeBytes: 1 }, { path: 'big.bin', reason: 'too-large', sizeBytes: 2 }] as const;
+		vi.mocked(showCollisionDialog).mockResolvedValue([{ path: 'data.csv', choice: 'use-theirs-keep-copy' }]);
+		const repeated: OperationResult = { kind: 'path-collisions', collisions: [collisions[1], collisions[0]] };
+		engine.queuedResults = [{ kind: 'path-collisions', collisions: [...collisions] }, repeated];
+
+		const result = await run('no-guard');
+
+		expect(result).toEqual(repeated);
+		expect(showCollisionDialog).toHaveBeenCalledTimes(1);
+		expect(engine.callsOf('sendChanges')).toHaveLength(2);
+		expect(messageService.message).toBe('Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file.');
+	});
+
+	test('collisions with other files after an answer are asked about again', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		vi.mocked(showCollisionDialog).mockResolvedValue([{ path: 'data.csv', choice: 'use-theirs-keep-copy' }]);
+		engine.queuedResults = [
+			{ kind: 'path-collisions', collisions: [{ path: 'data.csv', reason: 'ignored', sizeBytes: 1 }] },
+			{ kind: 'path-collisions', collisions: [{ path: 'other.csv', reason: 'ignored', sizeBytes: 1 }] },
+		];
+
+		const result = await run('no-guard');
+
+		expect(result).toEqual(engine.nextResult);
+		expect(showCollisionDialog).toHaveBeenCalledTimes(2);
 	});
 
 	test('checkpoint mode passes the guard decision to the call, and the other modes pass undefined', async () => {

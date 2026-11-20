@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from '../../../../base/common/uri.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -34,7 +35,7 @@ export type RunActionMode = UnsavedEditorsMode | 'no-guard';
  */
 export function createDialogActions(instantiationService: IInstantiationService): IDialogActions {
 	return {
-		run: call => instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', call)),
+		run: (mode, call) => instantiationService.invokeFunction(accessor => runAction(accessor, mode, call)),
 		removeRecoverySnapshot: async operationId => {
 			const { checkpointsService, messageService, logService } = instantiationService.invokeFunction(accessor => ({
 				checkpointsService: accessor.get(ICheckpointsService),
@@ -137,6 +138,11 @@ export function mergeCollisionChoices(choices: readonly ICollisionChoice[], adde
 	return [...byPath.values()];
 }
 
+/** The paths of `collisions`, sorted, as one value that compares with `===`. */
+function collisionPaths(collisions: readonly { path: string }[]): string {
+	return JSON.stringify(collisions.map(collision => collision.path).sort());
+}
+
 /**
  * What the guard decided, as `call` receives it. It is set in `checkpoint` mode only, so that a
  * caller can compute its chunks again after a save, and is undefined in the other modes.
@@ -164,7 +170,8 @@ export type RunActionCall = (engine: ICheckpointsEngineProxy, context: IRunActio
  * Runs one action of the Checkpoints view: asks about unsaved editors (unless `mode` is
  * `no-guard`), calls the engine, and shows the result in the view. When the engine reports files
  * that the action would replace and that are in no checkpoint, the collision dialog asks what to
- * do, and `call` runs again with the chosen collision choices.
+ * do, and `call` runs again with the chosen collision choices. When the engine then reports the
+ * same files again, the action stops with the collision sentence instead of asking again.
  *
  * @returns The engine's result, or undefined when no engine is registered, the person cancelled
  * at the unsaved-editors question or the collision dialog, `call` did not call the engine, or the
@@ -190,8 +197,14 @@ export async function runAction(
 
 	let decision: RunActionDecision;
 	if (mode !== 'no-guard') {
-		const state = await engine.getState();
-		const projectRoot = projectRootUri(workspaceContextService, state.projectRoot);
+		let projectRoot: URI;
+		try {
+			projectRoot = projectRootUri(workspaceContextService, (await engine.getState()).projectRoot);
+		} catch (error) {
+			logService.error('The state of the project could not be read before the action.', error);
+			messageService.show(Strings.results.couldNotFinish());
+			return undefined;
+		}
 		const guarded = await instantiationService.invokeFunction(guardAccessor => guardUnsavedEditors(guardAccessor, projectRoot, mode));
 		if (guarded === 'cancel') {
 			return undefined;
@@ -202,6 +215,8 @@ export async function runAction(
 	}
 
 	let collisionChoices: ICollisionChoice[] = [];
+	// The paths of the collisions the person answered last, to tell a repeated answer apart.
+	let answeredPaths: string | undefined;
 	for (; ;) {
 		let result: OperationResult | undefined;
 		try {
@@ -215,6 +230,14 @@ export async function runAction(
 			return undefined;
 		}
 		if (result.kind === 'path-collisions') {
+			const paths = collisionPaths(result.collisions);
+			if (paths === answeredPaths) {
+				// The engine reports the same files after the person answered for them, so asking
+				// again would loop. The action stops with the sentence for collisions.
+				messageService.show(Strings.results.forOperation(result));
+				return result;
+			}
+			answeredPaths = paths;
 			const chosen = await showCollisionDialog(result.collisions);
 			if (!chosen) {
 				messageService.show(Strings.collisions.cancelled());

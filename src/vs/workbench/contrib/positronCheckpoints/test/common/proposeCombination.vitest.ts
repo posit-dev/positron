@@ -149,7 +149,8 @@ describe('proposeCombinationJob', () => {
 		expect(proposeCombinationJob.check({ ...goodResponse, theirsDid: long(201) }, input())).toBeUndefined();
 		expect(proposeCombinationJob.check({ ...goodResponse, reason: long(301) }, input())).toBeUndefined();
 		expect(proposeCombinationJob.check({ ...goodResponse, mineDid: 'resolved the merge' }, input())).toBeUndefined();
-		expect(proposeCombinationJob.check({ ...goodResponse, theirsDid: 'pushed a new cap' }, input())).toBeDefined();
+		expect(proposeCombinationJob.check({ ...goodResponse, theirsDid: 'pushed a new cap' }, input())).toBeUndefined();
+		expect(proposeCombinationJob.check({ ...goodResponse, theirsDid: 'moved the head of the table' }, input())).toBeDefined();
 		expect(proposeCombinationJob.check({ ...goodResponse, reason: 'This is a conflict.' }, input())).toBeUndefined();
 		expect(proposeCombinationJob.check({ ...goodResponse, mineDid: '  ' }, input())).toBeUndefined();
 	});

@@ -152,35 +152,39 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 		edited.current = true;
 		const arranged = draft;
 		setRunning(true);
-		const result = await runAction('checkpoint', async (engine, { decision }) => {
-			// Only a save made by this action can change the files the person reviewed. In every
-			// other case the reviewed basis is sent, so the engine refuses with changes-moved when
-			// the files changed in any other way.
-			if (decision !== 'proceed-after-save') {
-				return engine.createCheckpoints(changes.basis, toChunks(arranged));
-			}
-			const current = await engine.getChanges();
-			if (current.basis === changes.basis) {
-				return engine.createCheckpoints(changes.basis, toChunks(arranged));
-			}
-			const reconciled = reconcileDraft(arranged, current.files);
-			const before = draftPaths(arranged);
-			const after = draftPaths(reconciled);
-			const added = [...after].filter(path => !before.has(path));
-			const removed = [...before].some(path => !after.has(path));
-			update(reconciled);
-			setChanges(current);
-			setAddedPaths(new Set(added));
-			// Nothing saved by the guard enters a checkpoint without a second look.
-			if (added.length > 0) {
-				setNotice(Strings.changes.savedAndAdded(added.length));
-			} else {
-				setNotice(removed || !isDraftReady(reconciled) ? Strings.changes.savedAndChanged() : Strings.changes.savedContentChanged());
-			}
-			return undefined;
-		});
-		if (result === undefined) {
+		let result: OperationResult | undefined;
+		try {
+			result = await runAction('checkpoint', async (engine, { decision }) => {
+				// Only a save made by this action can change the files the person reviewed. In every
+				// other case the reviewed basis is sent, so the engine refuses with changes-moved when
+				// the files changed in any other way.
+				if (decision !== 'proceed-after-save') {
+					return engine.createCheckpoints(changes.basis, toChunks(arranged));
+				}
+				const current = await engine.getChanges();
+				if (current.basis === changes.basis) {
+					return engine.createCheckpoints(changes.basis, toChunks(arranged));
+				}
+				const reconciled = reconcileDraft(arranged, current.files);
+				const before = draftPaths(arranged);
+				const after = draftPaths(reconciled);
+				const added = [...after].filter(path => !before.has(path));
+				const removed = [...before].some(path => !after.has(path));
+				update(reconciled);
+				setChanges(current);
+				setAddedPaths(new Set(added));
+				// Nothing saved by the guard enters a checkpoint without a second look.
+				if (added.length > 0) {
+					setNotice(Strings.changes.savedAndAdded(added.length));
+				} else {
+					setNotice(removed || !isDraftReady(reconciled) ? Strings.changes.savedAndChanged() : Strings.changes.savedContentChanged());
+				}
+				return undefined;
+			});
+		} finally {
 			setRunning(false);
+		}
+		if (result === undefined) {
 			return;
 		}
 		props.renderer.dispose();

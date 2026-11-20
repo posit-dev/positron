@@ -10,6 +10,7 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IIncomingSummary, IncomingRelation, incomingDiffBudget, renderIncomingForModel, summarizeIncomingJob } from '../../common/agent/summarizeIncoming.js';
+import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
 import { openDiff } from '../openDiff.js';
@@ -152,7 +153,7 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 				<ul className='checkpoints-history-list'>
 					{incoming.map(checkpoint => (
 						<li key={checkpoint.id} className='checkpoints-history-row'>
-							<span className='checkpoints-history-title'>{checkpoint.title}</span>
+							<span className='checkpoints-history-title'>{displayTitle(checkpoint)}</span>
 							<span className='checkpoints-file-note'>{checkpoint.authorIsMe ? Strings.history.you() : checkpoint.authorName}</span>
 						</li>
 					))}
