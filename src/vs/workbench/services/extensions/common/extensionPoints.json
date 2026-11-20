@@ -39,6 +39,7 @@
 	"notebookPreload",
 	"notebookRenderer",
 	"notebooks",
+	"positronNativeWebviewViews",
 	"problemMatchers",
 	"problemPatterns",
 	"productIconThemes",

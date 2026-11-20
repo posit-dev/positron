@@ -29,6 +29,9 @@ import { IWebviewViewService, WebviewView } from './webviewViewService.js';
 import { IActivityService, NumberBadge } from '../../../services/activity/common/activity.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+// --- Start Positron ---
+import { IPositronNativeWebviewHostService } from '../../positronNativeWebviewHost/browser/positronNativeWebviewHost.contribution.js';
+// --- End Positron ---
 
 const storageKeys = {
 	webviewState: 'webviewState',
@@ -82,6 +85,9 @@ export class WebviewViewPane extends ViewPane {
 		@IViewsService private readonly viewService: IViewsService,
 		@IWebviewService private readonly webviewService: IWebviewService,
 		@IWebviewViewService private readonly webviewViewService: IWebviewViewService,
+		// --- Start Positron ---
+		@IPositronNativeWebviewHostService private readonly nativeWebviewHostService: IPositronNativeWebviewHostService,
+		// --- End Positron ---
 	) {
 		super({ ...options, titleMenuId: MenuId.ViewTitle, showActions: ViewPaneShowActions.WhenExpanded }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 		this.extensionId = options.fromExtensionId;
@@ -171,14 +177,19 @@ export class WebviewViewPane extends ViewPane {
 		this._activated = true;
 
 		const origin = this.extensionId ? WebviewViewPane.getOriginStore(this.storageService).getOrigin(this.id, this.extensionId) : undefined;
-		const webview = this.webviewService.createWebviewOverlay({
-			origin,
-			providedViewType: this.id,
-			title: this.title,
-			options: { purpose: WebviewContentPurpose.WebviewView },
-			contentOptions: {},
-			extension: this.extensionId ? { id: this.extensionId } : undefined
-		});
+		// --- Start Positron ---
+		// A trusted extension can render this view natively in the workbench
+		// page instead of in an iframe. Fall back to the webview otherwise.
+		const webview = this.nativeWebviewHostService.tryCreateWebviewOverlay(this.id, this.extensionId, { purpose: WebviewContentPurpose.WebviewView })
+			?? this.webviewService.createWebviewOverlay({
+				origin,
+				providedViewType: this.id,
+				title: this.title,
+				options: { purpose: WebviewContentPurpose.WebviewView },
+				contentOptions: {},
+				extension: this.extensionId ? { id: this.extensionId } : undefined
+			});
+		// --- End Positron ---
 		webview.state = this.viewState[storageKeys.webviewState];
 		this._webview.value = webview;
 

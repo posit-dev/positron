@@ -20,6 +20,9 @@ import { ACTIVE_GROUP_TYPE, IEditorService, SIDE_GROUP_TYPE } from '../../../ser
 import { IOverlayWebview, IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { CONTEXT_ACTIVE_WEBVIEW_PANEL_ID } from './webviewEditor.js';
 import { WebviewIconPath, WebviewInput, WebviewInputInitInfo } from './webviewEditorInput.js';
+// --- Start Positron ---
+import { IPositronNativeWebviewHostService } from '../../positronNativeWebviewHost/browser/positronNativeWebviewHost.contribution.js';
+// --- End Positron ---
 
 export interface IWebViewShowOptions {
 	readonly group?: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
@@ -225,6 +228,9 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 		@IEditorService private readonly _editorService: IEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
+		// --- Start Positron ---
+		@IPositronNativeWebviewHostService private readonly _nativeWebviewHostService: IPositronNativeWebviewHostService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -284,6 +290,17 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 		}
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Creates the editor tab's webview. A trusted extension can render it
+	 * natively in the workbench page instead of in an iframe.
+	 */
+	private _createWebviewOverlay(webviewInitInfo: WebviewInitInfo): IOverlayWebview {
+		return this._nativeWebviewHostService.tryCreateWebviewOverlay(webviewInitInfo.providedViewType, webviewInitInfo.extension?.id, webviewInitInfo.options)
+			?? this._webviewService.createWebviewOverlay(webviewInitInfo);
+	}
+	// --- End Positron ---
+
 	public openWebview(
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
@@ -291,7 +308,10 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 		iconPath: WebviewIconPath | undefined,
 		showOptions: IWebViewShowOptions,
 	): WebviewInput {
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		// --- Start Positron ---
+		// const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const webview = this._createWebviewOverlay(webviewInitInfo);
+		// --- End Positron ---
 		const webviewInput = this._instantiationService.createInstance(WebviewInput, { viewType, name: title, providedId: webviewInitInfo.providedViewType, iconPath }, webview);
 		this._editorService.openEditor(webviewInput, {
 			pinned: true,
@@ -344,7 +364,10 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 		state: any;
 		group: number | undefined;
 	}): WebviewInput {
-		const webview = this._webviewService.createWebviewOverlay(options.webviewInitInfo);
+		// --- Start Positron ---
+		// const webview = this._webviewService.createWebviewOverlay(options.webviewInitInfo);
+		const webview = this._createWebviewOverlay(options.webviewInitInfo);
+		// --- End Positron ---
 		webview.state = options.state;
 
 		const webviewInput = this._instantiationService.createInstance(LazilyResolvedWebviewEditorInput, {

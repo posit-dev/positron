@@ -533,6 +533,7 @@ import './contrib/positronObjectExplorerEditor/browser/positronObjectExplorerEdi
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
 import './contrib/positronDataConnections/browser/positronDataConnections.contribution.js';
 import './contrib/positronHistory/browser/positronHistory.contribution.js';
+import './contrib/positronNativeWebviewHost/browser/positronNativeWebviewHost.contribution.js';
 import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
 import './contrib/positronStartupDiagnostics/browser/positronStartupDiagnostics.contribution.js';
 import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
