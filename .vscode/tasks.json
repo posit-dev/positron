@@ -836,30 +836,41 @@
 			"isBackground": false
 		},
 		{
-			// One-shot build of the sibling Posit Assistant checkout so its dist/
-			// is current before "Positron (with Assistant)" launches. Terminating
-			// (not a watcher): run `npm run watch:positron` separately for live
-			// rebuilds during the session.
-			"label": "Build Posit Assistant",
+			// Builds the sibling Posit Assistant checkout and keeps it rebuilding on save,
+			// so Reload Window picks up changes.
+			"label": "Watch Posit Assistant",
 			"type": "shell",
-			"command": "npm run build:positron",
+			"command": "npm run dev:positron",
 			"options": {
 				"cwd": "${workspaceFolder}/../assistant"
 			},
+			"isBackground": true,
 			"presentation": {
 				"reveal": "silent",
-				"close": true
+				"group": "assistant"
 			},
-			"problemMatcher": []
+			"problemMatcher": {
+				"owner": "posit-assistant",
+				"pattern": {
+					"regexp": "^[✘▲] \\[([A-Z]+)\\] (.+)",
+					"severity": 1,
+					"message": 2
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "@@assistant-positron-bundles-busy",
+					"endsPattern": "@@assistant-positron-bundles-ready"
+				}
+			}
 		},
 		{
 			// Prelaunch for "Positron (with Assistant)": run Positron's own
-			// dependency prep, then build the assistant. Both terminate before
-			// Positron launches.
+			// dependency prep, then start the assistant watcher. Positron launches
+			// once the watcher's first build is done.
 			"label": "Ensure Prelaunch Dependencies (with Assistant)",
 			"dependsOn": [
 				"Ensure Prelaunch Dependencies",
-				"Build Posit Assistant"
+				"Watch Posit Assistant"
 			],
 			"dependsOrder": "sequence"
 		}
