@@ -10,11 +10,12 @@ import * as path from 'path';
 import { readChanges } from './changes';
 import {
 	acceptCheckedCheckpoint, createCheckpoints, declineCheckedCheckpoint, editDescription, PENDING_REF_PREFIX, readPartialFiles,
-	readPendingApproval, reverseCheckpoint,
+	readCheckpoints, readPendingApproval, reverseCheckpoint,
 } from './checkpoints';
-import { readRecords } from './journal';
+import { acquireLock, readRecords } from './journal';
 import { readOperationLog, redo, undo, undoHead } from './operationLog';
 import { runOperation } from './runOperation';
+import { getDiff } from './history';
 import { must, refExists } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { Chunk, OperationResult } from './types';
@@ -51,6 +52,8 @@ describe.skipIf(process.platform === 'win32')('checkpoints', { timeout: 60_000 }
 	const head = (repo: TempRepo) => must(repo, ['rev-parse', 'refs/heads/main']);
 	const show = (repo: TempRepo, spec: string) => must(repo, ['show', spec]);
 	const titles = async (repo: TempRepo) => (await must(repo, ['log', '--format=%s'])).split('\n');
+
+	const readCheckpointsFor = (repo: TempRepo) => readCheckpoints(repo.ports, ['-1', 'HEAD']);
 
 	const createFrom = async (repo: TempRepo, chunks: Chunk[]) => createCheckpoints(repo.ports, (await readChanges(repo.ports)).basis, chunks);
 
@@ -233,7 +236,7 @@ describe.skipIf(process.platform === 'win32')('checkpoints', { timeout: 60_000 }
 		const token = tokenOf(await createFrom(repo, [chunk('Edit a', ['a.txt'])]));
 
 		// Only what is on disk is shared with the new instance.
-		const fresh = { ...repo.ports };
+		const fresh = await repo.freshPorts();
 
 		expect(await readPendingApproval(fresh)).toEqual({ token, changedPaths: ['other.txt'], hookEditedFiles: [] });
 	});
@@ -453,6 +456,132 @@ describe.skipIf(process.platform === 'win32')('checkpoints', { timeout: 60_000 }
 		expect(result).toMatchObject({ kind: 'overlaps', preview: { incoming: [], overlaps: [{ kind: 'text', path: 'a.txt' }] } });
 		expect(await head(repo)).toBe(edit);
 		expect(await repo.read('a.txt')).toBe('three\n');
+	});
+
+	test('a publish that fails after a formatter hook ran records the edits for Undo', async () => {
+		const { repo, a } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.write('other.txt', 'staged elsewhere\n');
+		// The hook stages a file in the real index, so the index the request read has moved.
+		await hook(repo, 'pre-commit', 'printf "formatted\\n" > b.txt\nGIT_INDEX_FILE=.git/index git add other.txt');
+
+		const result = await createFrom(repo, [chunk('Edit a', ['a.txt'])]);
+
+		expect(result).toEqual({ kind: 'changes-moved' });
+		expect(await head(repo)).toBe(a);
+		expect(await repo.read('b.txt')).toBe('formatted\n');
+		const entry = await undoHead(repo.ports);
+		expect(entry?.kind).toBe('check-changed-files');
+		doneId(await undo(repo.ports, entry!.id, []));
+		expect(await repo.read('b.txt')).toBe('bee\n');
+	});
+
+	test('a failed publish of the chunks before a rejected one records the hook edits for Undo', async () => {
+		const { repo, a } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.write('c.txt', 'sea\n');
+		await repo.write('other.txt', 'staged elsewhere\n');
+		await hook(repo, 'pre-commit', [
+			'printf "formatted\\n" > b.txt',
+			'if [ -f .git/ran-once ]; then echo "second check failed"; exit 1; fi',
+			'touch .git/ran-once',
+			'GIT_INDEX_FILE=.git/index git add other.txt',
+		].join('\n'));
+
+		const result = await createFrom(repo, [chunk('First', ['a.txt']), chunk('Second', ['c.txt'])]);
+
+		expect(result).toEqual({ kind: 'changes-moved' });
+		expect(await head(repo)).toBe(a);
+		const entry = await undoHead(repo.ports);
+		expect(entry?.kind).toBe('check-changed-files');
+		doneId(await undo(repo.ports, entry!.id, []));
+		expect(await repo.read('b.txt')).toBe('bee\n');
+	});
+
+	test('a stale accept records the hook edits for Undo', async () => {
+		const { repo } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.write('other.txt', 'not selected\n');
+		await hook(repo, 'pre-commit', 'printf "formatted\\n" > b.txt\ngit add other.txt');
+		const token = tokenOf(await createFrom(repo, [chunk('Edit a', ['a.txt'])]));
+		await fsp.rm(path.join(repo.root, '.git', 'hooks', 'pre-commit'));
+		await repo.write('c.txt', 'another tool\n');
+		await must(repo, ['add', 'c.txt']);
+		await must(repo, ['commit', '-q', '-m', 'Another tool']);
+
+		expect(await acceptCheckedCheckpoint(repo.ports, token)).toEqual({ kind: 'project-changed' });
+		const entry = await undoHead(repo.ports);
+		expect(entry?.kind).toBe('check-changed-files');
+		doneId(await undo(repo.ports, entry!.id, []));
+		expect(await repo.read('b.txt')).toBe('bee\n');
+	});
+
+	test('a stale accept while another window holds the lock reports busy and keeps the approval', async () => {
+		const { repo } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.write('other.txt', 'not selected\n');
+		await hook(repo, 'pre-commit', 'printf "formatted\\n" > b.txt\ngit add other.txt');
+		const token = tokenOf(await createFrom(repo, [chunk('Edit a', ['a.txt'])]));
+		await fsp.rm(path.join(repo.root, '.git', 'hooks', 'pre-commit'));
+		await repo.write('c.txt', 'another tool\n');
+		await must(repo, ['add', 'c.txt']);
+		await must(repo, ['commit', '-q', '-m', 'Another tool']);
+		const lock = await acquireLock(repo.ports);
+
+		try {
+			expect(await acceptCheckedCheckpoint(repo.ports, token)).toEqual({ kind: 'unavailable', reason: 'busy' });
+			expect((await readPendingApproval(repo.ports))?.token).toBe(token);
+		} finally {
+			await lock!.release();
+		}
+	});
+
+	test('object ids from a caller must be full length', async () => {
+		const { repo, a } = await create();
+		await repo.write('a.txt', 'two\n');
+		const b = await repo.commit('B');
+		// A branch whose name is a hex string resolves before any object id prefix.
+		await must(repo, ['branch', 'deadbeef', a]);
+
+		const notInHistory = { kind: 'unavailable', reason: 'nothing-to-do', detail: 'not-in-history' };
+		expect(await editDescription(repo.ports, b.slice(0, 12), 'Short', '')).toEqual(notInHistory);
+		expect(await editDescription(repo.ports, 'deadbeef', 'Branch', '')).toEqual(notInHistory);
+		expect(await reverseCheckpoint(repo.ports, b.slice(0, 12))).toEqual(notInHistory);
+		const empty = { left: { kind: 'empty' }, right: { kind: 'empty' } };
+		expect(await getDiff(repo.ports, { kind: 'checkpoint', id: b.slice(0, 12), path: 'a.txt' })).toEqual(empty);
+		expect(await getDiff(repo.ports, { kind: 'trees', left: a.slice(0, 12), right: 'deadbeef', path: 'a.txt' })).toEqual(empty);
+		expect(await head(repo)).toBe(b);
+	});
+
+	test('rewording a commit in another encoding writes UTF-8 and keeps the author name', async () => {
+		const { repo, a } = await create();
+		const tree = await must(repo, ['rev-parse', `${a}^{tree}`]);
+		const latin1 = Buffer.concat([
+			Buffer.from(`tree ${tree}\nparent ${a}\n`),
+			Buffer.from('author Jos\xe9 <jose@example.com> 1767225600 +0100\n', 'latin1'),
+			Buffer.from('committer Test User <test@example.com> 1767225600 +0100\nencoding ISO-8859-1\n\n'),
+			Buffer.from('R\xe9sum\xe9\n', 'latin1'),
+		]);
+		const commit = await must(repo, ['hash-object', '-t', 'commit', '-w', '--stdin'], { stdin: latin1 });
+		await must(repo, ['update-ref', 'refs/heads/main', commit]);
+
+		doneId(await editDescription(repo.ports, commit, 'R\u00e9sum\u00e9, reworded', ''));
+
+		const raw = Buffer.from((await repo.git(['cat-file', 'commit', 'HEAD'], { binary: true })).stdout, 'latin1');
+		expect(raw.toString('utf8')).toMatch(/^author Jos\u00e9 <jose@example\.com> 1767225600 \+0100$/m);
+		expect(raw.toString('utf8')).not.toMatch(/^encoding /m);
+		expect(raw.toString('utf8').endsWith('\n\nR\u00e9sum\u00e9, reworded\n')).toBe(true);
+	});
+
+	test('a message with any characters is read back whole', async () => {
+		const { repo } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.commit('Title\n\nBody\x1fwith a unit separator\x1eand a record separator.');
+
+		const [checkpoint] = await readCheckpointsFor(repo);
+
+		expect([checkpoint.title, checkpoint.body]).toEqual(['Title', 'Body\x1fwith a unit separator\x1eand a record separator.']);
+		expect(checkpoint.authorName).toBe('Test User');
 	});
 
 	// Review Focus 3.

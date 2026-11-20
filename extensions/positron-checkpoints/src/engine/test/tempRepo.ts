@@ -29,6 +29,11 @@ export interface TempRepo {
 	clone(): Promise<TempRepo>;
 	/** Pushes the other repository's `main` to the shared "origin". */
 	pushFrom(other: TempRepo): Promise<void>;
+	/**
+	 * New ports for this repository that share nothing with `ports` except what is on disk and the
+	 * clock, as a second engine instance (or a restart) would have. Their ids have their own prefix.
+	 */
+	freshPorts(): Promise<EnginePorts>;
 	dispose(): Promise<void>;
 }
 
@@ -88,7 +93,6 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 	const rawGit = createGitRunner('git', root);
 	const git: GitRunner = (args, options) => rawGit(args, { ...options, env: { ...ISOLATED_ENV, ...options?.env } });
 	let current = START_TIME;
-	let counter = 0;
 	let remote = sharedRemote;
 
 	const clock: TestClock = {
@@ -115,15 +119,21 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 		push: branch => runNetwork(['push', 'origin', branch]),
 	};
 
-	const ports: EnginePorts = {
-		git,
-		files: createNodeFilePort(root, [path.join(await fsp.realpath(root), '.git')]),
-		network,
-		now: () => new Date(current.getTime()),
-		newId: () => `op-${++counter}`,
-		projectRoot: root,
-		openedFolder: root,
+	let instances = 0;
+	const makePorts = async (prefix: string): Promise<EnginePorts> => {
+		const instanceGit = createGitRunner('git', root);
+		let counter = 0;
+		return {
+			git: (args, options) => instanceGit(args, { ...options, env: { ...ISOLATED_ENV, ...options?.env } }),
+			files: createNodeFilePort(root, [path.join(await fsp.realpath(root), '.git')]),
+			network,
+			now: () => new Date(current.getTime()),
+			newId: () => `${prefix}-${++counter}`,
+			projectRoot: root,
+			openedFolder: root,
+		};
 	};
+	const ports: EnginePorts = { ...await makePorts('op'), git };
 
 	const repo: TempRepo = {
 		root,
@@ -169,6 +179,9 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 		},
 		async pushFrom(other) {
 			await mustRun(other.git, ['push', 'origin', 'main']);
+		},
+		freshPorts() {
+			return makePorts(`op${++instances}`);
 		},
 		async dispose() {
 			// A clone removes only its own directory; the repository that made the shared

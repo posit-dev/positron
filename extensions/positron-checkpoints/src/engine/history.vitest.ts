@@ -132,6 +132,33 @@ describe('history', { timeout: 30_000 }, () => {
 			.toEqual({ left: { kind: 'empty' }, right: await blob(repo, 'HEAD:new file.txt') });
 	});
 
+	test('getDiff change for an untracked new file has an empty left side', async () => {
+		const { repo } = await create();
+		await repo.write('new.txt', 'new\n');
+
+		expect(await getDiff(repo.ports, { kind: 'change', path: 'new.txt' })).toEqual({ left: { kind: 'empty' }, right: { kind: 'file', path: 'new.txt' } });
+	});
+
+	test('getDiff change for a renamed file takes the left side from the old path', async () => {
+		const { repo } = await create();
+		await fsp.rename(path.join(repo.root, 'a.txt'), path.join(repo.root, 'renamed.txt'));
+		const [file] = (await readChanges(repo.ports)).files;
+		expect(file).toMatchObject({ path: 'renamed.txt', oldPath: 'a.txt', status: 'renamed' });
+
+		expect(await getDiff(repo.ports, { kind: 'change', path: file.path, oldPath: file.oldPath }))
+			.toEqual({ left: await blob(repo, 'HEAD:a.txt'), right: { kind: 'file', path: 'renamed.txt' } });
+	});
+
+	test('getDiff trees with a missing or non-tree id has empty sides', async () => {
+		const { repo, a } = await create();
+		const tree = await must(repo, ['rev-parse', `${a}^{tree}`]);
+		const blobId = await must(repo, ['rev-parse', `${a}:a.txt`]);
+		const missing = 'f'.repeat(40);
+
+		expect(await getDiff(repo.ports, { kind: 'trees', left: missing, right: tree, path: 'a.txt' })).toEqual({ left: { kind: 'empty' }, right: await blob(repo, `${a}:a.txt`) });
+		expect(await getDiff(repo.ports, { kind: 'trees', left: tree, right: blobId, path: 'a.txt' })).toEqual({ left: await blob(repo, `${a}:a.txt`), right: { kind: 'empty' } });
+	});
+
 	test('getDiff checkpoint follows a rename to the parent blob', async () => {
 		const { repo } = await create();
 		await must(repo, ['mv', 'a.txt', 'renamed.txt']);

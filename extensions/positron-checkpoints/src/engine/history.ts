@@ -4,18 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { emptyTree, parseRaw } from './changes';
-import { readCheckpoints, readPendingTrees, resolveCommit, revision } from './checkpoints';
+import { FULL_OBJECT_ID, readCheckpoints, readPendingTrees, resolveCommit, revision } from './checkpoints';
 import { mustGit, runGit, splitZ } from './git';
 import { EnginePorts } from './ports';
 import { findOverlap } from './sync';
 import { LARGE_FILE_BYTES } from './trees';
 import { ChangedFile, Checkpoint, ContentRef, DiffTarget } from './types';
-
-/** A full object id. `readBlob` reads nothing else, so its argument is never taken for an option. */
-const FULL_OBJECT_ID = /^[0-9a-f]{40}([0-9a-f]{24})?$/i;
-
-/** A tree or commit id from a caller; anything else is never passed to git. */
-const OBJECT_ID = /^[0-9a-f]{4,64}$/i;
 
 const EMPTY: ContentRef = { kind: 'empty' };
 
@@ -53,6 +47,15 @@ async function blobAt(ports: EnginePorts, treeish: string | undefined, file: str
 	return EMPTY;
 }
 
+/** `id` when it is the full id of a tree that exists, otherwise undefined. */
+async function treeOf(ports: EnginePorts, id: string): Promise<string | undefined> {
+	if (!FULL_OBJECT_ID.test(id)) {
+		return undefined;
+	}
+	const type = await runGit(ports.git, ['-C', ports.projectRoot, 'cat-file', '-t', id]);
+	return type.exitCode === 0 && type.stdout.trim() === 'tree' ? id : undefined;
+}
+
 /** The first parent of `commit`, or undefined for a first checkpoint. */
 async function firstParent(ports: EnginePorts, commit: string): Promise<string | undefined> {
 	return revision(ports, `${commit}^1`);
@@ -66,11 +69,12 @@ async function rawDifferences(ports: EnginePorts, left: string, right: string) {
 /**
  * The two sides of one file for a diff view. A side that does not exist is `empty`.
  *
- * - `change`: the blob at HEAD, and the working file.
+ * - `change`: the blob at HEAD (at `oldPath` for a renamed file), and the working file.
  * - `checkpoint`: the blob in the checkpoint's first parent (at the old path when the
  *   checkpoint renamed the file), and the blob in the checkpoint.
  * - `incoming`: the blob in the merge base of HEAD and the upstream, and the blob in the upstream.
- * - `trees`: the blob in each tree.
+ * - `trees`: the blob in each tree. An id that is not the full id of a tree in the object
+ *   database gives an empty side.
  * - `pending`: the blob in the approved tree of the pending approval, and the blob in the tree
  *   the project's hooks left.
  * - `overlap`: the base blob of the overlap in the current preview, and the blob of the chosen
@@ -81,7 +85,7 @@ export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{
 		case 'change': {
 			const info = await ports.files.lstat(target.path);
 			return {
-				left: await blobAt(ports, await revision(ports, 'HEAD'), target.path),
+				left: await blobAt(ports, await revision(ports, 'HEAD'), target.oldPath ?? target.path),
 				right: info === undefined || info.isDirectory ? EMPTY : { kind: 'file', path: target.path },
 			};
 		}
@@ -103,10 +107,8 @@ export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{
 				: (await runGit(ports.git, ['-C', ports.projectRoot, 'merge-base', head, upstream])).stdout.trim() || undefined;
 			return { left: await blobAt(ports, base, target.path), right: await blobAt(ports, upstream, target.path) };
 		}
-		case 'trees': {
-			const side = (id: string) => OBJECT_ID.test(id) ? id : undefined;
-			return { left: await blobAt(ports, side(target.left), target.path), right: await blobAt(ports, side(target.right), target.path) };
-		}
+		case 'trees':
+			return { left: await blobAt(ports, await treeOf(ports, target.left), target.path), right: await blobAt(ports, await treeOf(ports, target.right), target.path) };
 		case 'pending': {
 			const trees = await readPendingTrees(ports, target.token);
 			return { left: await blobAt(ports, trees?.approvedTree, target.path), right: await blobAt(ports, trees?.resultTree, target.path) };
@@ -122,7 +124,7 @@ export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{
 	}
 }
 
-/** The exact bytes of the blob `oid`, which must be a full object id. */
+/** The exact bytes of the blob `oid`, which must be a full object id, so it is never taken for an option. */
 export async function readBlob(ports: EnginePorts, oid: string): Promise<Uint8Array> {
 	if (!FULL_OBJECT_ID.test(oid)) {
 		throw new Error(`not an object id: ${oid}`);

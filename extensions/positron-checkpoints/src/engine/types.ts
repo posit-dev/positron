@@ -45,7 +45,7 @@ export interface Checkpoint {
 
 export type ContentRef = { kind: 'empty' } | { kind: 'file'; path: string } | { kind: 'blob'; oid: string };
 export type DiffTarget =
-	| { kind: 'change'; path: string }
+	| { kind: 'change'; path: string; oldPath?: string }
 	| { kind: 'checkpoint'; id: string; path: string }
 	| { kind: 'incoming'; path: string }
 	| { kind: 'trees'; left: string; right: string; path: string }

@@ -22,8 +22,11 @@ export const TITLE_LIMIT = 72;
 /** The prefix of the ref that keeps the candidate of a pending approval. */
 export const PENDING_REF_PREFIX = 'refs/positron-checkpoints/pending/';
 
-/** An abbreviated or full object id. Anything else is never passed to git as a revision. */
-const OBJECT_ID = /^[0-9a-f]{4,64}$/i;
+/**
+ * A full object id (SHA-1 or SHA-256). Git resolves a ref name before an abbreviated id, so an
+ * id from a caller is never passed to git unless it has full length.
+ */
+export const FULL_OBJECT_ID = /^([0-9a-f]{40}|[0-9a-f]{64})$/i;
 
 /** The two parts of a project that publishing checkpoints moves. Working files never change. */
 interface Published { branchCommit: string | null; indexTree: string }
@@ -110,6 +113,9 @@ export async function revision(ports: EnginePorts, rev: string): Promise<string 
 	return result.exitCode === 0 ? result.stdout.trim() : undefined;
 }
 
+/** The fields of one `git log` record in `readCheckpoints`: id, author name, author email, author time, message. */
+const LOG_FIELDS = 5;
+
 /**
  * The checkpoints `git log <logArgs>` lists, in its order. `shared` is true for a checkpoint in
  * the upstream as git last saw it (with no upstream, nothing is shared). `authorIsMe` is true
@@ -117,7 +123,9 @@ export async function revision(ports: EnginePorts, rev: string): Promise<string 
  * message and the body the rest, without the blank line between them. `time` is the author time.
  */
 export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Promise<Checkpoint[]> {
-	const output = await git(ports, ['log', '-z', '--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%B', ...logArgs, '--']);
+	// With `-z`, every field and every record ends in a NUL, which no field can contain, and the
+	// message comes last.
+	const output = await git(ports, ['log', '-z', '--format=%H%x00%an%x00%ae%x00%aI%x00%B', ...logArgs, '--']);
 	const head = await revision(ports, 'HEAD');
 	const upstream = await revision(ports, '@{upstream}');
 	const unshared = upstream === undefined
@@ -126,15 +134,18 @@ export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Pr
 	const me = (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--get', 'user.email'])).stdout.trim().toLowerCase();
 	const partial = await readPartialFiles(ports);
 
-	return splitZ(output).map(entry => {
-		const [id, authorName, email, time, message] = entry.split('\x1f');
+	const fields = splitZ(output);
+	const checkpoints: Checkpoint[] = [];
+	for (let index = 0; index + LOG_FIELDS <= fields.length; index += LOG_FIELDS) {
+		const [id, authorName, email, time, message] = fields.slice(index, index + LOG_FIELDS);
 		const [title, ...rest] = message.replace(/\s+$/, '').split('\n');
-		return {
+		checkpoints.push({
 			id, title, body: rest.join('\n').replace(/^\n+/, ''),
 			authorName, authorIsMe: me !== '' && email.toLowerCase() === me, time: new Date(time).toISOString(),
 			shared: unshared !== undefined && !unshared.has(id), partialFiles: partial.get(id) ?? [],
-		};
-	});
+		});
+	}
+	return checkpoints;
 }
 
 // --- Publishing ------------------------------------------------------------------------------
@@ -179,6 +190,21 @@ async function recordCheckEdits(ports: EnginePorts, plans: PathPlan[]): Promise<
 }
 
 /**
+ * Publishes as `publish` does. When the publish does not finish, the files hooks changed on disk
+ * (`extraPaths`, plus `unpublishedEdits`) are recorded as a `check-changed-files` operation
+ * instead, so Undo can still return them (spec 6.1), and the publish result is returned. A
+ * failure to record them leaves that result as it is.
+ */
+async function publishChunks(ports: EnginePorts, description: string, from: Published, to: Published, extraPaths: PathPlan[], unpublishedEdits: PathPlan[] = []): Promise<OperationResult> {
+	const published = await publish(ports, 'create-checkpoints', description, from, to, extraPaths);
+	const edits = [...extraPaths, ...unpublishedEdits];
+	if (published.kind !== 'done' && edits.length > 0) {
+		await recordCheckEdits(ports, edits).catch(() => undefined);
+	}
+	return published;
+}
+
+/**
  * Splits the hook edits after a chunk stopped (`current`, measured from the working files just
  * before the request's first hook ran) from those of the chunks that passed (`earlier`). `kept`
  * are the earlier edits that still have the content the earlier hooks wrote, which the published
@@ -213,6 +239,9 @@ function describeCreate(chunks: Chunk[]): string {
  * hook passes and leaves its tree unchanged, the whole chain is published by one operation (one
  * undo entry): the branch moves to the last candidate, the index takes its tree, and the working
  * files stay as they are, apart from the files hooks changed on disk, which the operation records.
+ *
+ * When a publish does not finish, its result is returned, and the files hooks changed on disk are
+ * recorded as a `check-changed-files` operation so Undo can return them.
  *
  * At the first chunk whose hook rejects it or changes its tree, the chunks before it are
  * published first (one operation), and the result names the chunk by `chunkIndex`:
@@ -290,7 +319,7 @@ export async function createCheckpoints(ports: EnginePorts, basis: string, chunk
 		let state = start;
 		if (index > 0) {
 			const passed: Published = { branchCommit: parent, indexTree: trees[index - 1].tree };
-			const published = await publish(ports, 'create-checkpoints', describeCreate(chunks.slice(0, index)), start, passed, kept);
+			const published = await publishChunks(ports, describeCreate(chunks.slice(0, index)), start, passed, kept, added);
 			if (published.kind !== 'done') {
 				return published;
 			}
@@ -305,7 +334,7 @@ export async function createCheckpoints(ports: EnginePorts, basis: string, chunk
 		}
 		return holdForApproval(ports, branch, describeCreate([chunk]), state, result, result.candidate, added, index);
 	}
-	return publish(ports, 'create-checkpoints', describeCreate(chunks), start, { branchCommit: parent, indexTree: base }, edits);
+	return publishChunks(ports, describeCreate(chunks), start, { branchCommit: parent, indexTree: base }, edits);
 }
 
 // --- Pending approvals -----------------------------------------------------------------------
@@ -401,6 +430,16 @@ async function discardPending(ports: EnginePorts, record: JournalRecord & { pend
 }
 
 /**
+ * Discards a pending record whose project changed, recording its hook edits for Undo, and returns
+ * `project-changed`. When the record could not be discarded or the edits could not be recorded,
+ * that result is returned instead, so the caller never takes the approval as closed while it is open.
+ */
+async function projectChanged(ports: EnginePorts, record: JournalRecord & { pending: NonNullable<JournalRecord['pending']> }): Promise<OperationResult> {
+	const discarded = await discardPending(ports, record);
+	return discarded === undefined || discarded.kind === 'done' ? { kind: 'project-changed' } : discarded;
+}
+
+/**
  * Publishes the candidate of a pending approval without running the hooks again. It is
  * published only while the branch, its commit, the index, and the working files are those the
  * candidate was built from; otherwise the candidate is removed (with the hook edits recorded as
@@ -423,15 +462,13 @@ export async function acceptCheckedCheckpoint(ports: EnginePorts, token: string)
 	const indexTree = await readIndexTree(ports);
 	const worktree = (await worktreeTree(ports)).tree;
 	if (branch !== record.branch || branchCommit !== record.before.branchCommit || indexTree !== record.before.indexTree || worktree !== record.before.worktreeTree) {
-		await discardPending(ports, record);
-		return { kind: 'project-changed' };
+		return projectChanged(ports, record);
 	}
 	const result = await runOperation(ports, {
 		kind: 'create-checkpoints', description: record.description, expected: record.before, after: record.after, collisionChoices: [], extraPaths: record.paths,
 	});
 	if (result.kind === 'changes-moved') {
-		await discardPending(ports, record);
-		return { kind: 'project-changed' };
+		return projectChanged(ports, record);
 	}
 	if (result.kind === 'done') {
 		await noteNewOperation(ports, 'create-checkpoints');
@@ -484,9 +521,25 @@ export async function readCommit(ports: EnginePorts, commit: string): Promise<Co
 	return object;
 }
 
-/** The commit `id` names, when `id` is an object id of a commit. */
+/**
+ * Like `readCommit`, for a commit that is made again: a commit with an `encoding` header gets its
+ * author name, email, and message converted to UTF-8 by git (`--encoding=UTF-8`), and no
+ * `encoding`, because the commit made from it is written in UTF-8.
+ */
+async function readCommitUtf8(ports: EnginePorts, commit: string): Promise<CommitObject> {
+	const object = await readCommit(ports, commit);
+	if (object.encoding === undefined) {
+		return object;
+	}
+	const output = Buffer.from(await git(ports, ['show', '-s', '--encoding=UTF-8', '--format=format:%an%x00%ae%x00%B', commit], { binary: true }), 'latin1');
+	const [name, email] = output.toString('utf8').split('\0');
+	const messageStart = output.indexOf(0, output.indexOf(0) + 1) + 1;
+	return { tree: object.tree, parents: object.parents, author: { name, email, date: object.author.date }, message: output.subarray(messageStart) };
+}
+
+/** The commit `id` names, when `id` is a full object id of a commit. */
 export async function resolveCommit(ports: EnginePorts, id: string): Promise<string | undefined> {
-	if (!OBJECT_ID.test(id)) {
+	if (!FULL_OBJECT_ID.test(id)) {
 		return undefined;
 	}
 	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', `${id}^{commit}`]);
@@ -515,7 +568,8 @@ export async function isSharedCommit(ports: EnginePorts, branch: string, commit:
  * again with `git commit-tree`: the same tree, other parents, author, author date, and message;
  * the first parent is the commit made just before it. The committer is the current person, at
  * the current time, and the commits are signed when `commit.gpgsign` is set, as for new
- * checkpoints. The branch then moves through `runOperation`; the index and working files do not
+ * checkpoints. The new commits are written in UTF-8: a commit in another encoding has its author
+ * and message converted (see `readCommitUtf8`). The branch then moves through `runOperation`; the index and working files do not
  * change. A title that fails the rules of `createCheckpoints` gives `nothing-to-do bad-title`,
  * and a message equal to the current one gives `nothing-to-do unchanged`.
  */
@@ -542,7 +596,7 @@ export async function editDescription(ports: EnginePorts, id: string, title: str
 		return { kind: 'unavailable', reason: 'shared-checkpoint' };
 	}
 	const message = Buffer.from(await git(ports, ['stripspace'], { stdin: composeMessage(title, body) }), 'utf8');
-	const original = await readCommit(ports, target);
+	const original = await readCommitUtf8(ports, target);
 	if (Buffer.compare(message, original.message) === 0) {
 		return nothingToDo('unchanged');
 	}
@@ -552,11 +606,10 @@ export async function editDescription(ports: EnginePorts, id: string, title: str
 	const partial = await readPartialFiles(ports);
 	let previous: string | undefined;
 	for (const commit of history.slice(0, position + 1).reverse()) {
-		const object = commit === target ? original : await readCommit(ports, commit);
+		const object = commit === target ? original : await readCommitUtf8(ports, commit);
 		const parents = previous === undefined ? object.parents : [previous, ...object.parents.slice(1)];
 		const made = await runGit(ports.git, [
-			'-C', ports.projectRoot, ...(object.encoding === undefined ? [] : ['-c', `i18n.commitEncoding=${object.encoding}`]),
-			'commit-tree', object.tree, ...parents.flatMap(parentId => ['-p', parentId]), ...sign,
+			'-C', ports.projectRoot, 'commit-tree', object.tree, ...parents.flatMap(parentId => ['-p', parentId]), ...sign,
 		], {
 			stdin: commit === target ? message : object.message,
 			env: { GIT_AUTHOR_NAME: object.author.name, GIT_AUTHOR_EMAIL: object.author.email, GIT_AUTHOR_DATE: object.author.date, GIT_COMMITTER_DATE: date },
