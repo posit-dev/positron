@@ -14,7 +14,7 @@ import type { ClientRequest, IncomingMessage } from 'http';
  * upgrades.
  */
 export function forwardOriginalHost(proxyReq: ClientRequest, req: IncomingMessage): void {
-	const host = req.headers['x-forwarded-host'] ?? req.headers.host;
+	const host = req.headers['x-forwarded-host'] || req.headers.host;
 	if (host) {
 		proxyReq.setHeader('X-Forwarded-Host', host);
 	}

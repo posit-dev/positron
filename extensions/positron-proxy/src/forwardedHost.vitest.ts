@@ -94,4 +94,10 @@ describe('forwardOriginalHost', () => {
 
 		expect(upgradeHeaders?.['x-forwarded-host']).toBe('positron.example.com');
 	});
+
+	it('falls back to Host when an outer proxy sends an empty X-Forwarded-Host', async () => {
+		await upgrade(proxyPort, { 'Host': 'positron.example.com:8080', 'X-Forwarded-Host': '' });
+
+		expect(upgradeHeaders?.['x-forwarded-host']).toBe('positron.example.com:8080');
+	});
 });
