@@ -6,7 +6,7 @@
 import { mustGit, runGit, splitZ } from './git';
 import { acquireLock, engineDirectory, JournalRecord, OperationRole, PathPlan, readBranch, readIndexTree, readRecords, TriState } from './journal';
 import { EnginePorts } from './ports';
-import { runOperation } from './runOperation';
+import { CreatedFile, runOperation } from './runOperation';
 import { SNAPSHOT_REF_PREFIX, withTempIndex, worktreeTree } from './trees';
 import { CollisionChoice, OperationKind, OperationResult } from './types';
 
@@ -221,7 +221,7 @@ async function readProject(ports: EnginePorts): Promise<{ branch: string; state:
  *   After a Redo of the entry, they return instead to the latest Redo's own snapshot, so edits
  *   made between an Undo and the Redo that followed it return too. A file that the restored
  *   operation (or Redo) created is removed when the snapshot lacks it, even when HEAD does not
- *   track it, while it still has the content the engine wrote; one changed since stays.
+ *   track it, while it still has the bytes the engine wrote (compared with no filters); one changed since stays.
  * - every other kind (`create-checkpoints`, `reverse-checkpoint`, `edit-description`,
  *   `check-changed-files`): the branch returns to its before commit; the index returns to its
  *   before tree only while it is still at the operation's after tree; each file the operation
@@ -269,7 +269,15 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 		role: { kind: 'undo', target: record.id },
 		returnKept: { operationId: restored.id, moves: restored.keptMoves },
 		// The files the restored operation created are not in its snapshot, and it may remove them.
-		...(RESTORES_SNAPSHOT.has(record.kind) ? { removableCreated: restored.paths.filter(plan => plan.before === null) } : {}),
+		...(RESTORES_SNAPSHOT.has(record.kind) ? { removableCreated: createdFiles(restored) } : {}),
+	});
+}
+
+/** The files `record` created, each with the id of the raw bytes it wrote (its `written` entry). */
+function createdFiles(record: JournalRecord): CreatedFile[] {
+	return record.paths.filter(plan => plan.before === null).map(plan => {
+		const written = record.progress.find(entry => entry.step === 'written' && entry.path === plan.path);
+		return written?.step === 'written' ? { ...plan, raw: written.raw } : plan;
 	});
 }
 

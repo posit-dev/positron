@@ -49,6 +49,8 @@ describe('runOperation', { timeout: 30_000 }, () => {
 			{ step: 'path', path: 'b.txt' },
 			{ step: 'path', path: 'a.txt', temporary: expect.stringMatching(/^\.a\.txt\.[0-9a-f]{12}\.positron-checkpoints-tmp$/) },
 			{ step: 'path', path: 'd.txt', temporary: expect.stringMatching(/^\.d\.txt\.[0-9a-f]{12}\.positron-checkpoints-tmp$/) },
+			// d.txt is created, so the id of the bytes written is recorded.
+			{ step: 'written', path: 'd.txt', raw: await must(repo, ['hash-object', '--no-filters', '--', 'd.txt']) },
 			{ step: 'index' },
 			{ step: 'branch' },
 		]);

@@ -255,6 +255,34 @@ describe('startTracking', { timeout: 60_000 }, () => {
 		expect(await repo.read('tools/lib/x.txt')).toBe('x\n');
 	});
 
+	test('a folder inside a parent repository with no checkpoints is refused, and nothing changes', async () => {
+		const parent = await tempRepo();
+		repos.push(parent);
+		await parent.write('other.txt', 'not mine\n');
+		await parent.write('opened/analysis.R', 'x <- 1\n');
+		const opened = path.join(parent.root, 'opened');
+		const ports = { ...parent.ports, projectRoot: opened, openedFolder: opened };
+		const listing = async () => [await fsp.readdir(parent.root), await fsp.readdir(opened), await fsp.readdir(path.join(parent.root, '.git'))];
+		const config = await fsp.readFile(path.join(parent.root, '.git', 'config'), 'utf8');
+		const before = await listing();
+
+		expect(await startTracking(ports, identity, 'proposed\n')).toEqual({ kind: 'unavailable', reason: 'unusual-state', detail: 'inside-another-project' });
+
+		expect(await listing()).toEqual(before);
+		expect(await fsp.readFile(path.join(parent.root, '.git', 'config'), 'utf8')).toBe(config);
+		expect((await parent.git(['rev-parse', '--verify', '-q', 'HEAD'])).exitCode).not.toBe(0);
+	});
+
+	test.skipIf(process.platform === 'win32')('a project opened through a symbolic link can start', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('analysis.R', 'x <- 1\n');
+		const link = path.join(path.dirname(repo.root), 'link');
+		await fsp.symlink(repo.root, link);
+
+		expect(await startTracking({ ...repo.ports, openedFolder: link }, identity)).toMatchObject({ kind: 'done' });
+	});
+
 	test('a project that has a checkpoint is refused', async () => {
 		const repo = await tempRepo();
 		repos.push(repo);

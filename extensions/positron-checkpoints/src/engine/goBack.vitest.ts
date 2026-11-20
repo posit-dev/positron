@@ -157,6 +157,26 @@ describe('goBack', { timeout: 60_000 }, () => {
 		expect(await repo.read('old.txt')).toBe('my edit\n');
 	});
 
+	test('undo leaves a file the checkpoint restored when the edit since is one a clean filter strips', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		// As a notebook output stripper does, the filter leaves lines out of what git stores.
+		await must(repo, ['config', 'filter.strip.clean', 'sed -e "/^output/d"']);
+		await must(repo, ['config', 'filter.strip.smudge', 'cat']);
+		await repo.write('.gitattributes', '*.txt filter=strip\n');
+		await repo.write('a.txt', 'one\n');
+		await repo.write('old.txt', 'old at A\n');
+		const a = await repo.commit('A');
+		await must(repo, ['rm', '-q', 'old.txt']);
+		await repo.commit('Remove old');
+
+		const id = doneId(await goBackTo(repo.ports, a, []));
+		await repo.write('old.txt', 'old at A\noutput the person made\n');
+		doneId(await undo(repo.ports, id, []));
+
+		expect(await repo.read('old.txt')).toBe('old at A\noutput the person made\n');
+	});
+
 	test('an untracked file where the checkpoint has a folder is a collision, and with a choice it is kept aside', async () => {
 		const repo = await tempRepo();
 		repos.push(repo);

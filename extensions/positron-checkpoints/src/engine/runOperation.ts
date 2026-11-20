@@ -33,16 +33,21 @@ export interface OperationPlan {
 	returnKept?: JournalRecord['returnKept'];
 	/**
 	 * Files an earlier operation created: its record lists each with a before value of absent and
-	 * the content it wrote as `after`. When `after` drops such a file, it is removed even though
-	 * the before index does not track it, but only while it still has that content and mode.
+	 * the content it wrote as `after`, and `raw` is the id of the bytes it wrote (its `written`
+	 * progress entry). When `after` drops such a file, it is removed even though the before index
+	 * does not track it, but only while it still has that mode and, compared byte for byte with
+	 * no filters, those bytes. A regular file with no `raw` is never removed.
 	 */
-	removableCreated?: PathPlan[];
+	removableCreated?: CreatedFile[];
 	/**
 	 * Files on disk in the way of the operation that the caller found, beyond those the collision
 	 * check finds. They are answered and moved aside as its collisions are.
 	 */
 	extraCollisions?: PathCollision[];
 }
+
+/** A file an earlier operation created, with the id of the bytes it wrote when it is a regular file. */
+export interface CreatedFile extends PathPlan { raw?: string }
 
 /** A step found a part that is no longer at the value the record expects. */
 class StepRefused extends Error { }
@@ -292,6 +297,11 @@ async function writeForward(ports: EnginePorts, id: string, plan: PathPlan, back
 	await announce(ports, id, started, temporary === undefined ? { step: 'path', path: plan.path } : { step: 'path', path: plan.path, temporary });
 	if (temporary !== undefined) {
 		await fillTemporary(ports, plan, temporary);
+		if (plan.before === null && plan.afterMode !== '120000') {
+			// Undo removes a created file only while it has these bytes (see `hasWrittenBytes`).
+			const raw = await mustGit(ports.git, ['-C', ports.projectRoot, 'hash-object', '--no-filters', '--', temporary], { timeoutMs: STAGING_TIMEOUT_MS });
+			await appendProgress(ports, id, { step: 'written', path: plan.path, raw: raw.stdout.trim() });
+		}
 	}
 	const [{ part }] = await classifyPaths(ports, [plan]);
 	if (part !== 'before') {
@@ -368,7 +378,7 @@ function withExtraCollisions(found: PathCollision[], extra: PathCollision[]): Pa
  * removed (spec 6.2), unless `removableCreated` lists it with its current content and mode (an
  * earlier operation created it, and it is unchanged since). Submodules are not written.
  */
-async function planPaths(ports: EnginePorts, before: TriState, after: TriState, extraPaths: PathPlan[], removableCreated: PathPlan[]): Promise<PathPlan[]> {
+async function planPaths(ports: EnginePorts, before: TriState, after: TriState, extraPaths: PathPlan[], removableCreated: CreatedFile[]): Promise<PathPlan[]> {
 	const git = (args: string[]) => mustGit(ports.git, ['-C', ports.projectRoot, ...args], { timeoutMs: STAGING_TIMEOUT_MS });
 	const fields = splitZ((await git(['diff-tree', '-r', '-z', '--no-renames', before.worktreeTree, after.worktreeTree])).stdout);
 	const tracked = new Set(splitZ((await git(['ls-tree', '-r', '-z', '--name-only', before.indexTree])).stdout));
@@ -391,8 +401,8 @@ async function planPaths(ports: EnginePorts, before: TriState, after: TriState, 
 			afterMode,
 		};
 		if (plan.after === null) {
-			const created = removableCreated.some(earlier => earlier.path === file && earlier.before === null && earlier.after === plan.before && earlier.afterMode === plan.beforeMode);
-			if (tracked.has(file) || created) {
+			const created = removableCreated.find(earlier => earlier.path === file && earlier.before === null && earlier.after === plan.before && earlier.afterMode === plan.beforeMode);
+			if (tracked.has(file) || (created !== undefined && await hasWrittenBytes(ports, created))) {
 				removals.push(plan);
 			}
 		} else {
@@ -401,6 +411,23 @@ async function planPaths(ports: EnginePorts, before: TriState, after: TriState, 
 	}
 	const listed = new Set([...removals, ...writes].map(plan => plan.path));
 	return [...removals, ...writes, ...extraPaths.filter(extra => !listed.has(extra.path))];
+}
+
+/**
+ * True when the file an earlier operation created still has the bytes it wrote. Clean filters
+ * (a notebook output stripper, for example) can give two different files one blob id, so a
+ * regular file is compared by the id of its raw bytes. A symbolic link's blob is its target,
+ * which no filter changes.
+ */
+async function hasWrittenBytes(ports: EnginePorts, created: CreatedFile): Promise<boolean> {
+	if (created.afterMode === '120000') {
+		return true;
+	}
+	if (created.raw === undefined) {
+		return false;
+	}
+	const raw = await runGit(ports.git, ['-C', ports.projectRoot, 'hash-object', '--no-filters', '--', created.path], { timeoutMs: STAGING_TIMEOUT_MS });
+	return raw.exitCode === 0 && raw.stdout.trim() === created.raw;
 }
 
 /** The mode of a file the engine writes, null for an absent file, undefined for a submodule. */

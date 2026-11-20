@@ -78,8 +78,10 @@ function escapePattern(file: string): string {
 /**
  * Starts keeping checkpoints in the opened folder (spec 6.6, starting point B). It is allowed in a
  * folder that is not a repository, and in a repository with no checkpoints yet (its branch has no
- * commit), so a start whose first checkpoint did not finish can be run again. The steps a
- * repository already has are skipped:
+ * commit) whose top is the opened folder (compared with symbolic links resolved), so a start
+ * whose first checkpoint did not finish can be run again. In a repository with no checkpoints
+ * whose top is above the opened folder, nothing changes and the result is `unavailable
+ * unusual-state inside-another-project`. The steps a repository already has are skipped:
  *
  * 1. Without `identity`, git must have an explicit name and email (see `isIdentityMissing`);
  *    otherwise nothing changes and the result is `unavailable nothing-to-do identity-missing`.
@@ -108,6 +110,11 @@ export async function startTracking(ports: EnginePorts, identity?: { name: strin
 	const root = isRepository ? top.stdout.replace(/\r?\n$/, '') : ports.openedFolder;
 	if (isRepository && (await runGit(ports.git, ['-C', root, 'rev-parse', '--verify', '-q', 'HEAD'])).exitCode === 0) {
 		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'already-tracking' };
+	}
+	// A repository whose top is above the opened folder belongs to another project: starting would
+	// write the identity and the ignore file there and record its whole tree.
+	if (isRepository && await realPath(root) !== await realPath(ports.openedFolder)) {
+		return { kind: 'unavailable', reason: 'unusual-state', detail: 'inside-another-project' };
 	}
 	const project: EnginePorts = { ...ports, projectRoot: root };
 	if (identity !== undefined && !isUsableIdentity(identity)) {
@@ -141,6 +148,11 @@ export async function startTracking(ports: EnginePorts, identity?: { name: strin
 	}
 	const started = (await readRecords(project)).filter(record => record.status === 'complete' && record.kind === 'start-tracking').pop();
 	return { kind: 'done', operationId: started?.id ?? created.operationId, hookEditedFiles: created.hookEditedFiles };
+}
+
+/** The path with every symbolic link resolved, or the path made absolute when it cannot be resolved. */
+async function realPath(folder: string): Promise<string> {
+	return fsp.realpath(folder).catch(() => path.resolve(folder));
 }
 
 /** True when both parts are set and git can store them as they are. */

@@ -26,12 +26,15 @@ export interface PathPlan { path: string; before: string | null; after: string |
 /**
  * An entry the engine appends before it changes a part. A `path` entry names the temporary file
  * the engine creates for the path's new content, when there is one; the engine removes only
- * temporary files named in its journal. A `kept-returned` entry follows a complete record whose
+ * temporary files named in its journal. A `written` entry follows the `path` entry of a regular
+ * file the operation creates (its before value is absent), once the new content is in the
+ * temporary file: `raw` is the blob id of those bytes as they are on disk, with no filters (`git
+ * hash-object --no-filters`). A `kept-returned` entry follows a complete record whose
  * `returnKept` files were all handled (see `returnKeptFiles`).
  */
 export type Progress =
-	| ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' }
-	| { step: 'kept-returned' };
+	| ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'written'; path: string; raw: string }
+	| { step: 'index' } | { step: 'branch' } | { step: 'kept-returned' };
 
 /**
  * A file outside the snapshot that an operation moves aside (spec 6.2), from its place in the

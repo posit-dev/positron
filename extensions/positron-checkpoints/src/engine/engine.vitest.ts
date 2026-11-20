@@ -172,6 +172,38 @@ describe('engine', { timeout: 120_000 }, () => {
 		expect(await engine.reverseCheckpoint('0'.repeat(40))).toEqual({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'not-in-history' });
 	});
 
+	test('idle resolves once the mutating call that runs has ended', async () => {
+		const { repo } = await project();
+		await repo.clone().then(clone => repos.push(clone));
+		let reachPush: () => void = () => { };
+		const pushReached = new Promise<void>(resolve => { reachPush = resolve; });
+		let releasePush: () => void = () => { };
+		const pushReleased = new Promise<void>(resolve => { releasePush = resolve; });
+		const network = {
+			...repo.ports.network,
+			push: async (branch: string) => {
+				reachPush();
+				await pushReleased;
+				return repo.ports.network.push(branch);
+			},
+		};
+		const engine = await start({ ...repo.ports, network });
+		await repo.write('a.txt', 'two\n');
+		await checkpoint(engine, 'Edit a', ['a.txt']);
+		await engine.idle();
+
+		const sending = engine.sendChanges();
+		await pushReached;
+		let idle = false;
+		const waiting = engine.idle().then(() => { idle = true; });
+		await new Promise(resolve => setTimeout(resolve, 50));
+		expect(idle).toBe(false);
+
+		releasePush();
+		await waiting;
+		expect((await sending).kind).toBe('done');
+	});
+
 	test('onDidChangeState fires after each mutating call and after notifyChanged', async () => {
 		const { repo, a } = await project();
 		const engine = await start(repo.ports);

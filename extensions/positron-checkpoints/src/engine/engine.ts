@@ -28,6 +28,11 @@ export interface Engine extends CheckpointsEngine {
 	notifyChanged(): void;
 	/** Removes every listener. Later events reach no one. */
 	dispose(): void;
+	/**
+	 * Resolves once no mutating call (and no `checkShared`) is running, including calls that start
+	 * while it waits. The host awaits it before it replaces the engine.
+	 */
+	idle(): Promise<void>;
 }
 
 /** Kinds whose undo and redo always set the working files to a snapshot (spec 6.3). */
@@ -77,6 +82,17 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 	/** The local and shared commits when the latest preview found overlaps. */
 	let overlapInputs: { head: string; upstream: string } | undefined;
 	let lastChecked: string | undefined;
+	/** The mutating and `checkShared` calls that run now. */
+	const inFlight = new Set<Promise<unknown>>();
+	/** Lists `call` in `inFlight` until it settles. */
+	const track = <T>(call: Promise<T>): Promise<T> => {
+		inFlight.add(call);
+		const settled = () => {
+			inFlight.delete(call);
+		};
+		call.then(settled, settled);
+		return call;
+	};
 
 	const log = (message: string) => {
 		try {
@@ -132,17 +148,19 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			return { kind: 'unavailable', reason: 'busy' };
 		}
 		running = true;
-		let ran = false;
-		try {
-			const outcome = await guarded(guard, call, { expire: true });
-			ran = outcome.ran;
-			return outcome.result;
-		} finally {
-			running = false;
-			if (ran) {
-				fire();
+		return track((async () => {
+			let ran = false;
+			try {
+				const outcome = await guarded(guard, call, { expire: true });
+				ran = outcome.ran;
+				return outcome.result;
+			} finally {
+				running = false;
+				if (ran) {
+					fire();
+				}
 			}
-		}
+		})());
 	};
 
 	/** Runs `checkShared` under the rules of `createEngine`, outside the busy flag. */
@@ -390,9 +408,9 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		reverseCheckpoint: id => mutate({}, current => reverseCheckpoint(current, id)),
 		checkShared: () => {
 			if (checking === undefined) {
-				checking = checkSharedOnce().finally(() => {
+				checking = track(checkSharedOnce().finally(() => {
 					checking = undefined;
-				});
+				}));
 			}
 			return checking;
 		},
@@ -442,6 +460,11 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		},
 		notifyChanged: fire,
 		dispose: () => listeners.clear(),
+		idle: async () => {
+			while (inFlight.size > 0) {
+				await Promise.allSettled([...inFlight]);
+			}
+		},
 	};
 }
 

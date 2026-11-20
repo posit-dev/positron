@@ -225,6 +225,34 @@ describe('getting and sending changes', { timeout: 60_000 }, () => {
 		expect(await everything(repo)).toEqual(before);
 	});
 
+	test('a preview whose upstream moves while it is built has the basis of the upstream it lists', async () => {
+		const { repo, maya } = await cleanIncoming(repos);
+		const listed = await must(repo, ['rev-parse', 'refs/remotes/origin/main']);
+		// Maya shares more, but the project has not checked yet.
+		await maya.write('b.txt', 'more\n');
+		await maya.commit('More');
+		await repo.pushFrom(maya);
+		let moved = false;
+		const movingGit: GitRunner = async (args, options) => {
+			if (!moved && args.includes('merge-tree')) {
+				// The upstream moves after the preview read it and before it computes the basis.
+				moved = true;
+				await must(repo, ['fetch', '-q', 'origin']);
+			}
+			return repo.ports.git(args, options);
+		};
+
+		const preview = await previewIncoming({ ...repo.ports, git: movingGit });
+
+		expect(moved).toBe(true);
+		expect(await must(repo, ['rev-parse', 'refs/remotes/origin/main'])).not.toBe(listed);
+		expect(preview.incoming.map(checkpoint => checkpoint.title)).toEqual(['Their change']);
+		const before = await everything(repo);
+		const result = await getIncoming(repo.ports, preview.basis, [], []);
+		expect(result).toMatchObject({ kind: 'inputs-changed', changed: ['shared'] });
+		expect(await everything(repo)).toEqual(before);
+	});
+
 	test('an edit to an unrelated file does not reject the resolution and is kept', async () => {
 		const { repo } = await overlapProject(repos, 'text');
 		const { preview, resolution } = await resolve(repo, { type: 'take', side: 'mine' });
@@ -302,6 +330,27 @@ describe('getting and sending changes', { timeout: 60_000 }, () => {
 		]);
 	});
 
+	test('a send that reports success but leaves the upstream without the checkpoints is not-sent and keeps both lists', async () => {
+		const { repo } = await sharedProject(repos);
+		await repo.write('c.txt', 'mine\n');
+		doneId(await createCheckpoints(repo.ports, (await readChanges(repo.ports)).basis, [{ title: 'Add c.txt', body: '', hunkIds: [], wholeFiles: ['c.txt'] }]));
+		const undoBefore = await undoHead(repo.ports);
+		const shared = await must(repo, ['rev-parse', 'refs/remotes/origin/main']);
+		// The checkpoints go to a branch of another name, which is not the upstream.
+		const push = async (branch: string) => {
+			await must(repo, ['push', '-q', 'origin', `${branch}:elsewhere`]);
+			return { ok: true } as const;
+		};
+		const elsewhere = { ...repo.ports, network: { ...repo.ports.network, push } };
+
+		const result = await sendChanges(elsewhere);
+
+		expect(result).toEqual({ kind: 'rejected', reason: 'unknown', detail: 'not-sent' });
+		expect(await must(repo, ['rev-parse', 'refs/remotes/origin/main'])).toBe(shared);
+		expect(await undoHead(repo.ports)).toEqual(undoBefore);
+		expect((await readOperationLog(repo.ports)).map(entry => entry.record.kind)).toEqual(['create-checkpoints']);
+	});
+
 	test('sendChanges when the shared copy moved returns rejected shared-copy-moved', async () => {
 		const { repo, maya } = await sharedProject(repos);
 		await maya.write('b.txt', 'theirs\n');
@@ -346,6 +395,31 @@ describe('getting and sending changes', { timeout: 60_000 }, () => {
 			expect(result.preview.overlaps.map(overlap => overlap.id)).not.toContain(resolution.overlapId);
 		}
 		expect(await everything(repo)).toEqual(before);
+	});
+
+	test('an ignored file in a reviewed folder is not part of the basis, and a file over 5 MB counts by size and time', async () => {
+		const { repo, maya } = await sharedProject(repos, { ff: 'a file\n' });
+		await mayaShares(repo, maya, { ff: 'their edit of the file\n' });
+		await fsp.rm(path.join(repo.root, 'ff'));
+		await repo.write('ff/inside.txt', 'in my folder\n');
+		const big = path.join(repo.root, 'ff', 'big.bin');
+		await fsp.writeFile(big, Buffer.alloc(6 * 1024 * 1024, 1));
+		const time = new Date('2026-01-02T00:00:00Z');
+		await fsp.utimes(big, time, time);
+		const { preview, resolution } = await resolve(repo, { type: 'take', side: 'theirs' });
+
+		// The project ignores *.csv.
+		await repo.write('ff/debug.csv', 'written by a tool\n');
+		expect((await previewIncoming(repo.ports)).basis).toBe(preview.basis);
+		// Other content of the same size, with the same time, is not read.
+		await fsp.writeFile(big, Buffer.alloc(6 * 1024 * 1024, 2));
+		await fsp.utimes(big, time, time);
+		expect((await previewIncoming(repo.ports)).basis).toBe(preview.basis);
+		await fsp.utimes(big, new Date('2026-01-03T00:00:00Z'), new Date('2026-01-03T00:00:00Z'));
+		expect((await previewIncoming(repo.ports)).basis).not.toBe(preview.basis);
+		await fsp.utimes(big, time, time);
+
+		expect((await getIncoming(repo.ports, preview.basis, [resolution], [])).kind).not.toBe('inputs-changed');
 	});
 
 	/** A shared project where Maya and a local checkpoint of mine both changed data.bin and data2.bin. */
