@@ -40,6 +40,9 @@
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"did":"open-folder","title":"ws2","folder":"/private/tmp/ws2","was":{...},"reattached":false}
+# "folder" is a file path, with a lower-case drive on Windows (c:\Users\...),
+# or the URI itself for a folder not on this machine (vscode-remote://...).
+# open-folder compares it with PATH ignoring case on Windows.
 # Exit code: 0 when the window is back as asked, 1 when not, 2 on a usage error.
 
 # Implemented in dp-window.ts.
