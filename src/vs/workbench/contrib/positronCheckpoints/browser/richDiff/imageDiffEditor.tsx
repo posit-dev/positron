@@ -43,6 +43,11 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
 	svg: 'image/svg+xml',
 };
 
+/** True when the path has one of the image extensions. */
+export function isImagePath(path: string): boolean {
+	return mimeTypeOf(path) !== 'application/octet-stream';
+}
+
 function mimeTypeOf(path: string): string {
 	return IMAGE_MIME_TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream';
 }

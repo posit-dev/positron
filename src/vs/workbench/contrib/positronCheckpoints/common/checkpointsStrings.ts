@@ -139,6 +139,7 @@ const changes = {
 	previousName: (oldPath: string) => localize('positron.checkpoints.changes.previousName', "was {0}", oldPath),
 	changedFile: () => localize('positron.checkpoints.changes.changedFile', "changed"),
 	binaryFile: (size: string) => localize('positron.checkpoints.changes.binaryFile', "data file, {0}", size),
+	imageFile: (size: string) => localize('positron.checkpoints.changes.imageFile', "image, {0}", size),
 	tooLarge: (path: string, limitMegabytes: number) => localize('positron.checkpoints.changes.tooLarge', "{0} is over {1} MB. It is left out of the version unless you include it.", path, limitMegabytes),
 	titleTooLong: (limit: number) => localize('positron.checkpoints.changes.titleTooLong', "The title can have up to {0} characters.", limit),
 	chunkTitle: (index: number) => localize('positron.checkpoints.changes.chunkTitle', "Version {0}", index),

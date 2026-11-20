@@ -528,6 +528,12 @@ describe('Changes section and checkpoint dialog', () => {
 			}
 		});
 
+		test('a binary image is named an image, and another binary file a data file', async () => {
+			renderPanel({ basis: 'b1', files: [changedFile('plot.png', { binary: true }), changedFile('model.rds', { binary: true })] });
+
+			expect(await rowTexts()).toEqual(['plot.pngchangedimage, 100B', 'model.rdschangeddata file, 100B']);
+		});
+
 		test('the same changes read again make no new request', async () => {
 			agent.setAvailable(true);
 			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });

@@ -9,6 +9,7 @@ import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IChangedFile } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { openDiff } from '../openDiff.js';
+import { isImagePath } from '../richDiff/imageDiffEditor.js';
 import { showCheckpointDialog } from './checkpointDialog.js';
 import { knownSizes, statusWord } from './fileStatus.js';
 import { SummaryText } from './summaryText.js';
@@ -78,7 +79,7 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 									<span className='checkpoints-file-note'>{Strings.changes.previousName(file.oldPath)}</span>
 								)}
 								{file.binary && (
-									<span className='checkpoints-file-note'>{Strings.changes.binaryFile(ByteSize.formatSize(file.sizeBytes))}</span>
+									<span className='checkpoints-file-note'>{(isImagePath(file.path) ? Strings.changes.imageFile : Strings.changes.binaryFile)(ByteSize.formatSize(file.sizeBytes))}</span>
 								)}
 								{notes.has(file.path) && (
 									<span className='checkpoints-file-note'>{notes.get(file.path)}</span>
