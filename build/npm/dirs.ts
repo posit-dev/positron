@@ -26,6 +26,7 @@ export let dirs = [
 	'extensions/authentication',
 	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
+	'extensions/positron-checkpoints',
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
 	'extensions/positron-dev-containers',

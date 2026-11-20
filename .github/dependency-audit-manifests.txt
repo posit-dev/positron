@@ -12,6 +12,7 @@ extensions/authentication
 extensions/next-edit-suggestions
 extensions/open-remote-ssh
 extensions/open-remote-wsl
+extensions/positron-checkpoints
 extensions/positron-code-cells
 extensions/positron-connections
 extensions/positron-data-driver-databricks

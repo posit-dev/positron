@@ -1,0 +1,33 @@
+{
+  "name": "positron-checkpoints",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "private": true,
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "14.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  },
+  "extensionDependencies": [
+    "vscode.git"
+  ]
+}
