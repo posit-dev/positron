@@ -260,7 +260,7 @@ describe('ImportDataModalDialog', () => {
 		renderDialog([createImporter()]);
 
 		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
-		expect(screen.queryByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: 'Include current filters and sorts' })).not.toBeInTheDocument();
 	});
 
 	it('offers the checkbox unchecked and generates without the view by default', async () => {
@@ -273,7 +273,7 @@ describe('ImportDataModalDialog', () => {
 		});
 		renderDialog([importer], undefined, fileUri, sortOnlyView);
 
-		expect(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' })).not.toBeChecked();
+		expect(await screen.findByRole('checkbox', { name: 'Include current filters and sorts' })).not.toBeChecked();
 		expect(await screen.findByText(codeTextMatching(/pd\.read_csv/))).toBeInTheDocument();
 		expect(requests.at(-1)?.view).toBeUndefined();
 	});
@@ -288,7 +288,7 @@ describe('ImportDataModalDialog', () => {
 			},
 		});
 		renderDialog([importer], undefined, fileUri, sortOnlyView);
-		const checkbox = await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+		const checkbox = await screen.findByRole('checkbox', { name: 'Include current filters and sorts' });
 
 		await user.click(checkbox);
 		expect(await screen.findByText(codeTextMatching(/x = 2/))).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe('ImportDataModalDialog', () => {
 		});
 		renderDialog([importer], undefined, fileUri, sortOnlyView);
 
-		await user.click(await screen.findByRole('checkbox', { name: 'Include current filters and sorts (experimental)' }));
+		await user.click(await screen.findByRole('checkbox', { name: 'Include current filters and sorts' }));
 
 		expect(await screen.findByRole('alert')).toHaveTextContent(
 			'Not included in the generated code: filter on "carrier" (regex_match)'
