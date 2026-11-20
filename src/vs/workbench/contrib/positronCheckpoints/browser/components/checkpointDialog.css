@@ -112,3 +112,20 @@
 .checkpoint-dialog-collision p {
 	margin: 0;
 }
+
+.checkpoint-dialog-choice {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
+.checkpoint-dialog-choice p {
+	margin: 0;
+}
+
+.checkpoint-dialog .checkpoints-git-details pre {
+	margin: 0;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	font-family: var(--monaco-monospace-font);
+}

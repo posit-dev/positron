@@ -11,3 +11,9 @@ export const LARGE_FILE_LIMIT_MEGABYTES = 50;
 
 /** `LARGE_FILE_LIMIT_MEGABYTES` in bytes. */
 export const LARGE_FILE_LIMIT_BYTES = LARGE_FILE_LIMIT_MEGABYTES * 1024 * 1024;
+
+/** The number of operations the undo list covers (spec 6.2). */
+export const UNDO_LIMIT_OPERATIONS = 50;
+
+/** The number of days an operation stays on the undo list (spec 6.2). */
+export const UNDO_LIMIT_DAYS = 30;

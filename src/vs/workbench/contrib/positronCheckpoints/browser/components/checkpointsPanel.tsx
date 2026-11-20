@@ -7,14 +7,18 @@ import '../media/positronCheckpoints.css';
 
 import { ChangesSection } from './changesSection.js';
 import { HistorySection } from './historySection.js';
+import { KeptFilesSection } from './keptFilesSection.js';
+import { RecoverySnapshotsSection, StateCards } from './stateCards.js';
 import { StatusHeader } from './statusHeader.js';
 import { SyncCard } from './syncCard.js';
+import { UndoRedoBar } from './undoRedoBar.js';
 import { useCheckpointsState } from './useCheckpointsState.js';
 import { useCheckpointsMessage } from './useRunAction.js';
 
 /**
  * The content of the Checkpoints view: the status header, the status line of the last action,
- * and the sections of a tracked project. In an unusual state the sections are disabled.
+ * the cards for open decisions, and the sections of a tracked project. In an unusual state the
+ * sections are disabled.
  */
 export const CheckpointsPanel = () => {
 	const view = useCheckpointsState();
@@ -30,14 +34,16 @@ export const CheckpointsPanel = () => {
 			<div aria-live='polite' className='checkpoints-message' role='status'>
 				{message}
 			</div>
+			{tracking && <StateCards view={view} />}
 			{tracking && (
 				// A disabled fieldset disables every control inside it.
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>
 					<SyncCard view={view} />
 					<ChangesSection view={view} />
 					<HistorySection view={view} />
-					{/* Section slot: kept files */}
-					{/* Section slot: undo and redo */}
+					<KeptFilesSection view={view} />
+					<RecoverySnapshotsSection view={view} />
+					<UndoRedoBar view={view} />
 				</fieldset>
 			)}
 		</div>

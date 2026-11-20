@@ -9,7 +9,9 @@ import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
+import { IIncomingPreview, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -19,14 +21,23 @@ import { UnsavedEditorsDecision } from '../../../../services/positronCheckpoints
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
+import { showCheckResultDialog } from '../../browser/components/checkResultDialog.js';
+import { showInterruptedDialog } from '../../browser/components/interruptedDialog.js';
 import { IRunActionContext, runAction, RunActionMode } from '../../browser/runAction.js';
-import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
+import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
+
+vi.mock('../../browser/components/checkResultDialog.js', () => ({ showCheckResultDialog: vi.fn() }));
+vi.mock('../../browser/components/interruptedDialog.js', () => ({ showInterruptedDialog: vi.fn() }));
 
 describe('runAction', () => {
 	let dirty: IWorkingCopy[] = [];
 	let prompted: IPrompt<UnsavedEditorsDecision>[] = [];
 
+	const notify = vi.fn();
+	const notification = stubInterface<INotificationService>({ notify, info: notify, warn: notify, error: notify, prompt: notify, status: notify });
+
 	const ctx = createTestContainer()
+		.stub(INotificationService, notification)
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies() { return dirty; } })
 		.stub(IUriIdentityService, { extUri })
 		.stub(IDialogService, {
@@ -48,6 +59,9 @@ describe('runAction', () => {
 	let messageService: CheckpointsMessageService;
 
 	beforeEach(() => {
+		vi.mocked(showCheckResultDialog).mockClear();
+		vi.mocked(showInterruptedDialog).mockClear();
+		notify.mockClear();
 		dirty = [];
 		prompted = [];
 		logError.mockClear();
@@ -166,5 +180,53 @@ describe('runAction', () => {
 		expect(result).toBe(engine.nextResult);
 		expect(logError).toHaveBeenCalledWith('The overlap editor could not open.', expect.anything());
 		expect(messageService.message).toBe('1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet.');
+	});
+
+	test('check results open the check result dialog, and an interrupted result opens the interrupted dialog from the state', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const failed: OperationResult = { kind: 'check-failed', output: 'x', hookEditedFiles: [] };
+		const changed: OperationResult = { kind: 'check-changed-checkpoint', token: 't', changedPaths: ['a.R'], hookEditedFiles: [] };
+		const interrupted = { operationId: 'op-5', description: 'Getting Maya\'s changes', unexpectedPaths: ['a.R'], indexUnexpected: false };
+		engine.state = fakeEngineState({ interrupted, recoverySnapshots: [{ operationId: 'op-5', time: '2026-11-19T10:00:00Z' }] });
+
+		const interruptedResult: OperationResult = { kind: 'interrupted' };
+
+		for (const result of [failed, changed, interruptedResult]) {
+			engine.nextResult = result;
+			await run('no-guard');
+		}
+
+		expect(vi.mocked(showCheckResultDialog).mock.calls.map(call => call[0])).toEqual([failed, changed]);
+		expect(vi.mocked(showInterruptedDialog).mock.calls.map(call => [call[0], call[1]])).toEqual([[interrupted, engine.state.recoverySnapshots]]);
+		expect(messageService.message).toBe('That action was interrupted, and some files were changed while it ran. Choose what to do next.');
+	});
+
+	test('no result kind produces a notification', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const preview: IIncomingPreview = { basis: 'b', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };
+		const results: OperationResult[] = [
+			{ kind: 'done', operationId: 'op', hookEditedFiles: ['a.R'] },
+			{ kind: 'check-failed', output: 'x', hookEditedFiles: [] },
+			{ kind: 'check-changed-checkpoint', token: 't', changedPaths: ['a.R'], hookEditedFiles: [] },
+			{ kind: 'overlaps', preview },
+			{ kind: 'inputs-changed', changed: ['shared'], preview },
+			{ kind: 'changes-moved' },
+			{ kind: 'project-changed' },
+			{ kind: 'rejected', reason: 'offline', detail: 'd' },
+			{ kind: 'could-not-finish', detail: 'd' },
+			{ kind: 'interrupted' },
+			{ kind: 'unavailable', reason: 'occupied' },
+			{ kind: 'unavailable', reason: 'stale-operation-id' },
+		];
+
+		for (const result of results) {
+			engine.nextResult = result;
+			await run('no-guard');
+		}
+		engine.nextResult = { kind: 'path-collisions', collisions: [] };
+		engine.queuedResults = [{ kind: 'could-not-finish', detail: 'd' }];
+		await run('no-guard');
+
+		expect(notify).not.toHaveBeenCalled();
 	});
 });

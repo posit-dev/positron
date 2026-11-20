@@ -13,7 +13,10 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { guardUnsavedEditors, UnsavedEditorsDecision, UnsavedEditorsMode } from '../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from './checkpointsMessages.js';
+import { showCheckResultDialog } from './components/checkResultDialog.js';
 import { showCollisionDialog } from './components/collisionDialog.js';
+import { IDialogActions } from './components/dialogActions.js';
+import { showInterruptedDialog } from './components/interruptedDialog.js';
 import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
 
 /**
@@ -33,14 +36,42 @@ export function projectRootUri(workspaceContextService: IWorkspaceContextService
 }
 
 /**
- * Shows the outcome of an action in the view. Every result kind shows its sentence on the status
- * line of the view; a plain success empties the line. Overlaps also open the overlap editor, and
- * so do changed inputs that still have overlaps to review.
+ * The actions of the dialogs that `routeResult` opens, and that the view opens from state. A
+ * dialog runs its engine calls through `runAction`, so their results are routed too.
+ */
+export function createDialogActions(instantiationService: IInstantiationService): IDialogActions {
+	return {
+		run: call => instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', call)),
+		removeRecoverySnapshot: async operationId => {
+			const { checkpointsService, messageService, logService } = instantiationService.invokeFunction(accessor => ({
+				checkpointsService: accessor.get(ICheckpointsService),
+				messageService: accessor.get(ICheckpointsMessageService),
+				logService: accessor.get(ILogService),
+			}));
+			try {
+				await checkpointsService.engine?.removeRecoverySnapshot(operationId);
+				return true;
+			} catch (error) {
+				logService.error('The recovery snapshot could not be removed.', error);
+				messageService.show(Strings.results.couldNotFinish());
+				return false;
+			}
+		},
+	};
+}
+
+/**
+ * Shows the outcome of an action in the view. Every result kind publishes its sentence on the
+ * status line of the view; a plain success empties the line. Overlaps also open the overlap
+ * editor, and so do changed inputs that still have overlaps to review. An interrupted action
+ * opens the interrupted-action dialog, and a project check result opens the check result dialog.
+ * Nothing becomes a notification.
  */
 async function routeResult(
 	messageService: ICheckpointsMessageService,
 	instantiationService: IInstantiationService,
 	logService: ILogService,
+	engine: ICheckpointsEngineProxy,
 	result: OperationResult
 ): Promise<void> {
 	switch (result.kind) {
@@ -58,15 +89,32 @@ async function routeResult(
 				}
 			}
 			return;
-		case 'done':
+		case 'interrupted':
+			messageService.show(Strings.results.forOperation(result));
+			try {
+				const state = await engine.getState();
+				if (state.interrupted) {
+					showInterruptedDialog(state.interrupted, state.recoverySnapshots, createDialogActions(instantiationService));
+				}
+			} catch (error) {
+				logService.error('The interrupted-action dialog could not open.', error);
+			}
+			return;
 		case 'check-failed':
 		case 'check-changed-checkpoint':
+			messageService.show(Strings.results.forOperation(result));
+			try {
+				showCheckResultDialog(result, createDialogActions(instantiationService));
+			} catch (error) {
+				logService.error('The project check dialog could not open.', error);
+			}
+			return;
+		case 'done':
 		case 'path-collisions':
 		case 'changes-moved':
 		case 'project-changed':
 		case 'rejected':
 		case 'could-not-finish':
-		case 'interrupted':
 		case 'unavailable':
 			messageService.show(Strings.results.forOperation(result));
 			return;
@@ -168,7 +216,7 @@ export async function runAction(
 			collisionChoices = mergeCollisionChoices(collisionChoices, chosen);
 			continue;
 		}
-		await routeResult(messageService, instantiationService, logService, result);
+		await routeResult(messageService, instantiationService, logService, engine, result);
 		return result;
 	}
 }

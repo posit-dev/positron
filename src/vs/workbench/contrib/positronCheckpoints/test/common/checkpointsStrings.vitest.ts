@@ -10,7 +10,7 @@ import { IIncomingPreview, OperationResult, RejectedReason, UnavailableReason, U
 
 const FORBIDDEN = /\b(branch|commit|stage[ds]?|rebase|merge|pull|push|fetch|HEAD|conflict)\b/i;
 
-const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-too-old', 'not-tracking', 'stale-operation-id', 'not-undoable', 'shared-checkpoint', 'timed-out', 'nothing-to-do'];
+const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-too-old', 'not-tracking', 'stale-operation-id', 'not-undoable', 'shared-checkpoint', 'timed-out', 'nothing-to-do', 'occupied'];
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
 
@@ -61,6 +61,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		cancel: [[]], undo: [['Get Maya\'s changes']], redo: [['Get Maya\'s changes']], undoLastAction: [[]], undoProjectCheckChanges: [[]],
 		undoHover: [[50, 30]], acceptCheckedCheckpoint: [[]], declineCheckedCheckpoint: [[]], reverseKeepNewer: [[]], leaveAsIs: [[]],
 		removeRecoverySnapshot: [[]], openSourceControl: [[]], useTheirsKeepCopy: [[]],
+		close: [[]], reviewCheckChanges: [[]], removeRecoverySnapshotAt: [['2 minutes ago']],
 	},
 	changes: {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
@@ -101,14 +102,18 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		newNameInvalid: [['plot.png']], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
 	},
 	kept: {
-		heading: [[]], totalSize: [['120 MB']], restore: [[]], saveCopyElsewhere: [[]], delete: [[]], deleteConfirm: [['data.csv']],
-		deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],
+		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],
+		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],
+		chooseNewPlace: [['data.csv']], moveHere: [[]], outsideProject: [[]],
 	},
 	unsaved: {
 		cancel: [[]], saveAndInclude: [[1], [2]], continueWithout: [[]], saveAllAndContinue: [[]], checkpointMessage: [[1], [2]], checkpointDetail: [[]],
 		fileChangingMessage: [[1], [2]], fileChangingDetail: [[]], saveFailed: [['a.R', 1], ['a.R', 3]],
 	},
-	interrupted: { heading: [[]], changedFiles: [[]], stagedWork: [[]] },
+	interrupted: {
+		heading: [[]], changedFiles: [[]], stagedWork: [[]], dialogTitle: [[]], reviewButton: [[]], reverseHelp: [[]], leaveHelp: [[]], decideLater: [[]],
+	},
+	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]] },
 	suggestions: { goodPlace: [[]] },
 	aiNotice: { disclosure: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },
@@ -205,6 +210,7 @@ describe('checkpointsStrings', () => {
 			'This checkpoint is already in the shared copy, so it cannot be undone. Use Reverse This Checkpoint to make a new checkpoint with the opposite change.',
 			'The project did not respond in time. No files were changed. Try again.',
 			'There were no changes to act on, so no files were changed.',
+			'A file is already in that place. Choose a new name or place for the kept file.',
 		]);
 	});
 

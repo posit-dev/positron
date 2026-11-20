@@ -104,6 +104,9 @@ const actions = {
 	leaveAsIs: () => localize('positron.checkpoints.actions.leaveAsIs', "Leave the project as it is"),
 	removeRecoverySnapshot: () => localize('positron.checkpoints.actions.removeRecoverySnapshot', "Remove"),
 	openSourceControl: () => localize('positron.checkpoints.actions.openSourceControl', "Open Source Control"),
+	close: () => localize('positron.checkpoints.actions.close', "Close"),
+	reviewCheckChanges: () => localize('positron.checkpoints.actions.reviewCheckChanges', "Review the changes"),
+	removeRecoverySnapshotAt: (when: string) => localize('positron.checkpoints.actions.removeRecoverySnapshotAt', "Remove: Project as it was before recovery ({0})", when),
 	useTheirsKeepCopy: () => localize('positron.checkpoints.actions.useTheirsKeepCopy', "Use theirs and keep a copy of mine"),
 };
 
@@ -228,6 +231,8 @@ const resultSentences = {
 				return localize('positron.checkpoints.results.unavailable.timedOut', "The project did not respond in time. No files were changed. Try again.");
 			case 'nothing-to-do':
 				return localize('positron.checkpoints.results.unavailable.nothingToDo', "There were no changes to act on, so no files were changed.");
+			case 'occupied':
+				return localize('positron.checkpoints.results.unavailable.occupied', "A file is already in that place. Choose a new name or place for the kept file.");
 		}
 	},
 };
@@ -348,17 +353,36 @@ const kept = {
 	heading: () => localize('positron.checkpoints.kept.heading', "Files kept aside"),
 	totalSize: (size: string) => localize('positron.checkpoints.kept.totalSize', "{0} in total. These files are in no checkpoint.", size),
 	restore: () => localize('positron.checkpoints.kept.restore', "Restore"),
-	saveCopyElsewhere: () => localize('positron.checkpoints.kept.saveCopyElsewhere', "Save a copy elsewhere"),
+	/** A kept file is moved, not copied, so the label says so. */
+	moveToAnotherPlace: () => localize('positron.checkpoints.kept.moveToAnotherPlace', "Move to another place..."),
 	delete: () => localize('positron.checkpoints.kept.delete', "Delete"),
+	restoreOf: (path: string) => localize('positron.checkpoints.kept.restoreOf', "Restore: {0}", path),
+	moveOf: (path: string) => localize('positron.checkpoints.kept.moveOf', "Move to another place: {0}", path),
+	deleteOf: (path: string) => localize('positron.checkpoints.kept.deleteOf', "Delete: {0}", path),
 	deleteConfirm: (path: string) => localize('positron.checkpoints.kept.deleteConfirm', "Delete {0}?", path),
 	deleteDetail: () => localize('positron.checkpoints.kept.deleteDetail', "This file is in no checkpoint. After you delete it, it cannot be recovered."),
 	keptBy: (action: string) => localize('positron.checkpoints.kept.keptBy', "Kept aside by: {0}", action),
+	chooseNewPlace: (path: string) => localize('positron.checkpoints.kept.chooseNewPlace', "Choose a place for {0}", path),
+	moveHere: () => localize('positron.checkpoints.kept.moveHere', "Move Here"),
+	outsideProject: () => localize('positron.checkpoints.kept.outsideProject', "Choose a place inside this project. The file stays aside."),
 };
 
 const interrupted = {
 	heading: () => localize('positron.checkpoints.interrupted.heading', "An action was interrupted"),
 	changedFiles: () => localize('positron.checkpoints.interrupted.changedFiles', "These files were changed afterwards:"),
 	stagedWork: () => localize('positron.checkpoints.interrupted.stagedWork', "Work set aside by another git tool was also changed."),
+	dialogTitle: () => localize('positron.checkpoints.interrupted.dialogTitle', "Interrupted Action"),
+	reviewButton: () => localize('positron.checkpoints.interrupted.reviewButton', "Choose what to do"),
+	reverseHelp: () => localize('positron.checkpoints.interrupted.reverseHelp', "The action is reversed. The files listed above stay as they are."),
+	leaveHelp: () => localize('positron.checkpoints.interrupted.leaveHelp', "Nothing changes. Whatever differs from your last checkpoint appears under Changes since your last checkpoint."),
+	decideLater: () => localize('positron.checkpoints.interrupted.decideLater', "Decide Later"),
+};
+
+const checkResult = {
+	failedTitle: () => localize('positron.checkpoints.checkResult.failedTitle', "Project Check Did Not Pass"),
+	changedTitle: () => localize('positron.checkpoints.checkResult.changedTitle', "Project Check Changed Files"),
+	changedFiles: () => localize('positron.checkpoints.checkResult.changedFiles', "Files the check changed:"),
+	editedFiles: () => localize('positron.checkpoints.checkResult.editedFiles', "Files the check changed on disk:"),
 };
 
 const suggestions = {
@@ -404,6 +428,7 @@ export const Strings = {
 	kept,
 	unsaved: ServiceStrings.unsaved,
 	interrupted,
+	checkResult,
 	suggestions,
 	aiNotice,
 	view,
