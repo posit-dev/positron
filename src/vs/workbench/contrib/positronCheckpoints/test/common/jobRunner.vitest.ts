@@ -103,6 +103,15 @@ describe('cacheKey', () => {
 		expect(cacheKey(titleJob, [], 's2', 'u')).not.toBe(base);
 	});
 
+	test('content that looks like a token inside a line still changes the key', () => {
+		const key = (content: string) => cacheKey(titleJob, [], 's', `Describe this.\n${wrapUntrusted('the changes', content)}`);
+		const a = `x <- "END-DATA-${'a'.repeat(32)}"`;
+		const b = `x <- "END-DATA-${'b'.repeat(32)}"`;
+
+		expect(key(a)).not.toBe(key(b));
+		expect(key(a)).toBe(key(a));
+	});
+
 	test('ignores the tokens of wrapUntrusted, so the same content gives the same key', () => {
 		const key = (content: string) => cacheKey(titleJob, [], 's', `Describe this.\n${wrapUntrusted('the changes', content)}`);
 

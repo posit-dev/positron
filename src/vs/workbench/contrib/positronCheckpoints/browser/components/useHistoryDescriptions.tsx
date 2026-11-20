@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Descriptions are requested for the loaded rows, 3 at a time, because row visibility is not
+// observed yet.
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';

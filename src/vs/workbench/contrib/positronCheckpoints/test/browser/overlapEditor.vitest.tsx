@@ -376,6 +376,21 @@ describe('Overlap editor', () => {
 			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
 		});
 
+		test('editing the result of a preselected proposal shows the manual choices and says so', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			const user = await renderEditor([dose]);
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+			expect(screen.queryByRole('radio', { name: 'Keep mine' })).not.toBeInTheDocument();
+
+			await user.type(screen.getByRole('textbox', { name: 'Combined text' }), '# note');
+
+			expect(screen.getByText('You edited the suggestion.')).toBeInTheDocument();
+			expect(screen.queryByText('Suggested combination selected. Review it before you apply.')).not.toBeInTheDocument();
+			expect(screen.getByRole('radio', { name: 'Keep mine' })).toBeInTheDocument();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: `${combined}# note` });
+		});
+
 		test('Edit selects the proposal and puts the cursor in the combined text', async () => {
 			agent.setAvailable(true);
 			agent.answers.set('propose-combination', proposal('low'));

@@ -79,6 +79,30 @@ describe('proposeCombinationJob', () => {
 		expect(onlyTheirs?.confidence).toBe('low');
 	});
 
+	test('a combination equal to the version before both changes is low confidence', () => {
+		const dropped = proposeCombinationJob.check({ ...goodResponse, combined: base }, input());
+
+		expect(dropped).toEqual({ ...goodResponse, combined: base, confidence: 'low', reason: 'The suggestion drops both changes.' });
+		// The base with different trailing whitespace is the same text.
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: base.replace(/\n/g, ' \n') }, input())?.reason).toBe('The suggestion drops both changes.');
+		// A side that did not change makes the base a valid answer, as the other side's text.
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: base }, input({ mine: base }))?.reason).toBe('The suggestion keeps the changes of only one side.');
+	});
+
+	test('a combination without any line that one side added is low confidence', () => {
+		const baseThree = 'a\nb\nc\n';
+		const overlap = { base: baseThree, mine: 'a\nB\nc\n', theirs: 'a\nb\nC\n' };
+		// Keeps the line of theirs only, with a line of base changed to be neither.
+		const noMine = 'a\nb\nC\nd\n';
+		const bothKept = 'a\nB\nC\n';
+
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: noMine }, input(overlap))?.confidence).toBe('low');
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'a\nB\nb\nc\nd\n' }, input(overlap))?.confidence).toBe('low');
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: bothKept }, input(overlap))?.confidence).toBe('high');
+		// A pure deletion adds no lines, so its rule does not apply.
+		expect(proposeCombinationJob.check({ ...goodResponse, combined: 'a\nC\n' }, input({ ...overlap, mine: 'a\nc\n' }))?.confidence).toBe('high');
+	});
+
 	test('a combination with mostly new lines is low confidence', () => {
 		const invented = ['dose <- read.csv("dose.csv")', 'cap <- 500', 'cap <- min(cap, 600)', 'units <- toupper("mg/kg")', 'scale <- 2', 'plot(dose)', ''].join('\n');
 

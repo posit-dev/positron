@@ -373,11 +373,13 @@ const overlaps = {
 	authorDid: (author: string, what: string) => localize('positron.checkpoints.overlaps.authorDid', "{0}: {1}", author, what),
 	proposalSelected: () => localize('positron.checkpoints.overlaps.proposalSelected', "Suggested combination selected. Review it before you apply."),
 	proposalUncertain: () => localize('positron.checkpoints.overlaps.proposalUncertain', "This suggestion may not be right, so nothing is selected."),
+	proposalEdited: () => localize('positron.checkpoints.overlaps.proposalEdited', "You edited the suggestion."),
 	proposalBesideChoice: () => localize('positron.checkpoints.overlaps.proposalBesideChoice', "A suggested combination is ready. Your choice is unchanged."),
 	accept: () => localize('positron.checkpoints.overlaps.accept', "Accept"),
 	edit: () => localize('positron.checkpoints.overlaps.edit', "Edit"),
 	chooseMyself: () => localize('positron.checkpoints.overlaps.chooseMyself', "Choose myself"),
 	oneSideKept: () => localize('positron.checkpoints.overlaps.oneSideKept', "The suggestion keeps the changes of only one side."),
+	dropsBothChanges: () => localize('positron.checkpoints.overlaps.dropsBothChanges', "The suggestion drops both changes."),
 	mostlyNewLines: () => localize('positron.checkpoints.overlaps.mostlyNewLines', "Most lines of the suggestion are in neither version."),
 };
 

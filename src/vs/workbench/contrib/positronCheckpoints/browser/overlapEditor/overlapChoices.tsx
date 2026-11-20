@@ -153,15 +153,18 @@ const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverla
 	const both = keepBothText(mine, theirs);
 	const [emptied, setEmptied] = useState(false);
 	const [discarded, setDiscarded] = useState(false);
+	// True once the person changed the result text of a preselected proposal to something else.
+	const [editedProposal, setEditedProposal] = useState(false);
 	const resultRef = useRef<HTMLTextAreaElement>(null);
 
 	const ready = proposal?.status === 'ready' && !discarded ? proposal : undefined;
 	const proposalIsChoice = ready !== undefined && choice?.type === 'text' && choice.content === ready.proposal.combined;
-	const showManual = ready === undefined || ready.proposal.confidence === 'low' || !ready.preselected;
+	const showManual = ready === undefined || ready.proposal.confidence === 'low' || !ready.preselected || editedProposal;
 
 	const acceptProposal = () => {
 		if (ready) {
 			setEmptied(false);
+			setEditedProposal(false);
 			onChoose({ type: 'text', content: ready.proposal.combined });
 		}
 	};
@@ -171,6 +174,7 @@ const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverla
 	};
 	const chooseMyself = () => {
 		setDiscarded(true);
+		setEditedProposal(false);
 		if (proposalIsChoice) {
 			onChoose(undefined);
 		}
@@ -179,6 +183,8 @@ const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverla
 	let proposalNote: string | undefined;
 	if (proposalIsChoice) {
 		proposalNote = Strings.overlaps.proposalSelected();
+	} else if (editedProposal && (choice === undefined || choice.type === 'text')) {
+		proposalNote = Strings.overlaps.proposalEdited();
 	} else if (choice !== undefined) {
 		proposalNote = Strings.overlaps.proposalBesideChoice();
 	} else if (ready?.proposal.confidence === 'low') {
@@ -190,6 +196,7 @@ const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverla
 	const editResult = (text: string) => {
 		const refused = text === '' && !emptyAllowed;
 		setEmptied(refused);
+		setEditedProposal(ready !== undefined && ready.preselected && text !== ready.proposal.combined);
 		onChoose(refused ? undefined : { type: 'text', content: text });
 	};
 

@@ -145,7 +145,8 @@ const SYSTEM_PROMPT = [
  * overlap, explanations of 1 to 200 characters and a reason of 1 to 300 characters without git
  * words, and a combined text with no marker lines that is empty only when a version is empty and
  * ends with a line break when both the person's and the colleague's versions do. A combined text
- * equal to one version, or with more than 40 percent of its lines in no version, is lowered to
+ * equal to the version before both changes (when both changed it), equal to one version, without
+ * any line that a side added, or with more than 40 percent of its lines in no version, is lowered to
  * `low` confidence with a reason that says why. Lines are compared without trailing whitespace.
  */
 export const proposeCombinationJob: Job<IProposeCombinationInput, ICombinationProposal> = {
@@ -207,9 +208,24 @@ export const proposeCombinationJob: Job<IProposeCombinationInput, ICombinationPr
 		if (sameLines(lines, normalizedLines(mine)) || sameLines(lines, normalizedLines(theirs))) {
 			return { ...proposal, confidence: 'low', reason: Strings.overlaps.oneSideKept() };
 		}
+		// A text equal to the version before both changes drops both, unless a side did not change.
+		const baseLines = normalizedLines(base);
+		if (sameLines(lines, baseLines) && !sameLines(normalizedLines(mine), baseLines) && !sameLines(normalizedLines(theirs), baseLines)) {
+			return { ...proposal, confidence: 'low', reason: Strings.overlaps.dropsBothChanges() };
+		}
 		const newLines = lines.filter(line => !known.has(line)).length;
 		if (lines.length > 0 && newLines / lines.length > MAX_NEW_LINE_SHARE) {
 			return { ...proposal, confidence: 'low', reason: Strings.overlaps.mostlyNewLines() };
+		}
+		// A side that added lines has dropped them all when none of them is in the combination.
+		const inCombination = new Set(lines);
+		const inBase = new Set(baseLines);
+		const dropsASide = [mine, theirs].some(side => {
+			const added = normalizedLines(side).filter(line => !inBase.has(line));
+			return added.length > 0 && !added.some(line => inCombination.has(line));
+		});
+		if (dropsASide) {
+			return { ...proposal, confidence: 'low', reason: Strings.overlaps.oneSideKept() };
 		}
 		return proposal;
 	},

@@ -119,15 +119,21 @@ function matchingBrace(text: string, start: number): number | undefined {
 	return undefined;
 }
 
-/** The marker lines of `wrapUntrusted`, with their random token. */
-const DATA_MARKER = /\b(?<edge>BEGIN|END)-DATA-[0-9a-f]{32}\b/g;
+/** The marker lines of `wrapUntrusted`, with their random token. Matches whole lines only. */
+const DATA_MARKER_LINE = /^(?<edge>BEGIN|END)-DATA-[0-9a-f]{32}$/gm;
+
+/** The sentence line of `wrapUntrusted`, which names both marker lines. */
+const DATA_MARKER_SENTENCE = /^(?<start>The text between the lines )BEGIN-DATA-[0-9a-f]{32} and END-DATA-[0-9a-f]{32}(?<end> is )/gm;
 
 /**
- * `text` with the random token of every `wrapUntrusted` marker line removed, so that two prompts
- * built from the same content compare equal.
+ * `text` with the random token of every `wrapUntrusted` marker line (and of the sentence that
+ * names them) removed, so that two prompts built from the same content compare equal. Content
+ * that contains a token-like string inside a line keeps it.
  */
 export function withoutDataTokens(text: string): string {
-	return text.replace(DATA_MARKER, '$<edge>-DATA');
+	return text
+		.replace(DATA_MARKER_LINE, '$<edge>-DATA')
+		.replace(DATA_MARKER_SENTENCE, '$<start>BEGIN-DATA and END-DATA$<end>');
 }
 
 /**
