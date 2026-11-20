@@ -23,6 +23,8 @@ import { SideBySideEditor, EditorResourceAccessor } from '../../../common/editor
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { ExplorerFolderContext } from '../common/files.js';
 
 const REVEAL_IN_OS_COMMAND_ID = 'revealFileInOS';
 const REVEAL_IN_OS_LABEL = isWindows ? nls.localize2('revealInWindows', "Reveal in File Explorer") : isMacintosh ? nls.localize2('revealInMac', "Reveal in Finder") : nls.localize2('openContainer', "Open Containing Folder");
@@ -87,6 +89,26 @@ MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	command: revealInOsCommand,
 	when: REVEAL_IN_OS_WHEN_CONTEXT
 });
+
+// --- Start Positron ---
+const OpenWithDefaultApplicationCommandId = 'workbench.action.files.openWithDefaultApplication';
+
+CommandsRegistry.registerCommand(OpenWithDefaultApplicationCommandId, async (accessor, resource?: URI) => {
+	if (URI.isUri(resource) && resource.scheme === Schemas.file) {
+		await accessor.get(INativeHostService).openExternal(resource.toString());
+	}
+});
+
+MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
+	group: 'navigation',
+	order: 25,
+	command: {
+		id: OpenWithDefaultApplicationCommandId,
+		title: nls.localize2('openWithDefaultApplication', "Open with Default Application")
+	},
+	when: ContextKeyExpr.and(ResourceContextKey.Scheme.isEqualTo(Schemas.file), ExplorerFolderContext.toNegated())
+});
+// --- End Positron ---
 
 // Command Palette
 
