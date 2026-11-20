@@ -178,3 +178,105 @@
 	margin: 0;
 	overflow-wrap: anywhere;
 }
+
+/* Sync card. */
+
+.positron-checkpoints .checkpoints-card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size60);
+	padding: var(--vscode-spacing-size80);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: var(--vscode-cornerRadius-medium);
+}
+
+.positron-checkpoints .checkpoints-card p {
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-card-actions,
+.positron-checkpoints .checkpoints-overlaps-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size120);
+}
+
+/* Overlap editor. */
+
+.positron-checkpoints-overlaps-container {
+	overflow: auto;
+}
+
+.positron-checkpoints.checkpoints-overlaps {
+	height: auto;
+	min-height: 100%;
+	gap: var(--vscode-spacing-size160);
+	background-color: var(--vscode-editor-background);
+}
+
+.positron-checkpoints .checkpoints-overlap {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	padding-bottom: var(--vscode-spacing-size160);
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.positron-checkpoints .checkpoints-overlap p {
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-overlap-sides {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--vscode-spacing-size120);
+}
+
+.positron-checkpoints .checkpoints-overlap-sides figure {
+	min-width: 0;
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-overlap-sides pre {
+	margin: var(--vscode-spacing-size40) 0 0;
+	padding: var(--vscode-spacing-size80);
+	overflow: auto;
+	max-height: 320px;
+	font-family: var(--monaco-monospace-font);
+	background-color: var(--vscode-textCodeBlock-background);
+	border-radius: var(--vscode-cornerRadius-small);
+}
+
+.positron-checkpoints .checkpoints-overlap-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size160);
+}
+
+.positron-checkpoints .checkpoints-overlap-choice,
+.positron-checkpoints .checkpoints-overlap-result,
+.positron-checkpoints .checkpoints-overlap-new-name {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size40);
+}
+
+.positron-checkpoints .checkpoints-overlap-result,
+.positron-checkpoints .checkpoints-overlap-new-name {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.positron-checkpoints .checkpoints-overlap-result textarea,
+.positron-checkpoints .checkpoints-overlap-new-name input {
+	font-family: var(--monaco-monospace-font);
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, transparent);
+}
+
+.positron-checkpoints .checkpoints-overlap-error {
+	color: var(--vscode-errorForeground);
+}

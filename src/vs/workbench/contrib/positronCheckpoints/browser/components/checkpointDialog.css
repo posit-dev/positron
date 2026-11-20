@@ -102,3 +102,13 @@
 	background: none;
 	cursor: pointer;
 }
+
+.checkpoint-dialog-collision {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+}
+
+.checkpoint-dialog-collision p {
+	margin: 0;
+}

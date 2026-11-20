@@ -298,6 +298,15 @@ const collisions = {
 	explainIgnored: (path: string) => localize('positron.checkpoints.collisions.explainIgnored', "This action would replace your file {0}, which is in no checkpoint.", path),
 	explainTooLarge: (path: string, size: string) => localize('positron.checkpoints.collisions.explainTooLarge', "This action would replace your file {0} ({1}), which is too large to keep in a checkpoint.", path, size),
 	keepCopyHelp: (path: string) => localize('positron.checkpoints.collisions.keepCopyHelp', "A copy of your {0} is kept aside, and you can restore it later.", path),
+	dialogTitle: () => localize('positron.checkpoints.collisions.dialogTitle', "Files in No Checkpoint"),
+	continue: () => localize('positron.checkpoints.collisions.continue', "Continue"),
+	cancelled: () => localize('positron.checkpoints.collisions.cancelled', "Nothing was changed."),
+};
+
+const sync = {
+	done: () => localize('positron.checkpoints.sync.done', "The changes from the shared copy are now in your project."),
+	changedFiles: () => localize('positron.checkpoints.sync.changedFiles', "Files these changes touch"),
+	diffTitle: (path: string) => localize('positron.checkpoints.sync.diffTitle', "{0} (changes from the shared copy)", path),
 };
 
 const overlaps = {
@@ -315,7 +324,10 @@ const overlaps = {
 		? localize('positron.checkpoints.overlaps.editDeleteThem', "You edited {1}, and {0} deleted it.", author, path)
 		: localize('positron.checkpoints.overlaps.editDeleteMe', "You deleted {1}, and {0} edited it.", author, path),
 	renameExplain: (author: string, path: string) => localize('positron.checkpoints.overlaps.renameExplain', "You and {0} renamed {1} in different ways. Choose the name to keep.", author, path),
-	fileFolderExplain: (author: string, path: string) => localize('positron.checkpoints.overlaps.fileFolderExplain', "You have a file named {1} where {0} has a folder. Keep both under different names, or choose one.", author, path),
+	/** `fileSide` names who has the file; the other person has the folder. */
+	fileFolderExplain: (author: string, path: string, fileSide: 'me' | 'them') => fileSide === 'me'
+		? localize('positron.checkpoints.overlaps.fileFolderExplain', "You have a file named {1} where {0} has a folder. Keep both under different names, or choose one.", author, path)
+		: localize('positron.checkpoints.overlaps.fileFolderExplainTheirs', "{0} has a file named {1} where you have a folder. Keep both under different names, or choose one.", author, path),
 	unsupportedExplain: (path: string) => localize('positron.checkpoints.overlaps.unsupportedExplain', "{0} has a change this view cannot combine.", path),
 	editorTitle: (path: string) => localize('positron.checkpoints.overlaps.editorTitle', "Overlap: {0}", path),
 	combinedText: () => localize('positron.checkpoints.overlaps.combinedText', "Combined text"),
@@ -323,6 +335,13 @@ const overlaps = {
 	theirsLabel: (author: string) => localize('positron.checkpoints.overlaps.theirsLabel', "{0}'s", author),
 	baseLabel: () => localize('positron.checkpoints.overlaps.baseLabel', "Before either change"),
 	applyChoices: () => localize('positron.checkpoints.overlaps.applyChoices', "Apply Choices"),
+	keepName: (path: string) => localize('positron.checkpoints.overlaps.keepName', "Keep the name {0}", path),
+	sizes: (mine: string, author: string, theirs: string) => localize('positron.checkpoints.overlaps.sizes', "Yours: {0}. {1}'s: {2}.", mine, author, theirs),
+	newNameInvalid: (path: string) => localize('positron.checkpoints.overlaps.newNameInvalid', "Choose a new name that differs from {0}.", path),
+	choicesFor: (path: string) => localize('positron.checkpoints.overlaps.choicesFor', "Choices for {0}", path),
+	chooseEach: () => localize('positron.checkpoints.overlaps.chooseEach', "Choose what to keep for every overlap, then apply your choices. Nothing changes in your project until then."),
+	none: () => localize('positron.checkpoints.overlaps.none', "There are no overlaps to choose for."),
+	editorLabel: () => localize('positron.checkpoints.overlaps.editorLabel', "Overlap Editor"),
 };
 
 const kept = {
@@ -380,6 +399,7 @@ export const Strings = {
 	results,
 	undoRedo,
 	collisions,
+	sync,
 	overlaps,
 	kept,
 	unsaved: ServiceStrings.unsaved,

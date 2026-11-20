@@ -27,6 +27,7 @@ import { ICheckpoint } from '../../../../services/positronCheckpoints/common/che
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
+import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { GitDetails } from '../../browser/components/gitDetails.js';
 import { fakeCheckpoint, fakeEngineState, FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
@@ -72,6 +73,7 @@ describe('History section', () => {
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
+		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

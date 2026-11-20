@@ -27,6 +27,7 @@ import { IChangedFile, IChangeSet } from '../../../../services/positronCheckpoin
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
+import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
@@ -78,6 +79,7 @@ describe('Changes section and checkpoint dialog', () => {
 		messageService = ctx.disposables.add(new CheckpointsMessageService());
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
+		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

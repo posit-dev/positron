@@ -12,6 +12,11 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID, POSITRON_CHECKPOINTS_VIEW_ID } from '../../browser/positronCheckpoints.contribution.js';
 import { CHECKPOINTS_MODEL_KEY } from '../../common/checkpointsConfiguration.js';
 import { PositronCheckpointsView } from '../../browser/positronCheckpointsView.js';
+import { OverlapEditorPane } from '../../browser/overlapEditor/overlapEditor.js';
+import { OverlapEditorInput } from '../../browser/overlapEditor/overlapEditorInput.js';
+import { IEditorPaneRegistry } from '../../../../browser/editor.js';
+import { EditorPane } from '../../../../browser/parts/editor/editorPane.js';
+import { EditorExtensions } from '../../../../common/editor.js';
 
 describe('positronCheckpoints.contribution', () => {
 	test('registers the Checkpoints side bar container and its view for any workspace folder', () => {
@@ -23,6 +28,20 @@ describe('positronCheckpoints.contribution', () => {
 		const view = Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).getView(POSITRON_CHECKPOINTS_VIEW_ID);
 		expect(view?.when?.equals(ContextKeyExpr.greater('workspaceFolderCount', 0))).toBe(true);
 		expect(view?.ctorDescriptor.ctor).toBe(PositronCheckpointsView);
+	});
+
+	test('registers the overlap editor pane for its input', () => {
+		const input = new OverlapEditorInput();
+		try {
+			const pane = Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).getEditorPane(input);
+			expect(pane?.typeId).toBe(OverlapEditorInput.EditorID);
+			expect(pane?.name).toBe('Overlap Editor');
+			expect(OverlapEditorPane.prototype).toBeInstanceOf(EditorPane);
+			expect(input.typeId).toBe('workbench.input.positronCheckpointsOverlaps');
+			expect(input.matches(new OverlapEditorInput())).toBe(true);
+		} finally {
+			input.dispose();
+		}
 	});
 
 	test('the model setting says an empty list uses the default fast tier', () => {

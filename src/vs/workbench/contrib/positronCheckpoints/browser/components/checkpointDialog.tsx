@@ -74,7 +74,7 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 		}
 		const arranged = draft;
 		setRunning(true);
-		const result = await runAction('checkpoint', async (engine, decision) => {
+		const result = await runAction('checkpoint', async (engine, { decision }) => {
 			// Only a save made by this action can change the files the person reviewed. In every
 			// other case the reviewed basis is sent, so the engine refuses with changes-moved when
 			// the files changed in any other way.

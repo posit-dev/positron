@@ -30,7 +30,7 @@ export const CheckpointDetails = ({ checkpoint, branch, upstream, onChanged }: I
 	const [gitShown, setGitShown] = useState(false);
 
 	const goBack = async () => {
-		await runAction('file-changing', engine => engine.goBackTo(checkpoint.id, []));
+		await runAction('file-changing', (engine, { collisionChoices }) => engine.goBackTo(checkpoint.id, collisionChoices));
 		onChanged();
 	};
 

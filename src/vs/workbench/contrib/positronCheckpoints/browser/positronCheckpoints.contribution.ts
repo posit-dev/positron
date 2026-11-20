@@ -4,18 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './checkpointsMessages.js';
+import './syncController.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { EditorExtensions } from '../../../common/editor.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
 import { registerCheckpointsConfiguration } from '../common/checkpointsConfiguration.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { CheckpointsContentProvider } from './checkpointsContentProvider.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
+import { OverlapEditorPane } from './overlapEditor/overlapEditor.js';
+import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
 
 export const POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID = 'workbench.view.positronCheckpoints';
 export const POSITRON_CHECKPOINTS_VIEW_ID = 'workbench.view.positronCheckpoints.main';
@@ -56,3 +61,9 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 registerCheckpointsConfiguration();
 
 registerWorkbenchContribution2(CheckpointsContentProvider.ID, CheckpointsContentProvider, WorkbenchPhase.AfterRestored);
+
+// The overlap editor. Its input has no serializer, so it is not restored after a restart.
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(OverlapEditorPane, OverlapEditorInput.EditorID, Strings.overlaps.editorLabel()),
+	[new SyncDescriptor(OverlapEditorInput)]
+);

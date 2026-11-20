@@ -8,6 +8,7 @@ import '../media/positronCheckpoints.css';
 import { ChangesSection } from './changesSection.js';
 import { HistorySection } from './historySection.js';
 import { StatusHeader } from './statusHeader.js';
+import { SyncCard } from './syncCard.js';
 import { useCheckpointsState } from './useCheckpointsState.js';
 import { useCheckpointsMessage } from './useRunAction.js';
 
@@ -32,7 +33,7 @@ export const CheckpointsPanel = () => {
 			{tracking && (
 				// A disabled fieldset disables every control inside it.
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>
-					{/* Section slot: cards */}
+					<SyncCard view={view} />
 					<ChangesSection view={view} />
 					<HistorySection view={view} />
 					{/* Section slot: kept files */}

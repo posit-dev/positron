@@ -19,7 +19,7 @@ import { UnsavedEditorsDecision } from '../../../../services/positronCheckpoints
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
-import { runAction, RunActionMode } from '../../browser/runAction.js';
+import { IRunActionContext, runAction, RunActionMode } from '../../browser/runAction.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 describe('runAction', () => {
@@ -135,7 +135,7 @@ describe('runAction', () => {
 	test('checkpoint mode passes the guard decision to the call, and the other modes pass undefined', async () => {
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		const decisions: unknown[] = [];
-		const record = async (_engine: unknown, decision: unknown) => { decisions.push(decision); return engine.nextResult; };
+		const record = async (_engine: unknown, context: IRunActionContext) => { decisions.push(context.decision); return engine.nextResult; };
 
 		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'checkpoint', record));
 		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'file-changing', record));
@@ -152,5 +152,19 @@ describe('runAction', () => {
 
 		expect(result).toBeUndefined();
 		expect(messageService.message).toBe('Earlier sentence');
+	});
+
+	test('an overlap editor that cannot open is logged, and the result is still returned', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		engine.nextResult = {
+			kind: 'overlaps',
+			preview: { basis: 'b', incoming: [], changedPaths: ['a.R'], touchesLocalWork: true, overlaps: [{ id: 'o', kind: 'text', path: 'a.R', otherPaths: [], theirAuthor: 'Maya', detail: '' }], collisions: [] },
+		};
+
+		const result = await run('no-guard');
+
+		expect(result).toBe(engine.nextResult);
+		expect(logError).toHaveBeenCalledWith('The overlap editor could not open.', expect.anything());
+		expect(messageService.message).toBe('1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet.');
 	});
 });

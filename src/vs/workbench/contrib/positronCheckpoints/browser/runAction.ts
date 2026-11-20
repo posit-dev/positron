@@ -8,10 +8,13 @@ import { IInstantiationService, ServicesAccessor } from '../../../../platform/in
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
-import { ICheckpointsEngineProxy, OperationResult } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ICheckpointsEngineProxy, ICollisionChoice, OperationResult } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { guardUnsavedEditors, UnsavedEditorsDecision, UnsavedEditorsMode } from '../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from './checkpointsMessages.js';
+import { showCollisionDialog } from './components/collisionDialog.js';
+import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
 
 /**
  * How an action treats files with unsaved edits. `checkpoint` and `file-changing` ask first (spec
@@ -31,16 +34,34 @@ export function projectRootUri(workspaceContextService: IWorkspaceContextService
 
 /**
  * Shows the outcome of an action in the view. Every result kind shows its sentence on the status
- * line of the view; a plain success empties the line.
+ * line of the view; a plain success empties the line. Overlaps also open the overlap editor, and
+ * so do changed inputs that still have overlaps to review.
  */
-function routeResult(messageService: ICheckpointsMessageService, result: OperationResult): void {
+async function routeResult(
+	messageService: ICheckpointsMessageService,
+	instantiationService: IInstantiationService,
+	logService: ILogService,
+	result: OperationResult
+): Promise<void> {
 	switch (result.kind) {
+		case 'overlaps':
+		case 'inputs-changed':
+			messageService.show(Strings.results.forOperation(result));
+			if (result.preview.overlaps.length > 0) {
+				const input = instantiationService.createInstance(OverlapEditorInput);
+				try {
+					const editorService = instantiationService.invokeFunction(accessor => accessor.get(IEditorService));
+					await editorService.openEditor(input, { pinned: true });
+				} catch (error) {
+					input.dispose();
+					logService.error('The overlap editor could not open.', error);
+				}
+			}
+			return;
 		case 'done':
 		case 'check-failed':
 		case 'check-changed-checkpoint':
 		case 'path-collisions':
-		case 'overlaps':
-		case 'inputs-changed':
 		case 'changes-moved':
 		case 'project-changed':
 		case 'rejected':
@@ -52,25 +73,47 @@ function routeResult(messageService: ICheckpointsMessageService, result: Operati
 	}
 }
 
+/** Adds the choices of `added` to `choices`, replacing an earlier choice for the same path. */
+export function mergeCollisionChoices(choices: readonly ICollisionChoice[], added: readonly ICollisionChoice[]): ICollisionChoice[] {
+	const byPath = new Map(choices.map(choice => [choice.path, choice]));
+	for (const choice of added) {
+		byPath.set(choice.path, choice);
+	}
+	return [...byPath.values()];
+}
+
 /**
  * What the guard decided, as `call` receives it. It is set in `checkpoint` mode only, so that a
  * caller can compute its chunks again after a save, and is undefined in the other modes.
  */
 export type RunActionDecision = Exclude<UnsavedEditorsDecision, 'cancel'> | undefined;
 
+/** What `call` receives besides the engine. */
+export interface IRunActionContext {
+	/** What the guard decided. */
+	decision: RunActionDecision;
+	/**
+	 * What to do with each file the action would replace that is in no checkpoint. Empty on the
+	 * first call; after the person answers the collision dialog, the call runs again with them.
+	 */
+	collisionChoices: ICollisionChoice[];
+}
+
 /**
  * The engine call of an action. It returns undefined when it decides not to call the engine, for
  * example because a save changed what the person reviewed.
  */
-export type RunActionCall = (engine: ICheckpointsEngineProxy, decision: RunActionDecision) => Promise<OperationResult | undefined>;
+export type RunActionCall = (engine: ICheckpointsEngineProxy, context: IRunActionContext) => Promise<OperationResult | undefined>;
 
 /**
  * Runs one action of the Checkpoints view: asks about unsaved editors (unless `mode` is
- * `no-guard`), calls the engine, and shows the result in the view.
+ * `no-guard`), calls the engine, and shows the result in the view. When the engine reports files
+ * that the action would replace and that are in no checkpoint, the collision dialog asks what to
+ * do, and `call` runs again with the chosen collision choices.
  *
  * @returns The engine's result, or undefined when no engine is registered, the person cancelled
- * at the unsaved-editors question, `call` did not call the engine, or the engine call threw. A
- * thrown error is logged and the view says the action could not finish.
+ * at the unsaved-editors question or the collision dialog, `call` did not call the engine, or the
+ * engine call threw. A thrown error is logged and the view says the action could not finish.
  */
 export async function runAction(
 	accessor: ServicesAccessor,
@@ -103,17 +146,29 @@ export async function runAction(
 		}
 	}
 
-	let result: OperationResult | undefined;
-	try {
-		result = await call(engine, decision);
-	} catch (error) {
-		logService.error('The checkpoints engine call failed.', error);
-		messageService.show(Strings.results.couldNotFinish());
-		return undefined;
+	let collisionChoices: ICollisionChoice[] = [];
+	for (; ;) {
+		let result: OperationResult | undefined;
+		try {
+			result = await call(engine, { decision, collisionChoices });
+		} catch (error) {
+			logService.error('The checkpoints engine call failed.', error);
+			messageService.show(Strings.results.couldNotFinish());
+			return undefined;
+		}
+		if (!result) {
+			return undefined;
+		}
+		if (result.kind === 'path-collisions') {
+			const chosen = await showCollisionDialog(result.collisions);
+			if (!chosen) {
+				messageService.show(Strings.collisions.cancelled());
+				return undefined;
+			}
+			collisionChoices = mergeCollisionChoices(collisionChoices, chosen);
+			continue;
+		}
+		await routeResult(messageService, instantiationService, logService, result);
+		return result;
 	}
-	if (!result) {
-		return undefined;
-	}
-	routeResult(messageService, result);
-	return result;
 }

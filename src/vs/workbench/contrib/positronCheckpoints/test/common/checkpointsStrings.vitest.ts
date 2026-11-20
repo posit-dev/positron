@@ -89,13 +89,16 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	undoRedo: { filesChangedSince: [[1], [3]], expired: [[]] },
 	collisions: {
 		explainWithAuthor: [['Maya', 'data.csv']], explainIgnored: [['data.csv']], explainTooLarge: [['data.csv', '80 MB']], keepCopyHelp: [['data.csv']],
+		dialogTitle: [[]], continue: [[]], cancelled: [[]],
 	},
+	sync: { done: [[]], changedFiles: [[]], diffTitle: [['dose.R']] },
 	overlaps: {
 		heading: [[]], title: [['dose.R']], keepMine: [[]], keepTheirs: [['Maya']], keepBoth: [[]], keepEditedFile: [[]], acceptDeletion: [[]],
 		newNameFor: [['dose.R']], textExplain: [['Maya', 'dose.R']], binaryExplain: [['Maya', 'plot.png']],
 		editDeleteExplain: [['Maya', 'dose.R', 'me'], ['Maya', 'dose.R', 'them']], renameExplain: [['Maya', 'dose.R']],
-		fileFolderExplain: [['Maya', 'out']], unsupportedExplain: [['sub']], editorTitle: [['dose.R']], combinedText: [[]], mineLabel: [[]],
-		theirsLabel: [['Maya']], baseLabel: [[]], applyChoices: [[]],
+		fileFolderExplain: [['Maya', 'out', 'me'], ['Maya', 'out', 'them']], unsupportedExplain: [['sub']], editorTitle: [['dose.R']], combinedText: [[]], mineLabel: [[]],
+		theirsLabel: [['Maya']], baseLabel: [[]], applyChoices: [[]], keepName: [['dose.R']], sizes: [['1 MB', 'Maya', '2 MB']],
+		newNameInvalid: [['plot.png']], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
 	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], saveCopyElsewhere: [[]], delete: [[]], deleteConfirm: [['data.csv']],

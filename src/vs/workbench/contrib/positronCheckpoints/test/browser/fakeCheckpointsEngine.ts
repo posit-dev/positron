@@ -53,7 +53,7 @@ export interface IFakeEngineCall {
 
 /**
  * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `keptFiles`, `diff`, `blobs`,
- * and `nextResult`; every call is recorded in `calls`; `fireChange()` fires the state event.
+ * `incoming`, `nextResult`, and `queuedResults`; every call is recorded in `calls`; `fireChange()` fires the state event.
  * `holdGetState()` makes the next `getState` wait until the test releases it.
  */
 export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEngineProxy {
@@ -66,8 +66,12 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	/** The content `readBlob` returns for each blob id. Other ids read as empty. */
 	blobs = new Map<string, VSBuffer>();
 	gitignore = '.Rhistory\n';
-	/** The result of every operation. */
+	/** The result of every operation, unless `queuedResults` has one. */
 	nextResult: OperationResult = { kind: 'done', operationId: 'op-1', hookEditedFiles: [] };
+	/** Results given to the next operations, first in first out, before `nextResult`. */
+	queuedResults: OperationResult[] = [];
+	/** The answer to `previewIncoming`. */
+	incoming: IIncomingPreview = { basis: 'basis-1', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };
 
 	readonly calls: IFakeEngineCall[] = [];
 
@@ -101,7 +105,7 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 
 	private async _operation(method: CheckpointsMethod, ...args: unknown[]): Promise<OperationResult> {
 		this._record(method, ...args);
-		return this.nextResult;
+		return this.queuedResults.shift() ?? this.nextResult;
 	}
 
 	async getState(): Promise<IEngineState> {
@@ -156,7 +160,7 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 
 	async previewIncoming(): Promise<IIncomingPreview> {
 		this._record('previewIncoming');
-		return { basis: 'basis-1', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };
+		return this.incoming;
 	}
 
 	getIncoming(basis: string, resolutions: IResolution[], collisionChoices: ICollisionChoice[]): Promise<OperationResult> {
