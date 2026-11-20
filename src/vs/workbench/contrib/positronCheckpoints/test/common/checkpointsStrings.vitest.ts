@@ -13,7 +13,7 @@ const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-t
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
 /** The `unavailable` details of the engine that have their own sentence. */
-const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title', 'get-changes-first', 'get-changes-before-stop', 'proposal-ended', 'proposal-exists'];
+const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title', 'get-changes-first', 'get-changes-before-stop', 'get-changes-before-ask', 'base-moved', 'proposal-ended', 'proposal-exists'];
 
 const preview: IIncomingPreview = {
 	basis: 'b',
@@ -258,6 +258,8 @@ describe('checkpointsStrings', () => {
 			'A checkpoint title must be one line of 1 to 72 characters. No files were changed.',
 			'A colleague added changes to your proposal. Get changes, then finish.',
 			'A colleague added changes to your proposal. Get changes, then stop it.',
+			'Get changes from the shared copy first, then ask for a review.',
+			'Another tool added changes to this project outside your proposal. Positron did not change anything, so that those changes stay safe.',
 			'Your proposal is no longer open, so nothing was sent. Its state is shown at the top of the view.',
 			'You already have a proposal. Nothing was changed.',
 		]);

@@ -22,7 +22,7 @@ import { ISyncController } from '../../browser/syncController.js';
 import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const GITHUB_URL = 'https://github.com/me/dose-model.git';
-const BRANCH = 'proposal/fit-the-dose-model';
+const BRANCH = 'proposal/fit-the-dose-model-3fa29c';
 
 /** A project on GitHub with 2 unshared checkpoints, or with the given proposal. */
 function projectState(proposal?: IEngineState['proposal'], overrides: Partial<IEngineState> = {}): IEngineState {
@@ -323,5 +323,30 @@ describe('ProposalController', () => {
 		await controller.stop();
 
 		expect(shown).toEqual(['A colleague added changes to your proposal. Get changes, then stop it.']);
+	});
+
+	test.each(['finish', 'stop'] as const)('%s refused because the main line moved says why, and gets no changes', async action => {
+		engine.state = projectState({ branch: BRANCH, base: 'main', sent: true });
+		github.findProposal.mockResolvedValue({ ok: true, proposal: info({ state: 'accepted' }) });
+		const refusal: OperationResult = { kind: 'unavailable', reason: 'unusual-state', detail: 'base-moved' };
+		engine.queuedResults = action === 'finish' ? [{ kind: 'done', operationId: 'op-check', hookEditedFiles: [] }, refusal] : [refusal];
+		const controller = await createController();
+
+		await controller[action]();
+
+		expect(messageService.message).toBe('Another tool added changes to this project outside your proposal. Positron did not change anything, so that those changes stay safe.');
+		expect(sync.getChanges).not.toHaveBeenCalled();
+	});
+
+	test('a start refused until changes are got fails the starting step with its own sentence', async () => {
+		engine.nextResult = { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' };
+		const controller = await createController();
+
+		const result = await controller.ask('Fit the dose model', 'body', () => { });
+
+		expect({ result, line: messageService.message }).toEqual({
+			result: { ok: false, failedStep: 'starting', message: 'Get changes from the shared copy first, then ask for a review.' },
+			line: 'Get changes from the shared copy first, then ask for a review.',
+		});
 	});
 });

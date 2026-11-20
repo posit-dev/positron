@@ -100,8 +100,8 @@ describe('checkpoints engine bridge', () => {
 	it('returns the proposal and the shared URL of the state unchanged', async () => {
 		const state: positron.checkpoints.EngineState = {
 			...STATE,
-			branch: 'proposal/fit-the-dose-model',
-			proposal: { branch: 'proposal/fit-the-dose-model', base: 'main', sent: true },
+			branch: 'proposal/fit-the-dose-model-3fa29c',
+			proposal: { branch: 'proposal/fit-the-dose-model-3fa29c', base: 'main', sent: true },
 			sharedUrl: 'https://github.com/posit-dev/dose-model.git',
 			undo: { operationId: 'op3', description: 'Ask for a review', kind: 'start-proposal', restoresFiles: false },
 		};

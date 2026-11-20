@@ -246,7 +246,7 @@ describe('SharedCopyChecker', () => {
 		await vi.advanceTimersByTimeAsync(5 * MINUTE);
 		expect(refreshProposal).not.toHaveBeenCalled();
 
-		engine.state = fakeEngineState({ proposal: { branch: 'proposal/fit', base: 'main', sent: true } });
+		engine.state = fakeEngineState({ proposal: { branch: 'proposal/fit-3fa29c', base: 'main', sent: true } });
 		await vi.advanceTimersByTimeAsync(5 * MINUTE);
 		expect({ checks: checks(), refreshes: refreshProposal.mock.calls.length }).toEqual({ checks: 2, refreshes: 1 });
 	});

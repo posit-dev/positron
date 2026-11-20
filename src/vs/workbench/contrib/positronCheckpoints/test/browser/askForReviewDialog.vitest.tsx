@@ -32,7 +32,7 @@ import { fakeChangedFile, fakeCheckpoint, FakeCheckpointsEngine, fakeEngineState
 import { createProposalController, fakeProposalGitHub } from './proposalTestHelpers.js';
 
 const GITHUB_URL = 'https://github.com/me/dose-model.git';
-const BRANCH = 'proposal/fit-the-dose-model';
+const BRANCH = 'proposal/fit-the-dose-model-3fa29c';
 
 /** A project on GitHub whose last Send was refused, with two unshared checkpoints. */
 function unsharedState(overrides: Partial<IEngineState> = {}): IEngineState {

@@ -230,7 +230,14 @@ export class ProposalController extends Disposable implements IProposalControlle
 		if (!state.proposal) {
 			onStep('starting');
 			const hostBase = this._pendingHostBase;
-			const started = await this._run(engine => engine.startProposal());
+			const started = await this._run(async engine => {
+				const result = await engine.startProposal();
+				// The engine's detail names Finish, so the result is shown with the detail that names asking.
+				return result.kind === 'unavailable' && result.detail === 'get-changes-first' ? { ...result, detail: 'get-changes-before-ask' } : result;
+			});
+			if (started?.kind === 'unavailable' && started.detail === 'get-changes-before-ask') {
+				return { ok: false, failedStep: 'starting', message: this._sentence(started) };
+			}
 			if (started?.kind !== 'done') {
 				return { ok: false, failedStep: 'starting', message: Strings.proposals.startFailed(this._sentence(started)) };
 			}

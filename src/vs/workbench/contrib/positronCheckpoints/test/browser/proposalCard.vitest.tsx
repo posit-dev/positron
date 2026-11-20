@@ -31,7 +31,7 @@ import { createProposalController, fakeProposalGitHub } from './proposalTestHelp
 
 const GITHUB_URL = 'https://github.com/me/dose-model.git';
 const PULL_URL = 'https://github.com/me/dose-model/pull/7';
-const BRANCH = 'proposal/fit-the-dose-model';
+const BRANCH = 'proposal/fit-the-dose-model-3fa29c';
 
 function info(overrides: Partial<ProposalInfo> = {}): ProposalInfo {
 	return { number: 7, url: PULL_URL, state: 'waiting', overlapsShared: false, headCommit: 'abc123', ...overrides };

@@ -294,6 +294,10 @@ const resultSentences = {
 				return localize('positron.checkpoints.results.unavailableDetail.getChangesFirst', "A colleague added changes to your proposal. Get changes, then finish.");
 			case 'get-changes-before-stop':
 				return localize('positron.checkpoints.results.unavailableDetail.getChangesBeforeStop', "A colleague added changes to your proposal. Get changes, then stop it.");
+			case 'get-changes-before-ask':
+				return localize('positron.checkpoints.results.unavailableDetail.getChangesBeforeAsk', "Get changes from the shared copy first, then ask for a review.");
+			case 'base-moved':
+				return localize('positron.checkpoints.results.unavailableDetail.baseMoved', "Another tool added changes to this project outside your proposal. Positron did not change anything, so that those changes stay safe.");
 			case 'proposal-ended':
 				return localize('positron.checkpoints.results.unavailableDetail.proposalEnded', "Your proposal is no longer open, so nothing was sent. Its state is shown at the top of the view.");
 			case 'proposal-exists':
