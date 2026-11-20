@@ -26,6 +26,17 @@
 	gap: var(--vscode-spacing-size60);
 }
 
+.positron-checkpoints .checkpoints-status-row {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	width: 100%;
+}
+
+.positron-checkpoints .checkpoints-status-sentence {
+	flex: 1;
+}
+
 .positron-checkpoints .checkpoints-status p {
 	margin: 0;
 }

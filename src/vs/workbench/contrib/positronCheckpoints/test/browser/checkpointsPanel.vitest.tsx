@@ -131,6 +131,23 @@ describe('CheckpointsPanel', () => {
 		expect(await screen.findByText('1 version is not yet in the shared copy.')).toBeInTheDocument();
 	});
 
+	test('the check button asks the engine to check the shared copy', async () => {
+		engine.state = fakeEngineState({ shared: { exists: true, ahead: 0, behind: 0 } });
+		renderPanel();
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Check the Shared Copy' }));
+
+		expect(engine.callsOf('checkShared')).toHaveLength(1);
+	});
+
+	test('a project without a shared copy has no check button', async () => {
+		engine.state = fakeEngineState({ shared: { exists: false, ahead: 0, behind: 0 } });
+		renderPanel();
+
+		await screen.findByText('This project is only on this computer');
+		expect(screen.queryByRole('button', { name: 'Check the Shared Copy' })).not.toBeInTheDocument();
+	});
+
 	test('no shared copy shows "This project is only on this computer"', async () => {
 		engine.state = fakeEngineState({ shared: { exists: false, ahead: 0, behind: 0 } });
 		renderPanel();

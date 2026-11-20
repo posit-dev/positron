@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { Strings } from '../../common/checkpointsStrings.js';
@@ -11,6 +11,7 @@ import { ICheckpointsMessageService } from '../checkpointsMessages.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { showShareDialog } from './shareDialog.js';
 import { showStartTrackingDialog } from './startTrackingDialog.js';
+import { useRunAction } from './useRunAction.js';
 
 /** The command that opens the Source Control view. */
 const OPEN_SOURCE_CONTROL_COMMAND_ID = 'workbench.view.scm';
@@ -67,7 +68,8 @@ export function describeStatus(view: ICheckpointsViewState): IStatus | undefined
 
 /**
  * The status at the top of the Checkpoints view: the project the opened folder belongs to, when
- * it is a folder inside a project, and one status sentence with its action. The notice that an
+ * it is a folder inside a project, one status sentence with its action, and, for a project with
+ * a shared copy, an icon button that checks the shared copy now. The notice that an
  * interrupted action was finished at startup is published once on the status line of the view,
  * so a later load that still reports it does not replace the sentence of a later action.
  */
@@ -85,6 +87,8 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 
 	const status = describeStatus(view);
 	const state = view.state;
+	const runAction = useRunAction();
+	const [checking, setChecking] = useState(false);
 	const showProjectName = state?.tracking === 'tracking' && state.openedFolderIsInsideProject;
 
 	const start = () => {
@@ -93,6 +97,18 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 
 	const share = () => {
 		showShareDialog({ projectName: state?.projectName ?? '' });
+	};
+
+	// The shared copy is also checked without being asked (`SharedCopyChecker`); this is the same check on a click.
+	const canCheck = state?.tracking === 'tracking' && state.shared.exists && state.syncAvailable && !state.unusual;
+	const check = async () => {
+		setChecking(true);
+		try {
+			await runAction('no-guard', engine => engine.checkShared());
+		} finally {
+			setChecking(false);
+		}
+		view.refresh();
 	};
 
 	const openSourceControl = () => {
@@ -105,7 +121,20 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 				<p className='checkpoints-status-project'>{Strings.status.partOfProject(state.projectName)}</p>
 			)}
 			{status && (
-				<p className='checkpoints-status-sentence'>{status.sentence}</p>
+				<div className='checkpoints-status-row'>
+					<p className='checkpoints-status-sentence'>{status.sentence}</p>
+					{canCheck && (
+						<Button
+							ariaLabel={Strings.actions.checkSharedCopy()}
+							className='checkpoints-icon-button'
+							disabled={checking}
+							tooltip={Strings.actions.checkSharedCopy()}
+							onPressed={check}
+						>
+							<span aria-hidden='true' className={`codicon codicon-sync${checking ? ' codicon-modifier-spin' : ''}`} />
+						</Button>
+					)}
+				</div>
 			)}
 			{status?.action === 'start' && (
 				<Button className='checkpoints-button checkpoints-button-primary' onPressed={start}>
