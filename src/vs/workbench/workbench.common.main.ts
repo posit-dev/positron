@@ -559,6 +559,7 @@ import './services/positronObjectExplorer/browser/positronObjectExplorerService.
 import './services/positronConnections/browser/positronConnectionsService.js';
 import './services/positronCheckpoints/browser/checkpointsService.js';
 import './contrib/positronCheckpoints/browser/checkpointsAgentService.js';
+import './contrib/positronCheckpoints/browser/github/githubClient.js';
 import './services/positronDataConnections/browser/positronDataConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import './contrib/positronAssistant/browser/positronAssistantService.js';

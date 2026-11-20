@@ -4669,6 +4669,8 @@ declare module 'positron' {
 			removeRecoverySnapshot(operationId: string): Promise<void>;
 			startTracking(identity?: { name: string; email: string }, gitignore?: string): Promise<OperationResult>;
 			proposedGitignore(): Promise<string>;
+			/** Links the project to a shared copy at `url` and sends its checkpoints there. */
+			connectSharedCopy(url: string): Promise<OperationResult>;
 			/** Fires when any result of `getState()` or `getChanges()` may differ. */
 			onDidChangeState: vscode.Event<void>;
 		}

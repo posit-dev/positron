@@ -7,9 +7,11 @@
 
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
+import { isIMenuItem, MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
+import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../../common/views.js';
-import { POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID, POSITRON_CHECKPOINTS_VIEW_ID } from '../../browser/positronCheckpoints.contribution.js';
+import { JOIN_PROJECT_COMMAND_ID, POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID, POSITRON_CHECKPOINTS_VIEW_ID } from '../../browser/positronCheckpoints.contribution.js';
 import { CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY, CHECKPOINTS_MODEL_KEY } from '../../common/checkpointsConfiguration.js';
 import { PositronCheckpointsView } from '../../browser/positronCheckpointsView.js';
 import { OverlapEditorPane } from '../../browser/overlapEditor/overlapEditor.js';
@@ -52,5 +54,20 @@ describe('positronCheckpoints.contribution', () => {
 	test('the interval setting cannot be negative', () => {
 		const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
 		expect(properties[CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY]?.minimum).toBe(0);
+	});
+
+	test('the Join a Project command is registered with its title in the Command Palette', () => {
+		expect(JOIN_PROJECT_COMMAND_ID).toBe('positronCheckpoints.joinProject');
+		expect(CommandsRegistry.getCommand(JOIN_PROJECT_COMMAND_ID)).toBeDefined();
+		const entry = MenuRegistry.getMenuItems(MenuId.CommandPalette).filter(isIMenuItem).find(item => item.command.id === JOIN_PROJECT_COMMAND_ID);
+		expect(entry?.command.title).toEqual({ value: 'Join a Project', original: 'Join a Project' });
+	});
+
+	test('a window with no folder offers Join a Project in the welcome text of the Explorer', () => {
+		const welcome = Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).getViewWelcomeContent('workbench.explorer.emptyView');
+		const entry = welcome.find(content => content.content.includes(`command:${JOIN_PROJECT_COMMAND_ID}`));
+		expect(entry?.content).toContain('[Join a project]');
+		const when = entry?.when;
+		expect(typeof when === 'object' && when.equals(ContextKeyExpr.equals('workbenchState', 'empty'))).toBe(true);
 	});
 });

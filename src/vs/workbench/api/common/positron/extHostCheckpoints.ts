@@ -109,6 +109,8 @@ export class ExtHostCheckpoints implements extHostProtocol.ExtHostCheckpointsSha
 				return { method: request.method, result: await engine.startTracking(...request.args) };
 			case 'proposedGitignore':
 				return { method: request.method, result: await engine.proposedGitignore(...request.args) };
+			case 'connectSharedCopy':
+				return { method: request.method, result: await engine.connectSharedCopy(...request.args) };
 		}
 	}
 }

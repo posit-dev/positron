@@ -109,6 +109,20 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		dialogTitle: [[]], intro: [[]], startButton: [[]], identityWhy: [[]], nameLabel: [[]], emailLabel: [[]], emailInvalid: [[]],
 		leaveOut: [[]], leaveOutBox: [[]], leaveOutHelp: [[]], couldNotLoad: [[]], tryAgain: [[]], identityNotRecorded: [[]],
 	},
+	share: {
+		dialogTitle: [[]], action: [[]], nameLabel: [[]], organizationLabel: [[]], organizationHelp: [[]], privateLabel: [[]], inviteLabel: [[]],
+		inviteHelp: [[]], shareButton: [[]], creating: [[]], copying: [[]], inviting: [['maya-ortiz']], shared: [[]],
+		sendLink: [['https://github.com/me/dose-model']], projectLink: [['https://github.com/me/dose-model']], invited: [['maya-ortiz']],
+		copyLink: [[]], signInNeeded: [[]], signInButton: [[]], tryAgain: [[]], signInMissing: [[]], offline: [[]], nameTaken: [['dose-model']],
+		organizationRefuses: [['acme']], accountRefuses: [[]], createFailed: [[''], ['GitHub replied 500.']], copyFailed: [['dose-model']],
+		alreadyShared: [[]], noSuchUser: [['maya-ortiz', 'https://github.com/me/dose-model']], emailEntered: [[]],
+		inviteNotAllowed: [['https://github.com/me/dose-model']], signInLost: [['maya-ortiz']], inviteFailed: [['maya-ortiz', 'https://github.com/me/dose-model']],
+	},
+	join: {
+		dialogTitle: [[]], action: [[]], prompt: [[]], linkLabel: [[]], continueButton: [[]], notALink: [[]], chooseFolderTitle: [[]],
+		chooseFolderButton: [[]], folderExists: [['dose-model', '/work']], copying: [['dose-model']], ready: [['dose-model']],
+		copyFailed: [['acme']], partialFolder: [['/work/dose-model']],
+	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],
 		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],

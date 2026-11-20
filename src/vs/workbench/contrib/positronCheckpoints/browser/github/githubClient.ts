@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { asJson, asText, IRequestService } from '../../../../../platform/request/common/request.js';
 import { IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
@@ -34,10 +36,13 @@ export interface ProjectLink {
  * The GitHub calls that sharing a project needs. Every call is made after a click.
  */
 export interface IGitHubClient {
+	readonly _serviceBrand: undefined;
 	createRepository(name: string, isPrivate: boolean, owner?: string): Promise<CreateRepositoryResult>;
 	invite(owner: string, name: string, login: string): Promise<InviteResult>;
 	parseProjectLink(text: string): ProjectLink | undefined;
 }
+
+export const IGitHubClient = createDecorator<IGitHubClient>('positronCheckpointsGitHubClient');
 
 export const EMAIL_NOT_ACCEPTED_DETAIL = 'Enter the person\'s GitHub user name.';
 
@@ -97,10 +102,12 @@ interface CreatedRepository {
  * sign-in itself, and it never writes the token to a log.
  */
 export class GitHubClient implements IGitHubClient {
+	declare readonly _serviceBrand: undefined;
+
 	constructor(
-		private readonly _authenticationService: IAuthenticationService,
-		private readonly _requestService: IRequestService,
-		private readonly _logService: ILogService,
+		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
+		@IRequestService private readonly _requestService: IRequestService,
+		@ILogService private readonly _logService: ILogService,
 	) { }
 
 	parseProjectLink(text: string): ProjectLink | undefined {
@@ -232,3 +239,5 @@ function describeReply(status: number, text: string): string {
 	const detail = message ? `GitHub replied ${status}: ${message}` : `GitHub replied ${status}.`;
 	return detail.length > MAX_DETAIL_LENGTH ? detail.slice(0, MAX_DETAIL_LENGTH) : detail;
 }
+
+registerSingleton(IGitHubClient, GitHubClient, InstantiationType.Delayed);

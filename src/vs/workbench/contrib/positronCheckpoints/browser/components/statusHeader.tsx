@@ -7,6 +7,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
+import { showShareDialog } from './shareDialog.js';
 import { showStartTrackingDialog } from './startTrackingDialog.js';
 
 /** The command that opens the Source Control view. */
@@ -15,7 +16,7 @@ const OPEN_SOURCE_CONTROL_COMMAND_ID = 'workbench.view.scm';
 /** The one status sentence of the view, and the action that goes with it. */
 interface IStatus {
 	sentence: string;
-	action?: 'start' | 'open-source-control';
+	action?: 'start' | 'share' | 'open-source-control';
 }
 
 /**
@@ -47,7 +48,7 @@ export function describeStatus(view: ICheckpointsViewState): IStatus | undefined
 		return { sentence: Strings.status.syncUnavailable(state.requiredGitVersion) };
 	}
 	if (!state.shared.exists) {
-		return { sentence: Strings.status.onlyOnThisComputer() };
+		return { sentence: Strings.status.onlyOnThisComputer(), action: 'share' };
 	}
 	if (state.shared.behind > 0) {
 		return { sentence: Strings.status.behind(state.shared.behind) };
@@ -73,6 +74,10 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 		showStartTrackingDialog({ identityMissing: state?.identityMissing ?? false });
 	};
 
+	const share = () => {
+		showShareDialog({ projectName: state?.projectName ?? '' });
+	};
+
 	const openSourceControl = () => {
 		services.commandService.executeCommand(OPEN_SOURCE_CONTROL_COMMAND_ID);
 	};
@@ -88,6 +93,11 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 			{status?.action === 'start' && (
 				<Button className='checkpoints-button checkpoints-button-primary' onPressed={start}>
 					{Strings.actions.startKeepingCheckpoints()}
+				</Button>
+			)}
+			{status?.action === 'share' && (
+				<Button className='checkpoints-button checkpoints-button-primary' onPressed={share}>
+					{Strings.share.action()}
 				</Button>
 			)}
 			{status?.action === 'open-source-control' && (

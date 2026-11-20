@@ -217,4 +217,8 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 		this._record('proposedGitignore');
 		return this.gitignore;
 	}
+
+	connectSharedCopy(url: string): Promise<OperationResult> {
+		return this._operation('connectSharedCopy', url);
+	}
 }
