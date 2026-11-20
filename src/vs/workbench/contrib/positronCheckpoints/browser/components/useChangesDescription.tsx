@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { describeChangesJob, IChangesDescription } from '../../common/agent/describeChanges.js';
 import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
@@ -52,9 +53,12 @@ export function useChangesDescription(changes: IChangeSet | undefined, active: b
 			if (outcome.ok && !source.token.isCancellationRequested) {
 				setDescribed({ basis, description: outcome.value });
 			}
+		}, error => {
+			// A failed outcome: the plain file list stays.
+			services.get(ILogService).error('The changes could not be described.', error);
 		});
 		return () => source.dispose(true);
-	}, [agentService, active, available, basis]);
+	}, [services, agentService, active, available, basis]);
 
 	return active && available && described && described.basis === basis ? described.description : undefined;
 }

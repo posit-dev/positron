@@ -15,6 +15,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IChangedFile, IChangeSet, IChunk, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
@@ -24,7 +25,7 @@ import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
 import { openDiff } from '../openDiff.js';
 import {
-	addChunk, createDraft, draftPaths, IChunkDraft, IDraftChunk, isDraftReady, moveFile, moveHunk, partialPaths, reconcileDraft, setChunkText, setChunkTicked,
+	addChunk, createDraft, draftPaths, IChunkDraft, IDraftChunk, isDraftReady, joinsUntickedEntry, moveFile, moveHunk, partialPaths, reconcileDraft, setChunkText, setChunkTicked,
 	setFileTicked, titleProblem, toChunks, usedChunkCount
 } from './chunkDraft.js';
 import { knownSizes, statusWord } from './fileStatus.js';
@@ -96,6 +97,22 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 	const [addedPaths, setAddedPaths] = useState<ReadonlySet<string>>(new Set());
 	const [notice, setNotice] = useState<string>();
 	const [running, setRunning] = useState(false);
+	// The files, as `hintKey(chunkId, path)`, that became unticked because ticked parts moved into
+	// an unticked entry. The hint goes away when the person ticks or unticks the file there.
+	const [movedHints, setMovedHints] = useState<ReadonlySet<string>>(new Set());
+	const moveInto = (next: IChunkDraft, path: string, movedTicked: boolean, toChunkId: number) => {
+		if (joinsUntickedEntry(draft, path, movedTicked, toChunkId)) {
+			setMovedHints(new Set([...movedHints, hintKey(toChunkId, path)]));
+		}
+		update(next);
+	};
+	const tickFile = (chunkId: number, path: string, ticked: boolean) => {
+		const key = hintKey(chunkId, path);
+		if (movedHints.has(key)) {
+			setMovedHints(new Set([...movedHints].filter(entry => entry !== key)));
+		}
+		update(setFileTicked(draft, chunkId, path, ticked));
+	};
 
 	// Asks the agent for a split once, when the dialog opens without a starting arrangement.
 	const [splitRequest] = useState(() => props.initialChunks?.length ? undefined : props.changes);
@@ -116,6 +133,9 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 				wholeFiles: chunk.wholeFiles,
 				ticked: chunk.finished,
 			}))));
+		}, error => {
+			// A failed outcome: the single chunk stays.
+			services.get(ILogService).error('The changes could not be split into checkpoints.', error);
 		});
 		return () => source.dispose(true);
 	}, [services, splitRequest]);
@@ -127,6 +147,9 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 		if (!ready || running) {
 			return;
 		}
+		// From here on the draft the person submitted stays visible, so a proposal that arrives
+		// while the unsaved-files question is open never replaces it.
+		edited.current = true;
 		const arranged = draft;
 		setRunning(true);
 		const result = await runAction('checkpoint', async (engine, { decision }) => {
@@ -186,11 +209,20 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 						chunks={draft.chunks}
 						filesByPath={filesByPath}
 						index={index}
+						movedHints={movedHints}
 						partialPaths={partialPaths(draft, chunk)}
-						onMove={(path, toChunkId) => update(moveFile(draft, chunk.id, path, toChunkId))}
-						onMoveHunk={(hunkId, toChunkId) => update(moveHunk(draft, hunkId, toChunkId))}
+						onMove={(path, toChunkId) => {
+							const moved = chunk.files.find(file => file.path === path);
+							moveInto(moveFile(draft, chunk.id, path, toChunkId), path, moved?.ticked ?? false, toChunkId);
+						}}
+						onMoveHunk={(hunkId, toChunkId) => {
+							const from = chunk.files.find(file => file.hunkIds.includes(hunkId));
+							if (from) {
+								moveInto(moveHunk(draft, hunkId, toChunkId), from.path, from.ticked, toChunkId);
+							}
+						}}
 						onText={text => update(setChunkText(draft, chunk.id, text))}
-						onTick={(path, ticked) => update(setFileTicked(draft, chunk.id, path, ticked))}
+						onTick={(path, ticked) => tickFile(chunk.id, path, ticked)}
 						onTickChunk={ticked => update(setChunkTicked(draft, chunk.id, ticked))}
 					/>
 				))}
@@ -202,9 +234,16 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 	);
 };
 
+/** The key of a file in a chunk, for the hints of the dialog. */
+function hintKey(chunkId: number, path: string): string {
+	return `${chunkId}/${path}`;
+}
+
 interface IChunkEditorProps {
 	/** Files that a save added after the person first arranged the chunks. */
 	addedPaths: ReadonlySet<string>;
+	/** Files, as `hintKey(chunkId, path)`, that became unticked when parts moved into them. */
+	movedHints: ReadonlySet<string>;
 	chunk: IDraftChunk;
 	chunks: IDraftChunk[];
 	index: number;
@@ -272,6 +311,9 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 							</label>
 							{file && <span className='checkpoints-file-status'>{statusWord(file)}</span>}
 							{props.addedPaths.has(draftFile.path) && <span className='checkpoint-dialog-added'>{Strings.changes.savedAndAddedTag()}</span>}
+							{!draftFile.ticked && props.movedHints.has(hintKey(chunk.id, draftFile.path)) && (
+								<span className='checkpoint-dialog-moved-hint'>{Strings.changes.movedIntoUnselected()}</span>
+							)}
 							{props.chunks.length > 1 && (
 								<MoveMenu
 									chunkId={chunk.id}

@@ -135,7 +135,9 @@ const changes = {
 	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add another checkpoint"),
 	moveFileTo: (path: string) => localize('positron.checkpoints.changes.moveFileTo', "Move {0} to", path),
 	/** A part of a file, one of the places where its lines changed. */
-	partLabel: (index: number, added: number, removed: number) => localize('positron.checkpoints.changes.partLabel', "Part {0}: {1} lines added, {2} removed", index, added, removed),
+	partLabel: (index: number, added: number, removed: number) => plural(added,
+		localize('positron.checkpoints.changes.partLabel.one', "Part {0}: 1 line added, {1} removed", index, removed),
+		localize('positron.checkpoints.changes.partLabel.other', "Part {0}: {1} lines added, {2} removed", index, added, removed)),
 	movePartTo: (index: number, path: string) => localize('positron.checkpoints.changes.movePartTo', "Move part {0} of {1} to", index, path),
 	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this checkpoint."),
 	savedAndAdded: (count: number) => plural(count,
@@ -143,6 +145,7 @@ const changes = {
 		localize('positron.checkpoints.changes.savedAndAdded.other', "These files were saved and added. Review them, then create the checkpoint again.")),
 	savedAndAddedTag: () => localize('positron.checkpoints.changes.savedAndAddedTag', "saved and added"),
 	savedContentChanged: () => localize('positron.checkpoints.changes.savedContentChanged', "These files were saved. Review and confirm."),
+	movedIntoUnselected: () => localize('positron.checkpoints.changes.movedIntoUnselected', "Moved to a part that is not selected."),
 	savedAndChanged: () => localize('positron.checkpoints.changes.savedAndChanged', "Saving changed the list of files. Review the checkpoints, then create them again."),
 };
 

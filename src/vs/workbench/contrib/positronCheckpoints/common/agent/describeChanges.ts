@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { escapeRegExpCharacters } from '../../../../../base/common/strings.js';
 import { IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { CHECKPOINT_TITLE_LIMIT } from '../checkpointsLimits.js';
 import { FORBIDDEN_WORDS } from '../forbiddenWords.js';
@@ -11,6 +12,12 @@ import { Job, MAX_INPUT_CHARS, wrapUntrusted } from './jobTypes.js';
 
 /** The longest summary the view shows. */
 export const MAX_SUMMARY_CHARS = 600;
+
+/** The longest note for one file. */
+export const MAX_FILE_NOTE_CHARS = 120;
+
+/** The shortest file name that is removed before the check for git words. */
+const MIN_REMOVED_NAME_CHARS = 3;
 
 /**
  * Room in a request for the text around the changes: the wrapping of `wrapUntrusted` and the
@@ -38,8 +45,10 @@ export function checkTitle(raw: unknown): string | undefined {
 }
 
 /**
- * True when `text` has a git word the view never shows. The names of the changed files are
- * removed first, so a file called `merge.R` can be named.
+ * True when `text` has a git word the view never shows. The paths and names of the changed files
+ * are removed first, so a file called `merge.R` can be named. A name is removed only where it
+ * stands as a whole token (no letter, digit, or underscore on either side), and only when it has
+ * at least 3 characters, so a file called `e` cannot split the word "merge".
  */
 export function containsForbiddenWord(text: string, paths: readonly string[]): boolean {
 	const names = new Set<string>();
@@ -48,8 +57,8 @@ export function containsForbiddenWord(text: string, paths: readonly string[]): b
 		names.add(path.slice(path.lastIndexOf('/') + 1));
 	}
 	let cleaned = text;
-	for (const name of [...names].filter(name => name !== '').sort((a, b) => b.length - a.length)) {
-		cleaned = cleaned.split(name).join(' ');
+	for (const name of [...names].filter(name => name.length >= MIN_REMOVED_NAME_CHARS).sort((a, b) => b.length - a.length)) {
+		cleaned = cleaned.replace(new RegExp(`(?<!\\w)${escapeRegExpCharacters(name)}(?!\\w)`, 'g'), ' ');
 	}
 	return FORBIDDEN_WORDS.test(cleaned);
 }
@@ -65,18 +74,19 @@ const SYSTEM_PROMPT = [
 	'{"title": "...", "summary": "...", "fileNotes": [{"path": "...", "note": "..."}]}',
 	`- "title" is one line of at most ${CHECKPOINT_TITLE_LIMIT} characters that names the work, for example "Fixed the units in the dose model".`,
 	`- "summary" is one to three sentences, at most ${MAX_SUMMARY_CHARS} characters, about what changed and why it matters.`,
-	'- "fileNotes" has at most one short note for each changed file, a few words long. "path" is the exact path from a "File:" line.',
+	`- "fileNotes" has at most one short note for each changed file, a few words long and at most ${MAX_FILE_NOTE_CHARS} characters. "path" is the exact path from a "File:" line.`,
 ].join('\n');
 
 /**
  * Describes the unrecorded changes in plain language: a title, a summary, and a note per file.
  * The check accepts only a one-line title of 1 to 72 characters, a summary of at most 600
- * characters, notes for files in the change set (one each), and text without git words.
+ * characters, notes of at most 120 characters for files in the change set (one each), and text
+ * without git words.
  */
 export const describeChangesJob: Job<IChangeSet, IChangesDescription> = {
 	name: 'describe-changes',
 	weight: 'light',
-	version: 1,
+	version: 2,
 
 	buildPrompt(changes) {
 		const text = renderChangesForModel(changes, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS);
@@ -110,7 +120,11 @@ export const describeChangesJob: Job<IChangeSet, IChangesDescription> = {
 			if (typeof path !== 'string' || typeof note !== 'string' || !known.has(path) || fileNotes.some(existing => existing.path === path)) {
 				return undefined;
 			}
-			fileNotes.push({ path, note: note.trim() });
+			const trimmedNote = note.trim();
+			if (trimmedNote.length > MAX_FILE_NOTE_CHARS) {
+				return undefined;
+			}
+			fileNotes.push({ path, note: trimmedNote });
 		}
 
 		const texts = [title, trimmedSummary, ...fileNotes.map(entry => entry.note)];

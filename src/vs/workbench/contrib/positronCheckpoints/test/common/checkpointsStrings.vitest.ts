@@ -66,7 +66,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
 		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]],
 		titleTooLong: [[72]], chunkTitle: [[1]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
-		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], partLabel: [[2, 3, 1]], movePartTo: [[2, 'dose.R']], noFilesInChunk: [[]],
+		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], partLabel: [[2, 3, 1], [1, 1, 2]], movePartTo: [[2, 'dose.R']], noFilesInChunk: [[]], movedIntoUnselected: [[]],
 		savedAndAdded: [[1], [2]], savedAndAddedTag: [[]], savedAndChanged: [[]], savedContentChanged: [[]],
 	},
 	diff: {
@@ -254,6 +254,12 @@ describe('checkpointsStrings', () => {
 		expect(Strings.changes.unsavedNote(2)).toBe('2 files have unsaved edits that are not shown');
 		expect(Strings.kept.heading()).toBe('Files kept aside');
 		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place for a checkpoint.');
+	});
+
+	test('a part label says line or lines by the number added', () => {
+		expect(Strings.changes.partLabel(1, 1, 2)).toBe('Part 1: 1 line added, 2 removed');
+		expect(Strings.changes.partLabel(2, 2, 1)).toBe('Part 2: 2 lines added, 1 removed');
+		expect(Strings.changes.partLabel(3, 0, 1)).toBe('Part 3: 0 lines added, 1 removed');
 	});
 
 	test('the unavailable sentences for an unusual state, a time-out, and nothing to do are exact', () => {

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { IChangedFile, IChangeSet, IHunk } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { describeChangesJob } from '../../common/agent/describeChanges.js';
+import { containsForbiddenWord, describeChangesJob, MAX_FILE_NOTE_CHARS } from '../../common/agent/describeChanges.js';
 import { fullSystemPrompt } from '../../common/agent/jobRunner.js';
 import { MAX_INPUT_CHARS, STYLE_RULES } from '../../common/agent/jobTypes.js';
 
@@ -148,6 +148,27 @@ describe('describeChangesJob', () => {
 		const response = { title: 'Updated merge.R', summary: 'You changed R/merge.R.', fileNotes: [{ path: 'R/merge.R', note: 'one line' }] };
 
 		expect(describeChangesJob.check(response, named)).toEqual(response);
+	});
+
+	test('a short file name does not hide a git word inside another word', () => {
+		const short: IChangeSet = { basis: 'b1', files: [textFile('e', [hunk('h1', '+x\n')]), textFile('r', [hunk('h2', '+y\n')])] };
+		const response = { title: 'Ready to merge', summary: 'You changed e and r.', fileNotes: [] };
+
+		expect(containsForbiddenWord('Ready to merge', ['e', 'r'])).toBe(true);
+		expect(describeChangesJob.check(response, short)).toBeUndefined();
+		// A name of three or more characters is removed only as a whole token.
+		expect(containsForbiddenWord('Ready to merge', ['erg'])).toBe(true);
+		expect(containsForbiddenWord('Ready to push', ['data/pus'])).toBe(true);
+		expect(containsForbiddenWord('Updated merge.R and R/merge.R', ['R/merge.R'])).toBe(false);
+		expect(containsForbiddenWord('Updated push', ['scripts/push'])).toBe(false);
+	});
+
+	test('check rejects a file note over 120 characters', () => {
+		const note = (text: string) => ({ ...goodResponse, fileNotes: [{ path: 'plot_dose.R', note: text }] });
+
+		expect(MAX_FILE_NOTE_CHARS).toBe(120);
+		expect(describeChangesJob.check(note('x'.repeat(120)), changes)).toBeDefined();
+		expect(describeChangesJob.check(note('x'.repeat(121)), changes)).toBeUndefined();
 	});
 
 	// Review Focus 5.

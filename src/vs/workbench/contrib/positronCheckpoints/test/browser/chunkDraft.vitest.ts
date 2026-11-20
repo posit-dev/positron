@@ -7,7 +7,7 @@
 
 import { IChangedFile, IHunk } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import {
-	addChunk, chunkIsUsed, createDraft, draftPaths, IChunkDraft, isDraftReady, moveFile, moveHunk, partialPaths, reconcileDraft, setChunkText, setChunkTicked,
+	addChunk, chunkIsUsed, createDraft, draftPaths, IChunkDraft, isDraftReady, joinsUntickedEntry, moveFile, moveHunk, partialPaths, reconcileDraft, setChunkText, setChunkTicked,
 	setFileTicked, titleProblem, toChunks, usedChunkCount
 } from '../../browser/components/chunkDraft.js';
 
@@ -129,6 +129,19 @@ describe('chunkDraft', () => {
 
 		draft = moveFile(draft, 1, 'dose.R', 2);
 		expect(draft.chunks[1].files[0]).toEqual({ path: 'dose.R', ticked: true, hunkIds: ['d1', 'd2', 'd3'] });
+	});
+
+	test('a ticked move into an unticked entry of the same file is reported, because the moved parts become unticked', () => {
+		let draft = addChunk(createDraft(mixed));
+		draft = moveHunk(draft, 'd3', 2);
+		draft = setFileTicked(draft, 2, 'dose.R', false);
+
+		expect(joinsUntickedEntry(draft, 'dose.R', true, 2)).toBe(true);
+		expect(moveHunk(draft, 'd1', 2).chunks[1].files).toEqual([{ path: 'dose.R', ticked: false, hunkIds: ['d1', 'd3'] }]);
+		expect(joinsUntickedEntry(draft, 'dose.R', false, 2)).toBe(false);
+		expect(joinsUntickedEntry(draft, 'plot.R', true, 2)).toBe(false);
+		expect(joinsUntickedEntry(draft, 'dose.R', true, 1)).toBe(false);
+		expect(joinsUntickedEntry(draft, 'dose.R', true, 9)).toBe(false);
 	});
 
 	test('toChunks sends a file split over chunks as hunk ids, and a whole file by path', () => {

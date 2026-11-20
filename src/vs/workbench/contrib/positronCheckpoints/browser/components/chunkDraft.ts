@@ -227,6 +227,19 @@ export function moveHunk(draft: IChunkDraft, hunkId: string, toChunkId: number):
 	};
 }
 
+/**
+ * True when moving parts of `path` from an entry ticked `movedTicked` into the chunk `toChunkId`
+ * joins an unticked entry of the same file there. The moved parts take that entry's tick, so they
+ * become unticked.
+ */
+export function joinsUntickedEntry(draft: IChunkDraft, path: string, movedTicked: boolean, toChunkId: number): boolean {
+	if (!movedTicked) {
+		return false;
+	}
+	const target = draft.chunks.find(chunk => chunk.id === toChunkId);
+	return target?.files.some(file => file.path === path && !file.ticked) ?? false;
+}
+
 /** Adds an empty, ticked chunk after the others. */
 export function addChunk(draft: IChunkDraft): IChunkDraft {
 	return {

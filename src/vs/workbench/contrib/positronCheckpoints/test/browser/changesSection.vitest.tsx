@@ -14,7 +14,7 @@ import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -44,6 +44,9 @@ describe('Changes section and checkpoint dialog', () => {
 	let dirty: IWorkingCopy[] = [];
 	/** The label of the button to press at the unsaved-files prompt, or undefined for Cancel. */
 	let pressLabel: string | undefined;
+	/** When set, the unsaved-files prompt stays open until this promise resolves. */
+	let promptGate: Promise<void> | undefined;
+	let promptsShown = 0;
 	const onDidChangeDirty = new Emitter<IWorkingCopy>();
 
 	const ctx = createTestContainer()
@@ -61,6 +64,8 @@ describe('Changes section and checkpoint dialog', () => {
 		.stub(IDialogService, {
 			// Presses the button named by `pressLabel`, or Cancel.
 			prompt: async (prompt: IPrompt<UnsavedEditorsDecision>) => {
+				promptsShown++;
+				await promptGate;
 				const button = prompt.buttons?.find(candidate => candidate.label === pressLabel);
 				const chosen = button ?? (prompt.cancelButton as { run: () => UnsavedEditorsDecision });
 				return { result: await chosen.run({ checkboxChecked: false }) };
@@ -78,6 +83,8 @@ describe('Changes section and checkpoint dialog', () => {
 	beforeEach(() => {
 		dirty = [];
 		pressLabel = 'Save 1 file and include it';
+		promptGate = undefined;
+		promptsShown = 0;
 		// PositronModalReactRenderer finds its container through this singleton.
 		PositronReactServices.services = ctx.reactServices;
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
@@ -501,6 +508,16 @@ describe('Changes section and checkpoint dialog', () => {
 			expect(await screen.findByText(description.summary)).toBeInTheDocument();
 		});
 
+		test('a description request that rejects is logged, and the plain list stays', async () => {
+			const logError = vi.spyOn(ctx.get(ILogService), 'error');
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', async () => { throw new Error('no answer'); });
+			renderPanel(twoFiles);
+
+			await vi.waitFor(() => expect(logError).toHaveBeenCalledTimes(1));
+			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
+		});
+
 		test('the dialog starts with the title and summary of the description', async () => {
 			agent.setAvailable(true);
 			agent.answers.set('describe-changes', { ok: true, value: description, fromCache: false });
@@ -596,6 +613,56 @@ describe('Changes section and checkpoint dialog', () => {
 			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Mine');
 		});
 
+		test('a proposal that arrives while the unsaved-files question is open does not replace the draft', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('describe-changes', { ok: true, value: { title: 'Described', summary: 'You changed the dose.', fileNotes: [] }, fromCache: false });
+			const answer = agent.hold('split-into-chunks');
+			renderPanel(changes);
+			expect(await screen.findByText('You changed the dose.')).toBeInTheDocument();
+			const user = await openDialog();
+			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Described');
+			dirty = [unsavedFile('/work/dose-model/dose.R')];
+			pressLabel = undefined;
+			let release!: () => void;
+			promptGate = new Promise(resolve => { release = resolve; });
+
+			await user.click(createButton(1));
+			await vi.waitFor(() => expect(promptsShown).toBe(1));
+			answer({ ok: true, value: proposal, fromCache: false });
+			await new Promise(resolve => setTimeout(resolve, 0));
+			release();
+
+			await vi.waitFor(() => expect(createButton(1)).toBeEnabled());
+			expect(chunkGroups()).toHaveLength(1);
+			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Described');
+		});
+
+		test('a split request that rejects is logged, and the single chunk stays', async () => {
+			const logError = vi.spyOn(ctx.get(ILogService), 'error');
+			agent.setAvailable(true);
+			agent.answers.set('split-into-chunks', async () => { throw new Error('no answer'); });
+			renderPanel(changes);
+			await openDialog();
+
+			await vi.waitFor(() => expect(logError).toHaveBeenCalledTimes(1));
+			expect(chunkGroups()).toHaveLength(1);
+		});
+
+		test('moving a part into its file where that file is not selected says so beside the file', async () => {
+			renderPanel(changes);
+			const user = await openDialog();
+			await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
+			await user.click(within(chunkGroups()[1]).getByRole('checkbox', { name: 'dose.R' }));
+			expect(screen.queryByText('Moved to a part that is not selected.')).not.toBeInTheDocument();
+
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 1 of dose.R to' }), 'Checkpoint 2');
+
+			expect(within(chunkGroups()[1]).getByText('Moved to a part that is not selected.')).toBeInTheDocument();
+			await user.click(within(chunkGroups()[1]).getByRole('checkbox', { name: 'dose.R' }));
+			expect(screen.queryByText('Moved to a part that is not selected.')).not.toBeInTheDocument();
+		});
+
 		test('no split is requested with a starting arrangement or while the agent is off', async () => {
 			renderPanel(changes);
 			const user = await openDialog();
@@ -630,7 +697,7 @@ describe('Changes section and checkpoint dialog', () => {
 
 			const [first, second] = chunkGroups();
 			const partsOf = (chunk: HTMLElement) => within(within(chunk).getByRole('list', { name: 'dose.R' })).getAllByText(/^Part \d+:/).map(part => part.textContent);
-			expect(partsOf(first)).toEqual(['Part 1: 1 lines added, 1 removed']);
+			expect(partsOf(first)).toEqual(['Part 1: 1 line added, 1 removed']);
 			expect(partsOf(second)).toEqual(['Part 2: 2 lines added, 1 removed']);
 
 			const titles = screen.getAllByRole('textbox', { name: 'Title' });
@@ -667,7 +734,7 @@ describe('Changes section and checkpoint dialog', () => {
 			const part = within(screen.getByRole('list', { name: 'dose.R' })).getAllByRole('listitem')[0];
 			const block = within(part).getByRole('group');
 			expect(block).not.toHaveAttribute('open');
-			await user.click(within(part).getByText('Part 1: 1 lines added, 1 removed'));
+			await user.click(within(part).getByText('Part 1: 1 line added, 1 removed'));
 
 			expect(block).toHaveAttribute('open');
 			expect(within(block).getByText(/new d1/)).toHaveTextContent(/^@@ -1 \+1 @@ -old d1 \+new d1$/);
