@@ -3408,6 +3408,12 @@ declare module 'positron' {
 		 * method that creates a new webview panel and sets its content to the
 		 * given URL.
 		 *
+		 * On Desktop, when the Viewer uses the integrated browser (the
+		 * `viewer.useIntegratedBrowser` setting), the page isn't in a webview,
+		 * so the panel's `webview` isn't connected to it: `postMessage`
+		 * returns false and no messages arrive. Use `createPreviewPanel` for
+		 * content that exchanges messages with the extension.
+		 *
 		 * @param url The URL to preview
 		 * @param source Optional source information indicating what opened the preview
 		 *
@@ -3419,6 +3425,12 @@ declare module 'positron' {
 		 * Create and show a new preview panel for an HTML file. This is a
 		 * convenience method that creates a new webview panel and sets its
 		 * content to that of the given file.
+		 *
+		 * On Desktop, when the Viewer uses the integrated browser (the
+		 * `viewer.useIntegratedBrowser` setting), the page isn't in a webview,
+		 * so the panel's `webview` isn't connected to it: `postMessage`
+		 * returns false and no messages arrive. Use `createPreviewPanel` for
+		 * content that exchanges messages with the extension.
 		 *
 		 * @param path The fully qualified path to the HTML file to preview
 		 *

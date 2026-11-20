@@ -221,7 +221,7 @@ y = 2
 
 			// Mock preview service - only the methods we care about
 			const mockPreviewService: Partial<IPositronPreviewService> = {
-				openHtmlString(previewId: string, html: string, title: string): PreviewWebview {
+				async openHtmlString(previewId: string, html: string, title: string): Promise<PreviewWebview> {
 					openHtmlStringCalled = true;
 					openHtmlStringArgs = { previewId, html, title };
 					return {} as PreviewWebview;
@@ -257,7 +257,7 @@ y = 2
 			// should have an openHtmlString method that accepts HTML content directly.
 			// This is a compile-time check as much as a runtime one.
 			const mockService: Pick<IPositronPreviewService, 'openHtmlString'> = {
-				openHtmlString(_previewId: string, _html: string, _title: string): PreviewWebview {
+				async openHtmlString(_previewId: string, _html: string, _title: string): Promise<PreviewWebview> {
 					return {} as PreviewWebview;
 				},
 			};

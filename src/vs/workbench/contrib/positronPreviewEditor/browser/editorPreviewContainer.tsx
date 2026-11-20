@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import * as DOM from '../../../../../vs/base/browser/dom.js';
 import { useEffect, useLayoutEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PreviewWebview } from '../../../../../vs/workbench/contrib/positronPreview/browser/previewWebview.js';
 
@@ -20,31 +19,28 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 	const webviewRef = React.useRef<HTMLDivElement>(null);
 	// This `useEffect` fires when the preview item changes or visibility of the
 	// pane itself changes. It is responsible for claiming and releasing the
-	// webview.
+	// preview's surface.
 	useEffect(() => {
 		if (!props.preview || !props.visible || !webviewRef.current) {
 			return;
 		}
 
-		const webview = props.preview.webview;
-		const window = DOM.getWindow(webviewRef.current);
-		webview.webview.claim(this, window, undefined);
-		// actually moving preview to webview
-		webview.webview.setAnchorElement(webviewRef.current);
+		const surface = props.preview.surface;
+		surface.claim(this, webviewRef.current);
 
 		return () => {
-			webview?.webview.release(this);
+			surface.release(this);
 		};
 
 	}, [props.preview, props.visible]);
 
 	// This `useEffect` intentionally runs on every render. It is responsible
-	// for laying out the webview over the preview container; since the webview
+	// for laying out the surface over the preview container; since the surface
 	// is absolutely positioned over the container, it needs to be repositioned
 	// every time the container is resized or moved.
 	useLayoutEffect(() => {
 		if (props.preview && webviewRef.current && props.visible) {
-			props.preview.webview.webview.setAnchorElement(webviewRef.current);
+			props.preview.surface.layout();
 		}
 	});
 

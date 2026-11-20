@@ -17,11 +17,15 @@ import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE } from '../../browser/positronPreviewSevice.js';
 import { PositronViewerAgentService } from '../../browser/positronViewerAgentService.js';
 import { PreviewHtml } from '../../browser/previewHtml.js';
-import { PreviewOverlayWebview, ViewerBridgeResult } from '../../browser/previewOverlayWebview.js';
+import { PreviewOverlayWebview } from '../../browser/previewOverlayWebview.js';
+import { ViewerBridgeResult, ViewerInputStep } from '../../browser/previewSurface.js';
 import { PreviewUrl } from '../../browser/previewUrl.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
 import { IViewerCapture } from '../../browser/viewerScreenshot.js';
-import { IViewerActOutcome, IViewerBridge, IViewerViewport, ViewerBridgeSnapshot } from '../../common/positronViewerAgent.js';
+import { IViewerActOutcome, IViewerBridge, IViewerDialog, IViewerDialogPolicy, IViewerLocation, IViewerRect, IViewerViewport, ViewerAction, ViewerBridgeSnapshot } from '../../common/positronViewerAgent.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 
 /** An overlay webview whose container is a real element, so it can hold focus. */
 function fakeOverlayWebview(size: { width: number; height: number }, onDidLoad: Event<string>): IOverlayWebview {
@@ -64,6 +68,16 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	hang: keyof IViewerBridge | undefined;
 	/** The address the browser has for the page, if the page has loaded. */
 	pageUrl: string | undefined;
+	/** The dialogs the page shows during the next action. */
+	dialogsShown: IViewerDialog[] = [];
+	/** The policies the service armed the bridge with, and null when it disarmed it. */
+	readonly dialogPolicies: (IViewerDialogPolicy | null)[] = [];
+	/** Where the bridge says the element is. */
+	location: IViewerLocation = { x: 10, y: 20, width: 100, height: 30, description: 'button "Go"', pointable: true, draggable: false };
+	/** The actions the bridge took, as it got them. */
+	readonly actions: ViewerAction[] = [];
+	/** The part of the viewport each capture kept. */
+	readonly captureRects: (IViewerRect | undefined)[] = [];
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(fakeOverlayWebview(size, onDidLoad));
@@ -71,12 +85,19 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 
 	protected override loadUriInWebview(): void { }
 
-	protected override async callBridge<M extends keyof IViewerBridge>(method: M): Promise<ViewerBridgeResult<M>> {
+	protected override async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+		// Answering dialogs is bookkeeping around every action, kept apart.
+		if (method === 'dialogs') {
+			const policy = args[0] as IViewerDialogPolicy | null;
+			this.dialogPolicies.push(policy);
+			return (policy ? [] : this.dialogsShown.splice(0)) as ViewerBridgeResult<M>;
+		}
 		this.calls.push(method);
 		if (this.bridgeError) {
 			throw this.bridgeError;
 		}
 		if (method === 'act') {
+			this.actions.push(args[0] as ViewerAction);
 			this.onAct?.();
 			if (this.actError) {
 				throw this.actError;
@@ -93,18 +114,31 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 			snapshot: this.snapshotResult,
 			viewport: this.viewport,
 			act: this.actOutcome,
+			locate: this.location,
+			dialogs: [],
+			evaluate: '"App"',
 		};
 		return results[method];
 	}
 
-	protected override async capture(): Promise<IViewerCapture> {
+	protected override async capture(rect?: IViewerRect): Promise<IViewerCapture> {
 		this.calls.push('capture');
+		this.captureRects.push(rect);
 		this.onCapture?.();
 		return { data: VSBuffer.fromString('png'), width: 600, height: 400, method: 'dom' };
 	}
 
 	override async getCurrentUrl(): Promise<string | undefined> {
 		return this.pageUrl;
+	}
+}
+
+/** A webview that can also send input from outside the page, as the integrated browser can. */
+class FakeInputSurface extends FakePreviewOverlayWebview {
+	readonly steps: ViewerInputStep[] = [];
+
+	async dispatchInput(steps: readonly ViewerInputStep[]): Promise<void> {
+		this.steps.push(...steps);
 	}
 }
 
@@ -116,6 +150,7 @@ describe('PositronViewerAgentService', () => {
 		viewerVisible = true;
 		return null;
 	});
+	const openUri = vi.fn<(previewId: string, extension: undefined, uri: URI, source?: undefined, preserveFocus?: boolean) => PreviewWebview>();
 
 	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, configurationService)
@@ -123,11 +158,18 @@ describe('PositronViewerAgentService', () => {
 			get activePreviewWebview() {
 				return activePreview;
 			},
+			openUri,
 		})
 		.stub(IViewsService, {
 			isViewVisible: () => viewerVisible,
 			openView,
 		})
+		.stub(IOpenerService, { resolveExternalUri: async (uri: URI) => ({ resolved: uri, dispose: () => { } }) })
+		.stub(IWorkspaceContextService, {
+			getWorkspace: () => ({ id: 'ws', folders: [{ uri: URI.file('/ws'), name: 'ws', index: 0, toResource: (path: string) => URI.file(`/ws/${path}`) }] }),
+			isInsideWorkspace: (uri: URI) => uri.path.startsWith('/ws/'),
+		})
+		.stub(IFileService, { readFile: async (uri: URI) => ({ name: uri.path.split('/').pop()!, value: VSBuffer.fromString('a,b\n1,2\n') }) })
 		.build();
 
 	beforeEach(() => {
@@ -166,6 +208,7 @@ describe('PositronViewerAgentService', () => {
 			url: 'http://localhost:8000/',
 			sourceSessionId: 'python-1',
 			visible: false,
+			backend: 'webview',
 		});
 	});
 
@@ -243,8 +286,8 @@ describe('PositronViewerAgentService', () => {
 			await read(POSITRON_PREVIEW_HTML_VIEW_TYPE, 'quartoHtmlOutput.1', 'Output - report.qmd'),
 			await read(POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, 'quartoWebviewOutput.1', 'Quarto Output'),
 		]).toEqual([
-			{ info: { kind: 'html', title: 'Output - report.qmd', visible: true }, snapshotUrl: '' },
-			{ info: { kind: 'output', title: 'Quarto Output', visible: true }, snapshotUrl: '' },
+			{ info: { kind: 'html', title: 'Output - report.qmd', visible: true, backend: 'webview' }, snapshotUrl: '' },
+			{ info: { kind: 'output', title: 'Quarto Output', visible: true, backend: 'webview' }, snapshotUrl: '' },
 		]);
 	});
 
@@ -428,4 +471,129 @@ describe('PositronViewerAgentService', () => {
 		expect(webview.calls).toEqual(['viewport', 'act']);
 	});
 
+
+	it('answers the page\'s dialogs during an action by the policy an agent set, and says which were shown', async () => {
+		const webview = showUrl();
+		webview.dialogsShown = [{ type: 'confirm', message: 'Delete the data?' }];
+		const service = createService();
+
+		const policy = await service.viewerAct({ kind: 'handleDialog', accept: false });
+		const result = await service.viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect({ policy: policy.message, message: result.message, armed: webview.dialogPolicies }).toEqual({
+			policy: 'Dialogs the page shows during your actions will be cancelled.',
+			message: 'Clicked the button "Go". The page showed a confirm dialog, "Delete the data?", which was cancelled.',
+			armed: [{ accept: false, promptText: undefined }, null],
+		});
+	});
+
+	it('clicks with input from outside the page when the surface can send it, and leaves a covered control to the bridge', async () => {
+		const surface = showUrl(new FakeInputSurface()) as FakeInputSurface;
+		const service = createService();
+
+		const trusted = await service.viewerAct({ kind: 'click', ref: 'e1', dblClick: true });
+		surface.location = { ...surface.location, pointable: false };
+		await service.viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect({ message: trusted.message, steps: surface.steps, bridgeActions: surface.actions }).toEqual({
+			message: 'Double-clicked the button "Go".',
+			steps: [
+				{ type: 'mouse', action: 'move', x: 60, y: 35 },
+				{ type: 'mouse', action: 'down', x: 60, y: 35, button: 'left', clickCount: 1 },
+				{ type: 'mouse', action: 'up', x: 60, y: 35, button: 'left', clickCount: 1 },
+				{ type: 'mouse', action: 'down', x: 60, y: 35, button: 'left', clickCount: 2 },
+				{ type: 'mouse', action: 'up', x: 60, y: 35, button: 'left', clickCount: 2 },
+			],
+			bridgeActions: [{ kind: 'click', ref: 'e1' }],
+		});
+	});
+
+	it('types and drags with input from outside the page', async () => {
+		const surface = showUrl(new FakeInputSurface()) as FakeInputSurface;
+		const service = createService();
+
+		const typed = await service.viewerAct({ kind: 'type', text: 'Bay', ref: 'e1', submit: true });
+		const dragged = await service.viewerAct({ kind: 'drag', from: { ref: 'e1', dx: 0, dy: 10 }, to: { dx: 100, dy: 10 } });
+
+		expect({
+			typed: typed.message,
+			dragged: dragged.message,
+			keys: surface.steps.filter(step => step.type !== 'mouse'),
+			dragEnds: [surface.steps.find(step => step.type === 'mouse' && step.action === 'down'), surface.steps.at(-1)],
+		}).toEqual({
+			typed: 'Typed "Bay" into the button "Go", then pressed Enter.',
+			dragged: 'Dragged the button "Go" within it.',
+			keys: [{ type: 'text', text: 'Bay' }, { type: 'key', key: 'Enter' }],
+			dragEnds: [
+				{ type: 'mouse', action: 'down', x: 10, y: 30, button: 'left', clickCount: 1 },
+				{ type: 'mouse', action: 'up', x: 110, y: 30, button: 'left', clickCount: 1 },
+			],
+		});
+	});
+
+	it('goes back and returns the new page\'s outline once it loads, or says when nothing loads', async () => {
+		const didLoad = new Emitter<string>();
+		const webview = showUrl(new FakePreviewOverlayWebview(undefined, didLoad.event));
+		vi.spyOn(webview, 'goBack').mockImplementation(() => didLoad.fire('Previous'));
+		const service = createService();
+
+		const back = await service.viewerAct({ kind: 'navigate', type: 'back' });
+		vi.spyOn(webview, 'goForward').mockImplementation(() => { });
+		vi.useFakeTimers();
+		const stuck = service.viewerAct({ kind: 'navigate', type: 'forward' });
+		await vi.advanceTimersByTimeAsync(10_000);
+		const forward = await stuck;
+		vi.useRealTimers();
+		didLoad.dispose();
+
+		expect({ back: [back.message, !!back.snapshot], forward: [forward.message, forward.timedOut] }).toEqual({
+			back: ['Went back.', true],
+			forward: ['Went forward, but no page finished loading within 10 seconds (there may be no page to go to).', true],
+		});
+	});
+
+	it('opens a URL in the Viewer without taking focus when it isn\'t showing an app', async () => {
+		const didLoad = new Emitter<string>();
+		openUri.mockImplementation(() => {
+			showUrl(new FakePreviewOverlayWebview(undefined, didLoad.event));
+			setTimeout(() => didLoad.fire('App'));
+			return activePreview!;
+		});
+		const service = createService();
+
+		const result = await service.viewerAct({ kind: 'navigate', type: 'url', url: 'http://localhost:8000/' });
+		didLoad.dispose();
+
+		expect({ message: result.message, preserveFocus: openUri.mock.lastCall?.[4] }).toEqual({
+			message: 'Went to http://localhost:8000/.',
+			preserveFocus: true,
+		});
+	});
+
+	it('uploads only workspace files that aren\'t excluded from AI', async () => {
+		const webview = showUrl();
+		const service = createService();
+
+		await service.viewerAct({ kind: 'upload', ref: 'e1', paths: ['data/faithful.csv'] });
+		const outside = await service.viewerAct({ kind: 'upload', ref: 'e1', paths: ['/etc/passwd'] }).catch((e: Error) => e.message);
+
+		expect({ sent: webview.actions, outside }).toEqual({
+			sent: [{ kind: 'upload', ref: 'e1', paths: undefined, files: [{ name: 'faithful.csv', type: 'text/csv', data: 'YSxiCjEsMgo=' }] }],
+			outside: '"/etc/passwd" is outside the workspace. Agents can only upload files from the workspace.',
+		});
+	});
+
+	it('takes a screenshot of one element, cropped to where the bridge finds it', async () => {
+		const webview = showUrl();
+
+		await createService().getViewerScreenshot({ ref: 'e1', scrollIntoView: true });
+
+		expect(webview.captureRects).toEqual([webview.location]);
+	});
+
+	it('evaluates an expression in the page', async () => {
+		showUrl();
+
+		expect(await createService().viewerEvaluate('document.title')).toBe('"App"');
+	});
 });

@@ -3,7 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { screen, WebContentsView, webContents } from 'electron';
+// --- Start Positron ---
+// import { screen, WebContentsView, webContents } from 'electron';
+import { screen, shell, WebContentsView, webContents } from 'electron';
+// --- End Positron ---
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
@@ -185,9 +188,14 @@ export class BrowserView extends Disposable {
 		this._ownerWindow.win?.contentView.addChildView(this._view);
 
 		this._view.webContents.setWindowOpenHandler((details) => {
-			if (this.presentation === BrowserViewPresentation.Unlisted) {
-				return { action: 'deny' };
-			}
+			// --- Start Positron ---
+			// An unlisted view, such as the Viewer's, has no tabs to open a page
+			// in, so open a link the user followed in their browser, as the
+			// Viewer's webview does.
+			// if (this.presentation === BrowserViewPresentation.Unlisted) {
+			// 	return { action: 'deny' };
+			// }
+			// --- End Positron ---
 			const location = (() => {
 				switch (details.disposition) {
 					case 'background-tab': return NewPageLocation.Background;
@@ -196,6 +204,15 @@ export class BrowserView extends Disposable {
 					default: return undefined;
 				}
 			})();
+
+			// --- Start Positron ---
+			if (this.presentation === BrowserViewPresentation.Unlisted) {
+				if (location && this.consumePopupPermission(location) && /^https?:/i.test(details.url)) {
+					void shell.openExternal(details.url);
+				}
+				return { action: 'deny' };
+			}
+			// --- End Positron ---
 
 			if (!location || !this.consumePopupPermission(location)) {
 				// Eventually we may want to surface this. For now, just silently block it.

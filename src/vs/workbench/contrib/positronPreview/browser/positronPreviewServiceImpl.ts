@@ -4,14 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPreviewService, PreviewOpenTarget } from './positronPreview.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_USE_INTEGRATED_BROWSER } from './positronPreviewSevice.js';
+import { IPreviewSurface } from './previewSurface.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { BrowserViewUri } from '../../../../platform/browserView/common/browserViewUri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -36,23 +40,51 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 /** The key used to store the Viewer's default "Open in..." target. */
 const DefaultOpenTargetStorageKey = 'positronPreview.defaultOpenTarget';
 
+/** The runtime output a widget preview shows, to show it again. */
+interface IWidgetOutput {
+	readonly session: ILanguageRuntimeSession;
+	readonly message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput;
+}
+
 /**
- * Positron preview service; keeps track of the set of active previews and
- * notifies listeners when the active preview changes.
+ * An entry in the Viewer's history. Only the active entry's preview is live;
+ * the others are disposed, and are opened again from what they showed.
+ */
+interface IHistoryEntry {
+	preview: PreviewWebview;
+	output?: IWidgetOutput;
+}
+
+/**
+ * Positron preview service; keeps track of the preview the Viewer shows and
+ * the history of previews before and after it.
  */
 export class PositronPreviewService extends Disposable implements IPositronPreviewService {
 
 	declare readonly _serviceBrand: undefined;
 
-	private _items = new DisposableMap<string, PreviewWebview>();
+	// Disposed before the active preview, so disposing the service doesn't
+	// read as the preview going away on its own.
+	private readonly _activeListeners = this._register(new MutableDisposable<DisposableStore>());
+
+	private readonly _active = this._register(new MutableDisposable<PreviewWebview>());
+
+	private _history: IHistoryEntry[] = [];
+
+	/** The index of the active preview's entry in the history. */
+	private _index = -1;
+
+	/** Counts navigations, so a slow one that's been overtaken is dropped. */
+	private _navigation = 0;
 
 	private static _previewIdCounter = 0;
-
-	private _selectedItemId = '';
 
 	private _onDidCreatePreviewWebviewEmitter = new Emitter<PreviewWebview>();
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
+
+	private readonly _onDidChangeNavigationState = this._register(new Emitter<void>());
+	readonly onDidChangeNavigationState = this._onDidChangeNavigationState.event;
 
 	private _editors: Map<string, { uri: URI; title?: string }> = new Map();
 
@@ -67,11 +99,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IConfigurationService protected readonly _configurationService: IConfigurationService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IInstantiationService protected readonly _instantiationService: IInstantiationService,
 	) {
 		super();
-		this._register(this._items);
 		this._register(this._onDidCreatePreviewWebviewEmitter);
 		this._register(this._onDidChangeActivePreviewWebview);
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -114,77 +146,197 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			}
 		}));
 
-		// When the extension host is about to stop, dispose all previews that
+		// Show the active preview on the backend the setting now chooses.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_VIEWER_USE_INTEGRATED_BROWSER)) {
+				this.recreateActivePreview();
+			}
+		}));
+
+		// When the extension host is about to stop, drop the previews that
 		// use HTML proxies, since these proxies live in the extension host.
-		this._register(this._extensionService.onWillStop((e) => {
-			for (const preview of this._items.values()) {
-				if (preview instanceof PreviewHtml) {
-					this._items.deleteAndDispose(preview.previewId);
-				}
+		this._register(this._extensionService.onWillStop(() => {
+			const active = this._history[this._index];
+			this._history = this._history.filter(entry => entry === active || !(entry.preview instanceof PreviewHtml));
+			this._index = active ? this._history.indexOf(active) : -1;
+			this._onDidChangeNavigationState.fire();
+			if (this.activePreviewWebview instanceof PreviewHtml) {
+				this.activePreviewWebview.dispose();
 			}
 		}));
 	}
 
 	createHtmlWebview(sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
-		event: IShowHtmlUriEvent): PreviewHtml {
-		const preview = this.createPreviewHtml(sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, extension, event.uri, event.event);
-		return preview as PreviewHtml;
-	}
-
-	get previewWebviews(): PreviewWebview[] {
-		return Array.from(this._items.values());
+		event: IShowHtmlUriEvent): PreviewHtml<PreviewOverlayWebview> {
+		const previewId = `previewHtml.${PositronPreviewService._previewIdCounter++}`;
+		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, event.uri, extension);
+		return new PreviewHtml(sessionId, previewId, overlay, event.uri, event.event);
 	}
 
 	get activePreviewWebviewId(): string {
-		return this._selectedItemId;
+		return this._active.value?.previewId ?? '';
 	}
 
 	get activePreviewWebview(): PreviewWebview | undefined {
-		if (!this._selectedItemId) {
-			return undefined;
-		}
-		return this._items.get(this._selectedItemId);
+		return this._active.value;
 	}
 
 	clearAllPreviews(): void {
-		// Set the active preview to nothing; this has the side effect of
-		// clearing the preview pane.
-		this.activePreviewWebviewId = '';
+		this._navigation++;
+		this._history = [];
+		this._index = -1;
+		this.setActive(undefined);
+	}
 
-		// Dispose all active webviews and clear (but don't dispose) the map.
-		this._items.clearAndDisposeAll();
+	get canGoBack(): boolean {
+		return this.pageCanGo('back') || this._index > 0;
+	}
+
+	get canGoForward(): boolean {
+		return this.pageCanGo('forward') || this._index < this._history.length - 1;
+	}
+
+	goBack(): void {
+		if (this.pageCanGo('back')) {
+			this._active.value!.surface.goBack();
+		} else if (this._index > 0) {
+			this.navigateTo(this._index - 1);
+		}
+	}
+
+	goForward(): void {
+		if (this.pageCanGo('forward')) {
+			this._active.value!.surface.goForward();
+		} else if (this._index < this._history.length - 1) {
+			this.navigateTo(this._index + 1);
+		}
 	}
 
 	/**
-	 * Set the active preview webview.
-	 *
-	 * @param id The id of the preview to set as active, or a falsey value to
-	 *   set no preview as active.
+	 * Whether back or forward moves within the active preview's page. When
+	 * the surface can't tell (a webview), it does for a URL, and never
+	 * moves to another preview.
 	 */
-	set activePreviewWebviewId(id: string) {
-		// Don't do anything if the requested preview is already active
-		if (this._selectedItemId === id) {
+	private pageCanGo(direction: 'back' | 'forward'): boolean {
+		const preview = this._active.value;
+		if (!preview) {
+			return false;
+		}
+		const canGo = direction === 'back' ? preview.surface.canGoBack : preview.surface.canGoForward;
+		return canGo ?? preview instanceof PreviewUrl;
+	}
+
+	/** Whether an entry's preview can be opened again once it's been disposed. */
+	private canReopen(entry: IHistoryEntry): boolean {
+		return !!entry.output || entry.preview instanceof PreviewUrl || entry.preview instanceof PreviewHtml;
+	}
+
+	/**
+	 * Opens a preview of what a disposed URL or HTML preview showed, on the
+	 * backend the setting chooses.
+	 */
+	private reopen(preview: PreviewWebview): PreviewWebview | undefined {
+		if (preview instanceof PreviewUrl) {
+			return this.createPreviewUrl(`previewUrl.${PositronPreviewService._previewIdCounter++}`, undefined, preview.currentUri, preview.source);
+		} else if (preview instanceof PreviewHtml) {
+			return this.createPreviewHtml(preview.sessionId, `previewHtml.${PositronPreviewService._previewIdCounter++}`, undefined, preview.uri, preview.html);
+		}
+		return undefined;
+	}
+
+	/** Opens the history entry at `target` again and makes it active. */
+	private async navigateTo(target: number): Promise<void> {
+		const navigation = ++this._navigation;
+		const entry = this._history[target];
+		const preview = entry.output ? await this.createWidget(entry.preview.previewId, entry.output) : this.reopen(entry.preview);
+		// The history can change while the widget is created.
+		target = this._history.indexOf(entry);
+		if (navigation !== this._navigation || target < 0) {
+			preview?.dispose();
+			return;
+		}
+		if (!preview) {
+			this._logService.warn(`[Viewer] Could not show ${entry.preview.previewId} again; removing it from history`);
+			this._history.splice(target, 1);
+			if (target <= this._index) {
+				this._index--;
+			}
+			this._onDidChangeNavigationState.fire();
 			return;
 		}
 
-		// If we were given an ID, make sure it's valid
-		if (id && !this._items.has(id)) {
-			throw new Error(`Invalid preview id: ${id}`);
+		// A preview that can't be opened again leaves the history once left.
+		const current = this._history[this._index];
+		if (current?.preview === this._active.value && !this.canReopen(current)) {
+			this._history.splice(this._index, 1);
+			if (target > this._index) {
+				target--;
+			}
 		}
+		entry.preview = preview;
+		this._index = target;
+		this.setActive(preview, true);
+	}
 
-		// Notify previous preview that it is no longer active
-		if (this._items.has(this._selectedItemId)) {
-			this._items.get(this._selectedItemId)!.active = false;
+	/**
+	 * Shows new content: adds it to the history after the active entry, in
+	 * place of any entries that were after it.
+	 */
+	private makeActivePreview(preview: PreviewWebview, preserveFocus?: boolean, output?: IWidgetOutput) {
+		this._navigation++;
+		this._history.splice(this._index + 1);
+		const current = this._history[this._index];
+		if (current && !this.canReopen(current)) {
+			this._history.pop();
 		}
+		this._history.push({ preview, output });
+		this._index = this._history.length - 1;
+		this._onDidCreatePreviewWebviewEmitter.fire(preview);
+		this.setActive(preview, preserveFocus);
+	}
 
-		// Swap to new preview
-		this._selectedItemId = id;
-		this._onDidChangeActivePreviewWebview.fire(id);
+	/**
+	 * Makes a preview the one the Viewer shows, disposing the one it showed,
+	 * and opens the Viewer to show it.
+	 */
+	private setActive(preview: PreviewWebview | undefined, preserveFocus?: boolean): void {
+		const previous = this._active.clearAndLeak();
+		this._activeListeners.clear();
+		if (preview) {
+			this._active.value = preview;
+			const listeners = this._activeListeners.value = new DisposableStore();
+			listeners.add(preview.surface.onDidNavigate(() => this._onDidChangeNavigationState.fire()));
+			listeners.add(preview.surface.onDidDispose(() => this.onActiveDisposed(preview)));
+			preview.active = true;
+		}
+		this._onDidChangeActivePreviewWebview.fire(this.activePreviewWebviewId);
+		this._onDidChangeNavigationState.fire();
+		if (previous) {
+			previous.active = false;
+			previous.dispose();
+		}
+		if (preview) {
+			// Send focus to the Viewer unless asked to preserve it.
+			this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, !!preserveFocus);
+		}
+	}
 
-		// Notify new preview that it is active
-		if (id) {
-			this._items.get(id)!.active = true;
+	/**
+	 * Handles the active preview going away on its own: drops it from the
+	 * history and shows the entry before it, if any.
+	 */
+	private onActiveDisposed(preview: PreviewWebview): void {
+		const index = this._history.findIndex(entry => entry.preview === preview);
+		if (index >= 0) {
+			this._history.splice(index, 1);
+			if (index <= this._index) {
+				this._index--;
+			}
+		}
+		this.setActive(undefined);
+		if (this._index >= 0) {
+			this.navigateTo(this._index);
 		}
 	}
 
@@ -196,11 +348,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,
-		preserveFocus?: boolean | undefined): PreviewWebview {
+		preserveFocus?: boolean | undefined): PreviewWebview<PreviewOverlayWebview> {
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = this.createPreviewWebview(previewId, webview, viewType, title);
-		this._items.set(preview.previewId, preview);
-		this.openPreviewWebview(preview, preserveFocus);
+		this.makeActivePreview(preview, preserveFocus);
 		return preview;
 	}
 
@@ -242,6 +393,17 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	/**
+	 * Create a surface to show content that has an address: a webview, or on
+	 * Desktop, the integrated browser.
+	 */
+	protected createAddressableSurface(
+		viewType: string,
+		uri: URI,
+		extension: WebviewExtensionDescription | undefined): IPreviewSurface {
+		return this.createWebview(viewType, uri, extension);
+	}
+
+	/**
 	 * Create a URL preview.
 	 */
 	private createPreviewUrl(
@@ -249,8 +411,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
 		source?: { type: string; id: string }): PreviewUrl {
-		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
-		return new PreviewUrl(previewId, overlay, uri, source);
+		const surface = this.createAddressableSurface(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
+		return new PreviewUrl(previewId, surface, uri, source);
 	}
 
 	/**
@@ -261,16 +423,31 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		event: ShowHtmlFileEvent): PreviewHtml {
-		const overlay = this.createWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
-		return new PreviewHtml(sessionId, previewId, overlay, uri, event);
+		event?: ShowHtmlFileEvent): PreviewHtml {
+		const surface = this.createAddressableSurface(POSITRON_PREVIEW_HTML_VIEW_TYPE, uri, extension);
+		return new PreviewHtml(sessionId, previewId, surface, uri, event);
+	}
+
+	/**
+	 * Shows the active preview again on a new surface, if it has an address.
+	 * Other previews keep their surface until they're replaced, as does a
+	 * stoppable one, whose stop button is linked to its owner.
+	 */
+	private recreateActivePreview(): void {
+		const entry = this._history[this._index];
+		if (!entry || entry.preview.stoppable) {
+			return;
+		}
+		const preview = this.reopen(entry.preview);
+		if (preview) {
+			entry.preview = preview;
+			this.setActive(preview, true);
+		}
 	}
 
 	/** Create a preview for a webview. */
-	private createPreviewWebview(previewId: string, webview: IOverlayWebview, viewType: string, title: string): PreviewWebview {
-		const overlay = this.createOverlayWebview(webview);
-		const preview = new PreviewWebview(viewType, previewId, title, overlay);
-		return preview;
+	private createPreviewWebview(previewId: string, webview: IOverlayWebview, viewType: string, title: string): PreviewWebview<PreviewOverlayWebview> {
+		return new PreviewWebview(viewType, previewId, title, this.createOverlayWebview(webview));
 	}
 
 	/**
@@ -280,26 +457,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewWebview {
+		source?: { type: string; id: string },
+		preserveFocus?: boolean): PreviewWebview {
 		const preview = this.createPreviewUrl(previewId, extension, uri, source);
-		this.makeActivePreview(preview);
+		this.makeActivePreview(preview, preserveFocus);
 		return preview;
-	}
-
-	/**
-	 * Makes a preview the active preview, removing other previews and opening
-	 * the new preview.
-	 *
-	 * @param preview The preview to make active
-	 */
-	private makeActivePreview(preview: PreviewWebview) {
-		// Remove any other previews from the item list; they can be expensive
-		// to keep around.
-		this._items.clearAndDisposeAll();
-		this._items.set(preview.previewId, preview);
-
-		// Open the preview
-		this.openPreviewWebview(preview);
 	}
 
 	/**
@@ -315,24 +477,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		htmlpath: string): Promise<PreviewHtml> {
 
 		// Use the Positron Proxy extension to create a URL for the HTML file.
-		const url = await this._commandService.executeCommand<string>(
-			'positronProxy.startHtmlProxyServer',
-			htmlpath
-		);
-
-		if (!url) {
-			throw new Error(`Failed to start HTML file proxy server for ${htmlpath}`);
-		}
-
-		// Parse the URL and resolve it if necessary. The resolution step is
-		// necessary when URI is hosted on a remote server.
-		let uri = URI.parse(url);
-		try {
-			const resolvedUri = await this._openerService.resolveExternalUri(uri);
-			uri = resolvedUri.resolved;
-		} catch {
-			// Noop; use the original URI
-		}
+		const uri = await this.proxy('positronProxy.startHtmlProxyServer', htmlpath, htmlpath);
 
 		// Create a ShowFileEvent for the HTML file.
 		const evt: ShowHtmlFileEvent = {
@@ -351,6 +496,33 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	/**
+	 * Serves content through the Positron Proxy extension, and returns its URL,
+	 * resolved so it can be reached when the proxy runs on a remote host.
+	 *
+	 * @param what Names the content in an error.
+	 */
+	private async proxy(command: string, content: string, what: string): Promise<URI> {
+		const url = await this._commandService.executeCommand<string>(command, content);
+		if (!url) {
+			throw new Error(`Failed to start the HTML proxy server for ${what}`);
+		}
+		const uri = URI.parse(url);
+		try {
+			return (await this._openerService.resolveExternalUri(uri)).resolved;
+		} catch {
+			return uri;
+		}
+	}
+
+	/**
+	 * Whether content with an address is shown in the integrated browser
+	 * rather than a webview. Overridden on Desktop, where the setting chooses.
+	 */
+	protected useIntegratedBrowser(): boolean {
+		return false;
+	}
+
+	/**
 	 * Create an overlay webview.
 	 */
 	protected createOverlayWebview(
@@ -366,41 +538,6 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 */
 	protected canPreviewExternalUri(): boolean {
 		return false;
-	}
-
-	openPreviewWebview(
-		preview: PreviewWebview,
-		preserveFocus?: boolean | undefined
-	) {
-		this._onDidCreatePreviewWebviewEmitter.fire(preview);
-		this.activePreviewWebviewId = preview.previewId;
-
-		// Ensure we clean up the preview webview when it is closed.
-		this._register(preview.webview.onDidDispose(() => {
-
-			const wasActive = this.activePreviewWebviewId === preview.previewId;
-
-			this._items.deleteAndDispose(preview.previewId);
-
-			// Select a new preview webview if the closed one was active
-			if (wasActive) {
-				const items = this._items.values().next();
-				if (items.value) {
-					// If we have other items to show, select one
-					this.activePreviewWebviewId = items.value.previewId;
-				} else {
-					// Nothing else to show; set the the active preview to undefined
-					this.activePreviewWebviewId = '';
-				}
-			}
-		}));
-
-		// Open the preview pane if it is not already open so the
-		// user can see the preview. Send focus to the pane if we weren't
-		// asked to preserve focus.
-		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, !!preserveFocus);
-
-		return preview;
 	}
 
 	/**
@@ -425,8 +562,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._register(session.onDidReceiveRuntimeMessageUpdateOutput(async e => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const previewId = this.previewWebviewId(session, e);
-				if (this._items.has(previewId)) {
+				const entry = this._history.find(entry => entry.preview.previewId === previewId);
+				if (entry?.preview === this._active.value) {
 					await this.handleRuntimeOutputMessage(previewId, e, session);
+				} else if (entry) {
+					// An update to a widget that isn't showing is kept to show later.
+					entry.output = { session, message: e };
 				}
 			}
 		}));
@@ -439,6 +580,31 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/** Handles a language runtime output message. */
 	private async handleRuntimeOutputMessage(previewId: string, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput, session: ILanguageRuntimeSession) {
+		const output = { session, message };
+		const preview = await this.createWidget(previewId, output);
+		if (!preview) {
+			return;
+		}
+
+		// Replace the widget in place if it's showing; otherwise show it as
+		// new content, dropping its old entry.
+		const index = this._history.findIndex(e => e.preview.previewId === previewId);
+		if (index >= 0 && index === this._index) {
+			this._history[index] = { preview, output };
+			this.setActive(preview);
+			return;
+		}
+		if (index >= 0) {
+			this._history.splice(index, 1);
+			if (index < this._index) {
+				this._index--;
+			}
+		}
+		this.makeActivePreview(preview, false, output);
+	}
+
+	/** Creates a preview of a widget a runtime sent. */
+	private async createWidget(previewId: string, { session, message }: IWidgetOutput): Promise<PreviewWebview | undefined> {
 		// viewType ensures renderers registered for the jupyter-notebook type
 		// are resolved (e.g. Plotly) and that notebook static preloads (e.g.
 		// RequireJS from ms-toolsai.jupyter-renderers) are injected.
@@ -448,16 +614,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			output: message,
 			viewType: 'jupyter-notebook',
 		});
-		if (webview) {
-			const preview = this.createPreviewWebview(
-				previewId,
-				webview.webview,
-				POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE,
-				session.dynState.sessionName
-			);
-			this._items.set(preview.previewId, preview);
-			this.openPreviewWebview(preview, false);
-		}
+		return webview && this.createPreviewWebview(
+			previewId,
+			webview.webview,
+			POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE,
+			session.dynState.sessionName
+		);
 	}
 
 	/**
@@ -556,6 +718,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public async openEditor(uri: URI, title?: string): Promise<void> {
+		// Open the integrated browser's own editor, as its Open Browser command does.
+		if (this.useIntegratedBrowser()) {
+			await this._editorService.openEditor({
+				resource: BrowserViewUri.forId(generateUuid()),
+				options: { viewState: { url: uri.toString(true) } },
+			});
+			return;
+		}
+
 		// Create and store webview overlay for editor
 		// We use the URI to attempt to bring focus to an editor if it already exists
 		const previewId = `editorPreview.${uri.toString()}`;
@@ -605,7 +776,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 * Opens an existing overlay webview in the Viewer pane.
 	 * Used for displaying notebook output webviews that have already been created.
 	 */
-	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview {
+	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview<PreviewOverlayWebview> {
 		const preview = this.createPreviewWebview(previewId, webview, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, title);
 		this.makeActivePreview(preview);
 		return preview;
@@ -613,11 +784,19 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	/**
 	 * Opens an HTML string directly in the Viewer pane without writing to a
-	 * temp file. Creates a webview and renders the HTML inside an iframe using
-	 * the srcdoc attribute, which works consistently across Electron and
-	 * browser environments.
+	 * temp file. The integrated browser shows it as a page the Positron Proxy
+	 * serves; a webview renders it inside an iframe using the srcdoc
+	 * attribute, which works consistently across Electron and browser
+	 * environments.
 	 */
-	public openHtmlString(previewId: string, html: string, title: string): PreviewWebview {
+	public async openHtmlString(previewId: string, html: string, title: string): Promise<PreviewWebview> {
+		if (this.useIntegratedBrowser()) {
+			const uri = await this.proxy('positronProxy.startHtmlStringServer', html, title);
+			const preview = this.createPreviewHtml('', previewId, undefined, uri, { height: 0, title, destination: ShowHtmlFileDestination.Viewer, path: '' });
+			this.makeActivePreview(preview);
+			return preview;
+		}
+
 		const webviewInitInfo: WebviewInitInfo = {
 			origin: DOM.getActiveWindow().origin,
 			providedViewType: POSITRON_PREVIEW_HTML_VIEW_TYPE,

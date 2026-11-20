@@ -1016,6 +1016,171 @@ describe('act', () => {
 		expect(outcome).toEqual({ message: 'Clicked the link "Next". The page went to another address.', navigated: true, timedOut: false });
 	});
 
+	it('finds an element by a CSS selector that matches only one', async () => {
+		const bridge = load('<button class="b" id="one">One</button><button class="b">Two</button>');
+
+		const errors = await Promise.all(['.b', '.missing', '[[', '#one'].map(selector =>
+			bridge.act({ kind: 'click', selector }, QUICK).then(outcome => outcome.message, (error: Error) => error.message)));
+
+		expect(errors).toEqual([
+			'The selector ".b" matches 2 elements. Use one that matches only one, or a ref.',
+			'Nothing on the page matches the selector ".missing".',
+			'"[[" isn\'t a valid CSS selector.',
+			'Clicked the button "One".',
+		]);
+	});
+
+	it('double-clicks, and clicks with the right and middle buttons', async () => {
+		const bridge = load('<button id="go">Go</button>');
+		const events: string[] = [];
+		for (const type of ['mousedown', 'click', 'dblclick', 'contextmenu', 'auxclick']) {
+			byId('go').addEventListener(type, event => events.push(`${type}:${(event as MouseEvent).button}`));
+		}
+
+		const messages = [];
+		for (const action of [{ dblClick: true }, { button: 'right' }, { button: 'middle' }] as const) {
+			messages.push((await bridge.act({ kind: 'click', ref: 'e1', ...action }, QUICK)).message);
+		}
+
+		expect({ messages, events }).toEqual({
+			messages: ['Double-clicked the button "Go".', 'Right-clicked the button "Go".', 'Middle-clicked the button "Go".'],
+			events: ['mousedown:0', 'click:0', 'mousedown:0', 'click:0', 'dblclick:0', 'mousedown:2', 'contextmenu:2', 'mousedown:1', 'auxclick:1'],
+		});
+	});
+
+	it('fills a text box and submits its form with Enter', async () => {
+		const bridge = load('<form id="form"><input aria-label="Search" id="q"><button>Go</button></form>');
+		const searches: string[] = [];
+		byId('form').addEventListener('submit', event => {
+			event.preventDefault();
+			searches.push((byId('q') as HTMLInputElement).value);
+		});
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: 'geysers', submit: true }, QUICK);
+
+		expect({ message: outcome.message, searches }).toEqual({
+			message: 'Filled the textbox "Search" with "geysers", then pressed Enter, which submitted its form.',
+			searches: ['geysers'],
+		});
+	});
+
+	it('fills an editable area, with the input event editors listen for', async () => {
+		const bridge = load('<div contenteditable="true" role="textbox" aria-label="Notes" id="notes">old</div>');
+		const inputs: string[] = [];
+		byId('notes').addEventListener('input', event => inputs.push((event as InputEvent).inputType));
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: 'new notes' }, QUICK);
+
+		expect({ message: outcome.message, text: byId('notes').textContent, inputs }).toEqual({
+			message: 'Filled the textbox "Notes" with "new notes".',
+			text: 'new notes',
+			inputs: ['insertText'],
+		});
+	});
+
+	it('presses key combinations, holding the modifiers down around the key', async () => {
+		const bridge = load('<input aria-label="Name" id="name">');
+		const keys: string[] = [];
+		for (const type of ['keydown', 'keyup']) {
+			byId('name').addEventListener(type, event => {
+				const e = event as KeyboardEvent;
+				keys.push(`${type} ${e.key}${e.ctrlKey ? ' ctrl' : ''}${e.shiftKey ? ' shift' : ''}`);
+			});
+		}
+
+		const outcome = await bridge.act({ kind: 'press', key: 'Control+Shift+a', ref: 'e1' }, QUICK);
+		const error = await bridge.act({ kind: 'press', key: 'Hyper+a', ref: 'e1' }, QUICK).catch((e: Error) => e.message);
+
+		expect({ keys, message: outcome.message.split('.')[0], error }).toEqual({
+			keys: ['keydown Control ctrl', 'keydown Shift ctrl shift', 'keydown a ctrl shift', 'keyup a ctrl shift', 'keyup Shift ctrl shift', 'keyup Control ctrl'],
+			message: 'Pressed "Control+Shift+a" in the textbox "Name"',
+			error: '"Hyper" isn\'t a modifier key. Use Control, Shift, Alt, Meta or ControlOrMeta, as in "Control+a".',
+		});
+	});
+
+	it('types text one key at a time, as autocompletes that filter on each key need', async () => {
+		const bridge = load('<input aria-label="City" id="city" value="Old ">');
+		const seen: string[] = [];
+		byId('city').addEventListener('input', () => seen.push((byId('city') as HTMLInputElement).value));
+		(byId('city') as HTMLInputElement).setSelectionRange(4, 4);
+
+		const outcome = await bridge.act({ kind: 'type', text: 'Bay', ref: 'e1' }, QUICK);
+
+		expect({ message: outcome.message, seen }).toEqual({
+			message: 'Typed "Bay" into the textbox "City".',
+			seen: ['Old B', 'Old Ba', 'Old Bay'],
+		});
+	});
+
+	it('drags with the pointer from one point to another, in steps', async () => {
+		const bridge = load('<div role="img" aria-label="Plot" id="plot" style="position: absolute; left: 0; top: 0; width: 200px; height: 100px"></div>');
+		const plot = byId('plot');
+		plot.getBoundingClientRect = () => new DOMRect(50, 40, 200, 100);
+		const points: string[] = [];
+		for (const type of ['pointerdown', 'pointermove', 'pointerup']) {
+			plot.addEventListener(type, event => {
+				const e = event as MouseEvent;
+				points.push(`${type} ${e.clientX},${e.clientY}`);
+			});
+		}
+
+		const outcome = await bridge.act({ kind: 'drag', from: { selector: '#plot', dx: 10, dy: 20 }, to: { dx: 110, dy: 20 } }, QUICK);
+
+		expect({ message: outcome.message, first: points.slice(0, 3), last: points.at(-1) }).toEqual({
+			message: 'Dragged the img "Plot" within it.',
+			first: ['pointermove 60,60', 'pointerdown 60,60', 'pointermove 70,60'],
+			last: 'pointerup 160,60',
+		});
+	});
+
+	it('attaches files to a file input, with the change event apps listen for', async () => {
+		const bridge = load('<label for="file">Data file</label><input type="file" id="file">');
+		let attached: string[] = [];
+		byId('file').addEventListener('change', () => attached = Array.from((byId('file') as HTMLInputElement).files ?? []).map(file => `${file.name} ${file.size}`));
+		const file = { name: 'data.csv', type: 'text/csv', data: btoa('a,b\n1,2\n') };
+
+		const outcome = await bridge.act({ kind: 'upload', ref: 'e1', files: [file] }, QUICK);
+		const tooMany = await bridge.act({ kind: 'upload', ref: 'e1', files: [file, file] }, QUICK).catch((e: Error) => e.message);
+
+		expect({ message: outcome.message, attached, tooMany }).toEqual({
+			message: 'Attached "data.csv" to the button "Data file".',
+			attached: ['data.csv 8'],
+			tooMany: 'The button "Data file" takes one file, not 2.',
+		});
+	});
+
+	it('locates an element, with whether it\'s checked', () => {
+		const bridge = load('<input type="checkbox" aria-label="Agree" id="agree" checked>');
+		byId('agree').getBoundingClientRect = () => new DOMRect(5, 6, 20, 10);
+
+		// Without elementFromPoint, as here, a pointer is taken to reach it.
+		expect(bridge.locate({ ref: 'e1' })).toEqual({ x: 5, y: 6, width: 20, height: 10, description: 'checkbox "Agree"', checked: true, pointable: true, draggable: false });
+	});
+
+	it('answers the page\'s dialogs by the policy while armed, and gives them back to the page after', () => {
+		const bridge = load('<p>Page</p>');
+		const pageConfirm = win.confirm;
+
+		bridge.dialogs({ accept: false });
+		const answers = [win.confirm('Delete?'), win.prompt('Name?', 'Ada')];
+		const shown = bridge.dialogs(null);
+
+		expect({ answers, shown, restored: win.confirm === pageConfirm }).toEqual({
+			answers: [false, null],
+			shown: [{ type: 'confirm', message: 'Delete?' }, { type: 'prompt', message: 'Name?' }],
+			restored: true,
+		});
+	});
+
+	it('evaluates an expression in the page and returns its value as JSON', async () => {
+		const bridge = load('<button id="go">Go</button>');
+		Object.assign(win, { data: { rows: 3 } });
+
+		const results = await Promise.all(['data', 'Promise.resolve(document.title)', 'undefined', 'document.getElementById("go")'].map(expression => bridge.evaluate(expression)));
+
+		expect(results).toEqual(['{"rows":3}', '""', 'undefined', '"[element button \\"Go\\"]"']);
+	});
+
 	it('refuses controls it can\'t use, with a way forward', async () => {
 		const bridge = load('<button id="gone">Gone</button><button disabled>Off</button><div id="box"><button>Later hidden</button></div>');
 		byId('gone').remove();
@@ -1035,13 +1200,13 @@ describe('act', () => {
 	it('explains actions it can\'t make sense of', async () => {
 		const bridge = load('<input aria-label="Name"><div role="listbox" aria-label="Units"><div role="option">minutes</div></div>');
 		// Actions arrive from extensions, so they can be malformed.
-		const malformed = [{ kind: 'drag', ref: 'e1' }, { kind: 'fill', ref: 'e1' }, { kind: 'wait', for: 'forever' }, { kind: 'select', ref: 'e2', value: 'minutes' }];
+		const malformed = [{ kind: 'teleport', ref: 'e1' }, { kind: 'fill', ref: 'e1' }, { kind: 'wait', for: 'forever' }, { kind: 'select', ref: 'e2', value: 'minutes' }];
 
 		const errors = await Promise.all(malformed.map(action =>
 			bridge.act(action as unknown as ViewerAction, QUICK).then(() => 'ok', (error: Error) => error.message)));
 
 		expect(errors).toEqual([
-			'Unknown action "drag". Use click, hover, fill, select, press, scroll or wait.',
+			'Unknown action "teleport". Use click, hover, fill, select, press, type, drag, upload, scroll or wait.',
 			'fill needs a value, as a string.',
 			'A wait needs "for": "idle" or "text".',
 			'Can\'t select in the option "minutes". select works on dropdowns; to pick an option in a list, click the option.',

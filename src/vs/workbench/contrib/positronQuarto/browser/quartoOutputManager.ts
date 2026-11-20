@@ -1512,7 +1512,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	 * Uses openHtmlString to set the HTML directly on a webview, avoiding
 	 * temp files and proxy servers.
 	 */
-	private _openHtmlInViewer(html: string, cellId: string): void {
+	private async _openHtmlInViewer(html: string, cellId: string): Promise<void> {
 		if (!this._documentUri) {
 			return;
 		}
@@ -1521,7 +1521,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const docName = basename(this._documentUri);
 		const title = `Output - ${docName}`;
 
-		this._previewService.openHtmlString(previewId, html, title);
+		await this._previewService.openHtmlString(previewId, html, title);
 	}
 
 	/**

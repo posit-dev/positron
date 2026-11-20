@@ -6,14 +6,29 @@
 import { getWindow } from '../../../../base/browser/dom.js';
 import { URI } from '../../../../base/common/uri.js';
 import { WEBVIEW_FRAME_NOT_FOUND_MESSAGE, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
-import { IViewerBridge } from '../common/positronViewerAgent.js';
-import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOverlayWebview.js';
+import { IViewerBridge, IViewerRect } from '../common/positronViewerAgent.js';
+import { PreviewOverlayWebview } from '../browser/previewOverlayWebview.js';
+import { ViewerBridgeResult } from '../browser/previewSurface.js';
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
 import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreenshot.js';
 
-type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
+export type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
 	{ ok: true; value: ViewerBridgeResult<M> } |
 	{ ok: false; error: string };
+
+/**
+ * Gets the value a `viewerBridgeScript` returned, or throws the error it
+ * caught in the page.
+ */
+export function bridgeScriptValue<M extends keyof IViewerBridge>(result: ViewerBridgeScriptResult<M> | undefined): ViewerBridgeResult<M> {
+	if (!result) {
+		throw new Error('The Viewer\'s content didn\'t respond.');
+	}
+	if (!result.ok) {
+		throw new Error(result.error);
+	}
+	return result.value;
+}
 
 /**
  * Electron version of the Positron preview URL object.
@@ -54,13 +69,7 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 		const result: ViewerBridgeScriptResult<M> | undefined = contentFrameId ?
 			await this.webview.executeJavaScript(contentFrameId, viewerBridgeScript(method, args)) :
 			await this.executeInHostFrame(viewerBridgeScript(method, args, true));
-		if (!result) {
-			throw new Error('The Viewer\'s content didn\'t respond.');
-		}
-		if (!result.ok) {
-			throw new Error(result.error);
-		}
-		return result.value;
+		return bridgeScriptValue(result);
 	}
 
 	/**
@@ -89,12 +98,12 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	 * Captures what's on screen in the webview's area of the window. Anything
 	 * drawn over the Viewer, such as a menu, is captured too.
 	 */
-	protected override async capture(): Promise<IViewerCapture> {
+	protected override async capture(rect?: IViewerRect): Promise<IViewerCapture> {
 		const png = await this.webview.captureContentsAsPng();
 		if (!png) {
 			throw new Error('Could not capture the Viewer.');
 		}
-		return scaleNativeScreenshot(png, getWindow(this.webview.container));
+		return scaleNativeScreenshot(png, getWindow(this.webview.container), rect);
 	}
 
 	/**
