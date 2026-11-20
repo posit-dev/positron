@@ -57,17 +57,17 @@ describe('PositronPackagesService selected package context keys', () => {
 		const service = makeService();
 		await service.activePackagesInstance!.refreshPackages();
 
-		service.setSelectedPackage('tornado');
+		service.setSelectedPackages(['tornado']);
 		expect(bundledOnlyKey()).toBe(true);
 
-		service.setSelectedPackage('numpy');
+		service.setSelectedPackages(['numpy']);
 		expect(bundledOnlyKey()).toBe(false);
 	});
 
 	it('follows a refresh that finds an environment copy of the selected package', async () => {
 		const service = makeService();
 		await service.activePackagesInstance!.refreshPackages();
-		service.setSelectedPackage('tornado');
+		service.setSelectedPackages(['tornado']);
 
 		getPackages.mockResolvedValue([pkg('tornado', { bundled: true, environmentVersion: '0.9.0' })]);
 		await service.activePackagesInstance!.refreshPackages();
