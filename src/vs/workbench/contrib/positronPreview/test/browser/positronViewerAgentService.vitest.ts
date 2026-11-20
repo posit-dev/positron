@@ -150,6 +150,7 @@ describe('PositronViewerAgentService', () => {
 		viewerVisible = true;
 		return null;
 	});
+	const openUri = vi.fn<(previewId: string, extension: undefined, uri: URI, source?: undefined, preserveFocus?: boolean) => PreviewWebview>();
 
 	const ctx = createLightTestContainer()
 		.stub(IConfigurationService, configurationService)
@@ -157,6 +158,7 @@ describe('PositronViewerAgentService', () => {
 			get activePreviewWebview() {
 				return activePreview;
 			},
+			openUri,
 		})
 		.stub(IViewsService, {
 			isViewVisible: () => viewerVisible,
@@ -547,6 +549,24 @@ describe('PositronViewerAgentService', () => {
 		expect({ back: [back.message, !!back.snapshot], forward: [forward.message, forward.timedOut] }).toEqual({
 			back: ['Went back.', true],
 			forward: ['Went forward, but no page finished loading within 10 seconds (there may be no page to go to).', true],
+		});
+	});
+
+	it('opens a URL in the Viewer without taking focus when it isn\'t showing an app', async () => {
+		const didLoad = new Emitter<string>();
+		openUri.mockImplementation(() => {
+			showUrl(new FakePreviewOverlayWebview(undefined, didLoad.event));
+			setTimeout(() => didLoad.fire('App'));
+			return activePreview!;
+		});
+		const service = createService();
+
+		const result = await service.viewerAct({ kind: 'navigate', type: 'url', url: 'http://localhost:8000/' });
+		didLoad.dispose();
+
+		expect({ message: result.message, preserveFocus: openUri.mock.lastCall?.[4] }).toEqual({
+			message: 'Went to http://localhost:8000/.',
+			preserveFocus: true,
 		});
 	});
 

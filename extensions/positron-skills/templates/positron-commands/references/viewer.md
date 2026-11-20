@@ -91,7 +91,7 @@ Tables come one row per line, at most 50 rows.
 - **After a re-run,** the Viewer can still show the previous app for a while.
   Compare the title and URL.
 - **Keep the outline small:** `interactiveOnly: true` for just the controls,
-  `selector` (CSS) for one part. If it was cut short, narrow it before raising
+  `outlineSelector` (CSS) for one part. If it was cut short, narrow it before raising
   `maxChars`.
 - **Screenshot only when the outline can't answer,** such as how a plot looks
   or whether elements overlap. It costs 700-1,650 tokens against 100-600 for an

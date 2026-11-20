@@ -77,12 +77,14 @@ export interface IPositronPreviewService {
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 * @param source Optional source information indicating what opened the preview.
+	 * @param preserveFocus Whether to leave focus where it is rather than move it to the Viewer.
 	 */
 	openUri(
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewWebview;
+		source?: { type: string; id: string },
+		preserveFocus?: boolean): PreviewWebview;
 
 	/**
 	 * Opens an HTML file in the preview pane.

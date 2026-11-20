@@ -457,9 +457,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		previewId: string,
 		extension: WebviewExtensionDescription,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewWebview {
+		source?: { type: string; id: string },
+		preserveFocus?: boolean): PreviewWebview {
 		const preview = this.createPreviewUrl(previewId, extension, uri, source);
-		this.makeActivePreview(preview);
+		this.makeActivePreview(preview, preserveFocus);
 		return preview;
 	}
 

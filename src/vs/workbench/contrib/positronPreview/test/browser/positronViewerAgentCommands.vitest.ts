@@ -96,8 +96,8 @@ describe('positronViewer commands', () => {
 			withinBudget: cutAfterEscaping.length < 32_000,
 		}).toEqual({
 			limits: [20_000, 30_000, 20_000],
-			noteAfterBridgeCut: 'The outline was cut short. Narrow it with `selector` or `interactiveOnly`, or raise `maxChars` (up to 30000).',
-			noteAfterEscaping: 'The outline was cut short. Narrow it with `selector` or `interactiveOnly`.',
+			noteAfterBridgeCut: 'The outline was cut short. Narrow it with `outlineSelector` or `interactiveOnly`, or raise `maxChars` (up to 30000).',
+			noteAfterEscaping: 'The outline was cut short. Narrow it with `outlineSelector` or `interactiveOnly`.',
 			endsAtLineBreak: true,
 			withinBudget: true,
 		});
@@ -135,6 +135,40 @@ describe('positronViewer commands', () => {
 			The app was still busy when the wait ran out, so the outline may not show where it ends up.
 			The Viewer was hidden, so it was revealed to act on it."
 		`);
+	});
+
+	it('acts on the element a selector names, apart from the part of the page the outline covers', async () => {
+		for (const id of ['click', 'hover', 'fill', 'select', 'press', 'type', 'upload', 'scroll']) {
+			await run(id, { selector: '#plot', outlineSelector: 'main' });
+		}
+		await run('drag', { from: { selector: '#a' }, to: { selector: '#b' } });
+		await run('read', { outlineSelector: 'main' });
+
+		expect({
+			targets: viewerAct.mock.calls.map(([action]) => action.kind === 'drag' ? [action.from.selector, action.to.selector] : (action as { selector?: string }).selector),
+			outlines: [...viewerAct.mock.calls.map(([, options]) => options?.selector), getViewerSnapshot.mock.lastCall?.[0]?.selector],
+		}).toEqual({
+			targets: [...Array(8).fill('#plot'), ['#a', '#b']],
+			outlines: [...Array(8).fill('main'), undefined, 'main'],
+		});
+	});
+
+	it('describes selector as the element to act on, and outlineSelector as the part of the page to outline', () => {
+		const properties = Object.fromEntries(VIEWER_COMMANDS.map(id => {
+			const schema = CommandsRegistry.getCommand(`positronViewer.${id}`)?.metadata?.args?.[0]?.schema as { properties?: Record<string, { description?: string }> } | undefined;
+			return [id, { selector: schema?.properties?.selector?.description, outline: !!schema?.properties?.outlineSelector }];
+		}));
+		const target = { selector: 'A CSS selector matching exactly one element, for when the outline gives no ref for it.', outline: true };
+		const none = { selector: undefined, outline: true };
+
+		expect(properties).toEqual({
+			read: { selector: undefined, outline: true },
+			screenshot: { selector: target.selector, outline: false },
+			consoleLogs: { selector: undefined, outline: false },
+			evaluate: { selector: undefined, outline: false },
+			click: target, hover: target, fill: target, select: target, press: target, type: target, upload: target, scroll: target,
+			drag: none, navigate: none, handleDialog: none, wait: none,
+		});
 	});
 
 	it('still reports an action that was taken when the page can\'t be described after it', async () => {

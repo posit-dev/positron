@@ -320,7 +320,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				target = preview;
 				start = () => preview.navigateToUri(uri);
 			} else {
-				target = this._previewService.openUri(`agentPreview-${this._previewCounter++}`, undefined, uri);
+				target = this._previewService.openUri(`agentPreview-${this._previewCounter++}`, undefined, uri, undefined, true);
 				start = () => { };
 			}
 			done = `Went to ${uri.toString(true)}.`;

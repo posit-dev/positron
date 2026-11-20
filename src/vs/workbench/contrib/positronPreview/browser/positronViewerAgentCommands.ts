@@ -44,7 +44,7 @@ const UNREADABLE = {
 
 /** The options an agent can give for an outline. */
 interface IOutlineOptions {
-	readonly selector?: string;
+	readonly outlineSelector?: string;
 	readonly interactiveOnly?: boolean;
 	readonly maxChars?: number;
 }
@@ -69,11 +69,11 @@ function xmlNode(name: string, content: string, attributes: Record<string, strin
 function snapshotOptions(options: IOutlineOptions | undefined): IViewerSnapshotOptions & { readonly maxChars: number } {
 	const maxChars = typeof options?.maxChars === 'number' && options.maxChars > 0 ?
 		Math.min(options.maxChars, MAX_OUTLINE_CHARS) : DEFAULT_OUTLINE_CHARS;
-	return { selector: options?.selector, interactiveOnly: options?.interactiveOnly, maxChars };
+	return { selector: options?.outlineSelector, interactiveOnly: options?.interactiveOnly, maxChars };
 }
 
 function truncationNote(canRaiseLimit: boolean): string {
-	const narrow = 'The outline was cut short. Narrow it with `selector` or `interactiveOnly`';
+	const narrow = 'The outline was cut short. Narrow it with `outlineSelector` or `interactiveOnly`';
 	return canRaiseLimit ? `${narrow}, or raise \`maxChars\` (up to ${MAX_OUTLINE_CHARS}).` : `${narrow}.`;
 }
 
@@ -177,8 +177,8 @@ async function act(accessor: ServicesAccessor, kind: ViewerAction['kind'], optio
 	if (needsPage && (before.kind === 'none' || before.kind === 'other')) {
 		throw new Error(UNREADABLE[before.kind]);
 	}
-	const { selector, interactiveOnly, maxChars, ...fields } = options ?? {};
-	const snapshotOpts = snapshotOptions({ selector, interactiveOnly, maxChars });
+	const { outlineSelector, interactiveOnly, maxChars, ...fields } = options ?? {};
+	const snapshotOpts = snapshotOptions({ outlineSelector, interactiveOnly, maxChars });
 	// The bridge explains what's missing from a malformed action. A wait is
 	// for the text it names, or else for the app to settle.
 	const action = (kind === 'wait' ? { ...fields, kind, for: fields.text === undefined ? 'idle' : 'text' } : { ...fields, kind }) as ViewerAction;
@@ -215,7 +215,7 @@ async function act(accessor: ServicesAccessor, kind: ViewerAction['kind'], optio
 }
 
 const OUTLINE_PROPERTIES: Record<string, IJSONSchema> = {
-	selector: { type: 'string', description: 'A CSS selector, to outline only part of the page.' },
+	outlineSelector: { type: 'string', description: 'A CSS selector, to outline only part of the page.' },
 	interactiveOnly: { type: 'boolean', description: 'List only the controls.' },
 	maxChars: { type: 'number', description: `The outline's length limit. Default ${DEFAULT_OUTLINE_CHARS}, at most ${MAX_OUTLINE_CHARS}.` },
 };
