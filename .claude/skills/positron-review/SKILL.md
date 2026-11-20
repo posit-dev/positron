@@ -1,6 +1,6 @@
 ---
 name: positron-review
-description: Code-reviews a Positron change (PR, branch, range, or local working tree). Runs the built-in /code-review for the general bug hunt, then a short Positron layer that checks what it misses (stated facts and disable reasons, unexplained literals, behavior against the upstream sibling it imitates, enforced settings, saved state, Positron build and platform dimensions), fact-checks the general pass, ranks everything by what users see, and saves the review to a file. Both passes run in fresh subagents that never see the conversation, so a session that wrote the change still gets a blind review. Use when the user invokes /positron-review or asks for a thorough review of a Positron PR or their local changes. Not for upstream VS Code merges (review-upstream-merge) or for grading test coverage alone (pete).
+description: Code-reviews a Positron change (PR, branch, range, or local working tree). Runs the built-in /code-review for the general bug hunt, then a short Positron layer that checks what it misses (stated facts and disable reasons, unexplained literals, behavior against the upstream sibling it imitates, enforced settings, saved state, Positron build and platform dimensions, accessibility of changed UI), fact-checks the general pass, ranks everything by what users see, and saves the review to a file. Both passes run in fresh subagents that never see the conversation, so a session that wrote the change still gets a blind review. Use when the user invokes /positron-review or asks for a thorough review of a Positron PR or their local changes. Not for upstream VS Code merges (review-upstream-merge) or for grading test coverage alone (pete).
 disable-model-invocation: true
 ---
 
@@ -215,7 +215,20 @@ Platform signals. Targets are Linux, Windows, web (Positron Server and Workbench
 | Sizes tied to the default font: `em` values, fixed `px` heights around text (see 4b) | Windows, Linux (14px default vs 12px on macOS) |
 | CRLF vs LF in parsed text, file watchers, encodings | Windows |
 
-### 4g. Size
+### 4g. Accessibility of changed UI
+
+List every new or changed piece of UI in the diff:
+
+- elements with a click, key, mouse, or focus handler, a `role`, a `tabIndex`, or an `aria-*` attribute;
+- tooltips and hovers, menus and context menus, dialogs, and popups;
+- panes, tabs, slides, or sections that are shown, hidden, or swapped at runtime;
+- CSS that styles focus, selection, active, hover, or disabled states, or that hides content.
+
+Check each item against the "Accessibility" section of `AGENTS.md` at `TARGET`, from the point of view of a keyboard-only user and a screen reader user. Treat its rules as defaults. Raise a finding only when one of those users would hit a real gap, not when the code meets the need another way. Merge any gap already raised in 4c.
+
+Step 5 sets the floor for the worst gaps. Rate other gaps in new or changed UI `minor (accessibility)`. Rate a gap that predates the change and sits next to it `minor (preexisting)`. Suggest fixing that gap in this PR only when the fix is small and self-contained. Otherwise suggest a follow-up issue.
+
+### 4h. Size
 
 Write one sentence on what the change does in user terms, and one line with production and test lines changed. Flag a mechanism that isn't load-bearing: an existing mechanism already does it, it guards against something impossible, or it exists only because of another design choice. Grep for other copies of a new helper's core operation; if copies exist, name them and say which can use the new helper. Same-behavior cuts that save more than about 20 production lines are `important (simplification)`; smaller ones are `minor`.
 
@@ -250,6 +263,7 @@ In `report.json`, each entry in `findings` has `severity`, `title`, `observed`, 
 - A setting or feature silently does nothing for a realistic group of users.
 - A verification can be skipped without anyone noticing.
 - Saved data from a shipped release blocks the change's main behavior.
+- New UI can't be reached or used from the keyboard, or has no name a screen reader can read, or the change makes existing UI less accessible.
 
 **Other rating rules.**
 

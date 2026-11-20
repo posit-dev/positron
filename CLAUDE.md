@@ -147,6 +147,7 @@ failure, and any bug that is not a test failure.
   - Formatting: `node scripts/format.mts <file> [file2] ...`
   - ESLint: `npx eslint --fix <file> [file2] ...`
 - When registering user-facing configuration, follow the **[guidance on settings](.claude/rules/configuration.md)**. Setting keys, titles, and display names omit redundant terms ("Positron", "Setting", etc.); `localize()` IDs keep the `positron.` prefix.
+- When building or reviewing UI, follow the **Accessibility** section of @AGENTS.md.
 - When adding AI-related functionality (anything that calls a model, suggests completions, or surfaces AI actions), gate it on the `ai.enabled` main switch -- see **[AI feature gating](.claude/rules/ai-gating.md)**.
 
 ## General
