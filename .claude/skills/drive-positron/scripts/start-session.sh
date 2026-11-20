@@ -4,8 +4,9 @@
 # pick, and its references change between snapshots, so this goes through the
 # Command Palette instead: Interpreter: Start New Console Session, then the
 # runtime picker row that names the language (and --name). When several rows
-# match, the first in picker order starts (the Suggested one leads), and
-# "picked" and "others" name it and the rest.
+# match and no --name was given, the first in picker order starts (the
+# Suggested one leads), and "picked" and "others" name it and the rest; with
+# --name, several matches fail and "shown" lists them.
 #
 # A fresh window has often started a session already: Python when the
 # workspace has a venv, R when it has .R files. When a session of the language
