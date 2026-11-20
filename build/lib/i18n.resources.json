@@ -191,6 +191,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronCheckpoints",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronCanvas",
 			"project": "vscode-workbench"
 		},
@@ -600,6 +604,10 @@
 		},
 		{
 			"name": "vs/workbench/services/language",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/positronCheckpoints",
 			"project": "vscode-workbench"
 		},
 		{
