@@ -141,7 +141,7 @@ describe('changes', () => {
 		});
 
 		test('leaves the working file and real index unchanged', async () => {
-			const { repo, changes, hunks, base } = await twoHunks();
+			const { repo, hunks, base } = await twoHunks();
 			await repo.write('new.txt', 'n\n');
 			const changed = await readChanges(repo.ports);
 			const working = await fsp.readFile(path.join(repo.root, 'a.txt'));
@@ -150,7 +150,7 @@ describe('changes', () => {
 			expect(await fsp.readFile(path.join(repo.root, 'a.txt'))).toEqual(working);
 			expect(await fsp.readFile(path.join(repo.root, '.git', 'index'))).toEqual(index);
 			expect(await fsp.readdir(path.join(repo.root, '.git', 'positron-checkpoints', 'tmp'))).toEqual(['.keep']);
-			expect(changes.files.length).toBe(1);
+			expect(changed.files.map(file => file.path)).toEqual(['a.txt', 'new.txt']);
 		});
 
 		test('reports partialFiles', async () => {
@@ -200,6 +200,108 @@ describe('changes', () => {
 			await expect(treeForChunk(repo.ports, base, changes, chunkOf(['0123456789abcdef']))).rejects.toBeInstanceOf(ChunkError);
 			await expect(treeForChunk(repo.ports, base, changes, chunkOf([hunks[0].id, hunks[0].id]))).rejects.toBeInstanceOf(ChunkError);
 			await expect(treeForChunk(repo.ports, base, changes, chunkOf([], ['nothing.txt']))).rejects.toBeInstanceOf(ChunkError);
+		});
+	});
+
+	describe('exact bytes', () => {
+		test('hunk text is readable and a partial chunk has the exact original bytes', async () => {
+			const repo = await create();
+			const utf8 = numbered(40).join('').replace('line 3\n', 'caf\u00e9 \u65e5\u672c\n');
+			// 0xe9 alone is not valid UTF-8.
+			const latin1 = numbered(40).join('').replace('line 3\n', 'caf\u00e9\n');
+			await repo.write('u.txt', utf8);
+			await fsp.writeFile(path.join(repo.root, 'l.txt'), Buffer.from(latin1, 'latin1'));
+			await repo.commit('first');
+			await repo.write('u.txt', utf8.replace('line 4\n', 'four\n').replace('line 35\n', 'late\n'));
+			await fsp.writeFile(path.join(repo.root, 'l.txt'), Buffer.from(latin1.replace('line 4\n', 'four\n').replace('line 35\n', 'late\n'), 'latin1'));
+			const changes = await readChanges(repo.ports);
+			const unicode = fileNamed(changes, 'u.txt').hunks;
+			expect(unicode).toHaveLength(2);
+			expect(unicode[0].patch).toContain('caf\u00e9 \u65e5\u672c');
+			const ids = [unicode[0].id, fileNamed(changes, 'l.txt').hunks[0].id];
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf(ids));
+			expect(await show(repo, tree, 'u.txt')).toBe(Buffer.from(utf8.replace('line 4\n', 'four\n'), 'utf8').toString('latin1'));
+			expect(await show(repo, tree, 'l.txt')).toBe(latin1.replace('line 4\n', 'four\n'));
+		});
+
+		test('a change set that no longer matches the files throws changes-moved', async () => {
+			const repo = await create();
+			await repo.write('a.txt', numbered(40).join(''));
+			await repo.commit('first');
+			await repo.write('a.txt', numbered(40).join('').replace('line 3\n', 'three\n'));
+			const changes = await readChanges(repo.ports);
+			await repo.write('a.txt', numbered(40).join('').replace('line 3\n', 'THREE\n'));
+			const error = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([changes.files[0].hunks[0].id])).catch(e => e);
+			expect(error).toBeInstanceOf(ChunkError);
+			expect(error.code).toBe('changes-moved');
+		});
+	});
+
+	describe('chunks in sequence', () => {
+		test('a second chunk that removes a file the first already removed leaves the tree unchanged', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'a\n');
+			await repo.write('b.txt', 'b\n');
+			await repo.commit('first');
+			await fsp.rm(path.join(repo.root, 'a.txt'));
+			await repo.write('b.txt', 'changed\n');
+			const changes = await readChanges(repo.ports);
+			const first = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['a.txt']));
+			const second = await treeForChunk(repo.ports, first.tree, changes, chunkOf([], ['a.txt']));
+			expect(second.tree).toBe(first.tree);
+		});
+
+		test('a rename split across two chunks works', async () => {
+			const repo = await create();
+			await repo.write('old.txt', numbered(20).join(''));
+			await repo.commit('first');
+			await fsp.rename(path.join(repo.root, 'old.txt'), path.join(repo.root, 'new.txt'));
+			const changes = await readChanges(repo.ports);
+			expect(changes.files[0]).toMatchObject({ path: 'new.txt', oldPath: 'old.txt', status: 'renamed' });
+			const first = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['new.txt']));
+			const second = await treeForChunk(repo.ports, first.tree, changes, chunkOf([], ['new.txt']));
+			expect((await repo.git(['ls-tree', '-r', '--name-only', second.tree])).stdout.trim()).toBe('new.txt');
+		});
+	});
+
+	describe('entries that cannot be split', () => {
+		test.skipIf(process.platform === 'win32')('a file replaced by a symbolic link, and the reverse, is one whole-only entry', async () => {
+			const repo = await create();
+			await repo.write('f.txt', 'file\n');
+			await repo.write('l', 'target\n');
+			await fsp.symlink('l', path.join(repo.root, 'was-link'));
+			await repo.commit('first');
+			await fsp.rm(path.join(repo.root, 'f.txt'));
+			await fsp.symlink('l', path.join(repo.root, 'f.txt'));
+			await fsp.rm(path.join(repo.root, 'was-link'));
+			await repo.write('was-link', 'now a file\n');
+			const changes = await readChanges(repo.ports);
+			expect(changes.files.map(file => [file.path, file.status, file.binary, file.hunks.length])).toEqual([
+				['f.txt', 'modified', true, 0],
+				['was-link', 'modified', true, 0],
+			]);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['f.txt', 'was-link']));
+			expect((await repo.git(['ls-tree', tree, 'f.txt'])).stdout).toMatch(/^120000 /);
+			expect(await show(repo, tree, 'was-link')).toBe('now a file\n');
+		});
+
+		test('a submodule entry is whole-only', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'a\n');
+			await repo.commit('first');
+			const inSub = (args: string[]) => repo.git(['-C', 'sub', '-c', 'user.name=n', '-c', 'user.email=n@example.com', ...args]);
+			await repo.git(['init', '-q', '-b', 'main', 'sub']);
+			await inSub(['commit', '-q', '--allow-empty', '-m', 'one']);
+			const sha = (await inSub(['rev-parse', 'HEAD'])).stdout.trim();
+			await repo.git(['update-index', '--add', '--cacheinfo', `160000,${sha},sub`]);
+			await repo.commit('add submodule entry');
+			await inSub(['commit', '-q', '--allow-empty', '-m', 'two']);
+			const changes = await readChanges(repo.ports);
+			expect(fileNamed(changes, 'sub')).toMatchObject({ binary: true, hunks: [], status: 'modified' });
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['sub']));
+			const entry = (await repo.git(['ls-tree', tree, 'sub'])).stdout;
+			expect(entry).toMatch(/^160000 commit /);
+			expect(entry).not.toContain(sha);
 		});
 	});
 

@@ -15,20 +15,17 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 /** Hunk ids are the first 16 hex characters of a SHA-256. */
 const HUNK_ID_LENGTH = 16;
 
-/** A chunk names a hunk that does not exist, names a hunk twice, or names a file that did not change. */
+export type ChunkErrorCode = 'unknown-hunk' | 'repeated-hunk' | 'unknown-file' | 'changes-moved';
+
+/**
+ * A chunk names a hunk that does not exist, names a hunk twice, or names a file that did not
+ * change, or the working files changed after the change set was read (`changes-moved`).
+ */
 export class ChunkError extends Error {
-	constructor(message: string) {
+	constructor(readonly code: ChunkErrorCode, message: string) {
 		super(message);
 		this.name = 'ChunkError';
 	}
-}
-
-/**
- * The text of a hunk's patch. `Hunk.patch` holds the exact bytes of the hunk, one character
- * per byte (latin1), so that a file in any encoding can be applied again without change.
- */
-export function hunkText(hunk: Hunk): string {
-	return Buffer.from(hunk.patch, 'latin1').toString('utf8');
 }
 
 /** Runs git in the project root and throws when it exits with an error. */
@@ -94,7 +91,7 @@ function parsePatch(patch: string): ParsedSection[] {
 	return sections;
 }
 
-interface NameStatus { status: ChangedFile['status']; path: string; oldPath?: string }
+interface NameStatus { status: ChangedFile['status']; path: string; oldPath?: string; typeChange?: boolean }
 
 /** Parses `git diff --name-status -z`, whose paths are exact (never quoted). */
 function parseNameStatus(output: string): NameStatus[] {
@@ -105,6 +102,8 @@ function parseNameStatus(output: string): NameStatus[] {
 		if (code.startsWith('R') || code.startsWith('C')) {
 			const oldPath = decodeName(parts[i++]);
 			entries.push({ status: 'renamed', path: decodeName(parts[i++]), oldPath });
+		} else if (code.startsWith('T')) {
+			entries.push({ status: 'modified', path: decodeName(parts[i++]), typeChange: true });
 		} else {
 			const status = code === 'A' ? 'added' : code === 'D' ? 'deleted' : 'modified';
 			entries.push({ status, path: decodeName(parts[i++]) });
@@ -156,6 +155,15 @@ async function baseTreeOf(ports: EnginePorts): Promise<{ head?: string; tree: st
  * files, and the index, so a caller can tell that the changes moved.
  */
 export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
+	return (await readChangesDetailed(ports)).changeSet;
+}
+
+/**
+ * Like `readChanges`, and also returns the exact bytes of every hunk (key: hunk id) for
+ * `treeForChunk`. `Hunk.patch` in the change set is display text, so it cannot rebuild a
+ * file in an encoding other than UTF-8.
+ */
+export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array> }> {
 	const base = await baseTreeOf(ports);
 	const { tree } = await worktreeTree(ports);
 	const index = await indexTree(ports);
@@ -166,25 +174,39 @@ export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
 	const names = parseNameStatus((await mustGit(ports, [...flags, '--name-status', '-z', ...range], { binary: true })));
 	const patch = await mustGit(ports, [...flags, '--full-index', ...range], { binary: true });
 	const sections = parsePatch(patch);
-	if (sections.length !== names.length) {
-		throw new Error(`git listed ${names.length} changed files but ${sections.length} patches`);
+	// Both lists come from the same diff, so they have the same order. A file replaced by a
+	// symbolic link, or the reverse, is one entry in the name list and two sections (a
+	// deletion and an addition).
+	const expected = names.reduce((total, entry) => total + (entry.typeChange ? 2 : 1), 0);
+	if (sections.length !== expected) {
+		throw new Error(`git listed ${expected} patches for the changed files but wrote ${sections.length}`);
 	}
 
 	const files: ChangedFile[] = [];
-	for (let i = 0; i < names.length; i++) {
-		const { status, path, oldPath } = names[i];
-		const section = sections[i];
+	const rawHunks = new Map<string, Uint8Array>();
+	let next = 0;
+	for (const { status, path, oldPath, typeChange } of names) {
+		const section = sections[next];
+		next += typeChange ? 2 : 1;
+		// A change of type, and a submodule, can only be included whole.
+		if (typeChange || section.hunks.some(parsed => /^[-+]Subproject commit /m.test(parsed.body))) {
+			section.binary = true;
+			section.hunks = [];
+		}
 		const seen = new Map<string, number>();
 		const hunks = section.hunks.map((parsed): Hunk => {
 			const earlier = seen.get(parsed.body) ?? 0;
 			seen.set(parsed.body, earlier + 1);
 			const { added, removed } = countLines(parsed.body);
+			const raw = Buffer.from(`${parsed.headerLine}\n${parsed.body}`, 'latin1');
+			const id = hunkId(path, parsed.body, earlier);
+			rawHunks.set(id, raw);
 			return {
-				id: hunkId(path, parsed.body, earlier),
+				id,
 				header: decodeName(parsed.headerLine),
 				addedLines: added,
 				removedLines: removed,
-				patch: `${parsed.headerLine}\n${parsed.body}`,
+				patch: raw.toString('utf8'),
 			};
 		});
 		const info = status === 'deleted' ? undefined : await ports.files.lstat(path);
@@ -195,7 +217,7 @@ export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
 		}
 		files.push(file);
 	}
-	return { basis, files };
+	return { changeSet: { basis, files }, rawHunks };
 }
 
 /** Quotes a path the way git writes it in a patch header, when it needs quoting. */
@@ -219,7 +241,7 @@ function nameLine(path: string): string {
 }
 
 /** The patch text (one character per byte) that applies the chosen hunks of one file. */
-function filePatch(file: ChangedFile, chosen: Hunk[]): string {
+function filePatch(file: ChangedFile, chosen: Hunk[], rawHunks: Map<string, Uint8Array>): string {
 	const from = file.oldPath ?? file.path;
 	const lines = [`diff --git ${quotePath(`a/${from}`)} ${quotePath(`b/${file.path}`)}`];
 	if (file.oldPath !== undefined) {
@@ -231,8 +253,9 @@ function filePatch(file: ChangedFile, chosen: Hunk[]): string {
 	// chosen hunk is recomputed from the chosen hunks before it.
 	let delta = 0;
 	for (const hunk of chosen) {
-		const newline = hunk.patch.indexOf('\n');
-		const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/.exec(hunk.patch.slice(0, newline));
+		const raw = Buffer.from(rawHunks.get(hunk.id) ?? []).toString('latin1');
+		const newline = raw.indexOf('\n');
+		const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/.exec(raw.slice(0, newline));
 		if (match === null) {
 			throw new Error(`unreadable hunk header: ${hunk.header}`);
 		}
@@ -240,10 +263,16 @@ function filePatch(file: ChangedFile, chosen: Hunk[]): string {
 		const oldCount = match[2] === undefined ? 1 : Number(match[2]);
 		const newCount = match[4] === undefined ? 1 : Number(match[4]);
 		const newStart = newCount === 0 ? oldStart - 1 + delta : oldCount === 0 ? oldStart + 1 + delta : oldStart + delta;
-		text += `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${match[5]}\n${hunk.patch.slice(newline + 1)}`;
+		text += `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${match[5]}\n${raw.slice(newline + 1)}`;
 		delta += newCount - oldCount;
 	}
 	return text;
+}
+
+/** True when `tree` has an entry at `path`. */
+async function inTree(ports: EnginePorts, tree: string, path: string): Promise<boolean> {
+	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'cat-file', '-e', `${tree}:${path}`]);
+	return result.exitCode === 0;
 }
 
 /**
@@ -270,18 +299,24 @@ export async function treeForChunk(
 	const chosenIds = new Set<string>();
 	for (const id of chunk.hunkIds) {
 		if (!owner.has(id)) {
-			throw new ChunkError(`unknown hunk ${id}`);
+			throw new ChunkError('unknown-hunk', `unknown hunk ${id}`);
 		}
 		if (chosenIds.has(id)) {
-			throw new ChunkError(`hunk ${id} is used twice`);
+			throw new ChunkError('repeated-hunk', `hunk ${id} is used twice`);
 		}
 		chosenIds.add(id);
 	}
 	const known = new Set(changes.files.map(file => file.path));
 	for (const path of chunk.wholeFiles) {
 		if (!known.has(path)) {
-			throw new ChunkError(`${path} has no changes`);
+			throw new ChunkError('unknown-file', `${path} has no changes`);
 		}
+	}
+
+	// The bytes of the hunks come from a fresh read, which must still match `changes`.
+	const { changeSet: current, rawHunks } = await readChangesDetailed(ports);
+	if (current.basis !== changes.basis) {
+		throw new ChunkError('changes-moved', 'the files changed after the changes were read');
 	}
 
 	const whole = new Set(chunk.wholeFiles);
@@ -296,18 +331,25 @@ export async function treeForChunk(
 			whole.add(file.path);
 			continue;
 		}
-		patches.push(filePatch(file, chosen));
+		patches.push(filePatch(file, chosen, rawHunks));
 		if (chosen.length < file.hunks.length) {
 			partialFiles.push(file.path);
 		}
 	}
 
+	// A path that is in neither `baseTree` nor the working files (an earlier chunk already
+	// removed it) is left out, because `git add -A` fails on it.
 	const paths: string[] = [];
+	const addPath = async (path: string) => {
+		if (await ports.files.lstat(path) !== undefined || await inTree(ports, baseTree, path)) {
+			paths.push(path);
+		}
+	};
 	for (const file of changes.files) {
 		if (whole.has(file.path)) {
-			paths.push(file.path);
+			await addPath(file.path);
 			if (file.oldPath !== undefined) {
-				paths.push(file.oldPath);
+				await addPath(file.oldPath);
 			}
 		}
 	}
