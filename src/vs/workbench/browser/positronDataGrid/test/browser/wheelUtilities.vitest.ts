@@ -1,0 +1,60 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { computeWheelScrollDeltas, WheelInput } from '../../utilities/wheelUtilities.js';
+
+// A wheel event with no modifier keys held.
+const wheel = (deltaX: number, deltaY: number, modifiers: Partial<WheelInput> = {}): WheelInput =>
+	({ deltaX, deltaY, shiftKey: false, altKey: false, ...modifiers });
+
+describe('computeWheelScrollDeltas', () => {
+	test('a plain vertical wheel scrolls vertically on every platform', () => {
+		expect([
+			computeWheelScrollDeltas(wheel(0, 100), false),
+			computeWheelScrollDeltas(wheel(0, 100), true),
+		]).toEqual([
+			{ deltaX: 0, deltaY: 100 },
+			{ deltaX: 0, deltaY: 100 },
+		]);
+	});
+
+	test('shift with a vertical wheel scrolls horizontally on Windows and Linux (#11063)', () => {
+		expect([
+			computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true }), false),
+			computeWheelScrollDeltas(wheel(0, -100, { shiftKey: true }), false),
+		]).toEqual([
+			{ deltaX: 100, deltaY: 0 },
+			{ deltaX: -100, deltaY: 0 },
+		]);
+	});
+
+	test('shift leaves an event that already carries delta X alone (macOS, #3755; converting drivers)', () => {
+		// macOS converts shift + wheel before the event arrives, so swapping again would scroll
+		// vertically. On other platforms, a mouse driver may have done the same conversion.
+		expect([
+			computeWheelScrollDeltas(wheel(100, 0, { shiftKey: true }), true),
+			computeWheelScrollDeltas(wheel(100, 0, { shiftKey: true }), false),
+		]).toEqual([
+			{ deltaX: 100, deltaY: 0 },
+			{ deltaX: 100, deltaY: 0 },
+		]);
+	});
+
+	test('shift does not swap delta Y on macOS', () => {
+		expect(computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true }), true))
+			.toEqual({ deltaX: 0, deltaY: 100 });
+	});
+
+	test('the non-dominant axis is zeroed before the shift conversion', () => {
+		// Delta X is jitter, so it is dropped and delta Y becomes the horizontal scroll.
+		expect(computeWheelScrollDeltas(wheel(3, 100, { shiftKey: true }), false))
+			.toEqual({ deltaX: 100, deltaY: 0 });
+	});
+
+	test('alt multiplies the converted delta by 10', () => {
+		expect(computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true, altKey: true }), false))
+			.toEqual({ deltaX: 1000, deltaY: 0 });
+	});
+});

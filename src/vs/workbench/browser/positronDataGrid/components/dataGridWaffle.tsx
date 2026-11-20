@@ -22,6 +22,7 @@ import { DataGridLoadingIndicator } from './dataGridLoadingIndicator.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
+import { computeWheelScrollDeltas } from '../utilities/wheelUtilities.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
@@ -621,32 +622,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		}
 
 		const onWheel = (e: globalThis.WheelEvent) => {
-			// Get the delta X and delta Y.
-			let deltaX = e.deltaX;
-			let deltaY = e.deltaY;
-
-			// Suppress jitter on the non-dominant wheel axis.
-			{
-				// This bias factor prevents minor input noise from falsely
-				// flipping axis dominance.
-				const bias = 1.1;
-
-				// Zero out the non-dominant axis.
-				const absDeltaX = Math.abs(deltaX);
-				const absDeltaY = Math.abs(deltaY);
-				if (absDeltaX > absDeltaY * bias) {
-					deltaY = 0;
-				} else if (absDeltaY > absDeltaX * bias) {
-					deltaX = 0;
-				}
-			}
-
-			// If the alt key is pressed, scroll by 10 times the delta X and
-			// delta Y.
-			if (e.altKey) {
-				deltaX *= 10;
-				deltaY *= 10;
-			}
+			// Convert the wheel event into scroll deltas.
+			const { deltaX, deltaY } = computeWheelScrollDeltas(e, isMacintosh);
 
 			// Compute the new scroll offsets.
 			const newHorizontalOffset = pinToRange(
