@@ -86,7 +86,7 @@ const SYSTEM_PROMPT = [
 	'Answer with a JSON object of this form:',
 	'{"title": "...", "summary": "...", "fileNotes": [{"path": "...", "note": "..."}]}',
 	`- "title" is one line of at most ${CHECKPOINT_TITLE_LIMIT} characters that names the work, for example "Fixed the units in the dose model".`,
-	`- "summary" is one to three sentences, at most ${MAX_SUMMARY_CHARS} characters, about what changed and why it matters.`,
+	`- "summary" is two to four short lines separated by line breaks, at most ${MAX_SUMMARY_CHARS} characters in total. Each line starts with "- " and names one thing that changed and why it matters. Changes that belong together share one line.`,
 	`- "fileNotes" has at most one short note for each changed file, a few words long and at most ${MAX_FILE_NOTE_CHARS} characters. "path" is the exact path from a "File:" line.`,
 	STYLE_SECOND_PERSON,
 ].join('\n');
@@ -100,7 +100,7 @@ const SYSTEM_PROMPT = [
 export const describeChangesJob: Job<IChangeSet, IChangesDescription> = {
 	name: 'describe-changes',
 	weight: 'light',
-	version: 4,
+	version: 5,
 
 	buildPrompt(changes) {
 		const text = renderChangesForModel(changes, MAX_INPUT_CHARS - PROMPT_ALLOWANCE_CHARS);

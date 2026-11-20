@@ -84,8 +84,11 @@
 
 .positron-checkpoints .checkpoints-heading {
 	margin: 0;
-	font-size: var(--vscode-fontSize-body1);
+	font-size: var(--vscode-fontSize-body2);
+	font-weight: 600;
+	letter-spacing: 0.04em;
 	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
 }
 
 .positron-checkpoints .checkpoints-section {
@@ -94,6 +97,8 @@
 	align-items: flex-start;
 	gap: var(--vscode-spacing-size60);
 	min-width: 0;
+	padding-top: var(--vscode-spacing-size120);
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
 }
 
 .positron-checkpoints .checkpoints-note {
@@ -113,22 +118,83 @@
 
 .positron-checkpoints .checkpoints-file-row {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size20);
+	padding: var(--vscode-spacing-size40) 0;
+}
+
+.positron-checkpoints .checkpoints-file-main {
+	display: flex;
+	align-items: center;
 	gap: var(--vscode-spacing-size80);
 }
 
 .positron-checkpoints .checkpoints-file-path {
+	flex: 1;
+	min-width: 0;
 	overflow-wrap: anywhere;
+	font-family: var(--monaco-monospace-font);
+	font-weight: 600;
 }
 
-.positron-checkpoints .checkpoints-file-status,
-.positron-checkpoints .checkpoints-file-note {
+/* The status word is read after the path and shown before it. */
+.positron-checkpoints .checkpoints-file-status {
+	order: -1;
+	flex: none;
+	padding: 0 var(--vscode-spacing-size60);
+	border: 1px solid currentColor;
+	border-radius: var(--vscode-cornerRadius-small);
+	font-size: var(--vscode-fontSize-body2);
 	color: var(--vscode-descriptionForeground);
+}
+
+.positron-checkpoints .checkpoints-file-status-added {
+	color: var(--vscode-gitDecoration-addedResourceForeground);
+}
+
+.positron-checkpoints .checkpoints-file-status-modified {
+	color: var(--vscode-gitDecoration-modifiedResourceForeground);
+}
+
+.positron-checkpoints .checkpoints-file-status-deleted {
+	color: var(--vscode-gitDecoration-deletedResourceForeground);
+}
+
+.positron-checkpoints .checkpoints-file-status-renamed {
+	color: var(--vscode-gitDecoration-renamedResourceForeground);
+}
+
+.positron-checkpoints .checkpoints-file-note {
+	font-size: var(--vscode-fontSize-body2);
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-checkpoints .checkpoints-icon-button {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--vscode-spacing-size20);
+	border: none;
+	border-radius: var(--vscode-cornerRadius-small);
+	background: none;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+}
+
+.positron-checkpoints .checkpoints-icon-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .positron-checkpoints .checkpoints-description {
 	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-summary-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size20);
+	padding-left: var(--vscode-spacing-size200);
 }
 
 .positron-checkpoints .checkpoints-history-list {

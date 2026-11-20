@@ -11,6 +11,7 @@ import { Strings } from '../../common/checkpointsStrings.js';
 import { openDiff } from '../openDiff.js';
 import { showCheckpointDialog } from './checkpointDialog.js';
 import { knownSizes, statusWord } from './fileStatus.js';
+import { SummaryText } from './summaryText.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { useChangesDescription } from './useChangesDescription.js';
 import { useUnsavedCount } from './useUnsavedCount.js';
@@ -24,8 +25,9 @@ interface IChangesSectionProps {
 /**
  * The Changes section: the files that differ from the last checkpoint with a plain status word
  * each, the count of files with unsaved edits that are not shown, the action that opens the
- * checkpoint dialog, and the detailed differences of each file. While the agent has a
- * description of the changes, its summary shows above the files and its note beside each file,
+ * checkpoint dialog, and an icon button for the detailed differences of each file. While the
+ * agent has a description of the changes, its summary shows above the files as a list and its
+ * note under each file,
  * and the checkpoint dialog starts with its title and summary. Without one (while it loads, or
  * when the agent is off or gave no usable answer) the plain list shows, and the checkpoint
  * action never waits for it.
@@ -52,7 +54,7 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 				<p className='checkpoints-note'>{Strings.changes.unsavedNote(unsavedCount)}</p>
 			)}
 			{description && description.summary !== '' && changes.files.length > 0 && (
-				<p className='checkpoints-description'>{description.summary}</p>
+				<SummaryText text={description.summary} />
 			)}
 			{changes.files.length === 0
 				? <p>{Strings.changes.none()}</p>
@@ -60,8 +62,18 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 					<ul className='checkpoints-file-list'>
 						{changes.files.map(file => (
 							<li key={file.path} className='checkpoints-file-row'>
-								<span className='checkpoints-file-path'>{file.path}</span>
-								<span className='checkpoints-file-status'>{statusWord(file)}</span>
+								<div className='checkpoints-file-main'>
+									<span className='checkpoints-file-path'>{file.path}</span>
+									<span className={`checkpoints-file-status checkpoints-file-status-${file.status}`}>{statusWord(file)}</span>
+									<Button
+										ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)}
+										className='checkpoints-icon-button'
+										tooltip={Strings.actions.viewDetailedDifferences()}
+										onPressed={() => viewDifferences(file)}
+									>
+										<span aria-hidden='true' className='codicon codicon-diff' />
+									</Button>
+								</div>
 								{file.oldPath !== undefined && (
 									<span className='checkpoints-file-note'>{Strings.changes.previousName(file.oldPath)}</span>
 								)}
@@ -71,9 +83,6 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 								{notes.has(file.path) && (
 									<span className='checkpoints-file-note'>{notes.get(file.path)}</span>
 								)}
-								<Button ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)} className='checkpoints-link' onPressed={() => viewDifferences(file)}>
-									{Strings.actions.viewDetailedDifferences()}
-								</Button>
 							</li>
 						))}
 					</ul>
