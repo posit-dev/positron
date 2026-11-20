@@ -324,6 +324,12 @@ async function holdForApproval(
 	};
 }
 
+/** The approved tree and the tree the hooks left, of the pending approval `token`. */
+export async function readPendingTrees(ports: EnginePorts, token: string): Promise<{ approvedTree: string; resultTree: string } | undefined> {
+	const record = (await pendingRecords(ports)).find(candidate => candidate.pending.token === token);
+	return record === undefined ? undefined : { approvedTree: record.pending.approvedTree, resultTree: record.pending.resultTree };
+}
+
 /** The newest pending approval, as `getState()` reports it, read from the journal. */
 export async function readPendingApproval(ports: EnginePorts): Promise<EngineState['pendingApproval']> {
 	const record = (await pendingRecords(ports)).pop();
@@ -453,7 +459,7 @@ async function readCommit(ports: EnginePorts, commit: string): Promise<CommitObj
 }
 
 /** The commit `id` names, when `id` is an object id of a commit. */
-async function resolveCommit(ports: EnginePorts, id: string): Promise<string | undefined> {
+export async function resolveCommit(ports: EnginePorts, id: string): Promise<string | undefined> {
 	if (!OBJECT_ID.test(id)) {
 		return undefined;
 	}

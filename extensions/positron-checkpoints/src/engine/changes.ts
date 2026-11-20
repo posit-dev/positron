@@ -110,6 +110,9 @@ export interface RawEntry {
 	typeChange: boolean;
 	/** True when either side is a submodule entry. */
 	gitlink: boolean;
+	/** The object ids of the two sides, all zeros for a side that does not exist. */
+	oldObject: string;
+	newObject: string;
 }
 
 /** Parses `git diff --raw -z`, whose paths are exact (never quoted). */
@@ -117,14 +120,14 @@ export function parseRaw(output: string): RawEntry[] {
 	const parts = splitZ(output);
 	const entries: RawEntry[] = [];
 	for (let i = 0; i < parts.length;) {
-		const [oldMode, newMode, , , code] = parts[i++].slice(1).split(' ');
+		const [oldMode, newMode, oldObject, newObject, code] = parts[i++].slice(1).split(' ');
 		const gitlink = oldMode === GITLINK_MODE || newMode === GITLINK_MODE;
 		if (code.startsWith('R') || code.startsWith('C')) {
 			const oldPath = decodeName(parts[i++]);
-			entries.push({ status: 'renamed', path: decodeName(parts[i++]), oldPath, typeChange: false, gitlink });
+			entries.push({ status: 'renamed', path: decodeName(parts[i++]), oldPath, typeChange: false, gitlink, oldObject, newObject });
 		} else {
 			const status = code === 'A' ? 'added' : code === 'D' ? 'deleted' : 'modified';
-			entries.push({ status, path: decodeName(parts[i++]), typeChange: code.startsWith('T'), gitlink });
+			entries.push({ status, path: decodeName(parts[i++]), typeChange: code.startsWith('T'), gitlink, oldObject, newObject });
 		}
 	}
 	return entries;

@@ -48,7 +48,8 @@ export type DiffTarget =
 	| { kind: 'change'; path: string }
 	| { kind: 'checkpoint'; id: string; path: string }
 	| { kind: 'incoming'; path: string }
-	| { kind: 'trees'; left: string; right: string; path: string };
+	| { kind: 'trees'; left: string; right: string; path: string }
+	| { kind: 'pending'; token: string; path: string };
 
 export type OverlapKind = 'text' | 'binary' | 'edit-delete' | 'rename' | 'file-folder' | 'unsupported';
 export interface Overlap {
@@ -99,6 +100,8 @@ export interface CheckpointsEngine {
 	getState(): Promise<EngineState>;
 	getHistory(skip: number, limit: number): Promise<Checkpoint[]>;
 	getChanges(): Promise<ChangeSet>;
+	getCheckpointFiles(id: string): Promise<ChangedFile[]>;
+	getPendingFiles(token: string): Promise<ChangedFile[]>;
 	getDiff(target: DiffTarget): Promise<{ left: ContentRef; right: ContentRef }>;
 	readBlob(oid: string): Promise<Uint8Array>;
 	createCheckpoints(basis: string, chunks: Chunk[]): Promise<OperationResult>;
