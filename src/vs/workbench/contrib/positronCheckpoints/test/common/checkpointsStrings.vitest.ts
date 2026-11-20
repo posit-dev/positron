@@ -47,6 +47,7 @@ const results: OperationResult[] = [
  */
 const samples: Record<string, Record<string, unknown[][]>> = {
 	status: {
+		noEngine: [[]], couldNotRead: [[]], interrupted: [['Getting Maya\'s changes']], syncUnavailable: [['2.40']], behind: [[1], [2]],
 		partOfProject: [['dose-model']], onlyOnThisComputer: [[]], notKeepingCheckpoints: [[]], identityMissing: [[]], upToDate: [[]],
 		waitingToSend: [[1], [3]], incoming: [['Maya', 1], ['Maya', 2]], incomingWithoutAuthor: [[1], [2]],
 		incomingTouchesWork: [[]], incomingSeparate: [[]], lastChecked: [['2 minutes ago']],
@@ -100,6 +101,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	interrupted: { heading: [[]], changedFiles: [[]], stagedWork: [[]] },
 	suggestions: { goodPlace: [[]] },
 	aiNotice: { disclosure: [[]], openSetting: [[]] },
+	view: { title: [[]], iconDescription: [[]] },
 };
 
 type StringFunction = (...args: unknown[]) => string | undefined;

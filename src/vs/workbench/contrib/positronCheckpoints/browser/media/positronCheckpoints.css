@@ -1,0 +1,83 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-checkpoints-container {
+	height: 100%;
+}
+
+.positron-checkpoints {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	padding: var(--vscode-spacing-size80) var(--vscode-spacing-size200);
+	box-sizing: border-box;
+	overflow-y: auto;
+	font-size: var(--vscode-fontSize-body1);
+	color: var(--vscode-foreground);
+}
+
+.positron-checkpoints .checkpoints-status {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size60);
+}
+
+.positron-checkpoints .checkpoints-status p {
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-status-project {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-checkpoints .checkpoints-message:empty {
+	display: none;
+}
+
+.positron-checkpoints .checkpoints-sections {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: none;
+}
+
+.positron-checkpoints .checkpoints-button {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size120);
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: var(--vscode-cornerRadius-small);
+	cursor: pointer;
+}
+
+.positron-checkpoints .checkpoints-button-primary {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+}
+
+.positron-checkpoints .checkpoints-button-primary:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.positron-checkpoints .checkpoints-button.disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.positron-checkpoints .checkpoints-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
+
+.positron-checkpoints .checkpoints-link:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}

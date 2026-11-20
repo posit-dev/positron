@@ -26,6 +26,13 @@ function joinSentences(sentences: string[]): string {
 }
 
 const status = {
+	noEngine: () => localize('positron.checkpoints.status.noEngine', "Checkpoints are not available yet."),
+	couldNotRead: () => localize('positron.checkpoints.status.couldNotRead', "The state of this project could not be read."),
+	interrupted: (description: string) => localize('positron.checkpoints.status.interrupted', "The action \"{0}\" was interrupted before it finished.", description),
+	syncUnavailable: (version: string) => localize('positron.checkpoints.status.syncUnavailable', "Getting and sending changes needs git version {0} or newer.", version),
+	behind: (count: number) => plural(count,
+		localize('positron.checkpoints.status.behind.one', "Colleagues added 1 checkpoint to the shared copy."),
+		localize('positron.checkpoints.status.behind.other', "Colleagues added {0} checkpoints to the shared copy.", count)),
 	partOfProject: (projectName: string) => localize('positron.checkpoints.status.partOfProject', "This folder is part of the project {0}", projectName),
 	onlyOnThisComputer: () => localize('positron.checkpoints.status.onlyOnThisComputer', "This project is only on this computer"),
 	notKeepingCheckpoints: () => localize('positron.checkpoints.status.notKeepingCheckpoints', "This folder is not keeping checkpoints yet."),
@@ -324,6 +331,11 @@ const aiNotice = {
 	openSetting: () => localize('positron.checkpoints.aiNotice.openSetting', "Open the setting"),
 };
 
+const view = {
+	title: () => localize('positron.checkpoints.view.title', "Checkpoints"),
+	iconDescription: () => localize('positron.checkpoints.view.iconDescription', "View icon of the Checkpoints view."),
+};
+
 /**
  * Labels for the "Show git details" area. This is the only group that may use git words, and the
  * test that checks the other groups skips it by name.
@@ -352,5 +364,6 @@ export const Strings = {
 	interrupted,
 	suggestions,
 	aiNotice,
+	view,
 	gitDetails,
 };
