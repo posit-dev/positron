@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, branchRate, resolveLastSeen, runApiPath, deriveFixHeld, daysSince } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, branchRate, resolveLastSeen, runApiPath, deriveFixHeld, daysSince, countPostFixFailures } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -227,4 +227,24 @@ test('mergeHistory carries the untruncated pattern text for cross-window matchin
 	assert.equal(patterns[0].fullPattern, long);
 	// The headline is what the table shows; it is lossy, so it cannot be the match key.
 	assert.notEqual(patterns[0].failure, long);
+});
+
+test('countPostFixFailures dates each run against the merge, not the day window', () => {
+	// Merged 21:58:00Z. The day window also returns a 16:38Z failure from before
+	// the merge; the fix commit's own run started 11s after it.
+	const merged = Date.parse('2026-11-19T21:58:00Z');
+	const started = { r1: '2026-11-19T16:38:56Z', r2: '2026-11-19T21:58:11Z' };
+	const startedAt = o => started[o.run_url];
+	const r = countPostFixFailures([
+		{ pattern: 'x', count: 2, occurrences: [{ run_url: 'r1' }, { run_url: 'r2' }] },
+	], merged, startedAt);
+	assert.deepEqual(r, { count: 1, undated: 0 });
+});
+
+test('countPostFixFailures counts undated and unlisted failures as post-fix', () => {
+	// Erring toward post-fix can only make a fix look worse, never falsely held.
+	const r = countPostFixFailures([
+		{ pattern: 'x', count: 4, occurrences: [{ run_url: 'r1' }, { run_url: 'gone' }] },
+	], Date.parse('2026-11-19T21:58:00Z'), o => (o.run_url === 'r1' ? '2026-11-19T10:00:00Z' : null));
+	assert.deepEqual(r, { count: 3, undated: 3 });
 });
