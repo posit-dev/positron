@@ -79,12 +79,18 @@ export async function worktreeTree(ports: EnginePorts, largeFileBytes = LARGE_FI
 		if (await ports.files.stat(`${gitDir}/index`) !== undefined) {
 			await ports.files.copyKeepingTime(`${gitDir}/index`, env.GIT_INDEX_FILE);
 		}
-		// A copied assume-unchanged flag makes `add -u` skip an edited file.
-		const flagged = splitZ(await mustGit(ports, ['ls-files', '-v', '-z'], { env }))
-			.filter(entry => /^[a-z] /.test(entry))
-			.map(entry => entry.slice(2));
-		if (flagged.length > 0) {
-			await mustGit(ports, ['update-index', '--no-assume-unchanged', '-z', '--stdin'], { env, stdin: flagged.join('\0') + '\0' });
+		// A copied assume-unchanged or skip-worktree flag makes `add -u` skip an edited file.
+		// A skip-worktree path that is absent on disk is outside a sparse checkout and stays flagged.
+		const entries = splitZ(await mustGit(ports, ['ls-files', '-v', '-z'], { env }));
+		const assumed = entries.filter(entry => /^[a-z] /.test(entry)).map(entry => entry.slice(2));
+		const present = await Promise.all(entries
+			.filter(entry => /^[Ss] /.test(entry))
+			.map(async entry => (await ports.files.lstat(entry.slice(2))) === undefined ? undefined : entry.slice(2)));
+		const skipped = present.filter((file): file is string => file !== undefined);
+		for (const [flag, paths] of [['--no-assume-unchanged', assumed], ['--no-skip-worktree', skipped]] as const) {
+			if (paths.length > 0) {
+				await mustGit(ports, ['update-index', flag, '-z', '--stdin'], { env, stdin: paths.join('\0') + '\0' });
+			}
 		}
 		await mustGit(ports, ['add', '-u'], { env, timeoutMs: STAGING_TIMEOUT_MS });
 		if (included.length > 0) {

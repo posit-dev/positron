@@ -122,6 +122,7 @@ async function isIdentityMissing(run: (args: string[], env?: Record<string, stri
 	const email = process.env.EMAIL;
 	const env: Record<string, string> = {};
 	if (email) {
+		// Git ignores EMAIL for the committer under `user.useConfigOnly`, so both are explicit.
 		if (!process.env.GIT_AUTHOR_EMAIL) {
 			env.GIT_AUTHOR_EMAIL = email;
 		}

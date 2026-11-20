@@ -67,6 +67,20 @@ describe('createNodeFilePort', () => {
 		await expect(files.copyKeepingTime('a/index', '../escape')).rejects.toThrow();
 	});
 
+	test.skipIf(process.platform === 'win32')('appendDurable refuses a symbolic link as the final component', async () => {
+		await fsp.writeFile(path.join(root, 'target'), 'keep\n');
+		await fsp.symlink('target', path.join(root, 'link'));
+		await expect(files.appendDurable('link', 'x\n')).rejects.toThrow();
+		expect(await fsp.readFile(path.join(root, 'target'), 'utf8')).toBe('keep\n');
+	});
+
+	test('lstat reports the modification time', async () => {
+		await files.write('a', new Uint8Array(), false);
+		const when = new Date('2021-03-04T05:06:07Z');
+		await fsp.utimes(path.join(root, 'a'), when, when);
+		expect((await files.lstat('a'))?.mtimeMs).toBe(when.getTime());
+	});
+
 	test('appendDurable appends the text exactly as given', async () => {
 		await files.appendDurable('log/journal', 'one\n');
 		await files.appendDurable('log/journal', 'two\n');

@@ -208,12 +208,24 @@ describe('trees', () => {
 		expect((await repo.git(['ls-files', '-v', 'a.txt'])).stdout).toMatch(/^h /);
 	});
 
-	test('worktreeTree leaves a skip-worktree entry at its recorded content', async () => {
+	test('worktreeTree sees an edit to a skip-worktree file that exists on disk', async () => {
 		const repo = await create();
 		await repo.write('a.txt', 'one\n');
 		await repo.commit('first');
 		await repo.git(['update-index', '--skip-worktree', 'a.txt']);
 		await repo.write('a.txt', 'two\n');
+		const { tree } = await worktreeTree(repo.ports);
+		expect((await repo.git(['show', `${tree}:a.txt`])).stdout).toBe('two\n');
+		expect((await repo.git(['ls-files', '-v', 'a.txt'])).stdout).toMatch(/^S /);
+	});
+
+	test('worktreeTree keeps a skip-worktree path that is absent on disk', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.write('b.txt', 'b\n');
+		await repo.commit('first');
+		await repo.git(['update-index', '--skip-worktree', 'a.txt']);
+		await fsp.rm(path.join(repo.root, 'a.txt'));
 		const { tree } = await worktreeTree(repo.ports);
 		expect((await repo.git(['show', `${tree}:a.txt`])).stdout).toBe('one\n');
 	});

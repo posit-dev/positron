@@ -7,9 +7,10 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { ChunkError, readChanges, treeForChunk } from './changes';
+import { ChunkError, MAX_PATCH_FILE_BYTES, readChanges, treeForChunk } from './changes';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { ChangedFile, ChangeSet, Chunk } from './types';
+import { LARGE_FILE_BYTES } from './trees';
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
@@ -302,6 +303,146 @@ describe('changes', () => {
 			const entry = (await repo.git(['ls-tree', tree, 'sub'])).stdout;
 			expect(entry).toMatch(/^160000 commit /);
 			expect(entry).not.toContain(sha);
+		});
+	});
+
+	describe('content of whole files', () => {
+		test('a tracked file replaced by a directory: selecting the deletion does not add the directory files', async () => {
+			const repo = await create();
+			await repo.write('a', 'file\n');
+			await repo.write('keep.txt', 'k\n');
+			await repo.commit('first');
+			await fsp.rm(path.join(repo.root, 'a'));
+			await repo.write('a/x.txt', 'inside\n');
+			const changes = await readChanges(repo.ports);
+			expect(changes.files.map(file => [file.path, file.status])).toEqual([['a', 'deleted'], ['a/x.txt', 'added']]);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['a']));
+			expect((await repo.git(['ls-tree', '-r', '--name-only', tree])).stdout.trim()).toBe('keep.txt');
+		});
+
+		test.skipIf(process.platform === 'win32')('content and executable bit both changed: all hunks give the new mode, some keep the old one', async () => {
+			const repo = await create();
+			await repo.write('run.sh', numbered(40).join(''));
+			await repo.commit('first');
+			await repo.write('run.sh', numbered(40).join('').replace('line 3\n', 'three\n').replace('line 35\n', 'late\n'));
+			await fsp.chmod(path.join(repo.root, 'run.sh'), 0o755);
+			const changes = await readChanges(repo.ports);
+			const hunks = fileNamed(changes, 'run.sh').hunks;
+			expect(hunks).toHaveLength(2);
+			const all = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf(hunks.map(hunk => hunk.id)));
+			expect((await repo.git(['ls-tree', all.tree, 'run.sh'])).stdout).toMatch(/^100755 /);
+			expect(all.partialFiles).toEqual([]);
+			const some = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([hunks[1].id]));
+			expect((await repo.git(['ls-tree', some.tree, 'run.sh'])).stdout).toMatch(/^100644 /);
+			expect(some.partialFiles).toEqual(['run.sh']);
+		});
+
+		test('a force-added file that matches an ignore rule is included with its edited content', async () => {
+			const repo = await create();
+			await repo.write('.gitignore', '*.log\n');
+			await repo.write('x.log', 'one\n');
+			await repo.git(['add', '-f', 'x.log']);
+			await repo.commit('first');
+			await repo.write('x.log', 'two\n');
+			const changes = await readChanges(repo.ports);
+			expect(changes.files.map(file => file.path)).toEqual(['x.log']);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['x.log']));
+			expect(await show(repo, tree, 'x.log')).toBe('two\n');
+		});
+	});
+
+	describe('renames across chunks', () => {
+		test('hunks of a renamed file split over consecutive chunks reach the new path', async () => {
+			const repo = await create();
+			await repo.write('old.txt', numbered(40).join(''));
+			await repo.commit('first');
+			await fsp.rename(path.join(repo.root, 'old.txt'), path.join(repo.root, 'new.txt'));
+			await repo.write('new.txt', numbered(40).join('').replace('line 3\n', 'three\n').replace('line 35\n', 'late\n'));
+			const changes = await readChanges(repo.ports);
+			const file = fileNamed(changes, 'new.txt');
+			expect(file.hunks).toHaveLength(2);
+			const first = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([file.hunks[0].id]));
+			const second = await treeForChunk(repo.ports, first.tree, changes, chunkOf([file.hunks[1].id]));
+			expect((await repo.git(['ls-tree', '-r', '--name-only', second.tree])).stdout.trim()).toBe('new.txt');
+			expect(await show(repo, second.tree, 'new.txt')).toBe(await repo.read('new.txt'));
+		});
+	});
+
+	describe('git configuration', () => {
+		test('diff.submodule=log and diff.mnemonicPrefix=true do not change the patches', async () => {
+			const repo = await create();
+			await repo.git(['config', 'diff.submodule', 'log']);
+			await repo.git(['config', 'diff.mnemonicPrefix', 'true']);
+			await repo.git(['config', 'diff.noprefix', 'true']);
+			await repo.git(['config', 'core.quotepath', 'true']);
+			await repo.write('n\u00e4me.txt', numbered(40).join(''));
+			await repo.commit('first');
+			await repo.write('n\u00e4me.txt', numbered(40).join('').replace('line 3\n', 'three\n').replace('line 35\n', 'late\n'));
+			const changes = await readChanges(repo.ports);
+			const file = fileNamed(changes, 'n\u00e4me.txt');
+			expect(file.hunks).toHaveLength(2);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([file.hunks[1].id]));
+			expect(await show(repo, tree, 'n\u00e4me.txt')).toBe(numbered(40).join('').replace('line 35\n', 'late\n'));
+		});
+
+		test('a repository with SHA-256 object names works with no checkpoints', async () => {
+			const repo = await tempRepo({ init: 'none' });
+			repos.push(repo);
+			const init = await repo.git(['init', '--object-format=sha256', '-b', 'main']);
+			if (init.exitCode !== 0) {
+				return;
+			}
+			await repo.git(['config', 'user.name', 'T']);
+			await repo.git(['config', 'user.email', 't@example.com']);
+			await repo.write('a.txt', 'one\n');
+			const changes = await readChanges(repo.ports);
+			const base = (await repo.git(['hash-object', '-t', 'tree', '--stdin'], { stdin: '' })).stdout.trim();
+			const { tree } = await treeForChunk(repo.ports, base, changes, chunkOf([], ['a.txt']));
+			expect(tree).toHaveLength(64);
+			expect(await show(repo, tree, 'a.txt')).toBe('one\n');
+		});
+	});
+
+	describe('large files', () => {
+		test('a new file over the large file limit is listed, in the basis, and included whole from disk', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'one\n');
+			await repo.commit('first');
+			const big = path.join(repo.root, 'big.bin');
+			await fsp.writeFile(big, '');
+			await fsp.truncate(big, LARGE_FILE_BYTES + 1);
+			const changes = await readChanges(repo.ports);
+			expect(changes.files).toEqual([{ path: 'big.bin', status: 'added', binary: true, sizeBytes: LARGE_FILE_BYTES + 1, tooLarge: true, hunks: [] }]);
+			await fsp.truncate(big, LARGE_FILE_BYTES + 2);
+			expect((await readChanges(repo.ports)).basis).not.toBe(changes.basis);
+			const current = await readChanges(repo.ports);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), current, chunkOf([], ['big.bin']));
+			expect((await repo.git(['ls-tree', '-l', tree, 'big.bin'])).stdout).toContain(String(LARGE_FILE_BYTES + 2));
+		});
+
+		test('a file over the patch size limit is listed without hunks and the others keep theirs', async () => {
+			const repo = await create();
+			const line = 'x'.repeat(99) + '\n';
+			const bigText = (last: string) => line.repeat(Math.ceil(MAX_PATCH_FILE_BYTES / 100) + 10) + last;
+			await repo.write('big.txt', bigText('end\n'));
+			await repo.write('small.txt', numbered(40).join(''));
+			await repo.commit('first');
+			await repo.write('big.txt', bigText('changed\n'));
+			await repo.write('small.txt', numbered(40).join('').replace('line 3\n', 'three\n'));
+			const changes = await readChanges(repo.ports);
+			expect(changes.files.map(file => [file.path, file.binary, file.hunks.length])).toEqual([['big.txt', true, 0], ['small.txt', false, 1]]);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['big.txt']));
+			expect((await show(repo, tree, 'big.txt')).endsWith('changed\n')).toBe(true);
+		});
+	});
+
+	describe('submodules', () => {
+		test('a text file that mentions a subproject commit still has hunks', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'one\n');
+			await repo.commit('first');
+			await repo.write('a.txt', 'Subproject commit abc\n');
+			expect(fileNamed(await readChanges(repo.ports), 'a.txt')).toMatchObject({ binary: false, hunks: [expect.anything()] });
 		});
 	});
 

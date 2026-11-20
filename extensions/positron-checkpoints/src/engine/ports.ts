@@ -14,7 +14,7 @@ export interface FilePort {
 	move(from: string, to: string): Promise<void>;
 	stat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean } | undefined>;
 	/** Like `stat`, but describes a symbolic link itself instead of its target. */
-	lstat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean; isSymbolicLink: boolean } | undefined>;
+	lstat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean; isSymbolicLink: boolean; mtimeMs: number } | undefined>;
 	/**
 	 * Copies a file and gives the copy the modification time of the original (rounded down to a
 	 * millisecond). Git treats an index entry as unverified when its file time is not older than

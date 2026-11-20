@@ -38,6 +38,11 @@ const ISOLATED_ENV = {
 	GIT_CONFIG_NOSYSTEM: '1',
 };
 
+// The host's identity variables would decide the outcome of identity tests.
+for (const name of ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL']) {
+	delete process.env[name];
+}
+
 const START_TIME = new Date('2026-01-01T00:00:00Z');
 
 export interface TempRepoOptions {

@@ -98,7 +98,7 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 		async lstat(file) {
 			try {
 				const info = await fsp.lstat(await resolve(file));
-				return { sizeBytes: info.size, isDirectory: info.isDirectory(), isSymbolicLink: info.isSymbolicLink() };
+				return { sizeBytes: info.size, isDirectory: info.isDirectory(), isSymbolicLink: info.isSymbolicLink(), mtimeMs: info.mtimeMs };
 			} catch (error) {
 				if (isMissing(error)) {
 					return undefined;
@@ -110,13 +110,24 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 			const source = await resolve(from, true);
 			const target = await resolve(to);
 			await fsp.mkdir(path.dirname(target), { recursive: true });
-			await fsp.copyFile(source, target);
-			const info = await fsp.stat(source);
-			await fsp.utimes(target, info.atime, info.mtime);
+			// A source that changes while it is copied (git rewrote the index) gives a torn copy.
+			for (let attempt = 1; ; attempt++) {
+				const before = await fsp.stat(source);
+				await fsp.copyFile(source, target);
+				const after = await fsp.stat(source);
+				if ((before.size === after.size && before.mtimeMs === after.mtimeMs) || attempt === 3) {
+					await fsp.utimes(target, after.atime, after.mtime);
+					return;
+				}
+			}
 		},
 		async appendDurable(file, line) {
 			const full = await resolve(file, true);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
+			// Engine files are never links, so a link here is not one of ours.
+			if ((await fsp.lstat(full).catch(() => undefined))?.isSymbolicLink()) {
+				throw new Error(`Refusing to append to a symbolic link: ${file}`);
+			}
 			const handle = await fsp.open(full, 'a');
 			try {
 				await handle.appendFile(line);
