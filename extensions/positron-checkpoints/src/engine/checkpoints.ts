@@ -3,18 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createHash } from 'crypto';
 import { ChunkError, emptyTree, readChangesDetailed, treeForChunk } from './changes';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import { buildCandidate, CandidateResult, HOOK_TIMEOUT_MS } from './hooks';
 import {
 	acquireLock, classifyPaths, engineDirectory, JournalRecord, PathPlan, readBranch, readIndexTree, readRecords, setStatus, TriState, writeRecord,
 } from './journal';
+import { mergeTrees, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts } from './ports';
 import { runOperation } from './runOperation';
 import { worktreeTree } from './trees';
-import { Chunk, EngineState, OperationKind, OperationResult, Overlap, OverlapKind } from './types';
+import { Checkpoint, Chunk, EngineState, OperationKind, OperationResult } from './types';
 
 /** A checkpoint title is one line of at most this many characters. */
 export const TITLE_LIMIT = 72;
@@ -24,17 +24,6 @@ export const PENDING_REF_PREFIX = 'refs/positron-checkpoints/pending/';
 
 /** An abbreviated or full object id. Anything else is never passed to git as a revision. */
 const OBJECT_ID = /^[0-9a-f]{4,64}$/i;
-
-/** Git keeps reading a file as text when its first this many bytes have no NUL byte. */
-const BINARY_PROBE_BYTES = 8000;
-
-/** The identity of commits that exist only in the object database, as inputs to `git merge-tree`. */
-const TEMPORARY_IDENTITY = {
-	GIT_AUTHOR_NAME: 'Positron Checkpoints',
-	GIT_AUTHOR_EMAIL: 'checkpoints@positron.invalid',
-	GIT_COMMITTER_NAME: 'Positron Checkpoints',
-	GIT_COMMITTER_EMAIL: 'checkpoints@positron.invalid',
-};
 
 /** The two parts of a project that publishing checkpoints moves. Working files never change. */
 interface Published { branchCommit: string | null; indexTree: string }
@@ -113,6 +102,39 @@ export async function readPartialFiles(ports: EnginePorts): Promise<Map<string, 
 		}
 	}
 	return partial;
+}
+
+/** The commit `rev` names, or undefined when it names none. `rev` comes from the engine. */
+export async function revision(ports: EnginePorts, rev: string): Promise<string | undefined> {
+	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', '--end-of-options', `${rev}^{commit}`]);
+	return result.exitCode === 0 ? result.stdout.trim() : undefined;
+}
+
+/**
+ * The checkpoints `git log <logArgs>` lists, in its order. `shared` is true for a checkpoint in
+ * the upstream as git last saw it (with no upstream, nothing is shared). `authorIsMe` is true
+ * when the author's email equals `user.email`, ignoring case. The title is the first line of the
+ * message and the body the rest, without the blank line between them. `time` is the author time.
+ */
+export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Promise<Checkpoint[]> {
+	const output = await git(ports, ['log', '-z', '--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%B', ...logArgs, '--']);
+	const head = await revision(ports, 'HEAD');
+	const upstream = await revision(ports, '@{upstream}');
+	const unshared = upstream === undefined
+		? undefined
+		: new Set(head === undefined ? [] : (await git(ports, ['rev-list', head, `^${upstream}`, '--'])).split('\n').filter(id => id !== ''));
+	const me = (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--get', 'user.email'])).stdout.trim().toLowerCase();
+	const partial = await readPartialFiles(ports);
+
+	return splitZ(output).map(entry => {
+		const [id, authorName, email, time, message] = entry.split('\x1f');
+		const [title, ...rest] = message.replace(/\s+$/, '').split('\n');
+		return {
+			id, title, body: rest.join('\n').replace(/^\n+/, ''),
+			authorName, authorIsMe: me !== '' && email.toLowerCase() === me, time: new Date(time).toISOString(),
+			shared: unshared !== undefined && !unshared.has(id), partialFiles: partial.get(id) ?? [],
+		};
+	});
 }
 
 // --- Publishing ------------------------------------------------------------------------------
@@ -434,10 +456,10 @@ export async function declineCheckedCheckpoint(ports: EnginePorts, token: string
 
 // --- Rewording -------------------------------------------------------------------------------
 
-interface CommitObject { tree: string; parents: string[]; author: { name: string; email: string; date: string }; encoding?: string; message: Buffer }
+export interface CommitObject { tree: string; parents: string[]; author: { name: string; email: string; date: string }; encoding?: string; message: Buffer }
 
 /** Reads a commit object exactly as git stores it. The author date keeps its time zone. */
-async function readCommit(ports: EnginePorts, commit: string): Promise<CommitObject> {
+export async function readCommit(ports: EnginePorts, commit: string): Promise<CommitObject> {
 	const raw = Buffer.from(await git(ports, ['cat-file', 'commit', commit], { binary: true }), 'latin1');
 	const split = raw.indexOf('\n\n');
 	const headerEnd = split === -1 ? raw.length : split;
@@ -552,85 +574,6 @@ export async function editDescription(ports: EnginePorts, id: string, title: str
 
 // --- Reversing -------------------------------------------------------------------------------
 
-/** A commit that exists only in the object database, as an input to `git merge-tree`. */
-async function temporaryCommit(ports: EnginePorts, tree: string, parents: string[]): Promise<string> {
-	const date = ports.now().toISOString();
-	return (await git(ports, ['commit-tree', '--no-gpg-sign', tree, ...parents.flatMap(parent => ['-p', parent]), '-m', 'Positron Checkpoints input'], {
-		env: { ...TEMPORARY_IDENTITY, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
-	})).trim();
-}
-
-/**
- * Runs `git merge-tree --write-tree -z --merge-base=<base> <ours> <theirs>` in the object
- * database. Returns the result tree and an overlap for each conflicted path (`ours` is "mine").
- */
-async function mergeTrees(ports: EnginePorts, base: string, ours: string, theirs: string): Promise<{ tree: string; overlaps: Overlap[] }> {
-	const args = ['-C', ports.projectRoot, 'merge-tree', '--write-tree', '-z', `--merge-base=${base}`, ours, theirs];
-	const result = await runGit(ports.git, args, { timeoutMs: HOOK_TIMEOUT_MS });
-	if (result.exitCode !== 0 && result.exitCode !== 1) {
-		throw new GitFailedError(args, result.exitCode, result.stderr);
-	}
-	const fields = result.stdout.split('\0');
-	const tree = fields[0].trim();
-	if (result.exitCode === 0) {
-		return { tree, overlaps: [] };
-	}
-	// Conflicted entries ("<mode> <oid> <stage>\t<path>"), an empty field, then messages
-	// ("<count>", that many paths, the conflict type, the message).
-	const stages = new Map<string, Map<number, { mode: string; oid: string }>>();
-	let index = 1;
-	for (; index < fields.length && fields[index] !== ''; index++) {
-		const match = /^(?<mode>\d+) (?<oid>\w+) (?<stage>\d)\t(?<path>[\s\S]*)$/.exec(fields[index]);
-		if (match?.groups !== undefined) {
-			const entry = stages.get(match.groups.path) ?? new Map();
-			entry.set(Number(match.groups.stage), { mode: match.groups.mode, oid: match.groups.oid });
-			stages.set(match.groups.path, entry);
-		}
-	}
-	const messages = new Map<string, string[]>();
-	for (index++; index < fields.length && fields[index] !== '';) {
-		const count = Number(fields[index++]);
-		const paths = fields.slice(index, index + count);
-		index += count;
-		const text = `${fields[index++]}: ${fields[index++]}`;
-		for (const file of paths) {
-			messages.set(file, [...(messages.get(file) ?? []), text]);
-		}
-	}
-	const overlaps: Overlap[] = [];
-	for (const [file, entry] of stages) {
-		overlaps.push(await describeOverlap(ports, file, entry, (messages.get(file) ?? []).join('\n')));
-	}
-	return { tree, overlaps };
-}
-
-/** The overlap at one conflicted path, from its stages: 1 is the base, 2 is mine, 3 is theirs. */
-async function describeOverlap(ports: EnginePorts, file: string, entry: Map<number, { mode: string; oid: string }>, detail: string): Promise<Overlap> {
-	const [base, mine, theirs] = [entry.get(1), entry.get(2), entry.get(3)];
-	const regular = [base, mine, theirs].every(side => side === undefined || side.mode === '100644' || side.mode === '100755');
-	const content = async (side: { oid: string } | undefined) => side === undefined ? undefined : Buffer.from(await git(ports, ['cat-file', 'blob', side.oid], { binary: true }), 'latin1');
-	let kind: OverlapKind = 'unsupported';
-	const overlap: Partial<Overlap> = {};
-	if (regular && mine !== undefined && theirs !== undefined) {
-		const sides = [await content(base), await content(mine), await content(theirs)];
-		const binary = sides.some(side => side !== undefined && side.subarray(0, BINARY_PROBE_BYTES).includes(0));
-		kind = binary ? 'binary' : 'text';
-		if (binary) {
-			overlap.mineSizeBytes = sides[1]!.length;
-			overlap.theirsSizeBytes = sides[2]!.length;
-		} else {
-			overlap.base = sides[0]?.toString('utf8') ?? '';
-			overlap.mine = sides[1]!.toString('utf8');
-			overlap.theirs = sides[2]!.toString('utf8');
-		}
-	} else if (regular && base !== undefined && (mine === undefined) !== (theirs === undefined)) {
-		kind = 'edit-delete';
-		overlap.deletedBy = mine === undefined ? 'me' : 'them';
-	}
-	const id = createHash('sha256').update(`${kind}\0${file}\0${base?.oid ?? ''}\0${mine?.oid ?? ''}\0${theirs?.oid ?? ''}`).digest('hex').slice(0, 16);
-	return { ...overlap, id, kind, path: file, otherPaths: [], theirAuthor: '', detail };
-}
-
 /**
  * Creates one checkpoint with the opposite change of checkpoint `id`, titled `Reversed: <title>`
  * (spec 6.3). `id` must be in the history of the current branch (otherwise `nothing-to-do
@@ -661,9 +604,11 @@ export async function reverseCheckpoint(ports: EnginePorts, id: string): Promise
 	const headTree = (await git(ports, ['rev-parse', `${head}^{tree}`])).trim();
 	const worktree = (await worktreeTree(ports)).tree;
 
-	const committed = await mergeTrees(ports, target, head, parent);
-	const working = worktree === headTree ? committed : await mergeTrees(ports, target, await temporaryCommit(ports, worktree, [head]), parent);
-	const overlaps = [...committed.overlaps, ...working.overlaps.filter(overlap => !committed.overlaps.some(other => other.id === overlap.id))];
+	// `ours` is the person's side; the reversal is not anyone's incoming work.
+	const merge = async (ours: string) => mergeTrees(ports, { base: target, ours, theirs: parent, oursSide: 'mine', authorOf: async () => '' });
+	const committed = await merge(head);
+	const working = worktree === headTree ? committed : await merge(await temporaryCommit(ports, worktree, [head]));
+	const overlaps = [...committed.plans, ...working.plans.filter(plan => !committed.plans.some(other => other.overlap.id === plan.overlap.id))].map(plan => plan.overlap);
 	if (overlaps.length > 0) {
 		const changedPaths = await treeDifference(ports, parent, target);
 		const local = new Set(await treeDifference(ports, headTree, worktree));

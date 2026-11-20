@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { emptyTree, parseRaw } from './changes';
-import { readPartialFiles, readPendingTrees, resolveCommit } from './checkpoints';
+import { readCheckpoints, readPendingTrees, resolveCommit, revision } from './checkpoints';
 import { mustGit, runGit, splitZ } from './git';
 import { EnginePorts } from './ports';
+import { findOverlap } from './sync';
 import { LARGE_FILE_BYTES } from './trees';
 import { ChangedFile, Checkpoint, ContentRef, DiffTarget } from './types';
 
@@ -23,19 +24,10 @@ async function git(ports: EnginePorts, args: string[], options?: Parameters<Engi
 	return (await mustGit(ports.git, ['-C', ports.projectRoot, ...args], options)).stdout;
 }
 
-/** The commit `rev` names, or undefined when it names none. `rev` comes from the engine. */
-async function revision(ports: EnginePorts, rev: string): Promise<string | undefined> {
-	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', '--end-of-options', `${rev}^{commit}`]);
-	return result.exitCode === 0 ? result.stdout.trim() : undefined;
-}
-
 /**
  * The checkpoints of the current branch, newest first, following first parents only, from
- * `skip` for at most `limit` entries. `shared` is true for a checkpoint in the upstream as git
- * last saw it (with no upstream, nothing is shared). `authorIsMe` is true when the author's
- * email equals `user.email`, ignoring case. The title is the first line of the message and the
- * body the rest, without the blank line between them. `time` is the author time. A repository
- * with no checkpoints has an empty history.
+ * `skip` for at most `limit` entries, as `readCheckpoints` describes them. A repository with no
+ * checkpoints has an empty history.
  */
 export async function getHistory(ports: EnginePorts, skip: number, limit: number): Promise<Checkpoint[]> {
 	const count = Math.floor(limit);
@@ -43,24 +35,7 @@ export async function getHistory(ports: EnginePorts, skip: number, limit: number
 	if (head === undefined || !(count > 0)) {
 		return [];
 	}
-	const output = await git(ports, [
-		'log', '--first-parent', '-z', '--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%B',
-		`--skip=${Math.max(0, Math.floor(skip) || 0)}`, `--max-count=${count}`, head, '--',
-	]);
-	const upstream = await revision(ports, '@{upstream}');
-	const unshared = upstream === undefined ? undefined : new Set((await git(ports, ['rev-list', head, `^${upstream}`, '--'])).split('\n').filter(id => id !== ''));
-	const me = (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--get', 'user.email'])).stdout.trim().toLowerCase();
-	const partial = await readPartialFiles(ports);
-
-	return splitZ(output).map(entry => {
-		const [id, authorName, email, time, message] = entry.split('\x1f');
-		const [title, ...rest] = message.replace(/\s+$/, '').split('\n');
-		return {
-			id, title, body: rest.join('\n').replace(/^\n+/, ''),
-			authorName, authorIsMe: me !== '' && email.toLowerCase() === me, time: new Date(time).toISOString(),
-			shared: unshared !== undefined && !unshared.has(id), partialFiles: partial.get(id) ?? [],
-		};
-	});
+	return readCheckpoints(ports, ['--first-parent', `--skip=${Math.max(0, Math.floor(skip) || 0)}`, `--max-count=${count}`, head]);
 }
 
 /** The blob at exactly `file` in `treeish`, or empty when there is none (a missing path, a folder, or a submodule). */
@@ -98,6 +73,8 @@ async function rawDifferences(ports: EnginePorts, left: string, right: string) {
  * - `trees`: the blob in each tree.
  * - `pending`: the blob in the approved tree of the pending approval, and the blob in the tree
  *   the project's hooks left.
+ * - `overlap`: the base blob of the overlap in the current preview, and the blob of the chosen
+ *   side. An overlap that is not in the current preview has two empty sides.
  */
 export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{ left: ContentRef; right: ContentRef }> {
 	switch (target.kind) {
@@ -133,6 +110,14 @@ export async function getDiff(ports: EnginePorts, target: DiffTarget): Promise<{
 		case 'pending': {
 			const trees = await readPendingTrees(ports, target.token);
 			return { left: await blobAt(ports, trees?.approvedTree, target.path), right: await blobAt(ports, trees?.resultTree, target.path) };
+		}
+		case 'overlap': {
+			const plan = await findOverlap(ports, target.overlapId);
+			const side = plan?.[target.side];
+			return {
+				left: plan?.base === undefined ? EMPTY : { kind: 'blob', oid: plan.base.oid },
+				right: side === undefined ? EMPTY : { kind: 'blob', oid: side.oid },
+			};
 		}
 	}
 }

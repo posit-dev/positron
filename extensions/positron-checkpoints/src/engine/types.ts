@@ -49,7 +49,8 @@ export type DiffTarget =
 	| { kind: 'checkpoint'; id: string; path: string }
 	| { kind: 'incoming'; path: string }
 	| { kind: 'trees'; left: string; right: string; path: string }
-	| { kind: 'pending'; token: string; path: string };
+	| { kind: 'pending'; token: string; path: string }
+	| { kind: 'overlap'; overlapId: string; side: 'mine' | 'theirs' };
 
 export type OverlapKind = 'text' | 'binary' | 'edit-delete' | 'rename' | 'file-folder' | 'unsupported';
 export interface Overlap {
@@ -57,6 +58,8 @@ export interface Overlap {
 	base?: string; mine?: string; theirs?: string;
 	mineSizeBytes?: number; theirsSizeBytes?: number;
 	deletedBy?: 'me' | 'them'; theirAuthor: string; detail: string;
+	/** For a `file-folder` overlap: the side that has the file. */
+	fileSide?: 'mine' | 'theirs';
 }
 export type OverlapChoice =
 	| { type: 'text'; content: string }
