@@ -12,7 +12,7 @@ import { acquireLock, engineDirectory, PathPlan, readBranch, readIndexTree, TriS
 import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts, NetworkResult } from './ports';
-import { readProposal, sharedReference } from './proposals';
+import { acceptedThrough, clearAccepted, readProposal, sharedReference } from './proposals';
 import { isSyncAvailable } from './repoState';
 import { fileMode, runOperation } from './runOperation';
 import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
@@ -42,7 +42,12 @@ interface SyncContext {
 	upstream?: string;
 	/** The commit both histories share, or a commit of the empty tree when they share none. */
 	mergeBase: string;
-	/** The local checkpoints not in the upstream, oldest first. */
+	/**
+	 * The accepted point of the branch (`acceptedThrough`), when there is one and an upstream.
+	 * It and its ancestors count as in the upstream.
+	 */
+	accepted?: string;
+	/** The local checkpoints not in the upstream, and after the accepted point, oldest first. */
 	local: string[];
 	indexTree?: string;
 	worktree: { tree: string; skipped: string[] };
@@ -55,13 +60,17 @@ async function readContext(ports: EnginePorts): Promise<SyncContext> {
 	const empty = await emptyTree(ports);
 	const headTree = head === null ? empty : (await git(ports, ['rev-parse', `${head}^{tree}`])).trim();
 	let mergeBase: string | undefined;
+	let accepted: string | undefined;
 	let local: string[] = [];
 	if (head !== null && upstream !== undefined) {
 		mergeBase = (await runGit(ports.git, ['-C', ports.projectRoot, 'merge-base', head, upstream])).stdout.trim() || undefined;
-		local = (await git(ports, ['rev-list', '--reverse', '--first-parent', head, `^${upstream}`, '--'])).split('\n').filter(id => id !== '');
+		accepted = await acceptedThrough(ports);
+		const excluded = accepted === undefined ? [`^${upstream}`] : [`^${upstream}`, `^${accepted}`];
+		local = (await git(ports, ['rev-list', '--reverse', '--first-parent', head, ...excluded, '--'])).split('\n').filter(id => id !== '');
 	}
 	return {
 		head, headTree, upstream, local,
+		...(accepted === undefined ? {} : { accepted }),
 		mergeBase: mergeBase ?? await temporaryCommit(ports, empty, []),
 		indexTree: await readIndexTree(ports),
 		worktree: await worktreeTree(ports),
@@ -219,7 +228,7 @@ async function previewContext(ports: EnginePorts, context: SyncContext): Promise
 	const localPaths = new Set([
 		...await changedBetween(ports, context.headTree, context.worktree.tree),
 		...context.worktree.skipped,
-		...(context.head === null ? [] : await changedBetween(ports, context.mergeBase, context.head)),
+		...(context.head === null ? [] : await changedBetween(ports, context.accepted ?? context.mergeBase, context.head)),
 	]);
 	const { result, plans } = await replayContext(ports, context, [], { final: false });
 	latestOverlaps.set(ports.projectRoot, plans);
@@ -261,18 +270,20 @@ export async function findOverlap(ports: EnginePorts, overlapId: string): Promis
 
 /**
  * The basis token of a preview (spec 6.4), four parts joined by `.`: the first 16 hex characters
- * of a SHA-256 of the local branch commit (`mine`), of the upstream commit (`shared`), and of the
+ * of a SHA-256 of the local branch commit (`mine`), of the upstream commit with the accepted
+ * point when there is one (`shared`; the replay leaves out the accepted checkpoints), and of the
  * content on disk now of each listed path (`files`, see `diskIds`), then the listed paths
  * themselves (base64url JSON), so a later check compares the content of the paths that were
- * reviewed (see `basisDifference`). `commits` names the local and upstream commits the preview
- * was built from; without it, they are read now.
+ * reviewed (see `basisDifference`). `commits` names the local and upstream commits and the
+ * accepted point the preview was built from; without it, they are read now.
  */
 export async function basisOf(
-	ports: EnginePorts, overlapPaths: string[], collisionPaths: string[], commits?: Pick<SyncContext, 'head' | 'upstream'>,
+	ports: EnginePorts, overlapPaths: string[], collisionPaths: string[], commits?: Pick<SyncContext, 'head' | 'upstream' | 'accepted'>,
 ): Promise<string> {
 	const hash = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
 	const head = commits === undefined ? await revision(ports, 'HEAD') ?? '' : commits.head ?? '';
 	const upstream = head === '' ? '' : (commits === undefined ? await sharedReference(ports) : commits.upstream) ?? '';
+	const accepted = upstream === '' ? undefined : commits === undefined ? await acceptedThrough(ports) : commits.accepted;
 	const [overlaps, collisions] = [[...new Set(overlapPaths)].sort(), [...new Set(collisionPaths)].sort()];
 	const files = async (paths: string[]) => {
 		const ids = await diskIds(ports, paths);
@@ -280,7 +291,7 @@ export async function basisOf(
 	};
 	return [
 		hash(head),
-		hash(upstream),
+		hash(accepted === undefined ? upstream : `${upstream}\0${accepted}`),
 		hash(`overlaps\0${await files(overlaps)}\0collisions\0${await files(collisions)}`),
 		Buffer.from(JSON.stringify([overlaps, collisions]), 'utf8').toString('base64url'),
 	].join('.');
@@ -393,10 +404,11 @@ function describeGet(preview: IncomingPreview): string {
  *    (including one that edits made since the review produced) gives `overlaps`, with the
  *    overlaps of the step that stopped and a basis over their paths.
  * 5. A clean result is applied through `runOperation` as `get-changes`: files and index first,
- *    the branch last, with `collisionChoices` for files outside every snapshot. The new
- *    operation is noted in the undo list.
+ *    the branch last, with `collisionChoices` for files outside every snapshot. The accepted
+ *    record (`acceptedThrough`) is removed, and the new operation is noted in the undo list.
  *
- * A failure before `runOperation` starts changes nothing and gives `could-not-finish`.
+ * The local checkpoints replayed are those after the accepted point, when there is one
+ * (`readContext`). A failure before `runOperation` starts changes nothing and gives `could-not-finish`.
  */
 export async function getIncoming(ports: EnginePorts, basis: string, resolutions: Resolution[], collisionChoices: CollisionChoice[]): Promise<OperationResult> {
 	let plan: { expected: TriState; after: TriState; description: string };
@@ -445,6 +457,9 @@ export async function getIncoming(ports: EnginePorts, basis: string, resolutions
 	const result = await runOperation(ports, { kind: 'get-changes', ...plan, collisionChoices });
 	if (result.kind === 'done') {
 		latestOverlaps.delete(ports.projectRoot);
+		// The accepted checkpoints are replaced by the shared copy's. A record that cannot be
+		// removed now is removed once its checkpoint is no longer in the branch.
+		await clearAccepted(ports).catch(() => undefined);
 		await noteNewOperation(ports, 'get-changes');
 	}
 	return result;

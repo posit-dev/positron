@@ -12,12 +12,12 @@ import { getHistory } from './history';
 import { engineDirectory, readRecords } from './journal';
 import { redo, redoHead, undo, undoHead } from './operationLog';
 import { EnginePorts } from './ports';
-import { proposalSlug, readProposal, sharedReference, startProposal } from './proposals';
+import { acceptedThrough, clearAccepted, finishProposal, proposalSlug, readProposal, sharedReference, startProposal, stopProposal } from './proposals';
 import { recoverOnStart } from './recovery';
 import { readRepoFacts } from './repoState';
 import { checkShared, getIncoming, previewIncoming, sendChanges } from './sync';
 import { faultPorts } from './test/faultPorts';
-import { must, refExists } from './test/operationFixtures';
+import { afterJournal, must, refExists } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { worktreeTree } from './trees';
 import { OperationResult } from './types';
@@ -54,8 +54,10 @@ afterEach(async () => {
 /**
  * A project on `main` whose shared copy has checkpoint A, with the unshared checkpoints
  * "Fit the dose model!" and "Add the residual plot", an unrecorded edit, and an untracked file.
+ * With `sameLines`, the second checkpoint changes the line of a.txt that the first one changed
+ * (to "three") instead of adding b.txt.
  */
-async function create() {
+async function create(sameLines = false) {
 	const repo = await tempRepo();
 	repos.push(repo);
 	await repo.write('a.txt', 'one\n');
@@ -63,14 +65,19 @@ async function create() {
 	repos.push(await repo.clone());
 	await repo.write('a.txt', 'two\n');
 	const b = await repo.commit('Fit the dose model!\n\nWith a random slope.');
-	await repo.write('b.txt', 'plot\n');
+	await repo.write(sameLines ? 'a.txt' : 'b.txt', sameLines ? 'three\n' : 'plot\n');
 	const c = await repo.commit('Add the residual plot');
-	await repo.write('a.txt', 'two\nunrecorded\n');
+	await repo.write('a.txt', sameLines ? 'three\nunrecorded\n' : 'two\nunrecorded\n');
 	await repo.write('u.txt', 'untracked\n');
 	return { repo, a, b, c };
 }
 
-/** HEAD, the refs and configuration a proposal changes, the index, and the working files. */
+/** The text of the accepted record in the engine's folder, or undefined. */
+async function acceptedFile(repo: TempRepo): Promise<string | undefined> {
+	return fsp.readFile(`${await engineDirectory(repo.ports)}/accepted.json`, 'utf8').catch(() => undefined);
+}
+
+/** HEAD, the refs and configuration a proposal changes, the accepted record, the index, and the working files. */
 async function state(repo: TempRepo) {
 	const ref = async (name: string) => {
 		const result = await repo.git(['rev-parse', '--verify', '-q', name]);
@@ -81,6 +88,7 @@ async function state(repo: TempRepo) {
 		main: await ref('refs/heads/main'),
 		proposal: await ref(`refs/heads/${PROPOSAL}`),
 		config: (await repo.git(['config', '--local', '--get-regexp', '^branch\\.proposal/'])).stdout,
+		accepted: await acceptedFile(repo),
 		index: await must(repo, ['write-tree']),
 		worktree: (await worktreeTree(repo.ports)).tree,
 		untracked: await repo.read('u.txt'),
@@ -205,7 +213,7 @@ describe('startProposal', { timeout: 60_000 }, () => {
 		}
 	});
 
-	test('finish and stop return unavailable through the engine', async () => {
+	test('finish and stop return nothing-to-do through the engine when no proposal is current', async () => {
 		const { repo, c } = await create();
 		const engine = await createEngine(repo.ports);
 		try {
@@ -453,5 +461,297 @@ describe('sending a proposal', { timeout: 60_000 }, () => {
 
 		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: false });
 		expect((await undoHead(repo.ports))?.kind).toBe('start-proposal');
+	});
+});
+
+/** A proposal started from `create(sameLines)` and sent, so the shared copy has its branch. */
+async function sentProposal(sameLines = false) {
+	const project = await create(sameLines);
+	doneId(await startProposal(project.repo.ports));
+	doneId(await sendChanges(project.repo.ports));
+	return project;
+}
+
+/** A colleague's clone of the shared copy, on main. */
+async function colleagueOf(repo: TempRepo): Promise<TempRepo> {
+	const colleague = await repo.clone();
+	repos.push(colleague);
+	return colleague;
+}
+
+type Acceptance = 'merge' | 'squash' | 'rebase';
+
+/** A colleague accepts the proposal into the shared copy's main, the way GitHub does with `how`. */
+async function accept(repo: TempRepo, how: Acceptance): Promise<TempRepo> {
+	const colleague = await colleagueOf(repo);
+	const proposal = `origin/${PROPOSAL}`;
+	if (how === 'merge') {
+		await must(colleague, ['merge', '-q', '--no-ff', '-m', 'Merge the proposal', proposal]);
+	} else if (how === 'squash') {
+		await must(colleague, ['merge', '-q', '--squash', proposal]);
+		await must(colleague, ['commit', '-q', '-m', 'Fit the dose model (#1)']);
+	} else {
+		await must(colleague, ['cherry-pick', `main..${proposal}`]);
+	}
+	await must(colleague, ['push', '-q', 'origin', 'main']);
+	return colleague;
+}
+
+/** Fetches, finishes the proposal with `acceptedCommit`, and runs Get changes with the preview's basis. */
+async function finishAndGet(repo: TempRepo, acceptedCommit: string) {
+	expect((await checkShared(repo.ports)).kind).toBe('done');
+	doneId(await finishProposal(repo.ports, acceptedCommit));
+	const preview = await previewIncoming(repo.ports);
+	return { preview, result: await getIncoming(repo.ports, preview.basis, [], []) };
+}
+
+/** Commits only what `paths` change, leaving the unrecorded edit and the untracked file alone. */
+async function commitOnly(repo: TempRepo, message: string, paths: string[]): Promise<string> {
+	await must(repo, ['add', '-A', '--', ...paths]);
+	await must(repo, ['commit', '-q', '-m', message, '--', ...paths]);
+	return must(repo, ['rev-parse', 'HEAD']);
+}
+
+describe('stopProposal', { timeout: 60_000 }, () => {
+	test('stop returns the checkpoints to the base branch, files unchanged; undo restores the proposal with its whole configuration section', async () => {
+		const { repo, c } = await sentProposal();
+		const before = await state(repo);
+		expect(before.config).toBe([
+			`branch.${PROPOSAL}.positroncheckpointsbase main`, `branch.${PROPOSAL}.remote origin`, `branch.${PROPOSAL}.merge refs/heads/${PROPOSAL}`, '',
+		].join('\n'));
+
+		const id = doneId(await stopProposal(repo.ports));
+
+		expect(await state(repo)).toEqual({ ...before, head: 'refs/heads/main', main: c, proposal: undefined, config: '' });
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await readProposal(repo.ports)).toBeUndefined();
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: 'main', upstream: 'origin/main', ahead: 2, behind: 0 });
+		expect((await readRecords(repo.ports)).at(-1)).toMatchObject({ kind: 'stop-proposal', status: 'complete', commitPoint: 0 });
+		expect((await undoHead(repo.ports))?.id).toBe(id);
+
+		doneId(await undo(repo.ports, id, []));
+		expect(await state(repo)).toEqual(before);
+		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: true });
+
+		doneId(await redo(repo.ports, id, []));
+		expect(await state(repo)).toEqual({ ...before, head: 'refs/heads/main', main: c, proposal: undefined, config: '' });
+	});
+
+	test('stop and finish are refused with get-changes-first when the proposal is behind its own upstream', async () => {
+		const { repo, c } = await sentProposal();
+		const colleague = await colleagueOf(repo);
+		await must(colleague, ['checkout', '-q', '-b', PROPOSAL, `origin/${PROPOSAL}`]);
+		await colleague.write('c.txt', 'from a colleague\n');
+		await colleague.commit('A colleague\'s change');
+		await must(colleague, ['push', '-q', 'origin', PROPOSAL]);
+		expect((await checkShared(repo.ports)).kind).toBe('done');
+		const before = await state(repo);
+		const refused = { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' };
+
+		expect(await stopProposal(repo.ports)).toEqual(refused);
+		expect(await finishProposal(repo.ports, c)).toEqual(refused);
+
+		expect(await state(repo)).toEqual(before);
+		expect((await readRecords(repo.ports)).at(-1)?.kind).toBe('send-changes');
+	});
+});
+
+describe('finishProposal', { timeout: 120_000 }, () => {
+	test.each<Acceptance>(['merge', 'squash', 'rebase'])('finish then Get changes after a %s acceptance: files equal the shared copy plus the unrecorded changes, and nothing is ahead', async how => {
+		const { repo, c } = await sentProposal();
+		await accept(repo, how);
+
+		const { result } = await finishAndGet(repo, c);
+
+		doneId(result);
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await repo.read('b.txt')).toBe('plot\n');
+		expect(await repo.read('u.txt')).toBe('untracked\n');
+		expect(await must(repo, ['rev-parse', 'HEAD^{tree}'])).toBe(await must(repo, ['rev-parse', 'refs/remotes/origin/main^{tree}']));
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0 });
+		expect(await refExists(repo, `refs/heads/${PROPOSAL}`)).toBe(false);
+		expect(await acceptedFile(repo)).toBeUndefined();
+	});
+
+	test('finish then Get changes after a squash of two checkpoints that changed the same lines gives no overlap', async () => {
+		const { repo, c } = await sentProposal(true);
+		await accept(repo, 'squash');
+
+		const { preview, result } = await finishAndGet(repo, c);
+
+		expect(preview.overlaps).toEqual([]);
+		doneId(result);
+		expect(await repo.read('a.txt')).toBe('three\nunrecorded\n');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ ahead: 0, behind: 0 });
+	});
+
+	test('a checkpoint after the accepted commit that reverses an accepted one is replayed, and the file has the reversed content', async () => {
+		const { repo, c } = await sentProposal();
+		await accept(repo, 'squash');
+		await fsp.rm(`${repo.root}/b.txt`);
+		await commitOnly(repo, 'Remove the residual plot', ['b.txt']);
+
+		const { result } = await finishAndGet(repo, c);
+
+		doneId(result);
+		expect(await fsp.access(`${repo.root}/b.txt`).then(() => true, () => false)).toBe(false);
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ ahead: 1, behind: 0 });
+	});
+
+	test('finish with an acceptedCommit that is unknown locally writes no record; Get changes drops the checkpoints the shared copy has', async () => {
+		const { repo } = await sentProposal();
+		await accept(repo, 'squash');
+
+		const { result } = await finishAndGet(repo, '0123456789abcdef0123456789abcdef01234567');
+
+		doneId(result);
+		expect((await readRecords(repo.ports)).find(record => record.kind === 'finish-proposal')?.refChanges?.some(change => change.type === 'engine-file')).toBe(false);
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await repo.read('b.txt')).toBe('plot\n');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ ahead: 0, behind: 0 });
+	});
+
+	test('finish when a colleague changed the same lines after acceptance writes no record; Get changes returns overlaps', async () => {
+		const { repo, c } = await sentProposal();
+		const colleague = await accept(repo, 'squash');
+		await colleague.write('a.txt', 'TWO\n');
+		await colleague.commit('Shout the second line');
+		await repo.pushFrom(colleague);
+		expect((await checkShared(repo.ports)).kind).toBe('done');
+
+		doneId(await finishProposal(repo.ports, c));
+		expect(await acceptedFile(repo)).toBeUndefined();
+		expect(await acceptedThrough(repo.ports)).toBeUndefined();
+		const preview = await previewIncoming(repo.ports);
+		const result = await getIncoming(repo.ports, preview.basis, [], []);
+
+		expect(result.kind).toBe('overlaps');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: 'main', ahead: 2 });
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+	});
+
+	test('checkpoints made after acceptance stay ahead after Get changes', async () => {
+		const { repo, c } = await sentProposal();
+		await accept(repo, 'squash');
+		await repo.write('notes.txt', 'later\n');
+		const d = await commitOnly(repo, 'Add notes', ['notes.txt']);
+
+		const { result } = await finishAndGet(repo, c);
+
+		doneId(result);
+		expect(await repo.read('notes.txt')).toBe('later\n');
+		expect(await repo.read('a.txt')).toBe('two\nunrecorded\n');
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ ahead: 1, behind: 0 });
+		expect((await getHistory(repo.ports, 0, 1))[0]).toMatchObject({ title: 'Add notes', shared: false });
+		expect(await must(repo, ['rev-parse', 'HEAD'])).not.toBe(d);
+	});
+
+	test('the record is left out of ahead, shared, and the basis, is removed after Get changes, and is removed by undo of finish', async () => {
+		const { repo, b, c } = await sentProposal();
+		await accept(repo, 'squash');
+		expect((await checkShared(repo.ports)).kind).toBe('done');
+
+		const id = doneId(await finishProposal(repo.ports, c));
+
+		expect(JSON.parse((await acceptedFile(repo))!)).toEqual({ branch: 'main', through: c });
+		expect(await acceptedThrough(repo.ports)).toBe(c);
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: 'main', ahead: 0, behind: 1 });
+		expect((await getHistory(repo.ports, 0, 2)).map(checkpoint => [checkpoint.id, checkpoint.shared])).toEqual([[c, true], [b, true]]);
+		expect(await editDescription(repo.ports, c, 'New title', '')).toEqual({ kind: 'unavailable', reason: 'shared-checkpoint' });
+
+		// The basis is bound to the record: without it the replay differs.
+		const preview = await previewIncoming(repo.ports);
+		const saved = await acceptedFile(repo);
+		await clearAccepted(repo.ports);
+		expect(await getIncoming(repo.ports, preview.basis, [], [])).toMatchObject({ kind: 'inputs-changed', changed: ['shared'] });
+		await fsp.writeFile(`${await engineDirectory(repo.ports)}/accepted.json`, saved!);
+
+		// Undo of finish removes the record and restores the proposal.
+		const finished = await state(repo);
+		doneId(await undo(repo.ports, id, []));
+		expect(await acceptedFile(repo)).toBeUndefined();
+		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: true });
+		doneId(await redo(repo.ports, id, []));
+		expect(await state(repo)).toEqual(finished);
+
+		const again = await previewIncoming(repo.ports);
+		doneId(await getIncoming(repo.ports, again.basis, [], []));
+		expect(await acceptedFile(repo)).toBeUndefined();
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ ahead: 0, behind: 0 });
+	});
+
+	test('the record is removed when its checkpoint is no longer in the branch', async () => {
+		const { repo, a, c } = await sentProposal();
+		await accept(repo, 'squash');
+		expect((await checkShared(repo.ports)).kind).toBe('done');
+		doneId(await finishProposal(repo.ports, c));
+		expect(await acceptedThrough(repo.ports)).toBe(c);
+
+		await must(repo, ['update-ref', 'refs/heads/main', a]);
+
+		expect(await acceptedThrough(repo.ports)).toBeUndefined();
+		expect(await acceptedFile(repo)).toBeUndefined();
+	});
+});
+
+describe('finish and stop under faults', { timeout: 180_000 }, () => {
+	/** A sent proposal that the shared copy took as it is (its main now names the proposal's tip), fetched. */
+	const acceptedAsIs = async () => {
+		const project = await sentProposal();
+		await must(project.repo, ['push', '-q', 'origin', `refs/heads/${PROPOSAL}:refs/heads/main`]);
+		expect((await checkShared(project.repo.ports)).kind).toBe('done');
+		return project;
+	};
+
+	const run = (kind: 'finish' | 'stop', ports: EnginePorts, c: string) => kind === 'finish' ? finishProposal(ports, c) : stopProposal(ports);
+
+	/** The state a completed finish or stop leaves. */
+	const afterState = (kind: 'finish' | 'stop', before: Awaited<ReturnType<typeof state>>, c: string) => ({
+		...before, head: 'refs/heads/main', main: c, proposal: undefined, config: '',
+		accepted: kind === 'finish' ? `${JSON.stringify({ branch: 'main', through: c })}\n` : undefined,
+	});
+
+	test.each(['finish', 'stop'] as const)('%s: a refused compare-and-swap on the base changes nothing', async kind => {
+		const { repo, b, c } = await acceptedAsIs();
+		const before = await state(repo);
+		// Another tool moves main after the operation checked it and recorded its intent.
+		const ports = afterJournal(repo.ports, async () => {
+			await must(repo, ['update-ref', 'refs/heads/main', b]);
+		});
+
+		const result = await run(kind, ports, c);
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await state(repo)).toEqual({ ...before, main: b });
+		expect((await readRecords(repo.ports)).at(-1)?.status).toBe('rolled-back');
+	});
+
+	test.each(['finish', 'stop'] as const)('%s: a fault at each step after the commit point is completed to the exact after state', async kind => {
+		const reference = await acceptedAsIs();
+		const ports = faultPorts(reference.repo.ports, {});
+		doneId(await run(kind, ports, reference.c));
+		const calls = ports.mutatingCalls;
+		const commitPoint = calls.indexOf('update-ref refs/heads/main') + 1;
+		expect(commitPoint).toBeGreaterThan(0);
+		// The mutating calls of the ref changes after the commit point, in order.
+		const later = /^(symbolic-ref HEAD|write .*\/accepted\.json|update-ref refs\/heads\/proposal\/|config branch\.proposal\/)/;
+		const steps = calls.map((_call, index) => index + 1).filter(number => number > commitPoint && later.test(calls[number - 1]));
+		expect(steps.length).toBe(kind === 'finish' ? 4 : 3);
+
+		for (const step of steps) {
+			const failing = await acceptedAsIs();
+			const before = await state(failing.repo);
+			expect(await run(kind, faultPorts(failing.repo.ports, { failAt: step }), failing.c), `fault at ${calls[step - 1]}`).toMatchObject({ kind: 'done' });
+			expect(await state(failing.repo)).toEqual(afterState(kind, before, failing.c));
+
+			const crashing = await acceptedAsIs();
+			const crashedBefore = await state(crashing.repo);
+			await run(kind, faultPorts(crashing.repo.ports, { stopAt: step }), crashing.c).catch(() => undefined);
+			expect((await readRecords(crashing.repo.ports)).at(-1)?.status, `crash at ${calls[step - 1]}`).toBe('prepared');
+			await fsp.rm(`${await engineDirectory(crashing.repo.ports)}/lock`, { force: true });
+			expect(await recoverOnStart(crashing.repo.ports)).toEqual({ notice: 'completed' });
+			expect(await state(crashing.repo)).toEqual(afterState(kind, crashedBefore, crashing.c));
+		}
 	});
 });

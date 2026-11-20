@@ -7,7 +7,7 @@ import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { GitMissingError, mustGit, runGit, splitZ } from './git';
 import { EnginePorts, GitResult } from './ports';
-import { sharedUpstream } from './proposals';
+import { acceptedThrough, sharedUpstream } from './proposals';
 import { UnusualKind } from './types';
 
 /** What the engine knows about the repository at one moment. */
@@ -21,7 +21,10 @@ export interface RepoFacts {
 	branch?: string;
 	/** Undefined for a repository with no checkpoints. */
 	headCommit?: string;
-	/** The shared copy's branch as git names it (see `sharedUpstream`); `ahead` and `behind` count against it. */
+	/**
+	 * The shared copy's branch as git names it (see `sharedUpstream`); `ahead` and `behind` count
+	 * against it. `ahead` leaves out the accepted point and its ancestors (`acceptedThrough`).
+	 */
 	upstream?: string;
 	ahead: number;
 	behind: number;
@@ -83,7 +86,8 @@ export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable
 	let ahead = 0;
 	let behind = 0;
 	if (branch !== undefined) {
-		const shared = await sharedUpstream({ ...ports, projectRoot: root }, branch);
+		const rooted = { ...ports, projectRoot: root };
+		const shared = await sharedUpstream(rooted, branch);
 		if (shared !== undefined && shared.name !== '') {
 			upstream = shared.name;
 			const counts = await run(['rev-list', '--left-right', '--count', `HEAD...${shared.commit}`]);
@@ -91,6 +95,12 @@ export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable
 				const [left, right] = counts.stdout.trim().split(/\s+/).map(Number);
 				ahead = left || 0;
 				behind = right || 0;
+			}
+			// The accepted point and its ancestors are in the shared copy (proposals spec 5.5).
+			const accepted = await acceptedThrough(rooted, branch);
+			if (accepted !== undefined) {
+				const count = await run(['rev-list', '--count', 'HEAD', `^${shared.commit}`, `^${accepted}`, '--']);
+				ahead = count.exitCode === 0 ? Number(count.stdout.trim()) || 0 : ahead;
 			}
 		}
 	}

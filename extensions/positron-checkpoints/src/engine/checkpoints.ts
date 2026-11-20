@@ -12,7 +12,7 @@ import {
 import { mergeTrees, temporaryCommit } from './mergeTree';
 import { noteNewOperation } from './operationLog';
 import { EnginePorts } from './ports';
-import { sharedReference } from './proposals';
+import { acceptedThrough, sharedReference } from './proposals';
 import { runOperation } from './runOperation';
 import { worktreeTree } from './trees';
 import { Checkpoint, Chunk, EngineState, OperationKind, OperationResult } from './types';
@@ -119,7 +119,8 @@ const LOG_FIELDS = 5;
 
 /**
  * The checkpoints `git log <logArgs>` lists, in its order. `shared` is true for a checkpoint in
- * the shared copy as git last saw it (`sharedReference`; with none, nothing is shared). `authorIsMe` is true
+ * the shared copy as git last saw it (`sharedReference`; with none, nothing is shared), or that is
+ * the accepted point (`acceptedThrough`) or one of its ancestors. `authorIsMe` is true
  * when the author's email equals `user.email`, ignoring case. The title is the first line of the
  * message and the body the rest, without the blank line between them. `time` is the author time.
  */
@@ -129,9 +130,11 @@ export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Pr
 	const output = await git(ports, ['log', '-z', '--format=%H%x00%an%x00%ae%x00%aI%x00%B', ...logArgs, '--']);
 	const head = await revision(ports, 'HEAD');
 	const upstream = await sharedReference(ports);
+	const accepted = upstream === undefined ? undefined : await acceptedThrough(ports);
+	const excluded = upstream === undefined ? [] : accepted === undefined ? [`^${upstream}`] : [`^${upstream}`, `^${accepted}`];
 	const unshared = upstream === undefined
 		? undefined
-		: new Set(head === undefined ? [] : (await git(ports, ['rev-list', head, `^${upstream}`, '--'])).split('\n').filter(id => id !== ''));
+		: new Set(head === undefined ? [] : (await git(ports, ['rev-list', head, ...excluded, '--'])).split('\n').filter(id => id !== ''));
 	const me = (await runGit(ports.git, ['-C', ports.projectRoot, 'config', '--get', 'user.email'])).stdout.trim().toLowerCase();
 	const partial = await readPartialFiles(ports);
 
@@ -572,20 +575,27 @@ export async function resolveCommit(ports: EnginePorts, id: string): Promise<str
 }
 
 /**
- * True when `commit` is in the shared copy of `branch` as git last saw it (see `sharedReference`).
- * A branch with no shared copy has nothing shared.
+ * True when `commit` is in the shared copy of `branch` as git last saw it (see `sharedReference`),
+ * or is the accepted point of `branch` (`acceptedThrough`) or one of its ancestors. A branch with
+ * no shared copy has nothing shared.
  */
 export async function isSharedCommit(ports: EnginePorts, branch: string, commit: string): Promise<boolean> {
 	const upstream = await sharedReference(ports, branch);
 	if (upstream === undefined) {
 		return false;
 	}
-	const args = ['-C', ports.projectRoot, 'merge-base', '--is-ancestor', commit, upstream];
-	const result = await runGit(ports.git, args);
-	if (result.exitCode > 1) {
-		throw new GitFailedError(args, result.exitCode, result.stderr);
+	const accepted = await acceptedThrough(ports, branch);
+	for (const shared of accepted === undefined ? [upstream] : [upstream, accepted]) {
+		const args = ['-C', ports.projectRoot, 'merge-base', '--is-ancestor', commit, shared];
+		const result = await runGit(ports.git, args);
+		if (result.exitCode > 1) {
+			throw new GitFailedError(args, result.exitCode, result.stderr);
+		}
+		if (result.exitCode === 0) {
+			return true;
+		}
 	}
-	return result.exitCode === 0;
+	return false;
 }
 
 /**

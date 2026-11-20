@@ -8,7 +8,7 @@ import {
 	acquireLock, commitPointOf, engineDirectory, invertRefChange, JournalRecord, OperationRole, PathPlan, readBranch, readIndexTree, readRecords, TriState,
 } from './journal';
 import { EnginePorts } from './ports';
-import { sharedReference } from './proposals';
+import { acceptedThrough, sharedReference } from './proposals';
 import { CreatedFile, OperationPlan, runOperation } from './runOperation';
 import { SNAPSHOT_REF_PREFIX, withTempIndex, worktreeTree } from './trees';
 import { CollisionChoice, OperationKind, OperationResult } from './types';
@@ -360,7 +360,8 @@ export async function redo(ports: EnginePorts, operationId: string, collisionCho
 
 /**
  * True when a checkpoint the operation created is in the shared copy of its branch, as git last
- * saw it (see `sharedReference`). A branch with no shared copy has nothing shared.
+ * saw it (see `sharedReference`), or is the branch's accepted point (`acceptedThrough`) or one of
+ * its ancestors. A branch with no shared copy has nothing shared.
  */
 async function isShared(ports: EnginePorts, record: JournalRecord): Promise<boolean> {
 	if (record.after.branchCommit === null) {
@@ -370,9 +371,10 @@ async function isShared(ports: EnginePorts, record: JournalRecord): Promise<bool
 	if (upstream === undefined) {
 		return false;
 	}
+	const accepted = await acceptedThrough(ports, record.branch);
 	const range = [record.after.branchCommit, ...(record.before.branchCommit === null ? [] : [`^${record.before.branchCommit}`])];
 	const count = async (args: string[]) => Number((await mustGit(ports.git, ['-C', ports.projectRoot, 'rev-list', '--count', ...args])).stdout.trim());
-	return await count([...range, `^${upstream}`]) !== await count(range);
+	return await count([...range, `^${upstream}`, ...(accepted === undefined ? [] : [`^${accepted}`])]) !== await count(range);
 }
 
 /**
