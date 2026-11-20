@@ -15,9 +15,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { DiffTarget } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { messageResource } from '../../browser/checkpointsContentProvider.js';
-import { openDiff } from '../../browser/openDiff.js';
+import { DiffRequest, openDiff } from '../../browser/openDiff.js';
 import { IRichDiffProvider, IRichDiffSides, richDiffRegistry } from '../../browser/richDiff/richDiffRegistry.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
@@ -47,7 +46,7 @@ describe('openDiff', () => {
 
 	let engine: FakeCheckpointsEngine;
 	const text = (content: string) => new TextEncoder().encode(content);
-	const target: DiffTarget = { kind: 'change', path: 'analysis/dose.R' };
+	const target: DiffRequest = { kind: 'change', path: 'analysis/dose.R' };
 
 	beforeEach(() => {
 		openEditor.mockClear();
@@ -58,7 +57,7 @@ describe('openDiff', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 	});
 
-	function open(diffTarget: DiffTarget = target) {
+	function open(diffTarget: DiffRequest = target) {
 		return ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, diffTarget, 'dose.R (changes)'));
 	}
 
@@ -115,7 +114,7 @@ describe('openDiff', () => {
 
 	test('a removed file known to be over 50 MB opens a message without reading the stored side', async () => {
 		engine.diff = { left: { kind: 'blob', oid: 'huge' }, right: { kind: 'empty' } };
-		const removed: DiffTarget = { kind: 'change', path: 'data/huge.csv' };
+		const removed: DiffRequest = { kind: 'change', path: 'data/huge.csv' };
 
 		await ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, removed, 'huge.csv (changes)', { tooLarge: true }));
 
@@ -145,7 +144,7 @@ describe('openDiff', () => {
 	describe('with a registered provider', () => {
 		const providerOpen = vi.fn(async (_accessor: unknown, _sides: IRichDiffSides) => { });
 		const provider: IRichDiffProvider = { id: 'fake-image', extensions: ['png'], maxSideBytes: 20 * MEGABYTE, open: providerOpen };
-		const image: DiffTarget = { kind: 'change', path: 'figures/Plot.PNG' };
+		const image: DiffRequest = { kind: 'change', path: 'figures/Plot.PNG' };
 
 		beforeEach(() => {
 			providerOpen.mockClear();

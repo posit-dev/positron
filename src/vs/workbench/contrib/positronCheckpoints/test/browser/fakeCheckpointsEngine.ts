@@ -7,7 +7,7 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import {
-	CheckpointsMethod, ContentRef, DiffTarget, ICheckpoint, ICheckpointsEngineProxy, IChangeSet, IChunk, ICollisionChoice,
+	CheckpointsMethod, ContentRef, DiffTarget, ICheckpoint, ICheckpointsEngineProxy, IChangedFile, IChangeSet, IChunk, ICollisionChoice,
 	IEngineState, IIncomingPreview, IKeptFile, IResolution, OperationResult
 } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 
@@ -52,18 +52,29 @@ export interface IFakeEngineCall {
 }
 
 /**
- * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `keptFiles`, `diff`, `blobs`,
- * `incoming`, `nextResult`, and `queuedResults`; every call is recorded in `calls`; `fireChange()` fires the state event.
+ * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `checkpointFiles`, `pendingFiles`,
+ * `keptFiles`, `diff`, `blobs`, `incoming`, `nextResult`, `queuedResults`, and `readError`; every call is recorded in
+ * `calls`; `fireChange()` fires the state event.
  * `holdGetState()` makes the next `getState` wait until the test releases it.
  */
 export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEngineProxy {
 	state: IEngineState = fakeEngineState();
 	changes: IChangeSet = { basis: 'basis-1', files: [] };
 	history: ICheckpoint[] = [];
+	/** The files of each checkpoint, by checkpoint id. Other ids have none. */
+	checkpointFiles = new Map<string, IChangedFile[]>();
+	/** The files of each pending approval, by token. Other tokens have none. */
+	pendingFiles = new Map<string, IChangedFile[]>();
+	/**
+	 * When set, every read method (`getState`, `getHistory`, `getChanges`, `getCheckpointFiles`,
+	 * `getPendingFiles`, `getDiff`, `readBlob`, `previewIncoming`) fails with this error, as the
+	 * engine's read methods do when git does not answer in time.
+	 */
+	readError?: Error;
 	keptFiles: IKeptFile[] = [];
 	/** When set, `getKeptFiles` fails with this error. */
 	keptFilesError?: Error;
-	/** The answer to `getDiff`. Without it, the left side is empty and the right side is the file. */
+	/** The answer to `getDiff`. Without it, the left side is empty and the right side is the file (empty for an overlap). */
 	diff?: { left: ContentRef; right: ContentRef };
 	/** The content `readBlob` returns for each blob id. Other ids read as empty. */
 	blobs = new Map<string, VSBuffer>();
@@ -105,34 +116,52 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 		this.calls.push({ method, args });
 	}
 
+	/** Records a call of a read method, and fails it when `readError` is set. */
+	private _read(method: CheckpointsMethod, ...args: unknown[]): void {
+		this._record(method, ...args);
+		if (this.readError) {
+			throw this.readError;
+		}
+	}
+
 	private async _operation(method: CheckpointsMethod, ...args: unknown[]): Promise<OperationResult> {
 		this._record(method, ...args);
 		return this.queuedResults.shift() ?? this.nextResult;
 	}
 
 	async getState(): Promise<IEngineState> {
-		this._record('getState');
+		this._read('getState');
 		const held = this._heldStates.shift();
 		return held ? held : this.state;
 	}
 
 	async getHistory(skip: number, limit: number): Promise<ICheckpoint[]> {
-		this._record('getHistory', skip, limit);
+		this._read('getHistory', skip, limit);
 		return this.history.slice(skip, skip + limit);
 	}
 
 	async getChanges(): Promise<IChangeSet> {
-		this._record('getChanges');
+		this._read('getChanges');
 		return this.changes;
 	}
 
+	async getCheckpointFiles(id: string): Promise<IChangedFile[]> {
+		this._read('getCheckpointFiles', id);
+		return this.checkpointFiles.get(id) ?? [];
+	}
+
+	async getPendingFiles(token: string): Promise<IChangedFile[]> {
+		this._read('getPendingFiles', token);
+		return this.pendingFiles.get(token) ?? [];
+	}
+
 	async getDiff(target: DiffTarget): Promise<{ left: ContentRef; right: ContentRef }> {
-		this._record('getDiff', target);
-		return this.diff ?? { left: { kind: 'empty' }, right: { kind: 'file', path: target.path } };
+		this._read('getDiff', target);
+		return this.diff ?? { left: { kind: 'empty' }, right: target.kind === 'overlap' ? { kind: 'empty' } : { kind: 'file', path: target.path } };
 	}
 
 	async readBlob(oid: string): Promise<VSBuffer> {
-		this._record('readBlob', oid);
+		this._read('readBlob', oid);
 		return this.blobs.get(oid) ?? VSBuffer.fromString('');
 	}
 
@@ -161,7 +190,7 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	}
 
 	async previewIncoming(): Promise<IIncomingPreview> {
-		this._record('previewIncoming');
+		this._read('previewIncoming');
 		return this.incoming;
 	}
 

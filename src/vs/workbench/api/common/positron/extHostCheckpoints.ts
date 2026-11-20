@@ -67,6 +67,10 @@ export class ExtHostCheckpoints implements extHostProtocol.ExtHostCheckpointsSha
 				return { method: request.method, result: await engine.getHistory(...request.args) };
 			case 'getChanges':
 				return { method: request.method, result: await engine.getChanges(...request.args) };
+			case 'getCheckpointFiles':
+				return { method: request.method, result: await engine.getCheckpointFiles(...request.args) };
+			case 'getPendingFiles':
+				return { method: request.method, result: await engine.getPendingFiles(...request.args) };
 			case 'getDiff':
 				return { method: request.method, result: await engine.getDiff(...request.args) };
 			case 'readBlob':

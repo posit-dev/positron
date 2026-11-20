@@ -73,6 +73,8 @@ export class MainThreadCheckpoints implements MainThreadCheckpointsShape {
 			getState: (...args) => call('getState', ...args),
 			getHistory: (...args) => call('getHistory', ...args),
 			getChanges: (...args) => call('getChanges', ...args),
+			getCheckpointFiles: (...args) => call('getCheckpointFiles', ...args),
+			getPendingFiles: (...args) => call('getPendingFiles', ...args),
 			getDiff: (...args) => call('getDiff', ...args),
 			readBlob: (...args) => call('readBlob', ...args),
 			createCheckpoints: (...args) => call('createCheckpoints', ...args),

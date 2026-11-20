@@ -131,7 +131,7 @@ describe('renderIncomingForModel', () => {
 
 	beforeEach(() => {
 		getDiff = vi.fn(async (target: DiffTarget) => {
-			const side = sides[target.path];
+			const side = sides[target.kind === 'overlap' ? target.overlapId : target.path];
 			return {
 				left: side.left === '' ? { kind: 'empty' as const } : { kind: 'blob' as const, oid: side.left },
 				right: { kind: 'blob' as const, oid: side.right },
@@ -179,7 +179,10 @@ describe('renderIncomingForModel', () => {
 			let peak = 0;
 			const reads: string[] = [];
 			const fake = stubInterface<ICheckpointsEngineProxy>({
-				getDiff: async target => ({ left: { kind: 'blob' as const, oid: `old-${target.path}` }, right: { kind: 'blob' as const, oid: `new-${target.path}` } }),
+				getDiff: async target => {
+					const path = target.kind === 'overlap' ? target.overlapId : target.path;
+					return { left: { kind: 'blob' as const, oid: `old-${path}` }, right: { kind: 'blob' as const, oid: `new-${path}` } };
+				},
 				readBlob: async oid => {
 					reads.push(oid);
 					active++;

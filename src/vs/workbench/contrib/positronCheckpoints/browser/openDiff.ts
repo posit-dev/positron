@@ -18,6 +18,19 @@ import { blobResource, messageResource } from './checkpointsContentProvider.js';
 import { projectRootUri } from './projectRoot.js';
 import { IRichDiffProvider, IRichDiffSides, richDiffRegistry } from './richDiff/richDiffRegistry.js';
 
+/**
+ * What `openDiff` compares. An overlap target names its overlap and not its file, so the caller
+ * adds the path of the overlap's file, which names the comparison and chooses its editor.
+ */
+export type DiffRequest =
+	| Exclude<DiffTarget, { kind: 'overlap' }>
+	| (Extract<DiffTarget, { kind: 'overlap' }> & { path: string });
+
+/** The engine's target of a request, without the path an overlap request adds. */
+function engineTarget(request: DiffRequest): DiffTarget {
+	return request.kind === 'overlap' ? { kind: 'overlap', overlapId: request.overlapId, side: request.side } : request;
+}
+
 /** The number of leading bytes that are searched for a zero byte, which marks a data file. */
 const BINARY_SNIFF_BYTES = 8000;
 
@@ -65,7 +78,7 @@ function looksBinary(bytes: VSBuffer): boolean {
  *
  * Every service is read before the first await, because an accessor is valid only until then.
  */
-export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, title: string, known?: IKnownSizes): Promise<void> {
+export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, title: string, known?: IKnownSizes): Promise<void> {
 	const checkpointsService = accessor.get(ICheckpointsService);
 	const editorService = accessor.get(IEditorService);
 	const fileService = accessor.get(IFileService);
@@ -92,7 +105,7 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffTarget, t
 
 		const state = await engine.getState();
 		const root = projectRootUri(workspaceContextService, state.projectRoot);
-		const { left, right } = await engine.getDiff(target);
+		const { left, right } = await engine.getDiff(engineTarget(target));
 
 		const measureFile = async (ref: ContentRef & { kind: 'file' }): Promise<IDiffSide> => {
 			const resource = joinPath(root, ref.path);

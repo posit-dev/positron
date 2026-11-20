@@ -4556,6 +4556,7 @@ declare module 'positron' {
 			projectRoot: string;
 			openedFolderIsInsideProject: boolean;
 			branch?: string;
+			/** `name` is the shared copy's branch as git names it (for example `origin/main`). */
 			shared: { exists: boolean; ahead: number; behind: number; lastChecked?: string; name?: string };
 			identityMissing: boolean;
 			syncAvailable: boolean;
@@ -4566,8 +4567,9 @@ declare module 'positron' {
 			interrupted?: { operationId: string; description: string; unexpectedPaths: string[]; indexUnexpected: boolean };
 			recoveryNotice?: 'reversed' | 'completed';
 			recoverySnapshots: { operationId: string; time: string }[];
-			undo?: { operationId: string; description: string; kind?: OperationKind; restoresFiles?: boolean };
-			redo?: { operationId: string; description: string; kind?: OperationKind; restoresFiles?: boolean };
+			/** `restoresFiles` is true when undoing or redoing the operation changes working files. */
+			undo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
+			redo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 			keptFileCount: number;
 		}
 
@@ -4589,11 +4591,12 @@ declare module 'positron' {
 
 		export type ContentRef = { kind: 'empty' } | { kind: 'file'; path: string } | { kind: 'blob'; oid: string };
 		export type DiffTarget =
-			| { kind: 'change'; path: string }
+			| { kind: 'change'; path: string; oldPath?: string }
 			| { kind: 'checkpoint'; id: string; path: string }
 			| { kind: 'incoming'; path: string }
 			| { kind: 'trees'; left: string; right: string; path: string }
-			| { kind: 'pending'; token: string; path: string };
+			| { kind: 'pending'; token: string; path: string }
+			| { kind: 'overlap'; overlapId: string; side: 'mine' | 'theirs' };
 
 		export type OverlapKind = 'text' | 'binary' | 'edit-delete' | 'rename' | 'file-folder' | 'unsupported';
 		export interface Overlap {
@@ -4601,6 +4604,8 @@ declare module 'positron' {
 			base?: string; mine?: string; theirs?: string;
 			mineSizeBytes?: number; theirsSizeBytes?: number;
 			deletedBy?: 'me' | 'them'; theirAuthor: string; detail: string;
+			/** For a `file-folder` overlap: the side that has the file. */
+			fileSide?: 'mine' | 'theirs';
 		}
 		export type OverlapChoice =
 			| { type: 'text'; content: string }
@@ -4628,8 +4633,8 @@ declare module 'positron' {
 
 		export type OperationResult =
 			| { kind: 'done'; operationId: string; hookEditedFiles: string[] }
-			| { kind: 'check-failed'; output: string; hookEditedFiles: string[]; operationId?: string }
-			| { kind: 'check-changed-checkpoint'; token: string; changedPaths: string[]; hookEditedFiles: string[] }
+			| { kind: 'check-failed'; output: string; hookEditedFiles: string[]; operationId?: string; chunkIndex?: number }
+			| { kind: 'check-changed-checkpoint'; token: string; changedPaths: string[]; hookEditedFiles: string[]; chunkIndex?: number }
 			| { kind: 'path-collisions'; collisions: PathCollision[] }
 			| { kind: 'overlaps'; preview: IncomingPreview }
 			| { kind: 'inputs-changed'; changed: ('mine' | 'shared' | 'files')[]; preview: IncomingPreview }
@@ -4648,6 +4653,8 @@ declare module 'positron' {
 			getState(): Promise<EngineState>;
 			getHistory(skip: number, limit: number): Promise<Checkpoint[]>;
 			getChanges(): Promise<ChangeSet>;
+			getCheckpointFiles(id: string): Promise<ChangedFile[]>;
+			getPendingFiles(token: string): Promise<ChangedFile[]>;
 			getDiff(target: DiffTarget): Promise<{ left: ContentRef; right: ContentRef }>;
 			readBlob(oid: string): Promise<Uint8Array>;
 			createCheckpoints(basis: string, chunks: Chunk[]): Promise<OperationResult>;
