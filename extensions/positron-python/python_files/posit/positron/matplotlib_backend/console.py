@@ -21,7 +21,9 @@ import hashlib
 import inspect
 import io
 import logging
+import re
 import warnings
+import weakref
 from typing import TYPE_CHECKING, cast
 
 import matplotlib
@@ -29,11 +31,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+from ..execute_request import current_execute_request
 from .backend import Backend
 from .registry import registry
 
 if TYPE_CHECKING:
-    from IPython.core.interactiveshell import InteractiveShell
+    from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
     from matplotlib.figure import Figure
 
     from ..plot_comm import PlotSize
@@ -84,35 +87,137 @@ def _detect_plotting_library() -> str:
     return "matplotlib"
 
 
+def _detach_figures(*, library_kinds: frozenset[str] | None = None) -> None:
+    """
+    Detach Positron figures from matplotlib's global registry.
+
+    The figures are only removed from the registry, not destroyed: the comm and cached
+    render stay alive (``FigureManagerPositron.destroy`` is a no-op and the figure is still
+    referenced by the plots service), so the plot remains visible in the Plots pane and
+    can still be re-rendered on resize. The next plotting command starts a fresh figure
+    instead of drawing onto a previous one. Edits to a detached figure through a held
+    reference still reach the Plots pane via `_redraw_stale_detached_figures`.
+
+    Parameters
+    ----------
+    library_kinds
+        Only detach figures created by these plotting libraries. Detach all if None.
+    """
+    from matplotlib._pylab_helpers import Gcf
+
+    for manager in list(Gcf.get_all_fig_managers()):
+        if not isinstance(manager, FigureManagerPositron):
+            continue
+        if library_kinds is not None and manager.plotting_library not in library_kinds:
+            continue
+        # Removes the manager from the registry and invokes our no-op `destroy`.
+        # Pass the manager rather than its number: numbers freed here can be reused
+        # by matplotlib, so destroying by number could hit a different figure.
+        Gcf.destroy(manager)
+
+
 def _detach_library_figures() -> None:
     """
-    Detach high-level library figures (e.g. seaborn) from matplotlib's global registry.
+    Detach high-level library figures (e.g. seaborn) after each interactive cell.
 
-    Called after each interactive cell. The figures are only removed from the registry,
-    not destroyed: the comm and cached render stay alive (``FigureManagerPositron.destroy``
-    is a no-op and the figure is still referenced by the plots service), so the plot
-    remains visible in the Plots pane and can still be re-rendered on resize. Removing
-    them from the registry means the next execution starts with a fresh figure instead of
-    drawing onto the previous one, avoiding duplicated elements such as stacked colorbars.
+    Avoids duplicated elements such as stacked colorbars when re-running a cell.
     See https://github.com/posit-dev/positron/issues/8898.
 
     Plain matplotlib figures are intentionally left in the registry to preserve Positron's
     cross-cell figure persistence (updating or re-showing a plot across cells).
     """
     try:
-        from matplotlib._pylab_helpers import Gcf
-
-        for manager in list(Gcf.get_all_fig_managers()):
-            if (
-                isinstance(manager, FigureManagerPositron)
-                and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
-            ):
-                # Removes the manager from the registry and invokes our no-op `destroy`.
-                # Pass the manager rather than its number: numbers freed here can be reused
-                # by matplotlib, so destroying by number could hit a different figure.
-                Gcf.destroy(manager)
+        _detach_figures(library_kinds=_DETACH_AFTER_CELL_KINDS)
     except Exception:
         logger.exception("Error detaching high-level library figures")
+
+
+# A whole-file run in a cell after IPython transforms it: Positron's Run Python File sends
+# `%run -- <path>`, and users can type `%run` in the console. Matching the transformed cell
+# finds `%run` on any line, but not in a string or a cell magic's body.
+_RUN_FILE_RE = re.compile(r"\bget_ipython\(\)\.run_line_magic\('run',")
+
+# The URI of the editor that the last file-attributed cell or whole-file run came from.
+# None until code is run from a file, or after a `%run` typed in the console. Other
+# console cells (which have no code location) don't change it.
+_last_source_uri: str | None = None
+
+
+def _current_source_uri() -> str | None:
+    """The URI of the editor that the current execute_request came from, if any."""
+    code_location = current_execute_request().code_location
+    return code_location.uri if code_location is not None else None
+
+
+def _is_file_run(raw_cell: str) -> bool:
+    """
+    Whether a cell runs a whole file with `%run`.
+
+    Uses a fresh `TransformerManager` with only IPython's built-in transforms, rather than
+    `shell.transform_cell`, so that the user's own input transformers (which may be
+    stateful) don't run a second time for the cell.
+    """
+    from IPython.core.inputtransformer2 import TransformerManager
+
+    return _RUN_FILE_RE.search(TransformerManager().transform_cell(raw_cell)) is not None
+
+
+def _detach_figures_on_source_change(info: ExecutionInfo) -> None:
+    """
+    Detach all figures before a cell that starts a new program.
+
+    A cell starts a new program when it comes from a different file than the last
+    file-attributed cell, or when it runs a whole file. Without this, a script's
+    `plt.plot` draws onto the figure left over from another script.
+    See https://github.com/posit-dev/positron/issues/7591.
+
+    Cells typed in the console never detach, so plotting from a script and then
+    adjusting the figure in the console keeps working.
+    """
+    global _last_source_uri
+    try:
+        raw_cell = cast("str", info.raw_cell) or ""
+        source_uri = _current_source_uri()
+        is_file_run = _is_file_run(raw_cell)
+        if is_file_run or (source_uri is not None and source_uri != _last_source_uri):
+            _detach_figures()
+        if is_file_run or source_uri is not None:
+            _last_source_uri = source_uri
+    except Exception:
+        logger.exception("Error detaching figures on source change")
+
+
+# Every Positron figure manager that has a plot. Weak so that tracking a manager doesn't
+# keep its figure alive.
+_managers: weakref.WeakSet[FigureManagerPositron] = weakref.WeakSet()
+
+
+def _redraw_stale_detached_figures() -> None:
+    """
+    Redraw detached figures that changed during the cell, updating their plots.
+
+    matplotlib's own post-execute redraw (in interactive mode) only walks its registry,
+    so a figure edited through a held reference after being detached (by
+    `_detach_library_figures` or `_detach_figures_on_source_change`) would otherwise go
+    stale in the Plots pane. Uses matplotlib's own `stale` flag, so an unchanged figure
+    costs one attribute check. Drawing sends an update event only if the canvas changed.
+    """
+    try:
+        from matplotlib._pylab_helpers import Gcf
+
+        if not matplotlib.is_interactive():
+            return
+
+        registered = set(Gcf.get_all_fig_managers())
+        for manager in list(_managers):
+            # Figures still in the registry are matplotlib's to redraw. A plot the user
+            # removed from history must not be reopened by drawing its figure.
+            if manager in registered or manager.closed:
+                continue
+            if manager.canvas.figure.stale:
+                manager.canvas.draw()
+    except Exception:
+        logger.exception("Error redrawing detached figures")
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -153,6 +258,7 @@ class FigureManagerPositron(FigureManagerBase):
             self._plot = self._plots_service.create_plot(
                 canvas.render, canvas.intrinsic_size, kind, num, self._on_close
             )
+            _managers.add(self)
 
     def _on_close(self) -> None:
         """
@@ -419,22 +525,33 @@ FigureCanvas = FigureCanvasPositron
 FigureManager = FigureManagerPositron
 
 
+def _after_cell() -> None:
+    """Detach library figures, then push edits to detached figures to the Plots pane."""
+    _detach_library_figures()
+    _redraw_stale_detached_figures()
+
+
 def install(shell: InteractiveShell) -> None:
     """Install the console backend's shell hooks. See `BackendModule`."""
-    # Detach high-level plotting library figures (e.g. seaborn) so that re-running
-    # plotting code starts a fresh figure instead of drawing onto the previous one.
-    # See https://github.com/posit-dev/positron/issues/8898.
-    shell.events.register("post_execute", _detach_library_figures)
+    global _last_source_uri
+
+    # This usually runs partway through the cell that first imports pyplot, after that
+    # cell's pre-run hooks fired, so remember that cell's file here instead.
+    _last_source_uri = _current_source_uri()
+    shell.events.register("pre_run_cell", _detach_figures_on_source_change)
+    shell.events.register("post_execute", _after_cell)
 
     _install_library_gca_redirect()
 
 
 def uninstall(shell: InteractiveShell) -> None:
     """Remove the console backend's shell hooks. See `BackendModule`."""
-    # Suppress ValueError in case user code unregistered the hook itself; a backend
+    # Suppress ValueError in case user code unregistered a hook itself; a backend
     # switch shouldn't crash over it.
     with contextlib.suppress(ValueError):
-        shell.events.unregister("post_execute", _detach_library_figures)
+        shell.events.unregister("pre_run_cell", _detach_figures_on_source_change)
+    with contextlib.suppress(ValueError):
+        shell.events.unregister("post_execute", _after_cell)
 
     _uninstall_library_gca_redirect()
 
