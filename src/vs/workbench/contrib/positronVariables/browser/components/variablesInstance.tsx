@@ -11,7 +11,7 @@ import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -540,13 +540,21 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
-	// workaround for web disabling scrolling on the window to prevent URL navigation
+	/**
+	 * onWheel event handler.
+	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
+	 */
 	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
-		if (!isWeb) {
-			return;
+		// On web, BrowserWindow (window.ts) calls preventDefault() on every wheel event that
+		// reaches the workbench container, to block the macOS back/forward swipe gestures. That
+		// cancels the browser's native scrolling of the list. Stopping propagation here keeps the
+		// event from reaching that listener, so the browser scrolls the list itself, with shift +
+		// wheel, deltaMode, smooth scrolling and momentum handled natively. Ctrl + wheel (and a
+		// macOS pinch, which arrives as one) zooms the page rather than scrolling, so let it
+		// propagate and stay cancelled, as it is everywhere else in the workbench.
+		if (!e.ctrlKey) {
+			e.stopPropagation();
 		}
-
-		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
 	};
 
 	// Build the row data passed to the stable virtualized row component. Identity changes
@@ -570,6 +578,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 	// Render.
 	return (
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- existing debt: this focusable container handles the list's navigation keys and has no role yet.
 		<div
 			ref={outerRef}
 			className={'variables-instance state-' + clientState}
