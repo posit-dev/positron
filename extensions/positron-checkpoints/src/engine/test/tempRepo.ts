@@ -40,18 +40,28 @@ const ISOLATED_ENV = {
 
 const START_TIME = new Date('2026-01-01T00:00:00Z');
 
+export interface TempRepoOptions {
+	/**
+	 * `'empty'` (default) runs `git init`, leaving a repository with no commits.
+	 * `'none'` leaves a plain folder that is not a repository.
+	 */
+	init?: 'empty' | 'none';
+}
+
 /**
  * Creates a repository on branch `main` in a new directory under the operating system's
  * temporary directory, with a local identity. `dispose` removes it and any bare
  * repository created by `clone`.
  */
-export async function tempRepo(): Promise<TempRepo> {
+export async function tempRepo(options: TempRepoOptions = {}): Promise<TempRepo> {
 	const base = await fsp.mkdtemp(path.join(os.tmpdir(), 'positron-checkpoints-'));
 	const root = path.join(base, 'work');
 	await fsp.mkdir(root);
 	const repo = await createRepo(base, root, undefined);
-	await repo.git(['init', '-b', 'main']);
-	await configure(repo.git);
+	if (options.init !== 'none') {
+		await repo.git(['init', '-b', 'main']);
+		await configure(repo.git);
+	}
 	return repo;
 }
 
