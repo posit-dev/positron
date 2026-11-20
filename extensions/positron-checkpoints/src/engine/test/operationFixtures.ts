@@ -107,3 +107,34 @@ export function afterJournal(ports: EnginePorts, fn: () => Promise<void>): Engin
 		},
 	};
 }
+
+/**
+ * The reference project (with its ignored debug.log, "ignored\n") and a plan whose after state
+ * also has an incoming debug.log, "incoming\n".
+ */
+export async function collidingProject(repo: TempRepo): Promise<{ a: string; plan: OperationPlan }> {
+	const { a, plan } = await referenceProject(repo);
+	const indexTree = await treeWith(repo, plan.after.indexTree, { 'debug.log': 'incoming\n' });
+	const branchCommit = await must(repo, ['commit-tree', indexTree, '-p', a, '-m', 'B with debug.log']);
+	const worktree = await treeWith(repo, plan.after.worktreeTree, { 'debug.log': 'incoming\n' });
+	return { a, plan: { ...plan, after: { branchCommit, indexTree, worktreeTree: worktree } } };
+}
+
+/**
+ * A project at commit A (a.txt, out/tracked.txt) with the ignored debug.log, an untracked u.txt,
+ * and an ignored out/run.log ("mine\n"), and the plan of an operation to commit B, where `out`
+ * is a file. The plan removes out/tracked.txt and collides with out/run.log.
+ */
+export async function folderCollidingProject(repo: TempRepo): Promise<{ a: string; plan: OperationPlan }> {
+	await repo.write('.gitignore', '*.log\n');
+	await repo.write('a.txt', 'one\n');
+	await repo.write('out/tracked.txt', 'tracked\n');
+	const a = await repo.commit('A');
+	await repo.write('debug.log', 'ignored\n');
+	await repo.write('u.txt', 'untracked\n');
+	await repo.write('out/run.log', 'mine\n');
+	const indexTree = await treeWith(repo, await must(repo, ['rev-parse', 'HEAD^{tree}']), { 'out/tracked.txt': null, out: 'a file now\n' });
+	const branchCommit = await must(repo, ['commit-tree', indexTree, '-p', a, '-m', 'B']);
+	const worktree = await treeWith(repo, indexTree, { 'u.txt': 'untracked\n' });
+	return { a, plan: { kind: 'go-back', description: 'Go back', expected: await currentState(repo), after: { branchCommit, indexTree, worktreeTree: worktree }, collisionChoices: [] } };
+}

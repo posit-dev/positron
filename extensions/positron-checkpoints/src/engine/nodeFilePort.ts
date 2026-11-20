@@ -58,22 +58,23 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 		async write(file, content, executable) {
 			const full = await resolve(file);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
-			let existing = await fsp.lstat(full).catch(() => undefined);
-			if (existing?.isSymbolicLink()) {
-				await fsp.rm(full, { force: true });
-				existing = undefined;
-			}
-			if (existing === undefined) {
+			const existing = await fsp.lstat(full).catch(() => undefined);
+			// A new file with a unique name is renamed over the path, so a file that has a second
+			// name (a backup is a hard link) keeps its content, and a symbolic link at the path is
+			// replaced instead of written through.
+			const temporary = path.join(path.dirname(full), `.${randomUUID()}.positron-checkpoints-tmp`);
+			try {
 				// The umask applies to the mode of a new file.
-				await fsp.writeFile(full, content, { mode: executable ? 0o777 : 0o666 });
-				return;
-			}
-			await fsp.writeFile(full, content);
-			const mode = existing.mode & 0o7777;
-			// The owner may always run the file; group and others follow their read bits.
-			const wanted = executable ? mode | 0o100 | ((mode & 0o044) >> 2) : mode & ~0o111;
-			if (wanted !== mode) {
-				await fsp.chmod(full, wanted);
+				await fsp.writeFile(temporary, content, { flag: 'wx', mode: executable ? 0o777 : 0o666 });
+				if (existing?.isFile()) {
+					const mode = existing.mode & 0o7777;
+					// The owner may always run the file; group and others follow their read bits.
+					await fsp.chmod(temporary, executable ? mode | 0o100 | ((mode & 0o044) >> 2) : mode & ~0o111);
+				}
+				await fsp.rename(temporary, full);
+			} catch (error) {
+				await fsp.rm(temporary, { force: true });
+				throw error;
 			}
 		},
 		async createLinkExclusive(file, target) {

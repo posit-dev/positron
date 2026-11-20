@@ -11,25 +11,15 @@ import { deleteKept, findCollisions, listKept, restoreKept } from './collisions'
 import { engineDirectory, PathPlan, readRecords } from './journal';
 import { EnginePorts } from './ports';
 import { OperationPlan, runOperation } from './runOperation';
-import { afterJournal, currentState, must, referenceProject, refExists, treeWith } from './test/operationFixtures';
+import { recoverOnStart } from './recovery';
+import { faultPorts } from './test/faultPorts';
+import { afterJournal, collidingProject, currentState, folderCollidingProject, must, projectState, refExists, treeWith } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { LARGE_FILE_BYTES, SNAPSHOT_REF_PREFIX, worktreeTree } from './trees';
 
 /** A plan that creates `file` with some content. */
 function incoming(file: string): PathPlan {
 	return { path: file, before: null, after: '0123456789012345678901234567890123456789', beforeMode: null, afterMode: '100644' };
-}
-
-/**
- * The reference project (with its ignored debug.log, "ignored\n") and a plan whose after state
- * also has an incoming debug.log, "incoming\n".
- */
-async function collidingProject(repo: TempRepo): Promise<{ a: string; plan: OperationPlan }> {
-	const { a, plan } = await referenceProject(repo);
-	const indexTree = await treeWith(repo, plan.after.indexTree, { 'debug.log': 'incoming\n' });
-	const branchCommit = await must(repo, ['commit-tree', indexTree, '-p', a, '-m', 'B with debug.log']);
-	const worktree = await treeWith(repo, plan.after.worktreeTree, { 'debug.log': 'incoming\n' });
-	return { a, plan: { ...plan, after: { branchCommit, indexTree, worktreeTree: worktree } } };
 }
 
 describe('findCollisions', () => {
@@ -150,8 +140,9 @@ describe('runOperation with collisions and kept files', () => {
 			{ id: 'op-1/debug.log', originalPath: 'debug.log', sizeBytes: 8, time: '2026-01-01T00:00:00.000Z', action: 'Go back' },
 		]);
 		const [record] = await readRecords(repo.ports);
-		expect(record.keptMoves).toEqual([{ from: 'debug.log', to: await keptFile(repo, 'op-1', 'debug.log') }]);
-		expect(record.progress[0]).toEqual({ step: 'kept', from: 'debug.log', to: await keptFile(repo, 'op-1', 'debug.log') });
+		const move = { from: 'debug.log', to: await keptFile(repo, 'op-1', 'debug.log'), sizeBytes: 8, blob: await must(repo, ['hash-object', '--stdin'], { stdin: 'ignored\n' }) };
+		expect(record.keptMoves).toEqual([move]);
+		expect(record.progress[0]).toEqual({ step: 'kept', ...move });
 	});
 
 	test('a collision inside a directory the plan replaces is moved aside with the folder left empty', async () => {
@@ -227,12 +218,58 @@ describe('runOperation with collisions and kept files', () => {
 		const { plan } = await collidingProject(repo);
 		expect((await runOperation(repo.ports, { ...plan, collisionChoices: keepCopy })).kind).toBe('done');
 
-		expect(await restoreKept(repo.ports, 'op-1/debug.log')).toEqual({ kind: 'unavailable', reason: 'unusual-state', detail: 'occupied' });
-		expect(await restoreKept(repo.ports, 'op-1/debug.log', 'a.txt')).toEqual({ kind: 'unavailable', reason: 'unusual-state', detail: 'occupied' });
+		expect(await restoreKept(repo.ports, 'op-1/debug.log')).toEqual({ kind: 'unavailable', reason: 'occupied' });
+		expect(await restoreKept(repo.ports, 'op-1/debug.log', 'a.txt')).toEqual({ kind: 'unavailable', reason: 'occupied' });
 
 		expect(await repo.read('debug.log')).toBe('incoming\n');
 		expect(await repo.read('a.txt')).toBe('two\n');
 		expect(await listKept(repo.ports)).toHaveLength(1);
+	});
+
+	test('restoreKept never replaces a file created after its check', async () => {
+		const repo = await create();
+		const { plan } = await collidingProject(repo);
+		expect((await runOperation(repo.ports, { ...plan, collisionChoices: keepCopy })).kind).toBe('done');
+		await fsp.rm(path.join(repo.root, 'debug.log'));
+		// Another tool creates the file just as the kept file is about to be placed there.
+		const racing: EnginePorts = {
+			...repo.ports,
+			files: {
+				...repo.ports.files,
+				linkOrCopy: async (from, to) => {
+					await repo.write('debug.log', 'created meanwhile\n');
+					return repo.ports.files.linkOrCopy(from, to);
+				},
+			},
+		};
+
+		expect(await restoreKept(racing, 'op-1/debug.log')).toEqual({ kind: 'unavailable', reason: 'occupied' });
+
+		expect(await repo.read('debug.log')).toBe('created meanwhile\n');
+		expect(await fsp.readFile(await keptFile(repo, 'op-1', 'debug.log'), 'utf8')).toBe('ignored\n');
+		expect(await listKept(repo.ports)).toHaveLength(1);
+	});
+
+	test('a failed deleteKept keeps the entry of a file it could not remove', async () => {
+		const repo = await create();
+		const { plan } = await collidingProject(repo);
+		expect((await runOperation(repo.ports, { ...plan, collisionChoices: keepCopy })).kind).toBe('done');
+		const failing: EnginePorts = {
+			...repo.ports,
+			files: {
+				...repo.ports.files,
+				remove: async file => {
+					if (file.includes('/kept/')) {
+						throw new Error('injected removal failure');
+					}
+					return repo.ports.files.remove(file);
+				},
+			},
+		};
+
+		expect((await deleteKept(failing, 'op-1/debug.log')).kind).toBe('could-not-finish');
+
+		expect(await listKept(repo.ports)).toMatchObject([{ id: 'op-1/debug.log' }]);
 	});
 
 	test('deleteKept removes the file and its entry', async () => {
@@ -245,5 +282,67 @@ describe('runOperation with collisions and kept files', () => {
 		expect(await listKept(repo.ports)).toEqual([]);
 		expect(await fsp.stat(await keptFile(repo, 'op-1', 'debug.log')).catch(() => undefined)).toBeUndefined();
 		expect(await deleteKept(repo.ports, 'op-1/debug.log')).toEqual({ kind: 'unavailable', reason: 'nothing-to-do' });
+	});
+});
+
+/**
+ * The mutating calls of an operation with a kept move, measured once per project. Every call up
+ * to and including the branch move is a crash point.
+ */
+const crashSweeps = await (async () => {
+	const sweeps: { name: string; build: typeof collidingProject; kept: string; keptContent: string; points: number[] }[] = [];
+	for (const [name, build, kept, keptContent] of [
+		['an ignored file at an incoming path', collidingProject, 'debug.log', 'ignored\n'],
+		['an ignored file in a folder the plan replaces', folderCollidingProject, 'out/run.log', 'mine\n'],
+	] as const) {
+		const repo = await tempRepo();
+		try {
+			const { plan } = await build(repo);
+			const ports = faultPorts(repo.ports, {});
+			const result = await runOperation(ports, { ...plan, collisionChoices: [{ path: kept, choice: 'use-theirs-keep-copy' }] });
+			if (result.kind !== 'done') {
+				throw new Error(`the operation did not finish: ${JSON.stringify(result)}`);
+			}
+			const branchMove = ports.mutatingCalls.indexOf('update-ref refs/heads/main') + 1;
+			sweeps.push({ name, build, kept, keptContent, points: Array.from({ length: branchMove }, (_, index) => index + 1) });
+		} finally {
+			await repo.dispose();
+		}
+	}
+	return sweeps;
+})();
+
+describe('recovery after a crash during an operation with a kept move', () => {
+	const cases = crashSweeps.flatMap(sweep => sweep.points.map(stopAt => ({ ...sweep, stopAt })));
+
+	test.each(cases)('$name: a crash at mutating call $stopAt recovers automatically and keeps the file', async ({ build, kept, keptContent, stopAt }) => {
+		const repo = await tempRepo();
+		try {
+			const { plan } = await build(repo);
+			const before = await projectState(repo);
+			await runOperation(faultPorts(repo.ports, { stopAt }), { ...plan, collisionChoices: [{ path: kept, choice: 'use-theirs-keep-copy' }] });
+			// The process that held the lock has exited.
+			await fsp.rm(`${await engineDirectory(repo.ports)}/lock`, { force: true });
+			const [record] = await readRecords(repo.ports);
+
+			const outcome = await recoverOnStart(repo.ports);
+
+			expect(outcome.interrupted).toBeUndefined();
+			expect(outcome.unrecovered).toBeUndefined();
+			const keptCopy = await fsp.readFile(`${await engineDirectory(repo.ports)}/kept/op-1/${kept}`, 'utf8').catch(() => undefined);
+			if (record === undefined || outcome.notice === 'reversed') {
+				expect(outcome.notice).toBe(record === undefined ? undefined : 'reversed');
+				expect(await projectState(repo)).toEqual(before);
+				expect(await repo.read(kept)).toBe(keptContent);
+				expect(keptCopy).toBeUndefined();
+				expect(await listKept(repo.ports)).toEqual([]);
+			} else {
+				expect(outcome.notice).toBe('completed');
+				expect(await must(repo, ['rev-parse', 'refs/heads/main'])).toBe(plan.after.branchCommit);
+				expect(keptCopy).toBe(keptContent);
+			}
+		} finally {
+			await repo.dispose();
+		}
 	});
 });

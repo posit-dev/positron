@@ -78,7 +78,7 @@ export interface IncomingPreview {
 	collisions: PathCollision[];
 }
 
-export type UnavailableReason = 'busy' | 'unusual-state' | 'git-too-old' | 'not-tracking' | 'stale-operation-id' | 'not-undoable' | 'shared-checkpoint' | 'timed-out' | 'nothing-to-do';
+export type UnavailableReason = 'busy' | 'unusual-state' | 'git-too-old' | 'not-tracking' | 'stale-operation-id' | 'not-undoable' | 'shared-checkpoint' | 'timed-out' | 'nothing-to-do' | 'occupied';
 export type RejectedReason = 'shared-copy-moved' | 'review-required' | 'sign-in-required' | 'no-shared-copy' | 'offline' | 'unknown';
 
 export type OperationResult =

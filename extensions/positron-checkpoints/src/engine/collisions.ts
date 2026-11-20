@@ -126,12 +126,30 @@ export async function moveAside(ports: EnginePorts, operationId: string, file: s
  * file is gone.
  */
 export async function moveBack(ports: EnginePorts, operationId: string, move: { from: string; to: string }): Promise<boolean> {
-	if (await ports.files.lstat(move.from) !== undefined || await ports.files.lstat(move.to) === undefined) {
+	if (await ports.files.lstat(move.to) === undefined || !await placeExclusive(ports, move.to, move.from)) {
 		return false;
 	}
-	await ports.files.move(move.to, move.from);
 	await appendKeptLine(ports, { type: 'removed', id: `${operationId}/${move.from}` });
 	await removeEmptyFolders(ports, move.to, await keptDirectory(ports));
+	return true;
+}
+
+/**
+ * Moves the file at `source` to `target` only when nothing is at `target`: `target` becomes a
+ * second name of the file (or an exclusively created copy across file systems), then `source` is
+ * removed. A file created at `target` at any moment is never replaced. Returns false, and
+ * changes nothing, when `target` is occupied.
+ */
+async function placeExclusive(ports: EnginePorts, source: string, target: string): Promise<boolean> {
+	try {
+		await ports.files.linkOrCopy(source, target);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+			return false;
+		}
+		throw error;
+	}
+	await ports.files.remove(source);
 	return true;
 }
 
@@ -175,28 +193,28 @@ async function keptFileOf(ports: EnginePorts, entry: KeptFile): Promise<string> 
 
 /**
  * Moves a kept file back to its original path, or to `destination` (a path in the project).
- * Returns `unavailable unusual-state` with detail `occupied`, and changes nothing, when something
- * is at the target; a kept file never replaces another file. Returns `unavailable
- * nothing-to-do` for an unknown id and `unavailable busy` while another window holds the lock.
+ * Returns `unavailable occupied`, and changes nothing, when something is at the target, even a
+ * file created while the move runs; a kept file never replaces another file. Returns
+ * `unavailable nothing-to-do` for an unknown id and `unavailable busy` while another window
+ * holds the lock.
  */
 export async function restoreKept(ports: EnginePorts, id: string, destination?: string): Promise<OperationResult> {
 	return withKept(ports, id, async (entry, file) => {
-		const target = destination ?? entry.originalPath;
-		if (await ports.files.lstat(target) !== undefined) {
-			return { kind: 'unavailable', reason: 'unusual-state', detail: 'occupied' };
+		if (!await placeExclusive(ports, file, destination ?? entry.originalPath)) {
+			return { kind: 'unavailable', reason: 'occupied' };
 		}
-		await ports.files.move(file, target);
 		await appendKeptLine(ports, { type: 'removed', id });
 		await removeEmptyFolders(ports, file, await keptDirectory(ports));
 		return { kind: 'done', operationId: id, hookEditedFiles: [] };
 	});
 }
 
-/** Deletes a kept file and its entry. Results as for `restoreKept`. */
+/** Deletes a kept file and its entry. Results as for `restoreKept`, apart from `occupied`. */
 export async function deleteKept(ports: EnginePorts, id: string): Promise<OperationResult> {
 	return withKept(ports, id, async (_entry, file) => {
-		await appendKeptLine(ports, { type: 'removed', id });
+		// The file goes first, so an entry is never removed while its file remains.
 		await ports.files.remove(file);
+		await appendKeptLine(ports, { type: 'removed', id });
 		await removeEmptyFolders(ports, file, await keptDirectory(ports));
 		return { kind: 'done', operationId: id, hookEditedFiles: [] };
 	});

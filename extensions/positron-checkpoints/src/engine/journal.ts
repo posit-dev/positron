@@ -28,13 +28,21 @@ export interface PathPlan { path: string; before: string | null; after: string |
  * the engine creates for the path's new content, when there is one; the engine removes only
  * temporary files named in its journal.
  */
-export type Progress = { step: 'kept'; from: string; to: string } | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' };
+export type Progress = ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' };
+
+/**
+ * A file outside the snapshot that an operation moves aside (spec 6.2), from its place in the
+ * project to its place in the kept folder. `sizeBytes` and `blob` (the id `readDiskEntries` gives,
+ * null when it could not be read) describe the file when the record was written, so recovery can
+ * tell that a file not yet moved is unchanged.
+ */
+export interface KeptMove { from: string; to: string; sizeBytes: number; blob: string | null }
 export type JournalStatus = 'prepared' | 'complete' | 'rolled-back' | 'abandoned' | 'interrupted' | 'pending-approval';
 
 export interface JournalRecord {
 	id: string; kind: OperationKind; description: string; time: string; branch: string;
 	before: TriState; after: TriState; paths: PathPlan[]; skipped: string[];
-	keptMoves: { from: string; to: string }[]; progress: Progress[]; status: JournalStatus;
+	keptMoves: KeptMove[]; progress: Progress[]; status: JournalStatus;
 	redoWorktreeTree?: string; pending?: { token: string; approvedTree: string; resultTree: string; candidate: string };
 }
 
@@ -272,14 +280,80 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
  * Classifies the branch, the real index, and every path of `record` as its before value, its
  * after value, or neither ("unexpected"). A value equal to both counts as before. A branch
  * that does not exist matches a `null` commit, and an index git cannot write a tree for is
- * unexpected.
+ * unexpected. A path the record creates that still holds only what the operation has not yet
+ * moved or removed counts as before (see `explainPending`).
  */
 export async function classify(ports: EnginePorts, record: JournalRecord): Promise<Classification> {
 	return {
 		branch: partOf(await readBranch(ports, record.branch), record.before.branchCommit, record.after.branchCommit),
 		index: partOf(await readIndexTree(ports), record.before.indexTree, record.after.indexTree),
-		paths: await classifyPaths(ports, record.paths),
+		paths: await explainPending(ports, record, await classifyPaths(ports, record.paths)),
 	};
+}
+
+/**
+ * Before the operation writes a path it creates (before value null), it moves aside the files it
+ * keeps a copy of and removes the files it removes. A crash before those steps leaves a path that
+ * reads as unexpected although only the operation's own pending work is there. Such a path counts
+ * as before when it is one of these:
+ *
+ * - a file the record moves aside that is still in place, unchanged (same size and blob id as
+ *   recorded), and not yet in the kept folder
+ * - a folder that holds a file the record moves aside, when every file in it (tracked or
+ *   untracked, ignored ones included) is such a file or a path of the record that is not
+ *   unexpected; the folder may be empty once its files are moved
+ *
+ * Names are compared in lower case on a case-insensitive file system.
+ */
+async function explainPending(ports: EnginePorts, record: JournalRecord, paths: { path: string; part: Part }[]): Promise<{ path: string; part: Part }[]> {
+	const candidates = paths.filter(({ path, part }) => part === 'unexpected' && record.paths.find(plan => plan.path === path)?.before === null);
+	if (candidates.length === 0) {
+		return paths;
+	}
+	const caseInsensitive = await ports.files.caseInsensitive();
+	const key = (file: string) => caseInsensitive ? file.toLowerCase() : file;
+	const pending = new Set((await pendingKeptFiles(ports, record)).map(key));
+	const settled = new Set(paths.filter(({ part }) => part !== 'unexpected').map(({ path }) => key(path)));
+	const explained = new Set<string>();
+	for (const { path: file } of candidates) {
+		if (pending.has(key(file))) {
+			explained.add(file);
+			continue;
+		}
+		const holdsKept = record.keptMoves.some(move => key(move.from).startsWith(key(file) + '/'));
+		if (!holdsKept || !(await ports.files.lstat(file))?.isDirectory) {
+			continue;
+		}
+		const inside = splitZ((await mustGit(ports.git, [
+			'-C', ports.projectRoot, 'ls-files', '-z', '--cached', '--others', '--', `:(literal${caseInsensitive ? ',icase' : ''})${file}`,
+		])).stdout).filter(inner => key(inner) !== key(file));
+		if (inside.every(inner => pending.has(key(inner)) || settled.has(key(inner)))) {
+			explained.add(file);
+		}
+	}
+	return paths.map(entry => explained.has(entry.path) ? { ...entry, part: 'before' } : entry);
+}
+
+/** The `from` of each kept move of `record` whose file is still in place, unchanged, and not yet moved. */
+async function pendingKeptFiles(ports: EnginePorts, record: JournalRecord): Promise<string[]> {
+	const candidates: KeptMove[] = [];
+	for (const move of record.keptMoves) {
+		const info = await ports.files.lstat(move.from);
+		if (move.blob === null || info === undefined || info.isDirectory || info.sizeBytes !== move.sizeBytes || await ports.files.lstat(move.to) !== undefined) {
+			continue;
+		}
+		candidates.push(move);
+	}
+	if (candidates.length === 0) {
+		return [];
+	}
+	const entries = await readDiskEntries(ports, candidates.map(move => ({ path: move.from, before: null, after: null, beforeMode: null, afterMode: null })));
+	return candidates
+		.filter(move => {
+			const entry = entries.get(move.from);
+			return entry !== null && entry !== undefined && entry !== 'other' && entry.blob === move.blob;
+		})
+		.map(move => move.from);
 }
 
 /** Classifies each path of `plans` by what is on disk now (see `readDiskEntries`). */

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import * as fsp from 'fs/promises';
-import { acquireLock, engineDirectory, JournalRecord, readRecords } from './journal';
+import { acquireLock, engineDirectory, JournalRecord, readRecords, writeRecord } from './journal';
 import { EnginePorts, GitRunner } from './ports';
 import { listRecoverySnapshots, recoverOnStart, removeRecoverySnapshot, resolveInterrupted } from './recovery';
 import { runOperation } from './runOperation';
@@ -275,6 +275,56 @@ describe('recoverOnStart', () => {
 		expect(await refExists(repo, `${RECOVERY_REF_PREFIX}op-1`)).toBe(true);
 		expect(await resolveInterrupted(repo.ports, 'reverse-keep-newer')).toEqual({ kind: 'done', operationId: 'op-1', hookEditedFiles: [] });
 		expect(await projectState(repo)).toEqual(before);
+	});
+	test('an interrupted record whose branch is at neither commit reports unrecovered', async () => {
+		const repo = await create();
+		// A crash before the branch step, so the engine never moved the branch.
+		const { a } = await crash(repo, /^read-tree /);
+		await repo.write('a.txt', 'edited after the crash\n');
+		expect((await recoverOnStart(repo.ports)).interrupted).toBeDefined();
+		expect((await readRecords(repo.ports))[0].progress.some(entry => entry.step === 'branch')).toBe(false);
+		await must(repo, ['update-ref', 'refs/heads/main', await must(repo, ['commit-tree', `${a}^{tree}`, '-p', a, '-m', 'Elsewhere'])]);
+		const found = await projectState(repo);
+
+		const outcome = await recoverOnStart(repo.ports);
+
+		expect(outcome.interrupted).toBeUndefined();
+		expect(outcome.unrecovered).toContain(`${RECOVERY_REF_PREFIX}op-1`);
+		expect(await projectState(repo)).toEqual(found);
+		expect((await readRecords(repo.ports))[0].status).toBe('interrupted');
+	});
+
+	test('a backup folder a crash left behind a decided record is removed, and one of an interrupted record is kept', async () => {
+		const repo = await create();
+		const { plan } = await referenceProject(repo);
+		expect((await runOperation(repo.ports, plan)).kind).toBe('done');
+		const engine = await engineDirectory(repo.ports);
+		await fsp.mkdir(`${engine}/backup/op-1`, { recursive: true });
+		await fsp.writeFile(`${engine}/backup/op-1/a.txt`, 'one\n');
+		await writeRecord(repo.ports, { ...(await readRecords(repo.ports))[0], id: 'op-9', status: 'interrupted' });
+		await fsp.mkdir(`${engine}/backup/op-9`, { recursive: true });
+		await fsp.writeFile(`${engine}/backup/op-9/a.txt`, 'one\n');
+
+		await recoverOnStart(repo.ports);
+
+		expect(await fsp.stat(`${engine}/backup/op-1`).catch(() => undefined)).toBeUndefined();
+		expect(await fsp.readFile(`${engine}/backup/op-9/a.txt`, 'utf8')).toBe('one\n');
+	});
+
+	test('a record waiting for approval needs no recovery and is left as it is', async () => {
+		const repo = await create();
+		const { plan } = await referenceProject(repo);
+		const found = await projectState(repo);
+		await writeRecord(repo.ports, {
+			id: 'pending', kind: 'create-checkpoints', description: 'Create', time: '2026-01-01T00:00:00.000Z', branch: 'main',
+			before: plan.expected, after: plan.after, paths: [], skipped: [], keptMoves: [], progress: [], status: 'pending-approval',
+		});
+
+		expect(await recoverOnStart(repo.ports)).toEqual({});
+
+		expect(await projectState(repo)).toEqual(found);
+		expect((await readRecords(repo.ports))[0].status).toBe('pending-approval');
+		expect(await refExists(repo, `${RECOVERY_REF_PREFIX}pending`)).toBe(false);
 	});
 });
 

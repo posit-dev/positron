@@ -8,8 +8,8 @@ import * as path from 'path';
 import { findCollisions, keptPath, moveAside, moveBack } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
-	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, Part, PathPlan,
-	Progress, readBranch, readIndexTree, readRecords, setStatus, TriState, writeRecord,
+	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, KeptMove, Part, PathPlan,
+	Progress, readBranch, readDiskEntries, readIndexTree, readRecords, setStatus, TriState, writeRecord,
 } from './journal';
 import { EnginePorts } from './ports';
 import { RECOVERY_REF_PREFIX, saveSnapshot, SNAPSHOT_REF_PREFIX, STAGING_TIMEOUT_MS } from './trees';
@@ -91,9 +91,13 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 			await removeSnapshot(ports, id);
 			return { kind: 'path-collisions', collisions: unanswered };
 		}
-		const keptMoves: { from: string; to: string }[] = [];
+		// The size and blob id of each file to move aside let recovery tell that it is unchanged.
+		const disk = await readDiskEntries(ports, collisions.map(collision => ({ path: collision.path, before: null, after: null, beforeMode: null, afterMode: null })));
+		const keptMoves: KeptMove[] = [];
 		for (const collision of collisions) {
-			keptMoves.push({ from: collision.path, to: await keptPath(ports, id, collision.path) });
+			const entry = disk.get(collision.path);
+			const blob = entry !== null && entry !== undefined && entry !== 'other' ? entry.blob : null;
+			keptMoves.push({ from: collision.path, to: await keptPath(ports, id, collision.path), sizeBytes: collision.sizeBytes, blob });
 		}
 		record = {
 			id, kind: plan.kind, description: plan.description, time: ports.now().toISOString(), branch,

@@ -21,6 +21,12 @@ export interface GitOptions {
 export type GitRunner = (args: string[], options?: GitOptions) => Promise<GitResult>;
 export interface FilePort {
 	read(path: string): Promise<Uint8Array | undefined>;
+	/**
+	 * Replaces whatever file or link is at `path` with a new file: the content goes to a new file
+	 * beside it, which is renamed over `path`, so another name of the old file keeps the old
+	 * content. An existing file's permission bits are kept, apart from the executable bit; a new
+	 * file follows the umask.
+	 */
 	write(path: string, content: Uint8Array, executable: boolean): Promise<void>;
 	/**
 	 * Creates a symbolic link to `target` at `path`, only when nothing exists at `path`. Returns

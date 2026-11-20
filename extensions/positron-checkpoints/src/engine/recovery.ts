@@ -26,8 +26,8 @@ export interface RecoveryOutcome {
  * (`refs/positron-checkpoints/recovery/<id>`, unless it exists), so nothing is written to the
  * project before it exists. Then it classifies the record:
  *
- * - The branch is at neither commit (for an `interrupted` record, only when the engine may have
- *   moved it): nothing is written and the record stays as it is; `unrecovered` names the refs.
+ * - The branch is at neither commit: nothing is written and the record stays as it is;
+ *   `unrecovered` names the refs.
  * - Any path or the index is "unexpected", or the record is `interrupted` (a live reversal that
  *   could not finish): nothing is written, the record becomes `interrupted`, and it is reported
  *   through `interrupted`. Only `resolveInterrupted` resolves it.
@@ -37,6 +37,11 @@ export interface RecoveryOutcome {
  *
  * A failed step gives `unrecovered`. When another window holds the engine lock, that window
  * owns the journal, and nothing is done.
+ *
+ * A record with status `pending-approval` needs no recovery: its candidate commit exists only in
+ * the object database and nothing visible changed, so it is left as it is. A record that is
+ * `complete`, `rolled-back`, or `abandoned` no longer needs its backup folder; a folder a crash
+ * left behind is removed.
  */
 export async function recoverOnStart(ports: EnginePorts): Promise<RecoveryOutcome> {
 	const lock = await acquireLock(ports);
@@ -46,6 +51,10 @@ export async function recoverOnStart(ports: EnginePorts): Promise<RecoveryOutcom
 	try {
 		const outcome: RecoveryOutcome = {};
 		for (const record of await readRecords(ports)) {
+			if (record.status === 'complete' || record.status === 'rolled-back' || record.status === 'abandoned') {
+				await removeOrphanBackups(ports, record.id);
+				continue;
+			}
 			if (record.status !== 'prepared' && record.status !== 'interrupted') {
 				continue;
 			}
@@ -64,8 +73,7 @@ async function recoverRecord(ports: EnginePorts, record: JournalRecord): Promise
 	try {
 		await saveRecoverySnapshot(ports, record);
 		const classification = await classify(ports, record);
-		const branchMayBeOurs = record.status === 'prepared' || record.progress.some(entry => entry.step === 'branch');
-		if (classification.branch === 'unexpected' && branchMayBeOurs) {
+		if (classification.branch === 'unexpected') {
 			return { unrecovered: unrecoveredDetail(record, `The branch ${record.branch} is at neither the commit before nor the commit after the action.`) };
 		}
 		const unexpectedPaths = classification.paths.filter(({ part }) => part === 'unexpected').map(({ path }) => path);
@@ -95,6 +103,14 @@ async function recoverRecord(ports: EnginePorts, record: JournalRecord): Promise
 		};
 	} catch (error) {
 		return { unrecovered: unrecoveredDetail(record, `Recovery stopped: ${error instanceof Error ? error.message : String(error)}.`) };
+	}
+}
+
+/** Removes the backup folder of a decided operation, when a crash left one. */
+async function removeOrphanBackups(ports: EnginePorts, id: string): Promise<void> {
+	const folder = await backupDirectory(ports, id);
+	if (await ports.files.lstat(folder) !== undefined) {
+		await ports.files.remove(folder).catch(() => undefined);
 	}
 }
 

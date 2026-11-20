@@ -193,6 +193,15 @@ describe('createNodeFilePort', () => {
 			expect((await fsp.stat(path.join(root, 'new.sh'))).mode & 0o777).toBe(0o700);
 		});
 
+		test('write replaces the file, so another name of the old file keeps the old content', async () => {
+			await fsp.writeFile(path.join(root, 'file.txt'), 'old');
+			await fsp.link(path.join(root, 'file.txt'), path.join(root, 'backup.txt'));
+			await files.write('file.txt', new TextEncoder().encode('new'), false);
+			expect(await fsp.readFile(path.join(root, 'file.txt'), 'utf8')).toBe('new');
+			expect(await fsp.readFile(path.join(root, 'backup.txt'), 'utf8')).toBe('old');
+			expect((await fsp.readdir(root)).sort()).toEqual(['backup.txt', 'file.txt']);
+		});
+
 		test('createLinkExclusive creates a link only when nothing exists at the path', async () => {
 			expect(await files.createLinkExclusive('link', 'a.txt')).toBe(true);
 			expect(await fsp.readlink(path.join(root, 'link'))).toBe('a.txt');

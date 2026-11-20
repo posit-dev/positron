@@ -108,7 +108,7 @@ describe('runOperation', () => {
 		// b.txt was written before core.autocrlf was set, so git checkout would give it other bytes.
 		expect(await checkedOut(failed.repo, failed.a, 'b.txt')).toBe('bee\r\n');
 		expect(await failed.repo.read('b.txt')).toBe('bee\n');
-	});
+	}, 20_000); // Two full operations; under a loaded test run this exceeds the default limit.
 
 	test('a file with a clean and smudge filter is written smudged and reads as its blob', async () => {
 		const repo = await create();
