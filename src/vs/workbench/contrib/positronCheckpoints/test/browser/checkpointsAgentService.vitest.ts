@@ -16,7 +16,7 @@ import { IHeadlessLanguageModelService, IStreamTextRequest, StreamTextResult } f
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { CheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CHECKPOINTS_MODEL_KEY, CHECKPOINTS_SUGGESTIONS_ENABLED_KEY } from '../../common/checkpointsConfiguration.js';
-import { Job } from '../../common/agent/jobTypes.js';
+import { Job, wrapUntrusted } from '../../common/agent/jobTypes.js';
 
 /** A job whose answer must be an object with a string `title`. */
 const titleJob: Job<string, { title: string }> = {
@@ -114,6 +114,14 @@ describe('CheckpointsAgentService', () => {
 		// A new service reads the same workspace storage, as after the view is opened again.
 		const reopened = createService();
 		expect(await reopened.run(titleJob, 'diff', none)).toEqual({ ok: true, value: { title: 'Fixed the dose units' }, fromCache: true });
+		expect(streamText).toHaveBeenCalledTimes(1);
+	});
+
+	test('a job that wraps its data is answered from the cache the second time', async () => {
+		const wrappingJob: Job<string, { title: string }> = { ...titleJob, name: 'wrapping', buildPrompt: input => ({ systemPrompt: 'Write a title.', user: wrapUntrusted('the changes', input) }) };
+
+		expect((await service.run(wrappingJob, 'diff', none)).ok).toBe(true);
+		expect(await service.run(wrappingJob, 'diff', none)).toEqual({ ok: true, value: { title: 'Fixed the dose units' }, fromCache: true });
 		expect(streamText).toHaveBeenCalledTimes(1);
 	});
 

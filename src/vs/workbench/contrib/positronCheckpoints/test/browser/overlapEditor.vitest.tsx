@@ -7,10 +7,13 @@
 
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IFileContent, IFileService } from '../../../../../platform/files/common/files.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
@@ -24,10 +27,14 @@ import { ICheckpointsService } from '../../../../services/positronCheckpoints/co
 import { IOverlap, OverlapKind } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
+import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { keepBothText, proposedName, sanitizeNameLabel } from '../../browser/overlapEditor/overlapChoices.js';
 import { OverlapEditorView } from '../../browser/overlapEditor/overlapEditor.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { ICombinationProposal } from '../../common/agent/proposeCombination.js';
+import { JobOutcome } from '../../common/agent/jobTypes.js';
+import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 function overlap(id: string, kind: OverlapKind, overrides: Partial<IOverlap> = {}): IOverlap {
@@ -58,6 +65,8 @@ const kinds = Object.keys(examples) as OverlapKind[];
 describe('Overlap editor', () => {
 	const executeCommand = vi.fn(async () => undefined);
 	const onClose = vi.fn();
+	/** The working files, by path. A file not here cannot be read. */
+	const files = new Map<string, string>();
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -65,6 +74,16 @@ describe('Overlap editor', () => {
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies(): IWorkingCopy[] { return []; } })
 		.stub(IUriIdentityService, { extUri })
 		.stub(IDialogService, {})
+		.stub(IFileService, {
+			readFile: async (resource: URI) => {
+				const text = files.get(resource.path);
+				if (text === undefined) {
+					throw new Error(`not found: ${resource.path}`);
+				}
+				return stubInterface<IFileContent>({ value: VSBuffer.fromString(text) });
+			},
+		})
+		.stub(ILanguageService, { guessLanguageIdByFilepathOrFirstLine: (resource: URI) => resource.path.endsWith('.R') ? 'r' : null })
 		// The editor service owns the inputs it opens, so the stub hands each one to the test, which disposes it at the end.
 		.stub(IEditorService, { openEditor: async (input: EditorInput) => { ctx.disposables.add(input); return undefined; } })
 		.stub(IWorkspaceContextService, {
@@ -75,10 +94,15 @@ describe('Overlap editor', () => {
 
 	let engine: FakeCheckpointsEngine;
 	let controller: SyncController;
+	let agent: FakeCheckpointsAgentService;
 
 	beforeEach(() => {
 		executeCommand.mockClear();
 		onClose.mockClear();
+		files.clear();
+		// Off unless a test turns it on, so only the manual choices show.
+		agent = ctx.disposables.add(new FakeCheckpointsAgentService(false));
+		ctx.instantiationService.stub(ICheckpointsAgentService, agent);
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
@@ -229,6 +253,167 @@ describe('Overlap editor', () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 		expect(controller.resolutions.size).toBe(0);
 		expect(engine.callsOf('getIncoming')).toEqual([]);
+	});
+
+	describe('proposed combination', () => {
+		const dose = overlap('dose', 'text', { base: 'cap <- 450\nunits <- "mg"\n', mine: 'cap <- 500\nunits <- "mg"\n', theirs: 'cap <- 450\nunits <- "mg/kg"\n' });
+		const combined = 'cap <- 500\nunits <- "mg/kg"\n';
+
+		function proposal(confidence: 'high' | 'low'): JobOutcome<ICombinationProposal> {
+			return {
+				ok: true,
+				value: { mineDid: 'raised the cap to 500', theirsDid: 'changed the units to mg/kg', combined, confidence, reason: 'The two changes are on different lines.' },
+				fromCache: false,
+			};
+		}
+
+		test('high confidence preselects the proposal and still needs Apply', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			const user = await renderEditor([dose]);
+
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+			expect(screen.getByText('You: raised the cap to 500')).toBeInTheDocument();
+			expect(screen.getByText('Maya: changed the units to mg/kg')).toBeInTheDocument();
+			expect(screen.getByText('Suggested combination').nextSibling).toHaveTextContent('cap <- 500 units <- "mg/kg"');
+			expect(screen.getByRole('textbox', { name: 'Combined text' })).toHaveValue(combined);
+			expect(screen.queryByRole('radio', { name: 'Keep mine' })).not.toBeInTheDocument();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: combined });
+			expect(engine.callsOf('getIncoming')).toEqual([]);
+
+			await user.click(applyButton());
+
+			await vi.waitFor(() => expect(engine.callsOf('getIncoming')).toEqual([['b1', [{ overlapId: 'dose', choice: { type: 'text', content: combined } }], []]]));
+		});
+
+		test('low confidence opens the manual choices with the reason', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('low'));
+			const user = await renderEditor([dose]);
+
+			expect(await screen.findByText('This suggestion may not be right, so nothing is selected.')).toBeInTheDocument();
+			expect(screen.getByText('The two changes are on different lines.')).toBeInTheDocument();
+			expect(screen.getByRole('radio', { name: 'Keep mine' })).not.toBeChecked();
+			expect(controller.resolutions.has('dose')).toBe(false);
+			expect(applyButton()).toBeDisabled();
+
+			await user.click(screen.getByRole('button', { name: 'Accept' }));
+
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: combined });
+			expect(engine.callsOf('getIncoming')).toEqual([]);
+		});
+
+		test('Choose myself discards the proposal', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			const user = await renderEditor([dose]);
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+
+			await user.click(screen.getByRole('button', { name: 'Choose myself' }));
+
+			expect(screen.queryByText('Suggested combination selected. Review it before you apply.')).not.toBeInTheDocument();
+			expect(screen.queryByText('You: raised the cap to 500')).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+			expect(controller.resolutions.has('dose')).toBe(false);
+			expect(applyButton()).toBeDisabled();
+			await user.click(screen.getByRole('radio', { name: 'Keep Maya\'s' }));
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
+		});
+
+		test('ai off shows only the manual choices', async () => {
+			agent.answers.set('propose-combination', proposal('high'));
+			await renderEditor([dose]);
+
+			expect(screen.getByRole('radio', { name: 'Keep mine' })).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+			expect(screen.queryByText(/suggest/i)).not.toBeInTheDocument();
+			expect(agent.runs).toEqual([]);
+			expect(controller.resolutions.size).toBe(0);
+		});
+
+		test('while the proposal loads, the manual choices work', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('propose-combination');
+			const user = await renderEditor([dose]);
+
+			expect(await screen.findByText('Preparing a suggested combination...')).toBeInTheDocument();
+			await user.click(screen.getByRole('radio', { name: 'Keep mine' }));
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'mine' });
+
+			answer(proposal('high'));
+
+			expect(await screen.findByText('A suggested combination is ready. Your choice is unchanged.')).toBeInTheDocument();
+			expect(screen.getByText('You: raised the cap to 500')).toBeInTheDocument();
+			expect(screen.getByRole('radio', { name: 'Keep mine' })).toBeChecked();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'mine' });
+		});
+
+		test('a choice made just before a high confidence proposal arrives is kept', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('propose-combination');
+			await renderEditor([dose]);
+			await vi.waitFor(() => expect(agent.runsOf('propose-combination')).toHaveLength(1));
+
+			controller.setChoice('dose', { type: 'take', side: 'theirs' });
+			answer(proposal('high'));
+
+			expect(await screen.findByText('A suggested combination is ready. Your choice is unchanged.')).toBeInTheDocument();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
+		});
+
+		test('Edit selects the proposal and puts the cursor in the combined text', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('low'));
+			const user = await renderEditor([dose]);
+
+			await user.click(await screen.findByRole('button', { name: 'Edit' }));
+
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: combined });
+			expect(screen.getByRole('textbox', { name: 'Combined text' })).toHaveFocus();
+		});
+
+		test('the request reads the context from the working file and the language from its name', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			files.set('/work/dose-model/dose.R', 'library(ggplot2)\ncap <- 500\nunits <- "mg"\nplot(dose)\n');
+			await renderEditor([dose, examples.binary]);
+
+			await vi.waitFor(() => expect(agent.runsOf('propose-combination')).toHaveLength(1));
+			expect(agent.runs.map(run => run.input)).toEqual([{ overlap: dose, contextBefore: 'library(ggplot2)\n', contextAfter: 'plot(dose)\n', language: 'r' }]);
+		});
+
+		test('a working file that cannot be read gives no context', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			await renderEditor([dose]);
+
+			await vi.waitFor(() => expect(agent.runsOf('propose-combination')).toHaveLength(1));
+			expect(agent.runs[0].input).toEqual({ overlap: dose, contextBefore: '', contextAfter: '', language: 'r' });
+		});
+
+		test('a failed job leaves only the manual choices', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', { ok: false, reason: 'failed-check', detail: 'rejected' });
+			await renderEditor([dose]);
+
+			await vi.waitFor(() => expect(agent.runsOf('propose-combination')).toHaveLength(1));
+			await vi.waitFor(() => expect(screen.queryByText('Preparing a suggested combination...')).not.toBeInTheDocument());
+			expect(screen.getByRole('radio', { name: 'Keep mine' })).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+		});
+
+		test('Back out after a preselected proposal leaves the project unchanged', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('propose-combination', proposal('high'));
+			const user = await renderEditor([dose]);
+			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
+
+			await user.click(screen.getByRole('button', { name: 'Back out' }));
+
+			expect(controller.resolutions.size).toBe(0);
+			expect(engine.callsOf('getIncoming')).toEqual([]);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	test('keep both puts mine first and proposes a name beside the original', () => {

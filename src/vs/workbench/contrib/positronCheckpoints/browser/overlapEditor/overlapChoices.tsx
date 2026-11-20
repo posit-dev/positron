@@ -3,27 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IOverlap, OverlapChoice } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { CombinationProposalState, useCombinationProposal } from './useCombinationProposal.js';
 
 /** The command that opens the Source Control view. */
 const OPEN_SOURCE_CONTROL_COMMAND_ID = 'workbench.view.scm';
-
-/**
- * A combined text that the agent proposes for a text overlap, with what each person did. The
- * agent adds it in a later piece; the manual choices work without it.
- */
-export interface ICombinationProposal {
-	mineDid: string;
-	theirsDid: string;
-	combined: string;
-	confidence: 'high' | 'low';
-	reason: string;
-}
 
 /** What every overlap section receives. */
 export interface IOverlapChoicesProps {
@@ -100,20 +89,24 @@ function explain(overlap: IOverlap): string {
 	}
 }
 
-/** One overlap in the overlap editor: its title, its explanation, and its choices. */
-export const OverlapSection = (props: IOverlapChoicesProps & { proposal?: ICombinationProposal }) => {
+/**
+ * One overlap in the overlap editor: its title, its explanation, and its choices. A text overlap
+ * also gets a combined text proposed by the agent while the agent is available.
+ */
+export const OverlapSection = ({ readChoice, ...props }: IOverlapChoicesProps & { readChoice(): OverlapChoice | undefined }) => {
 	const headingId = `checkpoints-overlap-${props.overlap.id}`;
+	const proposal = useCombinationProposal(props.overlap, readChoice, props.onChoose);
 	return (
 		<section aria-labelledby={headingId} className='checkpoints-overlap'>
 			<h3 className='checkpoints-heading' id={headingId}>{Strings.overlaps.title(props.overlap.path)}</h3>
 			<p>{explain(props.overlap)}</p>
-			<OverlapChoices {...props} />
+			<OverlapChoices {...props} proposal={proposal} />
 		</section>
 	);
 };
 
 /** The choices the kind of an overlap allows (spec 6.4), with the same labels for every kind. */
-export const OverlapChoices = (props: IOverlapChoicesProps & { proposal?: ICombinationProposal }) => {
+export const OverlapChoices = (props: IOverlapChoicesProps & { proposal?: CombinationProposalState }) => {
 	switch (props.overlap.kind) {
 		case 'text':
 			return <TextOverlapChoices {...props} />;
@@ -139,19 +132,58 @@ const Choice = (props: { overlapId: string; label: string; checked: boolean; onS
 );
 
 interface ITextOverlapChoicesProps extends IOverlapChoicesProps {
-	/** A combined text proposed by the agent. Not shown yet. */
-	proposal?: ICombinationProposal;
+	/** The combined text proposed by the agent, if one is requested. */
+	proposal?: CombinationProposalState;
 }
 
 /**
  * A text overlap: mine and theirs side by side, "Keep mine", "Keep theirs", "Keep both", and the
  * resulting text, which the person can edit.
+ *
+ * With a proposal from the agent, the section also shows what each person did and the proposed
+ * text beside both versions, with Accept, Edit, and "Choose myself". A proposal that became the
+ * choice as it arrived (high confidence, no choice yet) hides the manual choices and says that it
+ * is selected; "Choose myself" discards it and opens them. A low confidence proposal, or one that
+ * arrived after the person chose, shows beside the manual choices and selects nothing. Apply in
+ * the editor stays a separate click in every case.
  */
-const TextOverlapChoices = ({ overlap, choice, onChoose }: ITextOverlapChoicesProps) => {
+const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverlapChoicesProps) => {
 	const mine = overlap.mine ?? '';
 	const theirs = overlap.theirs ?? '';
 	const both = keepBothText(mine, theirs);
 	const [emptied, setEmptied] = useState(false);
+	const [discarded, setDiscarded] = useState(false);
+	const resultRef = useRef<HTMLTextAreaElement>(null);
+
+	const ready = proposal?.status === 'ready' && !discarded ? proposal : undefined;
+	const proposalIsChoice = ready !== undefined && choice?.type === 'text' && choice.content === ready.proposal.combined;
+	const showManual = ready === undefined || ready.proposal.confidence === 'low' || !ready.preselected;
+
+	const acceptProposal = () => {
+		if (ready) {
+			setEmptied(false);
+			onChoose({ type: 'text', content: ready.proposal.combined });
+		}
+	};
+	const editProposal = () => {
+		acceptProposal();
+		resultRef.current?.focus();
+	};
+	const chooseMyself = () => {
+		setDiscarded(true);
+		if (proposalIsChoice) {
+			onChoose(undefined);
+		}
+	};
+
+	let proposalNote: string | undefined;
+	if (ready?.proposal.confidence === 'low') {
+		proposalNote = Strings.overlaps.proposalUncertain();
+	} else if (ready && !ready.preselected) {
+		proposalNote = Strings.overlaps.proposalBesideChoice();
+	} else if (proposalIsChoice) {
+		proposalNote = Strings.overlaps.proposalSelected();
+	}
 	// An empty result is a real answer only when one of the three versions is empty too.
 	const emptyAllowed = (overlap.base ?? '') === '' || mine === '' || theirs === '';
 
@@ -179,15 +211,37 @@ const TextOverlapChoices = ({ overlap, choice, onChoose }: ITextOverlapChoicesPr
 					<figcaption>{Strings.overlaps.theirsLabel(overlap.theirAuthor)}</figcaption>
 					<pre>{theirs}</pre>
 				</figure>
+				{ready && (
+					<figure className='checkpoints-overlap-proposed'>
+						<figcaption>{Strings.overlaps.proposalLabel()}</figcaption>
+						<pre>{ready.proposal.combined}</pre>
+					</figure>
+				)}
 			</div>
-			<div aria-label={Strings.overlaps.choicesFor(overlap.path)} className='checkpoints-overlap-choices' role='radiogroup'>
-				<Choice checked={choice?.type === 'take' && choice.side === 'mine'} label={Strings.overlaps.keepMine()} overlapId={overlap.id} onSelect={() => onChoose({ type: 'take', side: 'mine' })} />
-				<Choice checked={choice?.type === 'take' && choice.side === 'theirs'} label={Strings.overlaps.keepTheirs(overlap.theirAuthor)} overlapId={overlap.id} onSelect={() => onChoose({ type: 'take', side: 'theirs' })} />
-				<Choice checked={choice?.type === 'text' && choice.content === both} label={Strings.overlaps.keepBoth()} overlapId={overlap.id} onSelect={() => onChoose({ type: 'text', content: both })} />
-			</div>
+			{proposal?.status === 'loading' && <p className='checkpoints-note' role='status'>{Strings.overlaps.proposalLoading()}</p>}
+			{ready && (
+				<div className='checkpoints-overlap-proposal'>
+					<p>{Strings.overlaps.youDid(ready.proposal.mineDid)}</p>
+					<p>{Strings.overlaps.authorDid(overlap.theirAuthor, ready.proposal.theirsDid)}</p>
+					{proposalNote !== undefined && <p className='checkpoints-note' role='status'>{proposalNote}</p>}
+					{ready.proposal.confidence === 'low' && <p className='checkpoints-file-note'>{ready.proposal.reason}</p>}
+					<div className='checkpoints-overlap-proposal-actions'>
+						<Button className='checkpoints-button' onPressed={acceptProposal}>{Strings.overlaps.accept()}</Button>
+						<Button className='checkpoints-button' onPressed={editProposal}>{Strings.overlaps.edit()}</Button>
+						<Button className='checkpoints-button' onPressed={chooseMyself}>{Strings.overlaps.chooseMyself()}</Button>
+					</div>
+				</div>
+			)}
+			{showManual && (
+				<div aria-label={Strings.overlaps.choicesFor(overlap.path)} className='checkpoints-overlap-choices' role='radiogroup'>
+					<Choice checked={choice?.type === 'take' && choice.side === 'mine'} label={Strings.overlaps.keepMine()} overlapId={overlap.id} onSelect={() => onChoose({ type: 'take', side: 'mine' })} />
+					<Choice checked={choice?.type === 'take' && choice.side === 'theirs'} label={Strings.overlaps.keepTheirs(overlap.theirAuthor)} overlapId={overlap.id} onSelect={() => onChoose({ type: 'take', side: 'theirs' })} />
+					<Choice checked={choice?.type === 'text' && choice.content === both} label={Strings.overlaps.keepBoth()} overlapId={overlap.id} onSelect={() => onChoose({ type: 'text', content: both })} />
+				</div>
+			)}
 			<label className='checkpoints-overlap-result'>
 				<span>{Strings.overlaps.combinedText()}</span>
-				<textarea rows={8} value={result} onChange={e => editResult(e.target.value)} />
+				<textarea ref={resultRef} rows={8} value={result} onChange={e => editResult(e.target.value)} />
 			</label>
 			{emptied && choice === undefined && <p className='checkpoints-overlap-error' role='alert'>{Strings.overlaps.combinedTextEmpty()}</p>}
 		</div>

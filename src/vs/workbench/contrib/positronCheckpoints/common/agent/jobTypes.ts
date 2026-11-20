@@ -119,6 +119,17 @@ function matchingBrace(text: string, start: number): number | undefined {
 	return undefined;
 }
 
+/** The marker lines of `wrapUntrusted`, with their random token. */
+const DATA_MARKER = /\b(?<edge>BEGIN|END)-DATA-[0-9a-f]{32}\b/g;
+
+/**
+ * `text` with the random token of every `wrapUntrusted` marker line removed, so that two prompts
+ * built from the same content compare equal.
+ */
+export function withoutDataTokens(text: string): string {
+	return text.replace(DATA_MARKER, '$<edge>-DATA');
+}
+
 /**
  * Puts content from the person's project between two marker lines with a random token that does
  * not occur in the content, so the content cannot close the block early. A sentence before the

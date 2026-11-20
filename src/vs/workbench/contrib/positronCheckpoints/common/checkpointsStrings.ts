@@ -367,6 +367,18 @@ const overlaps = {
 	chooseEach: () => localize('positron.checkpoints.overlaps.chooseEach', "Choose what to keep for every overlap, then apply your choices. Nothing changes in your project until then."),
 	none: () => localize('positron.checkpoints.overlaps.none', "There are no overlaps to choose for."),
 	editorLabel: () => localize('positron.checkpoints.overlaps.editorLabel', "Overlap Editor"),
+	proposalLoading: () => localize('positron.checkpoints.overlaps.proposalLoading', "Preparing a suggested combination..."),
+	proposalLabel: () => localize('positron.checkpoints.overlaps.proposalLabel', "Suggested combination"),
+	youDid: (what: string) => localize('positron.checkpoints.overlaps.youDid', "You: {0}", what),
+	authorDid: (author: string, what: string) => localize('positron.checkpoints.overlaps.authorDid', "{0}: {1}", author, what),
+	proposalSelected: () => localize('positron.checkpoints.overlaps.proposalSelected', "Suggested combination selected. Review it before you apply."),
+	proposalUncertain: () => localize('positron.checkpoints.overlaps.proposalUncertain', "This suggestion may not be right, so nothing is selected."),
+	proposalBesideChoice: () => localize('positron.checkpoints.overlaps.proposalBesideChoice', "A suggested combination is ready. Your choice is unchanged."),
+	accept: () => localize('positron.checkpoints.overlaps.accept', "Accept"),
+	edit: () => localize('positron.checkpoints.overlaps.edit', "Edit"),
+	chooseMyself: () => localize('positron.checkpoints.overlaps.chooseMyself', "Choose myself"),
+	oneSideKept: () => localize('positron.checkpoints.overlaps.oneSideKept', "The suggestion keeps the changes of only one side."),
+	mostlyNewLines: () => localize('positron.checkpoints.overlaps.mostlyNewLines', "Most lines of the suggestion are in neither version."),
 };
 
 const start = {

@@ -36,7 +36,8 @@ interface IOverlapEditorViewProps {
 /**
  * The content of the overlap editor: one section per overlap, "Apply Choices", and "Back out".
  * Apply is enabled when every overlap has a choice and none needs a git tool. Back out forgets
- * the choices and closes the editor without touching the project.
+ * the choices and closes the editor without touching the project. A combined text proposed by
+ * the agent can become a choice, and is applied only when the person presses Apply.
  */
 export const OverlapEditorView = ({ controller, onClose }: IOverlapEditorViewProps) => {
 	const [, setVersion] = useState(0);
@@ -75,6 +76,7 @@ export const OverlapEditorView = ({ controller, onClose }: IOverlapEditorViewPro
 					key={overlap.id}
 					choice={controller.resolutions.get(overlap.id)}
 					overlap={overlap}
+					readChoice={() => controller.resolutions.get(overlap.id)}
 					onChoose={choice => controller.setChoice(overlap.id, choice)}
 				/>
 			))}

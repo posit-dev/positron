@@ -103,6 +103,13 @@ describe('cacheKey', () => {
 		expect(cacheKey(titleJob, [], 's2', 'u')).not.toBe(base);
 	});
 
+	test('ignores the tokens of wrapUntrusted, so the same content gives the same key', () => {
+		const key = (content: string) => cacheKey(titleJob, [], 's', `Describe this.\n${wrapUntrusted('the changes', content)}`);
+
+		expect(key('x <- 1')).toBe(key('x <- 1'));
+		expect(key('x <- 1')).not.toBe(key('x <- 2'));
+	});
+
 	test('works where crypto.subtle is undefined, as on a web origin that is not secure', () => {
 		const expected = cacheKey(titleJob, [], 's', 'u');
 		vi.stubGlobal('crypto', {});

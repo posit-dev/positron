@@ -102,6 +102,8 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		fileFolderExplain: [['Maya', 'out', 'me'], ['Maya', 'out', 'them']], unsupportedExplain: [['sub']], editorTitle: [['dose.R']], combinedText: [[]], mineLabel: [[]],
 		theirsLabel: [['Maya']], baseLabel: [[]], applyChoices: [[]], keepName: [['dose.R']], sizes: [['1 MB', 'Maya', '2 MB']],
 		newNameInvalid: [['plot.png']], mineNameLabel: [[]], copyNameLabel: [[]], combinedTextEmpty: [[]], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
+		proposalLoading: [[]], proposalLabel: [[]], youDid: [['raised the cap']], authorDid: [['Maya', 'changed the units']], proposalSelected: [[]],
+		proposalUncertain: [[]], proposalBesideChoice: [[]], accept: [[]], edit: [[]], chooseMyself: [[]], oneSideKept: [[]], mostlyNewLines: [[]],
 	},
 	start: {
 		dialogTitle: [[]], intro: [[]], startButton: [[]], identityWhy: [[]], nameLabel: [[]], emailLabel: [[]], emailInvalid: [[]],

@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { StringSHA1 } from '../../../../../base/common/hash.js';
 import { ModelSelection, StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { ILanguageModelMessage } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
-import { extractJson, Job, JobOutcome, STYLE_RULES } from './jobTypes.js';
+import { extractJson, Job, JobOutcome, STYLE_RULES, withoutDataTokens } from './jobTypes.js';
 
 // The parts of running a job that need no services: the full system prompt, the cache key, the
 // response cache, and one model request with its checks. `ICheckpointsAgentService` adds the
@@ -33,12 +33,13 @@ export function fullSystemPrompt(jobSystemPrompt: string): string {
 /**
  * The cache key of a request: the job name and version, and a SHA-1 hash of the model setting,
  * the system prompt, and the user prompt. A change to any of them gives a new key, so a changed
- * model setting never answers with text from another model. The hash is computed synchronously,
- * so it works on every web origin.
+ * model setting never answers with text from another model. The random tokens of the
+ * `wrapUntrusted` marker lines are left out of the hash, so the same content gives the same key.
+ * The hash is computed synchronously, so it works on every web origin.
  */
 export function cacheKey(job: Job<unknown, unknown>, modelSetting: readonly string[] | undefined, systemPrompt: string, user: string): string {
 	const sha1 = new StringSHA1();
-	sha1.update(JSON.stringify([modelSetting ?? [], systemPrompt, user]));
+	sha1.update(JSON.stringify([modelSetting ?? [], withoutDataTokens(systemPrompt), withoutDataTokens(user)]));
 	return `${AGENT_STORAGE_PREFIX}.${job.name}.${job.version}.${sha1.digest()}`;
 }
 
