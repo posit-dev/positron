@@ -353,6 +353,19 @@ const overlaps = {
 	editorLabel: () => localize('positron.checkpoints.overlaps.editorLabel', "Overlap Editor"),
 };
 
+const start = {
+	dialogTitle: () => localize('positron.checkpoints.start.dialogTitle', "Start Keeping Checkpoints"),
+	intro: () => localize('positron.checkpoints.start.intro', "Checkpoints will keep a record of the files in this folder, starting with a first checkpoint of everything that is here now."),
+	startButton: () => localize('positron.checkpoints.start.startButton', "Start"),
+	identityWhy: () => localize('positron.checkpoints.start.identityWhy', "Checkpoints records who made each one."),
+	nameLabel: () => localize('positron.checkpoints.start.nameLabel', "Your name"),
+	emailLabel: () => localize('positron.checkpoints.start.emailLabel', "Your email address"),
+	emailInvalid: () => localize('positron.checkpoints.start.emailInvalid', "Enter an email address that contains @."),
+	leaveOut: () => localize('positron.checkpoints.start.leaveOut', "Leave these files out of checkpoints"),
+	leaveOutBox: () => localize('positron.checkpoints.start.leaveOutBox', "Files and folders to leave out, one per line"),
+	leaveOutHelp: () => localize('positron.checkpoints.start.leaveOutHelp', "These are files that data science projects usually do not keep, such as saved history and temporary files. You can change the list."),
+};
+
 const kept = {
 	heading: () => localize('positron.checkpoints.kept.heading', "Files kept aside"),
 	totalSize: (size: string) => localize('positron.checkpoints.kept.totalSize', "{0} in total. These files are in no checkpoint.", size),
@@ -429,6 +442,7 @@ export const Strings = {
 	collisions,
 	sync,
 	overlaps,
+	start,
 	kept,
 	unsaved: ServiceStrings.unsaved,
 	interrupted,

@@ -101,6 +101,10 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		theirsLabel: [['Maya']], baseLabel: [[]], applyChoices: [[]], keepName: [['dose.R']], sizes: [['1 MB', 'Maya', '2 MB']],
 		newNameInvalid: [['plot.png']], mineNameLabel: [[]], copyNameLabel: [[]], combinedTextEmpty: [[]], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
 	},
+	start: {
+		dialogTitle: [[]], intro: [[]], startButton: [[]], identityWhy: [[]], nameLabel: [[]], emailLabel: [[]], emailInvalid: [[]],
+		leaveOut: [[]], leaveOutBox: [[]], leaveOutHelp: [[]],
+	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],
 		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],

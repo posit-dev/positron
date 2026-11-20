@@ -18,6 +18,7 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { registerCheckpointsConfiguration } from '../common/checkpointsConfiguration.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { CheckpointsContentProvider } from './checkpointsContentProvider.js';
+import { SharedCopyChecker } from './sharedCopyChecker.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
 import { OverlapEditorPane } from './overlapEditor/overlapEditor.js';
 import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
@@ -61,6 +62,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 registerCheckpointsConfiguration();
 
 registerWorkbenchContribution2(CheckpointsContentProvider.ID, CheckpointsContentProvider, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(SharedCopyChecker.ID, SharedCopyChecker, WorkbenchPhase.AfterRestored);
 
 // The overlap editor. Its input has no serializer, so it is not restored after a restart.
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(

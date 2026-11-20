@@ -5,8 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -44,9 +45,19 @@ describe('CheckpointsPanel', () => {
 		executeCommand.mockClear();
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
+		// PositronModalReactRenderer finds its container through this singleton.
+		PositronReactServices.services = ctx.reactServices;
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+	});
+
+	afterEach(async () => {
+		// A dialog renders through its own renderer, which outlives RTL's cleanup.
+		const cancel = screen.queryByRole('button', { name: 'Cancel' });
+		if (cancel) {
+			await userEvent.click(cancel);
+		}
 	});
 
 	/** Registers the fake engine and renders the panel. */
@@ -66,7 +77,11 @@ describe('CheckpointsPanel', () => {
 
 		await user.click(start);
 
-		expect(engine.callsOf('startTracking')).toEqual([[undefined, undefined]]);
+		const dialog = await screen.findByRole('dialog');
+		expect(engine.callsOf('startTracking')).toEqual([]);
+		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('startTracking')).toEqual([[undefined, '.Rhistory\n']]));
 	});
 
 	test.each(unusualKinds)('%s shows its sentence, disables actions, links to Source Control', async kind => {
@@ -186,7 +201,8 @@ describe('CheckpointsPanel', () => {
 		renderPanel();
 
 		await user.click(await screen.findByRole('button', { name: 'Start keeping checkpoints' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
-		expect(screen.getByRole('status')).toHaveTextContent('Another window is working on this project');
+		expect(await screen.findByRole('status')).toHaveTextContent('Another window is working on this project');
 	});
 });

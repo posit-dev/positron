@@ -129,3 +129,11 @@
 	white-space: pre-wrap;
 	font-family: var(--monaco-monospace-font);
 }
+
+.checkpoint-dialog-patterns textarea {
+	font-family: var(--monaco-monospace-font);
+}
+
+.checkpoint-dialog-patterns textarea:disabled {
+	opacity: 0.6;
+}

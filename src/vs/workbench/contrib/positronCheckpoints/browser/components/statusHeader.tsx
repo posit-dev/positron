@@ -3,12 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
-import { useRunAction } from './useRunAction.js';
+import { showStartTrackingDialog } from './startTrackingDialog.js';
 
 /** The command that opens the Source Control view. */
 const OPEN_SOURCE_CONTROL_COMMAND_ID = 'workbench.view.scm';
@@ -65,20 +64,13 @@ export function describeStatus(view: ICheckpointsViewState): IStatus | undefined
  */
 export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 	const services = usePositronReactServicesContext();
-	const runAction = useRunAction();
-	const [starting, setStarting] = useState(false);
 
 	const status = describeStatus(view);
 	const state = view.state;
 	const showProjectName = state?.tracking === 'tracking' && state.openedFolderIsInsideProject;
 
-	const start = async () => {
-		setStarting(true);
-		try {
-			await runAction('no-guard', engine => engine.startTracking());
-		} finally {
-			setStarting(false);
-		}
+	const start = () => {
+		showStartTrackingDialog({ identityMissing: state?.identityMissing ?? false });
 	};
 
 	const openSourceControl = () => {
@@ -94,7 +86,7 @@ export const StatusHeader = ({ view }: { view: ICheckpointsViewState }) => {
 				<p className='checkpoints-status-sentence'>{status.sentence}</p>
 			)}
 			{status?.action === 'start' && (
-				<Button className='checkpoints-button checkpoints-button-primary' disabled={starting} onPressed={start}>
+				<Button className='checkpoints-button checkpoints-button-primary' onPressed={start}>
 					{Strings.actions.startKeepingCheckpoints()}
 				</Button>
 			)}
