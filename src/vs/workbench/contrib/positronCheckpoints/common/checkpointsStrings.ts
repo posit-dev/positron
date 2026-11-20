@@ -158,6 +158,12 @@ const history = {
 	partialFiles: (files: string[]) => localize('positron.checkpoints.history.partialFiles', "Contains part of the changes to {0}", files.join(', ')),
 	returnedTo: (label: string) => localize('positron.checkpoints.history.returnedTo', "Returned to {0}", label),
 	loadMore: () => localize('positron.checkpoints.history.loadMore', "Show older checkpoints"),
+	showDetails: (title: string) => localize('positron.checkpoints.history.showDetails', "Show details of {0}", title),
+	editDialogTitle: () => localize('positron.checkpoints.history.editDialogTitle', "Edit Description"),
+	editSave: () => localize('positron.checkpoints.history.editSave', "Save"),
+	reverseDialogTitle: () => localize('positron.checkpoints.history.reverseDialogTitle', "Reverse This Checkpoint"),
+	reverseExplain: (title: string) => localize('positron.checkpoints.history.reverseExplain', "Reversing \"{0}\" creates a new checkpoint that makes the opposite change. The original checkpoint stays in the history.", title),
+	reverseConfirm: () => localize('positron.checkpoints.history.reverseConfirm', "Reverse"),
 };
 
 const resultSentences = {
@@ -355,6 +361,7 @@ const gitDetails = {
 	heading: () => localize('positron.checkpoints.gitDetails.heading', "Git details"),
 	commitId: () => localize('positron.checkpoints.gitDetails.commitId', "Commit id"),
 	branch: () => localize('positron.checkpoints.gitDetails.branch', "Branch"),
+	upstream: () => localize('positron.checkpoints.gitDetails.upstream', "Upstream"),
 	operationId: () => localize('positron.checkpoints.gitDetails.operationId', "Operation id"),
 	gitCommands: () => localize('positron.checkpoints.gitDetails.gitCommands', "Git operations this action ran"),
 	hookOutput: () => localize('positron.checkpoints.gitDetails.hookOutput', "Output of the project check"),

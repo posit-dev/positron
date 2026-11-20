@@ -126,3 +126,55 @@
 .positron-checkpoints .checkpoints-file-note {
 	color: var(--vscode-descriptionForeground);
 }
+
+.positron-checkpoints .checkpoints-history-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.positron-checkpoints .checkpoints-history-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size80);
+}
+
+.positron-checkpoints .checkpoints-history-title {
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+
+.positron-checkpoints .checkpoints-details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size60);
+	flex-basis: 100%;
+}
+
+.positron-checkpoints .checkpoints-details-body {
+	margin: 0;
+	white-space: pre-wrap;
+}
+
+.positron-checkpoints .checkpoints-details-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size120);
+}
+
+.positron-checkpoints .checkpoints-git-details {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: var(--vscode-spacing-size40) var(--vscode-spacing-size120);
+	margin: 0;
+}
+
+.positron-checkpoints .checkpoints-git-details dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}

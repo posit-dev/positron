@@ -74,7 +74,8 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	history: {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],
-		returnedTo: [['Tuesday\'s version']], loadMore: [[]],
+		returnedTo: [['Tuesday\'s version']], loadMore: [[]], showDetails: [['Fixed the plot']], editDialogTitle: [[]], editSave: [[]],
+		reverseDialogTitle: [[]], reverseExplain: [['Fixed the plot']], reverseConfirm: [[]],
 	},
 	results: {
 		checkFailed: [[]], checkChangedCheckpoint: [[]], checkChangedFilesOnDisk: [[1], [2]], createAgain: [[]], couldNotFinish: [[]],

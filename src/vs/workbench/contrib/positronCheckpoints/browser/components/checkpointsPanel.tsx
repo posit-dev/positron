@@ -6,6 +6,7 @@
 import '../media/positronCheckpoints.css';
 
 import { ChangesSection } from './changesSection.js';
+import { HistorySection } from './historySection.js';
 import { StatusHeader } from './statusHeader.js';
 import { useCheckpointsState } from './useCheckpointsState.js';
 import { useCheckpointsMessage } from './useRunAction.js';
@@ -33,7 +34,7 @@ export const CheckpointsPanel = () => {
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>
 					{/* Section slot: cards */}
 					<ChangesSection view={view} />
-					{/* Section slot: history */}
+					<HistorySection view={view} />
 					{/* Section slot: kept files */}
 					{/* Section slot: undo and redo */}
 				</fieldset>
