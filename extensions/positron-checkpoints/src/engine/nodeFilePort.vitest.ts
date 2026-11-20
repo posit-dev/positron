@@ -87,6 +87,12 @@ describe('createNodeFilePort', () => {
 		expect(await fsp.readFile(path.join(root, 'log/journal'), 'utf8')).toBe('one\ntwo\n');
 	});
 
+	test('createExclusive creates a file only when none exists', async () => {
+		expect(await files.createExclusive('dir/lock', 'first')).toBe(true);
+		expect(await files.createExclusive('dir/lock', 'second')).toBe(false);
+		expect(await fsp.readFile(path.join(root, 'dir/lock'), 'utf8')).toBe('first');
+	});
+
 	test('refuses a path outside the root', async () => {
 		await expect(files.read('../escape.txt')).rejects.toThrow();
 	});

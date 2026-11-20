@@ -23,6 +23,11 @@ export interface FilePort {
 	 */
 	copyKeepingTime(from: string, to: string): Promise<void>;
 	appendDurable(path: string, line: string): Promise<void>;
+	/**
+	 * Creates a file with `content` and flushes it to disk, only when no file exists at `path`.
+	 * Returns false, and changes nothing, when one exists. The check and the creation are one step.
+	 */
+	createExclusive(path: string, content: string): Promise<boolean>;
 	caseInsensitive(): Promise<boolean>;
 }
 export type NetworkResult = { ok: true } | { ok: false; reason: RejectedReason; detail: string };

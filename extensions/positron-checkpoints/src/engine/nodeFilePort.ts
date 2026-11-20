@@ -140,6 +140,26 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				await handle.close();
 			}
 		},
+		async createExclusive(file, content) {
+			const full = await resolve(file);
+			await fsp.mkdir(path.dirname(full), { recursive: true });
+			let handle;
+			try {
+				handle = await fsp.open(full, 'wx');
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+					return false;
+				}
+				throw error;
+			}
+			try {
+				await handle.writeFile(content);
+				await handle.sync();
+			} finally {
+				await handle.close();
+			}
+			return true;
+		},
 		caseInsensitive() {
 			caseInsensitive ??= probeCaseInsensitive(root);
 			return caseInsensitive;

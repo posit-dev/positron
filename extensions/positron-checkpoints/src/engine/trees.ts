@@ -26,10 +26,13 @@ async function mustGit(ports: EnginePorts, args: string[], options?: Parameters<
 }
 
 /** Hashing a large tracked file can take much longer than the default limit. */
-const STAGING_TIMEOUT_MS = 10 * 60_000;
+export const STAGING_TIMEOUT_MS = 10 * 60_000;
 
-/** Git ends a path with a line terminator, and a path may itself end in a space. */
-async function absoluteGitDir(ports: EnginePorts): Promise<string> {
+/**
+ * The absolute git directory. Git ends a path with a line terminator, and a path may itself
+ * end in a space.
+ */
+export async function absoluteGitDir(ports: EnginePorts): Promise<string> {
 	return (await mustGit(ports, ['rev-parse', '--absolute-git-dir'])).replace(/\r?\n$/, '');
 }
 
