@@ -134,10 +134,6 @@ class FigureManagerPositron(FigureManagerBase):
 
     canvas: FigureCanvasPositron  # type: ignore
 
-    # Whether this figure has been shown. Public because `pyplot_show` reads it off other
-    # managers.
-    shown = False
-
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
         from ..positron_ipkernel import PositronIPyKernel
 
@@ -178,7 +174,6 @@ class FigureManagerPositron(FigureManagerBase):
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
-        self.shown = True
         if self._plot is not None:
             self._plot.show()
 
@@ -189,10 +184,10 @@ class FigureManagerPositron(FigureManagerBase):
 
         Matplotlib's default shows every open figure. Positron keeps plain figures open
         across cells, so the N-th `plt.show()` would re-render and re-select all N earlier
-        figures in the Plots pane. Instead, show only figures that haven't been shown yet,
-        plus the active figure so that `plt.figure(n); plt.show()` still selects figure n.
-        Other figures that were edited are drawn, which sends an `update` (the frontend
-        selects an updated plot too).
+        figures in the Plots pane. Every figure is already in the Plots pane from when it was
+        created, so instead show only the active figure, so that `plt.figure(n); plt.show()`
+        still selects figure n. Other figures that were edited are drawn, which sends an
+        `update` (the frontend selects an updated plot too).
 
         `block` is accepted for API compatibility and ignored: there's no GUI main loop.
         """
@@ -201,11 +196,7 @@ class FigureManagerPositron(FigureManagerBase):
 
         active = Gcf.get_active()
         for manager in Gcf.get_all_fig_managers():
-            if (
-                manager is active
-                or not isinstance(manager, FigureManagerPositron)
-                or not manager.shown
-            ):
+            if manager is active or not isinstance(manager, FigureManagerPositron):
                 # A figure from a non-GUI backend (e.g. Agg) can outlive a switch to this
                 # backend. Warn like matplotlib's default `pyplot_show` instead of raising.
                 # Attribute the warning to the caller of `plt.show()`: the kernel sends

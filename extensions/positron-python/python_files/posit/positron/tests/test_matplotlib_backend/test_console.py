@@ -622,19 +622,13 @@ def test_mpl_pyplot_show_sends_one_show_per_figure(
     assert _total_show_events(plots_service) == 10
 
 
-def test_mpl_pyplot_show_skips_shown_inactive_figures(
+def test_mpl_pyplot_show_skips_inactive_figures(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
-    """`plt.show()` shows new figures and the active one, but not other shown figures."""
+    """`plt.show()` shows only the active figure; the others are already in the Plots pane."""
     plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
 
-    # Both figures are new, so both are shown.
-    shell.run_cell("plt.show()").raise_error()
-    assert [_event_methods(comm) for comm in plot_comms] == [["show"], ["show"]]
-    for comm in plot_comms:
-        comm.messages.clear()
-
-    # Only the active figure (2) is shown again.
+    # Neither figure was shown before, but only the active figure (2) is shown.
     shell.run_cell("plt.show()").raise_error()
     assert [_event_methods(comm) for comm in plot_comms] == [[], ["show"]]
     plot_comms[1].messages.clear()
