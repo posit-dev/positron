@@ -16,7 +16,8 @@ import { afterJournal, currentState, must, projectState, referenceProject, refEx
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { LARGE_FILE_BYTES, RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX, worktreeTree } from './trees';
 
-describe('runOperation', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('runOperation', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	const create = async () => {
 		const repo = await tempRepo();
@@ -479,7 +480,8 @@ const referenceCalls = await (async () => {
 const branchMove = referenceCalls.indexOf('update-ref refs/heads/main') + 1;
 const failurePoints = Array.from({ length: branchMove }, (_, index) => index + 1);
 
-describe('runOperation failure injection', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('runOperation failure injection', { timeout: 30_000 }, () => {
 	test('the reference operation moves the branch, then only removes its backups and releases the lock', () => {
 		expect(branchMove).toBeGreaterThan(5);
 		expect(referenceCalls.slice(branchMove)).toEqual([

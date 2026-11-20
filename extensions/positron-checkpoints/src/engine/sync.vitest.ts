@@ -5,19 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import * as fsp from 'fs/promises';
-import * as path from 'path';
 import { getDiff } from './history';
 import { readRecords } from './journal';
 import { basisOf, checkShared, previewIncoming, replay } from './sync';
 import { must } from './test/operationFixtures';
-import { tempRepo, TempRepo } from './test/tempRepo';
-import { worktreeTree } from './trees';
+import { LINES, mayaShares, parts, sharedProject, text, withLine } from './test/syncFixtures';
+import { TempRepo } from './test/tempRepo';
 import { ContentRef } from './types';
-
-const LINES = Array.from({ length: 10 }, (_, index) => `line ${index + 1}`);
-const text = (lines: string[]) => lines.join('\n') + '\n';
-const withLine = (index: number, value: string) => text(LINES.map((line, at) => at === index ? value : line));
 
 // Each test runs several repositories and merges, which exceed the default limit under a loaded test run.
 describe('sync preview', { timeout: 60_000 }, () => {
@@ -27,47 +21,7 @@ describe('sync preview', { timeout: 60_000 }, () => {
 		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
 	});
 
-	/**
-	 * A project at checkpoint A (a.txt with ten lines, b.txt, .gitignore for *.csv) shared with a
-	 * colleague, Maya, who works in a clone.
-	 */
-	const create = async (files: Record<string, string> = {}) => {
-		const repo = await tempRepo();
-		repos.push(repo);
-		await repo.write('.gitignore', '*.csv\n');
-		await repo.write('a.txt', text(LINES));
-		await repo.write('b.txt', 'bee\n');
-		for (const [file, content] of Object.entries(files)) {
-			await repo.write(file, content);
-		}
-		const a = await repo.commit('A');
-		const maya = await repo.clone();
-		repos.push(maya);
-		await must(maya, ['config', 'user.name', 'Maya']);
-		await must(maya, ['config', 'user.email', 'maya@example.com']);
-		return { repo, maya, a };
-	};
-
-	/** Maya sets `files` (null removes one), records a checkpoint, and shares it; the project then checks the shared copy. */
-	const mayaShares = async (repo: TempRepo, maya: TempRepo, files: Record<string, string | null>, title = 'Their change') => {
-		for (const [file, content] of Object.entries(files)) {
-			if (content === null) {
-				await fsp.rm(path.join(maya.root, file), { recursive: true });
-			} else {
-				await maya.write(file, content);
-			}
-		}
-		await maya.commit(title);
-		await repo.pushFrom(maya);
-		expect((await checkShared(repo.ports)).kind).toBe('done');
-	};
-
-	const parts = async (repo: TempRepo) => ({
-		branch: await must(repo, ['rev-parse', 'refs/heads/main']),
-		index: await must(repo, ['write-tree']),
-		worktree: (await worktreeTree(repo.ports)).tree,
-	});
-
+	const create = (files: Record<string, string> = {}) => sharedProject(repos, files);
 	const show = (repo: TempRepo, spec: string) => must(repo, ['show', spec]);
 
 	test('checkShared changes no file and no local branch', async () => {
@@ -280,7 +234,7 @@ describe('sync preview', { timeout: 60_000 }, () => {
 
 		await mayaShares(repo, maya, { 'b.txt': 'theirs\n' }, 'More');
 		const second = (await previewIncoming(repo.ports)).basis;
-		const changed = (left: string, right: string) => left.split('.').map((part, index) => part !== right.split('.')[index]);
+		const changed = (left: string, right: string) => left.split('.').slice(0, 3).map((part, index) => part !== right.split('.')[index]);
 		expect(changed(first, second)).toEqual([false, true, false]);
 
 		await repo.write('c.txt', 'new\n');

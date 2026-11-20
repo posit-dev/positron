@@ -72,7 +72,8 @@ async function crash(repo: TempRepo, label: RegExp | number): Promise<{ before: 
 	return { before, a, record };
 }
 
-describe('recoverOnStart', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('recoverOnStart', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	const create = async () => {
 		const repo = await tempRepo();
@@ -328,7 +329,8 @@ describe('recoverOnStart', () => {
 	});
 });
 
-describe('resolveInterrupted', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('resolveInterrupted', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	afterEach(async () => {
 		await Promise.all(repos.splice(0).map(repo => repo.dispose()));

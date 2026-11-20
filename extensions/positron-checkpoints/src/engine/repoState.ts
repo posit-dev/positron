@@ -93,9 +93,7 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 
 	const identityMissing = await isIdentityMissing(run);
 
-	const mergeTreeHelp = await run(['merge-tree', '-h']);
-	// Git prints the option as `--[no-]merge-base`.
-	const syncAvailable = /--(\[no-\])?merge-base/.test(mergeTreeHelp.stdout + mergeTreeHelp.stderr);
+	const syncAvailable = await isSyncAvailable(ports, root);
 
 	return {
 		isProject: true,
@@ -110,6 +108,13 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 		syncAvailable,
 		unusual: await findUnusual(must, root, gitDir, branch === undefined),
 	};
+}
+
+/** True when `git merge-tree` supports `--merge-base` (git 2.40), as git's own help for the command says. */
+export async function isSyncAvailable(ports: EnginePorts, root = ports.projectRoot): Promise<boolean> {
+	const help = await runGit(ports.git, ['-C', root, 'merge-tree', '-h']);
+	// Git prints the option as `--[no-]merge-base`.
+	return /--(\[no-\])?merge-base/.test(help.stdout + help.stderr);
 }
 
 /**

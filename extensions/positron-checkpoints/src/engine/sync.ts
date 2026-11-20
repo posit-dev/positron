@@ -8,12 +8,14 @@ import { emptyTree } from './changes';
 import { readCheckpoints, readCommit, revision } from './checkpoints';
 import { findCollisions } from './collisions';
 import { mustGit, runGit, splitZ } from './git';
-import { PathPlan, readIndexTree, TriState } from './journal';
-import { mergeTrees, OverlapPlan, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
+import { PathPlan, readBranch, readIndexTree, TriState } from './journal';
+import { mergeTrees, OverlapPlan, ResolutionRefused, resolveMerge, TEMPORARY_IDENTITY, temporaryCommit } from './mergeTree';
+import { noteNewOperation } from './operationLog';
 import { EnginePorts } from './ports';
-import { fileMode } from './runOperation';
+import { isSyncAvailable } from './repoState';
+import { fileMode, runOperation } from './runOperation';
 import { STAGING_TIMEOUT_MS, worktreeTree } from './trees';
-import { IncomingPreview, OperationResult, Overlap, PathCollision, Resolution } from './types';
+import { CollisionChoice, IncomingPreview, OperationResult, Overlap, PathCollision, Resolution } from './types';
 
 export interface ReplayResult {
 	clean: boolean;
@@ -254,20 +256,51 @@ export async function findOverlap(ports: EnginePorts, overlapId: string): Promis
 }
 
 /**
- * The basis token of a preview (spec 6.4): three parts joined by `.`, each the first 16 hex
- * characters of a SHA-256: of the local branch commit (`mine`), of the upstream commit
- * (`shared`), and of the content on disk now of each listed path (`files`, see `diskIds`).
+ * The basis token of a preview (spec 6.4), four parts joined by `.`: the first 16 hex characters
+ * of a SHA-256 of the local branch commit (`mine`), of the upstream commit (`shared`), and of the
+ * content on disk now of each listed path (`files`, see `diskIds`), then the listed paths
+ * themselves (base64url JSON), so a later check compares the content of the paths that were
+ * reviewed (see `basisDifference`).
  */
 export async function basisOf(ports: EnginePorts, overlapPaths: string[], collisionPaths: string[]): Promise<string> {
 	const hash = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
 	const head = await revision(ports, 'HEAD') ?? '';
 	const upstream = head === '' ? '' : await revision(ports, '@{upstream}') ?? '';
+	const [overlaps, collisions] = [[...new Set(overlapPaths)].sort(), [...new Set(collisionPaths)].sort()];
 	const files = async (paths: string[]) => {
-		const sorted = [...new Set(paths)].sort();
-		const ids = await diskIds(ports, sorted);
-		return sorted.map((file, index) => `${file}\0${ids[index]}`).join('\0');
+		const ids = await diskIds(ports, paths);
+		return paths.map((file, index) => `${file}\0${ids[index]}`).join('\0');
 	};
-	return [hash(head), hash(upstream), hash(`overlaps\0${await files(overlapPaths)}\0collisions\0${await files(collisionPaths)}`)].join('.');
+	return [
+		hash(head),
+		hash(upstream),
+		hash(`overlaps\0${await files(overlaps)}\0collisions\0${await files(collisions)}`),
+		Buffer.from(JSON.stringify([overlaps, collisions]), 'utf8').toString('base64url'),
+	].join('.');
+}
+
+/**
+ * The parts of the reviewed basis that no longer hold, by name: `mine` and `shared` when the
+ * local branch or the upstream moved, and `files` when a path the reviewed basis lists has other
+ * content on disk now. A token that cannot be read differs in every part.
+ */
+async function basisDifference(ports: EnginePorts, reviewed: string): Promise<('mine' | 'shared' | 'files')[]> {
+	const [mine, shared, files, listed] = reviewed.split('.');
+	let paths: [string[], string[]] | undefined;
+	try {
+		const parsed: unknown = JSON.parse(Buffer.from(listed ?? '', 'base64url').toString('utf8'));
+		if (Array.isArray(parsed) && parsed.length === 2 && parsed.every(list => Array.isArray(list) && list.every((file: unknown) => typeof file === 'string'))) {
+			paths = parsed as [string[], string[]];
+		}
+	} catch {
+		// An unreadable token differs in every part.
+	}
+	if (paths === undefined) {
+		return ['mine', 'shared', 'files'];
+	}
+	const [nowMine, nowShared, nowFiles] = (await basisOf(ports, paths[0], paths[1])).split('.');
+	return [mine !== nowMine ? 'mine' : undefined, shared !== nowShared ? 'shared' : undefined, files !== nowFiles ? 'files' : undefined]
+		.filter((part): part is 'mine' | 'shared' | 'files' => part !== undefined);
 }
 
 /**
@@ -289,4 +322,128 @@ async function diskIds(ports: EnginePorts, paths: string[]): Promise<string[]> {
 		}
 	}
 	return ids;
+}
+
+/** `Get changes from <names>`, with the authors of the incoming checkpoints other than the person. */
+function describeGet(preview: IncomingPreview): string {
+	const names = [...new Set(preview.incoming.filter(checkpoint => !checkpoint.authorIsMe).map(checkpoint => checkpoint.authorName))];
+	return names.length === 0 ? 'Get changes' : `Get changes from ${names.join(', ')}`;
+}
+
+/**
+ * Gets the incoming changes (spec 6.4), only as the person approved them:
+ *
+ * 1. `unavailable git-too-old` when git lacks `merge-tree --merge-base`; `rejected
+ *    no-shared-copy` when the branch has no upstream; `unavailable unusual-state staged-work`
+ *    when the index differs from HEAD (work staged by another tool).
+ * 2. The preview is computed again. When a part of `basis` no longer holds (`basisDifference`:
+ *    the local branch, the upstream, or the content of a reviewed overlap or collision path),
+ *    nothing changes and the result is `inputs-changed`, naming each such part, with the fresh
+ *    preview. Edits to other files do not count: they are replayed fresh in step 4.
+ * 3. `unavailable nothing-to-do` when nothing is incoming.
+ * 4. `replay(resolutions)`. A resolution the overlap does not allow, or cannot use, gives
+ *    `inputs-changed` with no part named and the fresh preview. An overlap with no resolution
+ *    (including one that edits made since the review produced) gives `overlaps`, with the
+ *    overlaps of the step that stopped.
+ * 5. A clean result is applied through `runOperation` as `get-changes`: files and index first,
+ *    the branch last, with `collisionChoices` for files outside every snapshot. The new
+ *    operation is noted in the undo list.
+ *
+ * A failure before `runOperation` starts changes nothing and gives `could-not-finish`.
+ */
+export async function getIncoming(ports: EnginePorts, basis: string, resolutions: Resolution[], collisionChoices: CollisionChoice[]): Promise<OperationResult> {
+	let plan: { expected: TriState; after: TriState; description: string };
+	try {
+		if (!await isSyncAvailable(ports)) {
+			return { kind: 'unavailable', reason: 'git-too-old' };
+		}
+		const context = await readContext(ports);
+		if (context.upstream === undefined) {
+			return { kind: 'rejected', reason: 'no-shared-copy', detail: 'The branch has no shared copy.' };
+		}
+		if (context.indexTree !== context.headTree) {
+			return { kind: 'unavailable', reason: 'unusual-state', detail: 'staged-work' };
+		}
+		const preview = await previewContext(ports, context);
+		const changed = await basisDifference(ports, basis);
+		if (changed.length > 0) {
+			return { kind: 'inputs-changed', changed, preview };
+		}
+		if (preview.incoming.length === 0) {
+			return { kind: 'unavailable', reason: 'nothing-to-do' };
+		}
+		let replayed: Awaited<ReturnType<typeof replayContext>>;
+		try {
+			replayed = await replayContext(ports, context, resolutions, { final: true });
+		} catch (error) {
+			if (error instanceof ResolutionRefused) {
+				return { kind: 'inputs-changed', changed: [], preview };
+			}
+			throw error;
+		}
+		if (replayed.result.after === undefined) {
+			latestOverlaps.set(ports.projectRoot, replayed.plans);
+			return { kind: 'overlaps', preview: { ...preview, overlaps: replayed.result.overlaps, collisions: [] } };
+		}
+		plan = {
+			expected: { branchCommit: context.head, indexTree: context.indexTree, worktreeTree: context.worktree.tree },
+			after: replayed.result.after,
+			description: describeGet(preview),
+		};
+	} catch (error) {
+		return { kind: 'could-not-finish', detail: error instanceof Error ? error.message : String(error) };
+	}
+	const result = await runOperation(ports, { kind: 'get-changes', ...plan, collisionChoices });
+	if (result.kind === 'done') {
+		latestOverlaps.delete(ports.projectRoot);
+		await noteNewOperation(ports, 'get-changes');
+	}
+	return result;
+}
+
+/**
+ * Sends the local checkpoints to the shared copy with `ports.network.push`. Returns `rejected
+ * no-shared-copy` when the branch has no upstream, `unavailable nothing-to-do` when no local
+ * checkpoint is ahead of it, and `rejected` with the port's reason when the push fails. After a
+ * push, the record of the shared copy is refreshed (as `checkShared` does), a `send-changes`
+ * operation is recorded, and both lists are cleared (spec 6.3). The result is `done` with that
+ * operation's id, or with no id when the record could not be written; the push happened either way.
+ */
+export async function sendChanges(ports: EnginePorts): Promise<OperationResult> {
+	const symbolic = await runGit(ports.git, ['-C', ports.projectRoot, 'symbolic-ref', '-q', 'HEAD']);
+	const ref = symbolic.exitCode === 0 ? symbolic.stdout.trim() : '';
+	if (!ref.startsWith('refs/heads/')) {
+		return { kind: 'unavailable', reason: 'unusual-state' };
+	}
+	const branch = ref.slice('refs/heads/'.length);
+	const upstream = await revision(ports, '@{upstream}');
+	if (upstream === undefined) {
+		return { kind: 'rejected', reason: 'no-shared-copy', detail: 'The branch has no shared copy.' };
+	}
+	const head = await revision(ports, 'HEAD');
+	const ahead = head === undefined ? 0 : Number((await git(ports, ['rev-list', '--count', head, `^${upstream}`, '--'])).trim());
+	if (ahead === 0) {
+		return { kind: 'unavailable', reason: 'nothing-to-do' };
+	}
+	const pushed = await ports.network.push(branch);
+	if (!pushed.ok) {
+		return { kind: 'rejected', reason: pushed.reason, detail: pushed.detail };
+	}
+	// A port that pushes without updating git's record of the shared copy leaves it behind.
+	await checkShared(ports);
+
+	let operationId = '';
+	try {
+		const indexTree = await readIndexTree(ports);
+		if (indexTree !== undefined) {
+			const state: TriState = { branchCommit: await readBranch(ports, branch), indexTree, worktreeTree: (await worktreeTree(ports)).tree };
+			const recorded = await runOperation(ports, { kind: 'send-changes', description: 'Send changes', expected: state, after: state, collisionChoices: [] });
+			operationId = recorded.kind === 'done' ? recorded.operationId : '';
+		}
+	} catch {
+		// The push happened; only its record is missing.
+	}
+	// The states before the push can no longer be reached safely, whether or not the record exists.
+	await noteNewOperation(ports, 'send-changes');
+	return { kind: 'done', operationId, hookEditedFiles: [] };
 }

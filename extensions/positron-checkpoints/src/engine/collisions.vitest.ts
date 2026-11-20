@@ -22,7 +22,8 @@ function incoming(file: string): PathPlan {
 	return { path: file, before: null, after: '0123456789012345678901234567890123456789', beforeMode: null, afterMode: '100644' };
 }
 
-describe('findCollisions', () => {
+// Each test runs git several times, which can exceed the default limit under a loaded test run.
+describe('findCollisions', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	const create = async () => {
 		const repo = await tempRepo();
@@ -101,7 +102,8 @@ describe('findCollisions', () => {
 	});
 });
 
-describe('runOperation with collisions and kept files', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('runOperation with collisions and kept files', { timeout: 30_000 }, () => {
 	const repos: TempRepo[] = [];
 	const create = async () => {
 		const repo = await tempRepo();
@@ -312,7 +314,8 @@ const crashSweeps = await (async () => {
 	return sweeps;
 })();
 
-describe('recovery after a crash during an operation with a kept move', () => {
+// Each test runs full operations, which exceed the default limit under a loaded test run.
+describe('recovery after a crash during an operation with a kept move', { timeout: 30_000 }, () => {
 	const cases = crashSweeps.flatMap(sweep => sweep.points.map(stopAt => ({ ...sweep, stopAt })));
 
 	test.each(cases)('$name: a crash at mutating call $stopAt recovers automatically and keeps the file', async ({ build, kept, keptContent, stopAt }) => {
