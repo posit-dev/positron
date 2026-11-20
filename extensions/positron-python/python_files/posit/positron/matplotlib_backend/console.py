@@ -114,6 +114,8 @@ def _detach_figures(*, library_kinds: frozenset[str] | None = None) -> None:
         # Pass the manager rather than its number: numbers freed here can be reused
         # by matplotlib, so destroying by number could hit a different figure.
         Gcf.destroy(manager)
+        if manager._plot is not None:  # noqa: SLF001
+            _detached_managers.add(manager)
 
 
 def _detach_library_figures() -> None:
@@ -171,7 +173,7 @@ def _detach_figures_on_source_change(info: ExecutionInfo) -> None:
     `plt.plot` draws onto the figure left over from another script.
     See https://github.com/posit-dev/positron/issues/7591.
 
-    Cells typed in the console never detach, so plotting from a script and then
+    Console cells other than a `%run` never detach, so plotting from a script and then
     adjusting the figure in the console keeps working.
     """
     global _last_source_uri
@@ -187,9 +189,10 @@ def _detach_figures_on_source_change(info: ExecutionInfo) -> None:
         logger.exception("Error detaching figures on source change")
 
 
-# Every Positron figure manager that has a plot. Weak so that tracking a manager doesn't
-# keep its figure alive.
-_managers: weakref.WeakSet[FigureManagerPositron] = weakref.WeakSet()
+# Positron figure managers with a plot that `_detach_figures` removed from the registry.
+# Figures the user closed with `plt.close` aren't tracked, so they're never redrawn. Weak
+# so that tracking a manager doesn't keep its figure alive.
+_detached_managers: weakref.WeakSet[FigureManagerPositron] = weakref.WeakSet()
 
 
 def _redraw_stale_detached_figures() -> None:
@@ -209,7 +212,7 @@ def _redraw_stale_detached_figures() -> None:
             return
 
         registered = set(Gcf.get_all_fig_managers())
-        for manager in list(_managers):
+        for manager in list(_detached_managers):
             # Figures still in the registry are matplotlib's to redraw. A plot the user
             # removed from history must not be reopened by drawing its figure.
             if manager in registered or manager.closed:
@@ -258,7 +261,6 @@ class FigureManagerPositron(FigureManagerBase):
             self._plot = self._plots_service.create_plot(
                 canvas.render, canvas.intrinsic_size, kind, num, self._on_close
             )
-            _managers.add(self)
 
     def _on_close(self) -> None:
         """
@@ -535,7 +537,7 @@ def install(shell: InteractiveShell) -> None:
     """Install the console backend's shell hooks. See `BackendModule`."""
     global _last_source_uri
 
-    # This usually runs partway through the cell that first imports pyplot, after that
+    # This usually runs partway through the cell that first makes a figure, after that
     # cell's pre-run hooks fired, so remember that cell's file here instead.
     _last_source_uri = _current_source_uri()
     shell.events.register("pre_run_cell", _detach_figures_on_source_change)

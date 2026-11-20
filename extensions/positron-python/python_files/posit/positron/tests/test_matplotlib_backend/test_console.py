@@ -1034,15 +1034,15 @@ def test_mpl_backend_activated_by_file_cell_remembers_file(
     """
     The cell that activates the backend counts as the remembered file.
 
-    The backend's hooks are installed partway through that cell (when it first imports
-    pyplot), after the cell's pre-run hooks have already fired.
+    The backend's hooks are installed partway through that cell (when it first makes a
+    figure), after the cell's pre-run hooks have already fired.
     """
     from positron.matplotlib_backend import console
 
     _run_from("x = 1", FILE_B)
     console.uninstall(shell)
 
-    # Install the hooks mid-cell, as importing pyplot does, then plot in the same cell.
+    # Install the hooks mid-cell, as making the first figure does, then plot in the same cell.
     _run_from(
         "from positron.matplotlib_backend import console\n"
         "console.install(get_ipython())\n"
@@ -1102,6 +1102,23 @@ def test_mpl_unchanged_detached_figure_sends_no_update(
     _run_from("x = 1", FILE_B)
 
     assert plot_comm.messages == []
+
+
+def test_mpl_closed_figure_not_redrawn_after_cell(
+    shell: PositronShell,
+    plots_service: PlotsService,  # noqa: ARG001
+) -> None:
+    """A figure closed with `plt.close` isn't redrawn, even if it was left stale."""
+    shell.run_cell(
+        "import io\n"
+        "fig, ax = plt.subplots()\n"
+        "ax.plot([1, 2])\n"
+        "fig.savefig(io.BytesIO())\n"
+        "ax.set_title('edited')\n"
+        "plt.close(fig)"
+    ).raise_error()
+
+    assert shell.user_ns["fig"].stale
 
 
 def test_mpl_detached_figure_closed_by_frontend_stays_closed(
