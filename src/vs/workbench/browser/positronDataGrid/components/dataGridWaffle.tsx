@@ -622,7 +622,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		}
 
 		const onWheel = (e: globalThis.WheelEvent) => {
-			// Convert the wheel event into scroll deltas.
 			const { deltaX, deltaY } = computeWheelScrollDeltas(e, isMacintosh);
 
 			// Compute the new scroll offsets.

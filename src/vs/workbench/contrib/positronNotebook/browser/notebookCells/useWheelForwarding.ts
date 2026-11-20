@@ -32,8 +32,8 @@ export function useWheelForwarding(
 			if (scrollable) {
 				const prevTop = scrollable.scrollTop;
 				const prevLeft = scrollable.scrollLeft;
-				// The source is outside the target, so the browser's conversion of shift + wheel
-				// to horizontal scrolling would not reach the target. Do that conversion here.
+				// The source is outside the target, so the browser's own shift + wheel conversion
+				// would not reach the target.
 				const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMac);
 				scrollable.scrollTop += deltaY;
 				scrollable.scrollLeft += deltaX;

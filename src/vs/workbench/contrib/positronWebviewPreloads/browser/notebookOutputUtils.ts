@@ -100,8 +100,8 @@ export function normalizeWheelDeltaY(deltaMode: number, deltaY: number, pageHeig
 
 
 /**
- * The script injected into webview outputs. It runs from its source text, so it cannot import
- * anything; webviewMessageCodeString passes it the dependencies it needs as arguments.
+ * The script injected into webview outputs. It runs from its source text, so it cannot import;
+ * its dependencies are passed in as arguments (see webviewMessageCodeString).
  * @param convertShiftWheel shiftWheelToHorizontal from base/common/positronWheel.ts.
  */
 function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
@@ -212,15 +212,10 @@ function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
 	//    reached its top/bottom edge. In both cases, wheeling should
 	//    move the notebook, so we forward the event.
 	//
-	// Shift + wheel scrolls horizontally, so it is never forwarded as a
-	// vertical scroll. On Windows and Linux the event carries delta Y
-	// with the shift key set, and the browser turns it into a horizontal
-	// scroll of the output (#11063). macOS has already moved the delta
-	// to delta X, so the delta Y check below skips it there. An event
-	// that is mostly horizontal is not a converted one and is handled as
-	// usual. The rule is shiftWheelToHorizontal's, passed in as
-	// convertShiftWheel. The platform check matches isMacintosh in
-	// base/common/platform.ts.
+	// The browser turns shift + wheel into a horizontal scroll of the
+	// output, so it must not also be forwarded to the notebook as a
+	// vertical scroll (#11063). The platform check matches isMacintosh
+	// in base/common/platform.ts.
 	const isMacintosh = navigator.userAgent.indexOf('Macintosh') >= 0;
 	const isShiftWheelToHorizontal = (event: WheelEvent) =>
 		convertShiftWheel(event, isMacintosh).deltaY === 0;
@@ -351,6 +346,6 @@ function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
 	window.onload = () => sendSizeMessage(true);
 }
 
-// Passing shiftWheelToHorizontal as an argument, rather than referring to it by name inside
-// webviewMessageCode, keeps it working after the production bundler renames identifiers.
+// The production bundler renames a parameter together with its uses, but would break a reference
+// to shiftWheelToHorizontal by name inside webviewMessageCode, so pass it as an argument.
 export const webviewMessageCodeString = `(${webviewMessageCode.toString()})(${shiftWheelToHorizontal.toString()});`;

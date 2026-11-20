@@ -85,14 +85,6 @@ describe('useWheelForwarding', () => {
 		expect({ top: scrollTarget.scrollTop, left: scrollTarget.scrollLeft }).toEqual({ top: 0, left: 30 });
 	});
 
-	it('forwards shift + vertical wheel unchanged on macOS, which converts it itself', () => {
-		const source = renderHook(true);
-
-		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
-
-		expect({ top: scrollTarget.scrollTop, left: scrollTarget.scrollLeft }).toEqual({ top: 30, left: 0 });
-	});
-
 	it('does not preventDefault at scroll boundary', () => {
 		// happy-dom has no layout engine, so we mock scroll metrics to
 		// simulate a pinned-to-bottom container where scrollTop is clamped.

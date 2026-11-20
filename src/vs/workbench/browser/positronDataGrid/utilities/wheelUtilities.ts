@@ -21,7 +21,6 @@ interface WheelInput extends WheelDeltas {
  * @returns The scroll deltas, in the units of the wheel event.
  */
 export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): WheelDeltas {
-	// Get the delta X and delta Y.
 	let deltaX = e.deltaX;
 	let deltaY = e.deltaY;
 
@@ -30,7 +29,6 @@ export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): W
 		// This bias factor prevents minor input noise from falsely flipping axis dominance.
 		const bias = 1.1;
 
-		// Zero out the non-dominant axis.
 		const absDeltaX = Math.abs(deltaX);
 		const absDeltaY = Math.abs(deltaY);
 		if (absDeltaX > absDeltaY * bias) {
@@ -40,15 +38,13 @@ export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): W
 		}
 	}
 
-	// When the shift key is held, convert vertical scrolling to horizontal scrolling.
 	({ deltaX, deltaY } = shiftWheelToHorizontal({ deltaX, deltaY, shiftKey: e.shiftKey }, isMacintosh));
 
-	// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
+	// Alt is the fast-scroll modifier.
 	if (e.altKey) {
 		deltaX *= 10;
 		deltaY *= 10;
 	}
 
-	// Return the scroll deltas.
 	return { deltaX, deltaY };
 }

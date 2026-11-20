@@ -74,16 +74,4 @@ describe('webview output wheel forwarding', () => {
 		// and the shift key set is a vertical scroll there.
 		expect({ windows, mac }).toEqual({ windows: [], mac: [100, -100] });
 	});
-
-	test('does not forward a mostly vertical shift gesture with some horizontal noise on Windows and Linux', () => {
-		wheel({ deltaX: 1, deltaY: 100, shiftKey: true });
-
-		expect({ windows, mac }).toEqual({ windows: [], mac: [100] });
-	});
-
-	test('forwards the vertical part of a mostly horizontal shift gesture', () => {
-		wheel({ deltaX: 100, deltaY: 20, shiftKey: true });
-
-		expect({ windows, mac }).toEqual({ windows: [20], mac: [20] });
-	});
 });

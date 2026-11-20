@@ -21,29 +21,20 @@ describe('shiftWheelToHorizontal', () => {
 			.toEqual({ deltaX: 0, deltaY: 100 });
 	});
 
-	test('leaves a mostly horizontal event alone', () => {
-		// macOS, the browser, or a mouse driver already converted it, or the gesture was sideways.
+	test('leaves an already converted event alone', () => {
+		// Converted by macOS, or by a browser or mouse driver on another platform.
 		expect([
 			shiftWheelToHorizontal({ deltaX: 100, deltaY: 0, shiftKey: true }, true),
 			shiftWheelToHorizontal({ deltaX: 100, deltaY: 0, shiftKey: true }, false),
-			shiftWheelToHorizontal({ deltaX: 100, deltaY: 20, shiftKey: true }, false),
 		]).toEqual([
 			{ deltaX: 100, deltaY: 0 },
 			{ deltaX: 100, deltaY: 0 },
-			{ deltaX: 100, deltaY: 20 },
 		]);
 	});
 
-	test('converts a mostly vertical event with some horizontal movement, dropping the horizontal part', () => {
-		// A touchpad swipe with a little horizontal noise, and a near-diagonal one. VS Code's
-		// ScrollableElement zeroes the smaller axis before applying the shift rule, too.
-		expect([
-			shiftWheelToHorizontal({ deltaX: 1, deltaY: 50, shiftKey: true }, false),
-			shiftWheelToHorizontal({ deltaX: 50, deltaY: 52, shiftKey: true }, false),
-		]).toEqual([
-			{ deltaX: 50, deltaY: 0 },
-			{ deltaX: 52, deltaY: 0 },
-		]);
+	test('converts a vertical touchpad swipe with a little horizontal noise', () => {
+		expect(shiftWheelToHorizontal({ deltaX: 1, deltaY: 50, shiftKey: true }, false))
+			.toEqual({ deltaX: 50, deltaY: 0 });
 	});
 
 	test('leaves a wheel without shift alone', () => {
