@@ -53,7 +53,7 @@ interface ICheckpointDialogProps extends ICheckpointDialogOptions {
  * chunks. Chunks hold whole files.
  *
  * The dialog stays open until the action finishes, so a cancel at the unsaved-files question or a
- * failed save keeps what the person typed. When saving the files changes the list of files, the
+ * failed save keeps what the person typed. When saving the files changes them in any way, the
  * dialog shows the new list for review instead of creating anything.
  */
 export const CheckpointDialog = (props: ICheckpointDialogProps) => {
@@ -90,14 +90,15 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 			const after = draftPaths(reconciled);
 			const added = [...after].filter(path => !before.has(path));
 			const removed = [...before].some(path => !after.has(path));
-			if (added.length === 0 && !removed && isDraftReady(reconciled)) {
-				// The person chose to include the saved edits, and the files are the ones reviewed.
-				return engine.createCheckpoints(current.basis, toChunks(reconciled));
-			}
 			setDraft(reconciled);
 			setChanges(current);
 			setAddedPaths(new Set(added));
-			setNotice(added.length > 0 ? Strings.changes.savedAndAdded(added.length) : Strings.changes.savedAndChanged());
+			// Nothing saved by the guard enters a checkpoint without a second look.
+			if (added.length > 0) {
+				setNotice(Strings.changes.savedAndAdded(added.length));
+			} else {
+				setNotice(removed || !isDraftReady(reconciled) ? Strings.changes.savedAndChanged() : Strings.changes.savedContentChanged());
+			}
 			return undefined;
 		});
 		if (result === undefined) {

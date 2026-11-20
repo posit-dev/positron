@@ -40,10 +40,27 @@ export function keepBothText(mine: string, theirs: string): string {
 }
 
 /**
- * The name proposed for the renamed side of "Keep both": `<name> (<label>).<ext>` in the same
- * folder. A name that starts with a dot, or has none, keeps no extension apart.
+ * Removes what cannot be part of a single name from `name`: path separators and control
+ * characters. Returns the localized fallback label when nothing is left.
  */
-export function proposedName(path: string, label: string): string {
+export function sanitizeNameLabel(name: string): string {
+	const cleaned = Array.from(name)
+		.filter(character => {
+			const code = character.charCodeAt(0);
+			return code >= 0x20 && code !== 0x7f && character !== '/' && character !== '\\';
+		})
+		.join('')
+		.trim();
+	return cleaned === '' ? Strings.overlaps.copyNameLabel() : cleaned;
+}
+
+/**
+ * The name proposed for the renamed side of "Keep both": `<name> (<label>).<ext>` in the same
+ * folder. A name that starts with a dot, or has none, keeps no extension apart. The label is
+ * cleaned of path separators and control characters.
+ */
+export function proposedName(path: string, rawLabel: string): string {
+	const label = sanitizeNameLabel(rawLabel);
 	const slash = path.lastIndexOf('/');
 	const folder = path.slice(0, slash + 1);
 	const base = path.slice(slash + 1);
@@ -133,6 +150,15 @@ const TextOverlapChoices = ({ overlap, choice, onChoose }: ITextOverlapChoicesPr
 	const mine = overlap.mine ?? '';
 	const theirs = overlap.theirs ?? '';
 	const both = keepBothText(mine, theirs);
+	const [emptied, setEmptied] = useState(false);
+	// An empty result is a real answer only when one of the three versions is empty too.
+	const emptyAllowed = (overlap.base ?? '') === '' || mine === '' || theirs === '';
+
+	const editResult = (text: string) => {
+		const refused = text === '' && !emptyAllowed;
+		setEmptied(refused);
+		onChoose(refused ? undefined : { type: 'text', content: text });
+	};
 
 	let result = '';
 	if (choice?.type === 'take') {
@@ -160,8 +186,9 @@ const TextOverlapChoices = ({ overlap, choice, onChoose }: ITextOverlapChoicesPr
 			</div>
 			<label className='checkpoints-overlap-result'>
 				<span>{Strings.overlaps.combinedText()}</span>
-				<textarea rows={8} value={result} onChange={e => onChoose({ type: 'text', content: e.target.value })} />
+				<textarea rows={8} value={result} onChange={e => editResult(e.target.value)} />
 			</label>
+			{emptied && choice === undefined && <p className='checkpoints-overlap-error' role='alert'>{Strings.overlaps.combinedTextEmpty()}</p>}
 		</div>
 	);
 };
@@ -171,7 +198,7 @@ const TextOverlapChoices = ({ overlap, choice, onChoose }: ITextOverlapChoicesPr
  * one side a new name. `keepBothSide` is the side that is renamed.
  */
 const SideChoices = ({ overlap, choice, onChoose, keepBothSide }: IOverlapChoicesProps & { keepBothSide: 'me' | 'them' }) => {
-	const label = keepBothSide === 'me' ? 'mine' : overlap.theirAuthor;
+	const label = keepBothSide === 'me' ? Strings.overlaps.mineNameLabel() : overlap.theirAuthor;
 	const [keepBoth, setKeepBoth] = useState(choice?.type === 'keep-both');
 	const [newName, setNewName] = useState(choice?.type === 'keep-both' ? choice.newPath : proposedName(overlap.path, label));
 	const nameUsable = (name: string) => name.trim() !== '' && name.trim() !== overlap.path;

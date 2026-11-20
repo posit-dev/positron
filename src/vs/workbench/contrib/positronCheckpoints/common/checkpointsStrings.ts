@@ -138,6 +138,7 @@ const changes = {
 		localize('positron.checkpoints.changes.savedAndAdded.one', "This file was saved and added. Review it, then create the checkpoint again."),
 		localize('positron.checkpoints.changes.savedAndAdded.other', "These files were saved and added. Review them, then create the checkpoint again.")),
 	savedAndAddedTag: () => localize('positron.checkpoints.changes.savedAndAddedTag', "saved and added"),
+	savedContentChanged: () => localize('positron.checkpoints.changes.savedContentChanged', "These files were saved. Review and confirm."),
 	savedAndChanged: () => localize('positron.checkpoints.changes.savedAndChanged', "Saving changed the list of files. Review the checkpoints, then create them again."),
 };
 
@@ -342,6 +343,9 @@ const overlaps = {
 	applyChoices: () => localize('positron.checkpoints.overlaps.applyChoices', "Apply Choices"),
 	keepName: (path: string) => localize('positron.checkpoints.overlaps.keepName', "Keep the name {0}", path),
 	sizes: (mine: string, author: string, theirs: string) => localize('positron.checkpoints.overlaps.sizes', "Yours: {0}. {1}'s: {2}.", mine, author, theirs),
+	mineNameLabel: () => localize('positron.checkpoints.overlaps.mineNameLabel', "mine"),
+	copyNameLabel: () => localize('positron.checkpoints.overlaps.copyNameLabel', "copy"),
+	combinedTextEmpty: () => localize('positron.checkpoints.overlaps.combinedTextEmpty', "The combined text is empty. Neither version was empty, so choose one of the options above or type the text to keep."),
 	newNameInvalid: (path: string) => localize('positron.checkpoints.overlaps.newNameInvalid', "Choose a new name that differs from {0}.", path),
 	choicesFor: (path: string) => localize('positron.checkpoints.overlaps.choicesFor', "Choices for {0}", path),
 	chooseEach: () => localize('positron.checkpoints.overlaps.chooseEach', "Choose what to keep for every overlap, then apply your choices. Nothing changes in your project until then."),

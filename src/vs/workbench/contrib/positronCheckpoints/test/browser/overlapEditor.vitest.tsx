@@ -27,7 +27,7 @@ import { IWorkingCopyService } from '../../../../services/workingCopy/common/wor
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { keepBothText, proposedName } from '../../browser/overlapEditor/overlapChoices.js';
 import { OverlapEditorView } from '../../browser/overlapEditor/overlapEditor.js';
-import { SyncController } from '../../browser/syncController.js';
+import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 function overlap(id: string, kind: OverlapKind, overrides: Partial<IOverlap> = {}): IOverlap {
@@ -65,8 +65,8 @@ describe('Overlap editor', () => {
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies(): IWorkingCopy[] { return []; } })
 		.stub(IUriIdentityService, { extUri })
 		.stub(IDialogService, {})
-		// The editor service owns the inputs it opens, so the stub disposes each one.
-		.stub(IEditorService, { openEditor: async (input: EditorInput) => { input.dispose(); return undefined; } })
+		// The editor service owns the inputs it opens, so the stub hands each one to the test, which disposes it at the end.
+		.stub(IEditorService, { openEditor: async (input: EditorInput) => { ctx.disposables.add(input); return undefined; } })
 		.stub(IWorkspaceContextService, {
 			getWorkspace: () => stubInterface<IWorkspace>({ folders: [{ uri: URI.file('/work/dose-model'), name: 'dose-model', index: 0, toResource: path => URI.file(path) }] }),
 		})
@@ -85,6 +85,7 @@ describe('Overlap editor', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		controller = ctx.disposables.add(ctx.instantiationService.createInstance(SyncController));
+		ctx.instantiationService.stub(ISyncController, controller);
 	});
 
 	async function renderEditor(overlaps: IOverlap[]) {
@@ -103,6 +104,29 @@ describe('Overlap editor', () => {
 
 		const section = screen.getByRole('region', { name: `Overlap in ${examples[kind].path}` });
 		expect(within(section).queryAllByRole('radio').map(radio => radio.closest('label')?.textContent)).toEqual(expectedChoices[kind]);
+	});
+
+	test('rendering the editor reads the incoming changes and applies nothing', async () => {
+		await renderEditor(kinds.map(kind => examples[kind]));
+
+		expect(engine.callsOf('getIncoming')).toEqual([]);
+	});
+
+	test('an empty combined text clears the choice unless one version is empty', async () => {
+		const user = await renderEditor([{ ...examples.text, base: 'cap <- 450\n' }, overlap('gone', 'text', { path: 'gone.R', base: 'x\n', mine: '', theirs: 'y\n' })]);
+		const section = (path: string) => screen.getByRole('region', { name: `Overlap in ${path}` });
+
+		await user.click(within(section('dose.R')).getByRole('radio', { name: 'Keep mine' }));
+		await user.clear(within(section('dose.R')).getByRole('textbox', { name: 'Combined text' }));
+
+		expect(controller.resolutions.has('dose')).toBe(false);
+		expect(within(section('dose.R')).getByRole('alert')).toHaveTextContent('The combined text is empty.');
+		expect(applyButton()).toBeDisabled();
+
+		await user.type(within(section('gone.R')).getByRole('textbox', { name: 'Combined text' }), 'z');
+		await user.clear(within(section('gone.R')).getByRole('textbox', { name: 'Combined text' }));
+
+		expect(controller.resolutions.get('gone')).toEqual({ type: 'text', content: '' });
 	});
 
 	test('choosing in each kind sends the choice the engine expects', async () => {
@@ -213,5 +237,10 @@ describe('Overlap editor', () => {
 		expect(proposedName('figures/plot.png', 'mine')).toBe('figures/plot (mine).png');
 		expect(proposedName('.Rprofile', 'mine')).toBe('.Rprofile (mine)');
 		expect(proposedName('out', 'Maya')).toBe('out (Maya)');
+	});
+
+	test('a proposed name cleans path separators and control characters from the label', () => {
+		expect(proposedName('figures/plot.png', '../Ma/ya\\x\n')).toBe('figures/plot (..Mayax).png');
+		expect(proposedName('plot.png', '/\u0000')).toBe('plot (copy).png');
 	});
 });

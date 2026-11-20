@@ -46,7 +46,7 @@ const mayaPreview: IIncomingPreview = {
 const collision: IPathCollision = { path: 'data.csv', reason: 'ignored', sizeBytes: 2048, incomingAuthor: 'Maya' };
 
 describe('Sync card and collision dialog', () => {
-	const openEditor = vi.fn(async (input: EditorInput) => { input.dispose(); return undefined; });
+	const openEditor = vi.fn(async (input: EditorInput) => { ctx.disposables.add(input); return undefined; });
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -106,6 +106,7 @@ describe('Sync card and collision dialog', () => {
 			'Fixed a typo in the READMEMaya',
 		]);
 		expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+		expect(engine.callsOf('getIncoming')).toEqual([]);
 
 		await user.click(within(card).getByRole('button', { name: 'View detailed differences' }));
 		expect(within(card).getAllByRole('button', { name: /^View detailed differences: / }).map(button => button.getAttribute('aria-label'))).toEqual([

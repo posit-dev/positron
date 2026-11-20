@@ -68,7 +68,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]],
 		titleTooLong: [[72]], chunkTitle: [[1]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
 		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], noFilesInChunk: [[]],
-		savedAndAdded: [[1], [2]], savedAndAddedTag: [[]], savedAndChanged: [[]],
+		savedAndAdded: [[1], [2]], savedAndAddedTag: [[]], savedAndChanged: [[]], savedContentChanged: [[]],
 	},
 	diff: {
 		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],
@@ -99,7 +99,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		editDeleteExplain: [['Maya', 'dose.R', 'me'], ['Maya', 'dose.R', 'them']], renameExplain: [['Maya', 'dose.R']],
 		fileFolderExplain: [['Maya', 'out', 'me'], ['Maya', 'out', 'them']], unsupportedExplain: [['sub']], editorTitle: [['dose.R']], combinedText: [[]], mineLabel: [[]],
 		theirsLabel: [['Maya']], baseLabel: [[]], applyChoices: [[]], keepName: [['dose.R']], sizes: [['1 MB', 'Maya', '2 MB']],
-		newNameInvalid: [['plot.png']], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
+		newNameInvalid: [['plot.png']], mineNameLabel: [[]], copyNameLabel: [[]], combinedTextEmpty: [[]], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
 	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],

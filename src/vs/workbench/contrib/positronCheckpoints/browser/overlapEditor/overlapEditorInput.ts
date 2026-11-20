@@ -15,10 +15,17 @@ import { Strings } from '../../common/checkpointsStrings.js';
  * no state of its own: the editor shows the overlaps of the window's `ISyncController`. Every
  * instance matches every other, so a window has at most one overlap editor. No serializer is
  * registered, so the editor is not restored after a restart.
+ *
+ * `onClosed` runs when the input is disposed, which happens when its last tab closes. The
+ * creator uses it to forget the choices made in the editor.
  */
 export class OverlapEditorInput extends EditorInput {
 	static readonly TypeID = 'workbench.input.positronCheckpointsOverlaps';
 	static readonly EditorID = 'workbench.editor.positronCheckpointsOverlaps';
+
+	constructor(private readonly _onClosed?: () => void) {
+		super();
+	}
 
 	override get resource(): URI | undefined {
 		return undefined;
@@ -46,5 +53,10 @@ export class OverlapEditorInput extends EditorInput {
 
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {
 		return otherInput instanceof OverlapEditorInput;
+	}
+
+	override dispose(): void {
+		this._onClosed?.();
+		super.dispose();
 	}
 }

@@ -8,7 +8,7 @@
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -23,7 +23,8 @@ import { IWorkingCopyService } from '../../../../services/workingCopy/common/wor
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { OverlapEditorInput } from '../../browser/overlapEditor/overlapEditorInput.js';
 import { mergeCollisionChoices } from '../../browser/runAction.js';
-import { SyncController } from '../../browser/syncController.js';
+import { showCollisionDialog } from '../../browser/components/collisionDialog.js';
+import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { fakeCheckpoint, FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 function overlap(id: string, overrides: Partial<IOverlap> = {}): IOverlap {
@@ -42,15 +43,18 @@ function preview(basis: string, overlaps: IOverlap[], overrides: Partial<IIncomi
 	};
 }
 
+vi.mock('../../browser/components/collisionDialog.js', () => ({ showCollisionDialog: vi.fn() }));
+
 describe('SyncController', () => {
-	// The editor service owns the inputs it opens, so the stub disposes each one.
-	const openEditor = vi.fn(async (input: EditorInput) => { input.dispose(); return undefined; });
+	// The editor service owns the inputs it opens, so the stub hands each one to the test, which disposes it at the end.
+	const openEditor = vi.fn(async (input: EditorInput) => { ctx.disposables.add(input); return undefined; });
+	let openEditors: EditorInput[] = [];
 
 	const ctx = createTestContainer()
 		.stub(IWorkingCopyService, { get dirtyWorkingCopies(): IWorkingCopy[] { return []; } })
 		.stub(IUriIdentityService, { extUri })
 		.stub(IDialogService, {})
-		.stub(IEditorService, { openEditor })
+		.stub(IEditorService, { openEditor, get editors() { return openEditors; } })
 		.stub(IWorkspaceContextService, {
 			getWorkspace: () => stubInterface<IWorkspace>({ folders: [{ uri: URI.file('/work/dose-model'), name: 'dose-model', index: 0, toResource: path => URI.file(path) }] }),
 		})
@@ -59,9 +63,13 @@ describe('SyncController', () => {
 	let engine: FakeCheckpointsEngine;
 	let messageService: CheckpointsMessageService;
 	let controller: SyncController;
+	const logError = vi.fn();
 
 	beforeEach(() => {
 		openEditor.mockClear();
+		logError.mockClear();
+		openEditors = [];
+		ctx.instantiationService.stub(ILogService, { error: logError });
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
@@ -69,6 +77,7 @@ describe('SyncController', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
 		controller = ctx.disposables.add(ctx.instantiationService.createInstance(SyncController));
+		ctx.instantiationService.stub(ISyncController, controller);
 	});
 
 	test('overlaps open the overlap editor', async () => {
@@ -170,5 +179,81 @@ describe('SyncController', () => {
 			[{ path: 'a.csv', choice: 'use-theirs-keep-copy' }],
 			[{ path: 'b.csv', choice: 'use-theirs-keep-copy' }, { path: 'a.csv', choice: 'use-theirs-keep-copy' }],
 		)).toEqual([{ path: 'a.csv', choice: 'use-theirs-keep-copy' }, { path: 'b.csv', choice: 'use-theirs-keep-copy' }]);
+	});
+
+	test('an open overlap editor is shown again instead of opening a second input', async () => {
+		const open = new OverlapEditorInput();
+		openEditors = [open];
+		engine.incoming = preview('b1', []);
+		engine.nextResult = { kind: 'overlaps', preview: preview('b1', [overlap('o1')]) };
+
+		await controller.getChanges();
+
+		expect(openEditor.mock.calls.map(call => call[0])).toEqual([open]);
+		open.dispose();
+	});
+
+	test('closing the overlap editor forgets the choices', async () => {
+		engine.incoming = preview('b1', [overlap('o1')]);
+		await controller.refreshPreview();
+		controller.setChoice('o1', { type: 'take', side: 'mine' });
+		let input: OverlapEditorInput | undefined;
+		openEditor.mockImplementationOnce(async (opened: EditorInput) => { input = opened as OverlapEditorInput; return undefined; });
+		engine.nextResult = { kind: 'overlaps', preview: preview('b1', [overlap('o1')]) };
+		await controller.getChanges();
+		expect(controller.resolutions.size).toBe(1);
+
+		input!.dispose();
+
+		expect(controller.resolutions.size).toBe(0);
+		engine.incoming = preview('b2', [overlap('o1')]);
+		await controller.refreshPreview();
+		expect(controller.preview?.basis).toBe('b2');
+	});
+
+	test('a failed preview read is logged and keeps the previous preview', async () => {
+		engine.incoming = preview('b1', []);
+		await controller.refreshPreview();
+		const failure = new Error('git is busy');
+		engine.previewIncoming = async () => { throw failure; };
+
+		await controller.refreshPreview();
+
+		expect(logError).toHaveBeenCalledWith(expect.any(String), failure);
+		expect(controller.preview?.basis).toBe('b1');
+	});
+
+	test('a preview read that started before a result cannot replace the cleared state after done', async () => {
+		engine.incoming = preview('b1', [overlap('o1')]);
+		await controller.refreshPreview();
+		controller.setChoice('o1', { type: 'take', side: 'mine' });
+		let release!: (value: IIncomingPreview) => void;
+		engine.previewIncoming = () => new Promise<IIncomingPreview>(resolve => { release = resolve; });
+		controller.backOut();
+		const late = controller.refreshPreview();
+		controller.setChoice('o1', { type: 'take', side: 'mine' });
+		await controller.apply();
+		expect(controller.preview).toBeUndefined();
+
+		release(preview('b0', [overlap('o1')]));
+		await late;
+
+		expect(controller.preview).toBeUndefined();
+	});
+
+	test('changed files clear the collision choices, and changed shared checkpoints keep them', async () => {
+		const collisionChoice = { path: 'data.csv', choice: 'use-theirs-keep-copy' } as const;
+		vi.mocked(showCollisionDialog).mockResolvedValue([collisionChoice]);
+		engine.incoming = preview('b1', []);
+		const collision = { path: 'data.csv', reason: 'ignored', sizeBytes: 1 } as const;
+		const fresh = preview('b2', [overlap('o1')]);
+
+		engine.queuedResults = [{ kind: 'path-collisions', collisions: [collision] }, { kind: 'inputs-changed', changed: ['shared'], preview: fresh }];
+		await controller.getChanges();
+		expect(controller.collisionChoices).toEqual([collisionChoice]);
+
+		engine.queuedResults = [{ kind: 'inputs-changed', changed: ['files'], preview: fresh }];
+		await controller.getChanges();
+		expect(controller.collisionChoices).toEqual([]);
 	});
 });

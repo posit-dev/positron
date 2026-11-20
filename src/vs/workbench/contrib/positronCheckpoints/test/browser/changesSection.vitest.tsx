@@ -332,12 +332,19 @@ describe('Changes section and checkpoint dialog', () => {
 		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 	});
 
-	test('a save that changes only the content of listed files creates the checkpoint with the new basis', async () => {
+	test('a save that changes only the content of listed files shows the dialog again, then creates with the new basis', async () => {
 		renderPanel({ basis: 'b1', files: [changedFile('a.R')] });
 		const user = await openDialog();
 		await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Saved');
 		dirty = [unsavedFile('/work/dose-model/a.R')];
 		engine.changes = { basis: 'b2', files: [changedFile('a.R')] };
+
+		await user.click(createButton(1));
+
+		const dialog = await screen.findByRole('dialog');
+		expect(await within(dialog).findByText('These files were saved. Review and confirm.')).toBeInTheDocument();
+		expect(within(dialog).getByRole('textbox', { name: 'Title' })).toHaveValue('Saved');
+		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 
 		await user.click(createButton(1));
 

@@ -7,6 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ICollisionChoice, IIncomingPreview, IResolution, OperationResult, OverlapChoice, OverlapKind } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../common/checkpointsStrings.js';
@@ -101,6 +102,7 @@ export class SyncController extends Disposable implements ISyncController {
 		@ICheckpointsService private readonly _checkpointsService: ICheckpointsService,
 		@ICheckpointsMessageService private readonly _messageService: ICheckpointsMessageService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 	}
@@ -140,7 +142,8 @@ export class SyncController extends Disposable implements ISyncController {
 		let preview: IIncomingPreview;
 		try {
 			preview = await engine.previewIncoming();
-		} catch {
+		} catch (error) {
+			this._logService.error('The incoming changes could not be read.', error);
 			return;
 		}
 		if (request === this._previewRequest && this._resolutions.size === 0) {
@@ -207,6 +210,10 @@ export class SyncController extends Disposable implements ISyncController {
 	}
 
 	private _takeResult(result: OperationResult): void {
+		if (result.kind === 'overlaps' || result.kind === 'inputs-changed' || result.kind === 'done') {
+			// A read that started earlier must not replace the preview or the cleared state below.
+			this._previewRequest++;
+		}
 		switch (result.kind) {
 			case 'overlaps':
 				this._setPreview(result.preview);
@@ -215,6 +222,10 @@ export class SyncController extends Disposable implements ISyncController {
 			case 'inputs-changed':
 				this._setPreview(result.preview);
 				this._inputsChanged = result;
+				if (result.changed.includes('files')) {
+					// The files the choices were made for changed, so the person decides again.
+					this._collisionChoices = [];
+				}
 				break;
 			case 'done':
 				this._preview = undefined;

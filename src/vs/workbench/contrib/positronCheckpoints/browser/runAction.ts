@@ -18,6 +18,7 @@ import { showCollisionDialog } from './components/collisionDialog.js';
 import { IDialogActions } from './components/dialogActions.js';
 import { showInterruptedDialog } from './components/interruptedDialog.js';
 import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
+import { ISyncController } from './syncController.js';
 
 /**
  * How an action treats files with unsaved edits. `checkpoint` and `file-changing` ask first (spec
@@ -79,12 +80,25 @@ async function routeResult(
 		case 'inputs-changed':
 			messageService.show(Strings.results.forOperation(result));
 			if (result.preview.overlaps.length > 0) {
-				const input = instantiationService.createInstance(OverlapEditorInput);
 				try {
 					const editorService = instantiationService.invokeFunction(accessor => accessor.get(IEditorService));
-					await editorService.openEditor(input, { pinned: true });
+					// A window has one overlap editor, so an open one is shown again.
+					const open = editorService.editors.find(editor => editor instanceof OverlapEditorInput);
+					if (open) {
+						await editorService.openEditor(open, { pinned: true });
+					} else {
+						// Closing the editor forgets the choices made in it, which would otherwise keep
+						// the sync card from reading the incoming changes again.
+						const syncController = instantiationService.invokeFunction(accessor => accessor.get(ISyncController));
+						const input = new OverlapEditorInput(() => syncController.backOut());
+						try {
+							await editorService.openEditor(input, { pinned: true });
+						} catch (error) {
+							input.dispose();
+							throw error;
+						}
+					}
 				} catch (error) {
-					input.dispose();
 					logService.error('The overlap editor could not open.', error);
 				}
 			}
