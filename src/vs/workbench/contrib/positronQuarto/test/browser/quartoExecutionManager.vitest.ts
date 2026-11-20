@@ -454,7 +454,9 @@ describe('QuartoExecutionManager', () => {
 		it('leaves a {sql} cell to knitr in a document knitr renders, without failing it', async () => {
 			const documentUri = URI.file('/test-sql-knitr.qmd');
 			const cell = sqlCell('sql-knitr');
-			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell], ['```{sql}', 'SELECT 1', '```'], 'r'));
+			const model = new MockQuartoDocumentModel([cell], ['```{sql}', 'SELECT 1', '```'], 'r');
+			model.knitrEngine = true;
+			mockDocumentModelService.setMockModel(model);
 			mockEditorService.getValueInRangeCallback = () => 'SELECT 1';
 			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
 
@@ -2397,6 +2399,7 @@ class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];
 	readonly primaryLanguage: string;
+	knitrEngine: boolean | undefined = undefined;
 
 	get cells(): QuartoCodeCell[] {
 		return Array.from(this._cells.values());

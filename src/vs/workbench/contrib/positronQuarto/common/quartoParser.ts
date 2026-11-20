@@ -54,17 +54,39 @@ function getObjectProperty(node: YamlMapNode, key: string): YamlNode | undefined
 }
 
 /**
- * Parses YAML frontmatter and extracts the jupyter kernel specification.
- * Handles both simple form (`jupyter: python3`) and complex form
+ * Whether the front matter declares the knitr engine (true) or another one
+ * (false), or undefined when it declares none, checked as Quarto and the Quarto
+ * extension check it: an `engine` key says which; failing that, a `knitr` key
+ * means knitr and a `jupyter` key means Jupyter.
+ */
+function declaredKnitrEngine(root: YamlMapNode): boolean | undefined {
+	const engine = getObjectProperty(root, 'engine');
+	if (engine) {
+		return engine.type === 'scalar' && engine.value === 'knitr';
+	}
+	if (getObjectProperty(root, 'knitr')) {
+		return true;
+	}
+	if (getObjectProperty(root, 'jupyter')) {
+		return false;
+	}
+	return undefined;
+}
+
+/**
+ * Parses YAML frontmatter and extracts the jupyter kernel specification and
+ * the declared engine (see {@link declaredKnitrEngine}). Handles both simple
+ * form (`jupyter: python3`) and complex form
  * (`jupyter: { kernelspec: { name: ir } }`).
  */
-function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string } {
-	const result: { jupyterKernel?: string } = {};
+function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string; knitrEngine?: boolean } {
+	const result: { jupyterKernel?: string; knitrEngine?: boolean } = {};
 
 	const root = parseYaml(frontmatterContent);
 	if (!root || root.type !== 'map') {
 		return result;
 	}
+	result.knitrEngine = declaredKnitrEngine(root);
 
 	const jupyter = getObjectProperty(root, 'jupyter');
 	if (!jupyter) {
@@ -126,10 +148,12 @@ export function parseQuarto(content: string, logService?: ILogService): QuartoDo
 		const rawContent = frontmatterMatch[0];
 		const frontmatterLineCount = rawContent.split(/\r?\n/).length;
 		let jupyterKernel: string | undefined;
+		let knitrEngine: boolean | undefined;
 
 		try {
 			const parsed = parseFrontmatter(frontmatterMatch.groups.content);
 			jupyterKernel = parsed.jupyterKernel;
+			knitrEngine = parsed.knitrEngine;
 		} catch (e) {
 			logService?.warn('Failed to parse Quarto frontmatter', e);
 		}
@@ -138,7 +162,7 @@ export function parseQuarto(content: string, logService?: ILogService): QuartoDo
 			begin: { line: 0 },
 			end: { line: frontmatterLineCount - 1 },
 		};
-		frontmatter = { rawContent, jupyterKernel, location };
+		frontmatter = { rawContent, jupyterKernel, knitrEngine, location };
 		lineIndex = frontmatterLineCount;
 	}
 

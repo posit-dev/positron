@@ -20,6 +20,14 @@ suite('connectIn', () => {
 		assert.strictEqual(connectIn('SELECT 1;\n-- @connect: duckdb://a.db', true), undefined);
 	});
 
+	test('a cell\'s directives end where the kernel stops reading them', () => {
+		// options are stripped only from the very top: after a blank line, one is code to the kernel
+		assert.strictEqual(connectIn('\n--| label: q\n-- @connect: duckdb://a.db\nSELECT 1;', true), undefined);
+		// and the kernel knows no other directive than @connect and @uncache
+		assert.strictEqual(connectIn('-- @typo\n-- @connect: duckdb://a.db\nSELECT 1;', true), undefined);
+		assert.strictEqual(connectIn('-- @uncache\n-- @connect: duckdb://a.db\nSELECT 1;', true), 'duckdb://a.db');
+	});
+
 	test('only the exact directive counts, not a mention of it', () => {
 		assert.strictEqual(connectIn('--@connect: duckdb://a.db', false), undefined);
 		assert.strictEqual(connectIn('SELECT \'-- @connect: duckdb://a.db\';', false), undefined);

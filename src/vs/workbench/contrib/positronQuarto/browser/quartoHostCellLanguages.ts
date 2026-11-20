@@ -110,7 +110,7 @@ CommandsRegistry.registerCommand('_quartoHostExplainUnrunnableCell', (accessor, 
 	const textModel = accessor.get(IModelService).getModel(uri);
 	const document: ICellRuntimeContext = textModel
 		? accessor.get(IQuartoDocumentModelService).getModel(textModel)
-		: { jupyterKernel: undefined, primaryLanguage: undefined };
+		: { primaryLanguage: undefined, knitrEngine: undefined, cells: [] };
 	return explainUnrunnableCell(cellLanguage, document, {
 		runtimeStartupService: accessor.get(IRuntimeStartupService),
 		notificationService: accessor.get(INotificationService),

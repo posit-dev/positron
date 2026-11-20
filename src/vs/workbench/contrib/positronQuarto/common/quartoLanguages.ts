@@ -40,16 +40,22 @@ export const GGSQL_LANGUAGE = 'ggsql';
 
 /** What a cell needs to know about its document to decide which runtime runs it. */
 export interface ICellRuntimeContext {
-	readonly jupyterKernel: string | undefined;
 	readonly primaryLanguage: string | undefined;
+	/** The engine the frontmatter declares: knitr (true), another (false), or none. */
+	readonly knitrEngine: boolean | undefined;
+	readonly cells: readonly { readonly language: string }[];
 }
 
 /**
- * Whether Quarto renders the document with knitr: it names no Jupyter kernel
- * and its primary language is R, which knitr claims.
+ * Whether Quarto renders the document with knitr: the engine its frontmatter
+ * declares (`engine`, else a `knitr` or `jupyter` key) or, when it declares
+ * none, whether it has any `{r}` cell. This is how Quarto picks the engine,
+ * and how the Quarto extension's `isKnitrDocument` decides which cells it
+ * can run, so the two agree on `{sql}` cells.
  */
 export function rendersWithKnitr(document: ICellRuntimeContext): boolean {
-	return document.jupyterKernel === undefined && document.primaryLanguage?.toLowerCase() === 'r';
+	return document.knitrEngine
+		?? document.cells.some(cell => cell.language.toLowerCase() === 'r');
 }
 
 /**
@@ -86,10 +92,19 @@ export function isRunnableCell(
 const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
 
 /**
- * Lines that may sit above a `@connect` line without ending a cell's leading
- * directives: blank lines, cell options and ggsql's other directives.
+ * A Quarto cell option line in a SQL or ggsql cell. A run strips the block of
+ * them at the very top of a cell before ggsql sees the code (see
+ * `parseCellExecutionOptions`), so they don't end its leading directives.
  */
-const LEADING_NOISE = /^\s*($|--\||#\||-- @)/;
+const OPTION_LINE = /^\s*(?:--|#)\|/;
+
+/**
+ * Lines ggsql reads past among an execution's leading directives, as its
+ * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything
+ * else, a cell option that wasn't stripped or a misspelled directive
+ * included, ends them.
+ */
+const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
 
 /**
  * The `-- @connect: <uri>` line a piece of ggsql starts with, in the form ggsql
@@ -102,7 +117,13 @@ const LEADING_NOISE = /^\s*($|--\||#\||-- @)/;
  */
 export function leadingConnectLine(code: string): string | undefined {
 	let uri: string | undefined;
-	for (const line of code.split(/\r?\n/)) {
+	const lines = code.split(/\r?\n/);
+	// the option lines a run strips, which are only those at the very top
+	let first = 0;
+	while (first < lines.length && OPTION_LINE.test(lines[first])) {
+		first++;
+	}
+	for (const line of lines.slice(first)) {
 		const match = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
 		if (match) {
 			uri = match;

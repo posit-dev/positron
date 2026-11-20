@@ -31,8 +31,8 @@ describe('explainUnrunnableCell', () => {
 			notificationService,
 			commandService: stubInterface<ICommandService>({}),
 		});
-		const python = { jupyterKernel: undefined, primaryLanguage: 'python' };
-		const knitr = { jupyterKernel: undefined, primaryLanguage: 'r' };
+		const python = { primaryLanguage: 'python', knitrEngine: undefined, cells: [{ language: 'python' }] };
+		const knitr = { primaryLanguage: 'r', knitrEngine: undefined, cells: [{ language: 'r' }] };
 
 		const answers = [
 			explainUnrunnableCell('sql', python, services(['python', 'ggsql'])),

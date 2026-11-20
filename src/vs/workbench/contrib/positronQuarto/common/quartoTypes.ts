@@ -78,6 +78,12 @@ export interface QuartoFrontmatter {
 	/** Extracted Jupyter kernel name, if present. */
 	readonly jupyterKernel?: string;
 
+	/**
+	 * Whether the frontmatter declares the knitr engine (true) or another one
+	 * (false); undefined when it declares none.
+	 */
+	readonly knitrEngine?: boolean;
+
 	/** Source location spanning the frontmatter block. */
 	readonly location: QuartoSourceLocation;
 }
@@ -198,6 +204,12 @@ export interface IQuartoDocumentModel extends IDisposable {
 	 * Jupyter kernel from frontmatter, if specified.
 	 */
 	readonly jupyterKernel: string | undefined;
+
+	/**
+	 * Whether the frontmatter declares the knitr engine (true) or another one
+	 * (false); undefined when it declares none.
+	 */
+	readonly knitrEngine: boolean | undefined;
 
 	/**
 	 * All code cells in the document.

@@ -24,10 +24,17 @@ import * as vscode from 'vscode';
 const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
 
 /**
- * Lines that may sit above a `@connect` line at the top of a cell without ending the directives:
- * blank lines, Quarto cell options (`--|`, `#|`), and ggsql's other directives (`-- @uncache`).
+ * A Quarto cell option line (`--|`, `#|`). A run strips the block of them at the very top of a
+ * cell before the kernel sees the code, so they don't end the cell's leading directives.
  */
-const LEADING_NOISE = /^\s*($|--\||#\||-- @)/;
+const OPTION_LINE = /^\s*(?:--|#)\|/;
+
+/**
+ * Lines the kernel reads past among an execution's leading directives, as ggsql's
+ * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything else, a cell option
+ * that wasn't stripped or a misspelled directive included, ends them.
+ */
+const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
 
 /** The scheme the extension host gives the cells of a notebook. */
 const CELL_SCHEME = 'vscode-notebook-cell';
@@ -54,7 +61,13 @@ const NATIVE_CELL_FEATURES_SETTING = 'quarto.embeddedLanguageFeatures.native';
  */
 export function connectIn(text: string, leadingOnly: boolean): string | undefined {
 	let found: string | undefined;
-	for (const line of text.split(/\r?\n/)) {
+	const lines = text.split(/\r?\n/);
+	// the option lines a run strips, which are only those at the very top
+	let first = 0;
+	while (leadingOnly && first < lines.length && OPTION_LINE.test(lines[first])) {
+		first++;
+	}
+	for (const line of lines.slice(first)) {
 		const uri = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
 		if (uri) {
 			if (!leadingOnly) {

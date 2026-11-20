@@ -65,6 +65,7 @@ export function parseCellId(id: string): ParsedCellId {
 interface ParsedDocument {
 	cells: QuartoCodeCell[];
 	jupyterKernel: string | undefined;
+	knitrEngine: boolean | undefined;
 }
 
 /**
@@ -75,6 +76,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _cells: QuartoCodeCell[] = [];
 	private _reportedLanguage: string | undefined;
 	private _jupyterKernel: string | undefined;
+	private _knitrEngine: boolean | undefined;
 	private _cellsById = new Map<string, QuartoCodeCell>();
 	private _parseTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -132,6 +134,10 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 
 	get jupyterKernel(): string | undefined {
 		return this._jupyterKernel;
+	}
+
+	get knitrEngine(): boolean | undefined {
+		return this._knitrEngine;
 	}
 
 	get cells(): readonly QuartoCodeCell[] {
@@ -276,6 +282,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 
 		this._jupyterKernel = parsed.jupyterKernel;
+		this._knitrEngine = parsed.knitrEngine;
 
 		const primaryLanguage = this._derivePrimaryLanguage();
 		if (primaryLanguage !== this._reportedLanguage) {
@@ -320,7 +327,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			cellIndex++;
 		}
 
-		return { cells, jupyterKernel: doc.frontmatter?.jupyterKernel };
+		return { cells, jupyterKernel: doc.frontmatter?.jupyterKernel, knitrEngine: doc.frontmatter?.knitrEngine };
 	}
 
 	/**
