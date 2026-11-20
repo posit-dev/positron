@@ -68,8 +68,8 @@ describe('FILL_VIEWPORT_CSS', () => {
 			<div id="embed" class="vega-embed"><svg id="marks" class="marks"></svg></div>`, selector)).toEqual([]);
 	});
 
-	it('gives the actions button no width beside a container-width chart', () => {
-		const selector = selectorFor('min-width: 0');
+	it('takes the actions button out of the layout beside a container-width chart', () => {
+		const selector = selectorFor('position: absolute');
 		// Altair 5 sets fit-x only on the wrapper; Altair 6 also sets it on the embed.
 		expect(matchedIds(`
 			<div id="embed" class="vega-embed has-actions">
@@ -82,6 +82,28 @@ describe('FILL_VIEWPORT_CSS', () => {
 		expect(matchedIds(`
 			<div id="embed" class="vega-embed has-actions">
 				<div class="chart-wrapper"></div><details id="actions"></details>
+			</div>`, selector)).toEqual([]);
+	});
+
+	it('clips a container-size chart so a pane resize does not add scrollbars', () => {
+		const selector = selectorFor('overflow: hidden');
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions fit-x fit-y">
+				<div id="wrapper" class="chart-wrapper fit-x fit-y"><svg class="marks"></svg><form class="vega-bindings"></form></div><details></details>
+			</div>`, selector)).toEqual(['wrapper']);
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed fit-x fit-y"><svg class="marks"></svg></div>`, selector)).toEqual(['embed']);
+		// A fixed width or height can exceed the pane, so the pane must still scroll to it.
+		for (const fit of ['fit-x', 'fit-y']) {
+			expect(matchedIds(`
+				<div id="embed" class="vega-embed has-actions">
+					<div id="wrapper" class="chart-wrapper ${fit}"><svg class="marks"></svg><form class="vega-bindings"></form></div>
+				</div>`, selector)).toEqual([]);
+		}
+		// Input controls sit below the chart, inside the same box.
+		expect(matchedIds(`
+			<div id="embed" class="vega-embed has-actions">
+				<div id="wrapper" class="chart-wrapper fit-x fit-y"><svg class="marks"></svg><form class="vega-bindings"><input></form></div>
 			</div>`, selector)).toEqual([]);
 	});
 });

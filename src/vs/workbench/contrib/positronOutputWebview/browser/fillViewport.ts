@@ -12,8 +12,15 @@
  *   above the chart get a height.
  * - Block marks: an inline chart sits on the text baseline and overflows by a few
  *   pixels; the scrollbar that adds takes width from the chart.
- * - Actions button: it takes width only after Vega first measures, which changed
- *   the chart width between draws. With no width it sits in Vega's padding.
+ * - Actions button: Altair keeps it in the layout, but it is added after Vega first
+ *   measures, so the chart width changed between draws. Taking it out of the layout
+ *   puts it in the padding Vega reserves for it, as Vega's own CSS does. Altair's
+ *   rule is keyed on the chart id, so overriding it needs !important.
+ * - Clip: after the pane shrinks, the old chart overflows until Vega redraws, and
+ *   Vega measures the scrollbars that adds. Only charts sized to the pane both
+ *   ways: a fixed width or height can exceed the pane and must scroll. Charts with
+ *   input controls are left alone, since the controls sit below the chart in the
+ *   same box.
  */
 export const FILL_VIEWPORT_CSS = `
 <style>
@@ -24,8 +31,12 @@ export const FILL_VIEWPORT_CSS = `
 	.fit-y > .marks {
 		display: block;
 	}
+	.fit-x.fit-y:has(> .marks):not(:has(> .vega-bindings:not(:empty))) {
+		overflow: hidden;
+	}
 	.vega-embed:has(> .chart-wrapper.fit-x) > details {
-		width: 0;
-		min-width: 0;
+		position: absolute !important;
+		top: 0;
+		right: 0;
 	}
 </style>`;
