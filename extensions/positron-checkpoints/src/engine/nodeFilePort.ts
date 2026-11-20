@@ -9,20 +9,22 @@ import * as path from 'path';
 import { FilePort } from './ports';
 
 /**
- * A `FilePort` backed by the real file system. Paths are relative to `root`. A path that
- * resolves outside `root`, lexically or through a symbolic link in one of its parent
- * directories, is an error. `write` replaces a symbolic link at the target path instead of
+ * A `FilePort` backed by the real file system. Paths are relative to `root`. An absolute
+ * path is accepted when it is inside one of `extraRoots` (for example the git directory,
+ * which can be outside `root`). A path that resolves outside those roots, lexically or
+ * through a symbolic link in one of its parent directories, is an error. `write` replaces a symbolic link at the target path instead of
  * writing through it.
  */
-export function createNodeFilePort(root: string): FilePort {
+export function createNodeFilePort(root: string, extraRoots: string[] = []): FilePort {
 	let caseInsensitive: Promise<boolean> | undefined;
 
 	const resolve = async (relative: string): Promise<string> => {
 		const full = path.resolve(root, relative);
-		if (!isInside(root, full)) {
+		const base = [root, ...extraRoots].find(candidate => isInside(candidate, full));
+		if (base === undefined) {
 			throw new Error(`Path is outside the project: ${relative}`);
 		}
-		const realRoot = await fsp.realpath(root).catch(() => root);
+		const realRoot = await fsp.realpath(base).catch(() => base);
 		const realParent = await realpathOfNearestParent(path.dirname(full));
 		if (!isInside(realRoot, realParent)) {
 			throw new Error(`Path is outside the project: ${relative}`);

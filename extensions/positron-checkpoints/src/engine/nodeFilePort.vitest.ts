@@ -130,6 +130,23 @@ describe('createNodeFilePort', () => {
 		});
 	});
 
+	test('accepts an absolute path inside an extra root and refuses other absolute paths', async () => {
+		const extra = await fsp.mkdtemp(path.join(os.tmpdir(), 'positron-checkpoints-extra-'));
+		try {
+			const port = createNodeFilePort(root, [extra]);
+			const inside = path.join(extra, 'sub', 'a.txt');
+			await port.write(inside, new TextEncoder().encode('x'), false);
+			expect(await fsp.readFile(inside, 'utf8')).toBe('x');
+			expect(await port.stat(inside)).toMatchObject({ sizeBytes: 1 });
+			await port.remove(inside);
+			expect(await port.stat(inside)).toBeUndefined();
+			await expect(port.read(path.join(os.tmpdir(), 'elsewhere.txt'))).rejects.toThrow(/outside the project/);
+			await expect(files.read(path.join(extra, 'a.txt'))).rejects.toThrow(/outside the project/);
+		} finally {
+			await fsp.rm(extra, { recursive: true, force: true });
+		}
+	});
+
 	test('caseInsensitive uses a unique probe name for each call', async () => {
 		const other = createNodeFilePort(root);
 		const [first, second] = await Promise.all([files.caseInsensitive(), other.caseInsensitive()]);

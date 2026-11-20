@@ -112,7 +112,7 @@ async function createRepo(base: string, root: string, sharedRemote: { path: stri
 
 	const ports: EnginePorts = {
 		git,
-		files: createNodeFilePort(root),
+		files: createNodeFilePort(root, [path.join(await fsp.realpath(root), '.git')]),
 		network,
 		now: () => new Date(current.getTime()),
 		newId: () => `op-${++counter}`,
