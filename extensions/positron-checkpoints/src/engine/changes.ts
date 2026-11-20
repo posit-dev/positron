@@ -13,6 +13,12 @@ import { ChangedFile, ChangeSet, Chunk, Hunk } from './types';
 /** A file whose working or checkpoint size is over this is listed without hunks. */
 export const MAX_PATCH_FILE_BYTES = 5 * 1024 * 1024;
 
+/**
+ * The files that get hunks add up to at most this many bytes (both versions of each file
+ * counted); the largest files beyond it are listed without hunks.
+ */
+export const MAX_PATCH_TOTAL_BYTES = 20 * 1024 * 1024;
+
 const GITLINK_MODE = '160000';
 
 /** Settings that would change the format of a patch, whatever the user configured. */
@@ -195,7 +201,7 @@ export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
  * working-file tree the changes were read from. `Hunk.patch` in the change set is display
  * text, so it cannot rebuild a file in an encoding other than UTF-8.
  */
-export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; worktree: string; untrackedLarge: Set<string> }> {
+export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; worktree: string; untrackedLarge: Map<string, { sizeBytes: number; mtimeMs: number }> }> {
 	const base = await baseTreeOf(ports);
 	const { tree, skipped } = await worktreeTree(ports);
 	const index = await indexTree(ports);
@@ -215,11 +221,25 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 	const range = [base.tree, tree];
 	const names = parseRaw(await mustGit(ports, [...flags, '-z', '--raw', '--no-abbrev', ...range], { binary: true }));
 
-	// A file with a very large version stays out of the patch.
+	// A file with a very large version stays out of the patch, and so do the largest files
+	// beyond the total limit.
 	const baseSizes = await blobSizes(ports, base.tree);
 	const workSizes = await blobSizes(ports, tree);
-	const tooBigForPatch = (entry: RawEntry) =>
-		Math.max(workSizes.get(entry.path) ?? 0, baseSizes.get(entry.oldPath ?? entry.path) ?? 0, baseSizes.get(entry.path) ?? 0) > MAX_PATCH_FILE_BYTES;
+	const versionSizes = (entry: RawEntry) => [workSizes.get(entry.path) ?? 0, baseSizes.get(entry.oldPath ?? entry.path) ?? 0];
+	const noPatch = new Set(names.filter(entry => Math.max(...versionSizes(entry), baseSizes.get(entry.path) ?? 0) > MAX_PATCH_FILE_BYTES));
+	const patched = names
+		.filter(entry => !noPatch.has(entry))
+		.map(entry => ({ entry, size: versionSizes(entry).reduce((sum, size) => sum + size, 0) }))
+		.sort((left, right) => right.size - left.size);
+	let total = patched.reduce((sum, { size }) => sum + size, 0);
+	for (const { entry, size } of patched) {
+		if (total <= MAX_PATCH_TOTAL_BYTES) {
+			break;
+		}
+		noPatch.add(entry);
+		total -= size;
+	}
+	const tooBigForPatch = (entry: RawEntry) => noPatch.has(entry);
 	const excluded = names.filter(tooBigForPatch).flatMap(entry => [entry.path, ...(entry.oldPath === undefined ? [] : [entry.oldPath])]);
 	const patch = await mustGit(ports, [...flags, '-p', '-U3', '--full-index', ...range, ...(excluded.length === 0 ? [] : ['--', '.', ...excluded.map(path => `:(exclude,literal)${path}`)])], { binary: true });
 	const sections = parsePatch(patch);
@@ -271,7 +291,7 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 	for (const { path, sizeBytes } of large) {
 		files.push({ path, status: 'added', binary: true, sizeBytes, tooLarge: true, hunks: [] });
 	}
-	return { changeSet: { basis, files }, rawHunks, worktree: tree, untrackedLarge: new Set(large.map(file => file.path)) };
+	return { changeSet: { basis, files }, rawHunks, worktree: tree, untrackedLarge: new Map(large.map(file => [file.path, { sizeBytes: file.sizeBytes, mtimeMs: file.mtimeMs }])) };
 }
 
 /** Quotes a path the way git writes it in a patch header, when it needs quoting. */
@@ -323,22 +343,31 @@ function filePatch(file: ChangedFile, chosen: Hunk[], rawHunks: Map<string, Uint
 	return text;
 }
 
-/** True when `tree` has an entry at `path`. */
+/**
+ * True when `tree` has an entry at exactly `path`. Read from the tree listing, so a submodule
+ * entry counts even when its commit is not in this repository.
+ */
 async function inTree(ports: EnginePorts, tree: string, path: string): Promise<boolean> {
-	const result = await runGit(ports.git, ['-C', ports.projectRoot, 'cat-file', '-e', `${tree}:${path}`]);
-	return result.exitCode === 0;
+	const output = await mustGit(ports, ['--literal-pathspecs', 'ls-tree', '-z', '--name-only', tree, '--', path], { binary: true });
+	return splitZ(output).some(name => decodeName(name) === path);
 }
 
-/** The entries of `tree` at exactly the given paths (a directory is a `tree` entry). */
+/**
+ * The file and submodule entries of `tree` at exactly the given paths. A directory is never
+ * expanded: `ls-tree` lists the contents of a directory named in its arguments, and those
+ * entries are left out.
+ */
 async function entriesAt(ports: EnginePorts, tree: string, paths: string[]): Promise<Map<string, { mode: string; oid: string }>> {
 	const found = new Map<string, { mode: string; oid: string }>();
 	for (let i = 0; i < paths.length; i += 200) {
 		const batch = paths.slice(i, i + 200);
+		const requested = new Set(batch);
 		const output = await mustGit(ports, ['--literal-pathspecs', 'ls-tree', '-z', tree, '--', ...batch], { binary: true });
 		for (const entry of splitZ(output)) {
 			const match = /^(\d+) (\w+) (\w+)\t([\s\S]*)$/.exec(entry);
-			if (match !== null && match[2] !== 'tree') {
-				found.set(decodeName(match[4]), { mode: match[1], oid: match[3] });
+			const name = match === null ? undefined : decodeName(match[4]);
+			if (match !== null && name !== undefined && match[2] !== 'tree' && requested.has(name)) {
+				found.set(name, { mode: match[1], oid: match[3] });
 			}
 		}
 	}
@@ -352,7 +381,8 @@ async function entriesAt(ports: EnginePorts, tree: string, paths: string[]): Pro
  * the working-file tree the changes were read from (a renamed file also removes its old
  * path), so a file edited after `readChanges` never enters unreviewed. The hunk of an added
  * or deleted file is the whole file. The only working file read is a new file over the
- * large file limit, which is hashed from disk. Nothing in the project changes.
+ * large file limit, which is hashed from disk and must then still have the size and
+ * modification time that went into the basis. Nothing in the project changes.
  * `partialFiles` lists the files from which some hunks were taken and some were left out.
  * Throws `ChunkError` for an unknown hunk id, a repeated hunk id, a file that did not
  * change, or files that changed after `changes` was read.
@@ -433,6 +463,12 @@ export async function treeForChunk(
 		}
 		for (const path of largeNew) {
 			const oid = (await mustGit(ports, ['hash-object', '-w', '--', path], { timeoutMs: 10 * 60_000 })).trim();
+			// The file was read after the basis check, so it must still be the file the basis describes.
+			const reviewed = untrackedLarge.get(path);
+			const now = await ports.files.lstat(path);
+			if (reviewed === undefined || now === undefined || now.sizeBytes !== reviewed.sizeBytes || now.mtimeMs !== reviewed.mtimeMs) {
+				throw new ChunkError('changes-moved', `${path} changed after the changes were read`);
+			}
 			lines.push(`100644 ${oid}\t${path}\0`);
 		}
 		if (lines.length > 0) {

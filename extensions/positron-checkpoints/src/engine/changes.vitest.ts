@@ -7,7 +7,7 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { ChunkError, MAX_PATCH_FILE_BYTES, readChanges, treeForChunk } from './changes';
+import { ChunkError, MAX_PATCH_FILE_BYTES, MAX_PATCH_TOTAL_BYTES, readChanges, treeForChunk } from './changes';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { ChangedFile, ChangeSet, Chunk } from './types';
 import { LARGE_FILE_BYTES } from './trees';
@@ -304,6 +304,25 @@ describe('changes', () => {
 			expect(entry).toMatch(/^160000 commit /);
 			expect(entry).not.toContain(sha);
 		});
+
+		test('a deleted submodule whose commit exists only in the submodule is removed', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'a\n');
+			await repo.commit('first');
+			const inSub = (args: string[]) => repo.git(['-C', 'sub', '-c', 'user.name=n', '-c', 'user.email=n@example.com', ...args]);
+			await repo.git(['init', '-q', '-b', 'main', 'sub']);
+			await inSub(['commit', '-q', '--allow-empty', '-m', 'one']);
+			const sha = (await inSub(['rev-parse', 'HEAD'])).stdout.trim();
+			await repo.git(['update-index', '--add', '--cacheinfo', `160000,${sha},sub`]);
+			await repo.commit('add submodule entry');
+			expect((await repo.git(['cat-file', '-e', sha])).exitCode).not.toBe(0);
+			await repo.git(['rm', '-q', '--cached', 'sub']);
+			await fsp.rm(path.join(repo.root, 'sub'), { recursive: true, force: true });
+			const changes = await readChanges(repo.ports);
+			expect(fileNamed(changes, 'sub')).toMatchObject({ status: 'deleted', binary: true, hunks: [] });
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['sub']));
+			expect((await repo.git(['ls-tree', '-r', '--name-only', tree])).stdout.trim()).toBe('a.txt');
+		});
 	});
 
 	describe('content of whole files', () => {
@@ -318,6 +337,19 @@ describe('changes', () => {
 			expect(changes.files.map(file => [file.path, file.status])).toEqual([['a', 'deleted'], ['a/x.txt', 'added']]);
 			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['a']));
 			expect((await repo.git(['ls-tree', '-r', '--name-only', tree])).stdout.trim()).toBe('keep.txt');
+		});
+
+		test('a tracked file replaced by a directory: selecting the deletion and one child leaves out the other children', async () => {
+			const repo = await create();
+			await repo.write('a', 'file\n');
+			await repo.write('keep.txt', 'k\n');
+			await repo.commit('first');
+			await fsp.rm(path.join(repo.root, 'a'));
+			await repo.write('a/x.txt', 'inside\n');
+			await repo.write('a/y.txt', 'sibling\n');
+			const changes = await readChanges(repo.ports);
+			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['a', 'a/x.txt']));
+			expect((await repo.git(['ls-tree', '-r', '--name-only', tree])).stdout.trim().split('\n')).toEqual(['a/x.txt', 'keep.txt']);
 		});
 
 		test.skipIf(process.platform === 'win32')('content and executable bit both changed: all hunks give the new mode, some keep the old one', async () => {
@@ -480,6 +512,50 @@ describe('changes', () => {
 			expect(changes.files.map(file => [file.path, file.binary, file.hunks.length])).toEqual([['big.txt', true, 0], ['small.txt', false, 1]]);
 			const { tree } = await treeForChunk(repo.ports, await headTree(repo), changes, chunkOf([], ['big.txt']));
 			expect((await show(repo, tree, 'big.txt')).endsWith('changed\n')).toBe(true);
+		});
+
+		test('a large new file that changes while it is hashed throws changes-moved', async () => {
+			const repo = await create();
+			await repo.write('a.txt', 'one\n');
+			await repo.commit('first');
+			const big = path.join(repo.root, 'big.bin');
+			await fsp.writeFile(big, '');
+			await fsp.truncate(big, LARGE_FILE_BYTES + 1);
+			const changes = await readChanges(repo.ports);
+			const ports = {
+				...repo.ports,
+				git: async (args: string[], options?: Parameters<TempRepo['git']>[1]) => {
+					const result = await repo.ports.git(args, options);
+					if (args.includes('hash-object') && args.includes('big.bin')) {
+						await fsp.truncate(big, LARGE_FILE_BYTES + 2);
+					}
+					return result;
+				},
+			};
+			const error = await treeForChunk(ports, await headTree(repo), changes, chunkOf([], ['big.bin'])).catch(caught => caught);
+			expect(error).toBeInstanceOf(ChunkError);
+			expect((error as ChunkError).code).toBe('changes-moved');
+		});
+
+		test('patches whose files add up to more than the total limit leave out the largest files', async () => {
+			const repo = await create();
+			const line = 'x'.repeat(99) + '\n';
+			const lines = (bytes: number) => line.repeat(Math.floor(bytes / 100));
+			const each = Math.floor(MAX_PATCH_FILE_BYTES * 0.9);
+			const count = Math.ceil(MAX_PATCH_TOTAL_BYTES / each);
+			const largest = lines(MAX_PATCH_FILE_BYTES - 1000);
+			await repo.write('largest.txt', largest);
+			for (let index = 0; index < count; index++) {
+				await repo.write(`part${index}.txt`, lines(each));
+			}
+			await repo.write('small.txt', numbered(10).join(''));
+			const changes = await readChanges(repo.ports);
+			const patched = changes.files.filter(file => !file.binary);
+			expect(patched.reduce((total, file) => total + file.sizeBytes, 0)).toBeLessThanOrEqual(MAX_PATCH_TOTAL_BYTES);
+			expect(fileNamed(changes, 'largest.txt')).toMatchObject({ binary: true, hunks: [] });
+			expect(fileNamed(changes, 'small.txt')).toMatchObject({ binary: false, hunks: [expect.anything()] });
+			const { tree } = await treeForChunk(repo.ports, EMPTY_TREE, changes, chunkOf([], ['largest.txt']));
+			expect((await repo.git(['ls-tree', '-l', tree, 'largest.txt'])).stdout).toContain(` ${largest.length}\t`);
 		});
 	});
 
