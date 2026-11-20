@@ -210,6 +210,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		itemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
 		itemRenderer: () => null,
 		selectionMode: 'list-multiple-selection',
+		// Re-anchor by name, not id: a runtime's package id embeds the version (the kernel's is
+		// `<name>-<version>`), so an update changes it and an id match would deselect exactly the
+		// packages that were just updated. Names are unique here (the list is deduplicated by name).
+		getItemKey: pkg => pkg.name,
 	}), [itemSize]);
 
 	// Clear selection when filter text changes.
@@ -279,28 +283,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Push the latest filtered packages into the list. Wrapping in {kind: 'item'} is the
 	// PositronList entry contract; this list has no sections.
 	useEffect(() => {
-		// Selection is tracked by row index in the data grid; entries may reorder on refresh,
-		// so re-anchor every selected package by name after pushing the new entries, dropping the
-		// ones that are gone. The name, not the id: a runtime's package id embeds the version
-		// (the kernel's is `<name>-<version>`), so an update changes it and an id match would
-		// deselect exactly the packages that were just updated. Names are unique here (the list
-		// is deduplicated by name). onDidUpdate is batched into a microtask, so the clear, the
-		// new entries, and the re-selection reach the selection sync effect as one update and
-		// only the final selection is pushed to the service.
-		const previouslySelectedNames = new Set(listInstance.getSelectedItems().map(p => p.name));
-		if (previouslySelectedNames.size > 0) {
-			listInstance.clearSelection();
-		}
-
+		// The list re-anchors the selection and the cursor onto the same packages by name (see
+		// getItemKey), dropping the ones that are gone.
 		const entries: ListEntry<ILanguageRuntimePackage, never>[] = filteredPackages.map(pkg => ({
 			kind: 'item',
 			item: pkg,
 		}));
 		listInstance.setEntries(entries);
-
-		if (previouslySelectedNames.size > 0) {
-			listInstance.selectItems(p => previouslySelectedNames.has(p.name));
-		}
 	}, [listInstance, filteredPackages]);
 
 	// After an install/update, scroll to and flash the affected packages once

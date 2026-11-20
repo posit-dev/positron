@@ -2763,11 +2763,22 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Selects a set of rows, replacing the current selection. Like selectRow, the cursor and
-	 * scroll position are left alone.
-	 * @param rowIndexes The row indexes. Must not be empty (use clearSelection to select nothing),
-	 * must be in ascending order, and must all be selectable (isRowSelectable is not checked).
+	 * scroll position are left alone. The indexes are sorted and de-duplicated, and rows that are
+	 * not selectable (isRowSelectable) are dropped. When none remain, the selection is cleared.
+	 * @param rowIndexes The row indexes, in any order.
 	 */
 	selectRows(rowIndexes: number[]) {
+		// Normalize the row indexes.
+		const normalizedRowIndexes = [...new Set(rowIndexes)]
+			.filter(rowIndex => this.isRowSelectable(rowIndex))
+			.sort((a, b) => a - b);
+
+		// Selecting nothing is clearing the selection.
+		if (normalizedRowIndexes.length === 0) {
+			this.clearSelection();
+			return;
+		}
+
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
@@ -2775,7 +2786,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes = undefined;
 
 		// Select the rows.
-		this._rowSelectionIndexes = new SelectionIndexes(rowIndexes);
+		this._rowSelectionIndexes = new SelectionIndexes(normalizedRowIndexes);
 
 		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
