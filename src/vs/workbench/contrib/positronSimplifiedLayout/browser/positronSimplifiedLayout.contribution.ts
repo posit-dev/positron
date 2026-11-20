@@ -7,6 +7,8 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IPositronLayoutService } from '../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
 import { positronFourPaneDsLayout } from '../../../services/positronLayout/browser/layouts/positronFourPaneDsLayout.js';
 import { positronSimplifiedLayout } from '../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
@@ -14,16 +16,18 @@ import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/
 import './titleBarSessionPicker.js';
 
 /**
- * Remembers that the Simplified layout was applied for this profile, so it is applied once
- * when the setting turns on and undone once when it turns off.
+ * Remembers that the Simplified layout was applied. The profile key covers what the profile
+ * saves (where each view lives), so the Stacked layout is put back once when the setting turns
+ * off. The workspace key covers what each folder saves (which views are collapsed, whether the
+ * bottom panel is open), so each folder gets the layout once.
  */
 const SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY = 'positron.simplifiedLayout.applied';
 
 /**
- * Applies the Simplified layout the first time the window starts with the simplified layout
- * setting on, and puts back the Stacked layout the first time it starts with the setting off
- * again. A saved layout in the profile otherwise wins over any new default, so without this
- * an existing user would never see the new layout.
+ * Applies the Simplified layout the first time each folder opens with the simplified layout
+ * setting on, and puts back the Stacked layout the first time a window starts with the setting
+ * off again. A saved layout otherwise wins over any new default, so without this an existing
+ * user would never see the new layout.
  */
 class SimplifiedLayoutStartupContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronSimplifiedLayoutStartup';
@@ -32,18 +36,31 @@ class SimplifiedLayoutStartupContribution extends Disposable implements IWorkben
 		@IConfigurationService configurationService: IConfigurationService,
 		@IStorageService storageService: IStorageService,
 		@IPositronLayoutService positronLayoutService: IPositronLayoutService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 	) {
 		super();
 
 		const enabled = configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true;
-		const applied = storageService.getBoolean(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.PROFILE, false);
+		const appliedToProfile = storageService.getBoolean(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.PROFILE, false);
+		const appliedToWorkspace = storageService.getBoolean(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.WORKSPACE, false);
 
-		if (enabled && !applied) {
+		if (enabled && (!appliedToProfile || !appliedToWorkspace)) {
 			positronLayoutService.setLayout(positronSimplifiedLayout.layoutDescriptor);
 			storageService.store(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.MACHINE);
-		} else if (!enabled && applied) {
+			storageService.store(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		} else if (enabled) {
+			// The bottom panel can come back open with nothing in it, for example after Toggle
+			// Panel or when the window closed before the folder's layout was saved.
+			const panelIsEmpty = viewDescriptorService.getViewContainersByLocation(ViewContainerLocation.Panel)
+				.every(container => viewDescriptorService.getViewContainerModel(container).activeViewDescriptors.length === 0);
+			if (panelIsEmpty && layoutService.isVisible(Parts.PANEL_PART)) {
+				layoutService.setPartHidden(true, Parts.PANEL_PART);
+			}
+		} else if (appliedToProfile) {
 			positronLayoutService.setLayout(positronFourPaneDsLayout.layoutDescriptor);
 			storageService.remove(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.PROFILE);
+			storageService.remove(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.WORKSPACE);
 		}
 	}
 }
