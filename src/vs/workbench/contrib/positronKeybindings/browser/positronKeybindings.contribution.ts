@@ -32,7 +32,7 @@ configurationRegistry.registerConfiguration({
 	}
 });
 
-class PositronKeybindingsContribution extends Disposable {
+export class PositronKeybindingsContribution extends Disposable {
 
 	static readonly ID = 'workbench.contrib.positronKeybindings';
 
