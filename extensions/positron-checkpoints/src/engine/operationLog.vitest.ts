@@ -8,8 +8,10 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { listKept } from './collisions';
-import { PathPlan, readRecords } from './journal';
+import { engineDirectory, PathPlan, readRecords } from './journal';
 import { expire, noteNewOperation, readOperationLog, redo, redoHead, undo, undoHead } from './operationLog';
+import { EnginePorts } from './ports';
+import { recoverOnStart } from './recovery';
 import { runOperation } from './runOperation';
 import { faultPorts } from './test/faultPorts';
 import { collidingProject, currentState, must, projectState, refExists, treeWith } from './test/operationFixtures';
@@ -206,6 +208,128 @@ describe('operationLog', { timeout: 30_000 }, () => {
 
 		expect(await repo.read('a.txt')).toBe('theirs\nand mine\n');
 		expect(await repo.read('notes.txt')).toBe('new notes\n');
+	});
+
+	test('undo after redo returns the edits the redo replaced', async () => {
+		const repo = await create();
+		const id = await getChanges(repo, { 'c.txt': 'theirs\n' });
+		expect((await undo(repo.ports, id, [])).kind).toBe('done');
+		await repo.write('a.txt', 'edited after undo\n');
+
+		expect((await redo(repo.ports, id, [])).kind).toBe('done');
+		expect(await repo.read('a.txt')).toBe('one\n');
+		expect((await undo(repo.ports, id, [])).kind).toBe('done');
+
+		expect(await repo.read('a.txt')).toBe('edited after undo\n');
+		await expect(fsp.stat(path.join(repo.root, 'c.txt'))).rejects.toThrow();
+	});
+
+	test('undo, redo, undo, redo with an edit before each step returns every edit at its step', async () => {
+		const repo = await create();
+		const id = await getChanges(repo, { 'c.txt': 'theirs\n' });
+		const step = async (edit: string, action: typeof undo) => {
+			await repo.write('a.txt', `${edit}\n`);
+			expect((await action(repo.ports, id, [])).kind).toBe('done');
+			return [await repo.read('a.txt'), await repo.read('c.txt').catch(() => null)];
+		};
+
+		expect(await step('e1', undo)).toEqual(['one\n', null]);
+		expect(await step('e2', redo)).toEqual(['e1\n', 'theirs\n']);
+		expect(await step('e3', undo)).toEqual(['e2\n', null]);
+		expect(await step('e4', redo)).toEqual(['e3\n', 'theirs\n']);
+		expect(await step('e5', undo)).toEqual(['e4\n', null]);
+	});
+
+	test('the snapshot of the latest redo is kept while its entry is on the undo list', async () => {
+		const repo = await create();
+		const id = await getChanges(repo, { 'c.txt': 'theirs\n' });
+		expect((await undo(repo.ports, id, [])).kind).toBe('done');
+		await repo.write('a.txt', 'edited after undo\n');
+		expect((await redo(repo.ports, id, [])).kind).toBe('done');
+		const redoRecord = (await readRecords(repo.ports)).at(-1)!;
+		expect(redoRecord.role).toEqual({ kind: 'redo', target: id });
+		repo.clock.advance(10 * DAY_MS);
+		await checkpoint(repo, {});
+		await noteNewOperation(repo.ports, 'create-checkpoints');
+		await expire(repo.ports);
+
+		expect(await refExists(repo, `${SNAPSHOT_REF_PREFIX}${redoRecord.id}`)).toBe(true);
+	});
+
+	test('redo of a checkpoint keeps work staged after the undo left it in place', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'two\n');
+		const id = await checkpoint(repo, { 'a.txt': 'two\n' });
+		await repo.write('b.txt', 'staged elsewhere\n');
+		await must(repo, ['add', 'b.txt']);
+		const staged = await must(repo, ['write-tree']);
+
+		expect((await undo(repo.ports, id, [])).kind).toBe('done');
+		expect(await must(repo, ['write-tree'])).toBe(staged);
+		expect((await redo(repo.ports, id, [])).kind).toBe('done');
+
+		expect(await must(repo, ['write-tree'])).toBe(staged);
+	});
+
+	test('kept files return inside the undo, and a return that failed is finished at startup', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		const { plan } = await collidingProject(repo);
+		const id = doneId(await runOperation(repo.ports, { ...plan, collisionChoices: [{ path: 'debug.log', choice: 'use-theirs-keep-copy' }] }));
+		let failed = false;
+		const failingReturn: EnginePorts = {
+			...repo.ports,
+			files: {
+				...repo.ports.files,
+				linkOrCopy: async (from, to) => {
+					if (!failed && from.includes('/kept/')) {
+						failed = true;
+						throw new Error('injected');
+					}
+					return repo.ports.files.linkOrCopy(from, to);
+				},
+			},
+		};
+
+		expect((await undo(failingReturn, id, [])).kind).toBe('done');
+		expect(failed).toBe(true);
+		await expect(fsp.stat(path.join(repo.root, 'debug.log'))).rejects.toThrow();
+		expect(await listKept(repo.ports)).toHaveLength(1);
+
+		await recoverOnStart(repo.ports);
+
+		expect(await repo.read('debug.log')).toBe('ignored\n');
+		expect(await listKept(repo.ports)).toEqual([]);
+		expect((await readRecords(repo.ports)).at(-1)!.progress.at(-1)).toEqual({ step: 'kept-returned' });
+	});
+
+	test('a kept file returned by an undo is recorded inside the operation', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		const { plan } = await collidingProject(repo);
+		const id = doneId(await runOperation(repo.ports, { ...plan, collisionChoices: [{ path: 'debug.log', choice: 'use-theirs-keep-copy' }] }));
+		const ports = faultPorts(repo.ports, {});
+
+		expect((await undo(ports, id, [])).kind).toBe('done');
+
+		// The file moves back before the lock is released.
+		const calls = ports.mutatingCalls;
+		expect(calls.findIndex(call => /^linkOrCopy .*\/kept\//.test(call))).toBeLessThan(calls.findIndex(call => /^remove .*\/positron-checkpoints\/lock$/.test(call)));
+		expect(await repo.read('debug.log')).toBe('ignored\n');
+	});
+
+	test('an entry whose snapshot ref is gone is not offered, even with an unreadable state file', async () => {
+		const repo = await create();
+		const first = await getChanges(repo, { 'a.txt': 'A\n' });
+		const second = await getChanges(repo, { 'a.txt': 'B\n' });
+		await fsp.writeFile(`${await engineDirectory(repo.ports)}/operations-state.json`, '{ not json');
+		await must(repo, ['update-ref', '-d', `${SNAPSHOT_REF_PREFIX}${first}`]);
+
+		expect((await undo(repo.ports, second, [])).kind).toBe('done');
+
+		expect(await undoHead(repo.ports)).toBeUndefined();
+		expect(await undo(repo.ports, first, [])).toEqual({ kind: 'unavailable', reason: 'stale-operation-id' });
+		expect((await readOperationLog(repo.ports)).find(entry => entry.record.id === first)?.expired).toBe(true);
 	});
 
 	test('undo is refused after another tool adds a commit', async () => {

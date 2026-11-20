@@ -6,7 +6,7 @@
 import { mustGit, splitZ } from './git';
 import { acquireLock, classify, JournalRecord, readRecords, setStatus } from './journal';
 import { EnginePorts } from './ports';
-import { backupDirectory, reverse, rollForward, saveRecoverySnapshot } from './runOperation';
+import { backupDirectory, returnKeptFiles, reverse, rollForward, saveRecoverySnapshot } from './runOperation';
 import { RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX } from './trees';
 import { EngineState, OperationResult } from './types';
 
@@ -41,7 +41,8 @@ export interface RecoveryOutcome {
  * A record with status `pending-approval` needs no recovery: its candidate commit exists only in
  * the object database and nothing visible changed, so it is left as it is. A record that is
  * `complete`, `rolled-back`, or `abandoned` no longer needs its backup folder; a folder a crash
- * left behind is removed.
+ * left behind is removed. A `complete` record whose kept files a crash left unreturned gets
+ * them moved back (`returnKeptFiles`).
  */
 export async function recoverOnStart(ports: EnginePorts): Promise<RecoveryOutcome> {
 	const lock = await acquireLock(ports);
@@ -53,6 +54,10 @@ export async function recoverOnStart(ports: EnginePorts): Promise<RecoveryOutcom
 		for (const record of await readRecords(ports)) {
 			if (record.status === 'complete' || record.status === 'rolled-back' || record.status === 'abandoned') {
 				await removeOrphanBackups(ports, record.id);
+				if (record.status === 'complete') {
+					// A file that still cannot be moved back stays listed in the kept folder.
+					await returnKeptFiles(ports, record).catch(() => undefined);
+				}
 				continue;
 			}
 			if (record.status !== 'prepared' && record.status !== 'interrupted') {

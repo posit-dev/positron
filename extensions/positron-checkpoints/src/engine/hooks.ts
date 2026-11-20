@@ -3,12 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { randomUUID } from 'crypto';
 import { GitTimeoutError, mustGit, runGit, splitZ } from './git';
-import { engineDirectory, PathPlan, readDiskEntries } from './journal';
+import { PathPlan, readDiskEntries } from './journal';
 import { EnginePorts } from './ports';
 import { fileMode } from './runOperation';
-import { withTempIndex, worktreeTree } from './trees';
+import { absoluteGitDir, withTempIndex, worktreeTree } from './trees';
 
 /** A project check (a hook) runs arbitrary code; one that runs longer than this is stopped and rejects the checkpoint. */
 export const HOOK_TIMEOUT_MS = 10 * 60_000;
@@ -24,8 +23,13 @@ export interface CandidateResult {
 	message: string;
 	/** The candidate commit; absent when rejected. */
 	candidate?: string;
-	/** Working files a hook changed on disk: `before` from the snapshot tree, `after` from disk. */
+	/**
+	 * Working files a hook changed on disk: `before` from the baseline tree, `after` from disk
+	 * (null for a file that is gone, or that a folder replaced).
+	 */
 	hookEdited: PathPlan[];
+	/** The working-file tree the edits are measured from (see `buildCandidate`). */
+	baselineTree: string;
 }
 
 /**
@@ -33,40 +37,48 @@ export interface CandidateResult {
  * with `git hook run --ignore-missing`, in the project root, and with `GIT_INDEX_FILE` set to
  * a temporary index that starts with `approvedTree`: `pre-commit`, after which the tree is
  * written again; `prepare-commit-msg` with the message file and the source `message`; then
- * `commit-msg` with the message file. The commit is made with `git commit-tree` from that tree
+ * `commit-msg` with the message file. The message file is `<git dir>/COMMIT_EDITMSG`, as for
+ * `git commit`, so a hook that reads that file directly sees the message; its earlier content is
+ * put back afterwards (or the file removed when there was none). `GIT_EDITOR` is `:`, so a hook
+ * that opens an editor never waits. The commit is made with `git commit-tree` from that tree
  * and the cleaned message, with `parent` as its parent when given, and signed (`-S`) when
  * `commit.gpgsign` is true. No ref is created or moved, and the real index is never used.
  *
  * A hook that exits with an error or runs longer than `HOOK_TIMEOUT_MS`, a message that is
  * empty after the hooks, and a `commit-tree` that fails (a signing failure, for example) give
  * `rejected` with the output that explains it and no candidate. In every case, `hookEdited`
- * lists the working files that differ from `snapshotTree` after the hooks ran, with the blob
- * id of each file on disk as `readDiskEntries` defines it.
+ * lists the working files that differ from the baseline tree after the hooks ran, with the blob
+ * id of each file on disk as `readDiskEntries` defines it. The baseline is `baselineTree` when
+ * given (the baseline of an earlier chunk of the same request), and otherwise a working-file
+ * tree read immediately before `pre-commit` starts, so an edit the person made earlier is never
+ * taken for a hook's.
  */
 export async function buildCandidate(
 	ports: EnginePorts,
-	input: { parent: string | null; approvedTree: string; title: string; body: string; snapshotTree: string },
+	input: { parent: string | null; approvedTree: string; title: string; body: string; baselineTree?: string },
 ): Promise<CandidateResult> {
 	const git = (args: string[], options?: Parameters<EnginePorts['git']>[1]) => mustGit(ports.git, ['-C', ports.projectRoot, ...args], options);
-	const messageFile = `${await engineDirectory(ports)}/tmp/message-${randomUUID()}`;
+	const messageFile = `${await absoluteGitDir(ports)}/COMMIT_EDITMSG`;
+	const previousMessage = await ports.files.read(messageFile);
 	const composed = input.body.trim() === '' ? `${input.title}\n` : `${input.title}\n\n${input.body}\n`;
 	try {
-		return await withTempIndex(ports, async env => {
+		return await withTempIndex(ports, async indexEnv => {
+			const env = { ...indexEnv, GIT_EDITOR: ':' };
+			await ports.files.write(messageFile, Buffer.from(composed, 'utf8'), false);
+			await git(['read-tree', input.approvedTree], { env });
+			const baselineTree = input.baselineTree ?? (await worktreeTree(ports)).tree;
+
 			let resultTree = input.approvedTree;
 			const finish = async (outcome: CandidateResult['outcome'], output: string, message: string, candidate?: string): Promise<CandidateResult> => {
 				const result: CandidateResult = {
 					outcome, output, approvedTree: input.approvedTree, resultTree, message,
-					hookEdited: await hookEdits(ports, input.snapshotTree),
+					hookEdited: await hookEdits(ports, baselineTree), baselineTree,
 				};
 				if (candidate !== undefined) {
 					result.candidate = candidate;
 				}
 				return result;
 			};
-
-			// The temporary folder exists once `withTempIndex` runs.
-			await ports.files.write(messageFile, Buffer.from(composed, 'utf8'), false);
-			await git(['read-tree', input.approvedTree], { env });
 
 			const preCommit = await runHook(ports, env, 'pre-commit', []);
 			if (preCommit !== undefined) {
@@ -97,7 +109,7 @@ export async function buildCandidate(
 			return finish('ok', '', message, commit.stdout.trim());
 		});
 	} finally {
-		await ports.files.remove(messageFile).catch(() => undefined);
+		await (previousMessage === undefined ? ports.files.remove(messageFile) : ports.files.write(messageFile, previousMessage, false)).catch(() => undefined);
 	}
 }
 
@@ -135,17 +147,19 @@ async function readMessage(ports: EnginePorts, messageFile: string): Promise<str
 }
 
 /**
- * The working files that differ from `snapshotTree` now: the paths that differ between it and
- * a fresh working-file tree, each with its snapshot entry as `before` and what is on disk as
- * `after` (null when removed), read with `readDiskEntries`. Submodules and paths that are a
- * folder on disk now are left out.
+ * The working files that differ from `baselineTree` now: the paths that differ between it and
+ * a fresh working-file tree, each with its baseline entry as `before` and what is on disk as
+ * `after` (null when removed, or when a folder now has its place), read with
+ * `readDiskEntries`. A folder that replaced a file is listed under the file's path, and its
+ * files under theirs; a file that replaced a folder is listed, and so are the folder's files.
+ * Submodules are left out.
  */
-async function hookEdits(ports: EnginePorts, snapshotTree: string): Promise<PathPlan[]> {
+async function hookEdits(ports: EnginePorts, baselineTree: string): Promise<PathPlan[]> {
 	const { tree } = await worktreeTree(ports);
-	if (tree === snapshotTree) {
+	if (tree === baselineTree) {
 		return [];
 	}
-	const fields = splitZ((await mustGit(ports.git, ['-C', ports.projectRoot, 'diff-tree', '-r', '-z', '--no-renames', snapshotTree, tree])).stdout);
+	const fields = splitZ((await mustGit(ports.git, ['-C', ports.projectRoot, 'diff-tree', '-r', '-z', '--no-renames', baselineTree, tree])).stdout);
 	const plans: PathPlan[] = [];
 	for (let index = 0; index + 1 < fields.length; index += 2) {
 		// `:<old mode> <new mode> <old blob> <new blob> <status>`, then the path.
@@ -160,6 +174,10 @@ async function hookEdits(ports: EnginePorts, snapshotTree: string): Promise<Path
 	const edited: PathPlan[] = [];
 	for (const plan of plans) {
 		const entry = disk.get(plan.path);
+		if (entry === 'other' && plan.before !== null && (await ports.files.lstat(plan.path))?.isDirectory) {
+			edited.push({ ...plan, after: null, afterMode: null });
+			continue;
+		}
 		if (entry === undefined || entry === 'other') {
 			continue;
 		}

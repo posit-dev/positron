@@ -26,9 +26,12 @@ export interface PathPlan { path: string; before: string | null; after: string |
 /**
  * An entry the engine appends before it changes a part. A `path` entry names the temporary file
  * the engine creates for the path's new content, when there is one; the engine removes only
- * temporary files named in its journal.
+ * temporary files named in its journal. A `kept-returned` entry follows a complete record whose
+ * `returnKept` files were all handled (see `returnKeptFiles`).
  */
-export type Progress = ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' };
+export type Progress =
+	| ({ step: 'kept' } & KeptMove) | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' }
+	| { step: 'kept-returned' };
 
 /**
  * A file outside the snapshot that an operation moves aside (spec 6.2), from its place in the
@@ -51,6 +54,11 @@ export interface JournalRecord {
 	keptMoves: KeptMove[]; progress: Progress[]; status: JournalStatus;
 	redoWorktreeTree?: string; pending?: { token: string; approvedTree: string; resultTree: string; candidate: string };
 	role?: OperationRole;
+	/**
+	 * Files that an earlier operation (`operationId`) moved aside, to move back to their places once
+	 * this record is complete. Set for an Undo.
+	 */
+	returnKept?: { operationId: string; moves: KeptMove[] };
 }
 
 export type Part = 'before' | 'after' | 'unexpected';

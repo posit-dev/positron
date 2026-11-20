@@ -31,8 +31,7 @@ describe.skipIf(process.platform === 'win32')('buildCandidate', { timeout: 30_00
 		await repo.write('a.txt', 'two\n');
 		await repo.write('other.txt', 'not selected\n');
 		const approvedTree = await treeWith(repo, await must(repo, ['rev-parse', 'HEAD^{tree}']), { 'a.txt': 'two\n' });
-		const snapshotTree = (await worktreeTree(repo.ports)).tree;
-		return { repo, input: { parent, approvedTree, title: 'Edit a', body: 'Changed one to two.', snapshotTree } };
+		return { repo, input: { parent, approvedTree, title: 'Edit a', body: 'Changed one to two.' } };
 	};
 
 	/** Installs an executable shell hook. */
@@ -179,6 +178,65 @@ describe.skipIf(process.platform === 'win32')('buildCandidate', { timeout: 30_00
 			expect(await fixedParts(repo)).toEqual(before);
 		}
 		expect(outcomes).toEqual(['ok', 'rejected', 'ok', 'ok']);
+	});
+
+	test('an edit the person made before the hooks ran is not attributed to them', async () => {
+		const { repo, input } = await create();
+		await repo.write('other.txt', 'edited by the person\n');
+		await hook(repo, 'pre-commit', 'printf \'formatted\\n\' > b.txt');
+
+		const result = await buildCandidate(repo.ports, input);
+
+		expect(result.hookEdited.map(plan => plan.path)).toEqual(['b.txt']);
+	});
+
+	test('a given baselineTree is what edits are measured from', async () => {
+		const { repo, input } = await create();
+		const baselineTree = (await worktreeTree(repo.ports)).tree;
+		await repo.write('other.txt', 'edited by an earlier hook\n');
+		await hook(repo, 'pre-commit', 'printf \'formatted\\n\' > b.txt');
+
+		const result = await buildCandidate(repo.ports, { ...input, baselineTree });
+
+		expect(result.baselineTree).toBe(baselineTree);
+		expect(result.hookEdited.map(plan => plan.path)).toEqual(['b.txt', 'other.txt']);
+	});
+
+	test('a hook that replaces a file with a folder, or a folder with a file, is reported', async () => {
+		const { repo, input } = await create();
+		await repo.write('d/x.txt', 'in a folder\n');
+		await must(repo, ['add', 'd/x.txt']);
+		await hook(repo, 'pre-commit', 'rm b.txt\nmkdir b.txt\necho inner > b.txt/inner.txt\nrm -r d\necho file > d');
+
+		const result = await buildCandidate(repo.ports, input);
+
+		expect(result.hookEdited.map(plan => [plan.path, plan.before !== null, plan.after !== null])).toEqual([
+			['b.txt', true, false], ['b.txt/inner.txt', false, true], ['d', false, true], ['d/x.txt', true, false],
+		]);
+	});
+
+	test('hooks read the message from COMMIT_EDITMSG with GIT_EDITOR set to ":", and the file is put back', async () => {
+		const { repo, input } = await create();
+		const editMessage = path.join(repo.root, '.git', 'COMMIT_EDITMSG');
+		await fsp.writeFile(editMessage, 'an earlier message\n');
+		const log = path.join(path.dirname(repo.root), 'hook-log.txt');
+		await hook(repo, 'commit-msg', `cat .git/COMMIT_EDITMSG > "${log}"\necho "editor=$GIT_EDITOR" >> "${log}"\ntest "$1" -ef .git/COMMIT_EDITMSG || exit 1`);
+
+		const result = await buildCandidate(repo.ports, input);
+
+		expect(result.outcome).toBe('ok');
+		expect(await fsp.readFile(log, 'utf8')).toBe('Edit a\n\nChanged one to two.\neditor=:\n');
+		expect(await fsp.readFile(editMessage, 'utf8')).toBe('an earlier message\n');
+	});
+
+	test('COMMIT_EDITMSG is removed afterwards when it did not exist', async () => {
+		const { repo, input } = await create();
+		// `git commit` in the test setup wrote one.
+		await fsp.rm(path.join(repo.root, '.git', 'COMMIT_EDITMSG'));
+
+		expect((await buildCandidate(repo.ports, input)).outcome).toBe('ok');
+
+		await expect(fsp.stat(path.join(repo.root, '.git', 'COMMIT_EDITMSG'))).rejects.toThrow();
 	});
 
 	test('commit.gpgsign=true passes -S', async () => {

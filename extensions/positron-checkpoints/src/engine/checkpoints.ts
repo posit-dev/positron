@@ -157,10 +157,10 @@ async function recordCheckEdits(ports: EnginePorts, plans: PathPlan[]): Promise<
 }
 
 /**
- * Splits the hook edits after a chunk stopped (`current`, measured from the snapshot taken
- * before the request) from those of the chunks that passed (`earlier`). `kept` are the earlier
- * edits that still have the content the earlier hooks wrote, which the published checkpoints
- * record. `added` are the other edits, measured from the content before the request.
+ * Splits the hook edits after a chunk stopped (`current`, measured from the working files just
+ * before the request's first hook ran) from those of the chunks that passed (`earlier`). `kept`
+ * are the earlier edits that still have the content the earlier hooks wrote, which the published
+ * checkpoints record. `added` are the other edits, measured from that same content.
  */
 function splitEdits(earlier: PathPlan[], current: PathPlan[]): { kept: PathPlan[]; added: PathPlan[] } {
 	const now = new Map(current.map(plan => [plan.path, plan]));
@@ -248,9 +248,13 @@ export async function createCheckpoints(ports: EnginePorts, basis: string, chunk
 	const start: Published = { branchCommit: head, indexTree: read.indexTree };
 	let parent = head;
 	let edits: PathPlan[] = [];
+	// Every chunk's hook edits are measured from the working files as they were just before the
+	// first hook of the request ran.
+	let baselineTree: string | undefined;
 	for (let index = 0; index < chunks.length; index++) {
 		const chunk = chunks[index];
-		const result = await buildCandidate(ports, { parent, approvedTree: trees[index].tree, title: chunk.title, body: chunk.body, snapshotTree: read.worktree });
+		const result = await buildCandidate(ports, { parent, approvedTree: trees[index].tree, title: chunk.title, body: chunk.body, baselineTree });
+		baselineTree = result.baselineTree;
 		if (result.candidate !== undefined) {
 			await savePartialFiles(ports, result.candidate, trees[index].partialFiles);
 		}
@@ -390,7 +394,7 @@ export async function acceptCheckedCheckpoint(ports: EnginePorts, token: string)
 	const branchCommit = branch === undefined ? undefined : await readBranch(ports, branch);
 	if (branch === record.branch && branchCommit === record.after.branchCommit) {
 		// The candidate was published, and the process stopped before the record was closed.
-		const published = (await readRecords(ports)).filter(other => other.status === 'complete' && other.kind === 'create-checkpoints' && other.after.branchCommit === branchCommit).pop();
+		const published = (await readRecords(ports)).filter(other => other.status === 'complete' && other.role === undefined && other.kind === 'create-checkpoints' && other.after.branchCommit === branchCommit).pop();
 		await closePending(ports, record);
 		return published === undefined ? { kind: 'project-changed' } : { kind: 'done', operationId: published.id, hookEditedFiles: record.paths.map(plan => plan.path) };
 	}

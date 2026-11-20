@@ -12,7 +12,9 @@ import {
 	acceptCheckedCheckpoint, createCheckpoints, declineCheckedCheckpoint, editDescription, PENDING_REF_PREFIX, readPartialFiles,
 	readPendingApproval, reverseCheckpoint,
 } from './checkpoints';
-import { readOperationLog, undo, undoHead } from './operationLog';
+import { readRecords } from './journal';
+import { readOperationLog, redo, undo, undoHead } from './operationLog';
+import { runOperation } from './runOperation';
 import { must, refExists } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { Chunk, OperationResult } from './types';
@@ -254,6 +256,35 @@ describe.skipIf(process.platform === 'win32')('checkpoints', { timeout: 60_000 }
 		expect(await refExists(repo, `${PENDING_REF_PREFIX}${token}`)).toBe(false);
 		expect(await readPendingApproval(repo.ports)).toBeUndefined();
 		expect((await undoHead(repo.ports))?.id).toBe(id);
+	});
+
+	test('accept after a crash names the published operation, not a later Redo of it', async () => {
+		const { repo } = await create();
+		await repo.write('a.txt', 'two\n');
+		await repo.write('other.txt', 'not selected\n');
+		await hook(repo, 'pre-commit', 'git add other.txt');
+		const token = tokenOf(await createFrom(repo, [chunk('Edit a', ['a.txt'])]));
+		const record = (await readRecords(repo.ports)).find(candidate => candidate.id === token)!;
+		// Published as accept publishes it, with the pending record left open, as after a crash.
+		const published = doneId(await runOperation(repo.ports, {
+			kind: 'create-checkpoints', description: record.description, expected: record.before, after: record.after, collisionChoices: [],
+		}));
+		doneId(await undo(repo.ports, published, []));
+		doneId(await redo(repo.ports, published, []));
+
+		expect(await acceptCheckedCheckpoint(repo.ports, token)).toEqual({ kind: 'done', operationId: published, hookEditedFiles: [] });
+	});
+
+	test('a hook that replaces a file with a folder is reported and the checkpoint is published', async () => {
+		const { repo } = await create();
+		await repo.write('a.txt', 'two\n');
+		await hook(repo, 'pre-commit', 'rm b.txt\nmkdir b.txt\necho inner > b.txt/inner.txt');
+
+		const result = await createFrom(repo, [chunk('Edit a', ['a.txt'])]);
+
+		expect(result).toMatchObject({ kind: 'done', hookEditedFiles: ['b.txt', 'b.txt/inner.txt'] });
+		expect(await show(repo, 'HEAD:a.txt')).toBe('two');
+		expect(await repo.read('b.txt/inner.txt')).toBe('inner\n');
 	});
 
 	test('accept after another tool commits returns project-changed', async () => {

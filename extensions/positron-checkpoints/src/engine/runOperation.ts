@@ -29,6 +29,8 @@ export interface OperationPlan {
 	extraPaths?: PathPlan[];
 	/** Set for an Undo or a Redo; copied into the record. */
 	role?: OperationRole;
+	/** Files an earlier operation kept aside, moved back once the operation is complete; copied into the record. */
+	returnKept?: JournalRecord['returnKept'];
 }
 
 /** A step found a part that is no longer at the value the record expects. */
@@ -109,6 +111,9 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		if (plan.role !== undefined) {
 			record.role = plan.role;
 		}
+		if (plan.returnKept !== undefined && plan.returnKept.moves.length > 0) {
+			record.returnKept = plan.returnKept;
+		}
 		await writeRecord(ports, record);
 	} catch (error) {
 		// Nothing visible has changed yet. A record whose write reported an error may still have
@@ -136,7 +141,26 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 			return { kind: 'interrupted' };
 		}
 	}
+	// The operation is complete. A file that cannot be moved back now stays listed in the kept
+	// folder, and `recoverOnStart` tries again.
+	await returnKeptFiles(ports, record).catch(() => undefined);
 	return { kind: 'done', operationId: id, hookEditedFiles: extraPaths.map(extra => extra.path) };
+}
+
+/**
+ * Moves the files of a complete record's `returnKept` back to their places, still under the
+ * lock, then appends a `kept-returned` entry. A file whose place is taken stays in the kept
+ * folder, listed for the person. Does nothing for a record without `returnKept` or with that
+ * entry, so a call after a crash finishes what the first call started.
+ */
+export async function returnKeptFiles(ports: EnginePorts, record: JournalRecord): Promise<void> {
+	if (record.returnKept === undefined || record.progress.some(entry => entry.step === 'kept-returned')) {
+		return;
+	}
+	for (const move of record.returnKept.moves) {
+		await moveBack(ports, record.returnKept.operationId, move);
+	}
+	await appendProgress(ports, record.id, { step: 'kept-returned' });
 }
 
 /**
@@ -156,7 +180,10 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 	for (const plan of record.paths) {
 		if (alreadyWritten.has(plan.path)) {
 			const [{ part }] = await classifyPaths(ports, [plan]);
-			if (!isAtAfter(plan, part)) {
+			// A hook that replaced a file with a folder left a folder at a path whose after value is
+			// no file; the folder's files are paths of their own.
+			const folderInPlace = plan.after === null && (await ports.files.lstat(plan.path))?.isDirectory === true;
+			if (!isAtAfter(plan, part) && !folderInPlace) {
 				throw new StepRefused(`${plan.path} changed after the operation started`);
 			}
 			continue;

@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { moveBack } from './collisions';
 import { mustGit, runGit, splitZ } from './git';
-import { acquireLock, engineDirectory, JournalRecord, PathPlan, readBranch, readIndexTree, readRecords, TriState } from './journal';
+import { acquireLock, engineDirectory, JournalRecord, OperationRole, PathPlan, readBranch, readIndexTree, readRecords, TriState } from './journal';
 import { EnginePorts } from './ports';
 import { runOperation } from './runOperation';
 import { SNAPSHOT_REF_PREFIX, withTempIndex, worktreeTree } from './trees';
@@ -55,7 +54,10 @@ async function stateFile(ports: EnginePorts): Promise<string> {
 	return `${await engineDirectory(ports)}/operations-state.json`;
 }
 
-/** Reads `operations-state.json`. A missing or unreadable file means that nothing has expired. */
+/**
+ * Reads `operations-state.json`. A missing or unreadable file lists nothing as expired; an entry
+ * whose snapshot was removed is still left out of the lists (see `readLists`).
+ */
 async function readState(ports: EnginePorts): Promise<OperationsState> {
 	const content = await ports.files.read(await stateFile(ports));
 	if (content === undefined) {
@@ -79,7 +81,8 @@ async function readState(ports: EnginePorts): Promise<OperationsState> {
  * - `send-changes` and `start-tracking` clear both lists;
  * - any other operation clears the redo list and becomes the head of the undo list.
  *
- * Entries listed as expired are then left out of both lists.
+ * Entries listed as expired, and entries whose snapshot ref is missing, are then left out of
+ * both lists.
  */
 async function readLists(ports: EnginePorts): Promise<Lists> {
 	const records = await readRecords(ports);
@@ -108,13 +111,23 @@ async function readLists(ports: EnginePorts): Promise<Lists> {
 			undo.push(record.id);
 		}
 	}
+	// An entry whose snapshot is gone cannot be restored, whatever `operations-state.json` says
+	// (the file may be unreadable). On the redo list, the snapshot of its Undo is needed too.
+	const snapshots = await snapshotRefs(ports);
+	const hasSnapshot = (id: string | undefined) => id !== undefined && snapshots.has(`${SNAPSHOT_REF_PREFIX}${id}`);
 	return {
 		records,
 		entries,
-		undo: undo.filter(id => !expired.has(id)),
-		redo: redo.filter(id => !expired.has(id)),
+		undo: undo.filter(id => !expired.has(id) && hasSnapshot(id)),
+		redo: redo.filter(id => !expired.has(id) && hasSnapshot(id) && hasSnapshot(latestRole(records, id, 'undo')?.id)),
 		expired,
 	};
+}
+
+/** The names of every snapshot ref. */
+async function snapshotRefs(ports: EnginePorts): Promise<Set<string>> {
+	const output = (await mustGit(ports.git, ['-C', ports.projectRoot, 'for-each-ref', '--format=%(refname)', SNAPSHOT_REF_PREFIX])).stdout;
+	return new Set(output.split('\n').filter(line => line !== ''));
 }
 
 /** Every log entry in journal order, with its place on the lists. */
@@ -141,13 +154,13 @@ export async function redoHead(ports: EnginePorts): Promise<JournalRecord | unde
 	if (record === undefined) {
 		return undefined;
 	}
-	const undoRecord = latestUndo(lists.records, record.id);
+	const undoRecord = latestRole(lists.records, record.id, 'undo');
 	return undoRecord === undefined ? record : { ...record, redoWorktreeTree: undoRecord.before.worktreeTree };
 }
 
-/** The latest completed Undo of `target`. */
-function latestUndo(records: JournalRecord[], target: string): JournalRecord | undefined {
-	return last(records.filter(record => record.status === 'complete' && record.role?.kind === 'undo' && record.role.target === target));
+/** The latest completed Undo or Redo (`kind`) of `target`. */
+function latestRole(records: JournalRecord[], target: string, kind: OperationRole['kind']): JournalRecord | undefined {
+	return last(records.filter(record => record.status === 'complete' && record.role?.kind === kind && record.role.target === target));
 }
 
 /** The branch HEAD points at and the three parts of the project now, or undefined when HEAD is detached or the index is unreadable. */
@@ -171,14 +184,18 @@ async function readProject(ports: EnginePorts): Promise<{ branch: string; state:
  * per-path checks, the collision check, and crash recovery all apply. The Undo's own snapshot
  * is the redo snapshot. What it restores depends on the kind:
  *
- * - `get-changes`, `go-back`: the branch, the index, and the working files return to the
- *   operation's before state (the snapshot), under the restore and collision rules of 6.2.
- *   Files the operation kept aside move back where nothing else is at their place.
+ * - `get-changes`, `go-back`: the branch returns to its before commit, and the index and the
+ *   working files to the operation's snapshot, under the restore and collision rules of 6.2.
+ *   After a Redo of the entry, they return instead to the latest Redo's own snapshot, so edits
+ *   made between an Undo and the Redo that followed it return too.
  * - every other kind (`create-checkpoints`, `reverse-checkpoint`, `edit-description`,
  *   `check-changed-files`): the branch returns to its before commit; the index returns to its
  *   before tree only while it is still at the operation's after tree; each file the operation
  *   recorded (a file a project check rewrote) returns to its before content only while it
  *   still has the content the check wrote. Other working files are left as they are.
+ *
+ * Files the operation (or, after a Redo, that Redo) kept aside move back where nothing else is
+ * at their place, once the Undo is complete and before the lock is released.
  *
  * Returns `unavailable stale-operation-id` when `operationId` is not the head,
  * `project-changed` when the branch is not at the operation's after commit, and `unavailable
@@ -187,10 +204,14 @@ async function readProject(ports: EnginePorts): Promise<{ branch: string; state:
  * as they were.
  */
 export async function undo(ports: EnginePorts, operationId: string, collisionChoices: CollisionChoice[]): Promise<OperationResult> {
-	const record = await undoHead(ports);
+	const lists = await readLists(ports);
+	const record = lists.entries.find(entry => entry.id === last(lists.undo));
 	if (record === undefined || record.id !== operationId) {
 		return { kind: 'unavailable', reason: 'stale-operation-id' };
 	}
+	// After a Redo, the project as it was just before that Redo is what this Undo returns to.
+	const redone = latestRole(lists.records, record.id, 'redo');
+	const restored = redone ?? record;
 	const project = await readProject(ports);
 	if (project === undefined) {
 		return { kind: 'unavailable', reason: 'unusual-state' };
@@ -203,29 +224,26 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 		return { kind: 'unavailable', reason: 'shared-checkpoint' };
 	}
 	const after: TriState = RESTORES_SNAPSHOT.has(record.kind)
-		? { ...record.before }
+		? { branchCommit: record.before.branchCommit, indexTree: restored.before.indexTree, worktreeTree: restored.before.worktreeTree }
 		: {
 			branchCommit: record.before.branchCommit,
 			indexTree: state.indexTree === record.after.indexTree ? record.before.indexTree : state.indexTree,
 			worktreeTree: await flipPaths(ports, state.worktreeTree, record.paths, 'undo'),
 		};
-	const result = await runOperation(ports, {
+	return runOperation(ports, {
 		kind: record.kind, description: `Undo: ${record.description}`, expected: state, after, collisionChoices,
 		role: { kind: 'undo', target: record.id },
+		returnKept: { operationId: restored.id, moves: restored.keptMoves },
 	});
-	if (result.kind === 'done') {
-		await returnKeptFiles(ports, record);
-	}
-	return result;
 }
 
 /**
  * Applies the head of the redo list again (spec 6.3) through `runOperation`. The branch moves
  * to the operation's after commit. For `get-changes` and `go-back`, the index and the working
  * files return to the redo snapshot, so edits made between the operation and its Undo return.
- * For every other kind, the index returns to the operation's after tree only while it is still
- * at the tree the Undo left, and each recorded file returns to the content the check wrote only
- * while it still has the content the Undo restored. The Redo's own snapshot is kept with the
+ * For every other kind, the index returns to the operation's after tree only when the Undo moved
+ * it from that tree and it is still at the tree the Undo left, and each recorded file returns to
+ * the content the check wrote only while it still has the content the Undo restored. The Redo's own snapshot is kept with the
  * entry.
  *
  * Returns `unavailable stale-operation-id` when `operationId` is not the head, and
@@ -235,7 +253,7 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 export async function redo(ports: EnginePorts, operationId: string, collisionChoices: CollisionChoice[]): Promise<OperationResult> {
 	const lists = await readLists(ports);
 	const record = lists.entries.find(entry => entry.id === last(lists.redo));
-	const undoRecord = record === undefined ? undefined : latestUndo(lists.records, record.id);
+	const undoRecord = record === undefined ? undefined : latestRole(lists.records, record.id, 'undo');
 	if (record === undefined || undoRecord === undefined || record.id !== operationId) {
 		return { kind: 'unavailable', reason: 'stale-operation-id' };
 	}
@@ -251,7 +269,11 @@ export async function redo(ports: EnginePorts, operationId: string, collisionCho
 		? { branchCommit: record.after.branchCommit, indexTree: undoRecord.before.indexTree, worktreeTree: undoRecord.before.worktreeTree }
 		: {
 			branchCommit: record.after.branchCommit,
-			indexTree: state.indexTree === undoRecord.after.indexTree ? record.after.indexTree : state.indexTree,
+			// Only an index the Undo moved from the operation's tree, and that is still where the
+			// Undo left it, returns; newer staged work that the Undo left in place stays.
+			indexTree: undoRecord.before.indexTree === record.after.indexTree && state.indexTree === undoRecord.after.indexTree
+				? record.after.indexTree
+				: state.indexTree,
 			worktreeTree: await flipPaths(ports, state.worktreeTree, record.paths, 'redo'),
 		};
 	return runOperation(ports, {
@@ -281,7 +303,8 @@ async function isShared(ports: EnginePorts, record: JournalRecord): Promise<bool
 /**
  * The tree `base` with each path of `plans` changed from one side of its plan to the other:
  * for `undo`, a path that has its after value gets its before value; for `redo`, the reverse.
- * A path with any other value is left as it is.
+ * A path with any other value is left as it is, and so is a folder at a path whose from-side is
+ * no file (a hook replaced a file with a folder): a file never replaces a folder's content.
  */
 async function flipPaths(ports: EnginePorts, base: string, plans: PathPlan[], direction: 'undo' | 'redo'): Promise<string> {
 	if (plans.length === 0) {
@@ -295,7 +318,7 @@ async function flipPaths(ports: EnginePorts, base: string, plans: PathPlan[], di
 			? [plan.afterMode, plan.after, plan.beforeMode, plan.before]
 			: [plan.beforeMode, plan.before, plan.afterMode, plan.after];
 		const entry = current.get(plan.path);
-		const matches = from === null ? entry === undefined : entry !== undefined && entry.blob === from && entry.mode === fromMode;
+		const matches = from === null ? entry === undefined : entry !== undefined && entry.type === 'blob' && entry.blob === from && entry.mode === fromMode;
 		if (!matches) {
 			continue;
 		}
@@ -312,42 +335,20 @@ async function flipPaths(ports: EnginePorts, base: string, plans: PathPlan[], di
 	});
 }
 
-/** The file entries of `tree` at exactly the given paths. */
-async function treeEntries(ports: EnginePorts, tree: string, paths: string[]): Promise<Map<string, { mode: string; blob: string }>> {
+/** The file and folder entries of `tree` at exactly the given paths. */
+async function treeEntries(ports: EnginePorts, tree: string, paths: string[]): Promise<Map<string, { mode: string; type: string; blob: string }>> {
 	const requested = new Set(paths);
-	const found = new Map<string, { mode: string; blob: string }>();
+	const found = new Map<string, { mode: string; type: string; blob: string }>();
 	for (let start = 0; start < paths.length; start += 200) {
 		const output = (await mustGit(ports.git, ['-C', ports.projectRoot, '--literal-pathspecs', 'ls-tree', '-z', tree, '--', ...paths.slice(start, start + 200)])).stdout;
 		for (const line of splitZ(output)) {
 			const match = /^(?<mode>\d+) (?<type>\w+) (?<blob>\w+)\t(?<file>[\s\S]*)$/.exec(line);
-			if (match?.groups !== undefined && match.groups.type === 'blob' && requested.has(match.groups.file)) {
-				found.set(match.groups.file, { mode: match.groups.mode, blob: match.groups.blob });
+			if (match?.groups !== undefined && (match.groups.type === 'blob' || match.groups.type === 'tree') && requested.has(match.groups.file)) {
+				found.set(match.groups.file, { mode: match.groups.mode, type: match.groups.type, blob: match.groups.blob });
 			}
 		}
 	}
 	return found;
-}
-
-/**
- * Moves the files the operation kept aside back to their places, under the lock. A file whose
- * place is taken stays in the kept folder, listed for the person. When another window holds
- * the lock, the files stay listed in the kept folder.
- */
-async function returnKeptFiles(ports: EnginePorts, record: JournalRecord): Promise<void> {
-	if (record.keptMoves.length === 0) {
-		return;
-	}
-	const lock = await acquireLock(ports);
-	if (lock === undefined) {
-		return;
-	}
-	try {
-		for (const move of record.keptMoves) {
-			await moveBack(ports, record.id, move);
-		}
-	} finally {
-		await lock.release().catch(() => undefined);
-	}
 }
 
 /**
