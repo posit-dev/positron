@@ -6,7 +6,7 @@
 // drive-positron's smoke test: launches one Positron on a copy of fixture/,
 // runs every helper once through its .sh, as an agent would, and checks the
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
-// venv; about 8 minutes, --quick about 2):
+// venv; about 14 minutes, --quick about 2):
 //
 //   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start]] [--results FILE] [--keep] [-- APP ARGS...]
 //   node .claude/skills/drive-positron/test/smoke.ts --list
@@ -116,10 +116,10 @@ const cases: Case[] = [
 	{ name: 'panel sessio names the nearest command', run: ['panel.sh', 'sessio'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"sessio" is not a command: the nearest is sessions') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// The workspace's interpreter can lead its row with its environment ("uv: ws (Python 3.14.7)"): it is listed too.
-	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) },
+	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) || void (found.pyRows = String(o.json!.shown.length)) },
 	// No --name and several Python interpreters: the first in picker order (Suggested leads) starts, and the rest are named.
-	// A machine with one Python starts it with no picked/others.
-	{ name: 'start-session several interpreters match takes the first and names the others', run: ['start-session.sh', '--language', 'python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.picked !== undefined && ((!pythonRow(o.json!.picked) && `picked ${o.json!.picked}`) || (o.json!.others?.some((x: string) => !pythonRow(x)) && `others: ${JSON.stringify(o.json!.others)}`) || logged(`start-session.sh -s=net1: ${o.json!.runtime} (first of: `))) || void (found.pyFirst = o.json!.sessionId) },
+	// A machine with one Python (as the case above listed) starts it with no picked/others.
+	{ name: 'start-session several interpreters match takes the first and names the others', run: ['start-session.sh', '--language', 'python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (Number(found.pyRows) > 1 && (keys(o.json, 'picked', 'others') || ((!pythonRow(o.json!.picked) && `picked ${o.json!.picked}`) || (o.json!.others?.some((x: string) => !pythonRow(x)) && `others: ${JSON.stringify(o.json!.others)}`) || logged(`start-session.sh -s=net1: ${o.json!.runtime} (first of: `)))) || void (found.pyFirst = o.json!.sessionId) },
 	{ name: 'panel delete-session the first-match session', run: () => ['panel.sh', 'delete-session', found.pyFirst], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
 	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
