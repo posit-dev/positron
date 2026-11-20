@@ -66,6 +66,11 @@ const GGSQL_EXTENSION_ID = 'ggsql.ggsql';
  * through `_quartoHostExplainUnrunnableCell`, the Quarto extension's commands
  * both say it the same way.
  *
+ * @param onlyWithReason Explain only a cell Positron could run but for a reason
+ *   it can name (a knitr `{sql}` cell, a missing ggsql), and say nothing of a
+ *   language nothing in Positron runs, such as a diagram: the Quarto extension
+ *   asks about every cell it has no executor for, including ones nobody means
+ *   to run and ones it explains itself.
  * @returns Whether there was anything to explain: false for a cell that runs.
  */
 export function explainUnrunnableCell(
@@ -76,6 +81,7 @@ export function explainUnrunnableCell(
 		notificationService: INotificationService;
 		commandService: ICommandService;
 	},
+	onlyWithReason = false,
 ): boolean {
 	const { runtimeStartupService, notificationService, commandService } = services;
 	if (isRunnableCell(cellLanguage, document, runtimeStartupService)) {
@@ -92,15 +98,18 @@ export function explainUnrunnableCell(
 				label: localize('quarto.cannotRun.installGgsqlAction', "Install ggsql"),
 				run: () => commandService.executeCommand('extension.open', GGSQL_EXTENSION_ID),
 			}]);
-	} else {
+	} else if (!onlyWithReason) {
 		notificationService.info(localize('quarto.cannotRun', "There is nothing in Positron to run {0} cells.", cellLanguage));
+	} else {
+		return false;
 	}
 	return true;
 }
 
 /**
  * `_quartoHostExplainUnrunnableCell(documentUri, cellLanguage): boolean`: see
- * {@link explainUnrunnableCell}.
+ * {@link explainUnrunnableCell}, which here explains only a cell Positron could
+ * run but for a reason it can name.
  */
 CommandsRegistry.registerCommand('_quartoHostExplainUnrunnableCell', (accessor, ...args: [URI, string]) => {
 	const [uri, cellLanguage] = args;
@@ -115,5 +124,5 @@ CommandsRegistry.registerCommand('_quartoHostExplainUnrunnableCell', (accessor, 
 		runtimeStartupService: accessor.get(IRuntimeStartupService),
 		notificationService: accessor.get(INotificationService),
 		commandService: accessor.get(ICommandService),
-	});
+	}, true);
 });

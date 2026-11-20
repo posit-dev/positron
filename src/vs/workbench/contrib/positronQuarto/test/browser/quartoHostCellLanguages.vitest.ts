@@ -45,5 +45,17 @@ describe('explainUnrunnableCell', () => {
 		expect(said.map(s => s.split(' ').slice(0, 3).join(' '))).toEqual([
 			'info: SQL cells', 'prompt: Install the', 'info: There is',
 		]);
+
+		// for the Quarto extension, only a cell Positron could run but for a reason
+		said.length = 0;
+		expect([
+			explainUnrunnableCell('sql', knitr, services(['r', 'ggsql']), true),
+			explainUnrunnableCell('sql', python, services(['python']), true),
+			explainUnrunnableCell('mermaid', python, services(['python', 'ggsql']), true),
+			explainUnrunnableCell('stata', python, services(['python']), true),
+		]).toEqual([true, true, false, false]);
+		expect(said.map(s => s.split(' ').slice(0, 3).join(' '))).toEqual([
+			'info: SQL cells', 'prompt: Install the',
+		]);
 	});
 });
