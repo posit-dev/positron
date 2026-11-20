@@ -16,7 +16,9 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import functools
 import hashlib
 import inspect
 import io
@@ -97,15 +99,19 @@ def _detach_library_figures() -> None:
 
     Plain matplotlib figures are intentionally left in the registry to preserve Positron's
     cross-cell figure persistence (updating or re-showing a plot across cells).
+
+    Figures that were created while an ipywidgets Output was capturing, but not shown inside
+    it, are first shown in the Plots pane like any other figure.
     """
     try:
         from matplotlib._pylab_helpers import Gcf
 
         for manager in list(Gcf.get_all_fig_managers()):
-            if (
-                isinstance(manager, FigureManagerPositron)
-                and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
-            ):
+            if not isinstance(manager, FigureManagerPositron):
+                continue
+            if manager._plot is None:  # noqa: SLF001
+                manager.show()
+            if manager.plotting_library in _DETACH_AFTER_CELL_KINDS:
                 # Removes the manager from the registry and invokes our no-op `destroy`.
                 # Pass the manager rather than its number: numbers freed here can be reused
                 # by matplotlib, so destroying by number could hit a different figure.
@@ -134,6 +140,7 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
+        from ..patch.ipywidgets import is_capturing
         from ..positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
@@ -145,13 +152,20 @@ class FigureManagerPositron(FigureManagerBase):
         kind = _detect_plotting_library()
         self.plotting_library = kind
 
-        # Create the plot instance via the plots service.
-        self._plots_service = kernel.plots_service
+        # Create the plot instance via the plots service, which opens it in the Plots pane.
+        self._create_plot = functools.partial(
+            kernel.plots_service.create_plot,
+            canvas.render,
+            canvas.intrinsic_size,
+            kind,
+            num,
+            self._on_close,
+        )
+        # A figure created while an ipywidgets Output is capturing is only added to the Plots
+        # pane if it's not shown inside the Output; see `show` and `_detach_library_figures`.
         self._plot: Plot | None = None
-        if kind not in _NO_PLOT_KINDS:
-            self._plot = self._plots_service.create_plot(
-                canvas.render, canvas.intrinsic_size, kind, num, self._on_close
-            )
+        if kind not in _NO_PLOT_KINDS and not is_capturing():
+            self._plot = self._create_plot()
 
     def _on_close(self) -> None:
         """
@@ -173,8 +187,32 @@ class FigureManagerPositron(FigureManagerBase):
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
-        if self._plot is not None:
+        from ..patch.ipywidgets import is_capturing
+
+        if self.plotting_library in _NO_PLOT_KINDS:
+            return
+        if is_capturing():
+            # Show the figure as a static image inside the Output, as in Jupyter.
+            self._show_static()
+        elif self._plot is None:
+            # Opening the plot triggers a render from the frontend.
+            self._plot = self._create_plot()
+        else:
             self._plot.show()
+
+    def _show_static(self) -> None:
+        """Display the figure as a static PNG and close it."""
+        from IPython.display import display
+
+        png = self.canvas.render(None, 1.0, "png")
+        display(
+            {
+                "image/png": base64.b64encode(png).decode("ascii"),
+                "text/plain": repr(self.canvas.figure),
+            },
+            raw=True,
+        )
+        plt.close(self.canvas.figure)
 
     def destroy(self) -> None:
         """Called by matplotlib after a figure is closed via `plt.close()`.

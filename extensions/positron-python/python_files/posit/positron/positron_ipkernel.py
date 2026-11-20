@@ -46,6 +46,7 @@ from .object_explorer import ObjectExplorerService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
+from .patch.ipywidgets import patch_ipywidgets_output
 from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
@@ -723,6 +724,10 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch plotly to write HTML to temp file instead of starting a server
         patch_plotly_browser_renderer(self.session_mode)
+
+        # Patch ipywidgets Output to capture output in the kernel, so that output captured
+        # before the widget is displayed isn't lost
+        patch_ipywidgets_output(self.session_mode)
 
     @property
     def kernel_info(self):

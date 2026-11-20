@@ -44,6 +44,9 @@ export class OutputModel extends outputBase.OutputModel {
 
 		this.listenTo(this, 'change:msg_id', this.handleChangeMsgId);
 		this.listenTo(this, 'change:outputs', this.handleChangeOutputs);
+
+		// Load the initial outputs, e.g. from `Output.append_display_data` before the widget was displayed.
+		this.handleChangeOutputs(this, [], {});
 	}
 
 	public get outputAreaModel(): OutputAreaModel {
