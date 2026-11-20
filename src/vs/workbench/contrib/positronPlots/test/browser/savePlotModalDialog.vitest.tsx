@@ -8,6 +8,8 @@ import { userEvent, UserEvent } from '@testing-library/user-event';
 import { Mock } from 'vitest';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -21,6 +23,7 @@ import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { showSavePlotModalDialog } from '../../browser/modalDialogs/savePlotModalDialog.js';
+import { SaveResolutionsConfigKey } from '../../browser/modalDialogs/saveResolution.js';
 
 /**
  * A fake plot client. Its `renderWithSizingPolicy` behaves like the real
@@ -285,5 +288,124 @@ describe('Save Plot dialog size', () => {
 			expect(screen.getByRole('checkbox', { name: LOCK_NAME, checked: false })).toBeInTheDocument();
 			await close(user);
 		});
+	});
+});
+
+describe('Save Plot dialog resolution', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IFileService, { exists: vi.fn().mockResolvedValue(false) })
+		.build();
+
+	setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		// See 'Save Plot dialog size'.
+		PositronReactServices.services = ctx.reactServices;
+		// A Windows-style fractional screen density, which rounds up to 2x.
+		vi.stubGlobal('devicePixelRatio', 1.25);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(SaveResolutionsConfigKey, undefined);
+	});
+
+	const resolutionButton = () => screen.getByRole('button', { name: 'Resolution' });
+
+	async function open(format: PlotRenderFormat, suggestedResolution?: number) {
+		const { client, render } = createFakePlotClient(new PlotSizingPolicyAuto());
+		const savePlotCallback = vi.fn();
+		showSavePlotModalDialog(new PlotSizingPolicyAuto(), client, savePlotCallback, URI.file('/tmp'), format, suggestedResolution);
+		expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+		return { render, savePlotCallback };
+	}
+
+	async function save(user: UserEvent, savePlotCallback: Mock) {
+		await user.click(screen.getByRole('button', { name: 'Save' }));
+		await vi.waitFor(() => expect(savePlotCallback).toHaveBeenCalled());
+	}
+
+	/** Picks an entry from the drop down list box with the given label. */
+	async function pick(user: UserEvent, label: string, entry: string) {
+		await user.click(screen.getByRole('button', { name: label }));
+		await user.click(await screen.findByRole('button', { name: entry }));
+	}
+
+	it('starts at the screen density rounded up and saves at it without remembering it', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png);
+
+		// The fake plot is 700 x 500.
+		expect(resolutionButton()).toHaveTextContent('2x');
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
+		// Saved at the default, which is reported as not picked, so it isn't remembered: a 1x
+		// default on a 1x monitor must not stick when the window moves to a 2x screen.
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 2, resolutionPicked: false }));
+	});
+
+	it('saves at a picked resolution and reports it', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Jpeg);
+
+		await pick(user, 'Resolution', '3x');
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Jpeg, true);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 3, resolutionPicked: true }));
+	});
+
+	it('starts at the remembered resolution', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png, 3);
+
+		expect(resolutionButton()).toHaveTextContent('3x');
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Png, true);
+	});
+
+	it('ignores a remembered resolution that the setting no longer offers', async () => {
+		const user = userEvent.setup();
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(SaveResolutionsConfigKey, [1, 2, 6]);
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png, 4);
+
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
+	});
+
+	it('offers the resolutions from the setting', async () => {
+		const user = userEvent.setup();
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(SaveResolutionsConfigKey, [1.5, 6]);
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png);
+
+		expect(resolutionButton()).toHaveTextContent('1.5x');
+		await pick(user, 'Resolution', '6x');
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 6, PlotRenderFormat.Png, true);
+	});
+
+	it('is hidden for vector formats', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Svg);
+
+		expect(screen.queryByRole('button', { name: 'Resolution' })).not.toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Cancel' }));
+	});
+
+	it('saves a vector format at 1 without reporting a resolution', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Png);
+
+		await pick(user, 'Resolution', '3x');
+		await pick(user, 'Format', 'SVG');
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 1, PlotRenderFormat.Svg, true);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: undefined }));
 	});
 });

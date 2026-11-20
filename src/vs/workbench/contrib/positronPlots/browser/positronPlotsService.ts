@@ -1599,13 +1599,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
 		} else if (plotClient instanceof PlotClientInstance) {
 			// if it's a dynamic plot, present options dialog
-			const { directory, format } = await this.getSuggestedSaveLocation();
+			const { directory, format, resolution } = await this.getSuggestedSaveLocation();
 			showSavePlotModalDialog(
 				this._selectedSizingPolicy,
 				plotClient,
 				this.savePlotAs,
 				directory,
-				format
+				format,
+				resolution
 			);
 		}
 		// webview plots can't be saved
@@ -1630,7 +1631,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			return;
 		}
-		await this._saveMemory.remember(dirname(options.path), options.format);
+		// Only remember a resolution the user picked; a default comes from the current screen.
+		await this._saveMemory.remember(dirname(options.path), options.format, options.resolutionPicked ? options.resolution : undefined);
 	};
 
 	async showSavePlotDialog(uri: string, suggestedFileName?: string) {
