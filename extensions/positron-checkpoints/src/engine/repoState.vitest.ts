@@ -31,6 +31,24 @@ describe('readRepoFacts', () => {
 		expect(facts.unusual).toBeUndefined();
 	});
 
+	test('a plain folder reports whether git has an identity there', async () => {
+		const repo = await create({ init: 'none' });
+		// Test repositories read no global configuration, so git has no identity.
+		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
+		const ports: EnginePorts = {
+			...repo.ports,
+			git: (args, options) => repo.ports.git(args, {
+				...options,
+				env: {
+					GIT_AUTHOR_NAME: 'Env User', GIT_AUTHOR_EMAIL: 'env@example.com',
+					GIT_COMMITTER_NAME: 'Env User', GIT_COMMITTER_EMAIL: 'env@example.com',
+					...options?.env,
+				},
+			}),
+		};
+		expect((await readRepoFacts(ports)).identityMissing).toBe(false);
+	});
+
 	test('a new repository with no checkpoints is a project with no headCommit', async () => {
 		const repo = await create();
 		const facts = await readRepoFacts(repo.ports);

@@ -153,7 +153,8 @@ export async function readCheckpoints(ports: EnginePorts, logArgs: string[]): Pr
 /**
  * Moves the branch and the index from `from` to `to` through `runOperation`, with the working
  * files unchanged apart from `extraPaths` (files a hook already changed on disk). The working
- * files the plan expects are read now. A finished operation is noted in the undo list.
+ * files the plan expects are read now. A finished operation is noted in the undo list, and one
+ * that gives the branch its first checkpoint is followed by `recordStartTracking`.
  */
 async function publish(ports: EnginePorts, kind: OperationKind, description: string, from: Published, to: Published, extraPaths: PathPlan[]): Promise<OperationResult> {
 	const worktree = (await worktreeTree(ports)).tree;
@@ -166,8 +167,25 @@ async function publish(ports: EnginePorts, kind: OperationKind, description: str
 	});
 	if (result.kind === 'done') {
 		await noteNewOperation(ports, kind);
+		if (from.branchCommit === null && to.branchCommit !== null) {
+			await recordStartTracking(ports);
+		}
 	}
 	return result;
+}
+
+/**
+ * Records a `start-tracking` operation, which changes nothing and clears the undo and redo lists
+ * (spec 6.3), so the project's first checkpoint is never undone. Returns its result.
+ */
+export async function recordStartTracking(ports: EnginePorts): Promise<OperationResult> {
+	const branch = await currentBranch(ports);
+	const indexTree = await readIndexTree(ports);
+	if (branch === undefined || indexTree === undefined) {
+		return UNUSUAL;
+	}
+	const state: Published = { branchCommit: await readBranch(ports, branch), indexTree };
+	return publish(ports, 'start-tracking', 'Start keeping checkpoints', state, state, []);
 }
 
 /**
@@ -252,7 +270,9 @@ function describeCreate(chunks: Chunk[]): string {
  *   `pending-approval` journal record, and the result is `check-changed-checkpoint`. Later chunks
  *   are not created.
  *
- * The files each checkpoint took only part of are saved with `savePartialFiles`.
+ * The files each checkpoint took only part of are saved with `savePartialFiles`. A publish that
+ * gives the branch its first checkpoint is followed by a `start-tracking` operation, so it is never
+ * undone.
  */
 export async function createCheckpoints(ports: EnginePorts, basis: string, chunks: Chunk[]): Promise<OperationResult> {
 	if (chunks.some(chunk => isBadTitle(chunk.title))) {
@@ -444,7 +464,8 @@ async function projectChanged(ports: EnginePorts, record: JournalRecord & { pend
  * published only while the branch, its commit, the index, and the working files are those the
  * candidate was built from; otherwise the candidate is removed (with the hook edits recorded as
  * `declineCheckedCheckpoint` does) and the result is `project-changed`. An unknown token gives
- * `unavailable stale-operation-id`.
+ * `unavailable stale-operation-id`. Publishing the branch's first checkpoint is followed by a
+ * `start-tracking` operation (see `recordStartTracking`).
  */
 export async function acceptCheckedCheckpoint(ports: EnginePorts, token: string): Promise<OperationResult> {
 	const record = (await pendingRecords(ports)).find(candidate => candidate.pending.token === token);
@@ -473,6 +494,9 @@ export async function acceptCheckedCheckpoint(ports: EnginePorts, token: string)
 	if (result.kind === 'done') {
 		await noteNewOperation(ports, 'create-checkpoints');
 		await closePending(ports, record);
+		if (record.before.branchCommit === null) {
+			await recordStartTracking(ports);
+		}
 	}
 	return result;
 }

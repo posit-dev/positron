@@ -34,8 +34,10 @@ async function treeEntries(ports: EnginePorts, tree: string): Promise<TreeEntry[
  * use, so untracked files stay where they are. An untracked file at a path the checkpoint's tree
  * has a file at is replaced by the checkpoint's version; the operation's snapshot covers it, so
  * Undo returns it. An untracked file that would need to be a folder of the checkpoint, or that
- * sits inside a path that is a file in the checkpoint, is left out of the after tree, so writing
- * the checkpoint's file at that place stops the operation and nothing changes.
+ * sits inside a path that is a file in the checkpoint, is left out of the after tree and is a
+ * collision with reason `ignored` (a file in no checkpoint): without a `use-theirs-keep-copy`
+ * choice the result is `path-collisions` and nothing changes, and with one the file is kept
+ * aside (spec 6.2) before the checkpoint's file is written.
  *
  * The change runs through `runOperation` as a `go-back` operation, with its collision check
  * (`path-collisions` for files outside the snapshot without a choice in `collisionChoices`), and
@@ -68,7 +70,7 @@ export async function goBackTo(ports: EnginePorts, id: string, collisionChoices:
 
 	const current = (await worktreeTree(ports)).tree;
 	const targetTree = (await git(ports, ['rev-parse', `${target}^{tree}`])).trim();
-	const after = await withUntrackedFiles(ports, targetTree, current, headTree);
+	const { tree: after, inTheWay } = await withUntrackedFiles(ports, targetTree, current, headTree);
 	if (after === current) {
 		return { kind: 'unavailable', reason: 'nothing-to-do', detail: 'unchanged' };
 	}
@@ -79,6 +81,7 @@ export async function goBackTo(ports: EnginePorts, id: string, collisionChoices:
 		kind: 'go-back', description: `Go back to "${title}"`, expected,
 		after: { branchCommit: head, indexTree, worktreeTree: after },
 		collisionChoices,
+		extraCollisions: await Promise.all(inTheWay.map(async file => ({ path: file, reason: 'ignored' as const, sizeBytes: (await ports.files.lstat(file))?.sizeBytes ?? 0 }))),
 	});
 	if (result.kind === 'done') {
 		await noteNewOperation(ports, 'go-back');
@@ -89,9 +92,9 @@ export async function goBackTo(ports: EnginePorts, id: string, collisionChoices:
 /**
  * `checkpointTree` with the entries of `worktree` whose paths are not in `headTree` added, except
  * an entry whose path the checkpoint's tree has, or one that would put a file and a folder at
- * the same path.
+ * the same path. `inTheWay` lists the paths of the second kind.
  */
-async function withUntrackedFiles(ports: EnginePorts, checkpointTree: string, worktree: string, headTree: string): Promise<string> {
+async function withUntrackedFiles(ports: EnginePorts, checkpointTree: string, worktree: string, headTree: string): Promise<{ tree: string; inTheWay: string[] }> {
 	const tracked = new Set((await treeEntries(ports, headTree)).map(entry => entry.path));
 	const checkpointFiles = new Set((await treeEntries(ports, checkpointTree)).map(entry => entry.path));
 	const checkpointFolders = new Set<string>();
@@ -108,15 +111,18 @@ async function withUntrackedFiles(ports: EnginePorts, checkpointTree: string, wo
 		}
 		return false;
 	};
-	const untracked = (await treeEntries(ports, worktree)).filter(entry =>
-		!tracked.has(entry.path) && !checkpointFiles.has(entry.path) && !checkpointFolders.has(entry.path) && !insideCheckpointFile(entry.path));
-	if (untracked.length === 0) {
-		return checkpointTree;
+	const untracked = (await treeEntries(ports, worktree)).filter(entry => !tracked.has(entry.path) && !checkpointFiles.has(entry.path));
+	const isInTheWay = (file: string) => checkpointFolders.has(file) || insideCheckpointFile(file);
+	const inTheWay = untracked.filter(entry => isInTheWay(entry.path)).map(entry => entry.path);
+	const staying = untracked.filter(entry => !isInTheWay(entry.path));
+	if (staying.length === 0) {
+		return { tree: checkpointTree, inTheWay };
 	}
-	return withTempIndex(ports, async env => {
+	const tree = await withTempIndex(ports, async env => {
 		await git(ports, ['read-tree', checkpointTree], { env });
 		// `ls-tree` lines are `<mode> <type> <object>\t<path>`; `--index-info` reads the same form.
-		await git(ports, ['update-index', '-z', '--index-info'], { env, stdin: untracked.map(entry => entry.line).join('\0') + '\0' });
+		await git(ports, ['update-index', '-z', '--index-info'], { env, stdin: staying.map(entry => entry.line).join('\0') + '\0' });
 		return (await git(ports, ['write-tree'], { env })).trim();
 	});
+	return { tree, inTheWay };
 }

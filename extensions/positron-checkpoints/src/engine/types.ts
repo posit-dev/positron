@@ -101,6 +101,13 @@ export type OperationResult =
 	| { kind: 'interrupted' }
 	| { kind: 'unavailable'; reason: UnavailableReason; detail?: string };
 
+/**
+ * The engine's calls. The read calls (`getState`, `getHistory`, `getChanges`,
+ * `getCheckpointFiles`, `getPendingFiles`, `getDiff`, `readBlob`, `previewIncoming`, and
+ * `getKeptFiles`) reject with an `Error` whose message is `checkpoints:timed-out: <detail>` when a
+ * git call outlives its time limit, and `checkpoints:git-missing: <detail>` when the git program
+ * cannot start. Any other failure of a read call rejects with its own error.
+ */
 export interface CheckpointsEngine {
 	getState(): Promise<EngineState>;
 	getHistory(skip: number, limit: number): Promise<Checkpoint[]>;

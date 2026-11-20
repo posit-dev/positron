@@ -76,7 +76,8 @@ describe('engine', { timeout: 120_000 }, () => {
 		repos.push(plain);
 		expect(await (await start(plain.ports)).getState()).toEqual({
 			tracking: 'not-a-project', projectName: path.basename(plain.root), projectRoot: plain.root, openedFolderIsInsideProject: false,
-			shared: { exists: false, ahead: 0, behind: 0 }, identityMissing: false, syncAvailable: true, requiredGitVersion: '2.40',
+			// Test repositories read no global configuration, so git has no identity there.
+			shared: { exists: false, ahead: 0, behind: 0 }, identityMissing: true, syncAvailable: true, requiredGitVersion: '2.40',
 			pendingOverlap: false, recoverySnapshots: [], keptFileCount: 0,
 		});
 
@@ -207,6 +208,11 @@ describe('engine', { timeout: 120_000 }, () => {
 		const state = await engine.getState();
 		expect(state.interrupted).toEqual({ operationId: 'crashed', description: 'Go back to "A"', unexpectedPaths: ['a.txt'], indexUnexpected: false });
 		expect(state.unusual).toBeUndefined();
+		// Each state classifies the record's paths as they are now.
+		await repo.write('a.txt', 'two\n');
+		expect((await engine.getState()).interrupted?.unexpectedPaths).toEqual([]);
+		await repo.write('a.txt', 'three\n');
+		expect((await engine.getState()).interrupted?.unexpectedPaths).toEqual(['a.txt']);
 		const busy = { kind: 'unavailable', reason: 'busy', detail: 'unresolved-operation' };
 		expect(await engine.goBackTo(a, [])).toEqual(busy);
 		await expect(engine.removeRecoverySnapshot('crashed')).rejects.toThrow();
@@ -228,6 +234,104 @@ describe('engine', { timeout: 120_000 }, () => {
 
 		expect((await engine.getState()).recoveryNotice).toBe('reversed');
 		expect((await engine.getState()).recoveryNotice).toBeUndefined();
+	});
+
+	test('recoveryNotice stays until a state is built', async () => {
+		const { repo } = await project();
+		await leaveRecord(repo, 'prepared');
+		let fail = false;
+		// The refs are listed late in building the state, after the repository facts are read.
+		const git: GitRunner = (args, options) => fail && args.includes('for-each-ref') ? Promise.reject(new Error('disk full')) : repo.ports.git(args, options);
+		const engine = await start({ ...repo.ports, git });
+
+		fail = true;
+		await expect(engine.getState()).rejects.toThrow('disk full');
+		fail = false;
+
+		expect((await engine.getState()).recoveryNotice).toBe('reversed');
+		expect((await engine.getState()).recoveryNotice).toBeUndefined();
+	});
+
+	test('checkShared runs beside a mutating call, and a second checkShared shares the first', async () => {
+		const { repo, a } = await project();
+		/** Each fetch waits until the test answers it; `reached` resolves with the answer. */
+		let reached: Promise<() => void> = Promise.resolve(() => { });
+		let reach: (answer: () => void) => void = () => { };
+		const nextFetch = () => {
+			reached = new Promise(resolve => { reach = resolve; });
+		};
+		let fetches = 0;
+		const network = {
+			...repo.ports.network,
+			fetch: async () => {
+				fetches++;
+				await new Promise<void>(resolve => reach(resolve));
+				return { ok: true } as const;
+			},
+		};
+		const engine = await start({ ...repo.ports, network });
+		await repo.write('a.txt', 'two\n');
+		await checkpoint(engine, 'Edit a', ['a.txt']);
+
+		nextFetch();
+		const first = engine.checkShared();
+		expect(engine.checkShared()).toBe(first);
+		const answerFirst = await reached;
+		// The person's next action runs while the check waits for the network.
+		doneId(await engine.goBackTo(a, []));
+		answerFirst();
+		expect(await first).toMatchObject({ kind: 'done' });
+
+		nextFetch();
+		const later = engine.checkShared();
+		expect(later).not.toBe(first);
+		(await reached)();
+		expect(await later).toMatchObject({ kind: 'done' });
+		expect(fetches).toBe(2);
+	});
+
+	test('a read call whose git call times out or cannot start rejects with a typed message', async () => {
+		const { repo, a } = await project();
+		let answer: 'normal' | 'timed-out' | 'missing' | 'failing' = 'normal';
+		const git: GitRunner = (args, options) => {
+			switch (answer) {
+				case 'timed-out': return Promise.resolve({ stdout: '', stderr: '', exitCode: 1, timedOut: true });
+				case 'missing': return Promise.resolve({ stdout: '', stderr: 'spawn git ENOENT', exitCode: -1, timedOut: false });
+				case 'failing': return Promise.reject(new Error('disk full'));
+				default: return repo.ports.git(args, options);
+			}
+		};
+		const engine = await start({ ...repo.ports, git });
+		const blob = await must(repo, ['rev-parse', `${a}:a.txt`]);
+		const reads: [string, () => Promise<unknown>][] = [
+			['getState', () => engine.getState()],
+			['getHistory', () => engine.getHistory(0, 10)],
+			['getChanges', () => engine.getChanges()],
+			['getCheckpointFiles', () => engine.getCheckpointFiles(a)],
+			['getPendingFiles', () => engine.getPendingFiles('token')],
+			['getDiff', () => engine.getDiff({ kind: 'checkpoint', id: a, path: 'a.txt' })],
+			['readBlob', () => engine.readBlob(blob)],
+			['previewIncoming', () => engine.previewIncoming()],
+			['getKeptFiles', () => engine.getKeptFiles()],
+		];
+		const outcome = async (call: () => Promise<unknown>) => call().then(() => 'resolved', (error: Error) => error.message);
+
+		answer = 'timed-out';
+		for (const [name, call] of reads) {
+			expect([name, await outcome(call)]).toEqual([name, expect.stringMatching(/^checkpoints:timed-out: git .* did not respond in time$/)]);
+		}
+		answer = 'missing';
+		for (const [name, call] of reads) {
+			// The state reports a missing git program as an unusual state.
+			const expected = name === 'getState' ? 'resolved' : 'checkpoints:git-missing: spawn git ENOENT';
+			expect([name, await outcome(call)]).toEqual([name, expected]);
+		}
+		answer = 'failing';
+		for (const [name, call] of reads) {
+			expect([name, await outcome(call)]).toEqual([name, 'disk full']);
+		}
+		answer = 'normal';
+		expect((await engine.getState()).tracking).toBe('tracking');
 	});
 
 	// Review Focus 4.

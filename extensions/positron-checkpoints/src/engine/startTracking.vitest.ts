@@ -8,6 +8,7 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { readChanges } from './changes';
+import { acceptCheckedCheckpoint, createCheckpoints } from './checkpoints';
 import { getHistory } from './history';
 import { readOperationLog, redoHead, undoHead } from './operationLog';
 import { readRepoFacts } from './repoState';
@@ -163,9 +164,102 @@ describe('startTracking', { timeout: 60_000 }, () => {
 		expect(await undoHead(repo.ports)).toBeUndefined();
 	});
 
-	test('a folder that is already a project is refused', async () => {
+	test.skipIf(process.platform === 'win32')('a start whose first checkpoint a hook rejected runs again', async () => {
+		const repo = await plainFolder();
+		const hooks = path.join(path.dirname(repo.root), 'hooks');
+		await fsp.mkdir(hooks);
+		await fsp.writeFile(path.join(hooks, 'pre-commit'), '#!/bin/sh\necho "not today"\nexit 1\n', { mode: 0o755 });
+		const withHooks = { ...repo.ports, git: (args: string[], options?: Parameters<typeof repo.ports.git>[1]) => repo.ports.git(['-c', `core.hooksPath=${hooks}`, ...args], options) };
+		expect(await startTracking(withHooks, identity, 'proposed\n')).toMatchObject({ kind: 'check-failed' });
+		await fsp.writeFile(path.join(hooks, 'pre-commit'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+
+		// The identity and the ignore file are already in place, so neither is needed again.
+		const result = await startTracking(withHooks);
+
+		expect(result).toMatchObject({ kind: 'done' });
+		expect((await getHistory(repo.ports, 0, 10)).map(checkpoint => [checkpoint.title, checkpoint.authorName])).toEqual([[FIRST_CHECKPOINT_TITLE, 'Ada Lovelace']]);
+		expect(await files(repo)).toEqual(['.gitignore', 'analysis.R', 'data/raw.csv']);
+		expect(await repo.read('.gitignore')).toBe('proposed\n');
+		expect([await undoHead(repo.ports), await redoHead(repo.ports)]).toEqual([undefined, undefined]);
+		const log = await readOperationLog(repo.ports);
+		expect(result.kind === 'done' && result.operationId).toBe(log[log.length - 1].record.id);
+		expect(await startTracking(withHooks)).toEqual({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'already-tracking' });
+	});
+
+	test.skipIf(process.platform === 'win32')('a first checkpoint held for approval and accepted later is not undoable', async () => {
+		const repo = await plainFolder();
+		const hooks = path.join(path.dirname(repo.root), 'hooks');
+		await fsp.mkdir(hooks);
+		// The hook adds a file of its own, which changes the checkpoint.
+		await fsp.writeFile(path.join(hooks, 'pre-commit'), '#!/bin/sh\necho made > made.txt\ngit add made.txt\n', { mode: 0o755 });
+		const withHooks = { ...repo.ports, git: (args: string[], options?: Parameters<typeof repo.ports.git>[1]) => repo.ports.git(['-c', `core.hooksPath=${hooks}`, ...args], options) };
+
+		const held = await startTracking(withHooks, identity);
+		if (held.kind !== 'check-changed-checkpoint') {
+			throw new Error(`the first checkpoint was not held: ${JSON.stringify(held)}`);
+		}
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ isProject: true, headCommit: undefined });
+
+		expect(await acceptCheckedCheckpoint(withHooks, held.token)).toMatchObject({ kind: 'done' });
+
+		expect(await files(repo)).toEqual(['analysis.R', 'data/raw.csv', 'made.txt']);
+		expect([await undoHead(repo.ports), await redoHead(repo.ports)]).toEqual([undefined, undefined]);
+		expect((await readOperationLog(repo.ports)).map(entry => entry.record.kind).slice(-1)).toEqual(['start-tracking']);
+	});
+
+	test('a repository with no checkpoints, made by another tool on another branch name, can start', async () => {
 		const repo = await tempRepo();
 		repos.push(repo);
+		await must(repo, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
+		await repo.write('analysis.R', 'x <- 1\n');
+
+		expect(await startTracking(repo.ports, undefined, 'proposed\n')).toMatchObject({ kind: 'done' });
+
+		expect(await readRepoFacts(repo.ports)).toMatchObject({ branch: 'trunk' });
+		expect(await files(repo)).toEqual(['.gitignore', 'analysis.R']);
+		expect(await undoHead(repo.ports)).toBeUndefined();
+	});
+
+	test('a first checkpoint created directly in a repository with none is not undoable', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('analysis.R', 'x <- 1\n');
+
+		const created = await createCheckpoints(repo.ports, (await readChanges(repo.ports)).basis, [{ title: 'First', body: '', hunkIds: [], wholeFiles: ['analysis.R'] }]);
+
+		expect(created).toMatchObject({ kind: 'done' });
+		expect(await undoHead(repo.ports)).toBeUndefined();
+		expect((await readOperationLog(repo.ports)).map(entry => entry.record.kind)).toEqual(['create-checkpoints', 'start-tracking']);
+	});
+
+	test('a repository nested in the folder is in the proposed ignore list and not in the first checkpoint', async () => {
+		const repo = await plainFolder();
+		// One nested repository has a commit, and one has none.
+		const nested = await tempRepo();
+		repos.push(nested);
+		await nested.write('x.txt', 'x\n');
+		const nestedHead = await nested.commit('Nested');
+		await fsp.mkdir(path.join(repo.root, 'tools'));
+		await fsp.rename(nested.root, path.join(repo.root, 'tools', 'lib'));
+		await repo.write('empty/.keep', '');
+		await must(repo, ['-C', path.join(repo.root, 'empty'), 'init', '-q']);
+
+		const proposed = await proposedGitignore(repo.ports);
+		expect(proposed.trimEnd().split('\n').slice(-2)).toEqual(['/empty/', '/tools/lib/']);
+
+		expect(await startTracking(repo.ports, identity, proposed)).toMatchObject({ kind: 'done' });
+
+		expect(await files(repo)).toEqual(['.gitignore', 'analysis.R', 'data/raw.csv']);
+		expect((await readChanges(repo.ports)).files).toEqual([]);
+		expect(await must(repo, ['-C', path.join(repo.root, 'tools', 'lib'), 'rev-parse', 'HEAD'])).toBe(nestedHead);
+		expect(await repo.read('tools/lib/x.txt')).toBe('x\n');
+	});
+
+	test('a project that has a checkpoint is refused', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('a.txt', 'a\n');
+		await repo.commit('A');
 
 		expect(await startTracking(repo.ports, identity)).toEqual({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'already-tracking' });
 	});

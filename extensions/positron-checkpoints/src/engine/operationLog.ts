@@ -99,7 +99,9 @@ async function readState(ports: EnginePorts): Promise<OperationsState> {
  *
  * - a completed Undo moves its target from the head of the undo list to the redo list, and a
  *   completed Redo moves it back;
- * - `send-changes` and `start-tracking` clear both lists;
+ * - `send-changes` and `start-tracking` clear both lists, and so does an operation that gives
+ *   the branch its first checkpoint, because its undo would leave the project with none (a
+ *   `start-tracking` record follows such an operation, and this rule covers a stop between them);
  * - any other operation clears the redo list and becomes the head of the undo list.
  *
  * Entries listed as expired or pending, and entries whose snapshot ref is missing, are then
@@ -128,7 +130,7 @@ async function readLists(ports: EnginePorts): Promise<Lists> {
 		}
 		entries.push(record);
 		redo = [];
-		if (CLEARS_BOTH_LISTS.has(record.kind)) {
+		if (CLEARS_BOTH_LISTS.has(record.kind) || (record.before.branchCommit === null && record.after.branchCommit !== null)) {
 			undo = [];
 		} else {
 			undo.push(record.id);
@@ -217,7 +219,9 @@ async function readProject(ports: EnginePorts): Promise<{ branch: string; state:
  * - `get-changes`, `go-back`: the branch returns to its before commit, and the index and the
  *   working files to the operation's snapshot, under the restore and collision rules of 6.2.
  *   After a Redo of the entry, they return instead to the latest Redo's own snapshot, so edits
- *   made between an Undo and the Redo that followed it return too.
+ *   made between an Undo and the Redo that followed it return too. A file that the restored
+ *   operation (or Redo) created is removed when the snapshot lacks it, even when HEAD does not
+ *   track it, while it still has the content the engine wrote; one changed since stays.
  * - every other kind (`create-checkpoints`, `reverse-checkpoint`, `edit-description`,
  *   `check-changed-files`): the branch returns to its before commit; the index returns to its
  *   before tree only while it is still at the operation's after tree; each file the operation
@@ -264,6 +268,8 @@ export async function undo(ports: EnginePorts, operationId: string, collisionCho
 		kind: record.kind, description: `Undo: ${record.description}`, expected: state, after, collisionChoices,
 		role: { kind: 'undo', target: record.id },
 		returnKept: { operationId: restored.id, moves: restored.keptMoves },
+		// The files the restored operation created are not in its snapshot, and it may remove them.
+		...(RESTORES_SNAPSHOT.has(record.kind) ? { removableCreated: restored.paths.filter(plan => plan.before === null) } : {}),
 	});
 }
 

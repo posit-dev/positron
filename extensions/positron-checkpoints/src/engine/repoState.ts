@@ -35,7 +35,8 @@ const OPERATION_MARKERS = ['MERGE_HEAD', 'rebase-merge', 'rebase-apply', 'CHERRY
 /**
  * Reads the repository facts for the folder the user opened. The top level comes from
  * `git rev-parse --show-toplevel` run in `openedFolder`; every later call runs in it. With
- * `options.syncAvailable`, that value is reported and git is not asked again.
+ * `options.syncAvailable`, that value is reported and git is not asked again. In a folder that
+ * is not a project, `identityMissing` is git's answer for work in the opened folder.
  */
 export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable?: boolean } = {}): Promise<RepoFacts> {
 	const notProject: RepoFacts = {
@@ -58,7 +59,7 @@ export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable
 		throw error;
 	}
 	if (top.exitCode !== 0) {
-		return notProject;
+		return { ...notProject, identityMissing: await isIdentityMissingIn(ports, ports.openedFolder) };
 	}
 	const root = stripLineEnd(top.stdout);
 	const run = (args: string[], env?: Record<string, string>): Promise<GitResult> => runGit(ports.git, ['-C', root, ...args], env && { env });
@@ -66,7 +67,7 @@ export async function readRepoFacts(ports: EnginePorts, options: { syncAvailable
 
 	const gitDirResult = await run(['rev-parse', '--absolute-git-dir']);
 	if (gitDirResult.exitCode !== 0) {
-		return notProject;
+		return { ...notProject, identityMissing: await isIdentityMissingIn(ports, ports.openedFolder) };
 	}
 	const gitDir = stripLineEnd(gitDirResult.stdout);
 

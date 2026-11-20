@@ -13,7 +13,7 @@ import {
 } from './journal';
 import { EnginePorts } from './ports';
 import { RECOVERY_REF_PREFIX, saveSnapshot, SNAPSHOT_REF_PREFIX, STAGING_TIMEOUT_MS } from './trees';
-import { CollisionChoice, OperationKind, OperationResult } from './types';
+import { CollisionChoice, OperationKind, OperationResult, PathCollision } from './types';
 
 export interface OperationPlan {
 	kind: OperationKind; description: string;
@@ -31,6 +31,17 @@ export interface OperationPlan {
 	role?: OperationRole;
 	/** Files an earlier operation kept aside, moved back once the operation is complete; copied into the record. */
 	returnKept?: JournalRecord['returnKept'];
+	/**
+	 * Files an earlier operation created: its record lists each with a before value of absent and
+	 * the content it wrote as `after`. When `after` drops such a file, it is removed even though
+	 * the before index does not track it, but only while it still has that content and mode.
+	 */
+	removableCreated?: PathPlan[];
+	/**
+	 * Files on disk in the way of the operation that the caller found, beyond those the collision
+	 * check finds. They are answered and moved aside as its collisions are.
+	 */
+	extraCollisions?: PathCollision[];
 }
 
 /** A step found a part that is no longer at the value the record expects. */
@@ -39,8 +50,9 @@ class StepRefused extends Error { }
 /**
  * Runs an operation through the protocol of spec 6.3.1: take the lock, refuse while an earlier
  * operation is unresolved, record the before state with a snapshot, return `changes-moved` when
- * it differs from `plan.expected`, derive the paths to write, run the collision check (a
- * collision without a `use-theirs-keep-copy` choice returns `path-collisions`), journal the
+ * it differs from `plan.expected`, derive the paths to write, run the collision check and add
+ * `plan.extraCollisions` (a collision without a `use-theirs-keep-copy` choice returns
+ * `path-collisions`), journal the
  * record, then move the chosen collided files aside, change the working files (each only while it still has its before content),
  * the index (only while it still has its before tree), and last the branch (a compare-and-swap),
  * and mark the record complete. A durable progress entry is appended before each change, so the
@@ -88,8 +100,8 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 			await removeSnapshot(ports, id);
 			return { kind: 'changes-moved' };
 		}
-		const paths = await planPaths(ports, before, plan.after, extraPaths);
-		const collisions = await findCollisions(ports, paths, snapshot.skipped);
+		const paths = await planPaths(ports, before, plan.after, extraPaths, plan.removableCreated ?? []);
+		const collisions = withExtraCollisions(await findCollisions(ports, paths, snapshot.skipped), plan.extraCollisions ?? []);
 		const unanswered = collisions.filter(collision => !plan.collisionChoices.some(choice => choice.path === collision.path));
 		if (unanswered.length > 0) {
 			await removeSnapshot(ports, id);
@@ -343,12 +355,20 @@ function isAtAfter(plan: PathPlan, part: Part): boolean {
 	return part === 'after' || (part === 'before' && plan.before === plan.after && plan.beforeMode === plan.afterMode);
 }
 
+/** `found` with each of `extra` whose path it does not list, sorted by path. */
+function withExtraCollisions(found: PathCollision[], extra: PathCollision[]): PathCollision[] {
+	const listed = new Set(found.map(collision => collision.path));
+	return [...found, ...extra.filter(collision => !listed.has(collision.path))]
+		.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+}
+
 /**
  * The paths that differ between the before and after working-file trees, removals first, then
  * `extraPaths` that are not among them. A file that is untracked in the before index is never
- * removed (spec 6.2), and submodules are not written.
+ * removed (spec 6.2), unless `removableCreated` lists it with its current content and mode (an
+ * earlier operation created it, and it is unchanged since). Submodules are not written.
  */
-async function planPaths(ports: EnginePorts, before: TriState, after: TriState, extraPaths: PathPlan[]): Promise<PathPlan[]> {
+async function planPaths(ports: EnginePorts, before: TriState, after: TriState, extraPaths: PathPlan[], removableCreated: PathPlan[]): Promise<PathPlan[]> {
 	const git = (args: string[]) => mustGit(ports.git, ['-C', ports.projectRoot, ...args], { timeoutMs: STAGING_TIMEOUT_MS });
 	const fields = splitZ((await git(['diff-tree', '-r', '-z', '--no-renames', before.worktreeTree, after.worktreeTree])).stdout);
 	const tracked = new Set(splitZ((await git(['ls-tree', '-r', '-z', '--name-only', before.indexTree])).stdout));
@@ -371,7 +391,8 @@ async function planPaths(ports: EnginePorts, before: TriState, after: TriState, 
 			afterMode,
 		};
 		if (plan.after === null) {
-			if (tracked.has(file)) {
+			const created = removableCreated.some(earlier => earlier.path === file && earlier.before === null && earlier.after === plan.before && earlier.afterMode === plan.beforeMode);
+			if (tracked.has(file) || created) {
 				removals.push(plan);
 			}
 		} else {

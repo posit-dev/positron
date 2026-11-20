@@ -10,7 +10,7 @@ import {
 	acceptCheckedCheckpoint, createCheckpoints, declineCheckedCheckpoint, editDescription, readPendingApproval, reverseCheckpoint, revision,
 } from './checkpoints';
 import { deleteKept, listKept, restoreKept } from './collisions';
-import { GitMissingError, GitTimeoutError } from './git';
+import { GitMissingError, GitTimeoutError, runGit } from './git';
 import { goBackTo } from './goBack';
 import { getCheckpointFiles, getDiff, getHistory, getPendingFiles, readBlob } from './history';
 import { classify, JournalRecord, readRecords } from './journal';
@@ -47,7 +47,9 @@ interface Guard {
  * rule (`expire`) run before the promise resolves, so no request is served before them.
  *
  * Mutating calls run one at a time: a call made while another runs returns `unavailable busy` at
- * once. Before a mutating call computes anything or runs a project's hooks, it is refused with
+ * once. `checkShared` changes no files and no local branch, so it runs beside them under the same
+ * rules apart from that one; a `checkShared` call made while another runs returns the promise of
+ * the one that runs. Before a mutating call computes anything or runs a project's hooks, it is refused with
  * `unavailable unusual-state` (detail: the unusual kind) in an unusual state, `unavailable
  * not-tracking` in a plain folder (apart from `startTracking`), and `unavailable busy` (detail
  * `unresolved-operation`) while an action is interrupted or unfinished (apart from
@@ -56,19 +58,22 @@ interface Guard {
  * error is logged through `ports.log` and gives `could-not-finish`. A call that ran then applies
  * the retention rule (`expire`) and fires `onDidChangeState`.
  *
- * Read calls never take the lock. In a plain folder they return empty results.
+ * Read calls never take the lock. In a plain folder they return empty results. A read call whose
+ * git call outlives its time limit rejects with an `Error` whose message starts with
+ * `checkpoints:timed-out: `, and one whose git program cannot start with `checkpoints:git-missing: `
+ * (see `CheckpointsEngine`); any other failure rejects with its own error.
  */
 export async function createEngine(base: EnginePorts): Promise<Engine> {
 	let ports: EnginePorts = base;
 	const listeners = new Set<() => void>();
 	let running = false;
+	/** The `checkShared` call that runs now. */
+	let checking: Promise<OperationResult> | undefined;
 	/** Whether git has `merge-tree --merge-base`, asked once. */
 	let syncAvailable: boolean | undefined;
 	let recoveryNotice: EngineState['recoveryNotice'];
 	/** Why startup recovery could not finish, while the operation it names is unresolved. */
 	let unrecovered: string | undefined;
-	/** The interrupted record that `getState` last described, with its description. */
-	let interrupted: { id: string; state: NonNullable<EngineState['interrupted']> } | undefined;
 	/** The local and shared commits when the latest preview found overlaps. */
 	let overlapInputs: { head: string; upstream: string } | undefined;
 	let lastChecked: string | undefined;
@@ -129,13 +134,44 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		running = true;
 		let ran = false;
 		try {
+			const outcome = await guarded(guard, call, { expire: true });
+			ran = outcome.ran;
+			return outcome.result;
+		} finally {
+			running = false;
+			if (ran) {
+				fire();
+			}
+		}
+	};
+
+	/** Runs `checkShared` under the rules of `createEngine`, outside the busy flag. */
+	const checkSharedOnce = async (): Promise<OperationResult> => {
+		const outcome = await guarded({}, async current => noteChecked(await checkShared(current)), { expire: false });
+		if (outcome.ran) {
+			fire();
+		}
+		return outcome.result;
+	};
+
+	/**
+	 * Applies the refusals of `createEngine` and runs `call`, turning a thrown error into its
+	 * result. `ran` is true when `call` started. With `options.expire`, the retention rule runs
+	 * after the call.
+	 */
+	const guarded = async (
+		guard: Guard, call: (current: EnginePorts) => Promise<OperationResult>, options: { expire: boolean },
+	): Promise<{ result: OperationResult; ran: boolean }> => {
+		let ran = false;
+		const outcome = (result: OperationResult) => ({ result, ran });
+		try {
 			const facts = await readFacts();
 			if (facts.unusual?.kind === 'git-missing') {
-				return { kind: 'unavailable', reason: 'unusual-state', detail: 'git-missing' };
+				return outcome({ kind: 'unavailable', reason: 'unusual-state', detail: 'git-missing' });
 			}
 			if (!facts.isProject) {
 				if (!guard.plainFolder) {
-					return { kind: 'unavailable', reason: 'not-tracking' };
+					return outcome({ kind: 'unavailable', reason: 'not-tracking' });
 				}
 			} else {
 				const unresolved = await unresolvedRecords();
@@ -145,39 +181,36 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 				if (!guard.resolving) {
 					const unusual = facts.unusual?.kind ?? (unrecovered === undefined ? undefined : 'unrecovered');
 					if (unusual !== undefined) {
-						return { kind: 'unavailable', reason: 'unusual-state', detail: unusual };
+						return outcome({ kind: 'unavailable', reason: 'unusual-state', detail: unusual });
 					}
 					if (unresolved.length > 0) {
-						return { kind: 'unavailable', reason: 'busy', detail: 'unresolved-operation' };
+						return outcome({ kind: 'unavailable', reason: 'busy', detail: 'unresolved-operation' });
 					}
 				}
 			}
 			ran = true;
 			const result = await call(ports);
-			try {
-				if (await isProjectFolder()) {
-					await readFacts();
-					await expire(ports);
+			if (options.expire) {
+				try {
+					if (await isProjectFolder()) {
+						await readFacts();
+						await expire(ports);
+					}
+				} catch (error) {
+					// The call's own result stands; the next call applies the retention rule again.
+					log(`Expiring old undo entries failed: ${errorText(error)}`);
 				}
-			} catch (error) {
-				// The call's own result stands; the next call applies the retention rule again.
-				log(`Expiring old undo entries failed: ${errorText(error)}`);
 			}
-			return result;
+			return outcome(result);
 		} catch (error) {
 			if (error instanceof GitTimeoutError) {
-				return { kind: 'unavailable', reason: 'timed-out', detail: error.message };
+				return outcome({ kind: 'unavailable', reason: 'timed-out', detail: error.message });
 			}
 			if (error instanceof GitMissingError) {
-				return { kind: 'unavailable', reason: 'unusual-state', detail: 'git-missing' };
+				return outcome({ kind: 'unavailable', reason: 'unusual-state', detail: 'git-missing' });
 			}
 			log(`A checkpoints action failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
-			return { kind: 'could-not-finish', detail: errorText(error) };
-		} finally {
-			running = false;
-			if (ran) {
-				fire();
-			}
+			return outcome({ kind: 'could-not-finish', detail: errorText(error) });
 		}
 	};
 
@@ -190,26 +223,19 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		overlapInputs = { head: await revision(ports, 'HEAD') ?? '', upstream: await revision(ports, '@{upstream}') ?? '' };
 	};
 
-	/** The interrupted action, described once per record (its classification reads the files it names). */
+	/** The interrupted action, classified as the project is now (the classification reads only the paths its record names). */
 	const describeInterrupted = async (records: JournalRecord[]): Promise<EngineState['interrupted']> => {
 		const record = records.find(candidate => candidate.status === 'interrupted');
 		if (record === undefined) {
-			interrupted = undefined;
 			return undefined;
 		}
-		if (interrupted?.id !== record.id) {
-			const classification = await classify(ports, record);
-			interrupted = {
-				id: record.id,
-				state: {
-					operationId: record.id,
-					description: record.description,
-					unexpectedPaths: classification.paths.filter(({ part }) => part === 'unexpected').map(({ path: file }) => file),
-					indexUnexpected: classification.index === 'unexpected',
-				},
-			};
-		}
-		return interrupted.state;
+		const classification = await classify(ports, record);
+		return {
+			operationId: record.id,
+			description: record.description,
+			unexpectedPaths: classification.paths.filter(({ part }) => part === 'unexpected').map(({ path: file }) => file),
+			indexUnexpected: classification.index === 'unexpected',
+		};
 	};
 
 	const listEntry = (record: JournalRecord | undefined) => record === undefined ? undefined : {
@@ -219,10 +245,18 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		restoresFiles: RESTORES_SNAPSHOT.has(record.kind) || record.paths.length > 0,
 	};
 
+	/** The state, with the recovery notice once: the notice is cleared only after the state was built. */
 	const getState = async (): Promise<EngineState> => {
-		const facts = await readFacts();
 		const notice = recoveryNotice;
-		recoveryNotice = undefined;
+		const state = await buildState(notice);
+		if (recoveryNotice === notice) {
+			recoveryNotice = undefined;
+		}
+		return state;
+	};
+
+	const buildState = async (notice: EngineState['recoveryNotice']): Promise<EngineState> => {
+		const facts = await readFacts();
 		const openedFolder = await fsp.realpath(ports.openedFolder).catch(() => path.resolve(ports.openedFolder));
 		const state: EngineState = {
 			tracking: facts.isProject ? 'tracking' : 'not-a-project',
@@ -294,14 +328,15 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		return info === undefined ? undefined : new Date(info.mtimeMs).toISOString();
 	};
 
-	/** Runs a read call in a project, or returns `empty` in a plain folder. */
-	const read = async <T>(empty: T, call: (current: EnginePorts) => Promise<T>): Promise<T> => {
-		if (!await isProjectFolder()) {
+	/** Runs a read call in a project, or returns `empty` in a plain folder. Rejects as `reading` does. */
+	const read = <T>(empty: T, call: (current: EnginePorts) => Promise<T>): Promise<T> => reading(async () => {
+		// `runGit` throws for a time-out and a missing git program, which `reading` reports.
+		if ((await runGit(ports.git, ['-C', ports.openedFolder, 'rev-parse', '--show-toplevel'])).exitCode !== 0) {
 			return empty;
 		}
 		await readFacts();
 		return call(ports);
-	};
+	});
 
 	const noteChecked = (result: OperationResult) => {
 		if (result.kind === 'done') {
@@ -338,22 +373,29 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 	const emptyPreview: IncomingPreview = { basis: '', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };
 
 	return {
-		getState,
+		getState: () => reading(getState),
 		getHistory: (skip, limit) => read([], current => getHistory(current, skip, limit)),
 		getChanges: () => read(emptyChanges, readChanges),
 		getCheckpointFiles: id => read([], current => getCheckpointFiles(current, id)),
 		getPendingFiles: token => read([], current => getPendingFiles(current, token)),
 		getDiff: target => read({ left: { kind: 'empty' }, right: { kind: 'empty' } }, current => getDiff(current, target)),
-		readBlob: async oid => {
+		readBlob: oid => reading(async () => {
 			await readFacts();
 			return readBlob(ports, oid);
-		},
+		}),
 		createCheckpoints: (basis, chunks) => mutate({}, current => createCheckpoints(current, basis, chunks)),
 		acceptCheckedCheckpoint: token => mutate({}, current => acceptCheckedCheckpoint(current, token)),
 		declineCheckedCheckpoint: token => mutate({}, current => declineCheckedCheckpoint(current, token)),
 		editDescription: (id, title, body) => mutate({}, current => editDescription(current, id, title, body)),
 		reverseCheckpoint: id => mutate({}, current => reverseCheckpoint(current, id)),
-		checkShared: () => mutate({}, async current => noteChecked(await checkShared(current))),
+		checkShared: () => {
+			if (checking === undefined) {
+				checking = checkSharedOnce().finally(() => {
+					checking = undefined;
+				});
+			}
+			return checking;
+		},
 		previewIncoming: () => read(emptyPreview, async current => {
 			if (!syncAvailable) {
 				return emptyPreview;
@@ -378,13 +420,7 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		getKeptFiles: () => read([], listKept),
 		restoreKeptFile: (id, destination) => mutate({}, current => restoreKept(current, id, destination)),
 		deleteKeptFile: id => mutate({}, current => deleteKept(current, id)),
-		resolveInterrupted: choice => mutate({ resolving: true }, async current => {
-			const result = await resolveInterrupted(current, choice);
-			if (result.kind === 'done') {
-				interrupted = undefined;
-			}
-			return result;
-		}),
+		resolveInterrupted: choice => mutate({ resolving: true }, current => resolveInterrupted(current, choice)),
 		removeRecoverySnapshot: async operationId => {
 			const result = await mutate({ resolving: true }, async current => {
 				if ((await unresolvedRecords()).some(record => record.id === operationId)) {
@@ -407,6 +443,25 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		notifyChanged: fire,
 		dispose: () => listeners.clear(),
 	};
+}
+
+/**
+ * Runs a read call. A git call that outlived its time limit rejects with an `Error` whose message
+ * is `checkpoints:timed-out: <detail>`, and a git program that cannot start with
+ * `checkpoints:git-missing: <detail>`. Any other failure rejects with its own error.
+ */
+async function reading<T>(call: () => Promise<T>): Promise<T> {
+	try {
+		return await call();
+	} catch (error) {
+		if (error instanceof GitTimeoutError) {
+			throw new Error(`checkpoints:timed-out: ${error.message}`);
+		}
+		if (error instanceof GitMissingError) {
+			throw new Error(`checkpoints:git-missing: ${error.detail}`);
+		}
+		throw error;
+	}
 }
 
 function errorText(error: unknown): string {

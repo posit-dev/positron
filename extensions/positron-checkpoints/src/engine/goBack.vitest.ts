@@ -11,7 +11,7 @@ import { readChanges } from './changes';
 import { getHistory } from './history';
 import { goBackTo } from './goBack';
 import { listKept } from './collisions';
-import { undo, undoHead } from './operationLog';
+import { redo, undo, undoHead } from './operationLog';
 import { must } from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { OperationResult } from './types';
@@ -116,6 +116,91 @@ describe('goBack', { timeout: 60_000 }, () => {
 
 		doneId(await undo(repo.ports, id, []));
 		expect(await repo.read('d.txt')).toBe('my own d\n');
+	});
+
+	/** Checkpoint A has a.txt and old.txt; the latest checkpoint removed old.txt. */
+	const withRemovedFile = async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('a.txt', 'one\n');
+		await repo.write('old.txt', 'old at A\n');
+		const a = await repo.commit('A');
+		await must(repo, ['rm', '-q', 'old.txt']);
+		await repo.commit('Remove old');
+		return { repo, a };
+	};
+
+	test('undo removes a file the checkpoint restored and HEAD lacks', async () => {
+		const { repo, a } = await withRemovedFile();
+
+		const id = doneId(await goBackTo(repo.ports, a, []));
+		expect(await repo.read('old.txt')).toBe('old at A\n');
+		doneId(await undo(repo.ports, id, []));
+
+		expect(await exists(repo, 'old.txt')).toBe(false);
+		expect((await readChanges(repo.ports)).files).toEqual([]);
+
+		// After a Redo, the next Undo removes it again.
+		doneId(await redo(repo.ports, id, []));
+		expect(await repo.read('old.txt')).toBe('old at A\n');
+		doneId(await undo(repo.ports, id, []));
+		expect(await exists(repo, 'old.txt')).toBe(false);
+	});
+
+	test('undo leaves a file the checkpoint restored when it was edited since', async () => {
+		const { repo, a } = await withRemovedFile();
+
+		const id = doneId(await goBackTo(repo.ports, a, []));
+		await repo.write('old.txt', 'my edit\n');
+		doneId(await undo(repo.ports, id, []));
+
+		expect(await repo.read('old.txt')).toBe('my edit\n');
+	});
+
+	test('an untracked file where the checkpoint has a folder is a collision, and with a choice it is kept aside', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('a.txt', 'one\n');
+		await repo.write('notes/n.txt', 'note at A\n');
+		const a = await repo.commit('A');
+		await must(repo, ['rm', '-q', '-r', 'notes']);
+		const b = await repo.commit('Remove notes');
+		await repo.write('notes', 'my notes file\n');
+
+		expect(await goBackTo(repo.ports, a, [])).toEqual({ kind: 'path-collisions', collisions: [{ path: 'notes', reason: 'ignored', sizeBytes: 14 }] });
+		expect(await repo.read('notes')).toBe('my notes file\n');
+		expect(await must(repo, ['rev-parse', 'refs/heads/main'])).toBe(b);
+		expect(await undoHead(repo.ports)).toBeUndefined();
+
+		const id = doneId(await goBackTo(repo.ports, a, [{ path: 'notes', choice: 'use-theirs-keep-copy' }]));
+		expect(await repo.read('notes/n.txt')).toBe('note at A\n');
+		expect((await listKept(repo.ports)).map(file => file.originalPath)).toEqual(['notes']);
+
+		// Undo removes the folder the checkpoint wrote and returns the file.
+		doneId(await undo(repo.ports, id, []));
+		expect(await repo.read('notes')).toBe('my notes file\n');
+	});
+
+	test('untracked files where the checkpoint has a file are collisions, and with a choice they are kept aside', async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		await repo.write('a.txt', 'one\n');
+		await repo.write('out', 'out at A\n');
+		const a = await repo.commit('A');
+		await must(repo, ['rm', '-q', 'out']);
+		await repo.commit('Remove out');
+		await repo.write('out/x.txt', 'mine\n');
+		await repo.write('out/y.txt', 'mine too\n');
+
+		expect(await goBackTo(repo.ports, a, [])).toEqual({
+			kind: 'path-collisions',
+			collisions: [{ path: 'out/x.txt', reason: 'ignored', sizeBytes: 5 }, { path: 'out/y.txt', reason: 'ignored', sizeBytes: 9 }],
+		});
+		expect(await repo.read('out/x.txt')).toBe('mine\n');
+
+		doneId(await goBackTo(repo.ports, a, ['out/x.txt', 'out/y.txt'].map(file => ({ path: file, choice: 'use-theirs-keep-copy' as const }))));
+		expect(await repo.read('out')).toBe('out at A\n');
+		expect((await listKept(repo.ports)).map(file => file.originalPath)).toEqual(['out/x.txt', 'out/y.txt']);
 	});
 
 	test('a collision with an ignored file is refused without a choice', async () => {
