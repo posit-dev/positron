@@ -46,7 +46,9 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		[SIMPLIFIED_LAYOUT_ENABLED_KEY]: {
 			type: 'boolean',
 			default: true,
-			scope: ConfigurationScope.WINDOW,
+			// User settings only: on Positron Web, workspace settings load after the
+			// layout reads this value, which would leave half of each UI on screen.
+			scope: ConfigurationScope.APPLICATION,
 			tags: ['experimental'],
 			markdownDescription: localize(
 				'positron.workbench.experimental.simplifiedLayout',
