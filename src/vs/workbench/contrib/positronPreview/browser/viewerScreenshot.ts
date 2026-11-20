@@ -145,11 +145,12 @@ export async function captureDomScreenshot(appWindow: Window, targetWindow: Wind
  *
  * @param targetWindow The window the Viewer is in.
  * @param rect The part of the viewport to keep, in CSS pixels.
+ * @param pageScale The size of the page's CSS pixels in the window's.
  */
-export async function scaleNativeScreenshot(png: VSBuffer, targetWindow: Window, rect?: IViewerRect): Promise<IViewerCapture> {
+export async function scaleNativeScreenshot(png: VSBuffer, targetWindow: Window, rect?: IViewerRect, pageScale = 1): Promise<IViewerCapture> {
 	const bitmap = await targetWindow.createImageBitmap(new Blob([png.buffer as Uint8Array<ArrayBuffer>], { type: 'image/png' }));
 	try {
-		const ratio = targetWindow.devicePixelRatio || 1;
+		const ratio = (targetWindow.devicePixelRatio || 1) * pageScale;
 		const crop = cropOf(rect, bitmap.width, bitmap.height, ratio);
 		return { ...await encodePng(bitmap, crop, crop.width / ratio, crop.height / ratio, targetWindow), method: 'native' };
 	} finally {

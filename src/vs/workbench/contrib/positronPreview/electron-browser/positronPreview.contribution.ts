@@ -19,6 +19,7 @@ import { localize, localize2 } from '../../../../nls.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { PreviewBrowserView } from './previewBrowserView.js';
 import { POSITRON_VIEWER_FIND_FOCUSED, POSITRON_VIEWER_FIND_VISIBLE, VIEWER_FIND_NEXT_ID, VIEWER_FIND_PREVIOUS_ID, VIEWER_HIDE_FIND_ID } from './viewerFindWidget.js';
+import { ToggleViewerFitToWidthAction, ViewerResetZoomAction, ViewerZoomContribution, ViewerZoomInAction, ViewerZoomOutAction } from './viewerZoom.js';
 import { AddViewerConsoleLogsAction, AddViewerElementAction, AddViewerScreenshotAction, CommentOnViewerElementAction, ToggleViewerDevToolsAction, ViewerAssistantContribution } from './viewerAssistant.js';
 
 // Register the Electron variant of the Positron preview service.
@@ -66,6 +67,11 @@ registerFindCommand(VIEWER_HIDE_FIND_ID, localize2('positronViewerHideFind', "Cl
 	{ primary: KeyCode.Escape, when: findShowing },
 ], surface => surface.hideFind());
 
+registerAction2(ViewerZoomInAction);
+registerAction2(ViewerZoomOutAction);
+registerAction2(ViewerResetZoomAction);
+registerAction2(ToggleViewerFitToWidthAction);
+registerWorkbenchContribution2(ViewerZoomContribution.ID, ViewerZoomContribution, WorkbenchPhase.AfterRestored);
 registerAction2(ToggleViewerDevToolsAction);
 registerAction2(AddViewerElementAction);
 registerAction2(CommentOnViewerElementAction);

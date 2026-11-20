@@ -37,13 +37,35 @@ stay visible when the Viewer is narrow.
 .preview-action-bar form {
 	display: flex;
 	flex-grow: 1;
+	position: relative;
+}
+
+.preview-action-bar .zoom-pill {
+	position: absolute;
+	right: 6px;
+	top: 50%;
+	transform: translateY(-50%);
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 0 2px;
+	color: var(--vscode-descriptionForeground);
+	background-color: var(--vscode-input-background);
+	font-size: 13px;
+	line-height: 1;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.preview-action-bar .zoom-pill .codicon {
+	font-size: 14px;
 }
 
 .preview-action-bar .url-bar {
 	border: 1px solid var(--vscode-input-border);
 	background-color: var(--vscode-input-background);
 	border-radius: 4px;
-	margin-left: 10px;
+	margin-left: 4px;
 	padding-left: 10px;
 	padding-right: 10px;
 	padding-top: 2px;

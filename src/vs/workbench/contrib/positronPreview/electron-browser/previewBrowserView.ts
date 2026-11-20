@@ -16,6 +16,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
 import { BrowserElementSelectionMode, IBrowserViewLoadError, IBrowserViewService, IElementData, ipcBrowserViewChannelName } from '../../../../platform/browserView/common/browserView.js';
 import { defaultButtonStyles } from '../../../../platform/theme/browser/defaultStyles.js';
@@ -30,6 +31,12 @@ import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreensh
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
 import { BrowserViewBridgeSession, PageNavigatedError } from './browserViewBridgeSession.js';
 import { bridgeScriptValue, ViewerBridgeScriptResult } from './previewOverlayWebview.js';
+
+/** The narrowest width, in CSS pixels, that fitting to width lays a page out at. */
+const FIT_TO_WIDTH_MIN_WIDTH = 1050;
+
+/** Remembers whether the Viewer fits pages to its width. */
+const FIT_TO_WIDTH_KEY = 'positron.viewer.fitToWidth';
 
 /**
  * The page's title, or an empty one when it has none, as Chromium then gives
@@ -59,6 +66,12 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 
 	private readonly _onDidSelectElement = this._register(new Emitter<IElementData>());
 	readonly onDidSelectElement = this._onDidSelectElement.event;
+
+	private readonly _onDidChangeZoom = this._register(new Emitter<void>());
+	readonly onDidChangeZoom = this._onDidChangeZoom.event;
+
+	private readonly _onDidZoom = this._register(new Emitter<number>());
+	readonly onDidZoom = this._onDidZoom.event;
 
 	private readonly _root = $('.browser-root.positron-preview-browser');
 	private readonly _wrapper = $('.browser-container-wrapper');
@@ -96,6 +109,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		@ILogService private readonly _logService: ILogService,
 		@ILifecycleService lifecycleService: ILifecycleService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 		// The main process keeps a view across a reload of the window, for
@@ -117,6 +131,64 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this._root.append(this._findWrapper, this._wrapper);
 
 		this._register(onDidChangeZoomLevel(() => this.layout()));
+		this._register(_storageService.onDidChangeValue(StorageScope.PROFILE, FIT_TO_WIDTH_KEY, this._store)(() => {
+			this.applyFitToWidth();
+			this.layout();
+			this._onDidChangeZoom.fire();
+		}));
+	}
+
+	/** Whether pages are laid out at least FIT_TO_WIDTH_MIN_WIDTH wide and scaled down to fit. */
+	get fitToWidth(): boolean {
+		return this._storageService.getBoolean(FIT_TO_WIDTH_KEY, StorageScope.PROFILE, false);
+	}
+
+	setFitToWidth(fit: boolean): void {
+		this._storageService.store(FIT_TO_WIDTH_KEY, fit, StorageScope.PROFILE, StorageTarget.USER);
+	}
+
+	get canZoomIn(): boolean {
+		return this._model?.canZoomIn ?? false;
+	}
+
+	get canZoomOut(): boolean {
+		return this._model?.canZoomOut ?? false;
+	}
+
+	zoomIn(): Promise<void> {
+		return this.zoom(model => model.zoomIn());
+	}
+
+	zoomOut(): Promise<void> {
+		return this.zoom(model => model.zoomOut());
+	}
+
+	resetZoom(): Promise<void> {
+		return this.zoom(model => model.resetZoom());
+	}
+
+	private async zoom(change: (model: IBrowserViewModel) => Promise<void>): Promise<void> {
+		const model = this.loadedModel();
+		this.setFitToWidth(false);
+		await change(model);
+		this._onDidZoom.fire(model.zoomFactor);
+	}
+
+	/**
+	 * Emulates a device whose viewport the layout scales, so fitting to width
+	 * lays the page out wider than the Viewer and shows it smaller.
+	 */
+	private applyFitToWidth(): void {
+		this._model?.setDevice(this.fitToWidth ? {} : undefined)
+			.catch(error => this._logService.error('[Viewer] Failed to fit the page to the Viewer\'s width', error));
+	}
+
+	/**
+	 * How much larger the page's CSS pixels are than the workbench's: the
+	 * scale that fits the page to the Viewer's width, or else the page's zoom.
+	 */
+	private pageScale(width: number): number {
+		return this.fitToWidth ? Math.min(1, width / FIT_TO_WIDTH_MIN_WIDTH) : this._model?.zoomFactor ?? 1;
 	}
 
 	get canGoBack(): boolean {
@@ -181,6 +253,10 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			}
 		}));
 		this._modelStore.add(model.onDidSelectElement(e => this._onDidSelectElement.fire(e)));
+		this._modelStore.add(model.onDidChangeZoom(() => {
+			this.layout();
+			this._onDidChangeZoom.fire();
+		}));
 		this._modelStore.add(model.onDidChangeFocus(e => {
 			if (e.focused) {
 				focusWebContentsViewContainer(this._container);
@@ -194,6 +270,9 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		}));
 
 		this._host.value?.setModel(model);
+		if (this.fitToWidth) {
+			this.applyFitToWidth();
+		}
 		this.layout();
 	}
 
@@ -326,7 +405,9 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			&& rect.left < targetWindow.innerWidth
 			&& rect.top < targetWindow.innerHeight;
 		host.setVisible(visible);
-		this._model.layout({ x, y, width, height, windowId: targetWindow.vscodeWindowId, zoomFactor, cornerRadius: 0 })
+		// The emulation scale multiplies the page's zoom, so divide that out.
+		const emulation = this.fitToWidth ? { scale: this.pageScale(width) / this._model.zoomFactor } : undefined;
+		this._model.layout({ x, y, width, height, windowId: targetWindow.vscodeWindowId, zoomFactor, cornerRadius: 0, emulation })
 			.catch(error => this._logService.error('[Viewer] Failed to lay out the browser view', error));
 		host.layout();
 	}
@@ -439,7 +520,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 
 	async captureScreenshot(options?: IPreviewCaptureOptions): Promise<IViewerCapture> {
 		const png = await this.loadedModel().captureScreenshot({ format: 'png', fullPage: options?.fullPage });
-		return scaleNativeScreenshot(png, getWindow(this._anchor ?? this._container), options?.fullPage ? undefined : options?.rect);
+		return scaleNativeScreenshot(png, getWindow(this._anchor ?? this._container), options?.fullPage ? undefined : options?.rect, this.pageScale(this._wrapper.getBoundingClientRect().width));
 	}
 
 	async getCurrentUrl(): Promise<string | undefined> {

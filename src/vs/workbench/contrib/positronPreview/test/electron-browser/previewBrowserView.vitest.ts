@@ -22,6 +22,7 @@ import { PreviewBrowserView } from '../../electron-browser/previewBrowserView.js
 import { ILifecycleService, WillShutdownEvent } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
+import { IStorageService, InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 
 const { hostVisibility } = vi.hoisted(() => ({ hostVisibility: [] as boolean[] }));
 
@@ -78,6 +79,7 @@ describe('PreviewBrowserView', () => {
 		const loading = ctx.disposables.add(new Emitter<IBrowserViewLoadingEvent>());
 		const willDispose = ctx.disposables.add(new Emitter<void>());
 		const selectElement = ctx.disposables.add(new Emitter<IElementData>());
+		const zoom = ctx.disposables.add(new Emitter<void>());
 		const calls: string[] = [];
 		let selection: IBrowserElementSelectionState = { active: false, options: {} };
 		const model = stubInterface<IBrowserViewModel>({
@@ -90,6 +92,10 @@ describe('PreviewBrowserView', () => {
 			onDidClose: ctx.disposables.add(new Emitter<void>()).event,
 			onWillDispose: willDispose.event,
 			onDidSelectElement: selectElement.event,
+			onDidChangeZoom: zoom.event,
+			zoomFactor: 1,
+			setDevice: async device => { calls.push(`device ${JSON.stringify(device)}`); },
+			zoomIn: async () => { calls.push('zoomIn'); },
 			get elementSelectionState() { return selection; },
 			toggleElementSelection: async (enabled, options) => {
 				calls.push(`select ${enabled} ${options?.mode}`);
@@ -118,6 +124,7 @@ describe('PreviewBrowserView', () => {
 	}
 
 	beforeEach(() => {
+		ctx.instantiationService.stub(IStorageService, ctx.disposables.add(new InMemoryStorageService()));
 		views = [];
 		created = [];
 		hostVisibility.length = 0;
@@ -136,6 +143,26 @@ describe('PreviewBrowserView', () => {
 			calls: [`layout ${JSON.stringify({ x: 10, y: 20, width: 300, height: 200, windowId: mainWindow.vscodeWindowId, zoomFactor: 1, cornerRadius: 0 })}`],
 		});
 		expect(hostVisibility.at(-1)).toBe(true);
+	});
+
+	it('fits the page to the Viewer\'s width by laying it out wider and scaling it down, until the user zooms', async () => {
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 525, 200));
+		const { model, calls } = createModel();
+		const surface = createSurface();
+		surface.setFitToWidth(true);
+		surface.claim(undefined, createAnchor());
+		await views[0].complete(model);
+
+		await surface.zoomIn();
+
+		const bounds = { x: 0, y: 0, width: 525, height: 200, windowId: mainWindow.vscodeWindowId, zoomFactor: 1, cornerRadius: 0 };
+		expect(calls).toEqual([
+			'device {}',
+			`layout ${JSON.stringify({ ...bounds, emulation: { scale: 0.5 } })}`,
+			'device undefined',
+			`layout ${JSON.stringify(bounds)}`,
+			'zoomIn',
+		]);
 	});
 
 	it('loads an address given while the view is being created once it exists', async () => {

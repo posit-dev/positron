@@ -30,6 +30,8 @@ import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, PreviewOpenTarget } from '../positronPreviewSevice.js';
 import { BrowserActionButtons } from './browserActionButtons.js';
+import { browserZoomLabel } from '../../../../../platform/browserView/common/browserView.js';
+import { IPreviewSurface } from '../previewSurface.js';
 import { POSITRON_VIEWER_AUTO_REFRESH, POSITRON_VIEWER_CAN_AUTO_REFRESH, POSITRON_VIEWER_TOGGLE_AUTO_REFRESH, PositronOpenUrlInViewerAction } from '../positronPreviewActions.js';
 
 // Constants.
@@ -75,6 +77,35 @@ function initialTitle(preview: PreviewWebview): string | undefined {
 }
 
 /**
+ * The page's zoom, shown briefly at the end of the URL bar when the user
+ * changes it. Screen readers hear the change from the zoom command instead.
+ */
+const ZoomPill = ({ surface }: { readonly surface: IPreviewSurface }) => {
+	const [factor, setFactor] = useState<number>();
+	useEffect(() => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const disposable = surface.onDidZoom?.(zoomFactor => {
+			setFactor(zoomFactor);
+			clearTimeout(timer);
+			timer = setTimeout(() => setFactor(undefined), 750);
+		});
+		return () => {
+			clearTimeout(timer);
+			disposable?.dispose();
+		};
+	}, [surface]);
+	if (factor === undefined) {
+		return null;
+	}
+	return (
+		<div aria-hidden='true' className='zoom-pill'>
+			<span className={`codicon codicon-${factor >= 1 ? 'zoom-in' : 'zoom-out'}`} />
+			<span>{browserZoomLabel(factor)}</span>
+		</div>
+	);
+};
+
+/**
  * PreviewActionBars component: navigation through the Viewer's history, the
  * URL of the content or its title when it has none, and actions on it.
  * @param props A PreviewActionBarsProps that contains the component properties.
@@ -87,6 +118,10 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 
 	const content = props.preview;
 	const urlPreview = content instanceof PreviewUrl ? content : undefined;
+
+	// Extension webviews (e.g. Quarto Preview) draw their own navigation.
+	const ownNavigation = !!content && !urlPreview && !(content instanceof PreviewHtml) &&
+		content.viewType !== POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE;
 
 	const [canGoBack, setCanGoBack] = useState(previewService.canGoBack);
 	const [canGoForward, setCanGoForward] = useState(previewService.canGoForward);
@@ -407,7 +442,7 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars preview-action-bar'>
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion location='left'>
+					{!ownNavigation && <ActionBarRegion location='left'>
 						<ActionBarButton ariaLabel={navigateBack}
 							disabled={!canGoBack}
 							icon={ThemeIcon.fromId('positron-left-arrow')}
@@ -436,9 +471,9 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 								tooltip={reload}
 								onPressed={reloadHandler} />
 						}
-					</ActionBarRegion>
+					</ActionBarRegion>}
 					<ActionBarRegion location='center' minWidth={0}>
-						<form onSubmit={navigateToHandler}>
+						{!ownNavigation && <form onSubmit={navigateToHandler}>
 							{content && !urlPreview ?
 								// Content without a URL shows its title, which can't be edited.
 								<input
@@ -459,7 +494,8 @@ export const PreviewActionBars = (props: PropsWithChildren<PreviewActionBarsProp
 									type='text'>
 								</input>
 							}
-						</form>
+							{content?.surface.kind === 'browser' && <ZoomPill surface={content.surface} />}
+						</form>}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{interruptible && (

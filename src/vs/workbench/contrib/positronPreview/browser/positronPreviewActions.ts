@@ -48,8 +48,19 @@ export const POSITRON_VIEWER_AUTO_REFRESH = new RawContextKey<boolean>('positron
 /** Turns reloading the Viewer's content when its files change on and off. */
 export const POSITRON_VIEWER_TOGGLE_AUTO_REFRESH = 'workbench.action.positronPreview.toggleAutoRefresh';
 
+/** Whether the page in the Viewer's integrated browser can zoom in, or out. */
+export const POSITRON_VIEWER_CAN_ZOOM_IN = new RawContextKey<boolean>('positronViewer.canZoomIn', false);
+export const POSITRON_VIEWER_CAN_ZOOM_OUT = new RawContextKey<boolean>('positronViewer.canZoomOut', false);
+
+/** Whether the Viewer's integrated browser fits pages to its width. */
+export const POSITRON_VIEWER_FIT_TO_WIDTH = new RawContextKey<boolean>('positronViewer.fitToWidth', false);
+
 /** The commands that act on the integrated browser showing in the Viewer, for its toolbar. */
 export const VIEWER_BROWSER_COMMANDS = {
+	zoomIn: 'workbench.action.positronPreview.zoomIn',
+	zoomOut: 'workbench.action.positronPreview.zoomOut',
+	resetZoom: 'workbench.action.positronPreview.resetZoom',
+	toggleFitToWidth: 'workbench.action.positronPreview.toggleFitToWidth',
 	toggleDevTools: 'workbench.action.positronPreview.toggleDevTools',
 	addElement: 'workbench.action.positronPreview.addElementToAssistant',
 	commentOnElement: 'workbench.action.positronPreview.commentOnElement',

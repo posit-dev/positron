@@ -5,7 +5,8 @@
 
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -16,6 +17,7 @@ import { IPositronPreviewService, POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE, 
 import { PositronPreviewViewPane } from '../../browser/positronPreviewView.js';
 import { IPreviewSurface } from '../../browser/previewSurface.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
+import { PreviewUrl } from '../../browser/previewUrl.js';
 
 describe('PositronPreview stop button', () => {
 	let preview: PreviewWebview;
@@ -49,6 +51,12 @@ describe('PositronPreview stop button', () => {
 			release: () => { },
 			dispose: () => { },
 		})));
+	});
+
+	it('leaves navigation to an extension webview', () => {
+		rtl.render(<PositronPreview reactComponentContainer={container} />);
+		expect(screen.queryByRole('button', { name: 'Go back' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 	});
 
 	it('shows the stop button only while the preview is stoppable', () => {
@@ -158,5 +166,56 @@ describe('PositronPreview content without a URL', () => {
 			forwardDisabled: screen.getByRole('button', { name: 'Go forward' }).getAttribute('aria-disabled'),
 			wentBack: vi.mocked(ctx.get(IPositronPreviewService).goBack).mock.calls.length,
 		}).toEqual({ title: 'R 4.5.0 output', disabled: true, forwardDisabled: 'true', wentBack: 1 });
+	});
+});
+
+describe('PositronPreview zoom', () => {
+	const zoom = new Emitter<number>();
+	let preview: PreviewWebview;
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IPositronPreviewService, {
+			get activePreviewWebview() { return preview; },
+			onDidChangeActivePreviewWebview: Event.None,
+			onDidChangeNavigationState: Event.None,
+			canGoBack: false,
+			canGoForward: false,
+			getDefaultOpenTarget: () => PreviewOpenTarget.Browser,
+		})
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	const container = stubInterface<PositronPreviewViewPane>({
+		width: 400,
+		height: 300,
+		containerVisible: false,
+		onSizeChanged: Event.None,
+		onPositionChanged: Event.None,
+		onVisibilityChanged: Event.None,
+	});
+
+	beforeEach(() => {
+		preview = ctx.disposables.add(new PreviewUrl('preview-1', stubInterface<IPreviewSurface>({
+			kind: 'browser',
+			title: undefined,
+			onDidLoad: Event.None,
+			onDidNavigate: Event.None,
+			onDidZoom: zoom.event,
+			loadUri: () => { },
+			release: () => { },
+			dispose: () => { },
+		}), URI.parse('http://localhost:8000/')));
+	});
+
+	it('shows the zoom in the URL bar briefly after the user zooms', () => {
+		vi.useFakeTimers();
+		rtl.render(<PositronPreview reactComponentContainer={container} />);
+
+		act(() => zoom.fire(1.25));
+		expect(screen.getByText('125%')).toBeInTheDocument();
+
+		act(() => { vi.advanceTimersByTime(750); });
+		expect(screen.queryByText('125%')).not.toBeInTheDocument();
+		vi.useRealTimers();
 	});
 });

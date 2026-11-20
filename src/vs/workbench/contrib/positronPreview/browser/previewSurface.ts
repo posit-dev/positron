@@ -112,6 +112,9 @@ export interface IPreviewSurface extends IDisposable {
 	 */
 	toggleElementSelection(mode: 'select' | 'comment'): Promise<void>;
 
+	/** Fires when the user zooms the page, with its new zoom factor. Only the integrated browser zooms. */
+	readonly onDidZoom?: Event<number>;
+
 	/** Fires when the user picks an element or comments on one. */
 	readonly onDidSelectElement: Event<IElementData>;
 
