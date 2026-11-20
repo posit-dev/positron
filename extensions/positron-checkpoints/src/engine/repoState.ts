@@ -5,7 +5,7 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { GitMissingError, runGit, splitZ } from './git';
+import { GitMissingError, mustGit, runGit, splitZ } from './git';
 import { EnginePorts, GitResult } from './ports';
 import { UnusualKind } from './types';
 
@@ -61,6 +61,7 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 	}
 	const root = stripLineEnd(top.stdout);
 	const run = (args: string[], env?: Record<string, string>): Promise<GitResult> => runGit(ports.git, ['-C', root, ...args], env && { env });
+	const must = (args: string[]): Promise<GitResult> => mustGit(ports.git, ['-C', root, ...args]);
 
 	const gitDirResult = await run(['rev-parse', '--absolute-git-dir']);
 	if (gitDirResult.exitCode !== 0) {
@@ -107,24 +108,38 @@ export async function readRepoFacts(ports: EnginePorts): Promise<RepoFacts> {
 		behind,
 		identityMissing,
 		syncAvailable,
-		unusual: await findUnusual(run, root, gitDir, branch === undefined),
+		unusual: await findUnusual(must, root, gitDir, branch === undefined),
 	};
 }
 
 /**
- * True unless git has both a name and an email that were set explicitly (in configuration or
- * through `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, or `EMAIL`). Without `user.useConfigOnly`
+ * True unless git has both a name and an email, for the author and for the committer, that
+ * were set explicitly (in configuration or through `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, or `EMAIL`). Without `user.useConfigOnly`
  * git guesses an address such as `user@host.local`, which must not author checkpoints.
  */
 async function isIdentityMissing(run: (args: string[], env?: Record<string, string>) => Promise<GitResult>): Promise<boolean> {
+	// With `user.useConfigOnly` git ignores `EMAIL`, so pass it as an explicit address.
 	const email = process.env.EMAIL;
-	const env = email && !process.env.GIT_AUTHOR_EMAIL ? { GIT_AUTHOR_EMAIL: email } : undefined;
-	const result = await run(['-c', 'user.useConfigOnly=true', 'var', 'GIT_AUTHOR_IDENT'], env);
-	return result.exitCode !== 0 || result.stdout.trim() === '';
+	const env: Record<string, string> = {};
+	if (email) {
+		if (!process.env.GIT_AUTHOR_EMAIL) {
+			env.GIT_AUTHOR_EMAIL = email;
+		}
+		if (!process.env.GIT_COMMITTER_EMAIL) {
+			env.GIT_COMMITTER_EMAIL = email;
+		}
+	}
+	for (const variable of ['GIT_AUTHOR_IDENT', 'GIT_COMMITTER_IDENT']) {
+		const result = await run(['-c', 'user.useConfigOnly=true', 'var', variable], env);
+		if (result.exitCode !== 0 || result.stdout.trim() === '') {
+			return true;
+		}
+	}
+	return false;
 }
 
 async function findUnusual(
-	run: (args: string[]) => Promise<GitResult>,
+	must: (args: string[]) => Promise<GitResult>,
 	root: string,
 	gitDir: string,
 	detached: boolean,
@@ -139,26 +154,25 @@ async function findUnusual(
 	}
 	// A path is unusual when the index differs from HEAD (someone staged it) and the
 	// working file differs from the index (the staged content is not what is on disk).
-	const staged = await run(['diff', '--cached', '--name-only', '-z']);
-	if (staged.exitCode === 0 && staged.stdout !== '') {
-		const modified = new Set(splitZ((await run(['diff', '--name-only', '-z'])).stdout));
+	const staged = await must(['diff', '--cached', '--name-only', '-z']);
+	if (staged.stdout !== '') {
+		const modified = new Set(splitZ((await must(['diff', '--name-only', '-z'])).stdout));
 		const both = splitZ(staged.stdout).filter(file => modified.has(file));
 		if (both.length > 0) {
 			return { kind: 'staged-differs', detail: both.join(', ') };
 		}
 	}
 	// A staged deletion whose file exists again is untracked, so `git diff` does not list it.
-	const deleted = await run(['diff', '--cached', '--name-only', '--diff-filter=D', '-z']);
-	if (deleted.exitCode === 0) {
-		const recreated: string[] = [];
-		for (const file of splitZ(deleted.stdout)) {
-			if (await exists(path.join(root, file))) {
-				recreated.push(file);
-			}
+	// Without rename detection the source of a staged rename counts as a deletion too.
+	const deleted = await must(['diff', '--cached', '--no-renames', '--name-only', '--diff-filter=D', '-z']);
+	const recreated: string[] = [];
+	for (const file of splitZ(deleted.stdout)) {
+		if (await exists(path.join(root, file))) {
+			recreated.push(file);
 		}
-		if (recreated.length > 0) {
-			return { kind: 'staged-differs', detail: recreated.join(', ') };
-		}
+	}
+	if (recreated.length > 0) {
+		return { kind: 'staged-differs', detail: recreated.join(', ') };
 	}
 	return undefined;
 }

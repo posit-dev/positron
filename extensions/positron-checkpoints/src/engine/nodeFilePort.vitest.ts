@@ -49,6 +49,13 @@ describe('createNodeFilePort', () => {
 		expect((await fsp.stat(path.join(root, 'run.sh'))).mode & 0o111).toBe(0);
 	});
 
+	test.skipIf(process.platform === 'win32')('sets the owner execute bit on a file without read permission', async () => {
+		await files.write('locked.sh', new Uint8Array(), false);
+		await fsp.chmod(path.join(root, 'locked.sh'), 0o200);
+		await files.write('locked.sh', new Uint8Array(), true);
+		expect((await fsp.stat(path.join(root, 'locked.sh'))).mode & 0o777).toBe(0o300);
+	});
+
 	test('appendDurable appends the text exactly as given', async () => {
 		await files.appendDurable('log/journal', 'one\n');
 		await files.appendDurable('log/journal', 'two\n');

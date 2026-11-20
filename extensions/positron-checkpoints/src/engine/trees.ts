@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'crypto';
-import { runGit, splitZ } from './git';
+import { mustGit as mustGitRunner, splitZ } from './git';
 import { EnginePorts } from './ports';
 
 /** Untracked files larger than this are left out of snapshots. */
@@ -22,12 +22,11 @@ const SNAPSHOT_IDENTITY = {
 
 /** Runs git in the project root and throws when it exits with an error. */
 async function mustGit(ports: EnginePorts, args: string[], options?: Parameters<EnginePorts['git']>[1]): Promise<string> {
-	const result = await runGit(ports.git, ['-C', ports.projectRoot, ...args], options);
-	if (result.exitCode !== 0) {
-		throw new Error(`git ${args.join(' ')} failed: ${result.stderr.trim()}`);
-	}
-	return result.stdout;
+	return (await mustGitRunner(ports.git, ['-C', ports.projectRoot, ...args], options)).stdout;
 }
+
+/** Hashing a large tracked file can take much longer than the default limit. */
+const STAGING_TIMEOUT_MS = 10 * 60_000;
 
 /** Git ends a path with a line terminator, and a path may itself end in a space. */
 async function absoluteGitDir(ports: EnginePorts): Promise<string> {
@@ -81,14 +80,22 @@ export async function worktreeTree(ports: EnginePorts, largeFileBytes = LARGE_FI
 		if (realIndex !== undefined) {
 			await ports.files.write(env.GIT_INDEX_FILE, realIndex, false);
 		}
-		await mustGit(ports, ['add', '-u'], { env });
+		// A copied assume-unchanged flag makes `add -u` skip an edited file.
+		const flagged = splitZ(await mustGit(ports, ['ls-files', '-v', '-z'], { env }))
+			.filter(entry => /^[a-z] /.test(entry))
+			.map(entry => entry.slice(2));
+		if (flagged.length > 0) {
+			await mustGit(ports, ['update-index', '--no-assume-unchanged', '-z', '--stdin'], { env, stdin: flagged.join('\0') + '\0' });
+		}
+		await mustGit(ports, ['add', '-u'], { env, timeoutMs: STAGING_TIMEOUT_MS });
 		if (included.length > 0) {
 			await mustGit(ports, ['--literal-pathspecs', 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], {
 				env,
 				stdin: included.join('\0') + '\0',
+				timeoutMs: STAGING_TIMEOUT_MS,
 			});
 		}
-		return (await mustGit(ports, ['write-tree'], { env })).trim();
+		return (await mustGit(ports, ['write-tree'], { env, timeoutMs: STAGING_TIMEOUT_MS })).trim();
 	});
 	return { tree, skipped };
 }

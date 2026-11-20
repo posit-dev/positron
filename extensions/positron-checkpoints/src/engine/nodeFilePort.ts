@@ -69,7 +69,8 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 			}
 			await fsp.writeFile(full, content);
 			const mode = existing.mode & 0o7777;
-			const wanted = executable ? mode | ((mode & 0o444) >> 2) : mode & ~0o111;
+			// The owner may always run the file; group and others follow their read bits.
+			const wanted = executable ? mode | 0o100 | ((mode & 0o044) >> 2) : mode & ~0o111;
 			if (wanted !== mode) {
 				await fsp.chmod(full, wanted);
 			}

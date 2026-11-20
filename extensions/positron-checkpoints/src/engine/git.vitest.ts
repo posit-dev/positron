@@ -8,7 +8,7 @@
 import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { createGitRunner, GitMissingError, GitTimeoutError, runGit, splitZ } from './git';
+import { createGitRunner, GitFailedError, GitMissingError, GitTimeoutError, mustGit, runGit, splitZ } from './git';
 import { tempRepo, TempRepo } from './test/tempRepo';
 
 describe('createGitRunner', () => {
@@ -40,6 +40,33 @@ describe('createGitRunner', () => {
 			env: { GIT_TERMINAL_PROMPT: '1' },
 		});
 		expect(result.stdout.trim()).toBe('0');
+	});
+
+	test('ignores GIT_DIR, GIT_INDEX_FILE, and the other repository variables of the parent', async () => {
+		const names = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'];
+		const saved = names.map(name => process.env[name]);
+		const other = await tempRepo();
+		try {
+			for (const name of names) {
+				process.env[name] = path.join(other.root, '.git');
+			}
+			const git = createGitRunner('git', repo.root);
+			const top = await git(['rev-parse', '--show-toplevel']);
+			expect(path.resolve(top.stdout.trim())).toBe(await fsp.realpath(repo.root));
+			const echoed = await git(['-c', 'alias.e=!echo "$GIT_DIR$GIT_INDEX_FILE"', 'e']);
+			expect(echoed.stdout.trim()).toBe('');
+			const own = await git(['-c', 'alias.e=!echo $GIT_INDEX_FILE', 'e'], { env: { GIT_INDEX_FILE: '/own/index' } });
+			expect(own.stdout.trim()).toBe('/own/index');
+		} finally {
+			names.forEach((name, i) => {
+				if (saved[i] === undefined) {
+					delete process.env[name];
+				} else {
+					process.env[name] = saved[i];
+				}
+			});
+			await other.dispose();
+		}
 	});
 
 	test('sets LC_ALL=C and GIT_OPTIONAL_LOCKS=0', async () => {
@@ -99,6 +126,27 @@ describe('runGit', () => {
 		await expect(runGit(() => Promise.resolve({ stdout: '', stderr: 'spawn git ENOENT', exitCode: -1, timedOut: false }), ['status']))
 			.rejects.toMatchObject({ name: 'GitMissingError', detail: 'spawn git ENOENT' });
 		await expect(runGit(() => Promise.resolve({ stdout: '', stderr: '', exitCode: -1, timedOut: false }), ['status']))
+			.rejects.toBeInstanceOf(GitMissingError);
+	});
+});
+
+describe('mustGit', () => {
+	const fake = (exitCode: number, stderr = '') => () => Promise.resolve({ stdout: 'out', stderr, exitCode, timedOut: false });
+
+	test('returns the result of a successful command', async () => {
+		await expect(mustGit(fake(0), ['status'])).resolves.toMatchObject({ stdout: 'out' });
+	});
+
+	test('throws GitFailedError with the arguments, exit code, and stderr on a non-zero exit', async () => {
+		const error = await mustGit(fake(128, 'fatal: bad\n'), ['diff', '--cached']).catch(e => e);
+		expect(error).toBeInstanceOf(GitFailedError);
+		expect(error).toMatchObject({ args: ['diff', '--cached'], exitCode: 128, stderr: 'fatal: bad\n' });
+	});
+
+	test('still throws the time-out and missing-git errors', async () => {
+		await expect(mustGit(() => Promise.resolve({ stdout: '', stderr: '', exitCode: -1, timedOut: true }), ['status']))
+			.rejects.toBeInstanceOf(GitTimeoutError);
+		await expect(mustGit(() => Promise.resolve({ stdout: '', stderr: 'x', exitCode: -1, timedOut: false }), ['status']))
 			.rejects.toBeInstanceOf(GitMissingError);
 	});
 });

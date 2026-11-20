@@ -195,4 +195,44 @@ describe('trees', () => {
 		expect((await repo.git(['rev-parse', '--verify', '-q', 'HEAD'])).exitCode).not.toBe(0);
 		expect(snapshot.indexTree).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904');
 	});
+
+	test('worktreeTree sees an edit to a file marked assume-unchanged', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.commit('first');
+		await repo.git(['update-index', '--assume-unchanged', 'a.txt']);
+		await repo.write('a.txt', 'two\n');
+		const { tree } = await worktreeTree(repo.ports);
+		expect((await repo.git(['show', `${tree}:a.txt`])).stdout).toBe('two\n');
+		// The real index keeps its flag.
+		expect((await repo.git(['ls-files', '-v', 'a.txt'])).stdout).toMatch(/^h /);
+	});
+
+	test('worktreeTree leaves a skip-worktree entry at its recorded content', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.commit('first');
+		await repo.git(['update-index', '--skip-worktree', 'a.txt']);
+		await repo.write('a.txt', 'two\n');
+		const { tree } = await worktreeTree(repo.ports);
+		expect((await repo.git(['show', `${tree}:a.txt`])).stdout).toBe('one\n');
+	});
+
+	test('worktreeTree allows ten minutes for staging and writing the tree', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		const timeouts: Record<string, number | undefined> = {};
+		const ports = {
+			...repo.ports,
+			git: ((args, options) => {
+				const name = args.find(arg => arg === 'add' || arg === 'write-tree');
+				if (name !== undefined) {
+					timeouts[name] = options?.timeoutMs;
+				}
+				return repo.ports.git(args, options);
+			}) as typeof repo.ports.git,
+		};
+		await worktreeTree(ports);
+		expect(timeouts).toEqual({ add: 600000, 'write-tree': 600000 });
+	});
 });

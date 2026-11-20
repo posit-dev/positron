@@ -7,7 +7,7 @@
 
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { GitTimeoutError } from './git';
+import { GitFailedError, GitTimeoutError } from './git';
 import { EnginePorts } from './ports';
 import { readRepoFacts } from './repoState';
 import { tempRepo, TempRepo } from './test/tempRepo';
@@ -103,7 +103,11 @@ describe('readRepoFacts', () => {
 			...repo.ports,
 			git: (args, options) => repo.ports.git(args, {
 				...options,
-				env: { GIT_AUTHOR_NAME: 'Env User', GIT_AUTHOR_EMAIL: 'env@example.com', ...options?.env },
+				env: {
+					GIT_AUTHOR_NAME: 'Env User', GIT_AUTHOR_EMAIL: 'env@example.com',
+					GIT_COMMITTER_NAME: 'Env User', GIT_COMMITTER_EMAIL: 'env@example.com',
+					...options?.env,
+				},
 			}),
 		};
 		expect((await readRepoFacts(ports)).identityMissing).toBe(false);
@@ -148,6 +152,38 @@ describe('readRepoFacts', () => {
 		const facts = await readRepoFacts(repo.ports);
 		expect(facts.unusual?.kind).toBe('staged-differs');
 		expect(facts.unusual?.detail).toContain('a.txt');
+	});
+
+	test('a staged rename whose source exists again gives staged-differs', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\ntwo\nthree\nfour\n');
+		await repo.commit('first');
+		await repo.git(['mv', 'a.txt', 'b.txt']);
+		expect((await readRepoFacts(repo.ports)).unusual).toBeUndefined();
+		await repo.write('a.txt', 'again\n');
+		const facts = await readRepoFacts(repo.ports);
+		expect(facts.unusual?.kind).toBe('staged-differs');
+		expect(facts.unusual?.detail).toContain('a.txt');
+	});
+
+	test('a failing diff is an error, not a clean repository', async () => {
+		const repo = await create();
+		await repo.write('a.txt', 'one\n');
+		await repo.commit('first');
+		await fsp.writeFile(path.join(repo.root, '.git', 'index'), 'not an index');
+		await expect(readRepoFacts(repo.ports)).rejects.toBeInstanceOf(GitFailedError);
+	});
+
+	test('a missing committer identity sets identityMissing even when the author is set', async () => {
+		const repo = await create();
+		await repo.git(['config', '--unset', 'user.name']);
+		await repo.git(['config', '--unset', 'user.email']);
+		await repo.git(['config', 'author.name', 'Author']);
+		await repo.git(['config', 'author.email', 'author@example.com']);
+		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(true);
+		await repo.git(['config', 'committer.name', 'Committer']);
+		await repo.git(['config', 'committer.email', 'committer@example.com']);
+		expect((await readRepoFacts(repo.ports)).identityMissing).toBe(false);
 	});
 
 	test('a time-out is thrown instead of read as an answer', async () => {
