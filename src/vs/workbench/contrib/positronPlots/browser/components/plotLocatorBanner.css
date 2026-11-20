@@ -1,0 +1,76 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The prompt reads as part of the header it sits in: plain text and a secondary button. */
+.plot-locator-prompt {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	min-width: 0;
+	margin-left: auto;
+}
+
+.plot-locator-prompt .plot-locator-message {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+}
+
+.plot-locator-prompt .plot-locator-button {
+	flex-shrink: 0;
+	padding: 2px 8px;
+	font-size: 12px;
+	color: var(--vscode-button-secondaryForeground);
+	background-color: var(--vscode-button-secondaryBackground);
+	border-radius: 4px;
+}
+
+.plot-locator-prompt .plot-locator-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Without a plot info header, the prompt gets its own quiet row above the plot. */
+.plot-locator-banner {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	box-sizing: border-box;
+	flex-shrink: 0;
+	height: 28px; /* Keep in sync with PLOT_LOCATOR_BANNER_HEIGHT. */
+	padding: 0 8px;
+}
+
+.plot-instance.locator-active:focus {
+	outline: none;
+}
+
+/* The markers of the chosen points are in the scrollable content, so they pan with the image. */
+.dynamic-plot-instance .scrollable {
+	position: relative;
+}
+
+.plot-locator-points {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+}
+
+/* A ring does not hide the point under it or look like a plotting symbol. */
+/* The outer and inner edges keep it visible on light and dark plots. */
+.plot-locator-point {
+	position: absolute;
+	box-sizing: border-box;
+	width: 12px;
+	height: 12px;
+	margin: -6px 0 0 -6px;
+	border: 2px solid var(--vscode-focusBorder);
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var(--vscode-editor-background), inset 0 0 0 1px var(--vscode-editor-background);
+}

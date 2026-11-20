@@ -10,11 +10,11 @@ import './activityPrompt.css';
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { Emitter } from '../../../../../base/common/event.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { StandardKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
+import { createActivityPromptModel } from './consoleInputModel.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 import { EditOperation } from '../../../../../editor/common/core/editOperation.js';
@@ -141,16 +141,9 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			)
 		);
 
-		// Create a plain text model for the editor.
-		const emitter = disposableStore.add(new Emitter<string>());
-		const model = disposableStore.add(
-			services.modelService.createModel(
-				'',
-				{ languageId: '', onDidChange: emitter.event },
-				undefined,
-				true
-			)
-		);
+		// Create a plain text model for the editor, holding a reference to it so
+		// it cannot be disposed out from under the editor (#17137).
+		const model = createActivityPromptModel(services.modelService, services.textModelService, disposableStore);
 		editor.setModel(model);
 
 		// Handle paste and select all via capture phase to intercept before VS Code's keybinding system.
@@ -258,7 +251,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			editorRef.current = null;
 			disposableStore.dispose();
 		};
-	}, [isPassword, isUnanswered, props.positronConsoleInstance, services.instantiationService, services.configurationService, services.modelService, services.clipboardService]);
+	}, [isPassword, isUnanswered, props.positronConsoleInstance, services.instantiationService, services.configurationService, services.modelService, services.textModelService, services.clipboardService]);
 
 	// Set up focus handling and paste support for password input.
 	useEffect(() => {

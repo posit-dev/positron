@@ -139,9 +139,17 @@ export class UserSettings {
 
 		await this.mergeSetting(settings);
 		await this.hotKeys.openUserSettingsJSON();
-		await expect(this.code.driver.currentPage.getByRole('tab', { name: USER_SETTINGS_FILENAME })).toBeVisible();
+		const page = this.code.driver.currentPage;
+		const tab = page.getByRole('tab', { name: USER_SETTINGS_FILENAME });
+		// Without the smoke-test flag (Workbench) the file opens in a modal editor, which has no tab.
+		const modal = page.getByRole('dialog', { name: /settings\.json$/ });
+		await expect(tab.or(modal)).toBeVisible();
 		await this.hotKeys.save();
-		if (!keepOpen) {
+		if (await modal.isVisible()) {
+			// A modal editor covers the workbench, so it never stays open.
+			await modal.getByRole('button', { name: /Close Modal Editor/ }).click();
+			await expect(modal).toHaveCount(0);
+		} else if (!keepOpen) {
 			await this.hotKeys.closeTab();
 		}
 	}

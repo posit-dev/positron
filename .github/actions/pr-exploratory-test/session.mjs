@@ -25,22 +25,40 @@ export function writeGuard(root) {
 	};
 }
 
-export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, resume, timeLimit = null, timeUpMessage = '', effort = '', thinking, claudeCodePath, label = 'session', fullLog = false, query = sdkQuery, minuteMs = 60000, log = console.log }) {
+export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, resume, timeLimit = null, timeUpMessage = '', turnWarning = null, effort = '', thinking, claudeCodePath, label = 'session', fullLog = false, query = sdkQuery, minuteMs = 60000, log = console.log }) {
 	const texts = [];
 	let cost = buildCostRecord(null);
 	// Kept so a later message can resume this session.
 	let sessionId = null;
 	let timedOut = false;
 	let timeWasUp = false;
+	// The SDK yields the result, then throws; the result already carries the cost.
+	let turnCapHit = false;
 	// Counts assistant messages, which is not what maxTurns limits: the SDK's
 	// own num_turns runs about 40% lower. Labelled "msg" so a live log cannot be
 	// read as approaching the cap.
 	let messages = 0;
+	// What maxTurns counts: one per API response, whose blocks the SDK may
+	// split across messages that share its id.
+	const turnIds = new Set();
+	let turnWarned = false;
 	// What the agent read, so a claim to have looked at a file can be checked.
 	const opened = [];
 	const abortController = new AbortController();
 	let hardStop;
-	let hooks;
+	// Each entry is one PostToolUse(Failure) hook; the SDK runs them all.
+	const toolHooks = [];
+	if (turnWarning) {
+		// Said on every tool result from then on, as the time-up message is, so the
+		// agent writes its report with turns to spare instead of being cut off.
+		toolHooks.push(async input => {
+			if (turnIds.size < turnWarning.at) { return {}; }
+			if (!turnWarned) { turnWarned = true; log(`[${label}] turn ${turnIds.size}: told the agent to wrap up`); }
+			// A function gets the turns so far, so a count of turns left stays true.
+			const message = typeof turnWarning.message === 'function' ? turnWarning.message(turnIds.size) : turnWarning.message;
+			return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message } };
+		});
+	}
 	if (timeLimit) {
 		const hook = timeUpHook({
 			deadline: Date.now() + timeLimit * minuteMs,
@@ -52,13 +70,16 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 			if (!hookCalled) { hookCalled = true; log(`[${label}] time limit: hook active on ${input.hook_event_name}`); }
 			return hook(input);
 		};
-		hooks = { PostToolUse: [{ hooks: [logged] }], PostToolUseFailure: [{ hooks: [logged] }] };
+		toolHooks.push(logged);
 		hardStop = setTimeout(() => {
 			timedOut = true;
 			log(`[${label}] time limit: stopping the agent ${WRAP_UP_MINUTES}m after its time was up`);
 			abortController.abort();
 		}, (timeLimit + WRAP_UP_MINUTES) * minuteMs);
 	}
+	const hooks = toolHooks.length
+		? { PostToolUse: toolHooks.map(h => ({ hooks: [h] })), PostToolUseFailure: toolHooks.map(h => ({ hooks: [h] })) }
+		: undefined;
 	try {
 		for await (const message of query({
 			prompt,
@@ -82,6 +103,7 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 			sessionId ??= message.session_id ?? null;
 			if (message.type === 'assistant') {
 				messages++;
+				turnIds.add(message.message?.id ?? `msg-${messages}`);
 				const content = message.message?.content || [];
 				const notes = content.filter(b => b.type === 'thinking' && b.thinking).map(b => b.thinking);
 				if (notes.length) { log(`[msg ${messages}] note: ${notes.join(' ').slice(0, 500)}`); }
@@ -98,15 +120,16 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 				if (tools.length) { log(`[msg ${messages}] tool calls: ${tools.join(' | ')}`); }
 			} else if (message.type === 'result') {
 				cost = buildCostRecord(message);
+				turnCapHit = message.subtype === 'error_max_turns';
 				log(`[${label}] result: ${JSON.stringify(cost)}`);
 			}
 		}
 	} catch (err) {
-		// The hard stop aborts the query; what the agent wrote so far is still its output.
-		if (!timedOut) { throw err; }
+		// The hard stop aborts the query and the turn cap throws; what the agent wrote so far is still its output.
+		if (!timedOut && !(turnCapHit && /maximum number of turns/i.test(err?.message ?? ''))) { throw err; }
 		log(`[${label}] the agent was stopped: ${err?.message ?? err}`);
 	} finally {
 		clearTimeout(hardStop);
 	}
-	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, messages, sessionId, opened };
+	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, turnCapHit, turnWarned, messages, sessionId, opened };
 }

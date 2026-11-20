@@ -4176,8 +4176,10 @@ declare module 'positron' {
 		 * @param params An object of named parameters for `method`.
 		 * @param options Optional options for the call. `sessionId` identifies the calling kernel
 		 *   session, e.g. so console-aware methods can be scoped to that session's own console.
+		 *   `parentId` is the ID of the request that the call belongs to (the parent of the
+		 *   kernel's RPC request), e.g. the execute request that waits for the reply.
 		 */
-		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string }): Thenable<any>;
+		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string; parentId?: string }): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.

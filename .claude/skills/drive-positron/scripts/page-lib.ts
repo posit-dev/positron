@@ -18,9 +18,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 	const s = ui.css;
 	// The open quick input: closed ones stay in the DOM, hidden.
 	const widget = page.locator(s.quickInput.widget).filter({ visible: true });
+	const tabSuffix = `(?:, (?:${ui.names.editor.tabSuffixPattern}))+$`;
 	const lib = {
 		css: ui.css,
 		names: ui.names,
+		/** Regex source for the end of a tab's name after the file's: strip it to compare names. */
+		tabSuffix,
 
 		// ---- Waits and focus
 		sleep: (ms: number) => page.waitForTimeout(ms),
@@ -564,7 +567,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				};
 			}, { monaco: s.monaco, group: s.editorGroup }).catch(() => null);
 			if (!dom) { return { ok: false as const, error: 'no editor is open' }; }
-			const tab = (dom.tab ?? '').replace(/, Editor Group \d+$/, '');
+			const tab = (dom.tab ?? '').replace(new RegExp(tabSuffix), '');
 			if (!m || !('lines' in dom)) { return { ok: false as const, tab, dirty: dom.dirty, error: 'the active editor is not a text editor (no cursor position in the status bar)' }; }
 			const line = Number(m[1]);
 			const lines: Record<string, string> | undefined = range ? Object.fromEntries(Object.entries(dom.lines).filter(([n]) => Number(n) >= range.from && Number(n) <= range.to)) : undefined;
@@ -577,15 +580,15 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * Editor Area Visibility, hides the area with display: none (upstream layout.ts,
 		 * setEditorHidden), and its groups and tabs stay in the page.
 		 */
-		editorAreaHidden: () => page.evaluate(({ part, group, label }) => {
+		editorAreaHidden: () => page.evaluate(({ part, group, label, suffix }) => {
 			const area = document.querySelector(part.editor);
 			if (!area || area.getClientRects().length) { return null; }
 			const tabs = [...document.querySelectorAll(`${group.group} [role=tab]`)].map(t => {
-				const title = (t.querySelector(label.name)?.textContent ?? '').replace(/\s+/g, ' ').trim() || (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, '');
+				const title = (t.querySelector(label.name)?.textContent ?? '').replace(/\s+/g, ' ').trim() || (t.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), '');
 				return title + (t.closest(group.active) && t.getAttribute('aria-selected') === 'true' ? ' (active)' : '');
 			});
 			return `the editor area is hidden (the panel or secondary side bar is maximized, or the area is toggled off), so no editor is on screen; ${tabs.length ? `open in it: ${tabs.join(', ')}` : 'no editor is open in it'}. Restore the area, then run this again`;
-		}, { part: s.part, group: s.editorGroup, label: s.label }),
+		}, { part: s.part, group: s.editorGroup, label: s.label, suffix: tabSuffix }),
 		/** Refocuses the active editor without moving its cursor. */
 		focusEditor: async () => {
 			const ed = page.locator(`${s.editorGroup.active} ${s.monaco.editor}`).filter({ visible: true }).first();

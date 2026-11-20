@@ -61,6 +61,10 @@
 	margin-right: 5px;
 }
 
+.plots-container .plot-info-header .plot-locator-prompt {
+	margin-right: 5px;
+}
+
 .plots-container .plot-info-header .plot-code-button {
 	display: flex;
 	align-items: center;

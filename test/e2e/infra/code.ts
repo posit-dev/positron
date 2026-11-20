@@ -264,17 +264,24 @@ export class Code {
 		return this.driver.didFinishLoad();
 	}
 
-	async exit(): Promise<void> {
+	async exit(options?: { saveState?: boolean }): Promise<void> {
 		// --- Start Positron ---
 		// Kill the process tree BEFORE driver.close() to prevent orphaned children
 		// If we wait for the process to exit naturally, children get reparented and we can't kill them
+		// With saveState the app quits as it does for a user: the kill would lose
+		// state written in the last 100ms or so, which storage has not flushed yet.
+		let descendants: number[] = [];
 		if (this.mainProcess?.pid) {
-			this.logger.log('Smoke test exit(): proactively killing process tree before close');
-			await this.killProcessTree(this.mainProcess.pid);
+			if (options?.saveState) {
+				descendants = await this.listDescendants(this.mainProcess.pid);
+			} else {
+				this.logger.log('Smoke test exit(): proactively killing process tree before close');
+				await this.killProcessTree(this.mainProcess.pid);
+			}
 		}
 		// --- End Positron ---
 
-		return measureAndLog(() => new Promise<void>(resolve => {
+		await measureAndLog(() => new Promise<void>(resolve => {
 			// If no main process (external server mode), just close the driver
 			if (!this.mainProcess) {
 				this.driver.close().finally(() => resolve());
@@ -366,7 +373,48 @@ export class Code {
 				}
 			})();
 		}), 'Code#exit()', this.logger);
+
+		// --- Start Positron ---
+		for (const pid of descendants) {
+			try {
+				process.kill(pid, 'SIGKILL');
+				this.logger.log(`Smoke test exit(): killed PID ${pid}, which outlived the app`);
+			} catch {
+				// Already gone.
+			}
+		}
+		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	private async listDescendants(pid: number): Promise<number[]> {
+		const [command, args] = process.platform === 'win32'
+			? ['powershell', ['-NoProfile', '-Command', `Get-CimInstance Win32_Process | ForEach-Object { '{0} {1}' -f $_.ProcessId, $_.ParentProcessId }`]]
+			: ['ps', ['-A', '-o', 'pid=,ppid=']];
+		try {
+			const { stdout } = await promisify(cp.execFile)(command, args, { maxBuffer: 16 * 1024 * 1024 });
+			const childrenOf = new Map<number, number[]>();
+			for (const line of stdout.split('\n')) {
+				const [child, parent] = line.trim().split(/\s+/).map(Number);
+				if (child && parent) {
+					childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), child]);
+				}
+			}
+			const found: number[] = [];
+			const queue = [pid];
+			while (queue.length > 0) {
+				for (const child of childrenOf.get(queue.shift()!) ?? []) {
+					found.push(child);
+					queue.push(child);
+				}
+			}
+			return found;
+		} catch (e) {
+			this.logger.log(`Smoke test exit(): could not list the descendants of PID ${pid}: ${e}`);
+			return [];
+		}
+	}
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	// private kill(pid: number): void {
