@@ -156,6 +156,24 @@ describe('checkpoints data types', () => {
 		}
 	});
 
+	it('has the proposal calls, state fields, and operation kinds in every copy', () => {
+		for (const copy of copies) {
+			const methods = interfaceMemberNames(copy.text, copy.engineInterface);
+			const stateFields = interfaceFields(copy.text, copy.interfacePrefix + 'EngineState');
+			expect({
+				copy: copy.name,
+				methods: ['startProposal', 'finishProposal', 'stopProposal'].filter(name => methods.includes(name)),
+				stateFields: stateFields.filter(field => /^(proposal|sharedUrl)\?:/.test(field)),
+				kinds: unionMembers(copy.text, 'OperationKind').filter(kind => kind.includes('proposal')),
+			}).toEqual({
+				copy: copy.name,
+				methods: ['startProposal', 'finishProposal', 'stopProposal'],
+				stateFields: ['proposal?: { branch: string; base: string; sent: boolean }', 'sharedUrl?: string'],
+				kinds: [`'finish-proposal'`, `'start-proposal'`, `'stop-proposal'`],
+			});
+		}
+	});
+
 	it('reads every kind of OperationResult and DiffTarget', () => {
 		// A check of the parser: each member of the two unions is one `{ kind: ... }` object.
 		const kinds = (alias: string) => unionMembers(copies[0].text, alias).map(member => /^\{ kind: '(?<kind>[^']+)'/.exec(member)?.groups?.kind);

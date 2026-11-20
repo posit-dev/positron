@@ -97,6 +97,37 @@ describe('checkpoints engine bridge', () => {
 		expect(result).toEqual({ kind: 'done', operationId: 'op2', hookEditedFiles: [] });
 	});
 
+	it('returns the proposal and the shared URL of the state unchanged', async () => {
+		const state: positron.checkpoints.EngineState = {
+			...STATE,
+			branch: 'proposal/fit-the-dose-model',
+			proposal: { branch: 'proposal/fit-the-dose-model', base: 'main', sent: true },
+			sharedUrl: 'https://github.com/posit-dev/dose-model.git',
+			undo: { operationId: 'op3', description: 'Ask for a review', kind: 'start-proposal', restoresFiles: false },
+		};
+		await register({ getState: async () => state });
+
+		await expect(service.engine!.getState()).resolves.toEqual(state);
+	});
+
+	it('passes the proposal calls and their results', async () => {
+		const done = (operationId: string): positron.checkpoints.OperationResult => ({ kind: 'done', operationId, hookEditedFiles: [] });
+		const startProposal = vi.fn(async () => done('op-start'));
+		const finishProposal = vi.fn(async () => done('op-finish'));
+		const stopProposal = vi.fn(async (): Promise<positron.checkpoints.OperationResult> => ({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' }));
+		await register({ startProposal, finishProposal, stopProposal });
+
+		const results = [
+			await service.engine!.startProposal(),
+			await service.engine!.finishProposal('abc123'),
+			await service.engine!.stopProposal(),
+		];
+
+		expect(finishProposal).toHaveBeenCalledWith('abc123');
+		expect({ start: startProposal.mock.calls.length, stop: stopProposal.mock.calls.length }).toEqual({ start: 1, stop: 1 });
+		expect(results).toEqual([done('op-start'), done('op-finish'), { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' }]);
+	});
+
 	it('returns the bytes of a Node buffer from readBlob', async () => {
 		// The engine reads blobs into a Node `Buffer`, which may be a view into a larger pool.
 		const pooled = Buffer.from('xxpixelsxx', 'latin1').subarray(2, 8);

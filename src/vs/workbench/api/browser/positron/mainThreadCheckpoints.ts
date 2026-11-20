@@ -97,6 +97,9 @@ export class MainThreadCheckpoints implements MainThreadCheckpointsShape {
 			startTracking: (...args) => call('startTracking', ...args),
 			proposedGitignore: (...args) => call('proposedGitignore', ...args),
 			connectSharedCopy: (...args) => call('connectSharedCopy', ...args),
+			startProposal: (...args) => call('startProposal', ...args),
+			finishProposal: (...args) => call('finishProposal', ...args),
+			stopProposal: (...args) => call('stopProposal', ...args),
 			onDidChangeState: stateEmitter.event,
 		};
 	}

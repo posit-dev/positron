@@ -4547,7 +4547,7 @@ declare module 'positron' {
 	 */
 	namespace checkpoints {
 		export type UnusualKind = 'detached' | 'operation-in-progress' | 'staged-differs' | 'unrecovered' | 'git-missing';
-		export type OperationKind = 'create-checkpoints' | 'edit-description' | 'get-changes' | 'go-back' | 'reverse-checkpoint' | 'check-changed-files' | 'start-tracking' | 'send-changes';
+		export type OperationKind = 'create-checkpoints' | 'edit-description' | 'get-changes' | 'go-back' | 'reverse-checkpoint' | 'check-changed-files' | 'start-tracking' | 'send-changes' | 'start-proposal' | 'finish-proposal' | 'stop-proposal';
 
 		/** The state of the project, as the view shows it. */
 		export interface EngineState {
@@ -4571,6 +4571,10 @@ declare module 'positron' {
 			undo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 			redo?: { operationId: string; description: string; kind: OperationKind; restoresFiles: boolean };
 			keptFileCount: number;
+			/** The proposal HEAD is on: its branch, the name of its base branch, and whether an upstream is configured for it. */
+			proposal?: { branch: string; base: string; sent: boolean };
+			/** The URL of the remote `origin` as configured, when there is one. */
+			sharedUrl?: string;
 		}
 
 		export interface Hunk { id: string; header: string; addedLines: number; removedLines: number; patch: string }
@@ -4678,6 +4682,12 @@ declare module 'positron' {
 			proposedGitignore(): Promise<string>;
 			/** Links the project to a shared copy at `url` and sends its checkpoints there. */
 			connectSharedCopy(url: string): Promise<OperationResult>;
+			/** Moves the unshared checkpoints to a new proposal and returns the main line to the shared copy. Files do not change. */
+			startProposal(): Promise<OperationResult>;
+			/** Returns from an accepted proposal to its base. `acceptedCommit` is the last commit of the proposal that was accepted. */
+			finishProposal(acceptedCommit: string): Promise<OperationResult>;
+			/** Returns the proposal's checkpoints to its base as unshared checkpoints. Files do not change. */
+			stopProposal(): Promise<OperationResult>;
 			/** Fires when any result of `getState()` or `getChanges()` may differ. */
 			onDidChangeState: vscode.Event<void>;
 		}

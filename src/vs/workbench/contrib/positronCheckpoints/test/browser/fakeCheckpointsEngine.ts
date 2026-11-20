@@ -255,4 +255,16 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	connectSharedCopy(url: string): Promise<OperationResult> {
 		return this._operation('connectSharedCopy', url);
 	}
+
+	startProposal(): Promise<OperationResult> {
+		return this._operation('startProposal');
+	}
+
+	finishProposal(acceptedCommit: string): Promise<OperationResult> {
+		return this._operation('finishProposal', acceptedCommit);
+	}
+
+	stopProposal(): Promise<OperationResult> {
+		return this._operation('stopProposal');
+	}
 }
