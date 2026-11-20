@@ -27,6 +27,7 @@ import { IIncomingPreview, IPathCollision } from '../../../../services/positronC
 import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
+import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
@@ -66,6 +67,7 @@ describe('Sync card and collision dialog', () => {
 		.stub(IEditorService, { openEditor })
 		// The panel reads the agent service, which is off here, so no job runs.
 		.stub(ICheckpointsAgentService, { available: false, onDidChangeAvailable: Event.None, pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
+		.stub(ICheckpointsSuggestionService, { current: undefined, onDidChange: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

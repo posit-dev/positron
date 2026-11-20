@@ -17,6 +17,7 @@ import { CheckpointsService } from '../../../../services/positronCheckpoints/bro
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { UnusualKind } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
+import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
@@ -39,6 +40,7 @@ describe('CheckpointsPanel', () => {
 		.stub(ICommandService, { executeCommand })
 		// The panel reads the agent service, which is off here, so no job runs.
 		.stub(ICheckpointsAgentService, { available: false, onDidChangeAvailable: Event.None, pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
+		.stub(ICheckpointsSuggestionService, { current: undefined, onDidChange: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

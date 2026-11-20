@@ -6,6 +6,7 @@
 import './checkpointsMessages.js';
 import './syncController.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -13,11 +14,14 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { EditorExtensions } from '../../../common/editor.js';
-import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { IActivityService, NumberBadge } from '../../../services/activity/common/activity.js';
 import { registerCheckpointsConfiguration } from '../common/checkpointsConfiguration.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { CheckpointsContentProvider } from './checkpointsContentProvider.js';
+import { ICheckpointsSuggestionService } from './checkpointsSuggestionService.js';
+import { TaskChangeWatcher } from './taskChangeWatcher.js';
 import { SharedCopyChecker } from './sharedCopyChecker.js';
 import { PositronCheckpointsView } from './positronCheckpointsView.js';
 import { OverlapEditorPane } from './overlapEditor/overlapEditor.js';
@@ -61,8 +65,38 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 
 registerCheckpointsConfiguration();
 
+/**
+ * Shows a badge of 1 on the Checkpoints icon of the activity bar while a checkpoint suggestion is
+ * open (spec 7.1). The badge is the only sign of a suggestion outside the view.
+ */
+export class CheckpointsSuggestionBadge extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positronCheckpointsSuggestionBadge';
+
+	private readonly _badge = this._register(new MutableDisposable());
+
+	constructor(
+		@ICheckpointsSuggestionService suggestionService: ICheckpointsSuggestionService,
+		@IActivityService activityService: IActivityService,
+	) {
+		super();
+		const update = () => {
+			if (!suggestionService.current) {
+				this._badge.clear();
+			} else if (!this._badge.value) {
+				this._badge.value = activityService.showViewContainerActivity(POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID, {
+					badge: new NumberBadge(1, () => Strings.suggestions.badge()),
+				});
+			}
+		};
+		this._register(suggestionService.onDidChange(update));
+		update();
+	}
+}
+
 registerWorkbenchContribution2(CheckpointsContentProvider.ID, CheckpointsContentProvider, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(SharedCopyChecker.ID, SharedCopyChecker, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(TaskChangeWatcher.ID, TaskChangeWatcher, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CheckpointsSuggestionBadge.ID, CheckpointsSuggestionBadge, WorkbenchPhase.AfterRestored);
 
 // The overlap editor. Its input has no serializer, so it is not restored after a restart.
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(

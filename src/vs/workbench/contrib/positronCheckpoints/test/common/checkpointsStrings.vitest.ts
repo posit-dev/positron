@@ -117,7 +117,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		heading: [[]], changedFiles: [[]], stagedWork: [[]], dialogTitle: [[]], reviewButton: [[]], reverseHelp: [[]], leaveHelp: [[]], decideLater: [[]],
 	},
 	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]] },
-	suggestions: { goodPlace: [[]] },
+	suggestions: { goodPlace: [[]], heading: [[]], badge: [[]] },
 	aiNotice: { heading: [[]], disclosure: [[]], ok: [[]], turnOff: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },
 };

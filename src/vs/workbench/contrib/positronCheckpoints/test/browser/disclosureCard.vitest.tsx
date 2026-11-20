@@ -8,6 +8,7 @@
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { Event } from '../../../../../base/common/event.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
@@ -20,6 +21,7 @@ import { IHeadlessLanguageModelService, StreamTextResult } from '../../../../ser
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { CheckpointsAgentService, ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
+import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
@@ -71,6 +73,7 @@ describe('DisclosureCard', () => {
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.instantiationService.stub(ICheckpointsAgentService, agentService);
+		ctx.instantiationService.stub(ICheckpointsSuggestionService, { current: undefined, onDidChange: Event.None });
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

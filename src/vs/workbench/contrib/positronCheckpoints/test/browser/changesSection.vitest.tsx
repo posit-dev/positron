@@ -9,7 +9,7 @@ import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService, IPrompt } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -28,6 +28,7 @@ import { IChangedFile, IChangeSet, IHunk } from '../../../../services/positronCh
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
+import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
@@ -89,6 +90,7 @@ describe('Changes section and checkpoint dialog', () => {
 		// Off unless a test turns it on, so the plain list shows.
 		agent = ctx.disposables.add(new FakeCheckpointsAgentService(false));
 		ctx.instantiationService.stub(ICheckpointsAgentService, agent);
+		ctx.instantiationService.stub(ICheckpointsSuggestionService, { current: undefined, onDidChange: Event.None });
 	});
 
 	afterEach(async () => {

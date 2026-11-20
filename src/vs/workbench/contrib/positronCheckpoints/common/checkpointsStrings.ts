@@ -414,6 +414,8 @@ const checkResult = {
 
 const suggestions = {
 	goodPlace: () => localize('positron.checkpoints.suggestions.goodPlace', "This looks like a good place for a checkpoint."),
+	heading: () => localize('positron.checkpoints.suggestions.heading', "Suggested checkpoints"),
+	badge: () => localize('positron.checkpoints.suggestions.badge', "A checkpoint is suggested"),
 };
 
 const aiNotice = {

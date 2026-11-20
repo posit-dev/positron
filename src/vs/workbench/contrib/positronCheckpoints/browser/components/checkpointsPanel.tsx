@@ -13,6 +13,7 @@ import { HistorySection } from './historySection.js';
 import { KeptFilesSection } from './keptFilesSection.js';
 import { RecoverySnapshotsSection, StateCards } from './stateCards.js';
 import { StatusHeader } from './statusHeader.js';
+import { SuggestionCard } from './suggestionCard.js';
 import { SyncCard } from './syncCard.js';
 import { UndoRedoBar } from './undoRedoBar.js';
 import { useCheckpointsState } from './useCheckpointsState.js';
@@ -63,6 +64,7 @@ export const CheckpointsPanel = ({ container }: { container?: IReactComponentCon
 				// A disabled fieldset disables every control inside it.
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>
 					<SyncCard view={view} />
+					<SuggestionCard view={view} />
 					<ChangesSection view={view} visible={visible} />
 					<HistorySection view={view} />
 					<KeptFilesSection view={view} />
