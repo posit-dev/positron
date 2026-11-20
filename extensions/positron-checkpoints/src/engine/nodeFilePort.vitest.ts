@@ -87,6 +87,16 @@ describe('createNodeFilePort', () => {
 		expect(await fsp.readFile(path.join(root, 'log/journal'), 'utf8')).toBe('one\ntwo\n');
 	});
 
+	test('removeEmptyDirectory removes only an empty directory', async () => {
+		await files.write('full/a.txt', new Uint8Array(), false);
+		await fsp.mkdir(path.join(root, 'empty'));
+		expect(await files.removeEmptyDirectory('full')).toBe(false);
+		expect(await files.removeEmptyDirectory('empty')).toBe(true);
+		expect(await files.removeEmptyDirectory('missing')).toBe(false);
+		expect(await files.stat('full/a.txt')).toBeDefined();
+		expect(await files.stat('empty')).toBeUndefined();
+	});
+
 	test('createExclusive creates a file only when none exists', async () => {
 		expect(await files.createExclusive('dir/lock', 'first')).toBe(true);
 		expect(await files.createExclusive('dir/lock', 'second')).toBe(false);

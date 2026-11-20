@@ -75,6 +75,27 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				await fsp.chmod(full, wanted);
 			}
 		},
+		async writeLink(file, target) {
+			const full = await resolve(file);
+			await fsp.mkdir(path.dirname(full), { recursive: true });
+			const existing = await fsp.lstat(full).catch(() => undefined);
+			if (existing !== undefined && !existing.isDirectory()) {
+				await fsp.rm(full, { force: true });
+			}
+			await fsp.symlink(target, full);
+		},
+		async removeEmptyDirectory(file) {
+			try {
+				await fsp.rmdir(await resolve(file));
+				return true;
+			} catch (error) {
+				const code = (error as NodeJS.ErrnoException).code;
+				if (isMissing(error) || code === 'ENOTEMPTY' || code === 'EEXIST') {
+					return false;
+				}
+				throw error;
+			}
+		},
 		async remove(file) {
 			await fsp.rm(await resolve(file), { recursive: true, force: true });
 		},

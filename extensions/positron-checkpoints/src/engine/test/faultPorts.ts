@@ -32,7 +32,7 @@ function gitCommand(args: string[]): { command: string; rest: string[] } {
 
 /**
  * Wraps `ports` for failure injection. Mutating calls are counted: `files.write`,
- * `files.remove`, `files.move`, and git calls whose command is `update-ref`, `read-tree`,
+ * `files.writeLink`, `files.remove`, `files.removeEmptyDirectory`, `files.move`, and git calls whose command is `update-ref`, `read-tree`,
  * `reset`, or `checkout-index`. Mutating call number `failAt` rejects without being made.
  * From mutating call number `stopAt` onward, every call (reading ones too) rejects with
  * `EngineStopped`, which simulates a crash.
@@ -63,7 +63,9 @@ export function faultPorts(ports: EnginePorts, plan: { failAt?: number; stopAt?:
 	const files: FilePort = {
 		read: async file => { gate(undefined); return inner.read(file); },
 		write: async (file, content, executable) => { gate(`write ${file}`); return inner.write(file, content, executable); },
+		writeLink: async (file, target) => { gate(`writeLink ${file}`); return inner.writeLink(file, target); },
 		remove: async file => { gate(`remove ${file}`); return inner.remove(file); },
+		removeEmptyDirectory: async file => { gate(`removeEmptyDirectory ${file}`); return inner.removeEmptyDirectory(file); },
 		move: async (from, to) => { gate(`move ${from}`); return inner.move(from, to); },
 		stat: async file => { gate(undefined); return inner.stat(file); },
 		lstat: async file => { gate(undefined); return inner.lstat(file); },

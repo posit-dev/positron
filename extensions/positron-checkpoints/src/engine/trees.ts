@@ -13,6 +13,9 @@ export const LARGE_FILE_BYTES = 50 * 1024 * 1024;
 /** The prefix of every snapshot ref. */
 export const SNAPSHOT_REF_PREFIX = 'refs/positron-checkpoints/snapshots/';
 
+/** The prefix of the snapshot of a project as it was before an interrupted operation was reversed. */
+export const RECOVERY_REF_PREFIX = 'refs/positron-checkpoints/recovery/';
+
 const SNAPSHOT_IDENTITY = {
 	GIT_AUTHOR_NAME: 'Positron Checkpoints',
 	GIT_AUTHOR_EMAIL: 'checkpoints@positron.invalid',
@@ -115,8 +118,8 @@ export async function indexTree(ports: EnginePorts): Promise<string> {
 
 /**
  * Records the working files and the index as they are now. The snapshot is a commit whose
- * tree is the working-file tree, stored at `refs/positron-checkpoints/snapshots/<operationId>`
- * (a ref git never pushes). A second commit holds the index tree and is the snapshot's last
+ * tree is the working-file tree, stored at `<refPrefix><operationId>` (by default
+ * `refs/positron-checkpoints/snapshots/<operationId>`, a ref git never pushes). A second commit holds the index tree and is the snapshot's last
  * parent, so every object of both trees stays reachable from the ref (the first parent, when
  * given, comes before it). The ref must not exist yet: a reused operation id is an error.
  * Snapshot commits are never signed.
@@ -125,6 +128,7 @@ export async function saveSnapshot(
 	ports: EnginePorts,
 	operationId: string,
 	parent?: string,
+	refPrefix = SNAPSHOT_REF_PREFIX,
 ): Promise<{ ref: string; commit: string; worktreeTree: string; indexTree: string; skipped: string[] }> {
 	const { tree, skipped } = await worktreeTree(ports);
 	const index = await indexTree(ports);
@@ -137,7 +141,7 @@ export async function saveSnapshot(
 	}
 	args.push('-p', indexCommit, '-m', `Snapshot ${operationId}`);
 	const commit = (await mustGit(ports, args, { env })).trim();
-	const ref = `${SNAPSHOT_REF_PREFIX}${operationId}`;
+	const ref = `${refPrefix}${operationId}`;
 	// The all-zero old value makes git refuse to replace an existing ref.
 	await mustGit(ports, ['update-ref', ref, commit, '0'.repeat(commit.length)]);
 	return { ref, commit, worktreeTree: tree, indexTree: index, skipped };

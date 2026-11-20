@@ -10,7 +10,11 @@ export type GitRunner = (args: string[], options?: { env?: Record<string, string
 export interface FilePort {
 	read(path: string): Promise<Uint8Array | undefined>;
 	write(path: string, content: Uint8Array, executable: boolean): Promise<void>;
+	/** Replaces whatever file or link is at `path` with a symbolic link to `target`. */
+	writeLink(path: string, target: string): Promise<void>;
 	remove(path: string): Promise<void>;
+	/** Removes a directory only when it is empty. Returns false when it is not empty or does not exist. */
+	removeEmptyDirectory(path: string): Promise<boolean>;
 	move(from: string, to: string): Promise<void>;
 	stat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean } | undefined>;
 	/** Like `stat`, but describes a symbolic link itself instead of its target. */
