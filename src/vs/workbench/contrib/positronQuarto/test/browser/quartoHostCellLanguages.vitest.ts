@@ -6,7 +6,7 @@
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { explainUnrunnableCell, hostCellRuntimeLanguage, hostOwnedCellLanguages } from '../../browser/quartoHostCellLanguages.js';
+import { explainUnrunnableCell, hostOwnedCellLanguages } from '../../browser/quartoHostCellLanguages.js';
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
 
 describe('hostOwnedCellLanguages', () => {
@@ -16,21 +16,6 @@ describe('hostOwnedCellLanguages', () => {
 			hostOwnedCellLanguages(true, false),
 			hostOwnedCellLanguages(false, true),
 		]).toEqual([['r', 'python', 'sql', 'ggsql'], ['r', 'python'], []]);
-	});
-});
-
-describe('hostCellRuntimeLanguage', () => {
-	it('names the runtime a cell runs in, or nothing when Positron does not run it', () => {
-		const runtimes = createTestRuntimeStartupService(['python', 'r', 'ggsql']);
-		const python = { jupyterKernel: undefined, primaryLanguage: 'python' };
-		const knitr = { jupyterKernel: undefined, primaryLanguage: 'r' };
-		expect([
-			hostCellRuntimeLanguage('sql', python, runtimes),
-			hostCellRuntimeLanguage('ggsql', knitr, runtimes),
-			hostCellRuntimeLanguage('sql', knitr, runtimes),
-			hostCellRuntimeLanguage('mermaid', python, runtimes),
-			hostCellRuntimeLanguage('python', python, runtimes),
-		]).toEqual(['ggsql', 'ggsql', undefined, undefined, 'python']);
 	});
 });
 

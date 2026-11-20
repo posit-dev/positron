@@ -17,8 +17,8 @@ import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 
 /**
  * Which of a Quarto document's cell languages Positron takes over from the
- * Quarto extension, told to the extension through two commands so that
- * Positron can take on a language without a release of the extension.
+ * Quarto extension, told to the extension through a command so that Positron
+ * can take on a language without a release of the extension.
  *
  * The extension serves a language Positron does not claim from its own
  * temporary documents, and runs it with its own executors; for a language
@@ -47,20 +47,6 @@ export function hostOwnedCellLanguages(servingCells: boolean, sqlEnabled: boolea
 }
 
 /**
- * The language of the runtime Positron runs a cell with in a document, or
- * undefined when Positron does not run cells of that language there.
- */
-export function hostCellRuntimeLanguage(
-	cellLanguage: string,
-	document: ICellRuntimeContext,
-	runtimeStartupService: IRuntimeStartupService,
-): string | undefined {
-	return isRunnableCell(cellLanguage, document, runtimeStartupService)
-		? runtimeLanguageOf(cellLanguage, document)
-		: undefined;
-}
-
-/**
  * `_quartoHostOwnedCellLanguages(): string[]`: see {@link hostOwnedCellLanguages}.
  * The answer changes with settings; the extension asks again when they change.
  */
@@ -70,37 +56,6 @@ CommandsRegistry.registerCommand('_quartoHostOwnedCellLanguages', accessor => {
 		usingNativeEmbeddedFeatures(configurationService),
 		configurationService.getValue<boolean>(SQL_ENABLED_KEY) === true,
 	);
-});
-
-/**
- * `_quartoHostCellRuntimeLanguages(documentUri, cellLanguages): Record<string, string>`:
- * for each of a document's cell languages that Positron runs there, the
- * language of the runtime it runs them with (see {@link hostCellRuntimeLanguage});
- * a language Positron does not run is left out. Asked in one call per document
- * rather than per language, since the extension asks on every run and every
- * code lens pass. A document Positron does not have open is weighed without
- * its kernel or primary language.
- */
-CommandsRegistry.registerCommand('_quartoHostCellRuntimeLanguages', (accessor, ...args: [URI, string[]]) => {
-	const [uri, cellLanguages] = args;
-	assertType(URI.isUri(uri));
-	assertType(Array.isArray(cellLanguages));
-
-	const textModel = accessor.get(IModelService).getModel(uri);
-	const document: ICellRuntimeContext = textModel
-		? accessor.get(IQuartoDocumentModelService).getModel(textModel)
-		: { jupyterKernel: undefined, primaryLanguage: undefined };
-	const runtimeStartupService = accessor.get(IRuntimeStartupService);
-	const runtimes: Record<string, string> = {};
-	for (const cellLanguage of cellLanguages) {
-		const runtime = typeof cellLanguage === 'string'
-			? hostCellRuntimeLanguage(cellLanguage, document, runtimeStartupService)
-			: undefined;
-		if (runtime) {
-			runtimes[cellLanguage] = runtime;
-		}
-	}
-	return runtimes;
 });
 
 /** The ggsql extension, as published to the extension gallery. */
