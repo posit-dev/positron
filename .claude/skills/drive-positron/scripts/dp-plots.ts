@@ -21,10 +21,8 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 	const sc = await lib.scope(a.editor ? 'editor' : lib.names.views.plots);
 	if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc, hint: a.editor ? 'open the plot with plots.sh open editor' : 'the Plots view is not on screen; run Session: Focus on Plots View' }; }
 	const pane = sc.loc;
-	// Thumbnails: buttons that hold an image, an img element or, before it is
-	// drawn, a placeholder of role img. Not by role alone: a named plot's image has
-	// alt "" (plotThumbnailAlt), which makes it presentation, with no img role.
-	// read, select and remove share this one test. The plot shown is the image outside them.
+	// A thumbnail: a button holding an img or a placeholder. A named plot's img has
+	// alt "" and so no img role. The plot shown is the image outside them.
 	const pic = 'img, [role=img]';
 	const thumbs = pane.getByRole('button').filter({ has: page.locator(pic) }).filter({ visible: true });
 	const read = () => pane.evaluate(async (el, { s, n, editor, pic }) => {
@@ -119,11 +117,10 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 	if (a.cmd === 'select') {
 		await t.click({ timeout: 3000 });
 	} else {
-		// The thumbnail's other button, beside it, removes it; it shows on hover.
+		// The remove button beside the thumbnail shows on hover.
 		const box = t.locator('xpath=..');
 		await box.hover({ timeout: 3000 });
-		const remove = box.getByRole('button').filter({ hasNot: page.locator(pic) }).first();
-		await remove.click({ timeout: 3000 });
+		await box.getByRole('button', { name: lib.names.plots.remove, exact: true }).click({ timeout: 3000 });
 	}
 	let after = before;
 	for (let i = 0; i < 20; i++) {

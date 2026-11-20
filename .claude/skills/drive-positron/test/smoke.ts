@@ -91,8 +91,9 @@ const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => 
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
 /** A runtime picker row as "shown" writes it is a Python one: its label ("Python 3.12.3") or description ("uv: ws (Python 3.14.7)") leads with Python. */
 const pythonRow = (x: string) => /^Python |\(Python /.test(x);
-/** Says the editor area is hidden and names analysis.R open in it, the active tab. */
+/** The plot shown is thumbnail n's. */
 const showsThumbnail = (o: Out, n: number) => o.json!.plot?.name !== o.json!.filmstrip?.[n - 1]?.name && `shows ${o.json!.plot?.name}, thumbnail ${n} is ${o.json!.filmstrip?.[n - 1]?.name}`;
+/** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
 const cases: Case[] = [

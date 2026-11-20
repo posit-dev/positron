@@ -317,6 +317,7 @@ export const names = {
 		previous: 'Show Previous Plot',
 		next: 'Show Next Plot',
 		clearAll: 'Clear All Plots',
+		remove: 'Remove plot', // the button beside a thumbnail, shown on hover
 		save: 'Save Plot',
 		overflow: 'overflow',
 		zoomPattern: '^(Fit|\\d+%)$', // the zoom menu's button is named after the zoom
