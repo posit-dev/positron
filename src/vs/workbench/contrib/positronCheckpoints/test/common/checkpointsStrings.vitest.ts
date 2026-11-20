@@ -12,6 +12,8 @@ import { IIncomingPreview, OperationResult, RejectedReason, UnavailableReason, U
 const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-too-old', 'not-tracking', 'stale-operation-id', 'not-undoable', 'shared-checkpoint', 'timed-out', 'nothing-to-do', 'occupied'];
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
+/** The `unavailable` details of the engine that have their own sentence. */
+const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title'];
 
 const preview: IIncomingPreview = {
 	basis: 'b',
@@ -38,6 +40,7 @@ const results: OperationResult[] = [
 	{ kind: 'interrupted' },
 	...rejectedReasons.map((reason): OperationResult => ({ kind: 'rejected', reason, detail: 'git said no' })),
 	...unavailableReasons.map((reason): OperationResult => ({ kind: 'unavailable', reason, detail: 'd' })),
+	...unavailableDetails.map((detail): OperationResult => ({ kind: 'unavailable', reason: 'busy', detail })),
 ];
 
 /**
@@ -90,6 +93,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		projectChanged: [[]], overlaps: [[1], [2]], pathCollisions: [[]], inputsChangedShared: [['Maya']], inputsChangedSharedUnknown: [[]],
 		inputsChangedFiles: [[]], inputsChangedMine: [[]], reviewAgain: [[]],
 		rejected: rejectedReasons.map(reason => [reason]), unavailable: unavailableReasons.map(reason => [reason]),
+		unavailableDetail: unavailableDetails.map(detail => [detail]),
 		forOperation: results.map(result => [result]),
 	},
 	undoRedo: { filesChangedSince: [[1], [3]], expired: [[]] },
@@ -240,6 +244,9 @@ describe('checkpointsStrings', () => {
 			'The project did not respond in time. No files were changed. Try again.',
 			'There were no changes to act on, so no files were changed.',
 			'A file is already in that place. Choose a new name or place for the kept file.',
+			'Another git tool set some work aside for its own use. Open the Source Control view to finish with it, then try again. No files were changed.',
+			'An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.',
+			'A checkpoint title must be one line of 1 to 72 characters. No files were changed.',
 		]);
 	});
 
@@ -289,6 +296,11 @@ describe('checkpointsStrings', () => {
 		expect(Strings.results.unavailable('unusual-state')).not.toContain('middle of an operation');
 		expect(Strings.results.unavailable('timed-out')).toContain('No files were changed');
 		expect(Strings.results.unavailable('nothing-to-do')).toContain('no changes to act on');
+	});
+
+	test('an unavailable detail without its own sentence uses the sentence of its reason', () => {
+		expect(Strings.results.unavailableDetail('not-in-history')).toBeUndefined();
+		expect(Strings.results.forOperation({ kind: 'unavailable', reason: 'nothing-to-do', detail: 'not-in-history' })).toBe(Strings.results.unavailable('nothing-to-do'));
 	});
 
 	test('a failed save names the file and says the action was not started', () => {

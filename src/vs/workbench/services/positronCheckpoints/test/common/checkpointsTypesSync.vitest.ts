@@ -13,8 +13,11 @@ import { fileURLToPath } from 'url';
 /**
  * The checkpoints data types exist in three copies: the engine's `types.ts`, the core
  * `checkpointsTypes.ts`, and `namespace checkpoints` in `positron.d.ts`. The compiler checks that
- * values pass between them, but an engine method or a union member that one copy lacks can still
- * go unnoticed. This test compares the engine method names and the members of each union alias.
+ * values pass between them, but a field, an engine method, or a union member that one copy lacks
+ * can still go unnoticed (an optional field missing from one copy compiles). This test compares
+ * the engine method names, the fields of each data interface (name, optionality, and type), and
+ * the members of each union alias. The core copy names its interfaces with an `I` prefix; the
+ * comparison removes it.
  */
 
 const TEST_FILE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -24,16 +27,17 @@ const CORE_TYPES = path.join(REPO_ROOT, 'src/vs/workbench/services/positronCheck
 const POSITRON_DTS = path.join(REPO_ROOT, 'src/positron-dts/positron.d.ts');
 const ENGINE_TYPES = path.join(REPO_ROOT, 'extensions/positron-checkpoints/src/engine/types.ts');
 
-const UNION_ALIASES = ['UnusualKind', 'OperationKind', 'OverlapKind', 'UnavailableReason', 'RejectedReason'];
+const UNION_ALIASES = ['UnusualKind', 'OperationKind', 'OverlapKind', 'UnavailableReason', 'RejectedReason', 'ContentRef', 'DiffTarget', 'OverlapChoice', 'OperationResult'];
+
+const DATA_INTERFACES = ['EngineState', 'Hunk', 'ChangedFile', 'ChangeSet', 'Chunk', 'Checkpoint', 'Overlap', 'Resolution', 'PathCollision', 'CollisionChoice', 'KeptFile', 'IncomingPreview'];
 
 interface ITypesCopy {
 	readonly name: string;
 	readonly text: string;
+	/** The name of the engine interface in this copy. */
 	readonly engineInterface: string;
-}
-
-function readCopy(name: string, file: string, engineInterface: string): ITypesCopy {
-	return { name, text: fs.readFileSync(file, 'utf8'), engineInterface };
+	/** The prefix of data interface names in this copy. */
+	readonly interfacePrefix: string;
 }
 
 /** The `checkpoints` namespace of `positron.d.ts`, so names of other namespaces do not match. */
@@ -45,54 +49,117 @@ function checkpointsNamespace(text: string): string {
 	return text.slice(start, end);
 }
 
-/** The member names of the interface `name`: each line in its body that starts with a name and then `(` or `:`. */
-function interfaceMembers(text: string, name: string): string[] {
-	const match = new RegExp(`interface ${name} \\{(?<body>[\\s\\S]*?)\\n\\t*\\}`).exec(text);
-	expect(match?.groups, `interface ${name}`).toBeDefined();
-	const members = new Set<string>();
-	for (const line of match!.groups!.body.split('\n')) {
-		const member = /^\s*(?:readonly\s+)?(?<member>[A-Za-z]\w*)\s*[(:]/.exec(line);
-		if (member?.groups) {
-			members.add(member.groups.member);
-		}
-	}
-	return [...members].sort();
+/** `text` without comments, with each run of white space as one space, and without the core `I` prefix of type names. */
+function normalize(text: string): string {
+	return text
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/\/\/.*$/gm, '')
+		.replace(/\bI(?=[A-Z][a-z])/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
-/** The string literal members of the one-line union alias `name`. */
+/** Splits `text` at each `separator` character that is outside brackets and parentheses. */
+function splitTopLevel(text: string, separators: string): string[] {
+	const parts: string[] = [];
+	let depth = 0;
+	let current = '';
+	for (let index = 0; index < text.length; index++) {
+		const character = text[index];
+		if ('{(<['.includes(character)) {
+			depth++;
+		} else if ('})]'.includes(character) || (character === '>' && text[index - 1] !== '=')) {
+			depth--;
+		}
+		if (depth === 0 && separators.includes(character)) {
+			parts.push(current);
+			current = '';
+		} else {
+			current += character;
+		}
+	}
+	parts.push(current);
+	return parts.map(part => part.trim()).filter(part => part !== '');
+}
+
+/** The body of the interface `name`, between its braces, without comments. */
+function interfaceBody(text: string, name: string): string {
+	const match = new RegExp(`interface ${name} \\{`).exec(text);
+	expect(match, `interface ${name}`).not.toBeNull();
+	const start = match!.index + match![0].length;
+	let depth = 1;
+	let index = start;
+	while (depth > 0 && index < text.length) {
+		const character = text[index++];
+		if (character === '{') {
+			depth++;
+		} else if (character === '}') {
+			depth--;
+		}
+	}
+	return normalize(text.slice(start, index - 1));
+}
+
+/** Each member of the interface `name` as `name: type` or `name?: type`, sorted. */
+function interfaceFields(text: string, name: string): string[] {
+	return splitTopLevel(interfaceBody(text, name), ';').map(member => member.replace(/^readonly /, '')).sort();
+}
+
+/** The member names of the interface `name`, sorted. */
+function interfaceMemberNames(text: string, name: string): string[] {
+	return interfaceFields(text, name).map(member => {
+		const found = /^(?<member>[A-Za-z]\w*)/.exec(member);
+		expect(found?.groups, `a member of ${name}: ${member}`).toBeDefined();
+		return found!.groups!.member;
+	});
+}
+
+/** The members of the union alias `name`, each normalized, sorted. */
 function unionMembers(text: string, name: string): string[] {
-	const match = new RegExp(`type ${name} = (?<members>[^;]+);`).exec(text);
+	// The alias ends at the first `;` that ends a line not followed by another `|` member.
+	const match = new RegExp(`type ${name} =(?<members>[\\s\\S]*?);[ \\t]*\\n(?![ \\t]*\\|)`).exec(text);
 	expect(match?.groups, `type ${name}`).toBeDefined();
-	return match!.groups!.members.split('|').map(member => member.trim()).sort();
+	return splitTopLevel(normalize(match!.groups!.members), '|').map(member => member.replace(/;? \}$/, ' }')).sort();
 }
 
 describe('checkpoints data types', () => {
 	const copies: ITypesCopy[] = [
-		readCopy('checkpointsTypes.ts', CORE_TYPES, 'ICheckpointsEngineProxy'),
-		{ ...readCopy('positron.d.ts', POSITRON_DTS, 'CheckpointsEngine'), text: checkpointsNamespace(fs.readFileSync(POSITRON_DTS, 'utf8')) },
+		{ name: 'types.ts', text: fs.readFileSync(ENGINE_TYPES, 'utf8'), engineInterface: 'CheckpointsEngine', interfacePrefix: '' },
+		{ name: 'checkpointsTypes.ts', text: fs.readFileSync(CORE_TYPES, 'utf8'), engineInterface: 'ICheckpointsEngineProxy', interfacePrefix: 'I' },
+		{ name: 'positron.d.ts', text: checkpointsNamespace(fs.readFileSync(POSITRON_DTS, 'utf8')), engineInterface: 'CheckpointsEngine', interfacePrefix: '' },
 	];
-	// The engine file of a worktree that has not been joined with the engine branch is older than
-	// the core copies. `getCheckpointFiles` appears only in the joined engine file, so the engine
-	// copy is compared once that method is present; before that, the two core copies are compared.
-	const engineText = fs.existsSync(ENGINE_TYPES) ? fs.readFileSync(ENGINE_TYPES, 'utf8') : '';
-	if (engineText.includes('getCheckpointFiles')) {
-		copies.unshift({ name: 'types.ts', text: engineText, engineInterface: 'CheckpointsEngine' });
-	}
 
 	it('has the same engine methods in every copy', () => {
 		const [reference, ...others] = copies;
-		const expected = interfaceMembers(reference.text, reference.engineInterface);
+		const expected = interfaceMemberNames(reference.text, reference.engineInterface);
 		expect(expected).toContain('getState');
 		for (const copy of others) {
-			expect({ copy: copy.name, members: interfaceMembers(copy.text, copy.engineInterface) }).toEqual({ copy: copy.name, members: expected });
+			expect({ copy: copy.name, members: interfaceMemberNames(copy.text, copy.engineInterface) }).toEqual({ copy: copy.name, members: expected });
+		}
+	});
+
+	it.each(DATA_INTERFACES)('has the same fields of %s in every copy', name => {
+		const [reference, ...others] = copies;
+		const expected = interfaceFields(reference.text, name);
+		expect(expected.length).toBeGreaterThan(0);
+		for (const copy of others) {
+			expect({ copy: copy.name, fields: interfaceFields(copy.text, copy.interfacePrefix + name) }).toEqual({ copy: copy.name, fields: expected });
 		}
 	});
 
 	it.each(UNION_ALIASES)('has the same members of %s in every copy', alias => {
 		const [reference, ...others] = copies;
 		const expected = unionMembers(reference.text, alias);
+		expect(expected.length).toBeGreaterThan(1);
 		for (const copy of others) {
 			expect({ copy: copy.name, members: unionMembers(copy.text, alias) }).toEqual({ copy: copy.name, members: expected });
 		}
+	});
+
+	it('reads every kind of OperationResult and DiffTarget', () => {
+		// A check of the parser: each member of the two unions is one `{ kind: ... }` object.
+		const kinds = (alias: string) => unionMembers(copies[0].text, alias).map(member => /^\{ kind: '(?<kind>[^']+)'/.exec(member)?.groups?.kind);
+		expect(kinds('OperationResult').sort()).toEqual(['changes-moved', 'check-changed-checkpoint', 'check-failed', 'could-not-finish', 'done', 'inputs-changed', 'interrupted', 'overlaps', 'path-collisions', 'project-changed', 'rejected', 'unavailable']);
+		expect(kinds('DiffTarget').sort()).toEqual(['change', 'checkpoint', 'incoming', 'overlap', 'pending', 'trees']);
 	});
 });

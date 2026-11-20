@@ -6,6 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { plural, ServiceStrings } from '../../../services/positronCheckpoints/common/checkpointsServiceStrings.js';
 import { OperationResult, UnavailableReason, RejectedReason, UnusualKind } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { CHECKPOINT_TITLE_LIMIT } from './checkpointsLimits.js';
 import { ReadFailureKind } from './readFailure.js';
 
 // Every user-facing string of the Checkpoints view is defined here, so the vocabulary changes in
@@ -277,6 +278,22 @@ const resultSentences = {
 				return localize('positron.checkpoints.results.unavailable.occupied', "A file is already in that place. Choose a new name or place for the kept file.");
 		}
 	},
+	/**
+	 * The sentence for an `unavailable` result whose `detail` the engine names more precisely than
+	 * its reason, or undefined for any other detail, which falls back to the reason's sentence.
+	 */
+	unavailableDetail: (detail: string | undefined): string | undefined => {
+		switch (detail) {
+			case 'staged-work':
+				return localize('positron.checkpoints.results.unavailableDetail.stagedWork', "Another git tool set some work aside for its own use. Open the Source Control view to finish with it, then try again. No files were changed.");
+			case 'unresolved-operation':
+				return localize('positron.checkpoints.results.unavailableDetail.unresolvedOperation', "An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.");
+			case 'bad-title':
+				return localize('positron.checkpoints.results.unavailableDetail.badTitle', "A checkpoint title must be one line of 1 to {0} characters. No files were changed.", CHECKPOINT_TITLE_LIMIT);
+			default:
+				return undefined;
+		}
+	},
 };
 
 /**
@@ -327,7 +344,7 @@ function forOperation(result: OperationResult): string | undefined {
 		case 'interrupted':
 			return resultSentences.interrupted();
 		case 'unavailable':
-			return resultSentences.unavailable(result.reason);
+			return resultSentences.unavailableDetail(result.detail) ?? resultSentences.unavailable(result.reason);
 	}
 }
 
