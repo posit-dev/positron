@@ -230,15 +230,86 @@ describe('CheckpointsAgentService', () => {
 		expect(streamText.mock.calls[0][0].cancellationToken).toBe(source.token);
 	});
 
-	test('cancellation while the notice waits returns cancelled and leaves the notice', async () => {
+	test('cancelling one of two waiting jobs leaves the notice, and cancelling the last removes it', async () => {
 		storage.remove(CheckpointsAgentService.DISCLOSED_KEY, StorageScope.WORKSPACE);
-		const source = new CancellationTokenSource();
-		const waiting = service.run(titleJob, 'diff', source.token);
+		const pendingChanges = vi.fn();
+		disposables.add(service.onDidChangePendingDisclosure(pendingChanges));
+		const first = new CancellationTokenSource();
+		const second = new CancellationTokenSource();
+		const firstRun = service.run(titleJob, 'one', first.token);
+		const secondRun = service.run(titleJob, 'two', second.token);
 		await vi.waitFor(() => expect(service.pendingDisclosure).toBe(true));
 
-		source.cancel();
+		first.cancel();
+		expect(await firstRun).toEqual({ ok: false, reason: 'cancelled' });
+		expect(service.pendingDisclosure).toBe(true);
+
+		second.cancel();
+		expect(await secondRun).toEqual({ ok: false, reason: 'cancelled' });
+		expect(service.pendingDisclosure).toBe(false);
+		expect(pendingChanges).toHaveBeenCalledTimes(2);
+		expect(streamText).not.toHaveBeenCalled();
+	});
+
+	test('a withdrawn notice ends the job with cancelled even when the settings are switched back on', async () => {
+		storage.remove(CheckpointsAgentService.DISCLOSED_KEY, StorageScope.WORKSPACE);
+		const waiting = service.run(titleJob, 'diff', none);
+		await vi.waitFor(() => expect(service.pendingDisclosure).toBe(true));
+
+		// AI is turned off, which withdraws the notice, and on again before the waiting job resumes.
+		void configuration.setUserConfiguration(AI_ENABLED_KEY, false);
+		configuration.onDidChangeConfigurationEmitter.fire(stubInterface<IConfigurationChangeEvent>({ affectsConfiguration: affected => affected === AI_ENABLED_KEY }));
+		void configuration.setUserConfiguration(AI_ENABLED_KEY, true);
+		expect(service.available).toBe(true);
 
 		expect(await waiting).toEqual({ ok: false, reason: 'cancelled' });
-		expect(service.pendingDisclosure).toBe(true);
+		expect(streamText).not.toHaveBeenCalled();
+	});
+
+	test('OK while ai.enabled is already false makes no model call', async () => {
+		storage.remove(CheckpointsAgentService.DISCLOSED_KEY, StorageScope.WORKSPACE);
+		const waiting = service.run(titleJob, 'diff', none);
+		await vi.waitFor(() => expect(service.pendingDisclosure).toBe(true));
+		// The setting changes without a change event reaching the service yet.
+		await configuration.setUserConfiguration(AI_ENABLED_KEY, false);
+
+		await service.answerDisclosure('ok');
+
+		expect(await waiting).toEqual({ ok: false, reason: 'ai-off' });
+		expect(streamText).not.toHaveBeenCalled();
+	});
+
+	test('suggestions switched off between OK and the call makes no model call', async () => {
+		storage.remove(CheckpointsAgentService.DISCLOSED_KEY, StorageScope.WORKSPACE);
+		const waiting = service.run(titleJob, 'diff', none);
+		await vi.waitFor(() => expect(service.pendingDisclosure).toBe(true));
+
+		const answered = service.answerDisclosure('ok');
+		// The waiting job resumes only after this synchronous change.
+		void configuration.setUserConfiguration(CHECKPOINTS_SUGGESTIONS_ENABLED_KEY, false);
+		await answered;
+
+		expect(await waiting).toEqual({ ok: false, reason: 'suggestions-off' });
+		expect(streamText).not.toHaveBeenCalled();
+	});
+
+	test('a cached output that fails the check against the current input is removed and asked again', async () => {
+		// The check of this job accepts a title only when it names the input.
+		const namingJob: Job<string, { title: string }> = {
+			...titleJob,
+			name: 'naming',
+			buildPrompt: () => ({ systemPrompt: 'Write a title.', user: 'same prompt' }),
+			check: (raw, input) => {
+				const title = (raw as { title?: unknown }).title;
+				return typeof title === 'string' && title.includes(input) ? { title } : undefined;
+			},
+		};
+		streamText.mockImplementation(async () => answer('{"title": "Fixed one and two"}'));
+		expect(await service.run(namingJob, 'one', none)).toEqual({ ok: true, value: { title: 'Fixed one and two' }, fromCache: false });
+		expect(await service.run(namingJob, 'two', none)).toEqual({ ok: true, value: { title: 'Fixed one and two' }, fromCache: true });
+
+		streamText.mockImplementation(async () => answer('{"title": "Fixed three"}'));
+		expect(await service.run(namingJob, 'three', none)).toEqual({ ok: true, value: { title: 'Fixed three' }, fromCache: false });
+		expect(streamText).toHaveBeenCalledTimes(2);
 	});
 });

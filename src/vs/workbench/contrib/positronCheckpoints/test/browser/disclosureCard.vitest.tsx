@@ -25,7 +25,7 @@ import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CHECKPOINTS_SUGGESTIONS_ENABLED_KEY } from '../../common/checkpointsConfiguration.js';
 import { Job } from '../../common/agent/jobTypes.js';
-import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
+import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const titleJob: Job<string, string> = {
 	name: 'title',
@@ -45,6 +45,7 @@ describe('DisclosureCard', () => {
 
 	let configuration: TestConfigurationService;
 	let agentService: CheckpointsAgentService;
+	let engine: FakeCheckpointsEngine;
 	const streamText = vi.fn(async (): Promise<StreamTextResult> => ({
 		available: true,
 		model: { id: 'model-1', name: 'Model 1' },
@@ -64,13 +65,23 @@ describe('DisclosureCard', () => {
 			stubInterface<IHeadlessLanguageModelService>({ streamText }),
 			new NullLogService(),
 		));
-		const engine = ctx.disposables.add(new FakeCheckpointsEngine());
+		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.instantiationService.stub(ICheckpointsAgentService, agentService);
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
+	});
+
+	test('the notice shows in a folder that is not keeping checkpoints', async () => {
+		engine.state = fakeEngineState({ tracking: 'not-a-project' });
+		rtl.render(<CheckpointsPanel />);
+		expect(await screen.findByRole('button', { name: 'Start keeping checkpoints' })).toBeInTheDocument();
+
+		void agentService.run(titleJob, 'diff', CancellationToken.None);
+
+		expect(await screen.findByRole('region', { name: 'Descriptions of your changes' })).toBeInTheDocument();
 	});
 
 	test('the notice shows only while a job waits for it, and OK lets the job continue', async () => {

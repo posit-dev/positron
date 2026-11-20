@@ -62,11 +62,19 @@ export const STYLE_RULES = [
 ].join('\n');
 
 /**
+ * The most opening braces `extractJson` tries as the start of an object. Each try scans the text
+ * once at most, so the work grows linearly with the length of the text.
+ */
+export const MAX_JSON_STARTS = 50;
+
+/**
  * Returns the first complete JSON object in `text`, which can have other text or code fences
- * around it, or undefined when there is none. An object that is cut off is not complete.
+ * around it, or undefined when there is none. An object that is cut off is not complete. Only
+ * the first `MAX_JSON_STARTS` opening braces are tried as the start of an object.
  */
 export function extractJson(text: string): unknown | undefined {
-	for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+	let start = text.indexOf('{');
+	for (let tries = 0; start !== -1 && tries < MAX_JSON_STARTS; tries++, start = text.indexOf('{', start + 1)) {
 		const end = matchingBrace(text, start);
 		if (end === undefined) {
 			// A brace in prose, or an object that is cut off. A later brace can still open a

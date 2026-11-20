@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { StringSHA1 } from '../../../../../base/common/hash.js';
 import { ModelSelection, StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { ILanguageModelMessage } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { extractJson, Job, JobOutcome, STYLE_RULES } from './jobTypes.js';
@@ -30,15 +31,15 @@ export function fullSystemPrompt(jobSystemPrompt: string): string {
 }
 
 /**
- * The cache key of a request: the job name and version, and a SHA-256 hash of the model setting,
+ * The cache key of a request: the job name and version, and a SHA-1 hash of the model setting,
  * the system prompt, and the user prompt. A change to any of them gives a new key, so a changed
- * model setting never answers with text from another model.
+ * model setting never answers with text from another model. The hash is computed synchronously,
+ * so it works on every web origin.
  */
-export async function cacheKey(job: Job<unknown, unknown>, modelSetting: readonly string[] | undefined, systemPrompt: string, user: string): Promise<string> {
-	const hashed = JSON.stringify([modelSetting ?? [], systemPrompt, user]);
-	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(hashed));
-	const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-	return `${AGENT_STORAGE_PREFIX}.${job.name}.${job.version}.${hex}`;
+export function cacheKey(job: Job<unknown, unknown>, modelSetting: readonly string[] | undefined, systemPrompt: string, user: string): string {
+	const sha1 = new StringSHA1();
+	sha1.update(JSON.stringify([modelSetting ?? [], systemPrompt, user]));
+	return `${AGENT_STORAGE_PREFIX}.${job.name}.${job.version}.${sha1.digest()}`;
 }
 
 /** The storage a `JobCache` uses: one string value per key, kept for the workspace. */
@@ -68,12 +69,17 @@ export class JobCache {
 		try {
 			value = JSON.parse(stored) as T;
 		} catch {
-			this._storage.remove(key);
-			this._writeIndex(this._readIndex().filter(entry => entry !== key));
+			this.remove(key);
 			return undefined;
 		}
 		this._writeIndex([...this._readIndex().filter(entry => entry !== key), key]);
 		return value;
+	}
+
+	/** Removes the output stored under `key`, if any. */
+	remove(key: string): void {
+		this._storage.remove(key);
+		this._writeIndex(this._readIndex().filter(entry => entry !== key));
 	}
 
 	/** Stores a checked output under `key`, removing the least recently used ones past the limit. */

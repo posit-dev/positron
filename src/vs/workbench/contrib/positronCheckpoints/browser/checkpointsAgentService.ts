@@ -72,8 +72,11 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 	private readonly _onDidChangeAvailable = this._register(new Emitter<void>());
 	readonly onDidChangeAvailable = this._onDidChangeAvailable.event;
 
-	/** The answer every waiting job shares, while the notice is shown. */
-	private _disclosure: { promise: Promise<DisclosureAnswer>; resolve(answer: DisclosureAnswer): void } | undefined;
+	/**
+	 * The answer every waiting job shares, and the number of jobs that wait for it, while the
+	 * notice is shown.
+	 */
+	private _disclosure: { promise: Promise<DisclosureAnswer>; resolve(answer: DisclosureAnswer): void; waiting: number } | undefined;
 	private readonly _onDidChangePendingDisclosure = this._register(new Emitter<void>());
 	readonly onDidChangePendingDisclosure = this._onDidChangePendingDisclosure.event;
 
@@ -145,15 +148,15 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 			const prompt = job.buildPrompt(input);
 			systemPrompt = fullSystemPrompt(prompt.systemPrompt);
 			user = prompt.user;
-			key = await cacheKey(job, modelSetting, systemPrompt, user);
+			key = cacheKey(job, modelSetting, systemPrompt, user);
 		} catch (error) {
 			this._logService.error(`The checkpoints job ${job.name} could not build its request.`, error);
 			return { ok: false, reason: 'error', detail: error instanceof Error ? error.message : String(error) };
 		}
 
-		const cached = this._cache.get<O>(key);
-		if (cached !== undefined) {
-			return { ok: true, value: cached, fromCache: true };
+		const cached = this._cachedOutput(job, input, key);
+		if (cached) {
+			return cached;
 		}
 
 		const answer = await this._waitForDisclosure(token);
@@ -162,6 +165,11 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		}
 		if (answer === 'turn-off') {
 			return { ok: false, reason: 'suggestions-off' };
+		}
+		if (answer === 'withdrawn') {
+			// The agent became unavailable while the notice waited. The job ends here, even when
+			// the settings were switched back on since, and the next run shows the notice again.
+			return this._gate() ?? { ok: false, reason: 'cancelled' };
 		}
 		// The settings are read again right before the call, because they can change while the
 		// notice waits.
@@ -184,6 +192,28 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 			this._logService.info(`The checkpoints job ${job.name} gave no output: ${outcome.reason} ${outcome.detail ?? ''}`.trim());
 		}
 		return outcome;
+	}
+
+	/**
+	 * The cached output for `key` as a successful outcome, or undefined when there is none. The
+	 * cached output is checked again against `input`, and one that fails the check is removed.
+	 */
+	private _cachedOutput<I, O>(job: Job<I, O>, input: I, key: string): JobOutcome<O> | undefined {
+		const cached = this._cache.get<unknown>(key);
+		if (cached === undefined) {
+			return undefined;
+		}
+		let value: O | undefined;
+		try {
+			value = job.check(cached, input);
+		} catch {
+			value = undefined;
+		}
+		if (value === undefined) {
+			this._cache.remove(key);
+			return undefined;
+		}
+		return { ok: true, value, fromCache: true };
 	}
 
 	/** The outcome for a closed gate, or undefined when the model may be called. */
@@ -213,6 +243,7 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 	/**
 	 * Resolves at once when the notice was answered with OK in this workspace. Otherwise shows the
 	 * notice, unless it already shows, and waits for the answer that every waiting job shares.
+	 * When the last waiting job is cancelled, the notice goes away.
 	 */
 	private async _waitForDisclosure(token: CancellationToken): Promise<DisclosureAnswer | 'cancelled'> {
 		if (this._storageService.getBoolean(CheckpointsAgentService.DISCLOSED_KEY, StorageScope.WORKSPACE, false)) {
@@ -221,10 +252,17 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		if (!this._disclosure) {
 			let resolve!: (answer: DisclosureAnswer) => void;
 			const promise = new Promise<DisclosureAnswer>(r => { resolve = r; });
-			this._disclosure = { promise, resolve };
+			this._disclosure = { promise, resolve, waiting: 0 };
 			this._onDidChangePendingDisclosure.fire();
 		}
-		return raceCancellation(this._disclosure.promise, token, 'cancelled');
+		const disclosure = this._disclosure;
+		disclosure.waiting++;
+		const answer = await raceCancellation(disclosure.promise, token, 'cancelled');
+		disclosure.waiting--;
+		if (answer === 'cancelled' && disclosure.waiting === 0 && this._disclosure === disclosure) {
+			this._settleDisclosure('withdrawn');
+		}
+		return answer;
 	}
 
 	private _settleDisclosure(answer: DisclosureAnswer): void {

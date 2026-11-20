@@ -8,7 +8,7 @@
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { cacheKey, fullSystemPrompt, IJobCacheStorage, IModelRequest, JobCache, MAX_RESPONSE_CHARS, requestJob } from '../../common/agent/jobRunner.js';
-import { extractJson, Job, STYLE_RULES, wrapUntrusted } from '../../common/agent/jobTypes.js';
+import { extractJson, Job, MAX_JSON_STARTS, STYLE_RULES, wrapUntrusted } from '../../common/agent/jobTypes.js';
 
 /** A job whose answer must be an object with a string `title`. */
 const titleJob: Job<string, { title: string }> = {
@@ -93,14 +93,24 @@ describe('fullSystemPrompt', () => {
 });
 
 describe('cacheKey', () => {
-	test('depends on the job version, the model setting, and the prompts', async () => {
-		const base = await cacheKey(titleJob, [], 's', 'u');
-		expect(base).toMatch(/^positronCheckpoints\.agent\.title\.1\.[0-9a-f]{64}$/);
-		expect(await cacheKey(titleJob, [], 's', 'u')).toBe(base);
-		expect(await cacheKey({ ...titleJob, version: 2 }, [], 's', 'u')).not.toBe(base);
-		expect(await cacheKey(titleJob, ['haiku'], 's', 'u')).not.toBe(base);
-		expect(await cacheKey(titleJob, [], 's', 'u2')).not.toBe(base);
-		expect(await cacheKey(titleJob, [], 's2', 'u')).not.toBe(base);
+	test('depends on the job version, the model setting, and the prompts', () => {
+		const base = cacheKey(titleJob, [], 's', 'u');
+		expect(base).toMatch(/^positronCheckpoints\.agent\.title\.1\.[0-9a-f]{40}$/);
+		expect(cacheKey(titleJob, [], 's', 'u')).toBe(base);
+		expect(cacheKey({ ...titleJob, version: 2 }, [], 's', 'u')).not.toBe(base);
+		expect(cacheKey(titleJob, ['haiku'], 's', 'u')).not.toBe(base);
+		expect(cacheKey(titleJob, [], 's', 'u2')).not.toBe(base);
+		expect(cacheKey(titleJob, [], 's2', 'u')).not.toBe(base);
+	});
+
+	test('works where crypto.subtle is undefined, as on a web origin that is not secure', () => {
+		const expected = cacheKey(titleJob, [], 's', 'u');
+		vi.stubGlobal('crypto', {});
+		try {
+			expect(cacheKey(titleJob, [], 's', 'u')).toBe(expected);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 });
 
@@ -137,6 +147,33 @@ describe('JobCache', () => {
 
 		expect(cache.get('a')).toBeUndefined();
 		expect(storage.values.has('a')).toBe(false);
+	});
+
+	test('remove deletes the output and its index entry', () => {
+		const storage = memoryStorage();
+		const cache = new JobCache(storage);
+		cache.set('a', { title: 'A' });
+
+		cache.remove('a');
+
+		expect(storage.values.has('a')).toBe(false);
+		expect(storage.values.get(JobCache.INDEX_KEY)).toBe('[]');
+	});
+});
+
+describe('extractJson limits', () => {
+	test('tries at most MAX_JSON_STARTS opening braces', () => {
+		const object = '{ "title": "x" }';
+		expect(extractJson('{'.repeat(MAX_JSON_STARTS - 1) + ' ' + object)).toEqual({ title: 'x' });
+		expect(extractJson('{ '.repeat(MAX_JSON_STARTS) + object)).toBeUndefined();
+	});
+
+	test('an answer of many unclosed braces is read in time that grows linearly', () => {
+		const text = '{'.repeat(200000);
+		const started = Date.now();
+		expect(extractJson(text)).toBeUndefined();
+		// Trying every brace would scan the text 200000 times.
+		expect(Date.now() - started).toBeLessThan(2000);
 	});
 });
 

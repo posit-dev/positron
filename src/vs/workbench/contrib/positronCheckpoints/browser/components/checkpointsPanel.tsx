@@ -57,7 +57,8 @@ export const CheckpointsPanel = ({ container }: { container?: IReactComponentCon
 				{message}
 			</div>
 			{tracking && <StateCards view={view} />}
-			{tracking && <DisclosureCard />}
+			{/* A job can wait for the notice in any state, so the notice shows in every state. */}
+			<DisclosureCard />
 			{tracking && (
 				// A disabled fieldset disables every control inside it.
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>
