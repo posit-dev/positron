@@ -1805,6 +1805,14 @@ export const POSITRON_RUNTIME_STATE_ICON_IDLE = registerColor('positronRuntime.s
 	hcLight: '#2eb77c'
 }, localize('positronRuntime.stateIconIdle', "Positron runtime idle state icon color."));
 
+// Positron runtime not started state icon color.
+export const POSITRON_RUNTIME_STATE_ICON_NOT_STARTED = registerColor('positronRuntime.stateIconNotStarted', {
+	dark: '#848484',
+	light: '#848484',
+	hcDark: '#848484',
+	hcLight: '#848484'
+}, localize('positronRuntime.stateIconNotStarted', "Positron runtime icon color when no session has started."));
+
 //  < --- Positron Data Grid --- >
 
 // Positron data grid contrast background color.
