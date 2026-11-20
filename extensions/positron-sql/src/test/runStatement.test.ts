@@ -10,10 +10,10 @@ import { sqlDocument } from './support';
 /**
  * The run command itself, end to end as far as the first question it asks.
  *
- * A run holds a guard against a second run while it awaits that question, so a question that never
- * settles is a run that never ends, and every Cmd+Enter after it silently does nothing. With no data
- * connection open, the question is a notification -- and a notification the user never answers,
- * which is what one that hid itself is, never settles.
+ * It is the Console's Execute Code, whose session lookups for SQL queue one behind another, so a
+ * question that never settles is a lookup that never ends, and every Cmd+Enter after it silently
+ * does nothing. With no data connection open, the question is a notification -- and a notification
+ * the user never answers, which is what one that hid itself is, never settles.
  */
 suite('sql.runStatement', () => {
 

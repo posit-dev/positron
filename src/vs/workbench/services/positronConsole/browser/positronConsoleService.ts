@@ -15,7 +15,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { codeFragmentsFromBoundaries, IInputBoundaryFragment, IInputBoundaryFragments, provideInputBoundaries } from '../../../../editor/contrib/positronInputBoundaries/browser/provideInputBoundaries.js';
 import { IInputBoundary } from '../../../../editor/common/languages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { IObservable, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IViewDescriptorService } from '../../../common/views.js';
@@ -47,7 +47,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, ExecutionSessionDeclinedError, FocusInputOptions, IConsoleExecutionSessionProvider, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -59,7 +59,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified, isUserInitiated } from '../common/positronConsoleCodeExecution.js';
 import { fragmentCodeLocation, ICodeLocation } from '../common/codeLocation.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
-import { URI } from '../../../../base/common/uri.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -470,6 +470,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	private _consoleWidthDebounceTimer: Timeout | undefined;
 
+	/**
+	 * The registered execution session providers, by language ID. The most recent registration
+	 * for a language is last.
+	 */
+	private readonly _executionSessionProviders = new Map<string, IConsoleExecutionSessionProvider[]>();
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -837,6 +843,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		if (activate === false && !sessionId) {
 			throw new Error('Cannot execute code without activating the console unless a session ID is provided.');
 		}
+
+		// Code from a document, with no session named: a language whose session depends on the
+		// document (such as SQL, which runs on the file's data connection) chooses the session.
+		// Asked before the Console is revealed, because the provider can decline to run the code.
+		let providerChoseSession = false;
+		if (!sessionId) {
+			sessionId = await this.provideExecutionSession(languageId, attribution, code);
+			providerChoseSession = !!sessionId;
+		}
 		const shouldActivate = activate !== false;
 		focus = focus && shouldActivate;
 
@@ -876,8 +891,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// It's possible that someone could try to execute code in a
 				// session that is for a different language than the code being
 				// executed. It's arguable whether we should allow this or not, but
-				// for now we'll just log a warning and send the code along.
-				if (existingLanguageId !== languageId) {
+				// for now we'll just log a warning and send the code along. Not for
+				// a session an execution session provider chose: running the code
+				// in another language's session (SQL in ggsql) is its purpose.
+				if (existingLanguageId !== languageId && !providerChoseSession) {
 					this._logService.warn(
 						`Code is being executed in a Positron console instance for language ` +
 						`${existingLanguageId} (session ${sessionId}), not for requested language ` +
@@ -982,6 +999,76 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId, executionMetadata, preserveActiveTab);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	/**
+	 * Registers a provider that chooses the session that runs code from a document.
+	 * @param languageId The language of the code.
+	 * @param provider The provider.
+	 * @returns A disposable that unregisters the provider.
+	 */
+	registerExecutionSessionProvider(languageId: string, provider: IConsoleExecutionSessionProvider): IDisposable {
+		const providers = this._executionSessionProviders.get(languageId) ?? [];
+		providers.push(provider);
+		this._executionSessionProviders.set(languageId, providers);
+		return toDisposable(() => {
+			const current = this._executionSessionProviders.get(languageId);
+			const index = current?.indexOf(provider) ?? -1;
+			if (current && index >= 0) {
+				current.splice(index, 1);
+				if (current.length === 0) {
+					this._executionSessionProviders.delete(languageId);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Asks the execution session provider for a language which session runs code from a document.
+	 *
+	 * The document is the one the attribution names: the code's location, which also links
+	 * outputs such as plots back to their source, or else the cursor's, which the editor's run
+	 * commands set even when they send no code location (for example, running to or from the
+	 * cursor).
+	 *
+	 * @param languageId The language of the code.
+	 * @param attribution The attribution of the code.
+	 * @param code The code to execute.
+	 * @returns The session ID, or undefined if there is no provider, no document, or the
+	 *   provider has no answer. Rejects with {@link ExecutionSessionDeclinedError} if the provider
+	 *   declined, or if there is no code to run (asking would show the user a connection picker
+	 *   for nothing); rejects with anything else the provider rejects with.
+	 */
+	private async provideExecutionSession(
+		languageId: string,
+		attribution: IConsoleCodeAttribution,
+		code: string): Promise<string | undefined> {
+		// Looked up first: most languages have no provider, and their code location is not read.
+		const provider = this._executionSessionProviders.get(languageId)?.at(-1);
+		if (!provider) {
+			return undefined;
+		}
+		const documentUri = documentUriOf(attribution);
+		if (!documentUri) {
+			return undefined;
+		}
+		if (code.trim().length === 0) {
+			throw new ExecutionSessionDeclinedError();
+		}
+		const sessionId = await provider.provideSession(documentUri);
+		if (!sessionId) {
+			return undefined;
+		}
+		// Only a session that executeCode can run code in: one with a console, or a notebook
+		// session, for which it starts one.
+		if (!this._positronConsoleInstancesBySessionId.has(sessionId) &&
+			this._runtimeSessionService.getSession(sessionId)?.metadata.sessionMode !== LanguageRuntimeSessionMode.Notebook) {
+			this._logService.warn(`The execution session provider for ${languageId} returned ` +
+				`session ${sessionId}, which has no console, for ${documentUri.toString()}. ` +
+				`Using the usual session lookup instead.`);
+			return undefined;
+		}
+		return sessionId;
 	}
 
 	shouldPreserveActiveTab(executionId: string): boolean {
@@ -4913,6 +5000,28 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	//#endregion Private Methods
+}
+
+/**
+ * The document that an attribution names as the code's source: its code location, or else its
+ * cursor location. Undefined when it names none, or names it in a form that is not a URI.
+ */
+function documentUriOf(attribution: IConsoleCodeAttribution): URI | undefined {
+	const metadata = attribution.metadata;
+	for (const location of [metadata?.codeLocation, metadata?.cursorLocation]) {
+		const uri = (location as { uri?: unknown } | undefined)?.uri;
+		if (URI.isUri(uri)) {
+			return uri;
+		}
+		if (uri && typeof uri === 'object' && typeof (uri as UriComponents).scheme === 'string') {
+			try {
+				return URI.revive(uri as UriComponents);
+			} catch {
+				// Not a valid URI; try the next location.
+			}
+		}
+	}
+	return undefined;
 }
 
 // Register the Positron console service.

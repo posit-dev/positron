@@ -315,6 +315,23 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				selector: vscode.DocumentSelector,
 				provider: positron.HelpTopicProvider): vscode.Disposable {
 				return extHostLanguageFeatures.registerHelpTopicProvider(extension, selector, provider);
+			},
+			registerExecutionSessionProvider(
+				languageId: string,
+				provider: positron.ExecutionSessionProvider): vscode.Disposable {
+				return extHostLanguageRuntime.registerExecutionSessionProvider(languageId, async (documentUri, token) => {
+					// Loaded if the extension host does not have it, for example because it was
+					// closed after the code was sent. One that cannot be loaded has nothing to
+					// choose by, so the usual lookup applies.
+					let document: vscode.TextDocument;
+					try {
+						document = (extHostDocuments.getDocumentData(documentUri)
+							?? await extHostDocuments.ensureDocumentData(documentUri)).document;
+					} catch {
+						return undefined;
+					}
+					return (await provider.provideSession(document, token)) ?? undefined;
+				});
 			}
 		};
 

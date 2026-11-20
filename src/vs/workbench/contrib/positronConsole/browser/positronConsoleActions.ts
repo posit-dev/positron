@@ -34,7 +34,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IDebugService } from '../../debug/common/debug.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
@@ -86,7 +86,9 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
  * @param position The position in the editor where the code originated
  * @param model The text model containing the code
  * @param opts Options for code execution
- * @returns A promise that resolves to true if the execution was successful, false otherwise
+ * @returns A promise that resolves to 'executed' if the code was sent to a session,
+ *   'declined' if an execution session provider declined to run it (and told the user why),
+ *   or 'failed' otherwise.
  */
 async function executeCodeInConsole(
 	code: string,
@@ -107,7 +109,7 @@ async function executeCodeInConsole(
 		mode?: RuntimeCodeExecutionMode;
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
-): Promise<boolean> {
+): Promise<'executed' | 'declined' | 'failed'> {
 	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
 
 	// Ensure we have a target language.
@@ -118,7 +120,7 @@ async function executeCodeInConsole(
 			message: localize('positron.executeCode.noLanguage', "Cannot execute code. Unable to detect input language."),
 			sticky: false
 		});
-		return false;
+		return 'failed';
 	}
 
 	// Whether to allow incomplete code to be executed.
@@ -146,18 +148,30 @@ async function executeCodeInConsole(
 	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
-	// this will rip focus away from the editor.
-	if (!await positronConsoleService.executeCode(
-		languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+	// this will rip focus away from the editor. The code and cursor locations in the
+	// attribution let an execution session provider for the language (such as SQL's) choose
+	// the session for this document.
+	let sessionId: string;
+	try {
+		sessionId = await positronConsoleService.executeCode(
+			languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior);
+	} catch (error) {
+		// The execution session provider declined to run the code and has told the user why.
+		if (error instanceof ExecutionSessionDeclinedError) {
+			return 'declined';
+		}
+		throw error;
+	}
+	if (!sessionId) {
 		const languageName = languageService.getLanguageName(languageId);
 		notificationService.notify({
 			severity: Severity.Info,
 			message: localize('positron.executeCode.noRuntime', "Cannot execute code. Unable to start a runtime for the {0} language.", languageName),
 			sticky: false
 		});
-		return false;
+		return 'failed';
 	}
-	return true;
+	return 'executed';
 }
 
 /**
@@ -506,6 +520,10 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute.
 			const selection = editor?.getSelection();
 
+			// The advance below can add a line at the end of the document; this lets a decline
+			// take it back off.
+			const lineCountBefore = model.getLineCount();
+
 			// Track the source and range of the executed code (with UTF-8 byte offsets)
 			let codeLocation: ICodeLocation | undefined = undefined;
 
@@ -686,7 +704,7 @@ export function registerPositronConsoleActions() {
 			};
 
 			// Use the helper function to execute the code
-			await executeCodeInConsole(
+			const result = await executeCodeInConsole(
 				code,
 				cursorLocation,
 				codeLocation,
@@ -705,6 +723,24 @@ export function registerPositronConsoleActions() {
 					mode: opts.mode,
 					errorBehavior: opts.errorBehavior
 				});
+
+			// The cursor advanced before the code was sent, so the editor stays
+			// responsive while a runtime starts. If an execution session provider
+			// declined to run the code (for example, the user dismissed SQL's
+			// connection picker), nothing ran: undo the advance, unless the user
+			// moved the cursor in the meantime.
+			if (result === 'declined') {
+				// Compared as the editor holds it: the line-based advance asks for
+				// column 0, which the editor clamps to column 1.
+				const stillAtNext = !!editor && !!nextPosition &&
+					!!editor.getPosition()?.equals(model.validatePosition(nextPosition));
+				this.removeAmendedNewline(model, lineCountBefore);
+				if (editor && selection && stillAtNext) {
+					editor.setSelection(selection);
+					editor.revealPositionInCenterIfOutsideViewport(selection.getPosition());
+				}
+				return undefined;
+			}
 			return nextPosition;
 		}
 
@@ -887,6 +923,22 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+
+		/**
+		 * Takes back the empty line that {@link amendNewlineToEnd} added during this run, if it
+		 * did, so that a run that did nothing leaves the document as it was. Left alone if the
+		 * document has changed in any other way since.
+		 */
+		removeAmendedNewline(model: ITextModel, lineCountBefore: number) {
+			const lastLine = model.getLineCount();
+			if (lastLine !== lineCountBefore + 1 || model.getLineLength(lastLine) !== 0) {
+				return;
+			}
+			model.pushEditOperations([], [{
+				range: new Range(lastLine - 1, model.getLineMaxColumn(lastLine - 1), lastLine, 1),
+				text: null
+			}], () => []);
 		}
 
 		/**

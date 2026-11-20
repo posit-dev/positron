@@ -5,7 +5,8 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleExecutionSessionProvider, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -200,6 +201,13 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		this._onDidExecuteCodeEmitter.fire(event);
 
 		return event.sessionId;
+	}
+
+	/**
+	 * Registers an execution session provider. The test service does not use it.
+	 */
+	registerExecutionSessionProvider(_languageId: string, _provider: IConsoleExecutionSessionProvider): IDisposable {
+		return Disposable.None;
 	}
 
 	/**

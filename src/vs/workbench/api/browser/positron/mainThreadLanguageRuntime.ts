@@ -17,7 +17,7 @@ import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILangu
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ExecutionSessionDeclinedError, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -1733,6 +1733,9 @@ export class MainThreadLanguageRuntime
 	/** Tracks disposables for picker contributions by handle, for cleanup on unregister */
 	private readonly _pickerContributionDisposables: Map<number, IDisposable> = new Map();
 
+	/** Tracks disposables for execution session providers by handle, for cleanup on unregister */
+	private readonly _executionSessionProviderDisposables: Map<number, IDisposable> = new Map();
+
 	/** Per-session evaluation queues for $evaluateCode */
 	private readonly _evaluationQueues: Map<string, EvaluationEntry[]> = new Map();
 
@@ -2208,11 +2211,14 @@ export class MainThreadLanguageRuntime
 	/**
 	 * Creates the attribution metadata for code an extension requested.
 	 * Caller metadata is merged first so that the caller cannot forge
-	 * Positron's own fields.
+	 * Positron's own fields. The source locations are dropped from it: the
+	 * console routes code by them (see `registerExecutionSessionProvider`),
+	 * and an extension names its document with `documentUri` instead.
 	 */
 	private createAttributionMetadata(extensionId: string, callerSessionId: string | undefined, attributionMetadata?: Record<string, unknown>): Record<string, unknown> {
+		const { codeLocation: _codeLocation, cursorLocation: _cursorLocation, ...callerMetadata } = attributionMetadata ?? {};
 		return {
-			...attributionMetadata,
+			...callerMetadata,
 			extensionId: extensionId,
 			callerSessionId: this.getRelayedFromSessionId(callerSessionId),
 		};
@@ -2628,6 +2634,10 @@ export class MainThreadLanguageRuntime
 		this._pickerContributionDisposables.forEach((disposable) => disposable.dispose());
 		this._pickerContributionDisposables.clear();
 
+		// Dispose any remaining execution session providers
+		this._executionSessionProviderDisposables.forEach(disposable => disposable.dispose());
+		this._executionSessionProviderDisposables.clear();
+
 		// Dispose any proxy session event forwarding subscriptions
 		this._proxySessionSubscriptions.forEach((store) => store.dispose());
 		this._proxySessionSubscriptions.clear();
@@ -2776,6 +2786,38 @@ export class MainThreadLanguageRuntime
 			this._pickerContributionDisposables.delete(handle);
 			this._logService.trace(`Picker contribution with handle ${handle} unregistered`);
 		}
+	}
+
+	/**
+	 * Register an execution session provider from an extension.
+	 *
+	 * @param handle The handle for this provider
+	 * @param languageId The language of the code the provider chooses a session for
+	 */
+	$registerExecutionSessionProvider(handle: number, languageId: string): void {
+		const disposable = this._positronConsoleService.registerExecutionSessionProvider(languageId, {
+			provideSession: async documentUri => {
+				// A decline comes back as a value rather than a rejection, so that it cannot be
+				// confused with the request itself being cancelled (for example, by the
+				// extension host restarting), which is a failure.
+				const result = await this._proxy.$provideExecutionSession(handle, documentUri, CancellationToken.None);
+				if (result.declined) {
+					throw new ExecutionSessionDeclinedError();
+				}
+				return result.sessionId;
+			},
+		});
+		this._executionSessionProviderDisposables.set(handle, disposable);
+	}
+
+	/**
+	 * Unregister an execution session provider.
+	 *
+	 * @param handle The handle of the provider to unregister
+	 */
+	$unregisterExecutionSessionProvider(handle: number): void {
+		this._executionSessionProviderDisposables.get(handle)?.dispose();
+		this._executionSessionProviderDisposables.delete(handle);
 	}
 
 	/**

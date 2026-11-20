@@ -88,6 +88,15 @@ export interface IRuntimePickerItem {
 	suggested?: boolean;
 }
 
+/**
+ * An execution session provider's answer: the session to run the code in (none means the usual
+ * lookup), or that the provider declined to run it.
+ */
+export interface IExecutionSessionProviderResult {
+	sessionId?: string;
+	declined?: boolean;
+}
+
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
@@ -131,6 +140,8 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 	$registerRuntimePickerContribution(handle: number, languageId: string): void;
 	$unregisterRuntimePickerContribution(handle: number): void;
+	$registerExecutionSessionProvider(handle: number, languageId: string): void;
+	$unregisterExecutionSessionProvider(handle: number): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -191,6 +202,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
+	$provideExecutionSession(handle: number, documentUri: UriComponents, token: CancellationToken): Promise<IExecutionSessionProviderResult>;
 }
 
 // This is the interface that the main process exposes to the extension host

@@ -50,6 +50,40 @@ export const enum CodeSubmissionResult {
 }
 
 /**
+ * Chooses the session that runs code from a document, for a language that has no runtime of
+ * its own or whose sessions depend on the document (for example, SQL runs in a ggsql session
+ * that is on the file's data connection).
+ */
+export interface IConsoleExecutionSessionProvider {
+	/**
+	 * Gets the session that runs code from a document. The provider can start or connect a
+	 * session first.
+	 *
+	 * @param documentUri The document that the code comes from.
+	 * @returns The session ID, or undefined to use the usual session lookup for the language.
+	 *   Rejects with {@link ExecutionSessionDeclinedError} when the provider declined to run the
+	 *   code and has told the user why. Any other rejection is a failure.
+	 */
+	provideSession(documentUri: URI): Promise<string | undefined>;
+}
+
+/**
+ * Thrown by {@link IPositronConsoleService.executeCode} when an execution session provider
+ * declined to run the code, for example because the user dismissed its connection picker.
+ * Nothing ran, and the provider has already told the user why.
+ *
+ * A distinct type rather than a cancellation error, so that a cancellation from elsewhere (such
+ * as the extension host restarting mid-request) is not mistaken for a decline and dropped
+ * silently.
+ */
+export class ExecutionSessionDeclinedError extends Error {
+	constructor() {
+		super('The execution session provider declined to run the code.');
+		this.name = 'ExecutionSessionDeclinedError';
+	}
+}
+
+/**
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
@@ -193,6 +227,18 @@ export interface IPositronConsoleService {
 		executionMetadata?: Record<string, unknown>,
 		preserveActiveTab?: boolean,
 		activate?: boolean): Promise<string>;
+
+	/**
+	 * Registers a provider that chooses the session that runs code from a document, for one
+	 * language. {@link executeCode} asks it when it gets no session ID and the attribution names
+	 * the document the code came from (`metadata.codeLocation`, or else `metadata.cursorLocation`).
+	 * If more than one provider is registered for a language, the most recent one is used.
+	 *
+	 * @param languageId The language of the code.
+	 * @param provider The provider.
+	 * @returns A disposable that unregisters the provider.
+	 */
+	registerExecutionSessionProvider(languageId: string, provider: IConsoleExecutionSessionProvider): IDisposable;
 
 	/**
 	 * Whether an execution was started with `preserveActiveTab`, so views it

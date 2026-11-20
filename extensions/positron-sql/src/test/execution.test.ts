@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { ConnectCode, ExecutionApi, GGSQL_LANGUAGE_ID, sessionOn, StatementRunner } from '../execution';
 import { ConnectionRef } from '../schema';
-import { sqlDocument, testLog, TEST_CONNECTION, TEST_DRIVER, TEST_PROFILE } from './support';
+import { testLog, TEST_CONNECTION, TEST_DRIVER, TEST_PROFILE } from './support';
 
 const CONNECTION: ConnectionRef = {
 	profileId: TEST_PROFILE,
@@ -48,45 +48,62 @@ suite('sessionOn', () => {
 
 suite('StatementRunner', () => {
 
-	test('runs the statement as written in a console already on the database', async () => {
+	test('finds the console already on the database, without running anything in it', async () => {
+		// The Console runs the statement itself once it knows the session.
 		const api = new FakeApi();
 		api.addSession('gg', SHOP);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
-			{ outcome: { kind: 'executed', sessionId: 'gg' }, executed: [['gg', 'SELECT 1']] },
+			{ outcome: { kind: 'ready', sessionId: 'gg' }, executed: [] },
 		);
 	});
 
-	test('starts a console, connects it, then runs the statement, when none is on the database', async () => {
+	test('starts and connects a console when none is on the database', async () => {
 		// The open console is on another database, and is left there.
 		const api = new FakeApi();
 		api.addSession('gg', MEMORY);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed, started: api.started },
+			{ outcome: { kind: 'ready', sessionId: 'new-1' }, executed: [['new-1', SHOP]], started: 1 },
+		);
+	});
+
+	test('a second lookup reuses the console the first one started', async () => {
+		const api = new FakeApi();
+		const run = runner(api);
+
+		const first = await run.sessionFor(CONNECTION);
+		const second = await run.sessionFor(CONNECTION);
+
+		assert.deepStrictEqual(
+			{ first, second, started: api.started, executed: api.executed },
 			{
-				outcome: { kind: 'executed', sessionId: 'new-1' },
-				executed: [['new-1', SHOP], ['new-1', 'SELECT 1']],
+				first: { kind: 'ready', sessionId: 'new-1' },
+				second: { kind: 'ready', sessionId: 'new-1' },
 				started: 1,
+				executed: [['new-1', SHOP]],
 			},
 		);
 	});
 
-	test('a second statement reuses the console the first one started', async () => {
+	test('two lookups at once start one console, not two', async () => {
+		// The second starts looking before the first has connected, so it cannot find the session
+		// on the database yet; it waits for the start already under way instead.
 		const api = new FakeApi();
+		api.onConnect = 'connect-reported-late';
 		const run = runner(api);
 
-		await run.run(await document(), CONNECTION, 'SELECT 1');
-		await run.run(await document(), CONNECTION, 'SELECT 2');
+		const [first, second] = await Promise.all([run.sessionFor(CONNECTION), run.sessionFor(CONNECTION)]);
 
 		assert.deepStrictEqual(
-			{ started: api.started, executed: api.executed },
-			{ started: 1, executed: [['new-1', SHOP], ['new-1', 'SELECT 1'], ['new-1', 'SELECT 2']] },
+			{ first, second, started: api.started },
+			{ first: { kind: 'ready', sessionId: 'new-1' }, second: { kind: 'ready', sessionId: 'new-1' }, started: 1 },
 		);
 	});
 
@@ -94,16 +111,16 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('nb', SHOP, positron.LanguageRuntimeSessionMode.Notebook);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
-		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
+		assert.deepStrictEqual(outcome, { kind: 'ready', sessionId: 'new-1' });
 	});
 
-	test('a failed connect stops the statement, and says so', async () => {
+	test('a failed connect is reported, and nothing else is run', async () => {
 		const api = new FakeApi();
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -117,21 +134,21 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
-		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
+		assert.deepStrictEqual(outcome, { kind: 'ready', sessionId: 'new-1' });
 	});
 
-	test('the next run reuses a session whose move was reported late', async () => {
-		// The run waits for the report, so the session reads as on the database by the time the
-		// next one looks, and no second session is started.
+	test('the next lookup reuses a session whose move was reported late', async () => {
+		// The lookup waits for the report, so the session reads as on the database by the time
+		// the next one looks, and no second session is started.
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		await runner(api).run(await document(), CONNECTION, 'SELECT 1');
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 2');
+		await runner(api).sessionFor(CONNECTION);
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
-		assert.deepStrictEqual({ outcome, started: api.started }, { outcome: { kind: 'executed', sessionId: 'new-1' }, started: 1 });
+		assert.deepStrictEqual({ outcome, started: api.started }, { outcome: { kind: 'ready', sessionId: 'new-1' }, started: 1 });
 	});
 
 	test('a connect line that finishes without Positron reporting the move counts as failed', async () => {
@@ -139,7 +156,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'unreported';
 
-		const outcome = await runner(api, 10).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api, 10).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -153,38 +170,27 @@ suite('StatementRunner', () => {
 		api.startCode = undefined;
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(outcome, { kind: 'connect-failed' });
 	});
 
-	test('a session that exits while connecting does not hold the run up', async () => {
+	test('a session that exits while connecting does not hold the lookup up', async () => {
 		// An execution in a session that has exited never finishes, so the exit is what ends the
-		// wait. Without it, the run guard would stay set and every later Cmd+Enter would do nothing.
+		// wait. Without it, the lookup would never settle and every later run would queue behind it.
 		const api = new FakeApi();
 		api.onConnect = 'exit';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(outcome, { kind: 'exited' });
-	});
-
-	test('a statement that never finishes does not hold the run up', async () => {
-		// The user's query may take as long as it takes; the console queues the next one behind it.
-		const api = new FakeApi();
-		api.addSession('gg', SHOP);
-		api.statementsSettle = false;
-
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
-
-		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'gg' });
 	});
 
 	test('a connection ggsql cannot reach is not sent anywhere', async () => {
 		const api = new FakeApi();
 		api.connectCode = { kind: 'unsupported' };
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(
 			{ outcome, started: api.started, executed: api.executed },
@@ -196,7 +202,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.runtime = undefined;
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(outcome, { kind: 'no-runtime' });
 	});
@@ -205,7 +211,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.startError = new Error('kernel died');
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).sessionFor(CONNECTION);
 
 		assert.deepStrictEqual(outcome, { kind: 'not-started', reason: 'kernel died' });
 	});
@@ -213,10 +219,6 @@ suite('StatementRunner', () => {
 
 function runner(api: ExecutionApi, reportTimeoutMs?: number): StatementRunner {
 	return new StatementRunner(api, testLog().log, reportTimeoutMs);
-}
-
-function document(): Thenable<vscode.TextDocument> {
-	return sqlDocument('SELECT 1');
 }
 
 /** A running session, as the runtime API reports one. Only the fields this module reads. */
@@ -249,9 +251,6 @@ class FakeApi implements ExecutionApi {
 
 	/** Where a new session starts, as far as Positron has heard by the time it is connected. */
 	public startCode: string | undefined = MEMORY;
-
-	/** Whether the user's statements finish. */
-	public statementsSettle = true;
 
 	public readonly executed: [string, string][] = [];
 	public started = 0;
@@ -311,7 +310,7 @@ class FakeApi implements ExecutionApi {
 	executeCode(code: string, sessionId: string): Thenable<unknown> {
 		this.executed.push([sessionId, code]);
 		if (!code.startsWith('-- @connect: ')) {
-			return this.statementsSettle ? Promise.resolve() : new Promise(() => { });
+			return Promise.resolve();
 		}
 		switch (this.onConnect) {
 			case 'connect':

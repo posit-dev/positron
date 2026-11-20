@@ -20,7 +20,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CancellationError } from '../../../../base/common/errors.js';
+import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -403,6 +403,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// Map of handle to picker contribution
 	private readonly _pickerContributions = new Map<number, positron.runtime.RuntimePickerContribution>();
+
+	// Handle counter for execution session providers
+	private _executionSessionProviderHandleCounter = 0;
+
+	// Map of handle to execution session provider, as a function of the document URI
+	private readonly _executionSessionProviders = new Map<number, (documentUri: URI, token: CancellationToken) => Thenable<string | undefined>>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -2228,5 +2234,48 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			return undefined;
 		}
 		return contribution.onDidSelectItem(itemId);
+	}
+
+	/**
+	 * Register an execution session provider for a language.
+	 *
+	 * @param languageId The language of the code the provider chooses a session for
+	 * @param provideSession Gets the session for code from a document, by the document's URI
+	 * @returns A disposable that unregisters the provider when disposed
+	 */
+	public registerExecutionSessionProvider(
+		languageId: string,
+		provideSession: (documentUri: URI, token: CancellationToken) => Thenable<string | undefined>
+	): IDisposable {
+		const handle = this._executionSessionProviderHandleCounter++;
+		this._executionSessionProviders.set(handle, provideSession);
+		this._proxy.$registerExecutionSessionProvider(handle, languageId);
+
+		return new Disposable(() => {
+			this._executionSessionProviders.delete(handle);
+			this._proxy.$unregisterExecutionSessionProvider(handle);
+		});
+	}
+
+	/**
+	 * Get the session that runs code from a document, from an execution session provider.
+	 * Called by the main thread.
+	 *
+	 * A provider declines by throwing a cancellation error. That is answered as a value, so the
+	 * main thread can tell it apart from the request itself being cancelled.
+	 */
+	async $provideExecutionSession(handle: number, documentUri: UriComponents, token: CancellationToken): Promise<extHostProtocol.IExecutionSessionProviderResult> {
+		const provideSession = this._executionSessionProviders.get(handle);
+		if (!provideSession) {
+			return {};
+		}
+		try {
+			return { sessionId: await provideSession(URI.revive(documentUri), token) };
+		} catch (error) {
+			if (isCancellationError(error)) {
+				return { declined: true };
+			}
+			throw error;
+		}
 	}
 }
