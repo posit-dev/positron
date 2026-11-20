@@ -39,11 +39,18 @@ export type Progress = ({ step: 'kept' } & KeptMove) | { step: 'path'; path: str
 export interface KeptMove { from: string; to: string; sizeBytes: number; blob: string | null }
 export type JournalStatus = 'prepared' | 'complete' | 'rolled-back' | 'abandoned' | 'interrupted' | 'pending-approval';
 
+/**
+ * Marks the record of an Undo or a Redo (spec 6.3), with the id of the operation it reverses or
+ * applies again. Such a record is never an entry of the undo or redo list itself.
+ */
+export interface OperationRole { kind: 'undo' | 'redo'; target: string }
+
 export interface JournalRecord {
 	id: string; kind: OperationKind; description: string; time: string; branch: string;
 	before: TriState; after: TriState; paths: PathPlan[]; skipped: string[];
 	keptMoves: KeptMove[]; progress: Progress[]; status: JournalStatus;
 	redoWorktreeTree?: string; pending?: { token: string; approvedTree: string; resultTree: string; candidate: string };
+	role?: OperationRole;
 }
 
 export type Part = 'before' | 'after' | 'unexpected';

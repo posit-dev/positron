@@ -8,7 +8,7 @@ import * as path from 'path';
 import { findCollisions, keptPath, moveAside, moveBack } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
-	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, KeptMove, Part, PathPlan,
+	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, KeptMove, OperationRole, Part, PathPlan,
 	Progress, readBranch, readDiskEntries, readIndexTree, readRecords, setStatus, TriState, writeRecord,
 } from './journal';
 import { EnginePorts } from './ports';
@@ -27,6 +27,8 @@ export interface OperationPlan {
 	 * is on disk now. The engine never writes them, so a failed operation leaves them as they are.
 	 */
 	extraPaths?: PathPlan[];
+	/** Set for an Undo or a Redo; copied into the record. */
+	role?: OperationRole;
 }
 
 /** A step found a part that is no longer at the value the record expects. */
@@ -104,6 +106,9 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 			before, after: plan.after, paths, skipped: snapshot.skipped,
 			keptMoves, progress: [], status: 'prepared',
 		};
+		if (plan.role !== undefined) {
+			record.role = plan.role;
+		}
 		await writeRecord(ports, record);
 	} catch (error) {
 		// Nothing visible has changed yet. A record whose write reported an error may still have
