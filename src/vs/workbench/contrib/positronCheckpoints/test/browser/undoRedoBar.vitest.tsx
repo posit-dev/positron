@@ -112,7 +112,7 @@ describe('Undo and Redo', () => {
 	});
 
 	test('undo of a file-restoring action warns with the count of changed files', async () => {
-		engine.state = fakeEngineState({ undo: undoEntry });
+		engine.state = fakeEngineState({ undo: { ...undoEntry, restoresFiles: true } });
 		engine.changes = { basis: 'after-the-action', files: [] };
 		rtl.render(<CheckpointsPanel />);
 		expect(await screen.findByRole('button', { name: 'Undo: Get Maya\'s changes' })).toBeInTheDocument();
@@ -127,14 +127,54 @@ describe('Undo and Redo', () => {
 		expect(await screen.findByText('You changed 3 files since then. Undo will set them back, and Redo will return them.')).toBeInTheDocument();
 	});
 
+	test('an action that leaves files as they are shows no count', async () => {
+		for (const entry of [{ ...undoEntry, kind: 'edit-description' as const, restoresFiles: false }, undoEntry]) {
+			engine.state = fakeEngineState({ undo: entry });
+			engine.changes = { basis: 'after-the-action', files: [] };
+			const { unmount } = rtl.render(<CheckpointsPanel />);
+			expect(await screen.findByRole('button', { name: 'Undo: Get Maya\'s changes' })).toBeInTheDocument();
+			const loads = engine.callsOf('getChanges').length;
+
+			engine.changes = { basis: 'after-an-edit', files: [{ path: 'a.R', status: 'modified', binary: false, sizeBytes: 1, tooLarge: false, hunks: [] }] };
+			await act(async () => engine.fireChange());
+			await vi.waitFor(() => expect(engine.callsOf('getChanges').length).toBeGreaterThan(loads));
+
+			expect(screen.queryByText(/You changed/)).not.toBeInTheDocument();
+			unmount();
+		}
+	});
+
+	test('a Redo that returns to an earlier pair of actions shows no stale count', async () => {
+		const restoring = { ...undoEntry, restoresFiles: true };
+		const edited = (path: string) => ({ path, status: 'modified' as const, binary: false, sizeBytes: 1, tooLarge: false, hunks: [] });
+		engine.state = fakeEngineState({ undo: restoring });
+		engine.changes = { basis: 'b1', files: [] };
+		rtl.render(<CheckpointsPanel />);
+		expect(await screen.findByRole('button', { name: 'Undo: Get Maya\'s changes' })).toBeInTheDocument();
+
+		// Undo: the action moves to the redo list.
+		engine.state = fakeEngineState({ redo: restoring });
+		engine.changes = { basis: 'b2', files: [] };
+		await act(async () => engine.fireChange());
+		expect(await screen.findByRole('button', { name: 'Redo: Get Maya\'s changes' })).toBeInTheDocument();
+
+		// Redo: the pair of the first load again, with files that differ from that load.
+		engine.state = fakeEngineState({ undo: restoring });
+		engine.changes = { basis: 'b3', files: [edited('a.R'), edited('b.R')] };
+		await act(async () => engine.fireChange());
+		expect(await screen.findByRole('button', { name: 'Undo: Get Maya\'s changes' })).toBeInTheDocument();
+
+		expect(screen.queryByText(/You changed/)).not.toBeInTheDocument();
+	});
+
 	test('a new action starts a new count', async () => {
-		engine.state = fakeEngineState({ undo: undoEntry });
+		engine.state = fakeEngineState({ undo: { ...undoEntry, restoresFiles: true } });
 		engine.changes = { basis: 'b1', files: [] };
 		rtl.render(<CheckpointsPanel />);
 		expect(await screen.findByRole('button', { name: 'Undo: Get Maya\'s changes' })).toBeInTheDocument();
 
 		// An action finishes, and the files it left behind are the new starting point.
-		engine.state = fakeEngineState({ undo: { operationId: 'op-4', description: 'Go back to Tuesday' } });
+		engine.state = fakeEngineState({ undo: { operationId: 'op-4', description: 'Go back to Tuesday', restoresFiles: true } });
 		engine.changes = { basis: 'b2', files: [{ path: 'a.R', status: 'modified', binary: false, sizeBytes: 1, tooLarge: false, hunks: [] }] };
 		await act(async () => engine.fireChange());
 

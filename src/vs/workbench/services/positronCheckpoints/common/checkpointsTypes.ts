@@ -20,7 +20,7 @@ export interface IEngineState {
 	projectRoot: string;
 	openedFolderIsInsideProject: boolean;
 	branch?: string;
-	shared: { exists: boolean; ahead: number; behind: number; lastChecked?: string };
+	shared: { exists: boolean; ahead: number; behind: number; lastChecked?: string; name?: string };
 	identityMissing: boolean;
 	syncAvailable: boolean;
 	requiredGitVersion: '2.40';
@@ -30,8 +30,8 @@ export interface IEngineState {
 	interrupted?: { operationId: string; description: string; unexpectedPaths: string[]; indexUnexpected: boolean };
 	recoveryNotice?: 'reversed' | 'completed';
 	recoverySnapshots: { operationId: string; time: string }[];
-	undo?: { operationId: string; description: string };
-	redo?: { operationId: string; description: string };
+	undo?: { operationId: string; description: string; kind?: OperationKind; restoresFiles?: boolean };
+	redo?: { operationId: string; description: string; kind?: OperationKind; restoresFiles?: boolean };
 	keptFileCount: number;
 }
 
@@ -56,7 +56,8 @@ export type DiffTarget =
 	| { kind: 'change'; path: string }
 	| { kind: 'checkpoint'; id: string; path: string }
 	| { kind: 'incoming'; path: string }
-	| { kind: 'trees'; left: string; right: string; path: string };
+	| { kind: 'trees'; left: string; right: string; path: string }
+	| { kind: 'pending'; token: string; path: string };
 
 export type OverlapKind = 'text' | 'binary' | 'edit-delete' | 'rename' | 'file-folder' | 'unsupported';
 export interface IOverlap {

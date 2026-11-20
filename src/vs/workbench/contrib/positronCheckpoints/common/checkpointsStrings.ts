@@ -155,6 +155,7 @@ const diff = {
 	binaryMessage: (path: string, sizes: string) => localize('positron.checkpoints.diff.binaryMessage', "{0} is a data file, so there is no line-by-line comparison. {1}", path, sizes),
 	tooLargeMessage: (path: string, limitMegabytes: number, sizes: string) => localize('positron.checkpoints.diff.tooLargeMessage', "{0} is over {1} MB, so there is no line-by-line comparison. {2}", path, limitMegabytes, sizes),
 	unavailable: (path: string) => localize('positron.checkpoints.diff.unavailable', "The differences for {0} could not be read.", path),
+	pendingTitle: (path: string) => localize('positron.checkpoints.diff.pendingTitle', "{0} (as the check changed it)", path),
 };
 
 const history = {
@@ -215,7 +216,7 @@ const resultSentences = {
 	unavailable: (reason: UnavailableReason): string => {
 		switch (reason) {
 			case 'busy':
-				return localize('positron.checkpoints.results.unavailable.busy', "Another window is working on this project");
+				return localize('positron.checkpoints.results.unavailable.busy', "Another window is working on this project.");
 			case 'unusual-state':
 				return localize('positron.checkpoints.results.unavailable.unusualState', "This project is in a state Checkpoints cannot work with. See the message at the top of the view.");
 			case 'git-too-old':
@@ -245,7 +246,7 @@ const resultSentences = {
 function forOperation(result: OperationResult): string | undefined {
 	switch (result.kind) {
 		case 'done':
-			return result.hookEditedFiles.length > 0 ? resultSentences.checkChangedFilesOnDisk(result.hookEditedFiles.length) : undefined;
+			return result.hookEditedFiles.length > 0 ? joinSentences([resultSentences.checkChangedFilesOnDisk(result.hookEditedFiles.length)]) : undefined;
 		case 'check-failed': {
 			const sentences = [resultSentences.checkFailed()];
 			if (result.hookEditedFiles.length > 0) {
@@ -254,7 +255,7 @@ function forOperation(result: OperationResult): string | undefined {
 			return joinSentences(sentences);
 		}
 		case 'check-changed-checkpoint':
-			return resultSentences.checkChangedCheckpoint();
+			return joinSentences([resultSentences.checkChangedCheckpoint()]);
 		case 'path-collisions':
 			return resultSentences.pathCollisions();
 		case 'overlaps':
@@ -382,6 +383,8 @@ const kept = {
 	chooseNewPlace: (path: string) => localize('positron.checkpoints.kept.chooseNewPlace', "Choose a place for {0}", path),
 	moveHere: () => localize('positron.checkpoints.kept.moveHere', "Move Here"),
 	outsideProject: () => localize('positron.checkpoints.kept.outsideProject', "Choose a place inside this project. The file stays aside."),
+	couldNotLoad: () => localize('positron.checkpoints.kept.couldNotLoad', "The list of files kept aside could not be read."),
+	tryAgain: () => localize('positron.checkpoints.kept.tryAgain', "Try Again"),
 };
 
 const interrupted = {
@@ -400,6 +403,7 @@ const checkResult = {
 	changedTitle: () => localize('positron.checkpoints.checkResult.changedTitle', "Project Check Changed Files"),
 	changedFiles: () => localize('positron.checkpoints.checkResult.changedFiles', "Files the check changed:"),
 	editedFiles: () => localize('positron.checkpoints.checkResult.editedFiles', "Files the check changed on disk:"),
+	filesChangedOnDisk: (count: number) => joinSentences([resultSentences.checkChangedFilesOnDisk(count)]),
 };
 
 const suggestions = {

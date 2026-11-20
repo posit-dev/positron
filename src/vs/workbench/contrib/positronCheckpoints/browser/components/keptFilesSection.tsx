@@ -9,13 +9,14 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { joinPath } from '../../../../../base/common/resources.js';
 import { IDialogService, IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { IKeptFile, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from '../checkpointsMessages.js';
-import { projectRootUri } from '../runAction.js';
+import { projectRootUri } from '../projectRoot.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { useRunAction } from './useRunAction.js';
 
@@ -32,7 +33,10 @@ function isOccupied(result: OperationResult | undefined): boolean {
 export const KeptFilesSection = ({ view }: { view: ICheckpointsViewState }) => {
 	const services = usePositronReactServicesContext();
 	const runAction = useRunAction();
-	const [files, setFiles] = useState<IKeptFile[]>([]);
+	// Undefined until the list is read, and 'failed' when reading it failed.
+	const [files, setFiles] = useState<IKeptFile[] | 'failed'>();
+	// Incremented by Try Again, so the list is read once more.
+	const [attempt, setAttempt] = useState(0);
 	const keptCount = view.state?.keptFileCount ?? 0;
 
 	// The list is read again whenever the view loads, because the engine reports only the count.
@@ -45,10 +49,15 @@ export const KeptFilesSection = ({ view }: { view: ICheckpointsViewState }) => {
 		const engine = services.get(ICheckpointsService).engine;
 		engine?.getKeptFiles().then(
 			list => { if (current) { setFiles(list); } },
-			() => { if (current) { setFiles([]); } }
+			error => {
+				if (current) {
+					services.get(ILogService).error('The files kept aside could not be read.', error);
+					setFiles('failed');
+				}
+			}
 		);
 		return () => { current = false; };
-	}, [services, view.state, keptCount]);
+	}, [services, view.state, keptCount, attempt]);
 
 	if (keptCount === 0) {
 		return null;
@@ -117,11 +126,36 @@ export const KeptFilesSection = ({ view }: { view: ICheckpointsViewState }) => {
 		view.refresh();
 	};
 
+	const heading = <h3 className='checkpoints-heading' id='checkpoints-kept-heading'>{Strings.kept.heading()}</h3>;
+
+	if (files === 'failed') {
+		const retry = () => {
+			setFiles(undefined);
+			setAttempt(current => current + 1);
+		};
+		return (
+			<section aria-labelledby='checkpoints-kept-heading' className='checkpoints-section checkpoints-kept'>
+				{heading}
+				<p className='checkpoints-note'>{Strings.kept.couldNotLoad()}</p>
+				<Button className='checkpoints-link' onPressed={retry}>{Strings.kept.tryAgain()}</Button>
+			</section>
+		);
+	}
+
+	// No total is shown until the list is read.
+	if (files === undefined) {
+		return (
+			<section aria-labelledby='checkpoints-kept-heading' className='checkpoints-section checkpoints-kept'>
+				{heading}
+			</section>
+		);
+	}
+
 	const totalBytes = files.reduce((sum, file) => sum + file.sizeBytes, 0);
 
 	return (
 		<section aria-labelledby='checkpoints-kept-heading' className='checkpoints-section checkpoints-kept'>
-			<h3 className='checkpoints-heading' id='checkpoints-kept-heading'>{Strings.kept.heading()}</h3>
+			{heading}
 			<p className='checkpoints-note'>{Strings.kept.totalSize(ByteSize.formatSize(totalBytes))}</p>
 			<ul className='checkpoints-file-list'>
 				{files.map(file => (

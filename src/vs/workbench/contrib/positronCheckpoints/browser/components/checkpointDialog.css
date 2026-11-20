@@ -44,6 +44,13 @@
 	list-style: none;
 }
 
+.checkpoint-dialog-file-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+}
+
 .checkpoint-dialog-file {
 	display: flex;
 	flex-wrap: wrap;

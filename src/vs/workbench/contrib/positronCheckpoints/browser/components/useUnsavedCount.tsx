@@ -10,7 +10,7 @@ import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { countUnsavedInProject } from '../../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
-import { projectRootUri } from '../runAction.js';
+import { projectRootUri } from '../projectRoot.js';
 
 /**
  * The number of files in the project with unsaved edits, kept current as editors change. An empty

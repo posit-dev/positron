@@ -72,7 +72,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	diff: {
 		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],
-		binaryMessage: [['plot.png', 'Before: 1 MB. Now: 2 MB.']], tooLargeMessage: [['big.csv', 50, 'Now: 80 MB.']], unavailable: [['dose.R']],
+		binaryMessage: [['plot.png', 'Before: 1 MB. Now: 2 MB.']], tooLargeMessage: [['big.csv', 50, 'Now: 80 MB.']], unavailable: [['dose.R']], pendingTitle: [['dose.R']],
 	},
 	history: {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],
@@ -108,7 +108,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],
 		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],
-		chooseNewPlace: [['data.csv']], moveHere: [[]], outsideProject: [[]],
+		chooseNewPlace: [['data.csv']], moveHere: [[]], outsideProject: [[]], couldNotLoad: [[]], tryAgain: [[]],
 	},
 	unsaved: {
 		cancel: [[]], saveAndInclude: [[1], [2]], continueWithout: [[]], saveAllAndContinue: [[]], checkpointMessage: [[1], [2]], checkpointDetail: [[]],
@@ -117,7 +117,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	interrupted: {
 		heading: [[]], changedFiles: [[]], stagedWork: [[]], dialogTitle: [[]], reviewButton: [[]], reverseHelp: [[]], leaveHelp: [[]], decideLater: [[]],
 	},
-	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]] },
+	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]] },
 	suggestions: { goodPlace: [[]] },
 	aiNotice: { disclosure: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },
@@ -187,10 +187,10 @@ describe('checkpointsStrings', () => {
 		const sentences = results.map(result => Strings.results.forOperation(result));
 		expect(sentences).toEqual([
 			undefined,
-			'The check also changed 2 files on disk',
+			'The check also changed 2 files on disk.',
 			'A check set up for this project did not pass.',
 			'A check set up for this project did not pass. The check also changed 1 file on disk. Create the checkpoint again to include these changes.',
-			'A check set up for this project also changed these files',
+			'A check set up for this project also changed these files.',
 			'Some files on this computer are in no checkpoint, and this action would replace them. Nothing has changed yet. Choose what to do with each file.',
 			'1 change overlaps with your work. Choose how to combine them. Nothing has changed in your project yet.',
 			'You created a checkpoint since you reviewed this. Maya added more changes since you reviewed this. One of the overlapping files changed since you reviewed this. The changes are shown again. Nothing was changed.',
@@ -205,7 +205,7 @@ describe('checkpointsStrings', () => {
 			'This project is only on this computer, so there is no shared copy.',
 			'The shared copy could not be reached. Check your connection and try again.',
 			'The shared copy did not accept the request.',
-			'Another window is working on this project',
+			'Another window is working on this project.',
 			'This project is in a state Checkpoints cannot work with. See the message at the top of the view.',
 			'Getting and sending changes needs git version 2.40 or newer. Update git to use them.',
 			'This folder is not keeping checkpoints yet.',
@@ -216,6 +216,15 @@ describe('checkpointsStrings', () => {
 			'There were no changes to act on, so no files were changed.',
 			'A file is already in that place. Choose a new name or place for the kept file.',
 		]);
+	});
+
+	test('every result sentence and project check sentence is complete', () => {
+		const sentences = [
+			...results.map(result => Strings.results.forOperation(result)).filter(sentence => sentence !== undefined),
+			Strings.checkResult.filesChangedOnDisk(1),
+			Strings.checkResult.filesChangedOnDisk(2),
+		];
+		expect(sentences.filter(sentence => !sentence.endsWith('.'))).toEqual([]);
 	});
 
 	test('the sentences the spec quotes appear verbatim', () => {

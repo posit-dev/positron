@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from '../../../../base/common/uri.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -18,6 +17,7 @@ import { showCollisionDialog } from './components/collisionDialog.js';
 import { IDialogActions } from './components/dialogActions.js';
 import { showInterruptedDialog } from './components/interruptedDialog.js';
 import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
+import { projectRootUri } from './projectRoot.js';
 import { ISyncController } from './syncController.js';
 
 /**
@@ -27,20 +27,13 @@ import { ISyncController } from './syncController.js';
 export type RunActionMode = UnsavedEditorsMode | 'no-guard';
 
 /**
- * The URI of the engine's project root, with the scheme and authority of the workspace, so that
- * it compares equal to the resources of the editors open in a remote window.
- */
-export function projectRootUri(workspaceContextService: IWorkspaceContextService, projectRoot: string): URI {
-	const path = URI.file(projectRoot).path;
-	const folder = workspaceContextService.getWorkspace().folders[0];
-	return folder ? folder.uri.with({ path }) : URI.file(projectRoot);
-}
-
-/**
  * The actions of the dialogs that `routeResult` opens, and that the view opens from state. A
  * dialog runs its engine calls through `runAction`, so their results are routed too.
+ *
+ * @param onStateChanged Called after a dialog action changed the state of the project outside
+ * `runAction`, such as the removal of a recovery snapshot, so the view can read it again.
  */
-export function createDialogActions(instantiationService: IInstantiationService): IDialogActions {
+export function createDialogActions(instantiationService: IInstantiationService, onStateChanged?: () => void): IDialogActions {
 	return {
 		run: call => instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', call)),
 		removeRecoverySnapshot: async operationId => {
@@ -51,6 +44,7 @@ export function createDialogActions(instantiationService: IInstantiationService)
 			}));
 			try {
 				await checkpointsService.engine?.removeRecoverySnapshot(operationId);
+				onStateChanged?.();
 				return true;
 			} catch (error) {
 				logService.error('The recovery snapshot could not be removed.', error);

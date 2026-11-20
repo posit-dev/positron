@@ -11,10 +11,12 @@ import { useState } from 'react';
 
 // Other dependencies.
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { OKModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { openDiff } from '../openDiff.js';
 import { IDialogActions } from './dialogActions.js';
 
 const CHECK_RESULT_DIALOG_WIDTH = 560;
@@ -40,6 +42,7 @@ interface ICheckResultDialogProps {
 }
 
 const CheckResultDialog = ({ actions, renderer, result }: ICheckResultDialogProps) => {
+	const services = usePositronReactServicesContext();
 	const [detailsShown, setDetailsShown] = useState(false);
 
 	const decide = async (accept: boolean) => {
@@ -76,9 +79,27 @@ const CheckResultDialog = ({ actions, renderer, result }: ICheckResultDialogProp
 					</>
 				) : (
 					<>
-						<p>{Strings.results.forOperation(result)}.</p>
-						<FileList heading={Strings.checkResult.changedFiles()} paths={result.changedPaths} />
-						{result.hookEditedFiles.length > 0 && <p>{Strings.results.checkChangedFilesOnDisk(result.hookEditedFiles.length)}.</p>}
+						<p>{Strings.results.forOperation(result)}</p>
+						{result.changedPaths.length > 0 && (
+							<>
+								<p>{Strings.checkResult.changedFiles()}</p>
+								<ul aria-label={Strings.checkResult.changedFiles()} className='checkpoint-dialog-files'>
+									{result.changedPaths.map(path => (
+										<li key={path} className='checkpoint-dialog-file-row'>
+											<span>{path}</span>
+											<Button
+												ariaLabel={Strings.actions.viewDetailedDifferencesOf(path)}
+												className='checkpoints-link'
+												onPressed={() => openDiff(services, { kind: 'pending', token: result.token, path }, Strings.diff.pendingTitle(path))}
+											>
+												{Strings.actions.viewDetailedDifferences()}
+											</Button>
+										</li>
+									))}
+								</ul>
+							</>
+						)}
+						{result.hookEditedFiles.length > 0 && <p>{Strings.checkResult.filesChangedOnDisk(result.hookEditedFiles.length)}</p>}
 						<div className='checkpoint-dialog-choice'>
 							<Button className='checkpoints-button' onPressed={() => decide(true)}>
 								{Strings.actions.acceptCheckedCheckpoint()}

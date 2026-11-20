@@ -102,6 +102,23 @@ describe('Files kept aside', () => {
 		await vi.waitFor(() => expect(engine.callsOf('deleteKeptFile')).toEqual([['op-1/data.csv']]));
 	});
 
+	test('a list that cannot be read says so, shows no total, and can be read again', async () => {
+		engine.keptFilesError = new Error('engine gone');
+		rtl.render(<CheckpointsPanel />);
+		const user = userEvent.setup();
+
+		const section = await screen.findByRole('region', { name: 'Files kept aside' });
+		expect(await within(section).findByText('The list of files kept aside could not be read.')).toBeInTheDocument();
+		expect(within(section).queryByText(/in total/)).not.toBeInTheDocument();
+
+		engine.keptFilesError = undefined;
+		await user.click(within(section).getByRole('button', { name: 'Try Again' }));
+
+		expect(await within(section).findByText('data.csv')).toBeInTheDocument();
+		expect(within(section).getByText(/in total/)).toBeInTheDocument();
+		expect(within(section).queryByText('The list of files kept aside could not be read.')).not.toBeInTheDocument();
+	});
+
 	test('the section is absent when no file is kept', async () => {
 		engine.state = fakeEngineState({ keptFileCount: 0 });
 		rtl.render(<CheckpointsPanel />);

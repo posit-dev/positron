@@ -38,8 +38,7 @@ export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
 
 	const hasUnshared = checkpoints.some(checkpoint => !checkpoint.shared);
 	const branch = view.state?.branch;
-	// The engine does not report the name of the shared copy yet. Until it does, none is shown.
-	const upstream = (view.state?.shared as { name?: string } | undefined)?.name;
+	const upstream = view.state?.shared.name;
 
 	const send = async () => {
 		await runAction('no-guard', engine => engine.sendChanges());

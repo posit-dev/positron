@@ -17,10 +17,13 @@ export function useRunAction(): (mode: RunActionMode, call: RunActionCall) => Pr
 	return useCallback((mode, call) => runAction(services, mode, call), [services]);
 }
 
-/** The actions for a dialog that the view opens from state, such as the interrupted-action dialog. */
-export function useDialogActions(): IDialogActions {
+/**
+ * The actions for a dialog that the view opens from state, such as the interrupted-action dialog.
+ * `refresh` reads the state of the view again after a dialog action changed it.
+ */
+export function useDialogActions(refresh: () => void): IDialogActions {
 	const services = usePositronReactServicesContext();
-	return useMemo(() => createDialogActions(services.get(IInstantiationService)), [services]);
+	return useMemo(() => createDialogActions(services.get(IInstantiationService), refresh), [services, refresh]);
 }
 
 /** The sentence on the status line of the view, updated when an action publishes a new one. */

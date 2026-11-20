@@ -15,7 +15,7 @@ import { ContentRef, DiffTarget } from '../../../services/positronCheckpoints/co
 import { LARGE_FILE_LIMIT_BYTES, LARGE_FILE_LIMIT_MEGABYTES } from '../common/checkpointsLimits.js';
 import { Strings } from '../common/checkpointsStrings.js';
 import { blobResource, messageResource } from './checkpointsContentProvider.js';
-import { projectRootUri } from './runAction.js';
+import { projectRootUri } from './projectRoot.js';
 
 /** The number of leading bytes that are searched for a zero byte, which marks a data file. */
 const BINARY_SNIFF_BYTES = 8000;

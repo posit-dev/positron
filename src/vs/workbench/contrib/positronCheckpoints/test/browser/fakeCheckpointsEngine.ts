@@ -61,6 +61,8 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	changes: IChangeSet = { basis: 'basis-1', files: [] };
 	history: ICheckpoint[] = [];
 	keptFiles: IKeptFile[] = [];
+	/** When set, `getKeptFiles` fails with this error. */
+	keptFilesError?: Error;
 	/** The answer to `getDiff`. Without it, the left side is empty and the right side is the file. */
 	diff?: { left: ContentRef; right: ContentRef };
 	/** The content `readBlob` returns for each blob id. Other ids read as empty. */
@@ -185,6 +187,9 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 
 	async getKeptFiles(): Promise<IKeptFile[]> {
 		this._record('getKeptFiles');
+		if (this.keptFilesError) {
+			throw this.keptFilesError;
+		}
 		return this.keptFiles;
 	}
 
