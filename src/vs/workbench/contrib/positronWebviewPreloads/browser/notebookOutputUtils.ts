@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { shiftWheelToHorizontal } from '../../../../base/common/positronWheel.js';
+
 export function buildWebviewHTML(opts: {
 	content: string;
 	script?: string;
@@ -97,7 +99,12 @@ export function normalizeWheelDeltaY(deltaMode: number, deltaY: number, pageHeig
 }
 
 
-function webviewMessageCode() {
+/**
+ * The script injected into webview outputs. It runs from its source text, so it cannot import;
+ * its dependencies are passed in as arguments (see webviewMessageCodeString).
+ * @param convertShiftWheel shiftWheelToHorizontal from base/common/positronWheel.ts.
+ */
+function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
 	// acquireVsCodeApi is a global injected by the webview host. Access it
 	// through the window object so the production bundler cannot rename it.
 	// eslint-disable-next-line no-restricted-globals
@@ -205,6 +212,14 @@ function webviewMessageCode() {
 	//    reached its top/bottom edge. In both cases, wheeling should
 	//    move the notebook, so we forward the event.
 	//
+	// The browser turns shift + wheel into a horizontal scroll of the
+	// output, so it must not also be forwarded to the notebook as a
+	// vertical scroll (#11063). The platform check matches isMacintosh
+	// in base/common/platform.ts.
+	const isMacintosh = navigator.userAgent.indexOf('Macintosh') >= 0;
+	const isShiftWheelToHorizontal = (event: WheelEvent) =>
+		convertShiftWheel(event, isMacintosh).deltaY === 0;
+
 	// The viewport has at most one element that scrolls on wheel. This
 	// returns that element when viewport scrolling is enabled, or null
 	// when the page disables it via overflow-y: hidden or clip. CSS
@@ -292,6 +307,11 @@ function webviewMessageCode() {
 		const now = Date.now();
 		const gapSincePrev = now - lastEventAt;
 		lastEventAt = now;
+		// Checked after the timestamp so the gesture-gap logic still sees
+		// shift events that arrive in the middle of a momentum tail.
+		if (isShiftWheelToHorizontal(event)) {
+			return;
+		}
 		const consumer = findVerticalWheelConsumer(event);
 		if (consumer) {
 			lastConsumer = consumer;
@@ -326,4 +346,6 @@ function webviewMessageCode() {
 	window.onload = () => sendSizeMessage(true);
 }
 
-export const webviewMessageCodeString = `(${webviewMessageCode.toString()})();`;
+// The production bundler renames a parameter together with its uses, but would break a reference
+// to shiftWheelToHorizontal by name inside webviewMessageCode, so pass it as an argument.
+export const webviewMessageCodeString = `(${webviewMessageCode.toString()})(${shiftWheelToHorizontal.toString()});`;
