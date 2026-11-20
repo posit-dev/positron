@@ -4,17 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
+import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronPlots } from '../../browser/positronPlots.js';
+import { PlotsNextAction, PlotsPreviousAction } from '../../browser/positronPlotsActions.js';
+import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 
 describe('Plot gallery removal', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+	let restoreLayout: () => void;
+	beforeEach(() => {
+		restoreLayout = stubGridLayoutWithSize(800, 600);
+		vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() =>
+			stubInterface<CanvasRenderingContext2D & GPUCanvasContext>({
+				font: '',
+				measureText: () => stubInterface<TextMetrics>({ width: 30 }),
+			}));
+	});
+	afterEach(() => { restoreLayout(); vi.unstubAllGlobals(); });
 
 	// A large container so the "Automatic" history policy keeps the gallery visible.
 	const reactComponentContainer: IReactComponentContainer = {
@@ -55,5 +71,98 @@ describe('Plot gallery removal', () => {
 
 		// The two remaining plots should still be shown in the gallery.
 		expect(screen.getAllByRole('button', { name: 'Remove plot' })).toHaveLength(2);
+	});
+
+	it('keeps dynamic plot controls and disables both arrows after removing an earlier plot', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'earlier');
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'selected');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		act(() => plotsService.removePlot('earlier'));
+
+		expect(plotsService.selectedPlotId).toBe('selected');
+		expect(screen.getByRole('button', { name: 'Save Plot' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Copy Plot to Clipboard' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+	});
+
+	it('keeps toolbar capabilities and navigation aligned after a static plot is prepended', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const user = userEvent.setup();
+		const nextAction = registerAction2(PlotsNextAction);
+		const previousAction = registerAction2(PlotsPreviousAction);
+		ctx.disposables.add(nextAction);
+		ctx.disposables.add(previousAction);
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'earlier');
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'remaining');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+		act(() => plotsService.removePlot('earlier'));
+
+		act(() => session.receiveOutputMessage({ id: 'static', kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } }));
+
+		expect(plotsService.selectedPlotId).toBe('static');
+		expect(screen.getByRole('button', { name: 'Save Plot' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Copy Plot to Clipboard' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Automatic' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeEnabled();
+
+		await user.click(screen.getByRole('button', { name: 'Show Next Plot' }));
+		expect(plotsService.selectedPlotId).toBe('remaining');
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeEnabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+
+		await user.click(screen.getByRole('button', { name: 'Show Previous Plot' }));
+		expect(plotsService.selectedPlotId).toBe('static');
+	});
+
+	it('shows controls for the surviving plot when the selected plot is removed', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'first');
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'selected');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		act(() => plotsService.removePlot('selected'));
+
+		expect(plotsService.selectedPlotId).toBe('first');
+		expect(screen.getByRole('button', { name: 'Save Plot' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+	});
+
+	it('hides controls after clearing and restores them for the next plot', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'first');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		act(() => plotsService.removeAllPlots());
+		expect(screen.queryByRole('button', { name: 'Save Plot' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+
+		act(() => { session.createClient(RuntimeClientType.Plot, {}, {}, 'new'); });
+		expect(plotsService.selectedPlotId).toBe('new');
+		expect(screen.getByRole('button', { name: 'Save Plot' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+	});
+
+	it('does not attribute toolbar controls to a removed last plot', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'only');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		act(() => plotsService.removePlot('only'));
+
+		expect(screen.queryByRole('button', { name: 'Save Plot' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
 	});
 });

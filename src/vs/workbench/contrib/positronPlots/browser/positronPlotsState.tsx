@@ -30,16 +30,14 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 
 	// Initial set of plot instances.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(
-		services.positronPlotsService.positronPlotInstances);
+		[...services.positronPlotsService.positronPlotInstances]);
 
 	// Initial selected plot instance.
 	const initialSelectedId = services.positronPlotsService.selectedPlotId;
 	const [selectedInstanceId, setSelectedInstanceId] = useState<string>(initialSelectedId ?? '');
 
-	// Index of the selected plot instance.
-	const initialSelectedIndex = services.positronPlotsService.positronPlotInstances.findIndex
-		(p => p.id === initialSelectedId);
-	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(initialSelectedIndex);
+	// Resolve the selection against the current plot list after additions and removals.
+	const selectedInstanceIndex = positronPlotInstances.findIndex(p => p.id === selectedInstanceId);
 
 	// Counter to trigger re-renders when metadata changes.
 	const [metadataVersion, setMetadataVersion] = useState<number>(0);
@@ -50,15 +48,9 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 
 		// Listen for new plot instances.
 		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
-			// Add the plot instance to the list of plot instances
-			setPositronPlotInstances(positronPlotInstances => {
-				// This can be called multiple times for the same plot instance, so make sure
-				// we don't add it twice.
-				if (positronPlotInstances.some(p => p.id === plotInstance.id)) {
-					return positronPlotInstances;
-				}
-				return [...positronPlotInstances, plotInstance];
-			});
+			// Keep the pane in service order, which is also the order used by
+			// the Previous/Next commands. New static plots can be prepended.
+			setPositronPlotInstances([...services.positronPlotsService.positronPlotInstances]);
 
 			// When the plot closes, remove it from the list of plot instances.
 			// (If the plot is not a plot client instance, then it doesn't have
@@ -75,11 +67,6 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 		disposableStore.add(services.positronPlotsService.onDidSelectPlot(id => {
 			// Set the selected plot instance.
 			setSelectedInstanceId(id);
-
-			// Find the index of the selected plot instance.
-			const index = services.positronPlotsService.positronPlotInstances.findIndex(
-				p => p.id === id);
-			setSelectedInstanceIndex(index);
 		}));
 
 		// Listen for plot removal.
@@ -89,7 +76,7 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 
 		// Listen for replacing all plots.
 		disposableStore.add(services.positronPlotsService.onDidReplacePlots((plots) => {
-			setPositronPlotInstances(plots);
+			setPositronPlotInstances([...plots]);
 		}));
 
 		// Listen for metadata updates.
