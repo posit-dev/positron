@@ -361,6 +361,7 @@ import './contrib/positronTelemetry/browser/positronTelemetry.contribution.js';
 import './contrib/positronEditorActions/browser/positronEditorActions.contribution.js';
 import './contrib/positronControlGallery/browser/positronControlGalleryEditor.contribution.js';
 import './contrib/positronSettings/browser/positronSettings.contribution.js';
+import './services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 // --- End Positron ---
 
 // Terminal
