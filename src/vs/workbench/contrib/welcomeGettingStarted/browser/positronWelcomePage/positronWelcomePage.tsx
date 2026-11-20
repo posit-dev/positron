@@ -14,6 +14,7 @@ import { DisposableResizeObserver, getWindow } from '../../../../../base/browser
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
+import { LayoutCards } from './components/layoutCards.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
 import { WelcomeHeader } from './components/welcomeHeader.js';
 import { EnvironmentHealthLanguage } from './environmentHealth.js';
@@ -83,6 +84,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	return (
 		<>
 			<WelcomeHeader />
+			<LayoutCards />
 			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
 			<div className='positron-welcome-page-columns'>
 				<div className='positron-welcome-page-column-main'>
