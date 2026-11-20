@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { mustGit, splitZ } from './git';
-import { acquireLock, classify, JournalRecord, readRecords, setStatus } from './journal';
+import { acquireLock, changesIndex, Classification, classify, JournalRecord, readRecords, setStatus } from './journal';
 import { EnginePorts } from './ports';
 import { backupDirectory, returnKeptFiles, reverse, rollForward, saveRecoverySnapshot } from './runOperation';
 import { RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX } from './trees';
@@ -28,11 +28,11 @@ export interface RecoveryOutcome {
  *
  * - The branch is at neither commit: nothing is written and the record stays as it is;
  *   `unrecovered` names the refs. For a record with ref changes, the change at the commit point
- *   stands for the branch, and a change the record started that is at neither value also gives
- *   `unrecovered` (see `classify`).
- * - Any path or the index is "unexpected", or the record is `interrupted` (a live reversal that
- *   could not finish): nothing is written, the record becomes `interrupted`, and it is reported
- *   through `interrupted`. Only `resolveInterrupted` resolves it.
+ *   stands for the branch (see `classify`).
+ * - Any path is "unexpected", the index is "unexpected" and the record changes it
+ *   (`changesIndex`), a ref change is in the way (`refsInTheWay`), or the record is
+ *   `interrupted` (a live reversal that could not finish): nothing is written, the record becomes
+ *   `interrupted`, and it is reported through `interrupted`. Only `resolveInterrupted` resolves it.
  * - Otherwise, with the branch at the after commit (or the change at the commit point applied)
  *   the operation is completed, and else it is reversed; `notice` says which. Content that changes during the reversal is left and reported
  *   through `interrupted`.
@@ -83,12 +83,12 @@ async function recoverRecord(ports: EnginePorts, record: JournalRecord): Promise
 		if (classification.branch === 'unexpected') {
 			const reason = record.refChanges === undefined
 				? `The branch ${record.branch} is at neither the commit before nor the commit after the action.`
-				: 'A ref, HEAD, or configuration section the action changes is at neither its value before nor its value after the action.';
+				: 'The change that decides the action (its commit point) is at neither its value before nor its value after the action.';
 			return { unrecovered: unrecoveredDetail(record, reason) };
 		}
 		const unexpectedPaths = classification.paths.filter(({ part }) => part === 'unexpected').map(({ path }) => path);
-		const indexUnexpected = classification.index === 'unexpected';
-		if (record.status === 'interrupted' || unexpectedPaths.length > 0 || indexUnexpected) {
+		const indexUnexpected = classification.index === 'unexpected' && changesIndex(record);
+		if (record.status === 'interrupted' || unexpectedPaths.length > 0 || indexUnexpected || refsInTheWay(record, classification)) {
 			if (record.status !== 'interrupted') {
 				await setStatus(ports, record.id, 'interrupted');
 			}
@@ -108,12 +108,23 @@ async function recoverRecord(ports: EnginePorts, record: JournalRecord): Promise
 				operationId: record.id,
 				description: record.description,
 				unexpectedPaths: now.paths.filter(({ part }) => part === 'unexpected').map(({ path }) => path),
-				indexUnexpected: now.index === 'unexpected',
+				indexUnexpected: now.index === 'unexpected' && changesIndex(record),
 			},
 		};
 	} catch (error) {
 		return { unrecovered: unrecoveredDetail(record, `Recovery stopped: ${error instanceof Error ? error.message : String(error)}.`) };
 	}
+}
+
+/**
+ * True when a ref change of `record` is unexpected in a way that stops automatic recovery: one
+ * with a progress entry (the engine may have changed it before another tool did), or, once the
+ * change at the commit point is applied, any change, since completing the operation would write
+ * each one that is not at its after value.
+ */
+function refsInTheWay(record: JournalRecord, classification: Classification): boolean {
+	const listed = (index: number) => record.progress.some(entry => entry.step === 'ref-change' && entry.index === index);
+	return (classification.refChanges ?? []).some((part, index) => part === 'unexpected' && (classification.branch === 'after' || listed(index)));
 }
 
 /** Removes the backup folder of a decided operation, when a crash left one. */

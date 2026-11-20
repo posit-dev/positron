@@ -11,6 +11,7 @@ import { createEngine } from './engine';
 import { getHistory } from './history';
 import { engineDirectory, readRecords } from './journal';
 import { redo, redoHead, undo, undoHead } from './operationLog';
+import { EnginePorts } from './ports';
 import { proposalSlug, readProposal, sharedReference, startProposal } from './proposals';
 import { recoverOnStart } from './recovery';
 import { readRepoFacts } from './repoState';
@@ -298,6 +299,60 @@ describe('startProposal', { timeout: 60_000 }, () => {
 		doneId(await redo(repo.ports, id, []));
 		expect(await state(repo)).toEqual(started);
 		expect(await readProposal(repo.ports)).toEqual({ branch: PROPOSAL, base: 'main', sent: false });
+	});
+});
+
+/** `ports` whose first `times` git calls that point HEAD at `ref` fail. */
+function failingHeadWrites(ports: EnginePorts, ref: string, times: number): EnginePorts {
+	let failed = 0;
+	return {
+		...ports,
+		git: async (args, options) => {
+			if (args.includes('symbolic-ref') && args.at(-2) === 'HEAD' && args.at(-1) === ref && failed < times) {
+				failed++;
+				return { exitCode: 1, stdout: '', stderr: 'injected failure', timedOut: false };
+			}
+			return ports.git(args, options);
+		},
+	};
+}
+
+describe('an operation whose steps after the commit point fail', { timeout: 60_000 }, () => {
+	test('a retry that fails too is completed by recovery before the engine call returns', async () => {
+		const { repo } = await create();
+		const before = await state(repo);
+		const id = doneId(await startProposal(repo.ports));
+		// The undo of start moves main back first (its commit point), then points HEAD at main.
+		const engine = await createEngine(failingHeadWrites(repo.ports, 'refs/heads/main', 2));
+		try {
+			expect(await engine.undo(id, [])).toEqual({ kind: 'interrupted' });
+
+			const after = await engine.getState();
+			expect([after.recoveryNotice, after.interrupted, after.unusual]).toEqual(['completed', undefined, undefined]);
+			expect(await state(repo)).toEqual(before);
+			expect((await readRecords(repo.ports)).at(-1)?.status).toBe('complete');
+		} finally {
+			engine.dispose();
+		}
+	});
+
+	test('when recovery fails too, the state names it, and the next call completes it first', async () => {
+		const { repo, c } = await create();
+		const before = await state(repo);
+		const id = doneId(await startProposal(repo.ports));
+		const engine = await createEngine(failingHeadWrites(repo.ports, 'refs/heads/main', 3));
+		try {
+			expect(await engine.undo(id, [])).toEqual({ kind: 'interrupted' });
+			expect((await engine.getState()).unusual?.kind).toBe('unrecovered');
+
+			doneId(await engine.editDescription(c, 'Add the residual plot', 'Reworded.'));
+
+			expect((await engine.getState()).unusual).toBeUndefined();
+			expect((await state(repo)).head).toBe(before.head);
+			expect((await readRecords(repo.ports)).filter(record => record.status !== 'complete')).toEqual([]);
+		} finally {
+			engine.dispose();
+		}
 	});
 });
 

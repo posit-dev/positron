@@ -97,9 +97,8 @@ export type Part = 'before' | 'after' | 'unexpected';
 
 /**
  * `refChanges` has the part of each ref change of a record that has them, by index. For such a
- * record `branch` describes the ref changes together: `unexpected` when the change at the commit
- * point, or a change with a progress entry, is unexpected; otherwise the part of the change at
- * the commit point.
+ * record `branch` is the part of the change at the commit point, which decides whether the
+ * operation is completed or reversed.
  */
 export interface Classification { branch: Part; index: Part; paths: { path: string; part: Part }[]; refChanges?: Part[] }
 
@@ -336,6 +335,12 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
  * that does not exist matches a `null` commit, and an index git cannot write a tree for is
  * unexpected. A path the record creates that still holds only what the operation has not yet
  * moved or removed counts as before (see `explainPending`).
+ *
+ * For a record with ref changes:
+ * - A configuration section with a progress entry that has only part of the keys the engine
+ *   writes (see `isPartialSection`) counts as after: the engine wrote it, and nothing else has.
+ * - Once the change at the commit point is after, every change before it was applied first, so
+ *   such a change found at its before value was put back by another tool, and is unexpected.
  */
 export async function classify(ports: EnginePorts, record: JournalRecord): Promise<Classification> {
 	const index = partOf(await readIndexTree(ports), record.before.indexTree, record.after.indexTree);
@@ -343,16 +348,45 @@ export async function classify(ports: EnginePorts, record: JournalRecord): Promi
 	if (record.refChanges === undefined) {
 		return { branch: partOf(await readBranch(ports, record.branch), record.before.branchCommit, record.after.branchCommit), index, paths };
 	}
+	const listed = (position: number) => record.progress.some(entry => entry.step === 'ref-change' && entry.index === position);
 	const refChanges: Part[] = [];
-	for (const change of record.refChanges) {
-		refChanges.push(partOf(await readRefTarget(ports, change), refChangeSide(change, 'before'), refChangeSide(change, 'after')));
+	for (const [position, change] of record.refChanges.entries()) {
+		const now = await readRefTarget(ports, change);
+		const part = partOf(now, refChangeSide(change, 'before'), refChangeSide(change, 'after'));
+		refChanges.push(part === 'unexpected' && listed(position) && isPartialSection(change, now) ? 'after' : part);
 	}
 	const decisive = commitPointOf(record);
-	const listed = (position: number) => record.progress.some(entry => entry.step === 'ref-change' && entry.index === position);
-	const branch = refChanges.some((part, position) => part === 'unexpected' && (position === decisive || listed(position)))
-		? 'unexpected'
-		: refChanges[decisive] ?? 'before';
-	return { branch, index, paths, refChanges };
+	if (refChanges[decisive] === 'after') {
+		record.refChanges.forEach((change, position) => {
+			if (position < decisive && refChanges[position] === 'before' && refChangeSide(change, 'before') !== refChangeSide(change, 'after')) {
+				refChanges[position] = 'unexpected';
+			}
+		});
+	}
+	return { branch: refChanges[decisive] ?? 'before', index, paths, refChanges };
+}
+
+/**
+ * True when the index is part of what `record` changes: it lists an index step, or its before
+ * and after index trees differ. An index that differs from a record that does not change it is
+ * the person's own staged work, which no recovery step touches.
+ */
+export function changesIndex(record: JournalRecord): boolean {
+	return record.before.indexTree !== record.after.indexTree || record.progress.some(entry => entry.step === 'index');
+}
+
+/**
+ * True when `change` is a configuration section and `now` (in the form `readRefTarget` gives) is
+ * the first keys of its before value or of its after value, which is what a write of the section
+ * that stopped part way leaves. The engine writes a section by removing it whole and adding its
+ * keys in order, so such content is rewritten whole by the next write of either value.
+ */
+export function isPartialSection(change: RefChange, now: string | undefined): boolean {
+	if (change.type !== 'config-section' || now === undefined) {
+		return false;
+	}
+	const prefixes = (entries: [string, string][]) => entries.map((_entry, count) => sectionText(entries.slice(0, count)));
+	return [...prefixes(change.before), ...prefixes(change.after)].includes(now);
 }
 
 /** The index of the ref change that decides `record`: its `commitPoint`, or else its last change. */
@@ -424,7 +458,8 @@ export async function engineFilePath(ports: EnginePorts, name: string): Promise<
 /**
  * Every key and value of the configuration section `section` (`branch.<name>`, or a section with
  * no subsection) in the repository's own configuration file, in file order. Git gives key names
- * in lower case. A key with no value (a boolean written as the key alone) reads as an empty value.
+ * in lower case. A key with no value (a boolean written as the key alone) reads as `true`, the
+ * value git gives it, so a section written back from this list keeps the key's meaning.
  */
 export async function readConfigSection(ports: EnginePorts, section: string): Promise<[string, string][]> {
 	const dot = section.indexOf('.');
@@ -436,7 +471,7 @@ export async function readConfigSection(ports: EnginePorts, section: string): Pr
 		const key = newline === -1 ? item : item.slice(0, newline);
 		const name = key.slice(prefix.length);
 		if (key.startsWith(prefix) && name !== '' && !name.includes('.')) {
-			entries.push([name, newline === -1 ? '' : item.slice(newline + 1)]);
+			entries.push([name, newline === -1 ? 'true' : item.slice(newline + 1)]);
 		}
 	}
 	return entries;

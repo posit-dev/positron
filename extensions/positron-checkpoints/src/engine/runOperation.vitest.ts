@@ -8,12 +8,15 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { splitZ } from './git';
-import { acquireLock, classify, classifyPaths, engineDirectory, readRecords, TriState, writeRecord } from './journal';
+import { acquireLock, classify, classifyPaths, engineDirectory, readConfigSection, readRecords, RefChange, TriState, writeRecord } from './journal';
 import { EnginePorts, GitRunner } from './ports';
 import { recoverOnStart } from './recovery';
 import { OperationPlan, reverse, runOperation } from './runOperation';
 import { faultPorts } from './test/faultPorts';
-import { afterJournal, currentState, must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState, treeWith } from './test/operationFixtures';
+import {
+	afterJournal, currentState, must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState, SECTION_AFTER, sectionProject,
+	sectionState, treeWith,
+} from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { LARGE_FILE_BYTES, RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX, worktreeTree } from './trees';
 
@@ -705,5 +708,98 @@ describe('runOperation with ref changes', { timeout: 30_000 }, () => {
 		expect(result.kind).toBe('could-not-finish');
 		expect(await refState(repo)).toEqual(before);
 		expect(await readRecords(repo.ports)).toEqual([]);
+	});
+
+	test.each([
+		['a ref', { type: 'ref', name: 'proposal/x', after: 'C' }],
+		['HEAD', { type: 'head', before: 'refs/heads/main', after: 'proposal/x' }],
+	] as const)('a plan that names %s without its full ref name is refused before anything changes', async (_label, change) => {
+		const repo = await create();
+		const { c, plan } = await refChangeProject(repo);
+		const before = await refState(repo);
+		const named: RefChange = change.type === 'ref' ? { ...change, after: c } : change;
+
+		const result = await runOperation(repo.ports, { ...plan, refChanges: [named, ...plan.refChanges!.slice(3)], commitPoint: 1 });
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await refState(repo)).toEqual(before);
+		expect(await refExists(repo, 'proposal/x')).toBe(false);
+		expect(await readRecords(repo.ports)).toEqual([]);
+	});
+
+	test('a key with no value keeps its value when its section is restored', async () => {
+		const repo = await create();
+		const { plan } = await refChangeProject(repo);
+		const config = path.join(repo.root, '.git', 'config');
+		await fsp.appendFile(config, '[branch "proposal/x"]\n\trebase\n');
+		const section = await readConfigSection(repo.ports, 'branch.proposal/x');
+		const refChanges = [...plan.refChanges!];
+		refChanges[1] = { type: 'config-section', section: 'branch.proposal/x', before: section, after: [] };
+
+		const result = await runOperation(faultPorts(repo.ports, { failAt: changeCall(3) }), { ...plan, refChanges });
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await must(repo, ['config', '--type=bool', '--get', 'branch.proposal/x.rebase'])).toBe('true');
+	});
+});
+
+/** The mutating calls of the `sectionProject` operation, measured once. */
+const sectionCalls = await (async () => {
+	const repo = await tempRepo();
+	try {
+		const { plan } = await sectionProject(repo);
+		const ports = faultPorts(repo.ports, {});
+		const result = await runOperation(ports, plan);
+		if (result.kind !== 'done') {
+			throw new Error(`the section operation did not finish: ${JSON.stringify(result)}`);
+		}
+		return ports.mutatingCalls;
+	} finally {
+		await repo.dispose();
+	}
+})();
+/** The call numbers of the mutating calls that write the section `section`. */
+const sectionWrites = (section: string) => sectionCalls
+	.map((call, index) => call === `config ${section}` || call.startsWith(`config ${section}.`) ? index + 1 : 0)
+	.filter(number => number > 0);
+
+describe('runOperation with configuration sections that have keys', { timeout: 30_000 }, () => {
+	const repos: TempRepo[] = [];
+	const create = async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		return repo;
+	};
+
+	afterEach(async () => {
+		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
+	});
+
+	test('each section write is a separate mutating call', () => {
+		expect(sectionWrites('branch.proposal/x')).toHaveLength(4);
+		expect(sectionWrites('branch.side')).toHaveLength(4);
+	});
+
+	test.each(sectionWrites('branch.proposal/x'))('a fault at call %i of a section before the commit point restores it whole', async failAt => {
+		const repo = await create();
+		const { plan } = await sectionProject(repo);
+		const before = await sectionState(repo);
+
+		const result = await runOperation(faultPorts(repo.ports, { failAt }), plan);
+
+		expect(result.kind).toBe('could-not-finish');
+		expect(await sectionState(repo)).toEqual(before);
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test.each(sectionWrites('branch.side'))('a fault at call %i of a section after the commit point is completed in the same run', async failAt => {
+		const repo = await create();
+		const { c, plan } = await sectionProject(repo);
+		const before = await sectionState(repo);
+
+		expect(await runOperation(faultPorts(repo.ports, { failAt }), plan)).toEqual({ kind: 'done', operationId: 'op-1', hookEditedFiles: [] });
+
+		expect(await sectionState(repo)).toEqual({ ...before, config: SECTION_AFTER, proposal: c });
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
 	});
 });

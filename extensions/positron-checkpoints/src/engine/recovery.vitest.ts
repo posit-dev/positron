@@ -11,7 +11,9 @@ import { EnginePorts, GitRunner } from './ports';
 import { listRecoverySnapshots, recoverOnStart, removeRecoverySnapshot, resolveInterrupted } from './recovery';
 import { runOperation } from './runOperation';
 import { EngineStopped, faultPorts } from './test/faultPorts';
-import { must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState } from './test/operationFixtures';
+import {
+	must, projectState, REF_CHANGE_CALLS, refChangeProject, referenceProject, refExists, refState, SECTION_AFTER, sectionProject, sectionState,
+} from './test/operationFixtures';
 import { tempRepo, TempRepo } from './test/tempRepo';
 import { RECOVERY_REF_PREFIX, SNAPSHOT_REF_PREFIX } from './trees';
 
@@ -449,10 +451,57 @@ describe('recoverOnStart with ref changes', { timeout: 30_000 }, () => {
 		expect((await readRecords(repo.ports))[0].status).toBe('complete');
 	});
 
-	test('a ref another tool moved after the crash leaves the record unrecovered and writes nothing', async () => {
+	test('work staged after a crash after the commit point stays staged, and the record is completed', async () => {
+		const repo = await create();
+		const { a, c, before } = await crashAtChange(repo, 4);
+		await must(repo, ['add', 'a.txt']);
+		const staged = await must(repo, ['write-tree']);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'completed' });
+
+		expect(await refState(repo)).toEqual({
+			...before, head: 'refs/heads/proposal/x', main: a, proposal: c,
+			config: 'branch.proposal/x.positroncheckpointsbase main\n', engineFile: '{"branch":"main"}\n', index: staged,
+		});
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
+	});
+
+	test('work staged after a crash before the commit point stays staged, and the record is reversed', async () => {
+		const repo = await create();
+		const { before } = await crashAtChange(repo, 2);
+		await must(repo, ['add', 'a.txt']);
+		const staged = await must(repo, ['write-tree']);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'reversed' });
+
+		expect(await refState(repo)).toEqual({ ...before, index: staged });
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test('a ref another tool moved after a crash before the commit point makes the record interrupted, and writes nothing', async () => {
 		const repo = await create();
 		const { a } = await crashAtChange(repo, 3);
+		// Another tool makes the proposal branch point elsewhere, as a commit on it would.
 		await must(repo, ['update-ref', 'refs/heads/proposal/x', a]);
+		const found = await refState(repo);
+
+		const outcome = await recoverOnStart(repo.ports);
+
+		expect(outcome).toEqual({ interrupted: { operationId: 'op-1', description: 'Change several refs', unexpectedPaths: [], indexUnexpected: false } });
+		expect(await refState(repo)).toEqual(found);
+		expect((await readRecords(repo.ports))[0].status).toBe('interrupted');
+
+		// Reversal keeps the moved ref and undoes the rest.
+		expect((await resolveInterrupted(repo.ports, 'reverse-keep-newer')).kind).toBe('done');
+		expect(await refState(repo)).toEqual({ ...found, head: 'refs/heads/main', config: '' });
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test('a change at the commit point that another tool moved leaves the record unrecovered and writes nothing', async () => {
+		const repo = await create();
+		const { c } = await crashAtChange(repo, 4);
+		const other = await must(repo, ['commit-tree', `${c}^{tree}`, '-p', c, '-m', 'other']);
+		await must(repo, ['update-ref', 'refs/heads/main', other]);
 		const found = await refState(repo);
 
 		const outcome = await recoverOnStart(repo.ports);
@@ -460,5 +509,83 @@ describe('recoverOnStart with ref changes', { timeout: 30_000 }, () => {
 		expect(outcome.unrecovered).toContain(`${RECOVERY_REF_PREFIX}op-1`);
 		expect(await refState(repo)).toEqual(found);
 		expect((await readRecords(repo.ports))[0].status).toBe('prepared');
+	});
+
+	test('a change before the commit point that another tool put back after the crash makes the record interrupted, and writes nothing', async () => {
+		const repo = await create();
+		await crashAtChange(repo, 4);
+		// The person switches back to main, which puts change 2 back to its before value.
+		await must(repo, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+		const found = await refState(repo);
+
+		const outcome = await recoverOnStart(repo.ports);
+
+		expect(outcome.interrupted?.operationId).toBe('op-1');
+		expect(await refState(repo)).toEqual(found);
+		expect((await readRecords(repo.ports))[0].status).toBe('interrupted');
+	});
+});
+
+/** The mutating calls of the `sectionProject` operation, measured once. */
+const sectionCalls = await (async () => {
+	const repo = await tempRepo();
+	try {
+		const { plan } = await sectionProject(repo);
+		const ports = faultPorts(repo.ports, {});
+		await runOperation(ports, plan);
+		return ports.mutatingCalls;
+	} finally {
+		await repo.dispose();
+	}
+})();
+/** The call numbers of the mutating calls that write the section `section`. */
+const sectionWrites = (section: string) => sectionCalls
+	.map((call, index) => call === `config ${section}` || call.startsWith(`config ${section}.`) ? index + 1 : 0)
+	.filter(number => number > 0);
+
+describe('recoverOnStart with configuration sections that have keys', { timeout: 30_000 }, () => {
+	const repos: TempRepo[] = [];
+	const create = async () => {
+		const repo = await tempRepo();
+		repos.push(repo);
+		return repo;
+	};
+
+	afterEach(async () => {
+		await Promise.all(repos.splice(0).map(repo => repo.dispose()));
+	});
+
+	/** Runs the `sectionProject` operation with a crash at mutating call `stopAt`, and forgets the crashed run's lock. */
+	const crashAt = async (repo: TempRepo, stopAt: number) => {
+		const project = await sectionProject(repo);
+		const before = await sectionState(repo);
+		expect(await runOperation(faultPorts(repo.ports, { stopAt }), project.plan)).toEqual({ kind: 'interrupted' });
+		await forgetLock(repo);
+		return { ...project, before };
+	};
+
+	test('each section write is a separate mutating call', () => {
+		expect(sectionWrites('branch.proposal/x')).toHaveLength(4);
+		expect(sectionWrites('branch.side')).toHaveLength(4);
+	});
+
+	test.each(sectionWrites('branch.proposal/x'))('a crash at call %i of a section before the commit point is reversed to the whole section before', async stopAt => {
+		const repo = await create();
+		const { before } = await crashAt(repo, stopAt);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'reversed' });
+
+		expect(await sectionState(repo)).toEqual(before);
+		expect((await readRecords(repo.ports))[0].status).toBe('rolled-back');
+	});
+
+	test.each(sectionWrites('branch.side'))('a crash at call %i of a section after the commit point is completed to the whole section after', async stopAt => {
+		const repo = await create();
+		const { c, before } = await crashAt(repo, stopAt);
+
+		expect(await recoverOnStart(repo.ports)).toEqual({ notice: 'completed' });
+
+		expect(await sectionState(repo)).toEqual({ ...before, config: SECTION_AFTER, proposal: c });
+		expect((await readRecords(repo.ports))[0].status).toBe('complete');
 	});
 });

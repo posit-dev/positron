@@ -13,7 +13,7 @@ import { deleteKept, listKept, restoreKept } from './collisions';
 import { GitMissingError, GitTimeoutError, runGit } from './git';
 import { goBackTo } from './goBack';
 import { getCheckpointFiles, getDiff, getHistory, getPendingFiles, readBlob } from './history';
-import { classify, JournalRecord, readRecords } from './journal';
+import { changesIndex, classify, JournalRecord, readRecords } from './journal';
 import { expire, redo, redoHead, undo, undoHead } from './operationLog';
 import { EnginePorts } from './ports';
 import { finishProposal, readProposal, sharedReference, startProposal, stopProposal } from './proposals';
@@ -59,7 +59,10 @@ interface Guard {
  * `unavailable unusual-state` (detail: the unusual kind) in an unusual state, `unavailable
  * not-tracking` in a plain folder (apart from `startTracking`), and `unavailable busy` (detail
  * `unresolved-operation`) while an action is interrupted or unfinished (apart from
- * `resolveInterrupted`). A git call that outlives its time limit gives `unavailable timed-out`, a
+ * `resolveInterrupted`). An unfinished (`prepared`) record is first given to recovery, as at
+ * start, before that refusal and after a call that returns `interrupted`, so an operation whose
+ * steps after its commit point failed is completed, or reported through the state, without a
+ * restart. A git call that outlives its time limit gives `unavailable timed-out`, a
  * git program that cannot start gives `unavailable unusual-state git-missing`, and any other
  * error is logged through `ports.log` and gives `could-not-finish`. A call that ran then applies
  * the retention rule (`expire`) and fires `onDidChangeState`.
@@ -141,6 +144,25 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 		(await readRecords(ports)).filter(record => record.status === 'prepared' || record.status === 'interrupted');
 
 	/**
+	 * Runs recovery (`recoverOnStart`) for a `prepared` record. While the engine lock is free, no
+	 * operation owns such a record: it is one whose completion after its commit point failed, or
+	 * one a crashed window left. Recovery completes, reverses, or reports it as it does at start.
+	 * While another window holds the lock, nothing is done.
+	 */
+	const recoverPrepared = async () => {
+		try {
+			const outcome = await recoverOnStart(ports);
+			recoveryNotice = outcome.notice ?? recoveryNotice;
+			if (outcome.unrecovered !== undefined) {
+				unrecovered = outcome.unrecovered;
+			}
+		} catch (error) {
+			log(`Recovery failed: ${errorText(error)}`);
+			unrecovered = `Recovery stopped: ${errorText(error)}.`;
+		}
+	};
+
+	/**
 	 * Runs a mutating call under the rules of `createEngine`. `call` gets the ports with the
 	 * project root of the repository.
 	 */
@@ -193,7 +215,11 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 					return outcome({ kind: 'unavailable', reason: 'not-tracking' });
 				}
 			} else {
-				const unresolved = await unresolvedRecords();
+				let unresolved = await unresolvedRecords();
+				if (unresolved.some(record => record.status === 'prepared')) {
+					await recoverPrepared();
+					unresolved = await unresolvedRecords();
+				}
 				if (unresolved.length === 0) {
 					unrecovered = undefined;
 				}
@@ -209,6 +235,9 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			}
 			ran = true;
 			const result = await call(ports);
+			if (result.kind === 'interrupted' && (await unresolvedRecords()).some(record => record.status === 'prepared')) {
+				await recoverPrepared();
+			}
 			if (options.expire) {
 				try {
 					if (await isProjectFolder()) {
@@ -253,7 +282,7 @@ export async function createEngine(base: EnginePorts): Promise<Engine> {
 			operationId: record.id,
 			description: record.description,
 			unexpectedPaths: classification.paths.filter(({ part }) => part === 'unexpected').map(({ path: file }) => file),
-			indexUnexpected: classification.index === 'unexpected',
+			indexUnexpected: classification.index === 'unexpected' && changesIndex(record),
 		};
 	};
 

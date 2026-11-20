@@ -142,6 +142,60 @@ export async function refState(repo: TempRepo) {
 	};
 }
 
+/**
+ * A project at commit C whose parent is A, on `main`, where the configuration section
+ * `branch.proposal/x` has `remote = origin` and `branch.side` has `remote = origin` and `merge =
+ * refs/heads/side`, and the plan of an operation with three ref changes and no file work: write
+ * `branch.proposal/x` with three keys, create `refs/heads/proposal/x` at C (the commit point),
+ * then write `branch.side` with three other keys.
+ */
+export async function sectionProject(repo: TempRepo): Promise<{ c: string; plan: OperationPlan }> {
+	await repo.write('a.txt', 'one\n');
+	await repo.commit('A');
+	await repo.write('a.txt', 'two\n');
+	const c = await repo.commit('C');
+	await must(repo, ['config', '--local', 'branch.proposal/x.remote', 'origin']);
+	await must(repo, ['config', '--local', 'branch.side.remote', 'origin']);
+	await must(repo, ['config', '--local', 'branch.side.merge', 'refs/heads/side']);
+	const state = await currentState(repo);
+	return {
+		c, plan: {
+			kind: 'check-changed-files', description: 'Write two sections', expected: state, after: state, collisionChoices: [],
+			refChanges: [
+				{
+					type: 'config-section', section: 'branch.proposal/x', before: [['remote', 'origin']],
+					after: [['positronCheckpointsBase', 'main'], ['remote', 'origin'], ['merge', 'refs/heads/proposal/x']],
+				},
+				{ type: 'ref', name: 'refs/heads/proposal/x', after: c },
+				{
+					type: 'config-section', section: 'branch.side', before: [['remote', 'origin'], ['merge', 'refs/heads/side']],
+					after: [['remote', 'upstream'], ['merge', 'refs/heads/main'], ['rebase', 'true']],
+				},
+			],
+			commitPoint: 1,
+		},
+	};
+}
+
+/**
+ * The `branch.*` configuration (sorted: a section written again moves to the end of the file) and
+ * the ref that `sectionProject`'s plan changes, and the index.
+ */
+export async function sectionState(repo: TempRepo) {
+	const proposal = await repo.git(['rev-parse', '--verify', '-q', 'refs/heads/proposal/x']);
+	return {
+		config: (await must(repo, ['config', '--local', '--list'])).split('\n').filter(line => line.startsWith('branch.')).sort(),
+		proposal: proposal.exitCode === 0 ? proposal.stdout.trim() : undefined,
+		index: await must(repo, ['write-tree']),
+	};
+}
+
+/** The `branch.*` configuration that `sectionProject`'s plan leads to, sorted. */
+export const SECTION_AFTER = [
+	'branch.proposal/x.positroncheckpointsbase=main', 'branch.proposal/x.remote=origin', 'branch.proposal/x.merge=refs/heads/proposal/x',
+	'branch.side.remote=upstream', 'branch.side.merge=refs/heads/main', 'branch.side.rebase=true',
+].sort();
+
 /** Ports whose journal runs `fn` once, right after the operation's record is written. */
 export function afterJournal(ports: EnginePorts, fn: () => Promise<void>): EnginePorts {
 	let done = false;
