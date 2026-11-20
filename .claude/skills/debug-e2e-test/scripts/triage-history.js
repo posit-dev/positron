@@ -170,6 +170,67 @@ export function occurrenceDate(o) {
 	return iso;
 }
 
+const runStartedAtCache = new Map();
+
+/**
+ * When the CI run behind an occurrence started (GitHub `created_at`), or null.
+ * Unlike occurrenceDate this never uses the commit date: a squash merge's commit
+ * date can land a second *before* the PR's mergedAt, which would file the fix
+ * commit's own run as pre-fix.
+ */
+export function runStartedAt(o) {
+	const apiPath = runApiPath(o?.run_url);
+	if (!apiPath) { return null; }
+	if (runStartedAtCache.has(apiPath)) { return runStartedAtCache.get(apiPath); }
+	const r = tryRun('gh', ['api', apiPath, '--jq', '.created_at']);
+	const iso = r.ok ? (r.stdout.trim() || null) : null;
+	runStartedAtCache.set(apiPath, iso);
+	return iso;
+}
+
+/**
+ * Failures of the given patterns whose run started at or after `sinceFixMs`.
+ *
+ * The API window is whole days, so the post-fix query also returns failures from
+ * earlier on the merge day; each occurrence is dated individually instead. An
+ * occurrence that can't be dated, or one the API didn't list (count > listed),
+ * counts as post-fix, the direction that makes a fix look worse.
+ */
+export function countPostFixFailures(failurePatterns, sinceFixMs, startedAt = runStartedAt) {
+	let count = 0;
+	let undated = 0;
+	for (const fp of failurePatterns || []) {
+		const occs = fp.occurrences || [];
+		for (const o of occs) {
+			const t = Date.parse(startedAt(o) ?? '');
+			if (!Number.isFinite(t)) { undated++; count++; } else if (t >= sinceFixMs) { count++; }
+		}
+		const unlisted = Math.max(0, (fp.count || 0) - occs.length);
+		undated += unlisted;
+		count += unlisted;
+	}
+	return { count, undated };
+}
+
+/**
+ * Estimated runs in the post-fix query that actually ran after the merge.
+ *
+ * Run totals only come per whole day, so the post-fix window also reaches back
+ * before the merge. Failures are dated individually (countPostFixFailures) and
+ * pre-merge ones go to the baseline; the runs they came from must move with them,
+ * or the baseline counts failures without their runs and inflates its rate. The
+ * split assumes runs are spread evenly over the window.
+ */
+export function estimatePostFixRuns(windowRuns, sinceFixMs, daysSinceFix, now = Date.now()) {
+	if (windowRuns == null) { return { runs: null, leadHours: 0 }; }
+	const windowMs = daysSinceFix * 86400000;
+	const leadMs = Math.min(windowMs, Math.max(0, sinceFixMs - (now - windowMs)));
+	return {
+		runs: Math.round(windowRuns * (1 - leadMs / windowMs)),
+		leadHours: Math.round(leadMs / 3600000),
+	};
+}
+
 /**
  * Most recent occurrence of a pattern. Recency is what separates an acute burst
  * that a merged fix already closed from an ongoing drip -- without it a stale
@@ -470,24 +531,34 @@ function main() {
 		const postTest = (postData?.tests || [])[0] || null;
 		const postBreakdown = postTest?.environment_breakdown;
 		const mainBreakdown = mainTest?.environment_breakdown;
+		const sinceFixMs = Date.parse(args['since-fix']);
 		fixHeldByPattern = {};
 		for (const p of merged.patterns) {
 			const failuresFull = p.rates.find(r => r.branch === 'main')?.count ?? 0;
 			// Matched on the same normalized full text mergeHistory keys on, so a
 			// pattern present in both windows is the same pattern in both.
-			const failuresPost = (postTest?.failure_patterns || [])
-				.filter(fp => normalizePattern(fp.pattern) === normalizePattern(p.fullPattern))
-				.reduce((n, fp) => n + (fp.count || 0), 0);
+			const { count: failuresPost, undated } = countPostFixFailures(
+				(postTest?.failure_patterns || []).filter(fp => normalizePattern(fp.pattern) === normalizePattern(p.fullPattern)),
+				sinceFixMs,
+			);
+			const { runs: scopedRunsPost, leadHours } = estimatePostFixRuns(
+				scopedRunsForEnvironments(postBreakdown, p.environments), sinceFixMs, daysSinceFix);
+			const held = deriveFixHeld({
+				scopedRunsFull: scopedRunsForEnvironments(mainBreakdown, p.environments),
+				scopedRunsPost,
+				failuresFull,
+				failuresPost,
+				environments: p.environments,
+			});
+			const notes = [held.note];
+			if (leadHours > 0) { notes.push(`postFixRuns is an estimate: the API's day window reaches about ${leadHours}h before the merge, and those runs were moved to the baseline assuming an even spread.`); }
+			if (undated) { notes.push(`${undated} post-window failure(s) could not be dated against the merge and were counted as post-fix.`); }
 			fixHeldByPattern[p.id] = {
 				sinceFix: args['since-fix'],
 				daysSinceFix,
-				...deriveFixHeld({
-					scopedRunsFull: scopedRunsForEnvironments(mainBreakdown, p.environments),
-					scopedRunsPost: scopedRunsForEnvironments(postBreakdown, p.environments),
-					failuresFull,
-					failuresPost,
-					environments: p.environments,
-				}),
+				...held,
+				postFixRunsEstimated: leadHours > 0,
+				note: notes.filter(Boolean).join(' ') || null,
 			};
 		}
 	}
