@@ -407,8 +407,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	public async renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+		// Fetch the intrinsic size on every render (it's cached), so the sizing menu can offer Intrinsic.
+		const intrinsicSize = await this.getIntrinsicSize();
 		// A plot with no intrinsic size of its own draws at the Auto size, without changing its setting.
-		const policy = this._sizingPolicy instanceof PlotSizingPolicyIntrinsic && !(await this.getIntrinsicSize()) ?
+		const policy = this._sizingPolicy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize ?
 			new PlotSizingPolicyAuto() : this._sizingPolicy;
 		return this.render(size ? policy.getPlotSize(size) : size, pixel_ratio, format, preview);
 	}

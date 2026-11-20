@@ -12,6 +12,7 @@ import { IPositronPlotMetadata, PlotClientInstance } from '../../common/language
 import { PositronPlotCommProxy } from '../../common/positronPlotCommProxy.js';
 import { IPositronPlotSizingPolicy } from '../../../positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyFill } from '../../../positronPlots/common/sizingPolicyFill.js';
 import { PlotSizingPolicyIntrinsic } from '../../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
 import { DeferredRender, IRenderedPlot } from '../../common/positronPlotRenderQueue.js';
@@ -23,6 +24,7 @@ describe('Positron - PlotClientInstance', () => {
 	let showPlotEmitter: Emitter<ShowEvent>;
 	let closeEmitter: Emitter<void>;
 	let renderSpy: ReturnType<typeof vi.fn<(request: DeferredRender) => void>>;
+	let getIntrinsicSize: ReturnType<typeof vi.fn<() => Promise<IntrinsicSize | undefined>>>;
 
 	/** Build a pre-render whose data (and therefore URI) and settings are controllable. */
 	function preRender(data: string, size: PlotSize = { width: 100, height: 100 }): PlotResult {
@@ -45,7 +47,7 @@ describe('Positron - PlotClientInstance', () => {
 			onDidSetIntrinsicSize: intrinsicSizeEmitter.event,
 			eventParentId: undefined,
 			render: renderSpy,
-			getIntrinsicSize: () => Promise.resolve(undefined),
+			getIntrinsicSize,
 		});
 		const fullMetadata: IPositronPlotMetadata = {
 			id: 'plot-1', created: 0, code: '', session_id: 'session-1', ...metadata,
@@ -63,6 +65,7 @@ describe('Positron - PlotClientInstance', () => {
 		showPlotEmitter = disposables.add(new Emitter<ShowEvent>());
 		closeEmitter = disposables.add(new Emitter<void>());
 		renderSpy = vi.fn<(request: DeferredRender) => void>();
+		getIntrinsicSize = vi.fn(() => Promise.resolve(undefined));
 	});
 
 	it('onDidShowPlot only fires a complete render when the pre-render URI changed', () => {
@@ -180,5 +183,14 @@ describe('Positron - PlotClientInstance', () => {
 		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
 		expect(renderSpy.mock.calls[0][0].renderRequest.size)
 			.toEqual(new PlotSizingPolicyAuto().getPlotSize({ width: 800, height: 200 }));
+	});
+
+	it('asks for the intrinsic size on a render at another size, so the sizing menu can offer Intrinsic', async () => {
+		const client = createPlotClient({}, new PlotSizingPolicyFill());
+
+		client.renderWithSizingPolicy({ width: 800, height: 200 }, 1);
+
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		expect(getIntrinsicSize).toHaveBeenCalled();
 	});
 });

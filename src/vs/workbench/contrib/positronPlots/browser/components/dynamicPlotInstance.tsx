@@ -205,9 +205,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		setError(undefined);
 
 		// If the plot is already rendered, use the old image until the new one is
-		// ready, unless it lacks the runtime's last change.
+		// ready, unless it lacks the runtime's last change or a custom size it wasn't drawn at.
 		if (props.plotClient.lastRender) {
-			if (props.plotClient.lastRenderStale) {
+			const policy = props.plotClient.sizingPolicy;
+			const drawnSize = props.plotClient.lastRender.size;
+			if (props.plotClient.lastRenderStale || (policy instanceof PlotSizingPolicyCustom &&
+				(drawnSize?.width !== policy.size.width || drawnSize?.height !== policy.size.height))) {
 				setUri('');
 			} else {
 				showRender(props.plotClient.lastRender);

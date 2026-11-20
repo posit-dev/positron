@@ -120,6 +120,22 @@ describe('DynamicPlotInstance', () => {
 			expect(promptNotification).not.toHaveBeenCalled();
 		});
 
+		it.each([
+			['hides', 'another size', undefined, false],
+			['keeps', 'the custom size', { width: 120, height: 120 }, true],
+		])('%s an image drawn at %s while a resize renders a custom size again', async (_label, _drawnAt, size, shown) => {
+			const custom = new PlotSizingPolicyCustom({ width: 120, height: 120 });
+			const plotClient = makeFailingPlotClient({ ...earlierRender, size }, undefined, custom);
+			const { rerender } = renderPlot(plotClient);
+			await vi.waitFor(() => expect(logWarn).toHaveBeenCalled());
+
+			renderWithSizingPolicy.mockReturnValue(new Promise(() => { }));
+			rerender(plotAt(plotClient, 700));
+
+			await vi.waitFor(() => expect(renderWithSizingPolicy).toHaveBeenCalledTimes(2));
+			expect(screen.queryByRole('img', { name: 'My Plot' }) !== null).toBe(shown);
+		});
+
 		it('shows a general message with a way to the logs for other errors', async () => {
 			const user = userEvent.setup();
 			renderPlot(makeFailingPlotClient(undefined, new Error(OTHER_RENDER_ERROR)));
