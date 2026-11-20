@@ -144,14 +144,7 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 	}
 
 	if (record.after.indexTree !== record.before.indexTree) {
-		await announce(ports, record.id, started, { step: 'index' });
-		// Checked right before the change. Another tool could still stage work in the few
-		// milliseconds before `read-tree` runs; that window is accepted.
-		if (await readIndexTree(ports) !== record.before.indexTree) {
-			started.pop();
-			throw new StepRefused('the index changed after the operation started');
-		}
-		await setIndex(ports, record.after.indexTree);
+		await applyIndex(ports, record, started);
 	}
 
 	if (record.after.branchCommit !== record.before.branchCommit) {
@@ -168,9 +161,60 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 		}
 	}
 
-	await setStatus(ports, record.id, 'complete');
+	await markComplete(ports, record.id, backups);
+}
+
+/**
+ * Sets the real index to the record's after tree, after confirming that it is still at its
+ * before tree. Checked right before the change; another tool could still stage work in the few
+ * milliseconds before `read-tree` runs, and that window is accepted.
+ */
+async function applyIndex(ports: EnginePorts, record: JournalRecord, started: Progress[]): Promise<void> {
+	await announce(ports, record.id, started, { step: 'index' });
+	if (await readIndexTree(ports) !== record.before.indexTree) {
+		started.pop();
+		throw new StepRefused('the index changed after the operation started');
+	}
+	await setIndex(ports, record.after.indexTree);
+}
+
+/** Marks the record complete, then removes the originals kept in its backup folder. */
+async function markComplete(ports: EnginePorts, id: string, backups: string): Promise<void> {
+	await setStatus(ports, id, 'complete');
 	// The operation is decided; a folder that cannot be removed now only takes space.
 	await ports.files.remove(backups).catch(() => undefined);
+}
+
+/**
+ * Finishes an operation whose branch is already at its after commit (recovery after a crash,
+ * spec 6.3.1 step 3). Temporary files the journal names are removed. Each path not yet at its
+ * after value is written as `runOperation` writes it (only while it is at its before value),
+ * then the index is set when it is still at its before tree, and the record becomes complete.
+ * The caller has confirmed that no part is unexpected.
+ */
+export async function rollForward(ports: EnginePorts, record: JournalRecord): Promise<void> {
+	const backups = await backupDirectory(ports, record.id);
+	const started = [...record.progress];
+	await removeTemporaryFiles(ports, record.progress);
+	for (const plan of record.paths) {
+		const [{ part }] = await classifyPaths(ports, [plan]);
+		if (!isAtAfter(plan, part)) {
+			await writeForward(ports, record.id, plan, backups, started);
+		}
+	}
+	if (await readIndexTree(ports) !== record.after.indexTree) {
+		await applyIndex(ports, record, started);
+	}
+	await markComplete(ports, record.id, backups);
+}
+
+/** Removes each temporary file that a path entry of `progress` names and that still exists. */
+async function removeTemporaryFiles(ports: EnginePorts, progress: Progress[]): Promise<void> {
+	for (const entry of progress) {
+		if (entry.step === 'path' && entry.temporary !== undefined && await ports.files.lstat(entry.temporary) !== undefined) {
+			await ports.files.remove(entry.temporary);
+		}
+	}
 }
 
 /**
@@ -417,9 +461,7 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 				leftUnexpected = true;
 			}
 		} else if (entry.step === 'path') {
-			if (entry.temporary !== undefined && await ports.files.lstat(entry.temporary) !== undefined) {
-				await ports.files.remove(entry.temporary);
-			}
+			await removeTemporaryFiles(ports, [entry]);
 			const plan = record.paths.find(candidate => candidate.path === entry.path);
 			if (plan === undefined || classification.paths.find(({ path }) => path === entry.path)?.part !== 'after') {
 				continue;
@@ -451,8 +493,11 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 	return leftUnexpected ? 'has-unexpected' : 'reversed';
 }
 
-/** Saves `refs/positron-checkpoints/recovery/<id>` unless it exists. */
-async function saveRecoverySnapshot(ports: EnginePorts, record: JournalRecord): Promise<void> {
+/**
+ * Saves `refs/positron-checkpoints/recovery/<id>`, a snapshot of the working files and the index
+ * as they are now, unless it exists.
+ */
+export async function saveRecoverySnapshot(ports: EnginePorts, record: JournalRecord): Promise<void> {
 	const ref = `${RECOVERY_REF_PREFIX}${record.id}`;
 	const existing = await runGit(ports.git, ['-C', ports.projectRoot, 'rev-parse', '--verify', '-q', ref]);
 	if (existing.exitCode === 0) {
