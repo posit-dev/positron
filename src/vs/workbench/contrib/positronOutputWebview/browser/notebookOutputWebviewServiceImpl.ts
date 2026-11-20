@@ -25,6 +25,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { webviewMessageCodeString } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { handleWebviewLinkClicksInjection } from './downloadUtils.js';
+import { FILL_VIEWPORT_CSS } from './fillViewport.js';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -106,12 +107,14 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		runtimeId,
 		preReqMessages,
 		displayMessage,
-		viewType
+		viewType,
+		fillViewport,
 	}: {
 		runtimeId: string;
 		preReqMessages: ILanguageRuntimeMessageWebOutput[];
 		displayMessage: ILanguageRuntimeMessageWebOutput;
 		viewType?: string;
+		fillViewport?: boolean;
 	}): Promise<INotebookOutputWebview | undefined> {
 
 		const displayInfo = this._findRendererForOutput(displayMessage, viewType);
@@ -129,16 +132,18 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			displayMessageInfo: displayInfo,
 			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages, viewType),
 			viewType,
+			fillViewport,
 		});
 	}
 
 	async createNotebookOutputWebview(
-		{ id, runtime, output, viewType }:
+		{ id, runtime, output, viewType, fillViewport }:
 			{
 				id: string;
 				runtime: ILanguageRuntimeSession;
 				output: ILanguageRuntimeMessageWebOutput;
 				viewType?: string;
+				fillViewport?: boolean;
 			}
 	): Promise<INotebookOutputWebview | undefined> {
 		// Check to see if any of the MIME types have a renderer associated with
@@ -157,6 +162,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					runtimeId: runtime.sessionId,
 					displayMessageInfo: { mimeType, renderer, output },
 					viewType,
+					fillViewport,
 				});
 			}
 		}
@@ -254,13 +260,15 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		runtimeId,
 		displayMessageInfo,
 		preReqMessagesInfo,
-		viewType
+		viewType,
+		fillViewport,
 	}: {
 		id: string;
 		runtimeId: string;
 		displayMessageInfo: MessageRenderInfo;
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
+		fillViewport?: boolean;
 	}): Promise<INotebookOutputWebview> {
 
 		// Make message info into an array if it isn't already
@@ -326,6 +334,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		}
 	</style>
 	${PositronNotebookOutputWebviewService.CssAddons}
+	${fillViewport ? FILL_VIEWPORT_CSS : ''}
 	<script>
 		window.prompt = (message, _default) => {
 			return _default ?? 'Untitled';
