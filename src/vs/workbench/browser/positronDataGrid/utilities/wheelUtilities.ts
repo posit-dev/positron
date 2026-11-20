@@ -18,7 +18,7 @@ interface WheelInput extends WheelDeltas {
  * Converts a wheel event into the scroll deltas the data grid applies.
  * @param e The wheel event.
  * @param isMacintosh Whether the platform is macOS.
- * @returns The scroll deltas, in pixels.
+ * @returns The scroll deltas, in the units of the wheel event.
  */
 export function computeWheelScrollDeltas(e: WheelInput, isMacintosh: boolean): WheelDeltas {
 	// Get the delta X and delta Y.

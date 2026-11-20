@@ -20,8 +20,8 @@ function runWebviewScript(userAgent: string): number[] {
 			forwarded.push(message.deltaY);
 		}
 	};
-	// This runs in beforeAll, outside any test, so the global restoreMocks would not undo the spy
-	// before the first test. Restore it here.
+	// The script reads the user agent only while it starts. Restore the real getter right away, so
+	// the next call in the same beforeAll can install its own platform.
 	const userAgentSpy = vi.spyOn(mainWindow.navigator, 'userAgent', 'get').mockReturnValue(userAgent);
 	Object.assign(mainWindow, { acquireVsCodeApi: () => ({ postMessage }) });
 	try {

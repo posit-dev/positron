@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { shiftWheelToHorizontal } from '../../../../base/common/positronWheel.js';
+
 export function buildWebviewHTML(opts: {
 	content: string;
 	script?: string;
@@ -97,7 +99,12 @@ export function normalizeWheelDeltaY(deltaMode: number, deltaY: number, pageHeig
 }
 
 
-function webviewMessageCode() {
+/**
+ * The script injected into webview outputs. It runs from its source text, so it cannot import
+ * anything; webviewMessageCodeString passes it the dependencies it needs as arguments.
+ * @param convertShiftWheel shiftWheelToHorizontal from base/common/positronWheel.ts.
+ */
+function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
 	// acquireVsCodeApi is a global injected by the webview host. Access it
 	// through the window object so the production bundler cannot rename it.
 	// eslint-disable-next-line no-restricted-globals
@@ -211,12 +218,12 @@ function webviewMessageCode() {
 	// scroll of the output (#11063). macOS has already moved the delta
 	// to delta X, so the delta Y check below skips it there. An event
 	// that is mostly horizontal is not a converted one and is handled as
-	// usual. This matches shiftWheelToHorizontal in
-	// base/common/positronWheel.ts, which this script cannot import
-	// because it is injected into the webview as a string.
+	// usual. The rule is shiftWheelToHorizontal's, passed in as
+	// convertShiftWheel. The platform check matches isMacintosh in
+	// base/common/platform.ts.
 	const isMacintosh = navigator.userAgent.indexOf('Macintosh') >= 0;
 	const isShiftWheelToHorizontal = (event: WheelEvent) =>
-		event.shiftKey && !isMacintosh && Math.abs(event.deltaY) >= Math.abs(event.deltaX);
+		convertShiftWheel(event, isMacintosh).deltaY === 0;
 
 	// The viewport has at most one element that scrolls on wheel. This
 	// returns that element when viewport scrolling is enabled, or null
@@ -344,4 +351,6 @@ function webviewMessageCode() {
 	window.onload = () => sendSizeMessage(true);
 }
 
-export const webviewMessageCodeString = `(${webviewMessageCode.toString()})();`;
+// Passing shiftWheelToHorizontal as an argument, rather than referring to it by name inside
+// webviewMessageCode, keeps it working after the production bundler renames identifiers.
+export const webviewMessageCodeString = `(${webviewMessageCode.toString()})(${shiftWheelToHorizontal.toString()});`;

@@ -22,8 +22,13 @@ export interface WheelDeltas {
  * The event is converted when delta Y is at least as large as delta X, and the smaller delta X is
  * dropped, so a touchpad gesture with a little horizontal noise converts the same way a mouse
  * wheel does. An event that is mostly horizontal, because the platform, the browser, or a mouse
- * driver already converted it, is left alone. This is what VS Code's ScrollableElement does with
- * its default scrollPredominantAxis: it zeroes the smaller axis, then applies the shift rule.
+ * driver already converted it, is left unchanged, both axes included. This makes the same
+ * decision about when to convert as VS Code's ScrollableElement with its default
+ * scrollPredominantAxis; locking scrolling to one axis is left to the caller.
+ *
+ * The function's source is also injected into webview outputs (see webviewMessageCode in
+ * positronWebviewPreloads/browser/notebookOutputUtils.ts), so it must not reference anything
+ * outside itself.
  * @param e The wheel event, or its deltas and shift key state.
  * @param isMacintosh Whether the platform is macOS.
  * @returns The deltas to scroll by.
