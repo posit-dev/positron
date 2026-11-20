@@ -8,18 +8,23 @@ import { findCollisions } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
 	acquireLock, appendProgress, classify, classifyPaths, FileMode, JournalRecord, Part, PathPlan,
-	Progress, readBranch, readIndexTree, setStatus, TriState, writeRecord,
+	Progress, readBranch, readIndexTree, readRecords, setStatus, TriState, writeRecord,
 } from './journal';
 import { EnginePorts } from './ports';
-import { RECOVERY_REF_PREFIX, saveSnapshot, STAGING_TIMEOUT_MS } from './trees';
+import { RECOVERY_REF_PREFIX, saveSnapshot, SNAPSHOT_REF_PREFIX, STAGING_TIMEOUT_MS } from './trees';
 import { CollisionChoice, OperationKind, OperationResult } from './types';
 
 export interface OperationPlan {
 	kind: OperationKind; description: string;
+	/** The state the caller computed `after` from. The operation runs only while the project is still in it. */
+	expected: TriState;
 	/** Computed by the caller in the object database. */
 	after: TriState;
 	collisionChoices: CollisionChoice[];
-	/** Files a hook already changed on disk: `before` is their earlier content and `after` is what is on disk now. */
+	/**
+	 * Files a hook already changed on disk: `before` is their earlier content and `after` is what
+	 * is on disk now. The engine never writes them, so a failed operation leaves them as they are.
+	 */
 	extraPaths?: PathPlan[];
 }
 
@@ -27,17 +32,20 @@ export interface OperationPlan {
 class StepRefused extends Error { }
 
 /**
- * Runs an operation through the protocol of spec 6.3.1: take the lock, record the before state
- * with a snapshot, derive the paths to write, run the collision check, journal the record, then
- * change the working files (each only while it still has its before content), the index (only
- * while it still has its before tree), and last the branch (a compare-and-swap), and mark the
- * record complete.
+ * Runs an operation through the protocol of spec 6.3.1: take the lock, refuse while an earlier
+ * operation is unresolved, record the before state with a snapshot, return `changes-moved` when
+ * it differs from `plan.expected`, derive the paths to write, run the collision check, journal
+ * the record, then change the working files (each only while it still has its before content),
+ * the index (only while it still has its before tree), and last the branch (a compare-and-swap),
+ * and mark the record complete. A durable progress entry is appended before each change, so the
+ * journal lists every part the engine may have changed, even after a crash.
  *
- * On any failure it runs `reverse(record, 'all-or-report')`: a clean reversal returns
- * `could-not-finish` with status `rolled-back`; content changed by another tool after the engine
- * wrote it returns `interrupted` with status `interrupted` and a recovery snapshot. A failure
- * during the reversal itself is thrown and leaves the record `prepared`, so startup recovery
- * finds it.
+ * A run that ends before its record exists removes its snapshot. On any later failure it runs
+ * `reverse(record, 'all-or-report')`: a clean reversal returns `could-not-finish` with status
+ * `rolled-back`; content changed by another tool after the engine wrote it returns
+ * `interrupted` with status `interrupted` and a recovery snapshot. When the reversal itself
+ * fails, the record is marked `interrupted` (as far as the journal can still be written) and
+ * the result is `interrupted`.
  */
 export async function runOperation(ports: EnginePorts, plan: OperationPlan): Promise<OperationResult> {
 	const lock = await acquireLock(ports);
@@ -45,6 +53,9 @@ export async function runOperation(ports: EnginePorts, plan: OperationPlan): Pro
 		return { kind: 'unavailable', reason: 'busy' };
 	}
 	try {
+		if ((await readRecords(ports)).some(record => record.status === 'prepared' || record.status === 'interrupted')) {
+			return { kind: 'unavailable', reason: 'busy', detail: 'unresolved-operation' };
+		}
 		return await runLocked(ports, plan);
 	} finally {
 		// The outcome is decided; a lock that cannot be removed now is taken over once it is stale.
@@ -67,10 +78,15 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		const branchCommit = await readBranch(ports, branch);
 		const snapshot = await saveSnapshot(ports, id, branchCommit ?? undefined);
 		const before: TriState = { branchCommit, indexTree: snapshot.indexTree, worktreeTree: snapshot.worktreeTree };
+		if (before.branchCommit !== plan.expected.branchCommit || before.indexTree !== plan.expected.indexTree || before.worktreeTree !== plan.expected.worktreeTree) {
+			await removeSnapshot(ports, id);
+			return { kind: 'changes-moved' };
+		}
 		const paths = await planPaths(ports, before, plan.after, extraPaths);
 		const collisions = await findCollisions(ports, paths, snapshot.skipped);
 		const unanswered = collisions.filter(collision => !plan.collisionChoices.some(choice => choice.path === collision.path));
 		if (unanswered.length > 0) {
+			await removeSnapshot(ports, id);
 			return { kind: 'path-collisions', collisions: unanswered };
 		}
 		record = {
@@ -80,23 +96,38 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 		};
 		await writeRecord(ports, record);
 	} catch (error) {
-		// Nothing visible has changed yet.
+		// Nothing visible has changed yet. A record whose write reported an error may still have
+		// reached the journal; it has no progress entries, so it is closed as rolled back.
+		const written = (await readRecords(ports).catch(() => [])).some(other => other.id === id);
+		if (written) {
+			await setStatus(ports, id, 'rolled-back').catch(() => undefined);
+		} else {
+			await removeSnapshot(ports, id);
+		}
 		return { kind: 'could-not-finish', detail: errorText(error) };
 	}
 
-	// Each part is listed before the engine starts to change it, so a reversal knows every part
-	// the engine may have changed, including one whose change failed halfway.
+	// The progress entries of the parts the engine may have changed, in the order of the journal.
 	const started: Progress[] = [];
 	try {
 		await applyRecord(ports, record, new Set(extraPaths.map(extra => extra.path)), started);
 	} catch (error) {
-		const outcome = await reverse(ports, { ...record, progress: started }, 'all-or-report');
-		return outcome === 'reversed' ? { kind: 'could-not-finish', detail: errorText(error) } : { kind: 'interrupted' };
+		try {
+			const outcome = await reverse(ports, { ...record, progress: started }, 'all-or-report');
+			return outcome === 'reversed' ? { kind: 'could-not-finish', detail: errorText(error) } : { kind: 'interrupted' };
+		} catch {
+			// The record stays unresolved, so no further operation runs until it is resolved.
+			await setStatus(ports, record.id, 'interrupted').catch(() => undefined);
+			return { kind: 'interrupted' };
+		}
 	}
 	return { kind: 'done', operationId: id, hookEditedFiles: extraPaths.map(extra => extra.path) };
 }
 
-/** Steps 4 to 7 of the protocol. Appends to `started` before each change. */
+/**
+ * Steps 4 to 7 of the protocol. Before each change, the progress entry is appended to the
+ * journal and to `started`.
+ */
 async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWritten: Set<string>, started: Progress[]): Promise<void> {
 	for (const plan of record.paths) {
 		const [{ part }] = await classifyPaths(ports, [plan]);
@@ -109,36 +140,44 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 		if (part !== 'before') {
 			throw new StepRefused(`${plan.path} changed after the operation started`);
 		}
-		const entry: Progress = { step: 'path', path: plan.path };
-		started.push(entry);
+		await announce(ports, record.id, started, { step: 'path', path: plan.path });
 		await writePath(ports, plan, 'forward');
-		await appendProgress(ports, record.id, entry);
 	}
 
 	if (record.after.indexTree !== record.before.indexTree) {
 		if (await readIndexTree(ports) !== record.before.indexTree) {
 			throw new StepRefused('the index changed after the operation started');
 		}
-		started.push({ step: 'index' });
+		await announce(ports, record.id, started, { step: 'index' });
 		await setIndex(ports, record.after.indexTree);
-		await appendProgress(ports, record.id, { step: 'index' });
 	}
 
 	if (record.after.branchCommit !== record.before.branchCommit) {
-		started.push({ step: 'branch' });
+		await announce(ports, record.id, started, { step: 'branch' });
 		try {
 			await moveBranch(ports, record.branch, record.after.branchCommit, record.before.branchCommit);
 		} catch (error) {
 			if (error instanceof GitFailedError) {
-				// Git refused the compare-and-swap, so the branch is as it was.
+				// Git refused the compare-and-swap, so the branch is as it was. The journal still
+				// lists it, which only makes a recovery after a crash more careful.
 				started.pop();
 			}
 			throw error;
 		}
-		await appendProgress(ports, record.id, { step: 'branch' });
 	}
 
 	await setStatus(ports, record.id, 'complete');
+}
+
+/** Appends a progress entry durably, then lists it in `started`. */
+async function announce(ports: EnginePorts, id: string, started: Progress[], entry: Progress): Promise<void> {
+	await appendProgress(ports, id, entry);
+	started.push(entry);
+}
+
+/** Removes the snapshot of a run that ended before its record was written, as far as possible. */
+async function removeSnapshot(ports: EnginePorts, id: string): Promise<void> {
+	await runGit(ports.git, ['-C', ports.projectRoot, 'update-ref', '-d', `${SNAPSHOT_REF_PREFIX}${id}`]).catch(() => undefined);
 }
 
 /** True when a path classified as `part` has the plan's after value. A value equal to both reads as before. */
@@ -193,12 +232,21 @@ function fileMode(mode: string): FileMode | null | undefined {
 	return mode === '100644' || mode === '100755' || mode === '120000' ? mode : undefined;
 }
 
+/** The temporary file next to `file` that a write goes through. */
+function temporaryPath(file: string): string {
+	const folder = path.posix.dirname(file);
+	const name = `.${path.posix.basename(file)}.positron-checkpoints-tmp`;
+	return folder === '.' ? name : `${folder}/${name}`;
+}
+
 /**
- * Writes the after (`forward`) or before (`backward`) value of a path: the blob's exact bytes
- * with no line-ending conversion or filter, an executable bit from the mode, a symbolic link
- * for mode 120000, or a removal for `null`. Under `core.autocrlf` such a file reads back as the
- * same blob (see `readDiskEntries`). Folders that a removal leaves empty are removed. The caller
- * confirms what is on disk first.
+ * Writes the after (`forward`) or before (`backward`) value of a path: the content `git
+ * checkout` would write (`git cat-file --filters`, so line-ending conversion and smudge filters
+ * apply) with an executable bit from the mode, a symbolic link for mode 120000, or a removal
+ * for `null`. Such a file reads back as the same blob (see `readDiskEntries`). A file or link
+ * is written to a temporary file in the same folder and renamed over the path, so the path
+ * always has its old or its new content. Folders that a removal leaves empty are removed. The
+ * caller confirms what is on disk first.
  */
 export async function writePath(ports: EnginePorts, plan: PathPlan, direction: 'forward' | 'backward'): Promise<void> {
 	const blob = direction === 'forward' ? plan.after : plan.before;
@@ -212,11 +260,20 @@ export async function writePath(ports: EnginePorts, plan: PathPlan, direction: '
 		}
 		return;
 	}
-	const content = Buffer.from((await mustGit(ports.git, ['-C', ports.projectRoot, 'cat-file', 'blob', blob], { binary: true, timeoutMs: STAGING_TIMEOUT_MS })).stdout, 'latin1');
-	if (mode === '120000') {
-		await ports.files.writeLink(plan.path, content.toString('utf8'));
-	} else {
-		await ports.files.write(plan.path, new Uint8Array(content), mode === '100755');
+	// A link target is never converted; a file gets the filters of its own path.
+	const args = mode === '120000' ? ['cat-file', 'blob', blob] : ['cat-file', '--filters', `--path=${plan.path}`, blob];
+	const content = Buffer.from((await mustGit(ports.git, ['-C', ports.projectRoot, ...args], { binary: true, timeoutMs: STAGING_TIMEOUT_MS })).stdout, 'latin1');
+	const temporary = temporaryPath(plan.path);
+	try {
+		if (mode === '120000') {
+			await ports.files.writeLink(temporary, content.toString('utf8'));
+		} else {
+			await ports.files.write(temporary, new Uint8Array(content), mode === '100755');
+		}
+		await ports.files.move(temporary, plan.path);
+	} catch (error) {
+		await ports.files.remove(temporary).catch(() => undefined);
+		throw error;
 	}
 }
 
@@ -241,14 +298,17 @@ async function moveBranch(ports: EnginePorts, branch: string, to: string | null,
 
 /**
  * The reversal procedure of spec 6.3.1, for rollback while the process runs and for recovery.
- * It classifies the branch, the index, and every path, and restores only a part that is
- * "after", in reverse order of the record's progress entries (branch, index, paths, kept files
- * back to their places), then any other part that is "after". Each part is checked again just
- * before it is restored, and "unexpected" content is never written over.
+ * The record's progress lists every part the engine may have changed (an entry is written
+ * before each change). It classifies the branch, the index, and every path, and restores only
+ * a listed part that is "after", in reverse order of the progress entries (branch, index,
+ * paths, kept files back to their places). A part that is not listed is never changed, even
+ * when it is "after", because another tool put it there. Each part is checked again just
+ * before it is restored, and "unexpected" content is never written over. A temporary file a
+ * crash left next to a listed path is removed.
  *
- * A conflict is a part that is "unexpected" and that the record's progress lists, so the
- * engine may have changed it before another tool did. An unexpected part the engine never
- * changed is the person's own newer work, and leaving it is the rollback.
+ * A conflict is a part that is "unexpected" and listed, so the engine may have changed it
+ * before another tool did. An unexpected part the engine never changed is the person's own
+ * newer work, and leaving it is the rollback.
  *
  * - `all-or-report`: with no conflict, the record becomes `rolled-back` and the result is
  *   `reversed`. With a conflict, a recovery snapshot of the project is saved under
@@ -271,20 +331,7 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 		await saveRecoverySnapshot(ports, record);
 	}
 
-	const order: Progress[] = [...record.progress].reverse();
-	const remaining: Progress[] = [
-		{ step: 'branch' },
-		{ step: 'index' },
-		...[...record.paths].reverse().map((plan): Progress => ({ step: 'path', path: plan.path })),
-		...[...record.keptMoves].reverse().map((move): Progress => ({ step: 'kept', ...move })),
-	];
-	for (const entry of remaining) {
-		if (!listed(entry)) {
-			order.push(entry);
-		}
-	}
-
-	for (const entry of order) {
+	for (const entry of [...record.progress].reverse()) {
 		if (entry.step === 'branch' && classification.branch === 'after') {
 			try {
 				await moveBranch(ports, record.branch, record.before.branchCommit, record.after.branchCommit);
@@ -302,6 +349,10 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 				leftUnexpected = true;
 			}
 		} else if (entry.step === 'path') {
+			const temporary = temporaryPath(entry.path);
+			if (await ports.files.lstat(temporary) !== undefined) {
+				await ports.files.remove(temporary);
+			}
 			const plan = record.paths.find(candidate => candidate.path === entry.path);
 			if (plan === undefined || classification.paths.find(({ path }) => path === entry.path)?.part !== 'after') {
 				continue;

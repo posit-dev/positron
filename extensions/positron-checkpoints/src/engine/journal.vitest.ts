@@ -7,6 +7,7 @@
 
 import { spawn } from 'child_process';
 import * as fsp from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import { acquireLock, classify, engineDirectory, JournalRecord, PathPlan, readDiskEntries, readRecords, appendProgress, setStatus, writeRecord } from './journal';
 import { EngineStopped, faultPorts } from './test/faultPorts';
@@ -94,32 +95,48 @@ describe('journal', () => {
 		const repo = await create();
 		const lockFile = `${await engineDirectory(repo.ports)}/lock`;
 		await fsp.mkdir(path.dirname(lockFile), { recursive: true });
-		await fsp.writeFile(lockFile, JSON.stringify({ pid: await deadPid(), time: repo.ports.now().toISOString(), token: 'old' }));
-		repo.clock.advance(11 * 60_000);
+		// The process is gone, so the lock is taken over at once, whatever its age.
+		await fsp.writeFile(lockFile, JSON.stringify({ pid: await deadPid(), host: os.hostname(), time: repo.ports.now().toISOString(), token: 'old' }));
 		const lock = await acquireLock(repo.ports);
 		expect(lock).toBeDefined();
 		expect(await fsp.readFile(lockFile, 'utf8')).toContain(`"pid":${process.pid}`);
 		await lock!.release();
 	});
 
-	test('a recent lock from a dead process, and an old lock from a live process, are kept', async () => {
+	test('a lock from a live process is kept at any age', async () => {
 		const repo = await create();
 		const lockFile = `${await engineDirectory(repo.ports)}/lock`;
 		await fsp.mkdir(path.dirname(lockFile), { recursive: true });
-		await fsp.writeFile(lockFile, JSON.stringify({ pid: await deadPid(), time: repo.ports.now().toISOString(), token: 'old' }));
-		repo.clock.advance(9 * 60_000);
-		expect(await acquireLock(repo.ports)).toBeUndefined();
-
-		await fsp.writeFile(lockFile, JSON.stringify({ pid: process.pid, time: repo.ports.now().toISOString(), token: 'old' }));
+		await fsp.writeFile(lockFile, JSON.stringify({ pid: process.pid, host: os.hostname(), time: repo.ports.now().toISOString(), token: 'old' }));
 		repo.clock.advance(60 * 60_000);
 		expect(await acquireLock(repo.ports)).toBeUndefined();
+	});
+
+	test('a lock from another host, or an unreadable lock, is taken over after 10 minutes', async () => {
+		const repo = await create();
+		const lockFile = `${await engineDirectory(repo.ports)}/lock`;
+		await fsp.mkdir(path.dirname(lockFile), { recursive: true });
+		await fsp.writeFile(lockFile, JSON.stringify({ pid: await deadPid(), host: `not-${os.hostname()}`, time: repo.ports.now().toISOString(), token: 'old' }));
+		repo.clock.advance(9 * 60_000);
+		expect(await acquireLock(repo.ports)).toBeUndefined();
+		repo.clock.advance(2 * 60_000);
+		const lock = await acquireLock(repo.ports);
+		expect(lock).toBeDefined();
+		await lock!.release();
+
+		await fsp.writeFile(lockFile, '{"pid":');
+		const written = new Date(repo.ports.now().getTime());
+		await fsp.utimes(lockFile, written, written);
+		expect(await acquireLock(repo.ports)).toBeUndefined();
+		repo.clock.advance(11 * 60_000);
+		expect(await acquireLock(repo.ports)).toBeDefined();
 	});
 
 	test('release leaves a lock that another holder took over', async () => {
 		const repo = await create();
 		const lockFile = `${await engineDirectory(repo.ports)}/lock`;
 		const lock = await acquireLock(repo.ports);
-		const other = JSON.stringify({ pid: process.pid, time: repo.ports.now().toISOString(), token: 'other' });
+		const other = JSON.stringify({ pid: process.pid, host: os.hostname(), time: repo.ports.now().toISOString(), token: 'other' });
 		await fsp.writeFile(lockFile, other);
 		await lock!.release();
 		expect(await fsp.readFile(lockFile, 'utf8')).toBe(other);

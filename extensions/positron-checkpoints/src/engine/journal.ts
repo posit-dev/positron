@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'crypto';
+import * as os from 'os';
 import { mustGit, runGit, splitZ } from './git';
 import { EnginePorts } from './ports';
 import { absoluteGitDir, STAGING_TIMEOUT_MS, withTempIndex } from './trees';
@@ -35,7 +36,7 @@ export interface JournalRecord {
 export type Part = 'before' | 'after' | 'unexpected';
 export interface Classification { branch: Part; index: Part; paths: { path: string; part: Part }[] }
 
-/** A lock this old is taken over when the process that took it is no longer running. */
+/** A lock this old is taken over when the engine cannot tell whether the process that took it runs. */
 const STALE_LOCK_MS = 10 * 60_000;
 
 /** The folder of the engine's own files inside the git directory. */
@@ -43,17 +44,18 @@ export async function engineDirectory(ports: EnginePorts): Promise<string> {
 	return `${await absoluteGitDir(ports)}/positron-checkpoints`;
 }
 
-interface LockContent { pid: number; time: string; token: string }
+interface LockContent { pid: number; host: string; time: string; token: string }
 
 /**
- * Takes the engine lock (`<git dir>/positron-checkpoints/lock`), which records the process id
- * and the time. Returns undefined when another holder has it. A lock older than 10 minutes
- * whose process is not running is taken over. `release` removes the lock only while it is
- * still this holder's.
+ * Takes the engine lock (`<git dir>/positron-checkpoints/lock`), which records the process id,
+ * the host name, and the time. Returns undefined when another holder has it. A lock whose
+ * process is not running on this host is taken over at once. When the engine cannot tell (the
+ * lock is from another host, or its content is unreadable), a lock older than 10 minutes is
+ * taken over. `release` removes the lock only while it is still this holder's.
  */
 export async function acquireLock(ports: EnginePorts): Promise<{ release(): Promise<void> } | undefined> {
 	const file = `${await engineDirectory(ports)}/lock`;
-	const content: LockContent = { pid: process.pid, time: ports.now().toISOString(), token: randomUUID() };
+	const content: LockContent = { pid: process.pid, host: os.hostname(), time: ports.now().toISOString(), token: randomUUID() };
 	const text = JSON.stringify(content);
 	const release = async () => {
 		const current = await ports.files.read(file);
@@ -77,7 +79,10 @@ export async function acquireLock(ports: EnginePorts): Promise<{ release(): Prom
 	return await ports.files.createExclusive(file, text) ? { release } : undefined;
 }
 
-/** True when a lock is older than the stale limit and its process is not running. */
+/**
+ * True when the lock's process is not running on this host, or, when that cannot be told, when
+ * the lock is older than the stale limit.
+ */
 async function isStale(ports: EnginePorts, file: string, held: Uint8Array): Promise<boolean> {
 	let lock: Partial<LockContent> = {};
 	try {
@@ -85,14 +90,14 @@ async function isStale(ports: EnginePorts, file: string, held: Uint8Array): Prom
 	} catch {
 		// A lock written only in part has no usable content; its file time gives its age.
 	}
+	if (typeof lock.pid === 'number' && lock.host === os.hostname()) {
+		return !isProcessRunning(lock.pid);
+	}
 	let taken = typeof lock.time === 'string' ? Date.parse(lock.time) : NaN;
 	if (Number.isNaN(taken)) {
 		taken = (await ports.files.lstat(file))?.mtimeMs ?? 0;
 	}
-	if (ports.now().getTime() - taken < STALE_LOCK_MS) {
-		return false;
-	}
-	return typeof lock.pid !== 'number' || !isProcessRunning(lock.pid);
+	return ports.now().getTime() - taken >= STALE_LOCK_MS;
 }
 
 function isProcessRunning(pid: number): boolean {
