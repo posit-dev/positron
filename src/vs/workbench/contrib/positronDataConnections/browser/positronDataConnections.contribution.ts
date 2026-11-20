@@ -113,7 +113,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 				order: 3.5,
 				ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_DATA_CONNECTIONS_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 				storageId: POSITRON_DATA_CONNECTIONS_VIEW_ID,
-				hideIfEmpty: false,
+				hideIfEmpty: true,
 			},
 			ViewContainerLocation.Sidebar,
 			{

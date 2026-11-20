@@ -38,7 +38,7 @@ export const POSITRON_SESSION_CONTAINER: ViewContainer = Registry.as<IViewContai
 		order: 1,
 		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_SESSION_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 		storageId: POSITRON_SESSION_VIEW_ID,
-		hideIfEmpty: false,
+		hideIfEmpty: true,
 	},
 	ViewContainerLocation.AuxiliaryBar,
 	{

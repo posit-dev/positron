@@ -36,7 +36,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_HISTORY_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: POSITRON_HISTORY_VIEW_ID,
-	hideIfEmpty: false,
+	hideIfEmpty: true,
 }, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: false, isDefault: false });
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
