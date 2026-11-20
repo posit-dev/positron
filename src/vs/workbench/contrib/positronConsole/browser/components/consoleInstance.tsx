@@ -15,6 +15,7 @@ import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ConsoleInstanceItems } from './consoleInstanceItems.js';
 import { SubmittingOverlay } from './submittingOverlay.js';
+import { isWheelScrollUp } from './consoleWheel.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -22,8 +23,6 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
-import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
-import { isWheelScrollUp } from './consoleWheel.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -739,10 +738,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
 		if (isWeb) {
-			// The browser's default scroll is cancelled, and with it the browser's conversion of
-			// shift + wheel to horizontal scrolling, so do that conversion here.
-			const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMacintosh);
-			consoleInstanceRef.current.scrollBy(deltaX, deltaY);
+			consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
 		}
 	};
 
