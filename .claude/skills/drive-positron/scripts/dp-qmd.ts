@@ -25,23 +25,26 @@ interface Cell { n: number; language: string; fenceLine: number; firstCodeLine: 
  * runs in run-code
  */
 const activeFile: PageFn<{ want: string }> = async (page, a, lib) => {
-	const read = () => page.evaluate(({ g, label, monaco, suffix }) => {
+	const read = () => page.evaluate(({ g, label, monaco, suffix, preview }) => {
 		const group = document.querySelector(g.active);
 		const tab = group?.querySelector(g.activeTab);
 		if (!tab) { return { ok: false, error: 'no editor is active' }; }
 		// The tab's label names the full path, then any problems: /x/doc.qmd \u2022 1 problem.
 		const path = (tab.querySelector(label.icon)?.getAttribute('aria-label') ?? '').split(' \u2022 ')[0];
 		const drawn = !!group?.querySelector(`${monaco.editor} ${monaco.lineNumbers}`);
-		return { ok: true, name: (tab.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), ''), path, dirty: tab.matches(g.dirty), drawn };
-	}, { g: lib.css.editorGroup, label: lib.css.label, monaco: lib.css.monaco, suffix: lib.tabSuffix });
+		const aria = tab.getAttribute('aria-label') ?? '';
+		return { ok: true, name: aria.replace(new RegExp(suffix), ''), preview: new RegExp(`, ${preview}(,|$)`).test(aria), path, dirty: tab.matches(g.dirty), drawn };
+	}, { g: lib.css.editorGroup, label: lib.css.label, monaco: lib.css.monaco, suffix: lib.tabSuffix, preview: lib.names.editor.tabPreview });
 	let f = await read();
 	for (let i = 0; i < 15 && a.want && !(f.ok && f.name === a.want && f.drawn); i++) { await lib.sleep(200); f = await read(); }
 	// A preview tab (an Explorer click opens one) names only the file, not its path
-	// (upstream getHoverTitle): double-click keeps it open, as a user would.
+	// (upstream getHoverTitle): double-click keeps it open, as a user would. On a
+	// kept tab a double-click resizes the group instead, so only a preview's.
 	const named = () => !f.ok || /^(\/|~\/|[A-Za-z]:)/.test(f.path ?? '');
-	if (!named()) {
+	if (!named() && f.preview && (!a.want || f.name === a.want)) {
 		await page.locator(`${lib.css.editorGroup.active} ${lib.css.editorGroup.activeTab}`).dblclick({ timeout: 3000 }).catch(() => { });
 		for (let i = 0; i < 10 && !named(); i++) { await lib.sleep(200); f = await read(); }
+		if (!named()) { return { ok: false, error: `${f.name} is open in a preview tab, which does not show its path, and double-clicking the tab did not keep it open; open it with open-file.sh` }; }
 	}
 	return f;
 };

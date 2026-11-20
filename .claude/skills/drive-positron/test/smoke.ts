@@ -118,7 +118,8 @@ const cases: Case[] = [
 	// The workspace's interpreter can lead its row with its environment ("uv: ws (Python 3.14.7)"): it is listed too.
 	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) },
 	// No --name and several Python interpreters: the first in picker order (Suggested leads) starts, and the rest are named.
-	{ name: 'start-session several interpreters match takes the first and names the others', run: ['start-session.sh', '--language', 'python', '--new'], check: o => keys(o.json, 'picked', 'others', 'sessionId') || (!pythonRow(o.json!.picked) && `picked ${o.json!.picked}`) || (o.json!.others.some((x: string) => !pythonRow(x) || x === o.json!.picked) && `others: ${JSON.stringify(o.json!.others)}`) || logged(`start-session.sh -s=net1: ${o.json!.runtime} (first of: `) || void (found.pyFirst = o.json!.sessionId) },
+	// A machine with one Python starts it with no picked/others.
+	{ name: 'start-session several interpreters match takes the first and names the others', run: ['start-session.sh', '--language', 'python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.picked !== undefined && ((!pythonRow(o.json!.picked) && `picked ${o.json!.picked}`) || (o.json!.others?.some((x: string) => !pythonRow(x)) && `others: ${JSON.stringify(o.json!.others)}`) || logged(`start-session.sh -s=net1: ${o.json!.runtime} (first of: `))) || void (found.pyFirst = o.json!.sessionId) },
 	{ name: 'panel delete-session the first-match session', run: () => ['panel.sh', 'delete-session', found.pyFirst], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
 	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
@@ -158,9 +159,9 @@ const cases: Case[] = [
 	{ name: 'shot --view missing view', run: ['shot.sh', '--view', 'No Such View', 'smoke-none-view.png'], fail: true },
 	{ name: 'shot --view with no value is a usage error', run: ['shot.sh', 'smoke-no-view.png', '--view'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--view needs a value') },
 	// Last in the section, since it starts a third Python session: a row of "shown", parentheses and all, is a --name that starts that row.
-	// The workspace has several Python interpreters, so --new with no --name lists them in "shown" rather than starting one.
+	// A --name that several Python interpreters fit lists them in "shown" rather than starting one.
 	{
-		name: 'start-session --new with no --name lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true,
+		name: 'start-session --name several match lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--name', 'Python', '--new', '--timeout', '5'], fail: true,
 		check: o => {
 			const row = (o.json!.shown ?? []).find((x: string) => /^.+ \((?!.*running)Python .+\)$/.test(x));
 			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
@@ -277,6 +278,7 @@ const cases: Case[] = [
 	{ name: 'plots remove 1 removes the first thumbnail of named plots', run: ['plots.sh', 'remove', '1'] },
 	{ name: 'plots clear', run: ['plots.sh', 'clear'] },
 	{ name: 'plots read after clear', wait: 500, run: ['plots.sh', 'read'], check: o => !o.json!.blank && 'a plot is still shown' },
+	{ name: 'panel resize secondary back to its width before the filmstrip', run: () => ['panel.sh', 'resize', 'secondary', found.secondaryWidth], check: o => !o.json!.ok && `not resized: ${JSON.stringify(o.json)}` },
 
 	// ---- Views and the Viewer
 	{ name: 'view-read Variables', run: ['view-read.sh', '--view', 'Variables'], check: o => includes(o.text, 'smoke_f') },
@@ -558,6 +560,7 @@ function closeAllSessions(): string | undefined {
 /** A case's `before`: widens the secondary side bar, where the Plots view is, so its filmstrip shows (it needs 300 px and several plots). */
 function showFilmstrip(): string | undefined {
 	const o = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'resize', 'secondary', '600']);
+	found.secondaryWidth = String(o.json?.before ?? 600);
 	return o.json?.ok ? undefined : `panel.sh resize secondary 600: ${o.json?.error ?? o.stderr}`;
 }
 

@@ -296,6 +296,7 @@ export const names = {
 		suggest: 'Suggest', // the completion list (a listbox of options)
 		closePeek: 'Close', // the peek view's close button
 		cursorStatusPattern: 'Ln (\\d+), Col (\\d+)(?: \\((\\d+) selected\\))?', // the status bar button
+		tabPreview: 'preview', // a preview tab's name ends in ", preview"; it shows no path
 		tabSuffixPattern: 'preview|pinned|Editor Group \\d+', // what a tab's name adds after the file's, each after ", " (upstream computeEditorAriaLabel)
 		moveModalToMain: 'Open Modal Editor in Main Window', // the modal editor's header button
 	},
