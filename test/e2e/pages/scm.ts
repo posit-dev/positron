@@ -13,6 +13,7 @@ import { Layouts } from './layouts';
 
 const VIEWLET = 'div[id="workbench.view.scm"]';
 const SCM_INPUT_EDIT_CONTEXT = `${VIEWLET} .scm-editor .native-edit-context`;
+const SCM_INPUT_VIEW_LINES = `${VIEWLET} .scm-editor .view-lines`;
 const SCM_RESOURCE_CLICK = (name: string) => `${VIEWLET} .monaco-list-row .resource .monaco-icon-label[aria-label*="${name}"] .label-name`;
 const SCM_RESOURCE_ACTION_CLICK = (name: string, actionName: string) => `.monaco-list-row .resource .monaco-icon-label[aria-label*="${name}"] .actions .action-label[aria-label="${actionName}"]`;
 const COMMIT_COMMAND = `div[id="workbench.parts.sidebar"] .actions-container a.action-label[aria-label="Commit"]`;
@@ -63,28 +64,12 @@ export class SCM {
 
 		const page = this.code.driver.currentPage;
 		const commitAction = page.locator(COMMIT_COMMAND);
+		const input = page.locator(SCM_INPUT_VIEW_LINES);
+		await expect(input).toContainText(message);
 		await expect(commitAction).not.toHaveClass(/disabled/);
-		// Disabled until the commit and its status refresh release index.lock, pass or fail.
-		// Watch from before the click: with no git user (CI) the commit can fail within 100 ms.
-		const watch = await page.evaluateHandle(selector => {
-			const state = { sawDisabled: false, observer: undefined as MutationObserver | undefined };
-			state.observer = new MutationObserver(() => {
-				if (document.querySelector(selector)?.classList.contains('disabled')) {
-					state.sawDisabled = true;
-				}
-			});
-			state.observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
-			return state;
-		}, COMMIT_COMMAND);
-		try {
-			await commitAction.click();
-			await page.waitForFunction(state => state.sawDisabled, watch, { polling: 'raf', timeout: 15000 });
-		} finally {
-			// A closed page must not replace the error from the try block.
-			await watch.evaluate(state => state.observer?.disconnect()).catch(() => { });
-			await watch.dispose().catch(() => { });
-		}
-		await expect(commitAction).not.toHaveClass(/disabled/);
+		await commitAction.click();
+		// Git clears the message only after a successful commit and its status refresh.
+		await expect(input).not.toContainText(message, { timeout: 20000 });
 	}
 
 	async verifyCurrentHistoryItem(name: string): Promise<void> {
