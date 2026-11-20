@@ -852,7 +852,7 @@
 			"problemMatcher": {
 				"owner": "posit-assistant",
 				"pattern": {
-					"regexp": "^[✘▲] \\[([A-Z]+)\\] (.+)",
+					"regexp": "^(?:\\[[a-z]+\\] )?[✘▲] \\[([A-Z]+)\\] (.+)",
 					"severity": 1,
 					"message": 2
 				},
