@@ -83,8 +83,8 @@ export type RejectedReason = 'shared-copy-moved' | 'review-required' | 'sign-in-
 
 export type OperationResult =
 	| { kind: 'done'; operationId: string; hookEditedFiles: string[] }
-	| { kind: 'check-failed'; output: string; hookEditedFiles: string[]; operationId?: string }
-	| { kind: 'check-changed-checkpoint'; token: string; changedPaths: string[]; hookEditedFiles: string[] }
+	| { kind: 'check-failed'; output: string; hookEditedFiles: string[]; operationId?: string; chunkIndex?: number }
+	| { kind: 'check-changed-checkpoint'; token: string; changedPaths: string[]; hookEditedFiles: string[]; chunkIndex?: number }
 	| { kind: 'path-collisions'; collisions: PathCollision[] }
 	| { kind: 'overlaps'; preview: IncomingPreview }
 	| { kind: 'inputs-changed'; changed: ('mine' | 'shared' | 'files')[]; preview: IncomingPreview }

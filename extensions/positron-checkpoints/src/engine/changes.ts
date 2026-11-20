@@ -103,7 +103,7 @@ function parsePatch(patch: string): ParsedSection[] {
 	return sections;
 }
 
-interface RawEntry {
+export interface RawEntry {
 	status: ChangedFile['status'];
 	path: string;
 	oldPath?: string;
@@ -113,7 +113,7 @@ interface RawEntry {
 }
 
 /** Parses `git diff --raw -z`, whose paths are exact (never quoted). */
-function parseRaw(output: string): RawEntry[] {
+export function parseRaw(output: string): RawEntry[] {
 	const parts = splitZ(output);
 	const entries: RawEntry[] = [];
 	for (let i = 0; i < parts.length;) {
@@ -168,7 +168,7 @@ function hunkId(path: string, body: string, earlierIdentical: number): string {
 }
 
 /** The tree with no files, which git knows without storing it. */
-async function emptyTree(ports: EnginePorts): Promise<string> {
+export async function emptyTree(ports: EnginePorts): Promise<string> {
 	return (await mustGit(ports, ['hash-object', '-t', 'tree', '--stdin'], { stdin: '' })).trim();
 }
 
@@ -197,11 +197,15 @@ export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
 }
 
 /**
- * Like `readChanges`, and also returns the exact bytes of every hunk (key: hunk id) and the
- * working-file tree the changes were read from. `Hunk.patch` in the change set is display
- * text, so it cannot rebuild a file in an encoding other than UTF-8.
+ * Like `readChanges`, and also returns the exact bytes of every hunk (key: hunk id), and the
+ * latest checkpoint (`head`, absent when there is none), the working-file tree, and the tree of
+ * the real index that the basis was made from. `Hunk.patch` in the change set is display text,
+ * so it cannot rebuild a file in an encoding other than UTF-8.
  */
-export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; worktree: string; untrackedLarge: Map<string, { sizeBytes: number; mtimeMs: number }> }> {
+export async function readChangesDetailed(ports: EnginePorts): Promise<{
+	changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; head?: string; worktree: string; indexTree: string;
+	untrackedLarge: Map<string, { sizeBytes: number; mtimeMs: number }>;
+}> {
 	const base = await baseTreeOf(ports);
 	const { tree, skipped } = await worktreeTree(ports);
 	const index = await indexTree(ports);
@@ -291,7 +295,7 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 	for (const { path, sizeBytes } of large) {
 		files.push({ path, status: 'added', binary: true, sizeBytes, tooLarge: true, hunks: [] });
 	}
-	return { changeSet: { basis, files }, rawHunks, worktree: tree, untrackedLarge: new Map(large.map(file => [file.path, { sizeBytes: file.sizeBytes, mtimeMs: file.mtimeMs }])) };
+	return { changeSet: { basis, files }, rawHunks, head: base.head, worktree: tree, indexTree: index, untrackedLarge: new Map(large.map(file => [file.path, { sizeBytes: file.sizeBytes, mtimeMs: file.mtimeMs }])) };
 }
 
 /** Quotes a path the way git writes it in a patch header, when it needs quoting. */
