@@ -20,9 +20,11 @@ import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.
 import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController, ProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { STATE_CHANGE_DELAY_MS } from '../../browser/components/useCheckpointsState.js';
-import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
+import { fakeCheckpoint, FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
 
@@ -57,6 +59,7 @@ describe('CheckpointsPanel', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 	});
 
 	afterEach(async () => {
@@ -215,6 +218,9 @@ describe('CheckpointsPanel', () => {
 	});
 
 	test('a change during a load queues one more load, and the older response is dropped', async () => {
+		// The proposal controller reads the state too, so it is replaced by one with a service without the engine.
+		(ctx.instantiationService.get(IProposalController) as ProposalController).dispose();
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables, undefined, ctx.disposables.add(new CheckpointsService(new NullLogService()))));
 		const releaseFirst = engine.holdGetState();
 		engine.state = fakeEngineState({ shared: { exists: true, ahead: 0, behind: 2 } });
 		renderPanel();
@@ -254,5 +260,44 @@ describe('CheckpointsPanel', () => {
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
 		expect(await screen.findByRole('status')).toHaveTextContent('Another window is working on this project');
+	});
+
+	test('a project without a proposal and without a refusal renders no text about proposals or review', async () => {
+		engine.state = fakeEngineState({ sharedUrl: 'https://github.com/me/dose-model.git', shared: { exists: true, ahead: 1, behind: 0 } });
+		engine.history = [fakeCheckpoint({ shared: false })];
+		renderPanel();
+
+		expect(await screen.findByRole('button', { name: 'Send Changes' })).toBeInTheDocument();
+		expect(document.body).not.toHaveTextContent(/proposal|review/i);
+	});
+
+	test.each([
+		['GitHub', 'https://github.com/me/dose-model.git', true],
+		['another host', 'https://gitlab.com/me/dose-model.git', false],
+	])('a Send refused for review on %s shows the review card: %s', async (_host, sharedUrl, shown) => {
+		const user = userEvent.setup();
+		engine.state = fakeEngineState({ sharedUrl, shared: { exists: true, ahead: 1, behind: 0 } });
+		engine.history = [fakeCheckpoint({ shared: false })];
+		engine.nextResult = { kind: 'rejected', reason: 'review-required', detail: 'GH006: Protected branch update failed' };
+		renderPanel();
+
+		await user.click(await screen.findByRole('button', { name: 'Send Changes' }));
+
+		expect(await screen.findByRole('status')).toHaveTextContent('The shared copy needs a colleague to review changes before they join it.');
+		const card = screen.queryByText('This project needs a colleague to review changes before they join the shared copy.');
+		expect({ card: card !== null, ask: screen.queryByRole('button', { name: 'Ask for a Review' }) !== null }).toEqual({ card: shown, ask: shown });
+	});
+
+	test('Dismiss hides the review card', async () => {
+		const user = userEvent.setup();
+		engine.state = fakeEngineState({ sharedUrl: 'https://github.com/me/dose-model.git', shared: { exists: true, ahead: 1, behind: 0 } });
+		engine.history = [fakeCheckpoint({ shared: false })];
+		engine.nextResult = { kind: 'rejected', reason: 'review-required', detail: 'GH006' };
+		renderPanel();
+		await user.click(await screen.findByRole('button', { name: 'Send Changes' }));
+
+		await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
+
+		expect(screen.queryByRole('button', { name: 'Ask for a Review' })).not.toBeInTheDocument();
 	});
 });

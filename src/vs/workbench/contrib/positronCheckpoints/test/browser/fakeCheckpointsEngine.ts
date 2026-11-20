@@ -58,7 +58,7 @@ export interface IFakeEngineCall {
 
 /**
  * A checkpoints engine for view tests. The test sets `state`, `changes`, `history`, `checkpointFiles`, `pendingFiles`,
- * `keptFiles`, `diff`, `blobs`, `incoming`, `nextResult`, `queuedResults`, and `readError`; every call is recorded in
+ * `keptFiles`, `diff`, `blobs`, `incoming`, `nextResult`, `queuedResults`, `afterOperation`, and `readError`; every call is recorded in
  * `calls`; `fireChange()` fires the state event.
  * `holdGetState()` makes the next `getState` wait until the test releases it.
  */
@@ -90,6 +90,9 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 	queuedResults: OperationResult[] = [];
 	/** The answer to `previewIncoming`. */
 	incoming: IIncomingPreview = { basis: 'basis-1', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };
+
+	/** Runs after each operation is recorded and before its result is returned, so a test can change `state` as the engine would. */
+	afterOperation?: (method: CheckpointsMethod, result: OperationResult) => void;
 
 	readonly calls: IFakeEngineCall[] = [];
 
@@ -131,7 +134,9 @@ export class FakeCheckpointsEngine extends Disposable implements ICheckpointsEng
 
 	private async _operation(method: CheckpointsMethod, ...args: unknown[]): Promise<OperationResult> {
 		this._record(method, ...args);
-		return this.queuedResults.shift() ?? this.nextResult;
+		const result = this.queuedResults.shift() ?? this.nextResult;
+		this.afterOperation?.(method, result);
+		return result;
 	}
 
 	async getState(): Promise<IEngineState> {

@@ -31,6 +31,8 @@ import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.
 import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { DESCRIBE_DELAY_MS } from '../../browser/components/useChangesDescription.js';
 import { STATE_CHANGE_DELAY_MS } from '../../browser/components/useCheckpointsState.js';
@@ -95,6 +97,7 @@ describe('Changes section and checkpoint dialog', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		// Off unless a test turns it on, so the plain list shows.
 		agent = ctx.disposables.add(new FakeCheckpointsAgentService(false));

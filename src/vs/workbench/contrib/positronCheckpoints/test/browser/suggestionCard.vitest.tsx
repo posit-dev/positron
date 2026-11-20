@@ -33,6 +33,8 @@ import { CheckpointsSuggestionService, ICheckpointsSuggestionService } from '../
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { CheckpointsSuggestionBadge, POSITRON_CHECKPOINTS_VIEW_CONTAINER_ID } from '../../browser/positronCheckpoints.contribution.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { IProposedChunk } from '../../common/agent/splitIntoChunks.js';
 import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
@@ -96,6 +98,7 @@ describe('SuggestionCard', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.instantiationService.stub(ICheckpointsAgentService, ctx.disposables.add(new FakeCheckpointsAgentService(false)));
 		suggestions = ctx.disposables.add(new CheckpointsSuggestionService());
 		ctx.instantiationService.stub(ICheckpointsSuggestionService, suggestions);

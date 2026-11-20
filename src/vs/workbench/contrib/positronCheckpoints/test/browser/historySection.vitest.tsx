@@ -32,6 +32,8 @@ import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.
 import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { GitDetails } from '../../browser/components/gitDetails.js';
 import { IHistoryDescription } from '../../common/agent/describeHistory.js';
@@ -87,6 +89,7 @@ describe('History section', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

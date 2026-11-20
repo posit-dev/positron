@@ -31,6 +31,8 @@ import { CheckpointsMessageService, ICheckpointsMessageService } from '../../bro
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { showCheckResultDialog } from '../../browser/components/checkResultDialog.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { FakeCheckpointsEngine, fakeChangedFile, fakeCheckpoint, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 describe('Recovery and project check dialogs', () => {
@@ -86,6 +88,7 @@ describe('Recovery and project check dialogs', () => {
 		messageService = ctx.disposables.add(new CheckpointsMessageService());
 		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

@@ -8,7 +8,7 @@ import './syncController.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -31,6 +31,8 @@ import { OverlapEditorInput } from './overlapEditor/overlapEditorInput.js';
 import { ImageDiffEditorInput, ImageDiffEditorPane, imageDiffProvider } from './richDiff/imageDiffEditor.js';
 import { richDiffRegistry } from './richDiff/richDiffRegistry.js';
 import { showJoinDialog } from './components/joinDialog.js';
+import { showAskForReviewDialog } from './components/askForReviewDialog.js';
+import { CHECKPOINTS_CAN_ASK_FOR_REVIEW } from './proposalController.js';
 
 /** The id of the Explorer view that shows while no folder is open. */
 const EXPLORER_EMPTY_VIEW_ID = 'workbench.explorer.emptyView';
@@ -134,6 +136,33 @@ registerAction2(class JoinProjectAction extends Action2 {
 
 	run(): void {
 		showJoinDialog();
+	}
+});
+
+export const ASK_FOR_REVIEW_COMMAND_ID = 'positronCheckpoints.askForReview';
+
+/**
+ * Opens the dialog that asks a colleague to review the unshared checkpoints. It is in the "..."
+ * menu of the view while the shared copy is on GitHub and the project has unshared checkpoints, so
+ * a person can ask for a review when the project does not require one.
+ */
+registerAction2(class AskForReviewAction extends Action2 {
+	constructor() {
+		super({
+			id: ASK_FOR_REVIEW_COMMAND_ID,
+			title: localize2('positron.checkpoints.askForReviewAction', "Ask for a Review"),
+			category: title,
+			precondition: CHECKPOINTS_CAN_ASK_FOR_REVIEW,
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.and(ContextKeyExpr.equals('view', POSITRON_CHECKPOINTS_VIEW_ID), CHECKPOINTS_CAN_ASK_FOR_REVIEW),
+				group: '1_proposal',
+			},
+		});
+	}
+
+	run(): void {
+		showAskForReviewDialog();
 	}
 });
 

@@ -31,6 +31,8 @@ import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggesti
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { ISummarizeIncomingInput } from '../../common/agent/summarizeIncoming.js';
 import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { fakeCheckpoint, FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
@@ -86,6 +88,7 @@ describe('Sync card and collision dialog', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
 

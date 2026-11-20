@@ -11,6 +11,7 @@ import { ChangesSection } from './changesSection.js';
 import { DisclosureCard } from './disclosureCard.js';
 import { HistorySection } from './historySection.js';
 import { KeptFilesSection } from './keptFilesSection.js';
+import { ProposalCard } from './proposalCard.js';
 import { RecoverySnapshotsSection, StateCards } from './stateCards.js';
 import { StatusHeader } from './statusHeader.js';
 import { SuggestionCard } from './suggestionCard.js';
@@ -36,7 +37,7 @@ function useContainerVisible(container: IReactComponentContainer | undefined): b
 }
 
 /**
- * The content of the Checkpoints view: the status header, the status line of the last action,
+ * The content of the Checkpoints view: the proposal card, the status header, the status line of the last action,
  * the cards for open decisions and the notice about the model provider, and the sections of a
  * tracked project. In an unusual state the sections are disabled.
  *
@@ -53,6 +54,7 @@ export const CheckpointsPanel = ({ container }: { container?: IReactComponentCon
 
 	return (
 		<div className='positron-checkpoints'>
+			{tracking && <ProposalCard disabled={!actionsEnabled} view={view} />}
 			<StatusHeader view={view} />
 			<div aria-live='polite' className='checkpoints-message' role='status'>
 				{message}

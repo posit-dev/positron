@@ -11,6 +11,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY } from '../common/checkpointsConfiguration.js';
+import { IProposalController } from './proposalController.js';
 
 /** The interval used when the setting does not hold a number. */
 const DEFAULT_INTERVAL_MINUTES = 5;
@@ -26,6 +27,7 @@ const FOCUS_CHECK_MINIMUM_MS = 60 * 1000;
  * (at most once a minute) and every `checkpoints.checkSharedInterval` minutes, at least one
  * minute apart. The setting 0 turns both kinds of check off. A check changes no files. It is skipped when the
  * project has no shared copy or is in an unusual state, and a failure is logged and never shown.
+ * While a proposal exists, each check also reads its state on GitHub.
  */
 export class SharedCopyChecker extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronCheckpointsSharedCopyChecker';
@@ -39,6 +41,7 @@ export class SharedCopyChecker extends Disposable implements IWorkbenchContribut
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IHostService hostService: IHostService,
 		@ILogService private readonly _logService: ILogService,
+		@IProposalController private readonly _proposalController: IProposalController,
 	) {
 		super();
 
@@ -94,6 +97,9 @@ export class SharedCopyChecker extends Disposable implements IWorkbenchContribut
 				return;
 			}
 			await engine.checkShared();
+			if (state.proposal && !this._store.isDisposed) {
+				await this._proposalController.refresh();
+			}
 		} catch (error) {
 			if (!this._store.isDisposed) {
 				this._logService.error('The check of the shared copy failed.', error);

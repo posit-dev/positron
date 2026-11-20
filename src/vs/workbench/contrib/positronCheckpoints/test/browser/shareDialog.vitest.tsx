@@ -23,6 +23,8 @@ import { CheckpointsMessageService, ICheckpointsMessageService } from '../../bro
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { CreateRepositoryResult, IGitHubClient, InviteResult, parseProjectLink } from '../../browser/github/githubClient.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { FORBIDDEN_WORDS } from '../../common/forbiddenWords.js';
 import { FakeCheckpointsEngine, fakeCheckpoint, fakeEngineState } from './fakeCheckpointsEngine.js';
 
@@ -65,6 +67,7 @@ describe('ShareDialog', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		engine.state = fakeEngineState({ shared: { exists: false, ahead: 0, behind: 0 } });
 		engine.history = [fakeCheckpoint({ shared: false })];

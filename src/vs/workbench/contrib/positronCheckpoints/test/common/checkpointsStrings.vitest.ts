@@ -13,7 +13,7 @@ const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-t
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
 /** The `unavailable` details of the engine that have their own sentence. */
-const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title'];
+const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title', 'get-changes-first', 'proposal-ended', 'proposal-exists'];
 
 const preview: IIncomingPreview = {
 	basis: 'b',
@@ -149,6 +149,15 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	checkResult: { comparisonOpensLater: [[]], failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]], chunkNotCreated: [[2, 3]] },
 	suggestions: { goodPlace: [[]], heading: [[]], badge: [[]] },
 	aiNotice: { heading: [[]], disclosure: [[]], ok: [[]], turnOff: [[]], openSetting: [[]] },
+	proposals: {
+		cardLabel: [[]], reviewRequired: [[]], askForReview: [[]], dialogTitle: [[]], titleLabel: [[]], messageLabel: [[]], goesForReview: [[1], [3]],
+		starting: [[]], sending: [[]], asking: [[]], startFailed: [['Another window is working on this project.']],
+		sendFailed: [['The shared copy could not be reached. Check your connection and try again.']], askFailed: [['Sign in to GitHub, then try again.']],
+		gitHubFailure: [['sign-in-required'], ['not-allowed'], ['offline'], ['unknown']],
+		notSent: [[]], notAsked: [[]], waiting: [[]], changesRequested: [[]], approved: [[]], accepted: [[]], closed: [[]], unreadable: [[]],
+		overlapsShared: [[]], openOnGitHub: [[]], stop: [[]], finish: [[]], signIn: [[]], checkAgain: [[]], sendMoreChanges: [[]],
+		notInProposal: [[1], [2]], stopConfirm: [[]], getChangesBeforeStop: [[]], notClosed: [[]],
+	},
 	view: { title: [[]], iconDescription: [[]] },
 };
 
@@ -247,6 +256,9 @@ describe('checkpointsStrings', () => {
 			'Another git tool set some work aside for its own use. Open the Source Control view to finish with it, then try again. No files were changed.',
 			'An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.',
 			'A checkpoint title must be one line of 1 to 72 characters. No files were changed.',
+			'A colleague added changes to your proposal. Get changes, then finish.',
+			'Your proposal is no longer open, so nothing was sent. Finish or stop it first.',
+			'You already have a proposal. Nothing was changed.',
 		]);
 	});
 
@@ -284,6 +296,34 @@ describe('checkpointsStrings', () => {
 		expect(Strings.changes.unsavedNote(2)).toBe('2 files have unsaved edits that are not shown');
 		expect(Strings.kept.heading()).toBe('Files kept aside');
 		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place for a checkpoint.');
+	});
+
+	test('the proposal sentences and labels of the spec appear verbatim', () => {
+		expect([
+			Strings.proposals.reviewRequired(), Strings.proposals.askForReview(), Strings.proposals.dialogTitle(), Strings.proposals.goesForReview(3),
+			Strings.proposals.sending(), Strings.proposals.asking(),
+			Strings.proposals.notSent(), Strings.proposals.notAsked(), Strings.proposals.waiting(), Strings.proposals.changesRequested(),
+			Strings.proposals.approved(), Strings.proposals.accepted(), Strings.proposals.closed(), Strings.proposals.unreadable(),
+			Strings.proposals.overlapsShared(), Strings.proposals.openOnGitHub(), Strings.proposals.stop(), Strings.proposals.finish(),
+			Strings.proposals.signIn(), Strings.proposals.checkAgain(), Strings.proposals.sendMoreChanges(), Strings.proposals.notInProposal(3),
+			Strings.results.unavailableDetail('get-changes-first'), Strings.proposals.stopConfirm(), Strings.proposals.notClosed(),
+		]).toEqual([
+			'This project needs a colleague to review changes before they join the shared copy.', 'Ask for a Review', 'Ask for a Review',
+			'3 checkpoints go to your colleagues for review. Your files do not change.',
+			'Sending your checkpoints...', 'Asking for the review...',
+			'Your proposal is on this computer only.', 'Your checkpoints were sent, but the review was not asked for.',
+			'Waiting for a colleague to review your proposal.',
+			'A colleague asked for changes. Read their comments on GitHub, create checkpoints for your changes, then send them.',
+			'A colleague approved your proposal. It joins the shared copy when it is accepted on GitHub.', 'Your proposal joined the shared copy.',
+			'Your proposal was closed without joining the shared copy. Your checkpoints are still here.',
+			'Positron could not read the state of your proposal.',
+			'Your proposal and the shared copy changed the same places. Open it on GitHub to choose what to keep.',
+			'Open on GitHub', 'Stop This Proposal', 'Finish', 'Sign in to GitHub', 'Check Again', 'Send More Changes',
+			'3 checkpoints not in your proposal yet',
+			'A colleague added changes to your proposal. Get changes, then finish.',
+			'Your checkpoints stay on this computer and are no longer in review.',
+			'Your proposal was stopped on this computer, but Positron could not close it on GitHub.',
+		]);
 	});
 
 	test('a part label says line or lines by the number added', () => {

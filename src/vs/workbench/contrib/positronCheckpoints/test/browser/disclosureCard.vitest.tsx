@@ -25,6 +25,8 @@ import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggesti
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { IProposalController } from '../../browser/proposalController.js';
+import { createProposalController } from './proposalTestHelpers.js';
 import { CHECKPOINTS_SUGGESTIONS_ENABLED_KEY } from '../../common/checkpointsConfiguration.js';
 import { Job } from '../../common/agent/jobTypes.js';
 import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
@@ -72,6 +74,7 @@ describe('DisclosureCard', () => {
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
+		ctx.instantiationService.stub(IProposalController, createProposalController(ctx.instantiationService, ctx.disposables));
 		ctx.instantiationService.stub(ICheckpointsAgentService, agentService);
 		ctx.instantiationService.stub(ICheckpointsSuggestionService, { current: undefined, onDidChange: Event.None });
 		ctx.disposables.add(checkpointsService.registerEngine(engine));

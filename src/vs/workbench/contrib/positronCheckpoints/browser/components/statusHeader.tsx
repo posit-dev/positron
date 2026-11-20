@@ -23,7 +23,8 @@ interface IStatus {
 
 /**
  * Chooses the status sentence. The first that applies wins: no engine, an unusual state, a plain
- * folder, an interrupted action, sync unavailable, no shared copy, behind, ahead, up to date. An
+ * folder, an interrupted action, sync unavailable, no shared copy, behind, ahead of a sent
+ * proposal, ahead, up to date. An
  * unusual state comes before a plain folder because a missing git program is reported for a
  * folder that is not a project, and starting would fail there.
  *
@@ -54,6 +55,9 @@ export function describeStatus(view: ICheckpointsViewState): IStatus | undefined
 	}
 	if (state.shared.behind > 0) {
 		return { sentence: Strings.status.behind(state.shared.behind) };
+	}
+	if (state.shared.ahead > 0 && state.proposal?.sent) {
+		return { sentence: Strings.proposals.notInProposal(state.shared.ahead) };
 	}
 	if (state.shared.ahead > 0) {
 		return { sentence: Strings.status.waitingToSend(state.shared.ahead) };

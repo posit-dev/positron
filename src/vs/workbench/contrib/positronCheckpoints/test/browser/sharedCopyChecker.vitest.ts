@@ -14,6 +14,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { IProposalController } from '../../browser/proposalController.js';
 import { SharedCopyChecker } from '../../browser/sharedCopyChecker.js';
 import { CHECKPOINTS_CHECK_SHARED_INTERVAL_KEY } from '../../common/checkpointsConfiguration.js';
 import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
@@ -23,9 +24,11 @@ const MINUTE = 60 * 1000;
 describe('SharedCopyChecker', () => {
 	const focus = new Emitter<boolean>();
 	const logError = vi.fn();
+	const refreshProposal = vi.fn(async () => { });
 
 	const ctx = createTestContainer()
 		.stub(IHostService, { onDidChangeFocus: focus.event })
+		.stub(IProposalController, { refresh: refreshProposal })
 		.build();
 
 	let engine: FakeCheckpointsEngine;
@@ -35,6 +38,7 @@ describe('SharedCopyChecker', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		logError.mockClear();
+		refreshProposal.mockClear();
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		configuration = new TestConfigurationService();
@@ -233,6 +237,18 @@ describe('SharedCopyChecker', () => {
 		const getStateCalls = engine.callsOf('getState').length;
 		await vi.advanceTimersByTimeAsync(5 * MINUTE);
 		expect(engine.callsOf('getState').length).toBe(getStateCalls + 1);
+	});
+
+	test('each check reads the state of a proposal on GitHub, and only while a proposal exists', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		createChecker();
+
+		await vi.advanceTimersByTimeAsync(5 * MINUTE);
+		expect(refreshProposal).not.toHaveBeenCalled();
+
+		engine.state = fakeEngineState({ proposal: { branch: 'proposal/fit', base: 'main', sent: true } });
+		await vi.advanceTimersByTimeAsync(5 * MINUTE);
+		expect({ checks: checks(), refreshes: refreshProposal.mock.calls.length }).toEqual({ checks: 2, refreshes: 1 });
 	});
 
 	test('the timer stops when the engine goes away and starts when one registers', async () => {
