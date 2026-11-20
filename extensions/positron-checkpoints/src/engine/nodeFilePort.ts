@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'crypto';
+import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { FilePort } from './ports';
@@ -75,14 +76,18 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				await fsp.chmod(full, wanted);
 			}
 		},
-		async writeLink(file, target) {
+		async createLinkExclusive(file, target) {
 			const full = await resolve(file);
 			await fsp.mkdir(path.dirname(full), { recursive: true });
-			const existing = await fsp.lstat(full).catch(() => undefined);
-			if (existing !== undefined && !existing.isDirectory()) {
-				await fsp.rm(full, { force: true });
+			try {
+				await fsp.symlink(target, full);
+				return true;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+					return false;
+				}
+				throw error;
 			}
-			await fsp.symlink(target, full);
 		},
 		async removeEmptyDirectory(file) {
 			try {
@@ -103,7 +108,50 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 			const source = await resolve(from);
 			const target = await resolve(to);
 			await fsp.mkdir(path.dirname(target), { recursive: true });
-			await fsp.rename(source, target);
+			try {
+				await fsp.rename(source, target);
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== 'EXDEV') {
+					throw error;
+				}
+				// Another file system: copy beside the target, so the target changes in one rename.
+				const copy = path.join(path.dirname(target), `.${randomUUID()}.positron-checkpoints-tmp`);
+				try {
+					await copyEntry(source, copy);
+					await fsp.rename(copy, target);
+				} catch (copyError) {
+					await fsp.rm(copy, { force: true });
+					throw copyError;
+				}
+				await fsp.rm(source, { force: true });
+			}
+		},
+		async linkOrCopy(from, to) {
+			const source = await resolve(from);
+			const target = await resolve(to);
+			await fsp.mkdir(path.dirname(target), { recursive: true });
+			if ((await fsp.lstat(source)).isSymbolicLink()) {
+				await fsp.symlink(await fsp.readlink(source), target);
+				return;
+			}
+			try {
+				await fsp.link(source, target);
+			} catch (error) {
+				const code = (error as NodeJS.ErrnoException).code;
+				if (code === 'EEXIST' || code === 'ENOENT') {
+					throw error;
+				}
+				// No hard link across file systems, or on a file system without them.
+				await copyEntry(source, target);
+			}
+		},
+		async setPermissions(file, executable, like) {
+			const full = await resolve(file);
+			const reference = like === undefined ? undefined : await fsp.lstat(await resolve(like)).catch(() => undefined);
+			const mode = (reference?.isFile() ? reference.mode : (await fsp.lstat(full)).mode) & 0o7777;
+			// The owner may always run the file; group and others follow their read bits.
+			const wanted = executable ? mode | 0o100 | ((mode & 0o044) >> 2) : mode & ~0o111;
+			await fsp.chmod(full, wanted);
 		},
 		async stat(file) {
 			try {
@@ -186,6 +234,20 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 			return caseInsensitive;
 		},
 	};
+}
+
+/**
+ * Copies a file (with its permission bits) or a symbolic link (as a link) to `target`, which
+ * must not exist.
+ */
+async function copyEntry(source: string, target: string): Promise<void> {
+	const info = await fsp.lstat(source);
+	if (info.isSymbolicLink()) {
+		await fsp.symlink(await fsp.readlink(source), target);
+		return;
+	}
+	await fsp.copyFile(source, target, fs.constants.COPYFILE_EXCL);
+	await fsp.chmod(target, info.mode & 0o7777);
 }
 
 /** True when `target` is `base` or a path below it. A name such as `..notes` is below `base`. */

@@ -141,11 +141,12 @@ describe('runOperation', () => {
 		expect(record.status).toBe('complete');
 		expect(record.progress).toEqual([
 			{ step: 'path', path: 'b.txt' },
-			{ step: 'path', path: 'a.txt' },
-			{ step: 'path', path: 'd.txt' },
+			{ step: 'path', path: 'a.txt', temporary: expect.stringMatching(/^\.a\.txt\.[0-9a-f]{12}\.positron-checkpoints-tmp$/) },
+			{ step: 'path', path: 'd.txt', temporary: expect.stringMatching(/^\.d\.txt\.[0-9a-f]{12}\.positron-checkpoints-tmp$/) },
 			{ step: 'index' },
 			{ step: 'branch' },
 		]);
+		expect(await fsp.stat(`${await engineDirectory(repo.ports)}/backup/op-1`).catch(() => undefined)).toBeUndefined();
 		expect(await fsp.stat(`${await engineDirectory(repo.ports)}/lock`).catch(() => undefined)).toBeUndefined();
 	});
 
@@ -168,7 +169,7 @@ describe('runOperation', () => {
 		expect((await repo.git(['status', '--porcelain'])).stdout).toBe('');
 	});
 
-	test('with core.autocrlf=true a file is written and restored with the bytes git checkout writes', async () => {
+	test('with core.autocrlf=true a file is written with the bytes git checkout writes and restored with its own bytes', async () => {
 		const prepare = async () => {
 			const repo = await create();
 			const { a, b, plan } = await referenceProject(repo);
@@ -199,8 +200,9 @@ describe('runOperation', () => {
 		});
 		expect((await runOperation(ports, failed.plan)).kind).toBe('could-not-finish');
 		expect(await failed.repo.read('a.txt')).toBe('one\r\n');
-		expect(await failed.repo.read('a.txt')).toBe(await checkedOut(failed.repo, failed.a, 'a.txt'));
-		expect(await failed.repo.read('b.txt')).toBe(await checkedOut(failed.repo, failed.a, 'b.txt'));
+		// b.txt was written before core.autocrlf was set, so git checkout would give it other bytes.
+		expect(await checkedOut(failed.repo, failed.a, 'b.txt')).toBe('bee\r\n');
+		expect(await failed.repo.read('b.txt')).toBe('bee\n');
 	});
 
 	test('a file with a clean and smudge filter is written smudged and reads as its blob', async () => {
@@ -245,6 +247,97 @@ describe('runOperation', () => {
 		expect(await projectState(repo)).toEqual(before);
 		expect(await readRecords(repo.ports)).toEqual([]);
 		expect(await refExists(repo, `${SNAPSHOT_REF_PREFIX}op-1`)).toBe(false);
+	});
+
+	test('a failed operation restores the original bytes and permission bits of a file a lossy clean filter stores', async () => {
+		const repo = await create();
+		await must(repo, ['config', 'filter.lower.clean', 'tr A-Z a-z']);
+		await repo.write('.gitattributes', '*.txt filter=lower\n');
+		await repo.write('a.txt', 'Mixed Case\n');
+		await repo.write('b.txt', 'Keep Me\n');
+		const a = await repo.commit('A');
+		expect(await must(repo, ['cat-file', 'blob', `${a}:a.txt`])).toBe('mixed case');
+		await fsp.chmod(path.join(repo.root, 'a.txt'), 0o600);
+		const treeB = await treeWith(repo, await must(repo, ['rev-parse', 'HEAD^{tree}']), { 'a.txt': 'other\n', 'b.txt': null });
+		const b = await must(repo, ['commit-tree', treeB, '-p', a, '-m', 'B']);
+		const plan: OperationPlan = { kind: 'go-back', description: 'Go back', expected: await currentState(repo), after: { branchCommit: b, indexTree: treeB, worktreeTree: treeB }, collisionChoices: [] };
+		const ports = afterJournal(repo.ports, async () => {
+			await must(repo, ['update-ref', 'refs/heads/main', await must(repo, ['commit-tree', treeB, '-p', a, '-m', 'Elsewhere'])]);
+		});
+
+		expect((await runOperation(ports, plan)).kind).toBe('could-not-finish');
+
+		expect(await repo.read('a.txt')).toBe('Mixed Case\n');
+		expect((await fsp.stat(path.join(repo.root, 'a.txt'))).mode & 0o777).toBe(0o600);
+		expect(await repo.read('b.txt')).toBe('Keep Me\n');
+		expect(await fsp.stat(`${await engineDirectory(repo.ports)}/backup/op-1`).catch(() => undefined)).toBeUndefined();
+	});
+
+	test('a replaced file keeps its permission bits apart from the executable bit, and a new file follows the umask', async () => {
+		const repo = await create();
+		await repo.write('private.txt', 'one\n');
+		await repo.write('tool.sh', 'one\n');
+		const a = await repo.commit('A');
+		await fsp.chmod(path.join(repo.root, 'private.txt'), 0o600);
+		await fsp.chmod(path.join(repo.root, 'tool.sh'), 0o640);
+		const treeB = await treeWith(repo, await must(repo, ['rev-parse', 'HEAD^{tree}']), { 'private.txt': 'two\n', 'tool.sh': 'exec:two\n', 'new.txt': 'new\n' });
+		const b = await must(repo, ['commit-tree', treeB, '-p', a, '-m', 'B']);
+		const plan: OperationPlan = { kind: 'go-back', description: 'Go back', expected: await currentState(repo), after: { branchCommit: b, indexTree: treeB, worktreeTree: treeB }, collisionChoices: [] };
+		const previous = process.umask(0o027);
+		try {
+			expect((await runOperation(repo.ports, plan)).kind).toBe('done');
+		} finally {
+			process.umask(previous);
+		}
+		const mode = async (file: string) => (await fsp.stat(path.join(repo.root, file))).mode & 0o777;
+		expect(await mode('private.txt')).toBe(0o600);
+		expect(await mode('tool.sh')).toBe(0o750);
+		expect(await mode('new.txt')).toBe(0o640);
+	});
+
+	test('a file at the old fixed temporary name is never replaced or removed', async () => {
+		const repo = await create();
+		const { a, plan } = await referenceProject(repo);
+		await repo.write('.a.txt.positron-checkpoints-tmp', 'my own file\n');
+		const done = await runOperation(repo.ports, { ...plan, expected: await currentState(repo) });
+		expect(done.kind).toBe('done');
+		expect(await repo.read('.a.txt.positron-checkpoints-tmp')).toBe('my own file\n');
+
+		// A failed run and its reversal leave it too.
+		await must(repo, ['reset', '-q', '--hard', a]);
+		const ports = afterJournal(repo.ports, async () => {
+			await must(repo, ['update-ref', 'refs/heads/main', await must(repo, ['commit-tree', plan.after.indexTree, '-p', a, '-m', 'Elsewhere'])]);
+		});
+		expect((await runOperation(ports, { ...plan, expected: await currentState(repo) })).kind).toBe('could-not-finish');
+		expect(await repo.read('.a.txt.positron-checkpoints-tmp')).toBe('my own file\n');
+	});
+
+	test('the path is checked after its new content is ready, right before it is replaced', async () => {
+		const repo = await create();
+		const { plan } = await referenceProject(repo);
+		const ports = faultPorts(repo.ports, {});
+		expect((await runOperation(ports, plan)).kind).toBe('done');
+		const forA = ports.mutatingCalls.filter(call => /\.a\.txt\.|a\.txt$/.test(call)).map(call => call.split(' ')[0]);
+		expect(forA).toEqual(['cat-file', 'setPermissions', 'linkOrCopy', 'move']);
+
+		// An edit made while the new content is prepared stops the operation before a.txt changes.
+		const edited = await create();
+		const second = await referenceProject(edited);
+		const editing: EnginePorts = {
+			...edited.ports,
+			files: {
+				...edited.ports.files,
+				setPermissions: async (file, executable, like) => {
+					await edited.ports.files.setPermissions(file, executable, like);
+					if (file.includes('.a.txt.')) {
+						await edited.write('a.txt', 'edited meanwhile\n');
+					}
+				},
+			},
+		};
+		expect((await runOperation(editing, second.plan)).kind).toBe('could-not-finish');
+		expect(await edited.read('a.txt')).toBe('edited meanwhile\n');
+		expect(splitZ((await edited.git(['ls-files', '-z', '--others', '--exclude-standard'])).stdout).sort()).toEqual(['u.txt']);
 	});
 
 	test('a busy lock returns unavailable busy and changes nothing', async () => {
@@ -482,9 +575,12 @@ const branchMove = referenceCalls.indexOf('update-ref refs/heads/main') + 1;
 const failurePoints = Array.from({ length: branchMove }, (_, index) => index + 1);
 
 describe('runOperation failure injection', () => {
-	test('the reference operation moves the branch, then only releases the lock', () => {
+	test('the reference operation moves the branch, then only removes its backups and releases the lock', () => {
 		expect(branchMove).toBeGreaterThan(5);
-		expect(referenceCalls.slice(branchMove)).toEqual([expect.stringMatching(/^remove .*\/positron-checkpoints\/lock$/)]);
+		expect(referenceCalls.slice(branchMove)).toEqual([
+			expect.stringMatching(/^remove .*\/positron-checkpoints\/backup\/op-1$/),
+			expect.stringMatching(/^remove .*\/positron-checkpoints\/lock$/),
+		]);
 	});
 
 	test.each(failurePoints)('failure at mutating call %i returns could-not-finish and restores the exact before state', async failAt => {
@@ -511,8 +607,8 @@ describe('runOperation failure injection', () => {
 		}
 	});
 	/** Runs the reference operation with every call failing from mutating call `stopAt` on, as a crash does. */
-	const crashAt = async (repo: TempRepo, label: string) => {
-		const stopAt = referenceCalls.findIndex(call => call.startsWith(label)) + 1;
+	const crashAt = async (repo: TempRepo, label: RegExp) => {
+		const stopAt = referenceCalls.findIndex(call => label.test(call)) + 1;
 		expect(stopAt).toBeGreaterThan(0);
 		const { plan } = await referenceProject(repo);
 		const before = await projectState(repo);
@@ -522,12 +618,16 @@ describe('runOperation failure injection', () => {
 		return { before, record };
 	};
 
-	test.each(['write .a.txt.positron-checkpoints-tmp', 'move .a.txt.positron-checkpoints-tmp'])('a crash at "%s" leaves the path whole and listed, and reverse restores the project', async label => {
+	test.each([
+		/^cat-file > .*\/\.a\.txt\.[0-9a-f]+\.positron-checkpoints-tmp$/,
+		/^linkOrCopy a\.txt$/,
+		/^move \.a\.txt\.[0-9a-f]+\.positron-checkpoints-tmp$/,
+	])('a crash at "%s" leaves the path whole and listed, and reverse restores the project', async label => {
 		const repo = await tempRepo();
 		try {
 			const { before, record } = await crashAt(repo, label);
 			expect(record.status).toBe('prepared');
-			expect(record.progress).toContainEqual({ step: 'path', path: 'a.txt' });
+			expect(record.progress).toContainEqual(expect.objectContaining({ step: 'path', path: 'a.txt' }));
 			expect(['one\n', 'two\n']).toContain(await repo.read('a.txt'));
 			const part = (await classify(repo.ports, record)).paths.find(entry => entry.path === 'a.txt')!.part;
 			expect(['before', 'after']).toContain(part);
@@ -543,7 +643,7 @@ describe('runOperation failure injection', () => {
 	test('a crash after read-tree, then work staged by another tool, is reported and not marked rolled back', async () => {
 		const repo = await tempRepo();
 		try {
-			const { record } = await crashAt(repo, 'update-ref refs/heads/main');
+			const { record } = await crashAt(repo, /^update-ref refs\/heads\/main$/);
 			expect(record.progress).toContainEqual({ step: 'index' });
 			expect(await must(repo, ['write-tree'])).toBe(record.after.indexTree);
 			const blob = await must(repo, ['hash-object', '-w', '--stdin'], { stdin: 'staged elsewhere\n' });

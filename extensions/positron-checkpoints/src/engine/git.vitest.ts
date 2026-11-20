@@ -104,6 +104,26 @@ describe('createGitRunner', () => {
 		expect(result.exitCode).toBe(-1);
 		expect(result.timedOut).toBe(false);
 	});
+
+	test('stdoutToFile streams a 20 MB blob to the file and returns an empty stdout', async () => {
+		const bytes = Buffer.alloc(20 * 1024 * 1024);
+		for (let index = 0; index < bytes.length; index++) {
+			bytes[index] = (index * 7 + (index >> 12)) & 0xff;
+		}
+		const hash = (await repo.git(['hash-object', '-w', '--stdin'], { stdin: bytes })).stdout.trim();
+		const file = path.join(repo.root, 'out.bin');
+		await fsp.writeFile(file, 'old content that is replaced');
+
+		const result = await repo.git(['cat-file', 'blob', hash], { stdoutToFile: file });
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toBe('');
+		expect(Buffer.compare(await fsp.readFile(file), bytes)).toBe(0);
+	});
+
+	test('stdoutToFile rejects when the file cannot be opened', async () => {
+		await expect(repo.git(['--version'], { stdoutToFile: path.join(repo.root, 'missing-folder', 'out.txt') })).rejects.toThrow(/ENOENT/);
+	});
 });
 
 describe('runGit', () => {

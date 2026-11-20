@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { randomBytes } from 'crypto';
 import * as path from 'path';
 import { findCollisions } from './collisions';
 import { GitFailedError, mustGit, runGit, splitZ } from './git';
 import {
-	acquireLock, appendProgress, classify, classifyPaths, FileMode, JournalRecord, Part, PathPlan,
+	acquireLock, appendProgress, classify, classifyPaths, engineDirectory, FileMode, JournalRecord, Part, PathPlan,
 	Progress, readBranch, readIndexTree, readRecords, setStatus, TriState, writeRecord,
 } from './journal';
 import { EnginePorts } from './ports';
@@ -126,29 +127,30 @@ async function runLocked(ports: EnginePorts, plan: OperationPlan): Promise<Opera
 
 /**
  * Steps 4 to 7 of the protocol. Before each change, the progress entry is appended to the
- * journal and to `started`.
+ * journal and to `started`. Once the record is complete, the originals kept in its backup folder
+ * are removed.
  */
 async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWritten: Set<string>, started: Progress[]): Promise<void> {
+	const backups = await backupDirectory(ports, record.id);
 	for (const plan of record.paths) {
-		const [{ part }] = await classifyPaths(ports, [plan]);
 		if (alreadyWritten.has(plan.path)) {
+			const [{ part }] = await classifyPaths(ports, [plan]);
 			if (!isAtAfter(plan, part)) {
 				throw new StepRefused(`${plan.path} changed after the operation started`);
 			}
 			continue;
 		}
-		if (part !== 'before') {
-			throw new StepRefused(`${plan.path} changed after the operation started`);
-		}
-		await announce(ports, record.id, started, { step: 'path', path: plan.path });
-		await writePath(ports, plan, 'forward');
+		await writeForward(ports, record.id, plan, backups, started);
 	}
 
 	if (record.after.indexTree !== record.before.indexTree) {
+		await announce(ports, record.id, started, { step: 'index' });
+		// Checked right before the change. Another tool could still stage work in the few
+		// milliseconds before `read-tree` runs; that window is accepted.
 		if (await readIndexTree(ports) !== record.before.indexTree) {
+			started.pop();
 			throw new StepRefused('the index changed after the operation started');
 		}
-		await announce(ports, record.id, started, { step: 'index' });
 		await setIndex(ports, record.after.indexTree);
 	}
 
@@ -167,6 +169,70 @@ async function applyRecord(ports: EnginePorts, record: JournalRecord, alreadyWri
 	}
 
 	await setStatus(ports, record.id, 'complete');
+	// The operation is decided; a folder that cannot be removed now only takes space.
+	await ports.files.remove(backups).catch(() => undefined);
+}
+
+/**
+ * Writes the after value of one path. The progress entry, with the name of the temporary file,
+ * is appended first. The new content is then made ready in that temporary file, and only then is
+ * the path checked against its before value, so the check comes right before the change. Another
+ * tool could still write the path in the few milliseconds between the check and the rename; that
+ * window is accepted. The original file gets a second name in the backup folder (a removal moves
+ * it there), and the temporary file is renamed over the path, so the path always has its old or
+ * its new content. A path that is no longer at its before value stops the operation, and its
+ * entry is taken back out of `started`, because nothing was changed.
+ */
+async function writeForward(ports: EnginePorts, id: string, plan: PathPlan, backups: string, started: Progress[]): Promise<void> {
+	const temporary = plan.after === null ? undefined : temporaryPath(plan.path);
+	await announce(ports, id, started, temporary === undefined ? { step: 'path', path: plan.path } : { step: 'path', path: plan.path, temporary });
+	if (temporary !== undefined) {
+		await fillTemporary(ports, plan, temporary);
+	}
+	const [{ part }] = await classifyPaths(ports, [plan]);
+	if (part !== 'before') {
+		if (temporary !== undefined) {
+			await ports.files.remove(temporary);
+		}
+		started.pop();
+		throw new StepRefused(`${plan.path} changed after the operation started`);
+	}
+	const backup = `${backups}/${plan.path}`;
+	if (temporary === undefined) {
+		await ports.files.move(plan.path, backup);
+		await removeEmptyFolders(ports, plan.path);
+		return;
+	}
+	if (plan.before !== null) {
+		await ports.files.linkOrCopy(plan.path, backup);
+	}
+	await ports.files.move(temporary, plan.path);
+}
+
+/**
+ * Creates `temporary`, which must not exist, with the after value of `plan`: the content `git
+ * checkout` would write (`git cat-file --filters`, so line-ending conversion and smudge filters
+ * apply), streamed from git to the file, or a symbolic link for mode 120000. Such a file reads
+ * back as the same blob (see `readDiskEntries`). A file gets the permission bits of the file it
+ * replaces (or those a new file gets), with the executable bit of the after mode.
+ */
+async function fillTemporary(ports: EnginePorts, plan: PathPlan, temporary: string): Promise<void> {
+	if (plan.afterMode === '120000') {
+		// A link target is never converted.
+		const target = Buffer.from((await mustGit(ports.git, ['-C', ports.projectRoot, 'cat-file', 'blob', plan.after!], { binary: true })).stdout, 'latin1').toString('utf8');
+		if (!await ports.files.createLinkExclusive(temporary, target)) {
+			throw new Error(`${temporary} already exists`);
+		}
+		return;
+	}
+	if (!await ports.files.createExclusive(temporary, '')) {
+		throw new Error(`${temporary} already exists`);
+	}
+	await mustGit(ports.git, ['-C', ports.projectRoot, 'cat-file', '--filters', `--path=${plan.path}`, plan.after!], {
+		stdoutToFile: path.resolve(ports.projectRoot, temporary),
+		timeoutMs: STAGING_TIMEOUT_MS,
+	});
+	await ports.files.setPermissions(temporary, plan.afterMode === '100755', plan.path);
 }
 
 /** Appends a progress entry durably, then lists it in `started`. */
@@ -232,49 +298,48 @@ function fileMode(mode: string): FileMode | null | undefined {
 	return mode === '100644' || mode === '100755' || mode === '120000' ? mode : undefined;
 }
 
-/** The temporary file next to `file` that a write goes through. */
-function temporaryPath(file: string): string {
-	const folder = path.posix.dirname(file);
-	const name = `.${path.posix.basename(file)}.positron-checkpoints-tmp`;
-	return folder === '.' ? name : `${folder}/${name}`;
+/** The folder where an operation keeps the original files it replaced or removed, until it is decided. */
+export async function backupDirectory(ports: EnginePorts, id: string): Promise<string> {
+	return `${await engineDirectory(ports)}/backup/${id}`;
 }
 
 /**
- * Writes the after (`forward`) or before (`backward`) value of a path: the content `git
- * checkout` would write (`git cat-file --filters`, so line-ending conversion and smudge filters
- * apply) with an executable bit from the mode, a symbolic link for mode 120000, or a removal
- * for `null`. Such a file reads back as the same blob (see `readDiskEntries`). A file or link
- * is written to a temporary file in the same folder and renamed over the path, so the path
- * always has its old or its new content. Folders that a removal leaves empty are removed. The
- * caller confirms what is on disk first.
+ * A new temporary file name next to `file`, with a random part so it is never the name of a
+ * file the person has. The base name is shortened so the name stays within file system limits.
  */
-export async function writePath(ports: EnginePorts, plan: PathPlan, direction: 'forward' | 'backward'): Promise<void> {
-	const blob = direction === 'forward' ? plan.after : plan.before;
-	const mode = direction === 'forward' ? plan.afterMode : plan.beforeMode;
-	if (blob === null || mode === null) {
+function temporaryPath(file: string): string {
+	const folder = path.posix.dirname(file);
+	const name = `.${path.posix.basename(file).slice(0, 100)}.${randomBytes(6).toString('hex')}.positron-checkpoints-tmp`;
+	return folder === '.' ? name : `${folder}/${name}`;
+}
+
+/** Removes the folders above `file` that are empty, nearest first. */
+async function removeEmptyFolders(ports: EnginePorts, file: string): Promise<void> {
+	for (let folder = path.posix.dirname(file); folder !== '.' && folder !== '/'; folder = path.posix.dirname(folder)) {
+		if (!await ports.files.removeEmptyDirectory(folder)) {
+			break;
+		}
+	}
+}
+
+/**
+ * Returns a path that has its after value to its before value: a file the operation created is
+ * removed (with folders that leaves empty), and an original kept in the backup folder is moved
+ * back over the path, with its own bytes and permission bits. Returns false, and changes
+ * nothing, when the original is missing from the backup folder.
+ */
+async function restorePath(ports: EnginePorts, plan: PathPlan, backups: string): Promise<boolean> {
+	if (plan.before === null) {
 		await ports.files.remove(plan.path);
-		for (let folder = path.posix.dirname(plan.path); folder !== '.' && folder !== '/'; folder = path.posix.dirname(folder)) {
-			if (!await ports.files.removeEmptyDirectory(folder)) {
-				break;
-			}
-		}
-		return;
+		await removeEmptyFolders(ports, plan.path);
+		return true;
 	}
-	// A link target is never converted; a file gets the filters of its own path.
-	const args = mode === '120000' ? ['cat-file', 'blob', blob] : ['cat-file', '--filters', `--path=${plan.path}`, blob];
-	const content = Buffer.from((await mustGit(ports.git, ['-C', ports.projectRoot, ...args], { binary: true, timeoutMs: STAGING_TIMEOUT_MS })).stdout, 'latin1');
-	const temporary = temporaryPath(plan.path);
-	try {
-		if (mode === '120000') {
-			await ports.files.writeLink(temporary, content.toString('utf8'));
-		} else {
-			await ports.files.write(temporary, new Uint8Array(content), mode === '100755');
-		}
-		await ports.files.move(temporary, plan.path);
-	} catch (error) {
-		await ports.files.remove(temporary).catch(() => undefined);
-		throw error;
+	const backup = `${backups}/${plan.path}`;
+	if (await ports.files.lstat(backup) === undefined) {
+		return false;
 	}
+	await ports.files.move(backup, plan.path);
+	return true;
 }
 
 /**
@@ -303,8 +368,10 @@ async function moveBranch(ports: EnginePorts, branch: string, to: string | null,
  * a listed part that is "after", in reverse order of the progress entries (branch, index,
  * paths, kept files back to their places). A part that is not listed is never changed, even
  * when it is "after", because another tool put it there. Each part is checked again just
- * before it is restored, and "unexpected" content is never written over. A temporary file a
- * crash left next to a listed path is removed.
+ * before it is restored, and "unexpected" content is never written over. A path gets back the
+ * original kept in the record's backup folder; a path whose original is missing there is left
+ * as it is and counts as unexpected. A temporary file that a listed entry names is removed.
+ * Once the record is `rolled-back`, its backup folder is removed.
  *
  * A conflict is a part that is "unexpected" and listed, so the engine may have changed it
  * before another tool did. An unexpected part the engine never changed is the person's own
@@ -319,10 +386,11 @@ async function moveBranch(ports: EnginePorts, branch: string, to: string | null,
  */
 export async function reverse(ports: EnginePorts, record: JournalRecord, mode: 'all-or-report' | 'keep-unexpected'): Promise<'reversed' | 'has-unexpected'> {
 	const classification = await classify(ports, record);
-	const listed = (entry: Progress) => record.progress.some(other => JSON.stringify(other) === JSON.stringify(entry));
-	const conflict = (classification.branch === 'unexpected' && listed({ step: 'branch' }))
-		|| (classification.index === 'unexpected' && listed({ step: 'index' }))
-		|| classification.paths.some(({ path, part }) => part === 'unexpected' && listed({ step: 'path', path }));
+	const backups = await backupDirectory(ports, record.id);
+	const listed = (step: Progress['step'], file?: string) => record.progress.some(entry => entry.step === step && (entry.step !== 'path' || entry.path === file));
+	const conflict = (classification.branch === 'unexpected' && listed('branch'))
+		|| (classification.index === 'unexpected' && listed('index'))
+		|| classification.paths.some(({ path, part }) => part === 'unexpected' && listed('path', path));
 	let leftUnexpected = mode === 'all-or-report'
 		? conflict
 		: classification.branch === 'unexpected' || classification.index === 'unexpected' || classification.paths.some(({ part }) => part === 'unexpected');
@@ -349,9 +417,8 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 				leftUnexpected = true;
 			}
 		} else if (entry.step === 'path') {
-			const temporary = temporaryPath(entry.path);
-			if (await ports.files.lstat(temporary) !== undefined) {
-				await ports.files.remove(temporary);
+			if (entry.temporary !== undefined && await ports.files.lstat(entry.temporary) !== undefined) {
+				await ports.files.remove(entry.temporary);
 			}
 			const plan = record.paths.find(candidate => candidate.path === entry.path);
 			if (plan === undefined || classification.paths.find(({ path }) => path === entry.path)?.part !== 'after') {
@@ -359,7 +426,9 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 			}
 			const [{ part }] = await classifyPaths(ports, [plan]);
 			if (part === 'after') {
-				await writePath(ports, plan, 'backward');
+				if (!await restorePath(ports, plan, backups)) {
+					leftUnexpected = true;
+				}
 			} else if (part === 'unexpected') {
 				leftUnexpected = true;
 			}
@@ -374,7 +443,11 @@ export async function reverse(ports: EnginePorts, record: JournalRecord, mode: '
 		// Content changed while it was being restored; keep a copy of the project as it is now.
 		await saveRecoverySnapshot(ports, record);
 	}
-	await setStatus(ports, record.id, mode === 'all-or-report' && leftUnexpected ? 'interrupted' : 'rolled-back');
+	const status = mode === 'all-or-report' && leftUnexpected ? 'interrupted' : 'rolled-back';
+	await setStatus(ports, record.id, status);
+	if (status === 'rolled-back') {
+		await ports.files.remove(backups).catch(() => undefined);
+	}
 	return leftUnexpected ? 'has-unexpected' : 'reversed';
 }
 

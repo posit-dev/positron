@@ -192,6 +192,47 @@ describe('createNodeFilePort', () => {
 			expect((await fsp.stat(path.join(root, 'new.txt'))).mode & 0o777).toBe(0o600);
 			expect((await fsp.stat(path.join(root, 'new.sh'))).mode & 0o777).toBe(0o700);
 		});
+
+		test('createLinkExclusive creates a link only when nothing exists at the path', async () => {
+			expect(await files.createLinkExclusive('link', 'a.txt')).toBe(true);
+			expect(await fsp.readlink(path.join(root, 'link'))).toBe('a.txt');
+			await fsp.writeFile(path.join(root, 'taken.txt'), 'mine');
+			expect(await files.createLinkExclusive('taken.txt', 'a.txt')).toBe(false);
+			expect(await fsp.readFile(path.join(root, 'taken.txt'), 'utf8')).toBe('mine');
+		});
+
+		test('linkOrCopy keeps the bytes and permission bits after the original name is replaced', async () => {
+			const file = path.join(root, 'private.txt');
+			await fsp.writeFile(file, 'Original');
+			await fsp.chmod(file, 0o600);
+			await files.linkOrCopy('private.txt', 'kept/private.txt');
+			await fsp.writeFile(path.join(root, 'replacement'), 'new');
+			await fsp.rename(path.join(root, 'replacement'), file);
+			expect(await fsp.readFile(path.join(root, 'kept/private.txt'), 'utf8')).toBe('Original');
+			expect((await fsp.stat(path.join(root, 'kept/private.txt'))).mode & 0o777).toBe(0o600);
+			await expect(files.linkOrCopy('private.txt', 'kept/private.txt')).rejects.toThrow(/EEXIST/);
+
+			await fsp.symlink('private.txt', path.join(root, 'link'));
+			await files.linkOrCopy('link', 'kept/link');
+			expect(await fsp.readlink(path.join(root, 'kept/link'))).toBe('private.txt');
+		});
+
+		test('setPermissions copies the bits of another file, or keeps its own, and sets the executable bit', async () => {
+			await fsp.writeFile(path.join(root, 'reference'), '');
+			await fsp.chmod(path.join(root, 'reference'), 0o640);
+			await fsp.writeFile(path.join(root, 'file'), '');
+			await fsp.chmod(path.join(root, 'file'), 0o644);
+			const mode = async () => (await fsp.stat(path.join(root, 'file'))).mode & 0o777;
+
+			await files.setPermissions('file', false, 'reference');
+			expect(await mode()).toBe(0o640);
+			await files.setPermissions('file', true, 'reference');
+			expect(await mode()).toBe(0o750);
+			await files.setPermissions('file', false);
+			expect(await mode()).toBe(0o640);
+			await files.setPermissions('file', true, 'missing');
+			expect(await mode()).toBe(0o750);
+		});
 	});
 
 	test('accepts an absolute path inside an extra root and refuses other absolute paths', async () => {

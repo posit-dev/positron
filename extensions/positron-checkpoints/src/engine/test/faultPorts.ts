@@ -32,8 +32,10 @@ function gitCommand(args: string[]): { command: string; rest: string[] } {
 
 /**
  * Wraps `ports` for failure injection. Mutating calls are counted: `files.write`,
- * `files.writeLink`, `files.remove`, `files.removeEmptyDirectory`, `files.move`, and git calls whose command is `update-ref`, `read-tree`,
- * `reset`, or `checkout-index`. Mutating call number `failAt` rejects without being made.
+ * `files.createLinkExclusive`, `files.remove`, `files.removeEmptyDirectory`, `files.move`,
+ * `files.linkOrCopy`, `files.setPermissions`, git calls whose command is `update-ref`,
+ * `read-tree`, `reset`, or `checkout-index`, and git calls with `stdoutToFile` (labeled
+ * `<command> > <file>`). Mutating call number `failAt` rejects without being made.
  * From mutating call number `stopAt` onward, every call (reading ones too) rejects with
  * `EngineStopped`, which simulates a crash.
  */
@@ -63,10 +65,12 @@ export function faultPorts(ports: EnginePorts, plan: { failAt?: number; stopAt?:
 	const files: FilePort = {
 		read: async file => { gate(undefined); return inner.read(file); },
 		write: async (file, content, executable) => { gate(`write ${file}`); return inner.write(file, content, executable); },
-		writeLink: async (file, target) => { gate(`writeLink ${file}`); return inner.writeLink(file, target); },
+		createLinkExclusive: async (file, target) => { gate(`createLinkExclusive ${file}`); return inner.createLinkExclusive(file, target); },
 		remove: async file => { gate(`remove ${file}`); return inner.remove(file); },
 		removeEmptyDirectory: async file => { gate(`removeEmptyDirectory ${file}`); return inner.removeEmptyDirectory(file); },
 		move: async (from, to) => { gate(`move ${from}`); return inner.move(from, to); },
+		linkOrCopy: async (from, to) => { gate(`linkOrCopy ${from}`); return inner.linkOrCopy(from, to); },
+		setPermissions: async (file, executable, like) => { gate(`setPermissions ${file}`); return inner.setPermissions(file, executable, like); },
 		stat: async file => { gate(undefined); return inner.stat(file); },
 		lstat: async file => { gate(undefined); return inner.lstat(file); },
 		copyKeepingTime: async (from, to) => { gate(undefined); return inner.copyKeepingTime(from, to); },
@@ -77,7 +81,11 @@ export function faultPorts(ports: EnginePorts, plan: { failAt?: number; stopAt?:
 
 	const git: GitRunner = async (args, options) => {
 		const { command, rest } = gitCommand(args);
-		gate(MUTATING_GIT_COMMANDS.has(command) ? `${command} ${rest.filter(arg => !arg.startsWith('-'))[0] ?? ''}` : undefined);
+		if (options?.stdoutToFile !== undefined) {
+			gate(`${command} > ${options.stdoutToFile}`);
+		} else {
+			gate(MUTATING_GIT_COMMANDS.has(command) ? `${command} ${rest.filter(arg => !arg.startsWith('-'))[0] ?? ''}` : undefined);
+		}
 		return ports.git(args, options);
 	};
 

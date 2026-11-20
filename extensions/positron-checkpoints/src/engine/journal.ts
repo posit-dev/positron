@@ -23,7 +23,12 @@ export interface TriState { branchCommit: string | null; indexTree: string; work
  */
 export interface PathPlan { path: string; before: string | null; after: string | null; beforeMode: FileMode | null; afterMode: FileMode | null }
 
-export type Progress = { step: 'kept'; from: string; to: string } | { step: 'path'; path: string } | { step: 'index' } | { step: 'branch' };
+/**
+ * An entry the engine appends before it changes a part. A `path` entry names the temporary file
+ * the engine creates for the path's new content, when there is one; the engine removes only
+ * temporary files named in its journal.
+ */
+export type Progress = { step: 'kept'; from: string; to: string } | { step: 'path'; path: string; temporary?: string } | { step: 'index' } | { step: 'branch' };
 export type JournalStatus = 'prepared' | 'complete' | 'rolled-back' | 'abandoned' | 'interrupted' | 'pending-approval';
 
 export interface JournalRecord {
@@ -71,11 +76,25 @@ export async function acquireLock(ports: EnginePorts): Promise<{ release(): Prom
 	if (held === undefined || !(await isStale(ports, file, held))) {
 		return undefined;
 	}
-	// Another window may take over the same stale lock; the exclusive create lets one of them win.
-	const again = await ports.files.read(file);
-	if (again !== undefined && Buffer.compare(Buffer.from(again), Buffer.from(held)) === 0) {
-		await ports.files.remove(file);
+	// Two windows can both judge the same lock stale. Each renames it to its own name, and only one
+	// rename finds the file. A window that judged an old lock but renamed the new lock of a window
+	// that took over first sees content it did not judge, puts that lock back, and gives up. Only a
+	// third window that creates a lock in that short gap can still share the lock.
+	const aside = `${file}.stale-${randomUUID()}`;
+	try {
+		await ports.files.move(file, aside);
+	} catch {
+		return undefined;
 	}
+	const moved = await ports.files.read(aside);
+	if (moved === undefined || Buffer.compare(Buffer.from(moved), Buffer.from(held)) !== 0) {
+		if (moved !== undefined) {
+			await ports.files.createExclusive(file, Buffer.from(moved).toString('utf8'));
+		}
+		await ports.files.remove(aside);
+		return undefined;
+	}
+	await ports.files.remove(aside);
 	return await ports.files.createExclusive(file, text) ? { release } : undefined;
 }
 
@@ -178,7 +197,9 @@ export async function readRecords(ports: EnginePorts): Promise<JournalRecord[]> 
 export type DiskEntry = { mode: FileMode; blob: string } | null | 'other';
 
 /**
- * Reads what is on disk at each path of `plans`.
+ * Reads what is on disk at each path of `plans`. A path git refuses to add (one beyond a symbolic
+ * link, one inside a nested repository) reads as something else, so it is never taken for a
+ * known value.
  *
  * The blob id of a file on disk is the id `git add` records for it, which is how
  * `worktreeTree` builds the snapshot trees that the before values come from: the clean side
@@ -207,6 +228,7 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
 		return entries;
 	}
 	const git = (args: string[], options: Parameters<EnginePorts['git']>[1]) => mustGit(ports.git, ['-C', ports.projectRoot, ...args], options);
+	const refused = new Set<string>();
 	const added = await withTempIndex(ports, async env => {
 		const seeds = files
 			.map(plan => plan.before !== null ? `${plan.beforeMode} ${plan.before}\t${plan.path}` : plan.after !== null ? `${plan.afterMode} ${plan.after}\t${plan.path}` : undefined)
@@ -221,9 +243,11 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
 		});
 		if ((await add(files.map(plan => plan.path))).exitCode !== 0) {
 			// Git refuses some paths (one beyond a symbolic link, one inside a nested repository).
-			// Adding one at a time leaves those paths out, and they read as something else.
+			// Adding one at a time finds them. Their seeded entry says nothing about the disk.
 			for (const plan of files) {
-				await add([plan.path]);
+				if ((await add([plan.path])).exitCode !== 0) {
+					refused.add(plan.path);
+				}
 			}
 		}
 		const listed = new Map<string, string>();
@@ -234,6 +258,10 @@ export async function readDiskEntries(ports: EnginePorts, plans: PathPlan[]): Pr
 		return listed;
 	});
 	for (const plan of files) {
+		if (refused.has(plan.path)) {
+			entries.set(plan.path, 'other');
+			continue;
+		}
 		const [mode, blob] = added.get(plan.path)?.split(' ') ?? [];
 		entries.set(plan.path, mode === '100644' || mode === '100755' || mode === '120000' ? { mode, blob } : 'other');
 	}

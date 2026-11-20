@@ -9,7 +9,8 @@ import { spawn } from 'child_process';
 import * as fsp from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { acquireLock, classify, engineDirectory, JournalRecord, PathPlan, readDiskEntries, readRecords, appendProgress, setStatus, writeRecord } from './journal';
+import { acquireLock, classify, classifyPaths, engineDirectory, JournalRecord, PathPlan, readDiskEntries, readRecords, appendProgress, setStatus, writeRecord } from './journal';
+import { EnginePorts } from './ports';
 import { EngineStopped, faultPorts } from './test/faultPorts';
 import { tempRepo, TempRepo } from './test/tempRepo';
 
@@ -130,6 +131,33 @@ describe('journal', () => {
 		expect(await acquireLock(repo.ports)).toBeUndefined();
 		repo.clock.advance(11 * 60_000);
 		expect(await acquireLock(repo.ports)).toBeDefined();
+	});
+
+	test('a window that judged an old lock stale does not remove the lock another window took over with', async () => {
+		const repo = await create();
+		const lockFile = `${await engineDirectory(repo.ports)}/lock`;
+		await fsp.mkdir(path.dirname(lockFile), { recursive: true });
+		const stale = JSON.stringify({ pid: await deadPid(), host: os.hostname(), time: repo.ports.now().toISOString(), token: 'old' });
+		await fsp.writeFile(lockFile, stale);
+		// The late window read the stale lock (twice, as a check before removing it) before the first window replaced it.
+		let lateReads = 0;
+		const late: EnginePorts = {
+			...repo.ports,
+			files: {
+				...repo.ports.files,
+				read: async file => file === lockFile && lateReads++ < 2 ? new TextEncoder().encode(stale) : repo.ports.files.read(file),
+			},
+		};
+		const first = await acquireLock(repo.ports);
+		expect(first).toBeDefined();
+		const held = await fsp.readFile(lockFile, 'utf8');
+
+		expect(await acquireLock(late)).toBeUndefined();
+
+		expect(await fsp.readFile(lockFile, 'utf8')).toBe(held);
+		expect((await fsp.readdir(path.dirname(lockFile))).filter(name => name.startsWith('lock'))).toEqual(['lock']);
+		await first!.release();
+		expect(await fsp.stat(lockFile).catch(() => undefined)).toBeUndefined();
 	});
 
 	test('release leaves a lock that another holder took over', async () => {
@@ -266,6 +294,21 @@ describe('journal', () => {
 		expect(entries.get('link')).toEqual({ mode: '120000', blob: (await repo.git(['hash-object', '--stdin'], { stdin: 'target.txt' })).stdout.trim() });
 		expect(entries.get('run.sh')).toEqual({ mode: '100755', blob: (await repo.git(['hash-object', '--stdin'], { stdin: '#!/bin/sh\n' })).stdout.trim() });
 		expect(entries.get('missing')).toBeNull();
+	});
+
+	test('classify: a tracked file beyond a folder replaced by a symbolic link is unexpected', async () => {
+		const repo = await create();
+		await repo.write('dir/f.txt', 'same\n');
+		const a = await repo.commit('A');
+		const blob = await git(repo, ['rev-parse', `${a}:dir/f.txt`]);
+		await repo.write('other/f.txt', 'same\n');
+		await fsp.rm(path.join(repo.root, 'dir'), { recursive: true });
+		await fsp.symlink('other', path.join(repo.root, 'dir'));
+		const plans: PathPlan[] = [
+			{ path: 'dir/f.txt', before: blob, after: null, beforeMode: '100644', afterMode: null },
+			{ path: 'other/f.txt', before: blob, after: null, beforeMode: '100644', afterMode: null },
+		];
+		expect(await classifyPaths(repo.ports, plans)).toEqual([{ path: 'dir/f.txt', part: 'unexpected' }, { path: 'other/f.txt', part: 'before' }]);
 	});
 
 	describe('faultPorts', () => {

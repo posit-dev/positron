@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawn } from 'child_process';
-import { GitResult, GitRunner } from './ports';
+import * as fs from 'fs';
+import { GitOptions, GitResult, GitRunner } from './ports';
 
 const DEFAULT_TIMEOUT_MS = 30000;
 
@@ -29,10 +30,35 @@ function inheritedEnv(): NodeJS.ProcessEnv {
  * repository of `cwd`; a call can still set them through `options.env`.
  * A call that outlives `timeoutMs` (default 30 seconds) is killed and resolves with
  * `timedOut: true`. With `binary: true` the output strings are decoded as latin1, so
- * `Buffer.from(stdout, 'latin1')` recovers the exact bytes.
+ * `Buffer.from(stdout, 'latin1')` recovers the exact bytes. With `stdoutToFile`, the output is
+ * streamed to that file and never held in memory.
  */
 export function createGitRunner(gitPath: string, cwd: string): GitRunner {
-	return (args, options = {}) => new Promise<GitResult>(resolve => {
+	return async (args, options = {}) => {
+		const output = options.stdoutToFile === undefined ? undefined : await openOutput(options.stdoutToFile);
+		return runProcess(gitPath, cwd, args, options, output);
+	};
+}
+
+/** Creates or empties `file` and returns its descriptor. */
+function openOutput(file: string): Promise<number> {
+	return new Promise<number>((resolve, reject) => fs.open(file, 'w', (error, fd) => error ? reject(error) : resolve(fd)));
+}
+
+/** Flushes the file of `fd` to disk, then closes it. A failed flush still closes it, and rejects. */
+function syncAndClose(fd: number): Promise<void> {
+	return new Promise<void>((resolve, reject) => fs.fsync(fd, syncError => fs.close(fd, closeError => {
+		const error = syncError ?? closeError;
+		return error ? reject(error) : resolve();
+	})));
+}
+
+/**
+ * Runs git once. With `outputFd`, stdout is written to that file, and the result waits until the
+ * file is flushed and closed.
+ */
+function runProcess(gitPath: string, cwd: string, args: string[], options: GitOptions, outputFd: number | undefined): Promise<GitResult> {
+	return new Promise<GitResult>((resolve, reject) => {
 		const encoding = options.binary ? 'latin1' : 'utf8';
 		const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 		const isWindows = process.platform === 'win32';
@@ -40,6 +66,8 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 		const stderr: Buffer[] = [];
 		let settled = false;
 		let timeoutFired = false;
+		const output = outputFd === undefined ? undefined : fs.createWriteStream('', { fd: outputFd, autoClose: false });
+		let written: Promise<void> = Promise.resolve();
 
 		const finish = (exitCode: number, timedOut: boolean, extraStderr = '') => {
 			if (settled) {
@@ -47,12 +75,16 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 			}
 			settled = true;
 			clearTimeout(timer);
-			resolve({
+			if (output !== undefined && !output.writableEnded) {
+				output.end();
+			}
+			const result: GitResult = {
 				stdout: Buffer.concat(stdout).toString(encoding),
 				stderr: Buffer.concat(stderr).toString(encoding) + extraStderr,
 				exitCode,
 				timedOut: timedOut || timeoutFired,
-			});
+			};
+			written.then(() => resolve(result), reject);
 		};
 
 		let child;
@@ -73,6 +105,9 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 				windowsHide: true,
 			});
 		} catch (error) {
+			if (outputFd !== undefined) {
+				fs.close(outputFd, () => undefined);
+			}
 			resolve({ stdout: '', stderr: String(error), exitCode: -1, timedOut: false });
 			return;
 		}
@@ -83,7 +118,21 @@ export function createGitRunner(gitPath: string, cwd: string): GitRunner {
 			void killTree(child.pid).then(() => finish(-1, true));
 		}, timeoutMs);
 
-		child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
+		if (output !== undefined && outputFd !== undefined) {
+			written = new Promise<void>((resolveWritten, rejectWritten) => {
+				output.on('finish', () => syncAndClose(outputFd).then(resolveWritten, rejectWritten));
+				output.on('error', error => {
+					// Git would otherwise wait on a full pipe until its time limit.
+					void killTree(child.pid);
+					fs.close(outputFd, () => rejectWritten(error));
+				});
+			});
+			// Observed here so a failed write before the process ends is not an unhandled rejection.
+			written.catch(() => undefined);
+			child.stdout.pipe(output);
+		} else {
+			child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
+		}
 		child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
 		child.on('error', error => finish(-1, false, String(error)));
 		child.on('close', code => finish(code ?? -1, false));
