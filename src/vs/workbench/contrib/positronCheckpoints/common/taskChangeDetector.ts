@@ -43,12 +43,15 @@ export type DetectorEvent =
  * - changes with more than `maxLines` lines or more than `maxFiles` files.
  *
  * There is never a signal while there are no changes, or within the current gap after the
- * previous signal. The gap starts at `minGapMs` and doubles after each dismissal.
+ * previous signal. The gap starts at `minGapMs` and doubles after each dismissal. A caller whose
+ * signal led to no suggestion calls `retract`, so that the gap is spent only on real suggestions.
  */
 export class TaskChangeDetector {
 	private readonly _config: DetectorConfig;
 	private _gapMs: number;
 	private _lastSignalTime: number | undefined;
+	/** The value of `_lastSignalTime` before the latest signal, which `retract` restores. */
+	private _previousSignalTime: number | undefined;
 	private _lastEditTime: number | undefined;
 	private _editedInsideSet = false;
 	/** False until a `changes` event reports changed lines or files. */
@@ -82,6 +85,17 @@ export class TaskChangeDetector {
 		}
 	}
 
+	/**
+	 * Undoes the effect of the signal given at `time` on the gap, for a signal that led to no
+	 * suggestion. The dismissal doubling stays. Does nothing when the latest signal was at another
+	 * time.
+	 */
+	retract(time: number): void {
+		if (this._lastSignalTime === time) {
+			this._lastSignalTime = this._previousSignalTime;
+		}
+	}
+
 	/** Gives `signal` when `condition` holds, there are changes, and the gap has passed. */
 	private _signalIf(condition: boolean, time: number): 'signal' | 'none' {
 		if (!condition || !this._hasChanges) {
@@ -90,6 +104,7 @@ export class TaskChangeDetector {
 		if (this._lastSignalTime !== undefined && time - this._lastSignalTime < this._gapMs) {
 			return 'none';
 		}
+		this._previousSignalTime = this._lastSignalTime;
 		this._lastSignalTime = time;
 		return 'signal';
 	}

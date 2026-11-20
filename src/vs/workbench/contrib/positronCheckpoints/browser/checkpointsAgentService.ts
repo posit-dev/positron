@@ -169,6 +169,8 @@ export class CheckpointsAgentService extends Disposable implements ICheckpointsA
 		if (answer === 'withdrawn') {
 			// The agent became unavailable while the notice waited. The job ends here, even when
 			// the settings were switched back on since, and the next run shows the notice again.
+			// The outcome is the gate's reason while a gate is closed (for example `ai-disabled`),
+			// and `cancelled` when the settings are open again.
 			return this._gate() ?? { ok: false, reason: 'cancelled' };
 		}
 		// The settings are read again right before the call, because they can change while the

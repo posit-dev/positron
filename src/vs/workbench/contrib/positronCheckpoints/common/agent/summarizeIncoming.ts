@@ -19,6 +19,15 @@ const BINARY_SNIFF_BYTES = 8000;
 /** The most lines, both sides together, that are compared line by line. A larger file is named only. */
 const MAX_COMPARED_LINES = 20000;
 
+/** The most files whose contents are read for one request. The other files are listed by name. */
+const MAX_FILES_READ = 40;
+
+/** The most files read from the engine at the same time. */
+const MAX_PARALLEL_READS = 4;
+
+/** The largest side of a file, in bytes, that is compared. A larger file is listed by name and size. */
+const MAX_SIDE_BYTES = 512 * 1024;
+
 /** How colleagues' changes relate to the person's own work. */
 export type IncomingRelation = 'unrelated' | 'nearby' | 'overlapping';
 
@@ -93,6 +102,9 @@ async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string)
 	if (!before || !after) {
 		return [`File: ${path} (${status}, contents not shown)`];
 	}
+	if (before.byteLength > MAX_SIDE_BYTES || after.byteLength > MAX_SIDE_BYTES) {
+		return [`File: ${path} (${status}, too large to compare, ${before.byteLength} bytes before, ${after.byteLength} bytes now, contents not shown)`];
+	}
 	if (isBinary(before) || isBinary(after)) {
 		return [`File: ${path} (${status}, data file, ${before.byteLength} bytes before, ${after.byteLength} bytes now, contents not shown)`];
 	}
@@ -113,12 +125,25 @@ async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string)
 /**
  * The incoming changes of `preview` as text for a model request, at most `maxChars` characters
  * long. Each changed file is a "File:" line followed by its changed lines, read from both sides of
- * the engine's comparison. A data file (a zero byte in its first 8000 bytes) appears as its name
- * and sizes only. When the text is too long, files are shortened largest first to their "File:"
+ * the engine's comparison. A data file (a zero byte in its first 8000 bytes) and a file with a side
+ * over 512 KB appear as their name and sizes only. At most 4 files are read at a time, at most 40
+ * files are read, and reading stops once the full texts reach `maxChars`; the other files appear
+ * as their name only. When the text is too long, files are shortened largest first to their "File:"
  * line, and then the last files are left out.
  */
 export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, preview: IIncomingPreview, maxChars: number): Promise<string> {
-	const forms = await Promise.all(preview.changedPaths.map(path => renderIncomingFile(engine, path)));
+	const paths = preview.changedPaths;
+	const forms: string[][] = paths.map(path => [`File: ${path} (contents not shown)`]);
+	let next = 0;
+	let length = 0;
+	const worker = async () => {
+		while (length < maxChars && next < Math.min(paths.length, MAX_FILES_READ)) {
+			const index = next++;
+			forms[index] = await renderIncomingFile(engine, paths[index]);
+			length += forms[index][0].length + 1;
+		}
+	};
+	await Promise.all(Array.from({ length: MAX_PARALLEL_READS }, worker));
 	return fitFilesToLength(forms, maxChars);
 }
 

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter } from '../../../../../base/common/event.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IModelContentChangedEvent } from '../../../../../editor/common/textModelEvents.js';
@@ -23,6 +23,8 @@ import { IChangedFile } from '../../../../services/positronCheckpoints/common/ch
 import { IHeadlessLanguageModelService, IStreamTextRequest, StreamTextResult } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { ITextFileEditorModelManager, ITextFileSaveEvent, ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+import { IActivityService } from '../../../../services/activity/common/activity.js';
+import { CheckpointsSuggestionBadge } from '../../browser/positronCheckpoints.contribution.js';
 import { CheckpointsAgentService, ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { EDIT_DEBOUNCE_MS, TaskChangeWatcher } from '../../browser/taskChangeWatcher.js';
@@ -174,7 +176,9 @@ describe('TaskChangeWatcher', () => {
 		expect(agent.runsOf('split-into-chunks')).toHaveLength(0);
 
 		vi.advanceTimersByTime(1);
-		expect(agent.runsOf('split-into-chunks')).toHaveLength(1);
+		// The edit refreshes the change set before it counts as outside it.
+		vi.useRealTimers();
+		await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
 	});
 
 	test('a change set with another basis and a new checkpoint each close the suggestion', async () => {
@@ -238,5 +242,102 @@ describe('TaskChangeWatcher', () => {
 		engine.fireChange();
 
 		await vi.waitFor(() => expect(suggestions.current).toBeUndefined());
+	});
+
+	test('a signal that publishes nothing does not use up the wait between suggestions', async () => {
+		const agent = disposables.add(new FakeCheckpointsAgentService());
+		agent.answers.set('split-into-chunks', proposal(chunk({ finished: false })));
+		await createWatcher(agent);
+
+		moveToNewTask();
+		await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+		await new Promise(resolve => setTimeout(resolve, 0));
+		expect(suggestions.current).toBeUndefined();
+
+		// The first signal was retracted, so the next one is not held back by the gap.
+		agent.answers.set('split-into-chunks', proposal(chunk()));
+		save('import_march.R');
+		await vi.waitFor(() => expect(suggestions.current).toBeDefined());
+		expect(agent.runsOf('split-into-chunks')).toHaveLength(2);
+	});
+
+	test('a signal while the agent is unavailable is retracted too', async () => {
+		const agent = disposables.add(new FakeCheckpointsAgentService(false));
+		agent.answers.set('split-into-chunks', proposal(chunk()));
+		await createWatcher(agent);
+
+		moveToNewTask();
+		await vi.waitFor(() => expect(engine.callsOf('getChanges')).toHaveLength(2));
+		await new Promise(resolve => setTimeout(resolve, 0));
+		expect(agent.runsOf('split-into-chunks')).toHaveLength(0);
+
+		agent.setAvailable(true);
+		save('import_march.R');
+		await vi.waitFor(() => expect(suggestions.current).toBeDefined());
+	});
+
+	test('a first edit of a file that changed since the last read counts as inside the set', async () => {
+		const agent = disposables.add(new FakeCheckpointsAgentService());
+		agent.answers.set('split-into-chunks', proposal(chunk()));
+		await createWatcher(agent);
+		// The engine reports no change event, so the watcher's last read does not list the file.
+		engine.changes = { basis: 'basis-1', files: [changedFile('plot_dose.R'), changedFile('import_march.R')] };
+
+		moveToNewTask();
+		await vi.waitFor(() => expect(engine.callsOf('getChanges')).toHaveLength(2));
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		expect(agent.runsOf('split-into-chunks')).toHaveLength(0);
+	});
+
+	test('disposing the watcher cancels the pending typing waits and the running job', async () => {
+		const agent = disposables.add(new FakeCheckpointsAgentService());
+		const release = agent.hold('split-into-chunks');
+		const watcher = await createWatcher(agent);
+
+		moveToNewTask();
+		await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+		const token = agent.runsOf('split-into-chunks')[0].token;
+		expect(token.isCancellationRequested).toBe(false);
+
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		const changes = disposables.add(new Emitter<IModelContentChangedEvent>());
+		modelAdded.fire(stubInterface<ITextModel>({ uri: URI.file(`${ROOT}/notes.R`), onDidChangeContent: changes.event }));
+		changes.fire(stubInterface<IModelContentChangedEvent>({}));
+		const reads = engine.callsOf('getChanges').length;
+
+		watcher.dispose();
+		expect(token.isCancellationRequested).toBe(true);
+		await vi.advanceTimersByTimeAsync(EDIT_DEBOUNCE_MS * 2);
+		release(proposal(chunk()));
+		await vi.advanceTimersByTimeAsync(0);
+
+		// The typing wait never fired, and the cancelled job published nothing.
+		expect(engine.callsOf('getChanges')).toHaveLength(reads);
+		expect(suggestions.current).toBeUndefined();
+	});
+
+	test('the agent becoming unavailable closes the suggestion and removes the badge', async () => {
+		const shown = new Set<number>();
+		let count = 0;
+		const activityService = stubInterface<IActivityService>({
+			showViewContainerActivity: () => {
+				const id = count++;
+				shown.add(id);
+				return toDisposable(() => shown.delete(id));
+			},
+		});
+		disposables.add(new CheckpointsSuggestionBadge(suggestions, activityService));
+		const agent = disposables.add(new FakeCheckpointsAgentService());
+		agent.answers.set('split-into-chunks', proposal(chunk()));
+		await createWatcher(agent);
+		moveToNewTask();
+		await vi.waitFor(() => expect(suggestions.current).toBeDefined());
+		expect(shown.size).toBe(1);
+
+		agent.setAvailable(false);
+
+		expect(suggestions.current).toBeUndefined();
+		expect(shown.size).toBe(0);
 	});
 });

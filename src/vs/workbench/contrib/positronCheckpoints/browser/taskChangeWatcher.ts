@@ -25,18 +25,26 @@ import { projectRootUri } from './projectRoot.js';
 /** How long typing in one file must pause before it counts as one edit of that file. */
 export const EDIT_DEBOUNCE_MS = 2000;
 
+/** The paths of the changed files, with the earlier name of a renamed one. */
+function changedPathsOf(changes: IChangeSet): Set<string> {
+	return new Set(changes.files.flatMap(file => file.oldPath !== undefined ? [file.path, file.oldPath] : [file.path]));
+}
+
 /**
  * Feeds the task-change detector (spec 7.1) and turns its signals into checkpoint suggestions.
  *
  * - An edit is a save of a file in the project, or typing in an open file of the project that
  *   pauses for `EDIT_DEBOUNCE_MS`. Whether the file is in the set of changed files comes from the
- *   change set, which is read again whenever the engine reports a change of state.
+ *   change set, which is read again whenever the engine reports a change of state and before an
+ *   edit counts as outside the set.
  * - Each read of the change set reports its size. A new latest checkpoint reports that a
  *   checkpoint was created and closes the open suggestion, and a change set with another basis
  *   than the suggestion's closes it too.
  * - On a signal, while the agent is available, the "split into chunks" job runs. When at least one
  *   chunk looks finished, the suggestion is published for the view. Nothing else is shown: never
  *   a notification.
+ * - A signal that does not lead to a published suggestion is retracted, so that it does not use up
+ *   the wait between suggestions.
  * - A dismissal of the suggestion is reported to the detector, which doubles its wait.
  */
 export class TaskChangeWatcher extends Disposable implements IWorkbenchContribution {
@@ -128,7 +136,37 @@ export class TaskChangeWatcher extends Disposable implements IWorkbenchContribut
 		if (!path || path === '.git' || path.startsWith('.git/')) {
 			return;
 		}
-		this._handle({ type: 'edit', path, inChangedSet: this._changedPaths.has(path), time: Date.now() });
+		const time = Date.now();
+		if (this._changedPaths.has(path)) {
+			this._handle({ type: 'edit', path, inChangedSet: true, time });
+			return;
+		}
+		void this._editedOutsideKnownSet(path, time);
+	}
+
+	/**
+	 * Reports an edit of a file that is not in the last known set of changed files. The set is
+	 * read again once first, since the file may have changed after the last read.
+	 */
+	private async _editedOutsideKnownSet(path: string, time: number): Promise<void> {
+		const root = this._root;
+		const engine = this._checkpointsService.engine;
+		if (engine) {
+			try {
+				const changes = await engine.getChanges();
+				if (this._store.isDisposed || this._root !== root) {
+					return;
+				}
+				this._changes = changes;
+				this._changedPaths = changedPathsOf(changes);
+			} catch (error) {
+				if (this._store.isDisposed) {
+					return;
+				}
+				this._logService.error('The checkpoint suggestions could not read the changed files.', error);
+			}
+		}
+		this._handle({ type: 'edit', path, inChangedSet: this._changedPaths.has(path), time });
 	}
 
 	/** Reads the state, the change set, and the latest checkpoint, and reports what changed. */
@@ -164,7 +202,7 @@ export class TaskChangeWatcher extends Disposable implements IWorkbenchContribut
 		const time = Date.now();
 		this._root = projectRootUri(this._workspaceContextService, projectRoot);
 		this._changes = changes;
-		this._changedPaths = new Set(changes.files.flatMap(file => file.oldPath !== undefined ? [file.path, file.oldPath] : [file.path]));
+		this._changedPaths = changedPathsOf(changes);
 
 		if (this._latestCheckpoint && this._latestCheckpoint.id !== latestCheckpoint) {
 			this._detector.handle({ type: 'checkpoint-created', time });
@@ -193,7 +231,22 @@ export class TaskChangeWatcher extends Disposable implements IWorkbenchContribut
 
 	private _handle(event: DetectorEvent): void {
 		if (this._detector.handle(event) === 'signal') {
-			void this._suggest();
+			void this._suggestOrRetract(event.time);
+		}
+	}
+
+	/** Suggests, and retracts the signal at `time` when no suggestion was published. */
+	private async _suggestOrRetract(time: number): Promise<void> {
+		let published = false;
+		try {
+			published = await this._suggest();
+		} catch (error) {
+			if (!this._store.isDisposed) {
+				this._logService.error('The checkpoint suggestion failed.', error);
+			}
+		}
+		if (!published) {
+			this._detector.retract(time);
 		}
 	}
 
@@ -201,25 +254,29 @@ export class TaskChangeWatcher extends Disposable implements IWorkbenchContribut
 	 * Runs the "split into chunks" job on the current changes, while the agent is available and no
 	 * job runs, and publishes the proposal when a chunk looks finished and the changes are still
 	 * the same.
+	 *
+	 * @returns True when a suggestion was published.
 	 */
-	private async _suggest(): Promise<void> {
+	private async _suggest(): Promise<boolean> {
 		const changes = this._changes;
 		if (!changes || this._job || !this._agentService.available) {
-			return;
+			return false;
 		}
 		if (this._suggestionService.current?.changes.basis === changes.basis) {
-			return;
+			return false;
 		}
 		const source = new CancellationTokenSource();
 		this._job = source;
 		try {
 			const outcome = await this._agentService.run(splitIntoChunksJob, changes, source.token);
 			if (source.token.isCancellationRequested || !outcome.ok || !this._agentService.available || this._changes?.basis !== changes.basis) {
-				return;
+				return false;
 			}
-			if (outcome.value.chunks.some(chunk => chunk.finished)) {
-				this._suggestionService.publish({ changes, chunks: outcome.value.chunks });
+			if (!outcome.value.chunks.some(chunk => chunk.finished)) {
+				return false;
 			}
+			this._suggestionService.publish({ changes, chunks: outcome.value.chunks });
+			return true;
 		} finally {
 			if (this._job === source) {
 				this._job = undefined;

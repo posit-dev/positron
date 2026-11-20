@@ -133,4 +133,72 @@ describe('renderIncomingForModel', () => {
 		expect(incomingDiffBudget(preview(), [])).toBeLessThan(MAX_INPUT_CHARS);
 		expect(incomingDiffBudget(preview(), ['a'.repeat(100)])).toBe(incomingDiffBudget(preview(), []) - 100 + '(none)'.length);
 	});
+
+	describe('reading limits', () => {
+		const text = (name: string) => VSBuffer.fromString(`${name} <- 1\n`);
+
+		/** An engine whose files `f0`, `f1`, ... have a changed line, with `size` overriding blob contents. */
+		function manyFiles(count: number, overrides: Record<string, VSBuffer> = {}) {
+			let active = 0;
+			let peak = 0;
+			const reads: string[] = [];
+			const fake = stubInterface<ICheckpointsEngineProxy>({
+				getDiff: async target => ({ left: { kind: 'blob' as const, oid: `old-${target.path}` }, right: { kind: 'blob' as const, oid: `new-${target.path}` } }),
+				readBlob: async oid => {
+					reads.push(oid);
+					active++;
+					peak = Math.max(peak, active);
+					await new Promise(resolve => setTimeout(resolve, 0));
+					active--;
+					return overrides[oid] ?? text(oid);
+				},
+			});
+			const paths = Array.from({ length: count }, (_, i) => `f${i}`);
+			return { engine: fake, paths, reads, peak: () => peak };
+		}
+
+		test('reads at most 4 files at a time (2 blobs each)', async () => {
+			const { engine: fake, paths, peak } = manyFiles(12);
+
+			await renderIncomingForModel(fake, preview({ changedPaths: paths }), MAX_INPUT_CHARS);
+
+			expect(peak()).toBe(8);
+		});
+
+		test('stops reading once the text reaches the limit', async () => {
+			const { engine: fake, paths, reads } = manyFiles(30);
+
+			const result = await renderIncomingForModel(fake, preview({ changedPaths: paths }), 300);
+
+			expect(result.length).toBeLessThanOrEqual(300);
+			expect(reads.length).toBeLessThan(30 * 2);
+			expect(reads).not.toContain('new-f29');
+		});
+
+		test('lists a file with a side over 512 KB by name and size without comparing it', async () => {
+			const big = VSBuffer.wrap(new Uint8Array(512 * 1024 + 1).fill(97));
+			const { engine: fake } = manyFiles(2, { 'new-f0': big });
+
+			const result = await renderIncomingForModel(fake, preview({ changedPaths: ['f0', 'f1'] }), MAX_INPUT_CHARS);
+
+			expect(result).toBe([
+				`File: f0 (changed, too large to compare, ${'old-f0 <- 1\n'.length} bytes before, ${512 * 1024 + 1} bytes now, contents not shown)`,
+				'File: f1 (changed)',
+				'@@ line 1 before, line 1 now @@',
+				'-old-f1 <- 1',
+				'+new-f1 <- 1',
+			].join('\n'));
+		});
+
+		test('reads at most 40 files and lists the rest by name', async () => {
+			const { engine: fake, paths, reads } = manyFiles(45);
+
+			const result = await renderIncomingForModel(fake, preview({ changedPaths: paths }), MAX_INPUT_CHARS);
+
+			expect(reads).toHaveLength(80);
+			expect(result).toContain('@@ line 1 before, line 1 now @@\n-old-f39 <- 1');
+			expect(result).toContain('File: f44 (contents not shown)');
+			expect(result).not.toContain('old-f40');
+		});
+	});
 });

@@ -88,4 +88,40 @@ describe('TaskChangeDetector', () => {
 		detector.handle({ type: 'changes', lines: 0, files: 0, time: 2000 });
 		expect(detector.handle({ type: 'edit', path: 'import_march.R', inChangedSet: false, time: 30 * MINUTE })).toBe('none');
 	});
+
+	test('retract gives the gap back to a signal that led to no suggestion', () => {
+		const detector = new TaskChangeDetector();
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 0 })).toBe('signal');
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 1000 })).toBe('none');
+
+		detector.retract(0);
+
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 2000 })).toBe('signal');
+		// The signal at 2000 spends the gap again.
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 3000 })).toBe('none');
+	});
+
+	test('retract restores the earlier signal, not a free gap', () => {
+		const detector = new TaskChangeDetector();
+		detector.handle({ type: 'changes', lines: 400, files: 2, time: 0 });
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 10 * MINUTE })).toBe('signal');
+
+		detector.retract(10 * MINUTE);
+
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 10 * MINUTE + 1 })).toBe('signal');
+	});
+
+	test('retract keeps the doubled gap of a dismissal and ignores another time', () => {
+		const detector = new TaskChangeDetector();
+		detector.handle({ type: 'changes', lines: 400, files: 2, time: 0 });
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 10 * MINUTE })).toBe('signal');
+		detector.handle({ type: 'dismissed', time: 10 * MINUTE + 1 });
+
+		detector.retract(5);
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 10 * MINUTE + 2 })).toBe('none');
+
+		detector.retract(10 * MINUTE);
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 20 * MINUTE - 1 })).toBe('none');
+		expect(detector.handle({ type: 'changes', lines: 400, files: 2, time: 20 * MINUTE })).toBe('signal');
+	});
 });
