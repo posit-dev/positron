@@ -31,6 +31,8 @@ import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggesti
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
+import { ISummarizeIncomingInput } from '../../common/agent/summarizeIncoming.js';
+import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { fakeCheckpoint, FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const mayaPreview: IIncomingPreview = {
@@ -195,5 +197,70 @@ describe('Sync card and collision dialog', () => {
 			['c1', []],
 			['c1', [{ path: 'big.bin', choice: 'use-theirs-keep-copy' }]],
 		]));
+	});
+
+	describe('summary by the agent', () => {
+		let agent: FakeCheckpointsAgentService;
+
+		beforeEach(() => {
+			agent = ctx.disposables.add(new FakeCheckpointsAgentService(true));
+			ctx.instantiationService.stub(ICheckpointsAgentService, agent);
+			engine.changes = { basis: 'c1', files: [{ path: 'plot_dose.R', status: 'modified', binary: false, sizeBytes: 10, tooLarge: false, hunks: [] }] };
+		});
+
+		test('the card shows the summary and the relation sentence', async () => {
+			agent.answers.set('summarize-incoming', { ok: true, value: { summary: 'Maya updated the dosing table and fixed a typo in the README.', relation: 'unrelated' }, fromCache: false });
+			rtl.render(<CheckpointsPanel />);
+
+			const card = await screen.findByRole('region', { name: 'Get Changes' });
+			expect(await within(card).findByText('Maya updated the dosing table and fixed a typo in the README.')).toBeInTheDocument();
+			expect(within(card).getByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(within(card).getByText('Their changes do not touch your work.')).toBeInTheDocument();
+			expect(within(card).queryAllByRole('listitem')).toEqual([]);
+			expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+
+			const input = agent.runsOf('summarize-incoming').at(-1)?.input as ISummarizeIncomingInput;
+			expect(input.preview).toEqual(mayaPreview);
+			expect(input.myChangedPaths).toEqual(['plot_dose.R']);
+			expect(input.incomingDiff).toBe('File: dosing.csv (new, contents not shown)\nFile: README.md (new, contents not shown)');
+		});
+
+		test('overlapping changes name the number of places', async () => {
+			engine.incoming = { ...mayaPreview, touchesLocalWork: true, overlaps: [{ id: 'o1', kind: 'text', path: 'dosing.csv', otherPaths: [], theirAuthor: 'Maya', detail: '' }] };
+			agent.answers.set('summarize-incoming', { ok: true, value: { summary: 'Maya updated the dosing table.', relation: 'overlapping' }, fromCache: false });
+			rtl.render(<CheckpointsPanel />);
+
+			expect(await screen.findByText('Their changes overlap with yours in 1 place.')).toBeInTheDocument();
+		});
+
+		test('several authors use the colleagues wording', async () => {
+			engine.incoming = {
+				...mayaPreview,
+				incoming: [mayaPreview.incoming[0], fakeCheckpoint({ id: 'k1', title: 'Added the March data', authorName: 'Ken', authorIsMe: false })],
+				touchesLocalWork: true,
+			};
+			agent.answers.set('summarize-incoming', { ok: true, value: { summary: 'Maya updated the dosing table and Ken added the March data.', relation: 'nearby' }, fromCache: false });
+			rtl.render(<CheckpointsPanel />);
+
+			const card = await screen.findByRole('region', { name: 'Get Changes' });
+			expect(await within(card).findByText('2 colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(within(card).getByText('Their changes are close to your work and fit together.')).toBeInTheDocument();
+			expect(within(card).getByRole('button', { name: 'Get your colleagues\' changes' })).toBeEnabled();
+		});
+
+		test('a failed job shows the list of titles', async () => {
+			agent.answers.set('summarize-incoming', { ok: false, reason: 'failed-check', detail: 'rejected' });
+			rtl.render(<CheckpointsPanel />);
+
+			const card = await screen.findByRole('region', { name: 'Get Changes' });
+			await vi.waitFor(() => expect(agent.runsOf('summarize-incoming')).toHaveLength(1));
+			expect(within(card).getByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
+			expect(within(card).getByText('These changes do not touch your work.')).toBeInTheDocument();
+			expect(within(card).getAllByRole('listitem').map(row => row.textContent)).toEqual([
+				'Updated the dosing tableMaya',
+				'Fixed a typo in the READMEMaya',
+			]);
+			expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+		});
 	});
 });

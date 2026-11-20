@@ -77,6 +77,7 @@ const actions = {
 		localize('positron.checkpoints.actions.createCheckpoints.other', "Create {0} checkpoints", count)),
 	getChanges: () => localize('positron.checkpoints.actions.getChanges', "Get Changes"),
 	getAuthorsChanges: (author: string) => localize('positron.checkpoints.actions.getAuthorsChanges', "Get {0}'s changes", author),
+	getColleaguesChanges: () => localize('positron.checkpoints.actions.getColleaguesChanges', "Get your colleagues' changes"),
 	sendChanges: () => localize('positron.checkpoints.actions.sendChanges', "Send Changes"),
 	checkSharedCopy: () => localize('positron.checkpoints.actions.checkSharedCopy', "Check the Shared Copy"),
 	goBack: () => localize('positron.checkpoints.actions.goBack', "Go Back to This Checkpoint"),
@@ -317,6 +318,14 @@ const sync = {
 	done: () => localize('positron.checkpoints.sync.done', "The changes from the shared copy are now in your project."),
 	changedFiles: () => localize('positron.checkpoints.sync.changedFiles', "Files these changes touch"),
 	diffTitle: (path: string) => localize('positron.checkpoints.sync.diffTitle', "{0} (changes from the shared copy)", path),
+	fromColleagues: (colleagues: number, count: number) => plural(count,
+		localize('positron.checkpoints.sync.fromColleagues.one', "{0} colleagues added 1 checkpoint to the shared copy.", colleagues),
+		localize('positron.checkpoints.sync.fromColleagues.other', "{0} colleagues added {1} checkpoints to the shared copy.", colleagues, count)),
+	relationUnrelated: () => localize('positron.checkpoints.sync.relationUnrelated', "Their changes do not touch your work."),
+	relationNearby: () => localize('positron.checkpoints.sync.relationNearby', "Their changes are close to your work and fit together."),
+	relationOverlapping: (places: number) => plural(places,
+		localize('positron.checkpoints.sync.relationOverlapping.one', "Their changes overlap with yours in 1 place."),
+		localize('positron.checkpoints.sync.relationOverlapping.other', "Their changes overlap with yours in {0} places.", places)),
 };
 
 const overlaps = {

@@ -54,7 +54,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		unusual: unusualKinds.map(kind => [kind]), unusualHelp: [[]], needsGitTool: [[]],
 	},
 	actions: {
-		createCheckpoint: [[]], createCheckpoints: [[1], [2]], getChanges: [[]], getAuthorsChanges: [['Maya']], sendChanges: [[]],
+		createCheckpoint: [[]], createCheckpoints: [[1], [2]], getChanges: [[]], getAuthorsChanges: [['Maya']], getColleaguesChanges: [[]], sendChanges: [[]],
 		checkSharedCopy: [[]], goBack: [[]], reverseCheckpoint: [[]], editDescription: [[]], startKeepingCheckpoints: [[]],
 		viewDetailedDifferences: [[]], viewDetailedDifferencesOf: [['dose.R']], showGitDetails: [[]], edit: [[]], dismiss: [[]], accept: [[]], chooseMyself: [[]], backOut: [[]],
 		cancel: [[]], undo: [['Get Maya\'s changes']], redo: [['Get Maya\'s changes']], undoLastAction: [[]], undoProjectCheckChanges: [[]],
@@ -91,7 +91,10 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		explainWithAuthor: [['Maya', 'data.csv']], explainIgnored: [['data.csv']], explainTooLarge: [['data.csv', '80 MB']], keepCopyHelp: [['data.csv']],
 		dialogTitle: [[]], continue: [[]], cancelled: [[]],
 	},
-	sync: { done: [[]], changedFiles: [[]], diffTitle: [['dose.R']] },
+	sync: {
+		done: [[]], changedFiles: [[]], diffTitle: [['dose.R']], fromColleagues: [[2, 1], [2, 3]],
+		relationUnrelated: [[]], relationNearby: [[]], relationOverlapping: [[1], [2]],
+	},
 	overlaps: {
 		heading: [[]], title: [['dose.R']], keepMine: [[]], keepTheirs: [['Maya']], keepBoth: [[]], keepEditedFile: [[]], acceptDeletion: [[]],
 		newNameFor: [['dose.R']], textExplain: [['Maya', 'dose.R']], binaryExplain: [['Maya', 'plot.png']],

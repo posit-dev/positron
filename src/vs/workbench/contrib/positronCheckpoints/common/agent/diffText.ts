@@ -94,7 +94,17 @@ function shortenLargestFirst(forms: readonly (readonly string[])[], maxChars: nu
  * are left out and a final line says how many.
  */
 export function renderChangesForModel(changes: IChangeSet, maxChars: number): string {
-	const texts = shortenLargestFirst(changes.files.map(file => [Detail.Full, Detail.Headers, Detail.Name].map(detail => renderFile(file, detail))), maxChars);
+	return fitFilesToLength(changes.files.map(file => [Detail.Full, Detail.Headers, Detail.Name].map(detail => renderFile(file, detail))), maxChars);
+}
+
+/**
+ * Joins the texts of files with one newline between them, at most `maxChars` characters long.
+ * `forms[i]` lists the texts of file i from the full one to the shortest. Files are shortened
+ * largest first, one step for every file before a second step. When even the shortest texts are
+ * too long, the last files are left out and a final line says how many.
+ */
+export function fitFilesToLength(forms: readonly (readonly string[])[], maxChars: number): string {
+	const texts = shortenLargestFirst(forms, maxChars);
 	if (joinedLength(texts) <= maxChars) {
 		return texts.join('\n');
 	}

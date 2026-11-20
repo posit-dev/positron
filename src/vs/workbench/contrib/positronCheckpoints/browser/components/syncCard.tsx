@@ -3,19 +3,80 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { IIncomingSummary, IncomingRelation, incomingDiffBudget, renderIncomingForModel, summarizeIncomingJob } from '../../common/agent/summarizeIncoming.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
 import { openDiff } from '../openDiff.js';
 import { ISyncController } from '../syncController.js';
+import { useAgentAvailable } from './useChangesDescription.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 
 /**
+ * The agent's summary of the incoming changes of `preview`, or undefined while there is none:
+ * while it loads, when the agent is not available, when the job gave no output, or when there is
+ * no incoming checkpoint. It is requested again when the basis of the preview or the person's
+ * changed files differ, with the earlier request cancelled.
+ */
+function useIncomingSummary(preview: IIncomingPreview | undefined, myChangedPaths: string[]): IIncomingSummary | undefined {
+	const services = usePositronReactServicesContext();
+	const agentService = services.get(ICheckpointsAgentService);
+	const available = useAgentAvailable();
+	const [summarized, setSummarized] = useState<{ key: string; summary: IIncomingSummary }>();
+
+	// The request reads the latest values; the key says when they are different changes.
+	const latest = useRef({ preview, myChangedPaths });
+	latest.current = { preview, myChangedPaths };
+	const key = preview && preview.incoming.length > 0 ? JSON.stringify([preview.basis, myChangedPaths]) : undefined;
+
+	useEffect(() => {
+		const requested = latest.current;
+		const engine = services.get(ICheckpointsService).engine;
+		if (!available || key === undefined || !requested.preview || !engine) {
+			return;
+		}
+		const { preview, myChangedPaths } = requested;
+		const source = new CancellationTokenSource();
+		const summarize = async () => {
+			const incomingDiff = await renderIncomingForModel(engine, preview, incomingDiffBudget(preview, myChangedPaths));
+			if (source.token.isCancellationRequested) {
+				return;
+			}
+			const outcome = await agentService.run(summarizeIncomingJob, { preview, incomingDiff, myChangedPaths }, source.token);
+			if (outcome.ok && !source.token.isCancellationRequested) {
+				setSummarized({ key, summary: outcome.value });
+			}
+		};
+		// A failure leaves the list of incoming checkpoints in place.
+		summarize().catch(() => undefined);
+		return () => source.dispose(true);
+	}, [services, agentService, available, key]);
+
+	return available && summarized && summarized.key === key ? summarized.summary : undefined;
+}
+
+/** The sentence that says how the incoming changes relate to the person's work. */
+function relationSentence(relation: IncomingRelation, overlaps: number): string {
+	switch (relation) {
+		case 'unrelated': return Strings.sync.relationUnrelated();
+		case 'nearby': return Strings.sync.relationNearby();
+		case 'overlapping': return Strings.sync.relationOverlapping(overlaps);
+	}
+}
+
+/**
  * The sync card at the top of the view, shown while colleagues' checkpoints wait in the shared
- * copy or an overlap is pending. Without AI it lists the incoming checkpoints with their authors,
- * and offers "Get changes" and the detailed differences of each changed file. The preview is read
- * when the card appears and again when the number of waiting checkpoints changes.
+ * copy or an overlap is pending. It offers "Get changes" and the detailed differences of each
+ * changed file. While the agent has a summary of the incoming changes, the card shows who added
+ * them, the summary, and how they relate to the person's work, and the button names the
+ * colleague. Without one (while it loads, or when the agent is off or gave no usable answer) it
+ * lists the incoming checkpoints with their authors. The preview is read when the card appears
+ * and again when the number of waiting checkpoints changes.
  */
 export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 	const services = usePositronReactServicesContext();
@@ -39,15 +100,30 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 		}
 	}, [controller, visible, behind]);
 
+	const preview = visible ? controller.preview : undefined;
+	const summary = useIncomingSummary(preview, view.changes?.files.map(file => file.path) ?? []);
+
 	if (!visible) {
 		return null;
 	}
 
-	const preview = controller.preview;
 	const incoming = preview?.incoming ?? [];
 	const colleagues = [...new Set(incoming.filter(checkpoint => !checkpoint.authorIsMe).map(checkpoint => checkpoint.authorName))];
 	const author = colleagues.length === 1 ? colleagues[0] : undefined;
 	const count = incoming.length > 0 ? incoming.length : behind;
+
+	let heading: string;
+	let buttonLabel: string;
+	if (author !== undefined) {
+		heading = Strings.status.incoming(author, count);
+		buttonLabel = Strings.actions.getAuthorsChanges(author);
+	} else if (summary && colleagues.length > 1) {
+		heading = Strings.sync.fromColleagues(colleagues.length, count);
+		buttonLabel = Strings.actions.getColleaguesChanges();
+	} else {
+		heading = Strings.status.incomingWithoutAuthor(count);
+		buttonLabel = Strings.actions.getChanges();
+	}
 
 	const getChanges = async () => {
 		setRunning(true);
@@ -61,14 +137,18 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 
 	return (
 		<section aria-label={Strings.actions.getChanges()} className='checkpoints-card checkpoints-sync-card'>
-			{count > 0 && (
-				<p>{author !== undefined ? Strings.status.incoming(author, count) : Strings.status.incomingWithoutAuthor(count)}</p>
+			{count > 0 && <p>{heading}</p>}
+			{summary && preview && (
+				<>
+					<p className='checkpoints-description'>{summary.summary}</p>
+					<p>{relationSentence(summary.relation, preview.overlaps.length)}</p>
+				</>
 			)}
-			{preview && count > 0 && (
+			{!summary && preview && count > 0 && (
 				<p>{preview.touchesLocalWork ? Strings.status.incomingTouchesWork() : Strings.status.incomingSeparate()}</p>
 			)}
 			{state.pendingOverlap && <p>{Strings.status.pendingOverlap()}</p>}
-			{incoming.length > 0 && (
+			{!summary && incoming.length > 0 && (
 				<ul className='checkpoints-history-list'>
 					{incoming.map(checkpoint => (
 						<li key={checkpoint.id} className='checkpoints-history-row'>
@@ -80,7 +160,7 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 			)}
 			<div className='checkpoints-card-actions'>
 				<Button className='checkpoints-button checkpoints-button-primary' disabled={running} onPressed={getChanges}>
-					{author !== undefined ? Strings.actions.getAuthorsChanges(author) : Strings.actions.getChanges()}
+					{buttonLabel}
 				</Button>
 				{preview && preview.changedPaths.length > 0 && (
 					<Button ariaExpanded={filesShown} className='checkpoints-link' onPressed={() => setFilesShown(!filesShown)}>
