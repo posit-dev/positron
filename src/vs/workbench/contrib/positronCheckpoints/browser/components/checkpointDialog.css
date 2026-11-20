@@ -144,3 +144,43 @@
 .checkpoint-dialog-patterns textarea:disabled {
 	opacity: 0.6;
 }
+
+.checkpoint-dialog-chunk legend label {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size60);
+}
+
+.checkpoint-dialog-parts {
+	display: flex;
+	flex-direction: column;
+	flex-basis: 100%;
+	gap: var(--vscode-spacing-size40);
+	margin: 0;
+	padding: 0 0 0 var(--vscode-spacing-size240);
+	list-style: none;
+}
+
+.checkpoint-dialog-part {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size80);
+}
+
+.checkpoint-dialog-part details {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.checkpoint-dialog-part pre {
+	max-height: 160px;
+	margin: var(--vscode-spacing-size40) 0 0;
+	overflow: auto;
+	font-family: var(--monaco-monospace-font);
+}
+
+.checkpoint-dialog-part select {
+	color: var(--vscode-dropdown-foreground);
+	background-color: var(--vscode-dropdown-background);
+	border: 1px solid var(--vscode-dropdown-border, transparent);
+}

@@ -24,13 +24,14 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { UnsavedEditorsDecision } from '../../../../services/positronCheckpoints/browser/unsavedEditorsGuard.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
-import { IChangedFile, IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { IChangedFile, IChangeSet, IHunk } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IWorkingCopy, WorkingCopyCapabilities } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
 import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
+import { IChunkProposal } from '../../common/agent/splitIntoChunks.js';
 import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
@@ -512,6 +513,163 @@ describe('Changes section and checkpoint dialog', () => {
 			await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
 				['b1', [{ title: description.title, body: description.summary, hunkIds: [], wholeFiles: ['plot_dose.R', 'theme.R'] }]],
 			]));
+		});
+	});
+
+	describe('split into chunks by the agent', () => {
+		function hunk(id: string, added: number): IHunk {
+			return { id, header: '@@ -1 +1 @@', addedLines: added, removedLines: 1, patch: `@@ -1 +1 @@\n-old ${id}\n+new ${id}\n` };
+		}
+
+		const changes: IChangeSet = {
+			basis: 'b1',
+			files: [
+				changedFile('dose.R', { hunks: [hunk('d1', 1), hunk('d2', 2)] }),
+				changedFile('plot.R', { hunks: [hunk('p1', 1)] }),
+				changedFile('plot.png', { binary: true }),
+			],
+		};
+
+		const proposal: IChunkProposal = {
+			chunks: [
+				{ title: 'Capped the dose', summary: 'You capped the dose at 500 mg.', hunkIds: ['d1'], wholeFiles: ['plot.png'], finished: true },
+				{ title: 'Started the units change', summary: 'You began changing units.', hunkIds: ['d2', 'p1'], wholeFiles: [], finished: false },
+			],
+		};
+
+		/** The chunks of the dialog, in order. */
+		function chunkGroups(): HTMLElement[] {
+			return within(screen.getByRole('dialog')).getAllByRole('group', { name: /^Checkpoint \d+$/ });
+		}
+
+		test('the dialog starts with proposed chunks and ticks the finished ones', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('split-into-chunks', { ok: true, value: proposal, fromCache: false });
+			renderPanel(changes);
+			await openDialog();
+
+			expect(await screen.findByDisplayValue('Capped the dose')).toBeInTheDocument();
+			const [first, second] = chunkGroups();
+			expect(within(first).getByRole('checkbox', { name: 'Checkpoint 1' })).toBeChecked();
+			expect(within(second).getByRole('checkbox', { name: 'Checkpoint 2' })).not.toBeChecked();
+			expect(within(second).getByDisplayValue('Started the units change')).toBeInTheDocument();
+			expect(within(second).getByDisplayValue('You began changing units.')).toBeInTheDocument();
+			expect(agent.runsOf('split-into-chunks').map(run => run.input)).toEqual([changes]);
+
+			await userEvent.click(createButton(1));
+			await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+				['b1', [{ title: 'Capped the dose', body: 'You capped the dose at 500 mg.', hunkIds: ['d1'], wholeFiles: ['plot.png'] }]],
+			]));
+		});
+
+		test('a failed job gives one chunk with all files', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('split-into-chunks', { ok: false, reason: 'failed-check', detail: 'rejected' });
+			renderPanel(changes);
+			const user = await openDialog();
+
+			await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+			expect(chunkGroups()).toHaveLength(1);
+			await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Everything');
+			await user.click(createButton(1));
+
+			await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+				['b1', [{ title: 'Everything', body: '', hunkIds: [], wholeFiles: ['dose.R', 'plot.R', 'plot.png'] }]],
+			]));
+		});
+
+		test('the single chunk shows at once and the proposal replaces it only while nothing was changed', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('split-into-chunks');
+			renderPanel(changes);
+			const user = await openDialog();
+
+			expect(chunkGroups()).toHaveLength(1);
+			await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Mine');
+			answer({ ok: true, value: proposal, fromCache: false });
+
+			await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+			await new Promise(resolve => setTimeout(resolve, 0));
+			expect(chunkGroups()).toHaveLength(1);
+			expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Mine');
+		});
+
+		test('no split is requested with a starting arrangement or while the agent is off', async () => {
+			renderPanel(changes);
+			const user = await openDialog();
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			agent.setAvailable(true);
+			const { showCheckpointDialog } = await import('../../browser/components/checkpointDialog.js');
+			showCheckpointDialog({ changes, initialChunks: [{ title: 'Given', body: '', hunkIds: [], wholeFiles: ['dose.R', 'plot.R', 'plot.png'] }] });
+			expect(await screen.findByDisplayValue('Given')).toBeInTheDocument();
+
+			expect(agent.runsOf('split-into-chunks')).toEqual([]);
+		});
+
+		test('closing the dialog cancels the request', async () => {
+			agent.setAvailable(true);
+			agent.hold('split-into-chunks');
+			renderPanel(changes);
+			const user = await openDialog();
+			await vi.waitFor(() => expect(agent.runsOf('split-into-chunks')).toHaveLength(1));
+
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(agent.runsOf('split-into-chunks')[0].token.isCancellationRequested).toBe(true);
+		});
+
+		test('moving a hunk between chunks updates both chunks', async () => {
+			renderPanel(changes);
+			const user = await openDialog();
+			await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+
+			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
+
+			const [first, second] = chunkGroups();
+			const partsOf = (chunk: HTMLElement) => within(within(chunk).getByRole('list', { name: 'dose.R' })).getAllByText(/^Part \d+:/).map(part => part.textContent);
+			expect(partsOf(first)).toEqual(['Part 1: 1 lines added, 1 removed']);
+			expect(partsOf(second)).toEqual(['Part 2: 2 lines added, 1 removed']);
+
+			const titles = screen.getAllByRole('textbox', { name: 'Title' });
+			await user.type(titles[0], 'Cap');
+			await user.type(titles[1], 'Units');
+			await user.click(createButton(2));
+			await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
+				['b1', [
+					{ title: 'Cap', body: '', hunkIds: ['d1'], wholeFiles: ['plot.R', 'plot.png'] },
+					{ title: 'Units', body: '', hunkIds: ['d2'], wholeFiles: [] },
+				]],
+			]));
+		});
+
+		test('a split file shows the partial note', async () => {
+			agent.setAvailable(true);
+			agent.answers.set('split-into-chunks', { ok: true, value: proposal, fromCache: false });
+			renderPanel(changes);
+			await openDialog();
+			expect(await screen.findByDisplayValue('Capped the dose')).toBeInTheDocument();
+
+			const [first, second] = chunkGroups();
+			expect(within(first).getByRole('note')).toHaveTextContent('Contains part of the changes to dose.R');
+			expect(within(second).getByRole('note')).toHaveTextContent('Contains part of the changes to dose.R');
+
+			await userEvent.selectOptions(within(second).getByRole('combobox', { name: 'Move dose.R to' }), 'Checkpoint 1');
+			expect(screen.queryByRole('note')).not.toBeInTheDocument();
+		});
+
+		test('a part shows its text read-only in a block that opens on a click', async () => {
+			renderPanel(changes);
+			const user = await openDialog();
+
+			const part = within(screen.getByRole('list', { name: 'dose.R' })).getAllByRole('listitem')[0];
+			const block = within(part).getByRole('group');
+			expect(block).not.toHaveAttribute('open');
+			await user.click(within(part).getByText('Part 1: 1 lines added, 1 removed'));
+
+			expect(block).toHaveAttribute('open');
+			expect(within(block).getByText(/new d1/)).toHaveTextContent(/^@@ -1 \+1 @@ -old d1 \+new d1$/);
+			expect(within(screen.getByRole('dialog')).queryByRole('list', { name: 'plot.R' })).not.toBeInTheDocument();
 		});
 	});
 });

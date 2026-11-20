@@ -7,20 +7,26 @@
 import './checkpointDialog.css';
 
 // React.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IChangedFile, IChangeSet, IChunk, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { splitIntoChunksJob } from '../../common/agent/splitIntoChunks.js';
 import { CHECKPOINT_TITLE_LIMIT, LARGE_FILE_LIMIT_MEGABYTES } from '../../common/checkpointsLimits.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
 import { openDiff } from '../openDiff.js';
-import { addChunk, createDraft, draftPaths, IChunkDraft, IDraftChunk, isDraftReady, moveFile, reconcileDraft, setChunkText, setFileTicked, titleProblem, toChunks, usedChunkCount } from './chunkDraft.js';
+import {
+	addChunk, createDraft, draftPaths, IChunkDraft, IDraftChunk, isDraftReady, moveFile, moveHunk, partialPaths, reconcileDraft, setChunkText, setChunkTicked,
+	setFileTicked, titleProblem, toChunks, usedChunkCount
+} from './chunkDraft.js';
 import { knownSizes, statusWord } from './fileStatus.js';
 import { useRunAction } from './useRunAction.js';
 
@@ -62,22 +68,57 @@ function initialDraft(options: ICheckpointDialogOptions): IChunkDraft {
 }
 
 /**
- * The checkpoint dialog. Each chunk becomes one checkpoint with its own title and description.
- * The person ticks the files that belong in a chunk, moves a file to another chunk, and adds
- * chunks. Chunks hold whole files.
+ * The checkpoint dialog. Each ticked chunk becomes one checkpoint with its own title and
+ * description. The person ticks chunks and the files in them, moves a file or one part of a text
+ * file to another chunk, and adds chunks. A chunk that holds only some parts of a file says so.
+ *
+ * Without `initialChunks`, the dialog shows one chunk with every file at once and, when the agent
+ * is available, asks it to split the changes. The proposal replaces the single chunk only while
+ * the person has not changed anything, with the chunks that look finished ticked. When the agent
+ * gives no proposal, the single chunk stays.
  *
  * The dialog stays open until the action finishes, so a cancel at the unsaved-files question or a
  * failed save keeps what the person typed. When saving the files changes them in any way, the
  * dialog shows the new list for review instead of creating anything.
  */
 export const CheckpointDialog = (props: ICheckpointDialogProps) => {
+	const services = usePositronReactServicesContext();
 	const runAction = useRunAction();
 	const [draft, setDraft] = useState<IChunkDraft>(() => initialDraft(props));
+	// True once the person changed the draft, or a save changed it; a proposal then arrives too late.
+	const edited = useRef(false);
+	const update = (next: IChunkDraft) => {
+		edited.current = true;
+		setDraft(next);
+	};
 	// The changes the draft was built from. They are replaced only after a save changed the files.
 	const [changes, setChanges] = useState<IChangeSet>(props.changes);
 	const [addedPaths, setAddedPaths] = useState<ReadonlySet<string>>(new Set());
 	const [notice, setNotice] = useState<string>();
 	const [running, setRunning] = useState(false);
+
+	// Asks the agent for a split once, when the dialog opens without a starting arrangement.
+	const [splitRequest] = useState(() => props.initialChunks?.length ? undefined : props.changes);
+	useEffect(() => {
+		const agentService = services.get(ICheckpointsAgentService);
+		if (!splitRequest || !agentService.available) {
+			return;
+		}
+		const source = new CancellationTokenSource();
+		agentService.run(splitIntoChunksJob, splitRequest, source.token).then(outcome => {
+			if (!outcome.ok || source.token.isCancellationRequested || edited.current) {
+				return;
+			}
+			setDraft(createDraft(splitRequest.files, outcome.value.chunks.map(chunk => ({
+				title: chunk.title,
+				body: chunk.summary,
+				hunkIds: chunk.hunkIds,
+				wholeFiles: chunk.wholeFiles,
+				ticked: chunk.finished,
+			}))));
+		});
+		return () => source.dispose(true);
+	}, [services, splitRequest]);
 
 	const filesByPath = new Map(changes.files.map(file => [file.path, file]));
 	const ready = isDraftReady(draft);
@@ -104,7 +145,7 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 			const after = draftPaths(reconciled);
 			const added = [...after].filter(path => !before.has(path));
 			const removed = [...before].some(path => !after.has(path));
-			setDraft(reconciled);
+			update(reconciled);
 			setChanges(current);
 			setAddedPaths(new Set(added));
 			// Nothing saved by the guard enters a checkpoint without a second look.
@@ -145,12 +186,15 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 						chunks={draft.chunks}
 						filesByPath={filesByPath}
 						index={index}
-						onMove={(path, toChunkId) => setDraft(moveFile(draft, path, toChunkId))}
-						onText={text => setDraft(setChunkText(draft, chunk.id, text))}
-						onTick={(path, ticked) => setDraft(setFileTicked(draft, path, ticked))}
+						partialPaths={partialPaths(draft, chunk)}
+						onMove={(path, toChunkId) => update(moveFile(draft, chunk.id, path, toChunkId))}
+						onMoveHunk={(hunkId, toChunkId) => update(moveHunk(draft, hunkId, toChunkId))}
+						onText={text => update(setChunkText(draft, chunk.id, text))}
+						onTick={(path, ticked) => update(setFileTicked(draft, chunk.id, path, ticked))}
+						onTickChunk={ticked => update(setChunkTicked(draft, chunk.id, ticked))}
 					/>
 				))}
-				<Button className='checkpoints-button' onPressed={() => setDraft(addChunk(draft))}>
+				<Button className='checkpoints-button' onPressed={() => update(addChunk(draft))}>
 					{Strings.changes.addAnotherCheckpoint()}
 				</Button>
 			</div>
@@ -165,20 +209,42 @@ interface IChunkEditorProps {
 	chunks: IDraftChunk[];
 	index: number;
 	filesByPath: Map<string, IChangedFile>;
+	/** The files of which this chunk holds only some parts. */
+	partialPaths: string[];
 	onText(text: { title?: string; body?: string }): void;
 	onTick(path: string, ticked: boolean): void;
+	onTickChunk(ticked: boolean): void;
 	onMove(path: string, toChunkId: number): void;
+	onMoveHunk(hunkId: string, toChunkId: number): void;
 }
 
-/** One chunk: its title, its description, and its files. */
+/** A menu that moves something to another chunk. */
+const MoveMenu = (props: { label: string; chunkId: number; chunks: IDraftChunk[]; onMove(toChunkId: number): void }) => (
+	<select aria-label={props.label} value={props.chunkId} onChange={e => props.onMove(Number(e.target.value))}>
+		{props.chunks.map((candidate, candidateIndex) => (
+			<option key={candidate.id} value={candidate.id}>{Strings.changes.chunkTitle(candidateIndex + 1)}</option>
+		))}
+	</select>
+);
+
+/**
+ * One chunk: whether it is ticked, its title, its description, and its files. A text file with
+ * more than one part lists the parts this chunk holds, each with its text in a block that opens
+ * on a click, and a menu that moves the part to another chunk.
+ */
 const ChunkEditor = (props: IChunkEditorProps) => {
 	const { chunk } = props;
 	const services = usePositronReactServicesContext();
 	const problem = titleProblem(chunk.title);
 
 	return (
-		<fieldset className='checkpoint-dialog-chunk'>
-			<legend>{Strings.changes.chunkTitle(props.index + 1)}</legend>
+		<fieldset className={positronClassNames('checkpoint-dialog-chunk', { 'unticked': !chunk.ticked })}>
+			<legend>
+				<label>
+					<input checked={chunk.ticked} type='checkbox' onChange={e => props.onTickChunk(e.target.checked)} />
+					<span>{Strings.changes.chunkTitle(props.index + 1)}</span>
+				</label>
+			</legend>
 			<LabeledTextInput
 				errorMsg={problem === 'too-long' ? Strings.changes.titleTooLong(CHECKPOINT_TITLE_LIMIT) : undefined}
 				label={Strings.changes.titleLabel()}
@@ -189,6 +255,7 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 				<span>{Strings.changes.bodyLabel()}</span>
 				<textarea rows={2} value={chunk.body} onChange={e => props.onText({ body: e.target.value })} />
 			</label>
+			{props.partialPaths.length > 0 && <p className='checkpoint-dialog-empty' role='note'>{Strings.history.partialFiles(props.partialPaths)}</p>}
 			{chunk.files.length === 0 && <p className='checkpoint-dialog-empty'>{Strings.changes.noFilesInChunk()}</p>}
 			<ul className='checkpoint-dialog-files'>
 				{chunk.files.map(draftFile => {
@@ -206,15 +273,12 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 							{file && <span className='checkpoints-file-status'>{statusWord(file)}</span>}
 							{props.addedPaths.has(draftFile.path) && <span className='checkpoint-dialog-added'>{Strings.changes.savedAndAddedTag()}</span>}
 							{props.chunks.length > 1 && (
-								<select
-									aria-label={Strings.changes.moveFileTo(draftFile.path)}
-									value={chunk.id}
-									onChange={e => props.onMove(draftFile.path, Number(e.target.value))}
-								>
-									{props.chunks.map((candidate, candidateIndex) => (
-										<option key={candidate.id} value={candidate.id}>{Strings.changes.chunkTitle(candidateIndex + 1)}</option>
-									))}
-								</select>
+								<MoveMenu
+									chunkId={chunk.id}
+									chunks={props.chunks}
+									label={Strings.changes.moveFileTo(draftFile.path)}
+									onMove={toChunkId => props.onMove(draftFile.path, toChunkId)}
+								/>
 							)}
 							<Button
 								ariaLabel={Strings.actions.viewDetailedDifferencesOf(draftFile.path)}
@@ -225,6 +289,26 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 							</Button>
 							{file?.tooLarge && (
 								<p className='checkpoint-dialog-warning' role='note'>{Strings.changes.tooLarge(draftFile.path, LARGE_FILE_LIMIT_MEGABYTES)}</p>
+							)}
+							{file && file.hunks.length > 1 && (
+								<ul aria-label={draftFile.path} className='checkpoint-dialog-parts'>
+									{file.hunks.map((hunk, hunkIndex) => draftFile.hunkIds.includes(hunk.id) && (
+										<li key={hunk.id} className='checkpoint-dialog-part'>
+											<details>
+												<summary>{Strings.changes.partLabel(hunkIndex + 1, hunk.addedLines, hunk.removedLines)}</summary>
+												<pre>{hunk.patch}</pre>
+											</details>
+											{props.chunks.length > 1 && (
+												<MoveMenu
+													chunkId={chunk.id}
+													chunks={props.chunks}
+													label={Strings.changes.movePartTo(hunkIndex + 1, draftFile.path)}
+													onMove={toChunkId => props.onMoveHunk(hunk.id, toChunkId)}
+												/>
+											)}
+										</li>
+									))}
+								</ul>
 							)}
 						</li>
 					);

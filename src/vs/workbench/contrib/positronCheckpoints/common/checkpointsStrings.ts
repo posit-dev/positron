@@ -133,6 +133,9 @@ const changes = {
 	bodyLabel: () => localize('positron.checkpoints.changes.bodyLabel', "Description (optional)"),
 	addAnotherCheckpoint: () => localize('positron.checkpoints.changes.addAnotherCheckpoint', "Add another checkpoint"),
 	moveFileTo: (path: string) => localize('positron.checkpoints.changes.moveFileTo', "Move {0} to", path),
+	/** A part of a file, one of the places where its lines changed. */
+	partLabel: (index: number, added: number, removed: number) => localize('positron.checkpoints.changes.partLabel', "Part {0}: {1} lines added, {2} removed", index, added, removed),
+	movePartTo: (index: number, path: string) => localize('positron.checkpoints.changes.movePartTo', "Move part {0} of {1} to", index, path),
 	noFilesInChunk: () => localize('positron.checkpoints.changes.noFilesInChunk', "No files yet. Move a file here to put it in this checkpoint."),
 	savedAndAdded: (count: number) => plural(count,
 		localize('positron.checkpoints.changes.savedAndAdded.one', "This file was saved and added. Review it, then create the checkpoint again."),

@@ -5,9 +5,9 @@
 
 import { IChangedFile, IChangeSet } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 
-// The text of a change set as the model reads it. Each file starts with a "File:" line. A text
-// file has its changes in full, or, when the whole text is too long, only the first line of each
-// part with its line counts. A data file or a file over the size limit is its name and size only.
+// The text of a change set as the model reads it, as a list of files or as a list of parts. The
+// text of a file or a part is in full, or, when the whole text is too long, only the first line of
+// each part with its line counts. A data file or a file over the size limit shows no contents.
 
 /** How much of one file the text shows. */
 const enum Detail {
@@ -61,6 +61,32 @@ function joinedLength(texts: readonly string[]): number {
 }
 
 /**
+ * Shortens items largest first until their joined text fits `maxChars`. `forms[i]` lists the
+ * texts of item i from the full one to the shortest. Every item is shortened one step before any
+ * item is shortened a second step, and a shorter form replaces a text only when it is shorter.
+ * The result can still be longer than `maxChars` when even the shortest forms do not fit.
+ */
+function shortenLargestFirst(forms: readonly (readonly string[])[], maxChars: number): string[] {
+	const texts = forms.map(itemForms => itemForms[0]);
+	// Largest first, by the length of the full text.
+	const bySize = texts.map((_, index) => index).sort((a, b) => texts[b].length - texts[a].length);
+	const steps = Math.max(0, ...forms.map(itemForms => itemForms.length - 1));
+	for (let step = 1; step <= steps; step++) {
+		for (const index of bySize) {
+			if (joinedLength(texts) <= maxChars) {
+				return texts;
+			}
+			const shorter = forms[index][step];
+			// For a file with small parts, the shorter form can be the longer text.
+			if (shorter !== undefined && shorter.length < texts[index].length) {
+				texts[index] = shorter;
+			}
+		}
+	}
+	return texts;
+}
+
+/**
  * The changes as text for a model request, at most `maxChars` characters long. Data files and
  * files over the size limit appear as name and size only. When the full text is longer than
  * `maxChars`, files are shortened largest first to the first line of each part with its line
@@ -68,23 +94,7 @@ function joinedLength(texts: readonly string[]): number {
  * are left out and a final line says how many.
  */
 export function renderChangesForModel(changes: IChangeSet, maxChars: number): string {
-	const files = changes.files;
-	const texts = files.map(file => renderFile(file, Detail.Full));
-	// Largest first, by the length of the full text.
-	const bySize = files.map((_, index) => index).sort((a, b) => texts[b].length - texts[a].length);
-
-	for (const detail of [Detail.Headers, Detail.Name]) {
-		for (const index of bySize) {
-			if (joinedLength(texts) <= maxChars) {
-				return texts.join('\n');
-			}
-			const shorter = renderFile(files[index], detail);
-			// For a file with small parts, the shorter form can be the longer text.
-			if (shorter.length < texts[index].length) {
-				texts[index] = shorter;
-			}
-		}
-	}
+	const texts = shortenLargestFirst(changes.files.map(file => [Detail.Full, Detail.Headers, Detail.Name].map(detail => renderFile(file, detail))), maxChars);
 	if (joinedLength(texts) <= maxChars) {
 		return texts.join('\n');
 	}
@@ -100,4 +110,31 @@ export function renderChangesForModel(changes: IChangeSet, maxChars: number): st
 		kept.push(texts[index]);
 	}
 	return kept.join('\n');
+}
+
+/**
+ * The changes as a list of parts for a model request, at most `maxChars` characters long. Each
+ * part of a text file is a "Part <id> of <path>" line followed by the part's text. A file without
+ * parts (a data file, a file over the size limit, or a change with no lines) is one "Whole file"
+ * line; the parts of a data file or a file over the size limit show no text. When the full text
+ * is longer than `maxChars`, parts are shortened largest first to their first line and line
+ * counts.
+ *
+ * @returns The text, or undefined when even the shortened list does not fit, since every part
+ * must be listed for the model to place it.
+ */
+export function renderHunksForModel(changes: IChangeSet, maxChars: number): string | undefined {
+	const forms = changes.files.flatMap(file => {
+		const status = describeStatus(file);
+		if (file.hunks.length === 0) {
+			const kind = nameAndSizeOnly(file) ? `data file, ${file.sizeBytes} bytes, contents not shown` : 'no lines to show';
+			return [[`Whole file ${file.path} (${status}, ${kind})`]];
+		}
+		return file.hunks.map(hunk => {
+			const short = `Part ${hunk.id} of ${file.path} (${status}): ${hunk.header} (+${hunk.addedLines} -${hunk.removedLines} lines, contents not shown)`;
+			return nameAndSizeOnly(file) ? [short] : [`Part ${hunk.id} of ${file.path} (${status})\n${hunk.patch.replace(/\n$/, '')}`, short];
+		});
+	});
+	const texts = shortenLargestFirst(forms, maxChars);
+	return joinedLength(texts) <= maxChars ? texts.join('\n') : undefined;
 }

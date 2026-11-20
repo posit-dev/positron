@@ -66,7 +66,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		heading: [[]], none: [[]], unsavedNote: [[1], [2]], fileCount: [[1], [3]], newFile: [[]], deletedFile: [[]],
 		renamedFile: [[]], previousName: [['old.R']], changedFile: [[]], binaryFile: [['2 MB']], tooLarge: [['big.csv', 50]],
 		titleTooLong: [[72]], chunkTitle: [[1]], dialogTitle: [[]], titleLabel: [[]], bodyLabel: [[]],
-		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], noFilesInChunk: [[]],
+		addAnotherCheckpoint: [[]], moveFileTo: [['dose.R']], partLabel: [[2, 3, 1]], movePartTo: [[2, 'dose.R']], noFilesInChunk: [[]],
 		savedAndAdded: [[1], [2]], savedAndAddedTag: [[]], savedAndChanged: [[]], savedContentChanged: [[]],
 	},
 	diff: {
