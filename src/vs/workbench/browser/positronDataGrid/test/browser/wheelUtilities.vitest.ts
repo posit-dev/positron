@@ -29,6 +29,12 @@ describe('computeWheelScrollDeltas', () => {
 			.toEqual({ deltaX: 100, deltaY: 0 });
 	});
 
+	test('shift with a near-diagonal touchpad gesture scrolls horizontally on Windows and Linux', () => {
+		// Neither axis wins by the jitter bias, so both reach the shift conversion.
+		expect(computeWheelScrollDeltas(wheel(50, 52, { shiftKey: true }), false))
+			.toEqual({ deltaX: 52, deltaY: 0 });
+	});
+
 	test('shift does not swap delta Y on macOS', () => {
 		expect(computeWheelScrollDeltas(wheel(0, 100, { shiftKey: true }), true))
 			.toEqual({ deltaX: 0, deltaY: 100 });

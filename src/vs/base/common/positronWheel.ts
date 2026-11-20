@@ -17,17 +17,19 @@ export interface WheelDeltas {
  *
  * macOS does this conversion before the event arrives, so the event already carries delta X, and
  * converting again would scroll vertically (#3755). Windows and Linux deliver delta Y with the
- * shift key set and leave the conversion to the scroller (#11063). An event that already carries
- * delta X, because the platform or a mouse driver converted it, is left alone. This is the shift
- * rule of VS Code's ScrollableElement. ScrollableElement also zeroes the smaller axis first
- * (scrollPredominantAxis), so it converts a diagonal touchpad gesture made with shift held; this
- * function leaves such a gesture, which carries delta X, alone.
+ * shift key set and leave the conversion to the scroller (#11063).
+ *
+ * The event is converted when delta Y is at least as large as delta X, and the smaller delta X is
+ * dropped, so a touchpad gesture with a little horizontal noise converts the same way a mouse
+ * wheel does. An event that is mostly horizontal, because the platform, the browser, or a mouse
+ * driver already converted it, is left alone. This is what VS Code's ScrollableElement does with
+ * its default scrollPredominantAxis: it zeroes the smaller axis, then applies the shift rule.
  * @param e The wheel event, or its deltas and shift key state.
  * @param isMacintosh Whether the platform is macOS.
  * @returns The deltas to scroll by.
  */
 export function shiftWheelToHorizontal(e: WheelDeltas & { readonly shiftKey: boolean }, isMacintosh: boolean): WheelDeltas {
-	if (e.shiftKey && !isMacintosh && !e.deltaX) {
+	if (e.shiftKey && !isMacintosh && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
 		return { deltaX: e.deltaY, deltaY: 0 };
 	}
 	return { deltaX: e.deltaX, deltaY: e.deltaY };

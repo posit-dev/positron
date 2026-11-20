@@ -209,13 +209,14 @@ function webviewMessageCode() {
 	// vertical scroll. On Windows and Linux the event carries delta Y
 	// with the shift key set, and the browser turns it into a horizontal
 	// scroll of the output (#11063). macOS has already moved the delta
-	// to delta X, so the delta Y check below skips it there. This matches
-	// shiftWheelToHorizontal in base/common/positronWheel.ts, which this
-	// script cannot import because it is injected into the webview as a
-	// string.
+	// to delta X, so the delta Y check below skips it there. An event
+	// that is mostly horizontal is not a converted one and is handled as
+	// usual. This matches shiftWheelToHorizontal in
+	// base/common/positronWheel.ts, which this script cannot import
+	// because it is injected into the webview as a string.
 	const isMacintosh = navigator.userAgent.indexOf('Macintosh') >= 0;
 	const isShiftWheelToHorizontal = (event: WheelEvent) =>
-		event.shiftKey && !isMacintosh && !event.deltaX;
+		event.shiftKey && !isMacintosh && Math.abs(event.deltaY) >= Math.abs(event.deltaX);
 
 	// The viewport has at most one element that scrolls on wheel. This
 	// returns that element when viewport scrolling is enabled, or null
@@ -298,12 +299,17 @@ function webviewMessageCode() {
 	let lastSeenDelta = 0;
 	let lastEventAt = 0;
 	window.addEventListener('wheel', (event: WheelEvent) => {
-		if (event.defaultPrevented || event.deltaY === 0 || isShiftWheelToHorizontal(event)) {
+		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
 		}
 		const now = Date.now();
 		const gapSincePrev = now - lastEventAt;
 		lastEventAt = now;
+		// Checked after the timestamp so the gesture-gap logic still sees
+		// shift events that arrive in the middle of a momentum tail.
+		if (isShiftWheelToHorizontal(event)) {
+			return;
+		}
 		const consumer = findVerticalWheelConsumer(event);
 		if (consumer) {
 			lastConsumer = consumer;

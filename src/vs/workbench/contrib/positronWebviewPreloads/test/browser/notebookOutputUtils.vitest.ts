@@ -20,8 +20,8 @@ function runWebviewScript(userAgent: string): number[] {
 			forwarded.push(message.deltaY);
 		}
 	};
-	// This runs while the describe block is collected, outside any test, so the global restoreMocks
-	// would not undo the spy before the first test. Restore it here.
+	// This runs in beforeAll, outside any test, so the global restoreMocks would not undo the spy
+	// before the first test. Restore it here.
 	const userAgentSpy = vi.spyOn(mainWindow.navigator, 'userAgent', 'get').mockReturnValue(userAgent);
 	Object.assign(mainWindow, { acquireVsCodeApi: () => ({ postMessage }) });
 	try {
@@ -46,8 +46,12 @@ function wheel(init: WheelEventInit) {
 describe('webview output wheel forwarding', () => {
 	// The script adds window listeners that cannot be removed, so run it once per platform and
 	// let each test read only the events it sends.
-	const windows = runWebviewScript(WINDOWS_USER_AGENT);
-	const mac = runWebviewScript(MAC_USER_AGENT);
+	let windows: number[] = [];
+	let mac: number[] = [];
+	beforeAll(() => {
+		windows = runWebviewScript(WINDOWS_USER_AGENT);
+		mac = runWebviewScript(MAC_USER_AGENT);
+	});
 	beforeEach(() => {
 		windows.length = 0;
 		mac.length = 0;
@@ -71,9 +75,15 @@ describe('webview output wheel forwarding', () => {
 		expect({ windows, mac }).toEqual({ windows: [], mac: [100, -100] });
 	});
 
-	test('forwards shift + wheel that already carries delta X, as a mixed trackpad gesture does', () => {
-		wheel({ deltaX: 20, deltaY: 100, shiftKey: true });
+	test('does not forward a mostly vertical shift gesture with some horizontal noise on Windows and Linux', () => {
+		wheel({ deltaX: 1, deltaY: 100, shiftKey: true });
 
-		expect({ windows, mac }).toEqual({ windows: [100], mac: [100] });
+		expect({ windows, mac }).toEqual({ windows: [], mac: [100] });
+	});
+
+	test('forwards the vertical part of a mostly horizontal shift gesture', () => {
+		wheel({ deltaX: 100, deltaY: 20, shiftKey: true });
+
+		expect({ windows, mac }).toEqual({ windows: [20], mac: [20] });
 	});
 });
