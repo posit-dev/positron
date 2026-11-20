@@ -13,15 +13,18 @@ import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsMessageService } from '../checkpointsMessages.js';
 import { CheckpointDetails } from './checkpointDetails.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
+import { useHistoryDescriptions } from './useHistoryDescriptions.js';
 import { useHistoryPaging } from './useHistoryPaging.js';
 import { useRunAction } from './useRunAction.js';
 
 /**
  * The History section: the checkpoints of the project, newest first, in pages of
  * `HISTORY_PAGE_SIZE`. Each row expands to show its description and actions. One action sends
- * every checkpoint that is not yet shared.
+ * every checkpoint that is not yet shared. While the agent is available and the section is
+ * `visible`, a colleague's checkpoint shows a plain title and summary in place of its original
+ * message, which stays under "Show git details".
  */
-export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
+export const HistorySection = ({ view, visible = true }: { view: ICheckpointsViewState; visible?: boolean }) => {
 	const services = usePositronReactServicesContext();
 	const runAction = useRunAction();
 	const [expandedId, setExpandedId] = useState<string>();
@@ -35,6 +38,7 @@ export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
 		services.get(ICheckpointsMessageService).show(Strings.results.couldNotFinish());
 	}, [services]);
 	const { checkpoints, hasMore, loadMore } = useHistoryPaging(view.history, fetchPage, showCouldNotFinish);
+	const descriptions = useHistoryDescriptions(checkpoints, visible);
 
 	const hasUnshared = checkpoints.some(checkpoint => !checkpoint.shared);
 	const branch = view.state?.branch;
@@ -54,14 +58,16 @@ export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
 					<ul className='checkpoints-history-list'>
 						{checkpoints.map(checkpoint => {
 							const expanded = checkpoint.id === expandedId;
+							const description = descriptions.get(checkpoint.id);
+							const title = description?.title ?? checkpoint.title;
 							return (
 								<li key={checkpoint.id} className='checkpoints-history-row'>
 									<Button
-										ariaLabel={Strings.history.showDetails(checkpoint.title)}
+										ariaLabel={Strings.history.showDetails(title)}
 										className='checkpoints-link checkpoints-history-title'
 										onPressed={() => setExpandedId(expanded ? undefined : checkpoint.id)}
 									>
-										{checkpoint.title}
+										{title}
 									</Button>
 									<span className='checkpoints-file-note'>
 										{checkpoint.authorIsMe ? Strings.history.you() : checkpoint.authorName}
@@ -69,7 +75,7 @@ export const HistorySection = ({ view }: { view: ICheckpointsViewState }) => {
 									<span className='checkpoints-file-note'>{fromNow(new Date(checkpoint.time), true)}</span>
 									{!checkpoint.shared && <span className='checkpoints-file-status'>{Strings.history.notYetShared()}</span>}
 									{expanded && (
-										<CheckpointDetails branch={branch} checkpoint={checkpoint} upstream={upstream} onChanged={view.refresh} />
+										<CheckpointDetails branch={branch} checkpoint={checkpoint} description={description} upstream={upstream} onChanged={view.refresh} />
 									)}
 								</li>
 							);

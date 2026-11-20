@@ -177,12 +177,12 @@ const TextOverlapChoices = ({ overlap, choice, onChoose, proposal }: ITextOverla
 	};
 
 	let proposalNote: string | undefined;
-	if (ready?.proposal.confidence === 'low') {
-		proposalNote = Strings.overlaps.proposalUncertain();
-	} else if (ready && !ready.preselected) {
-		proposalNote = Strings.overlaps.proposalBesideChoice();
-	} else if (proposalIsChoice) {
+	if (proposalIsChoice) {
 		proposalNote = Strings.overlaps.proposalSelected();
+	} else if (choice !== undefined) {
+		proposalNote = Strings.overlaps.proposalBesideChoice();
+	} else if (ready?.proposal.confidence === 'low') {
+		proposalNote = Strings.overlaps.proposalUncertain();
 	}
 	// An empty result is a real answer only when one of the three versions is empty too.
 	const emptyAllowed = (overlap.base ?? '') === '' || mine === '' || theirs === '';

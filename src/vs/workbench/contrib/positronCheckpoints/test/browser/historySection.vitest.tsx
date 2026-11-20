@@ -8,6 +8,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -32,6 +33,9 @@ import { CheckpointsMessageService, ICheckpointsMessageService } from '../../bro
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { GitDetails } from '../../browser/components/gitDetails.js';
+import { IHistoryDescription } from '../../common/agent/describeHistory.js';
+import { JobOutcome } from '../../common/agent/jobTypes.js';
+import { FakeCheckpointsAgentService } from './fakeAgentService.js';
 import { fakeCheckpoint, fakeEngineState, FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -338,6 +342,142 @@ describe('History section', () => {
 		expect(await screen.findByText('That action could not finish. Your project is as it was.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Show older checkpoints' })).toBeInTheDocument();
 		expect(screen.getAllByRole('listitem')).toHaveLength(50);
+	});
+
+	describe('plain descriptions of colleagues\' checkpoints', () => {
+		let agent: FakeCheckpointsAgentService;
+		/** The answers to hold, by checkpoint id; a held answer waits until the test releases it. */
+		let held: Map<string, (outcome: JobOutcome<IHistoryDescription>) => void>;
+		let holdAnswers: boolean;
+
+		const plain = (id: string): JobOutcome<IHistoryDescription> => ({ ok: true, value: { title: `Plain ${id}`, summary: `Summary of ${id}.` }, fromCache: false });
+		const colleague = (id: string, overrides: Partial<ICheckpoint> = {}) => fakeCheckpoint({ id, title: `raw ${id}`, body: `body of ${id}`, authorName: 'Maya', authorIsMe: false, ...overrides });
+
+		beforeEach(() => {
+			agent = ctx.disposables.add(new FakeCheckpointsAgentService(true));
+			ctx.instantiationService.stub(ICheckpointsAgentService, agent);
+			held = new Map();
+			holdAnswers = false;
+			agent.answers.set('describe-history', async input => {
+				const { checkpoint } = input as { checkpoint: ICheckpoint };
+				if (!holdAnswers) {
+					return plain(checkpoint.id);
+				}
+				return new Promise<JobOutcome<IHistoryDescription>>(resolve => held.set(checkpoint.id, resolve));
+			});
+		});
+
+		/** The ids of the checkpoints the agent was asked to describe, in order. */
+		function describedIds(): string[] {
+			return agent.runsOf('describe-history').map(run => (run.input as { checkpoint: ICheckpoint }).checkpoint.id);
+		}
+
+		test('runs only for colleagues\' checkpoints', async () => {
+			renderHistory([mine, colleague('c2'), colleague('c3')]);
+
+			expect(await screen.findByText('Plain c3')).toBeInTheDocument();
+			expect(screen.getByText('Plain c2')).toBeInTheDocument();
+			expect(screen.getByText('Mine')).toBeInTheDocument();
+			expect(describedIds()).toEqual(['c2', 'c3']);
+			expect(agent.runsOf('describe-history')[0].input).toEqual({ checkpoint: colleague('c2'), diff: '' });
+		});
+
+		test('runs for visible rows only, 3 at a time', async () => {
+			holdAnswers = true;
+			renderHistory(['c1', 'c2', 'c3', 'c4', 'c5'].map(id => colleague(id)));
+
+			await vi.waitFor(() => expect(describedIds()).toEqual(['c1', 'c2', 'c3']));
+			await act(async () => held.get('c2')!(plain('c2')));
+			await vi.waitFor(() => expect(describedIds()).toEqual(['c1', 'c2', 'c3', 'c4']));
+			expect(screen.getByText('Plain c2')).toBeInTheDocument();
+			expect(screen.getByText('raw c1')).toBeInTheDocument();
+		});
+
+		test('rows of pages that are not loaded are not described until their page loads', async () => {
+			renderHistory(Array.from({ length: 52 }, (_, index) => colleague(`c${index}`)));
+			const user = userEvent.setup();
+
+			await vi.waitFor(() => expect(describedIds()).toHaveLength(50));
+			expect(describedIds()).toEqual(Array.from({ length: 50 }, (_, index) => `c${index}`));
+			await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
+
+			expect(await screen.findByText('Plain c51')).toBeInTheDocument();
+			expect(describedIds().slice(50)).toEqual(['c50', 'c51']);
+		});
+
+		test('the same rows loaded again make no new request', async () => {
+			renderHistory([colleague('c2')]);
+			expect(await screen.findByText('Plain c2')).toBeInTheDocument();
+
+			engine.history = [colleague('c2')];
+			await act(async () => engine.fireChange());
+			await vi.waitFor(() => expect(engine.callsOf('getHistory').length).toBeGreaterThan(1));
+
+			expect(describedIds()).toEqual(['c2']);
+			expect(screen.getByText('Plain c2')).toBeInTheDocument();
+		});
+
+		test('the original message stays available under Show git details', async () => {
+			renderHistory([colleague('c2')]);
+			const user = await expandRow('Plain c2');
+
+			expect(screen.getByText('Summary of c2.')).toBeInTheDocument();
+			expect(screen.queryByText('body of c2')).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Show git details' }));
+
+			expect(screen.getByLabelText('Git details')).toHaveTextContent('Description from gitraw c2 body of c2');
+		});
+
+		test('a failed job shows the original title', async () => {
+			agent.answers.set('describe-history', { ok: false, reason: 'failed-check', detail: 'rejected' });
+			renderHistory([colleague('c2')]);
+
+			await vi.waitFor(() => expect(describedIds()).toEqual(['c2']));
+			const user = await expandRow('raw c2');
+			expect(screen.getByText('body of c2')).toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Show git details' }));
+			expect(screen.getByLabelText('Git details')).not.toHaveTextContent('Description from git');
+		});
+
+		test('nothing is described while the agent is not available, and the original titles return when it turns off', async () => {
+			agent.setAvailable(false);
+			renderHistory([colleague('c2')]);
+
+			expect(await screen.findByText('raw c2')).toBeInTheDocument();
+			expect(describedIds()).toEqual([]);
+
+			await act(async () => agent.setAvailable(true));
+			expect(await screen.findByText('Plain c2')).toBeInTheDocument();
+
+			await act(async () => agent.setAvailable(false));
+			expect(screen.getByText('raw c2')).toBeInTheDocument();
+			expect(describedIds()).toEqual(['c2']);
+		});
+
+		test('nothing is described while the view is hidden', async () => {
+			const visibility = ctx.disposables.add(new Emitter<boolean>());
+			const container = stubInterface<IReactComponentContainer>({ containerVisible: false, onVisibilityChanged: visibility.event });
+			engine.history = [colleague('c2')];
+			rtl.render(<CheckpointsPanel container={container} />);
+
+			expect(await screen.findByText('raw c2')).toBeInTheDocument();
+			expect(describedIds()).toEqual([]);
+
+			await act(async () => visibility.fire(true));
+			expect(await screen.findByText('Plain c2')).toBeInTheDocument();
+		});
+
+		test('a request that is in progress when the view closes is cancelled', async () => {
+			holdAnswers = true;
+			const { unmount } = rtl.render(<CheckpointsPanel />);
+			engine.history = [colleague('c2')];
+			await act(async () => engine.fireChange());
+			await vi.waitFor(() => expect(describedIds()).toEqual(['c2']));
+
+			unmount();
+
+			expect(agent.runsOf('describe-history')[0].token.isCancellationRequested).toBe(true);
+		});
 	});
 
 	test('with no checkpoints the section says so', async () => {

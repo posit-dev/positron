@@ -66,7 +66,7 @@ export const CheckpointsPanel = ({ container }: { container?: IReactComponentCon
 					<SyncCard view={view} />
 					<SuggestionCard view={view} />
 					<ChangesSection view={view} visible={visible} />
-					<HistorySection view={view} />
+					<HistorySection view={view} visible={visible} />
 					<KeptFilesSection view={view} />
 					<RecoverySnapshotsSection view={view} />
 					<UndoRedoBar view={view} />

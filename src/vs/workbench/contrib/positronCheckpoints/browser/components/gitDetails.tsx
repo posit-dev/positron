@@ -11,10 +11,12 @@ export interface IGitDetailsProps {
 	branch?: string;
 	/** The name of the shared copy of the branch, when the project has one. */
 	upstream?: string;
+	/** The message as git has it, when the row shows a plain-language description instead. */
+	originalMessage?: string;
 }
 
 /** The "Show git details" area. It is the one component that names git objects. */
-export const GitDetails = ({ commitId, branch, upstream }: IGitDetailsProps) => {
+export const GitDetails = ({ commitId, branch, upstream, originalMessage }: IGitDetailsProps) => {
 	return (
 		<dl aria-label={Strings.gitDetails.heading()} className='checkpoints-git-details'>
 			<dt>{Strings.gitDetails.commitId()}</dt>
@@ -29,6 +31,12 @@ export const GitDetails = ({ commitId, branch, upstream }: IGitDetailsProps) => 
 				<>
 					<dt>{Strings.gitDetails.upstream()}</dt>
 					<dd>{upstream}</dd>
+				</>
+			)}
+			{originalMessage !== undefined && (
+				<>
+					<dt>{Strings.gitDetails.rawDescription()}</dt>
+					<dd className='checkpoints-git-message'>{originalMessage}</dd>
 				</>
 			)}
 		</dl>

@@ -300,6 +300,7 @@ describe('Overlap editor', () => {
 			await user.click(screen.getByRole('button', { name: 'Accept' }));
 
 			expect(controller.resolutions.get('dose')).toEqual({ type: 'text', content: combined });
+			expect(screen.getByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
 			expect(engine.callsOf('getIncoming')).toEqual([]);
 		});
 
@@ -358,6 +359,20 @@ describe('Overlap editor', () => {
 			answer(proposal('high'));
 
 			expect(await screen.findByText('A suggested combination is ready. Your choice is unchanged.')).toBeInTheDocument();
+			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
+		});
+
+		test('a low confidence proposal that arrives after a choice keeps the choice and says so', async () => {
+			agent.setAvailable(true);
+			const answer = agent.hold('propose-combination');
+			const user = await renderEditor([dose]);
+			await user.click(screen.getByRole('radio', { name: 'Keep Maya\'s' }));
+
+			answer(proposal('low'));
+
+			expect(await screen.findByText('A suggested combination is ready. Your choice is unchanged.')).toBeInTheDocument();
+			expect(screen.getByText('The two changes are on different lines.')).toBeInTheDocument();
+			expect(screen.queryByText('This suggestion may not be right, so nothing is selected.')).not.toBeInTheDocument();
 			expect(controller.resolutions.get('dose')).toEqual({ type: 'take', side: 'theirs' });
 		});
 

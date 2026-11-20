@@ -183,6 +183,10 @@
 	overflow-wrap: anywhere;
 }
 
+.positron-checkpoints .checkpoints-git-details .checkpoints-git-message {
+	white-space: pre-wrap;
+}
+
 /* Sync card. */
 
 .positron-checkpoints .checkpoints-card {
