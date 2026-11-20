@@ -12,10 +12,12 @@ import { useEffect } from 'react';
 // Other dependencies.
 import { DisposableResizeObserver, getWindow } from '../../../../../base/browser/dom.js';
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { isSimplifiedLayoutEnabled } from '../../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { AssistantCard } from './components/assistantCard.js';
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
-import { LayoutCards } from './components/layoutCards.js';
+import { GetStartedCard } from './components/getStartedCard.js';
 import { WalkthroughBanner } from './components/walkthroughBanner.js';
 import { WelcomeHeader } from './components/welcomeHeader.js';
 import { EnvironmentHealthLanguage } from './environmentHealth.js';
@@ -78,6 +80,7 @@ export interface PositronWelcomePageProps {
  * @returns The rendered component.
  */
 export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
+	const services = usePositronReactServicesContext();
 	const onDidMount = props.onDidMount;
 
 	// Runs after the DomSlot layout effects, so the slotted elements are in the
@@ -92,9 +95,19 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 	return (
 		<>
 			<WelcomeHeader />
-			<LayoutCards />
-			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
-			<AssistantCard card={props.assistantCard} />
+			{/* The simplified layout walks through setup one step at a time in a
+				single card, in place of the separate sections. */}
+			{isSimplifiedLayoutEnabled(services.configurationService)
+				? <GetStartedCard
+					assistantCard={props.assistantCard}
+					environmentHealthService={props.environmentHealthService}
+					expandedByLanguage={props.expandedByLanguage}
+				/>
+				: <>
+					<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
+					<AssistantCard card={props.assistantCard} />
+				</>
+			}
 			<div className='positron-welcome-page-columns'>
 				<div className='positron-welcome-page-column-main'>
 					<DomSlot element={props.recentList} />

@@ -66,6 +66,11 @@
 	gap: 8px;
 }
 
+/* With no title of its own (inside the Get Started card), the pair sits on the right. */
+.positron-welcome-page-environment-setup .environment-health-header-buttons:only-child {
+	margin-left: auto;
+}
+
 /*
  * An h3 for structure only; the button inside it is what you see. The busy
  * indicator is positioned against this.

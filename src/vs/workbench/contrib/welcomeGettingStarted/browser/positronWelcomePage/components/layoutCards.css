@@ -7,27 +7,27 @@
  * One, two, or four cards in a row, never three: three leaves one card alone on
  * the second row. A card needs about 240px before the side regions of its
  * picture cut off their labels, so two fit from 492px and four from 996px. This
- * measures the section, not the window, because the page lives in an editor
+ * measures the wrapper around the list, not the window, because the page lives in an editor
  * that can be split.
  */
-.positron-welcome-page-layouts {
+.layout-cards-container {
 	container-type: inline-size;
 }
 
-.positron-welcome-page-layouts .layout-cards {
+.layout-cards {
 	display: grid;
 	gap: 12px;
 	grid-template-columns: 1fr;
 }
 
 @container (min-width: 492px) {
-	.positron-welcome-page-layouts .layout-cards {
+	.layout-cards {
 		grid-template-columns: repeat(2, 1fr);
 	}
 }
 
 @container (min-width: 996px) {
-	.positron-welcome-page-layouts .layout-cards {
+	.layout-cards {
 		grid-template-columns: repeat(4, 1fr);
 	}
 }
@@ -37,7 +37,7 @@
  * centered text, so this repeats the container chain to win on specificity.
  */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
-.positron-welcome-page-layouts .layout-card {
+.layout-cards .layout-card {
 	align-items: stretch;
 	background: var(--vscode-welcomePage-tileBackground);
 	border: 1px solid var(--vscode-welcomePage-tileBorder, transparent);
@@ -53,19 +53,19 @@
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer
-.positron-welcome-page-layouts .layout-card:hover {
+.layout-cards .layout-card:hover {
 	background: var(--vscode-welcomePage-tileHoverBackground);
 	border-color: var(--vscode-focusBorder);
 }
 
-/* The layout the window is in. */
+/* The layout the user picked. */
 .monaco-workbench .part.editor > .content .gettingStartedContainer
-.positron-welcome-page-layouts .layout-card.current {
+.layout-cards .layout-card.selected {
 	border-color: var(--vscode-focusBorder);
 	box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 }
 
-.positron-welcome-page-layouts .layout-card-current-badge {
+.layout-cards .layout-card-current-badge {
 	background: var(--vscode-badge-background);
 	border-radius: 8px;
 	color: var(--vscode-badge-foreground);
@@ -78,7 +78,7 @@
 }
 
 /* A small drawing of the window. Each region is one part of the layout. */
-.positron-welcome-page-layouts .layout-card-picture {
+.layout-cards .layout-card-picture {
 	aspect-ratio: 5 / 2;
 	border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
 	border-radius: 4px;
@@ -89,7 +89,7 @@
 	padding: 3px;
 }
 
-.positron-welcome-page-layouts .layout-card-region {
+.layout-cards .layout-card-region {
 	background: var(--vscode-sideBar-background);
 	border-radius: 2px;
 	display: flex;
@@ -101,13 +101,13 @@
 }
 
 /* The editor is where the user's work is, so it stands out from the panes around it. */
-.positron-welcome-page-layouts .layout-card-region.editor {
+.layout-cards .layout-card-region.editor {
 	background: var(--vscode-editor-background);
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
-.positron-welcome-page-layouts .layout-card-region-label {
+.layout-cards .layout-card-region-label {
 	color: var(--vscode-descriptionForeground);
 	font-size: 10px;
 	line-height: 12px;
@@ -116,12 +116,12 @@
 	white-space: nowrap;
 }
 
-.positron-welcome-page-layouts .layout-card-name {
+.layout-cards .layout-card-name {
 	font-size: 13px;
 	font-weight: 600;
 }
 
-.positron-welcome-page-layouts .layout-card-description {
+.layout-cards .layout-card-description {
 	color: var(--vscode-descriptionForeground);
 	font-size: 12px;
 	line-height: 16px;

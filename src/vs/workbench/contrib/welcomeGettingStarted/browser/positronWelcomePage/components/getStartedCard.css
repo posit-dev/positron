@@ -1,0 +1,191 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The card. Same border as the environment setup card, so the two read as one family. */
+.positron-welcome-page-get-started {
+	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	border-radius: 6px;
+	display: flex;
+	flex-direction: column;
+	padding: 16px 20px;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.positron-welcome-page-get-started button {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* "GET STARTED  Step 1 of 3" on the left, Skip setup on the right. */
+.positron-welcome-page-get-started .get-started-header {
+	align-items: baseline;
+	display: flex;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.positron-welcome-page-get-started .get-started-label {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.positron-welcome-page-get-started .get-started-step-count {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+/*
+ * The link-style buttons. gettingStarted.css gives every button in the container a
+ * fill and padding, so these repeat the container chain to win on specificity.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-skip,
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-review {
+	background: none;
+	border: none;
+	font-size: 12px;
+	margin: 0 0 0 auto;
+	padding: 0;
+}
+
+/*
+ * An h2 like every other section title on the page, but set as a title rather than
+ * the page's small upper case label. It gets focus when the step changes, which
+ * needs no focus ring.
+ */
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page .positron-welcome-page-get-started h2.get-started-title {
+	color: var(--vscode-foreground);
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: normal;
+	margin: 0 0 4px;
+	outline: none;
+	text-transform: none;
+}
+
+.positron-welcome-page-get-started .get-started-description {
+	color: var(--vscode-descriptionForeground);
+	line-height: 20px;
+	margin: 0 0 12px;
+}
+
+.positron-welcome-page-get-started .get-started-body {
+	min-width: 0;
+}
+
+/* Progress on the left, Back and Next on the right. */
+.positron-welcome-page-get-started .get-started-footer {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: space-between;
+	margin-top: 16px;
+}
+
+/* One bar per step, with the step's name under it. Steps up to the current one are filled. */
+.positron-welcome-page-get-started .get-started-progress {
+	display: flex;
+	gap: 4px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.positron-welcome-page-get-started .get-started-progress-step {
+	border-top: 3px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	padding-top: 4px;
+	width: 72px;
+}
+
+.positron-welcome-page-get-started .get-started-progress-step.reached {
+	border-top-color: var(--vscode-button-background);
+}
+
+.positron-welcome-page-get-started .get-started-progress-step[aria-current='step'] {
+	color: var(--vscode-foreground);
+	font-weight: 600;
+}
+
+.positron-welcome-page-get-started .get-started-buttons {
+	display: flex;
+	gap: 8px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button {
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 2px;
+	font-size: 13px;
+	margin: 0;
+	padding: 4px 14px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button.primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button.primary:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button.secondary {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button.secondary:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer
+.positron-welcome-page-get-started .get-started-button:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+/* After setup: one row of short statuses, with Review setup on the right. */
+.positron-welcome-page-get-started.summary {
+	align-items: center;
+	flex-direction: row;
+	gap: 12px;
+	padding: 10px 16px;
+}
+
+.positron-welcome-page-get-started .get-started-summary-items {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 20px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.positron-welcome-page-get-started .get-started-summary-item {
+	align-items: center;
+	display: flex;
+	gap: 6px;
+}
+
+.positron-welcome-page-get-started .get-started-summary-pass {
+	color: var(--vscode-positronWelcome-environmentSetupPassIcon);
+}
+
+.positron-welcome-page-get-started .get-started-summary-warn {
+	color: var(--vscode-positronWelcome-environmentSetupWarningIcon);
+}

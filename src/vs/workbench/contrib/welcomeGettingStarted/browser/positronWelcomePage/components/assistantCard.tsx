@@ -19,6 +19,11 @@ import { WelcomeAssistantCard } from '../welcomeAssistantCard.js';
  */
 export interface AssistantCardProps {
 	readonly card: WelcomeAssistantCard;
+	/**
+	 * The id of a heading outside the card that names it. When set, the card
+	 * leaves out its own heading.
+	 */
+	readonly labelledBy?: string;
 }
 
 /**
@@ -30,7 +35,8 @@ export interface AssistantCardProps {
  */
 export const AssistantCard = (props: AssistantCardProps) => {
 	const { card } = props;
-	const titleId = useId();
+	const ownTitleId = useId();
+	const titleId = props.labelledBy ?? ownTitleId;
 	const anchorRef = useRef<HTMLDivElement>(null);
 	const [available, setAvailable] = useState(card.available);
 
@@ -58,9 +64,11 @@ export const AssistantCard = (props: AssistantCardProps) => {
 
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-assistant'>
-			<h2 className='positron-welcome-page-assistant-title' id={titleId}>
-				{localize('positron.welcome.assistantCardTitle', "Ask Posit Assistant")}
-			</h2>
+			{!props.labelledBy &&
+				<h2 className='positron-welcome-page-assistant-title' id={titleId}>
+					{localize('positron.welcome.assistantCardTitle', "Ask Posit Assistant")}
+				</h2>
+			}
 			{/* The webview covers its anchor's whole box, border included, so
 				the card frame is drawn by this wrapper instead. */}
 			<div className='positron-welcome-page-assistant-card'>

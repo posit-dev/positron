@@ -6,16 +6,9 @@
 // CSS.
 import './layoutCards.css';
 
-// React.
-import { useEffect, useId, useState } from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
-import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import type { GettingStartedActionClassification, GettingStartedActionEvent } from '../../gettingStarted.js';
-import { IPositronLayoutService } from '../../../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
-import { isSimplifiedLayoutEnabled } from '../../../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { positronSimplifiedLayout } from '../../../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
 import { positronFourPaneDsLayout } from '../../../../../services/positronLayout/browser/layouts/positronFourPaneDsLayout.js';
 import { positronTwoPaneLayout } from '../../../../../services/positronLayout/browser/layouts/positronTwoPaneLayout.js';
@@ -36,7 +29,7 @@ interface LayoutRegion {
 /**
  * A layout the user can switch to from the welcome page.
  */
-interface LayoutCard {
+export interface LayoutCard {
 	/** The command that applies the layout. */
 	readonly commandId: string;
 	readonly name: string;
@@ -53,7 +46,7 @@ interface LayoutCard {
  * localized when the page renders, not when this module loads.
  * @returns The cards, in the order they show on the page.
  */
-function getLayoutCards(): LayoutCard[] {
+export function getLayoutCards(): LayoutCard[] {
 	const files = localize('positron.welcome.layout.files', "Files");
 	const editor = localize('positron.welcome.layout.editor', "Editor");
 	const notebook = localize('positron.welcome.layout.notebook', "Notebook");
@@ -116,60 +109,39 @@ function getLayoutCards(): LayoutCard[] {
 }
 
 /**
- * LayoutCards component. Shows each layout as a picture the user can click to
- * switch to it, with the layout the window is in marked as current. Only shown with
- * the simplified layout setting on.
- * @returns The rendered component, or null when the setting is off.
+ * LayoutCardListProps interface.
  */
-export const LayoutCards = () => {
-	const services = usePositronReactServicesContext();
-	return isSimplifiedLayoutEnabled(services.configurationService) ? <LayoutCardsSection /> : null;
-};
+export interface LayoutCardListProps {
+	/** The id of the element that names the list. */
+	readonly labelledBy: string;
+	/** The command id of the selected layout, or undefined when none is selected. */
+	readonly selectedLayoutId: string | undefined;
+	/** The command id of the layout the window is in, which gets a Current badge. */
+	readonly currentLayoutId: string | undefined;
+	/** Called with a layout's command id when the user picks its card. */
+	readonly onSelect: (layoutId: string) => void;
+}
 
 /**
- * The layout cards themselves, split from LayoutCards so the layout service is only
- * read when the cards show.
+ * LayoutCardList component. Shows each layout as a picture the user can pick.
+ * Picking a card only selects it; the caller decides when to apply it.
+ * @param props A LayoutCardListProps that contains the component properties.
  * @returns The rendered component.
  */
-const LayoutCardsSection = () => {
-	const services = usePositronReactServicesContext();
-	const headingId = useId();
-	const layoutService = services.get(IPositronLayoutService);
-	const [currentLayoutId, setCurrentLayoutId] = useState(() => layoutService.currentLayoutId);
-
-	useEffect(() => {
-		const disposable = layoutService.onDidChangeCurrentLayout(setCurrentLayoutId);
-		return () => disposable.dispose();
-	}, [layoutService]);
-
-	const applyLayout = (commandId: string) => {
-		services.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>(
-			'gettingStarted.ActionExecuted',
-			{
-				command: 'welcomeLayoutCard',
-				argument: commandId,
-				walkthroughId: undefined,
-			});
-
-		services.commandService.executeCommand(commandId);
-	};
-
-	// Render. The cards are radio buttons because exactly one layout is current at a
+export const LayoutCardList = (props: LayoutCardListProps) => {
+	// Render. The cards are radio buttons because exactly one layout is picked at a
 	// time. The picture is hidden from screen readers, which read the name and
 	// description instead.
 	return (
-		<section aria-labelledby={headingId} className='positron-welcome-page-layouts'>
-			<h2 id={headingId}>
-				{localize('positron.welcome.layouts', "Choose a Layout")}
-			</h2>
-			<div aria-labelledby={headingId} className='layout-cards' role='radiogroup'>
+		<div className='layout-cards-container'>
+			<div aria-labelledby={props.labelledBy} className='layout-cards' role='radiogroup'>
 				{getLayoutCards().map(card => (
 					<Button
 						key={card.commandId}
-						ariaChecked={card.commandId === currentLayoutId}
-						className={card.commandId === currentLayoutId ? 'layout-card current' : 'layout-card'}
+						ariaChecked={card.commandId === props.selectedLayoutId}
+						className={card.commandId === props.selectedLayoutId ? 'layout-card selected' : 'layout-card'}
 						role='radio'
-						onPressed={() => applyLayout(card.commandId)}
+						onPressed={() => props.onSelect(card.commandId)}
 					>
 						<span
 							aria-hidden='true'
@@ -194,7 +166,7 @@ const LayoutCardsSection = () => {
 						</span>
 						<span className='layout-card-name'>
 							{card.name}
-							{card.commandId === currentLayoutId &&
+							{card.commandId === props.currentLayoutId &&
 								<span className='layout-card-current-badge'>
 									{localize('positron.welcome.layout.current', "Current")}
 								</span>
@@ -204,6 +176,6 @@ const LayoutCardsSection = () => {
 					</Button>
 				))}
 			</div>
-		</section>
+		</div>
 	);
 };

@@ -28,6 +28,11 @@ export interface EnvironmentHealthSectionProps {
 	readonly environmentHealthService: IEnvironmentHealthService;
 	/** See LanguageHealthGroup: one map per welcome page, owned by the pane. */
 	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
+	/**
+	 * The id of a heading outside the section that names it. When set, the section
+	 * leaves out its own title and keeps only the recheck and settings buttons.
+	 */
+	readonly labelledBy?: string;
 }
 
 /**
@@ -35,11 +40,12 @@ export interface EnvironmentHealthSectionProps {
  * @param props An EnvironmentHealthSectionProps that contains the component properties.
  * @returns The rendered component.
  */
-export const EnvironmentHealthSection = ({ environmentHealthService, expandedByLanguage }: EnvironmentHealthSectionProps) => {
+export const EnvironmentHealthSection = ({ environmentHealthService, expandedByLanguage, labelledBy }: EnvironmentHealthSectionProps) => {
 	const services = usePositronReactServicesContext();
 	// Ties the card's heading to the section, so a screen reader announces the
 	// region as "Environment setup" rather than an unnamed region.
-	const titleId = useId();
+	const ownTitleId = useId();
+	const titleId = labelledBy ?? ownTitleId;
 	// useEventState reads the value once, then re-reads it and re-renders whenever
 	// the event fires. The service's state is not a React value, so this is how the
 	// card follows it.
@@ -99,9 +105,11 @@ export const EnvironmentHealthSection = ({ environmentHealthService, expandedByL
 	return (
 		<section aria-labelledby={titleId} className='positron-welcome-page-environment-setup'>
 			<div className='environment-health-header' data-testid='environment-health-header'>
-				<h2 className='environment-health-header-title' id={titleId}>
-					{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
-				</h2>
+				{!labelledBy &&
+					<h2 className='environment-health-header-title' id={titleId}>
+						{localize('positron.welcome.environmentSetupTitle', "Environment setup")}
+					</h2>
+				}
 				{/*
 					Grouped so the pair moves as a unit: see environmentHealthSection.css
 					for how the header wraps them below the title, rather than squeezing
