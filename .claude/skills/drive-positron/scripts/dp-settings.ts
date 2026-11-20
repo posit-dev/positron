@@ -7,12 +7,13 @@
 // run's disposable profile) or the open folder's .vscode/settings.json,
 // merged in with jsonc-parser so the file's other settings and comments stay.
 // The page says where both files are: the window's configuration names the
-// profile's settings file and the folder. settings.sh wraps this.
+// profile's settings file and the folder, as URI paths (/c:/... on Windows)
+// that fsPath turns into file paths. settings.sh wraps this.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { applyEdits, modify, parse as parseJsonc, type ParseError } from 'jsonc-parser';
-import { commandWord, Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, Exit, fsPath, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The user settings file and the open folder, from the window's configuration
@@ -46,11 +47,11 @@ export const settingsCommands: Record<string, (argv: string[]) => Json | string>
 		let file: string;
 		if (where === 'user') {
 			if (!w.user) { return { ok: false, error: 'the window names no user settings file' }; }
-			file = String(w.user);
+			file = fsPath(String(w.user));
 		} else {
 			if (w.workspaceFile) { return { ok: false, error: `the window has a .code-workspace open (${w.workspaceFile}); its settings are in that file: not written` }; }
 			if (!w.folder) { return { ok: false, error: 'no folder is open, so there is no workspace settings file; use --user' }; }
-			file = join(String(w.folder), '.vscode', 'settings.json');
+			file = join(fsPath(String(w.folder)), '.vscode', 'settings.json');
 		}
 		const text = existsSync(file) ? readFileSync(file, 'utf8') : '{}\n';
 		const errors: ParseError[] = [];

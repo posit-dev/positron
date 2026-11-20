@@ -15,7 +15,7 @@
 import { execFileSync, spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from 'child_process';
 import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { basename, dirname, join, resolve } from 'path';
+import { basename, dirname, join, resolve, win32 } from 'path';
 import { fileURLToPath } from 'url';
 import type { Page } from 'playwright';
 import { makeLib, type Lib } from './page-lib.ts';
@@ -37,6 +37,19 @@ export function playwrightCli(args: string[], options: SpawnSyncOptions = {}): S
 	return spawnSync(cli, [...cliArgs, ...args], { cwd: repo, encoding: 'utf8', ...options }) as SpawnSyncReturns<string>;
 }
 export const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+
+/**
+ * The file system path of a file URI's path as the window reports it
+ * (`uri.path`, already decoded): on Windows `/c:/Users/x` is `c:\Users\x`,
+ * where path functions would read it as `C:\c:\Users\x`. A path that is
+ * already a Windows path (`C:/Users/x`) is kept; elsewhere the path is
+ * returned as it is. The same rule as VS Code's `URI.fsPath`.
+ */
+export function fsPath(uriPath: string, platform: NodeJS.Platform = process.platform): string {
+	if (platform !== 'win32') { return uriPath; }
+	return win32.normalize(uriPath.replace(/^\/(?=[A-Za-z]:)/, ''));
+}
+
 // makeLib's source with the registry as its argument, built once per command.
 const libSource = `(${makeLib.toString()})(page, ${JSON.stringify({ css, names })})`;
 
