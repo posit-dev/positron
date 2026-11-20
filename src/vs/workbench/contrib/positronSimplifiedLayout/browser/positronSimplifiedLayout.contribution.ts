@@ -11,6 +11,7 @@ import { IPositronLayoutService } from '../../../services/positronLayout/browser
 import { positronFourPaneDsLayout } from '../../../services/positronLayout/browser/layouts/positronFourPaneDsLayout.js';
 import { positronSimplifiedLayout } from '../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
 import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
+import './titleBarSessionPicker.js';
 
 /**
  * Remembers that the Simplified layout was applied for this profile, so it is applied once

@@ -26,6 +26,9 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 // --- Start Positron ---
 // Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
 import { Parts, IWorkbenchLayoutService, ActivityBarPosition, LayoutSettings, /*EditorActionsLocation, EditorTabsMode*/ } from '../../../services/layout/browser/layoutService.js';
+// --- Start Positron ---
+import { isSimplifiedLayoutEnabled } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
+// --- End Positron ---
 // --- End Positron ---
 import { createActionViewItem, fillInActionBarActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { Action2, IMenu, IMenuService, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -902,7 +905,14 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	protected get isCommandCenterVisible() {
-		return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		// --- Start Positron ---
+		// The simplified layout always shows the command center, in place of the top action bar.
+		// return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		return !this.isCompact && (
+			this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false ||
+			isSimplifiedLayoutEnabled(this.configurationService)
+		);
+		// --- End Positron ---
 	}
 
 	private get editorActionsEnabled(): boolean {

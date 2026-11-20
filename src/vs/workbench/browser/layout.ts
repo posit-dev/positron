@@ -37,6 +37,7 @@ import { Part } from './part.js';
 import { clamp } from '../../base/common/numbers.js';
 import { IPositronTopActionBarService } from '../services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { SIDEBAR_PART_MINIMUM_WIDTH } from './parts/sidebar/sidebarPart.js';
+import { isSimplifiedLayoutEnabled } from '../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 // --- End Positron ---
 import { IStatusbarService } from '../services/statusbar/browser/statusbar.js';
 import { IFileService } from '../../platform/files/common/files.js';
@@ -296,7 +297,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 		// --- End Positron ---
 
-		const isCommandCenterVisible = titlebarVisible && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		// --- Start Positron ---
+		// The simplified layout always shows the command center.
+		// const isCommandCenterVisible = titlebarVisible && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		const isCommandCenterVisible = titlebarVisible && (
+			this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false ||
+			isSimplifiedLayoutEnabled(this.configurationService)
+		);
+		// --- End Positron ---
 		if (isCommandCenterVisible) {
 			// If the command center is visible then the quickinput
 			// should go over the title bar and the banner
@@ -3402,7 +3410,7 @@ class LayoutStateModel extends Disposable {
 
 		// --- Start Positron ---
 		if (configurationChangeEvent.affectsConfiguration(LayoutSettings.TOP_ACTION_BAR_VISIBLE)) {
-			this.setRuntimeValueAndFire(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
+			this.setRuntimeValueAndFire(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, this.isPositronTopActionBarHiddenByConfiguration());
 		}
 		// --- End Positron ---
 
@@ -3445,7 +3453,7 @@ class LayoutStateModel extends Disposable {
 		this.stateCache.set(LayoutStateKeys.ACTIVITYBAR_HIDDEN.name, this.isActivityBarHidden());
 		this.stateCache.set(LayoutStateKeys.STATUSBAR_HIDDEN.name, !this.configurationService.getValue(LegacyWorkbenchLayoutSettings.STATUSBAR_VISIBLE));
 		// --- Start Positron ---
-		this.stateCache.set(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN.name, !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
+		this.stateCache.set(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN.name, this.isPositronTopActionBarHiddenByConfiguration());
 		// --- End Positron ---
 		this.stateCache.set(LayoutStateKeys.SIDEBAR_POSITON.name, positionFromString(this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left'));
 
@@ -3695,6 +3703,16 @@ class LayoutStateModel extends Disposable {
 
 		return this.configurationService.getValue(LayoutSettings.ACTIVITY_BAR_LOCATION) !== ActivityBarPosition.DEFAULT;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * The simplified layout always hides the top action bar; the VS Code title bar takes its place.
+	 */
+	private isPositronTopActionBarHiddenByConfiguration(): boolean {
+		return !this.configurationService.getValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE) ||
+			isSimplifiedLayoutEnabled(this.configurationService);
+	}
+	// --- End Positron ---
 
 	private setRuntimeValueAndFire<T extends StorageKeyType>(key: RuntimeStateKey<T>, value: T): void {
 		const previousValue = this.stateCache.get(key.name);

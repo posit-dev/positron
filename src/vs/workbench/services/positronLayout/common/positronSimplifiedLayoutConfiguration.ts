@@ -6,6 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 
 /**
@@ -16,6 +17,13 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
  * Read once at startup by each part of the UI it changes.
  */
 export const SIMPLIFIED_LAYOUT_ENABLED_KEY = 'workbench.experimental.simplifiedLayout';
+
+/**
+ * Whether the simplified layout setting is on.
+ */
+export function isSimplifiedLayoutEnabled(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true;
+}
 
 /**
  * View containers the simplified layout removes from the UI: the bottom panel's Problems,
