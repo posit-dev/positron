@@ -115,9 +115,13 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				const before = await fsp.stat(source);
 				await fsp.copyFile(source, target);
 				const after = await fsp.stat(source);
-				if ((before.size === after.size && before.mtimeMs === after.mtimeMs) || attempt === 3) {
+				if (before.size === after.size && before.mtimeMs === after.mtimeMs) {
 					await fsp.utimes(target, after.atime, after.mtime);
 					return;
+				}
+				if (attempt === 3) {
+					await fsp.rm(target, { force: true });
+					throw new Error(`${from} kept changing while it was copied`);
 				}
 			}
 		},

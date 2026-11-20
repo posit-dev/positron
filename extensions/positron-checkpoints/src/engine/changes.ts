@@ -195,7 +195,7 @@ export async function readChanges(ports: EnginePorts): Promise<ChangeSet> {
  * working-file tree the changes were read from. `Hunk.patch` in the change set is display
  * text, so it cannot rebuild a file in an encoding other than UTF-8.
  */
-export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; worktree: string }> {
+export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeSet: ChangeSet; rawHunks: Map<string, Uint8Array>; worktree: string; untrackedLarge: Set<string> }> {
 	const base = await baseTreeOf(ports);
 	const { tree, skipped } = await worktreeTree(ports);
 	const index = await indexTree(ports);
@@ -211,9 +211,9 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 		.update(large.map(file => `\0${file.path}\0${file.sizeBytes}\0${file.mtimeMs}`).join(''))
 		.digest('hex');
 
-	const flags = [...FIXED_DIFF_CONFIG, 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--submodule=short', '-U3', '-M'];
+	const flags = [...FIXED_DIFF_CONFIG, '-c', 'diff.ignoreSubmodules=none', 'diff-tree', '-r', '-O/dev/null', '--no-color', '--no-ext-diff', '--no-textconv', '--submodule=short', '-M'];
 	const range = [base.tree, tree];
-	const names = parseRaw(await mustGit(ports, [...FIXED_DIFF_CONFIG, 'diff-tree', '-r', '-z', '--raw', '--no-abbrev', '-M', ...range], { binary: true }));
+	const names = parseRaw(await mustGit(ports, [...flags, '-z', '--raw', '--no-abbrev', ...range], { binary: true }));
 
 	// A file with a very large version stays out of the patch.
 	const baseSizes = await blobSizes(ports, base.tree);
@@ -221,7 +221,7 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 	const tooBigForPatch = (entry: RawEntry) =>
 		Math.max(workSizes.get(entry.path) ?? 0, baseSizes.get(entry.oldPath ?? entry.path) ?? 0, baseSizes.get(entry.path) ?? 0) > MAX_PATCH_FILE_BYTES;
 	const excluded = names.filter(tooBigForPatch).flatMap(entry => [entry.path, ...(entry.oldPath === undefined ? [] : [entry.oldPath])]);
-	const patch = await mustGit(ports, [...flags, '--full-index', ...range, ...(excluded.length === 0 ? [] : ['--', '.', ...excluded.map(path => `:(exclude,literal)${path}`)])], { binary: true });
+	const patch = await mustGit(ports, [...flags, '-p', '-U3', '--full-index', ...range, ...(excluded.length === 0 ? [] : ['--', '.', ...excluded.map(path => `:(exclude,literal)${path}`)])], { binary: true });
 	const sections = parsePatch(patch);
 	// Both lists come from the same diff, so they have the same order. A file replaced by a
 	// symbolic link, or the reverse, is one entry in the name list and two sections (a
@@ -271,7 +271,7 @@ export async function readChangesDetailed(ports: EnginePorts): Promise<{ changeS
 	for (const { path, sizeBytes } of large) {
 		files.push({ path, status: 'added', binary: true, sizeBytes, tooLarge: true, hunks: [] });
 	}
-	return { changeSet: { basis, files }, rawHunks, worktree: tree };
+	return { changeSet: { basis, files }, rawHunks, worktree: tree, untrackedLarge: new Set(large.map(file => file.path)) };
 }
 
 /** Quotes a path the way git writes it in a patch header, when it needs quoting. */
@@ -388,7 +388,7 @@ export async function treeForChunk(
 
 	// The bytes of the hunks and the content of whole files come from a fresh read, which
 	// must still match `changes`.
-	const { changeSet: current, rawHunks, worktree } = await readChangesDetailed(ports);
+	const { changeSet: current, rawHunks, worktree, untrackedLarge } = await readChangesDetailed(ports);
 	if (current.basis !== changes.basis) {
 		throw new ChunkError('changes-moved', 'the files changed after the changes were read');
 	}
@@ -413,7 +413,8 @@ export async function treeForChunk(
 
 	const wholeFiles = changes.files.filter(file => whole.has(file.path));
 	const removed = wholeFiles.flatMap(file => file.oldPath === undefined ? [] : [file.oldPath]);
-	const largeNew = new Set(wholeFiles.filter(file => file.tooLarge && file.binary && file.status === 'added' && !file.hunks.length).map(file => file.path));
+	// Only an untracked file that the snapshot skipped is read from disk.
+	const largeNew = new Set(wholeFiles.filter(file => untrackedLarge.has(file.path)).map(file => file.path));
 	const inWorktree = await entriesAt(ports, worktree, wholeFiles.map(file => file.path).filter(path => !largeNew.has(path)));
 
 	const tree = await withTempIndex(ports, async env => {
