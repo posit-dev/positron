@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -126,9 +126,14 @@ describe('AskForReviewDialog', () => {
 
 		await user.clear(message);
 		await user.type(message, 'My own words');
-		answer({ ok: true, value: { title: 'Random slope', body: 'This adds a random slope.' }, fromCache: false });
+		await act(async () => {
+			answer({ ok: true, value: { title: 'Random slope', body: 'This adds a random slope.' }, fromCache: false });
+			// The outcome resolves in a later microtask; the loop lets every pending step run.
+			for (let i = 0; i < 10; i++) {
+				await Promise.resolve();
+			}
+		});
 
-		await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
 		expect(message).toHaveValue('My own words');
 	});
 
@@ -171,5 +176,41 @@ describe('AskForReviewDialog', () => {
 		await user.click(within(dialog).getByRole('button', { name: 'Ask for a Review' }));
 
 		expect(await within(dialog).findByRole('alert')).toHaveTextContent('Your checkpoints were sent, but the review could not be asked for. GitHub does not let your account ask for a review in this project.');
+	});
+
+	test('the dialog opened again for the same proposal keeps the title, message, and count of the last attempt', async () => {
+		vi.mocked(github.openProposal).mockResolvedValue({ ok: false, reason: 'offline', detail: 'fetch failed' });
+		engine.afterOperation = method => {
+			if (method === 'sendChanges') {
+				engine.state = unsharedState({ proposal: { branch: BRANCH, base: 'main', sent: true }, shared: { exists: true, ahead: 0, behind: 0 } });
+				engine.history = engine.history.map(checkpoint => ({ ...checkpoint, shared: true }));
+			}
+		};
+		const { user, dialog } = await openDialog();
+		const title = within(dialog).getByRole('textbox', { name: 'Title' });
+		await user.clear(title);
+		await user.type(title, 'Random slope');
+		await user.click(within(dialog).getByRole('button', { name: 'Ask for a Review' }));
+		expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
+		await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+		await user.click(await screen.findByRole('button', { name: 'Ask for a Review' }));
+		const reopened = await screen.findByRole('dialog');
+
+		expect(await within(reopened).findByText('2 checkpoints go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
+		expect(within(reopened).getByRole('textbox', { name: 'Title' })).toHaveValue('Random slope');
+		expect(within(reopened).getByRole('textbox', { name: 'Message' })).toHaveValue('- Fit the dose model with a random slope\n  Uses lme4.\n- Add the residual plot');
+	});
+
+	test('for a sent proposal with no earlier attempt, the dialog starts from the newest checkpoint and gives no count', async () => {
+		engine.state = unsharedState({ proposal: { branch: BRANCH, base: 'main', sent: true }, shared: { exists: true, ahead: 0, behind: 0 } });
+		engine.history = engine.history.map(checkpoint => ({ ...checkpoint, shared: true }));
+		const user = userEvent.setup();
+		rtl.render(<CheckpointsPanel />);
+		await user.click(await screen.findByRole('button', { name: 'Ask for a Review' }));
+		const dialog = await screen.findByRole('dialog');
+
+		expect(await within(dialog).findByText('Your checkpoints go to your colleagues for review. Your files do not change.')).toBeInTheDocument();
+		expect(within(dialog).getByRole('textbox', { name: 'Title' })).toHaveValue('Add the residual plot');
 	});
 });

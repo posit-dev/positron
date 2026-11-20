@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -37,18 +37,23 @@ export function useProposalState(): { state: ProposalCardState; reviewRequired: 
 type CardButton = 'ask' | 'stop' | 'open' | 'finish' | 'sign-in' | 'check-again' | 'dismiss';
 
 /** The sentence and buttons of each card state (proposals spec 6.2), or undefined for a state with no card. */
-function describeCard(state: ProposalCardState, reviewRequired: boolean): { sentence: string; buttons: CardButton[] } | undefined {
+function describeCard(state: ProposalCardState, reviewRequired: boolean): { sentence: string; note?: string; buttons: CardButton[] } | undefined {
 	switch (state.kind) {
 		case 'none':
 			return reviewRequired ? { sentence: Strings.proposals.reviewRequired(), buttons: ['ask', 'dismiss'] } : undefined;
 		case 'checking':
-			return undefined;
+			return { sentence: Strings.proposals.checking(), buttons: [] };
 		case 'not-sent':
 			return { sentence: Strings.proposals.notSent(), buttons: ['ask', 'stop'] };
 		case 'not-asked':
 			return { sentence: Strings.proposals.notAsked(), buttons: ['ask', 'stop'] };
 		case 'unreadable':
-			return { sentence: Strings.proposals.unreadable(), buttons: [state.reason === 'sign-in-required' ? 'sign-in' : 'check-again'] };
+			// The proposal can be stopped even when its state on GitHub cannot be read.
+			return {
+				sentence: Strings.proposals.unreadable(),
+				note: Strings.proposals.mayStillBeOpen(),
+				buttons: [state.reason === 'sign-in-required' ? 'sign-in' : 'check-again', 'stop'],
+			};
 		case 'not-closed':
 			return { sentence: Strings.proposals.notClosed(), buttons: ['open', 'dismiss'] };
 		case 'known':
@@ -100,6 +105,16 @@ export const ProposalCard = ({ view, disabled }: { view: ICheckpointsViewState; 
 	const controller = services.get(IProposalController);
 	const { state, reviewRequired } = useProposalState();
 	const [running, setRunning] = useState(false);
+
+	// The state on GitHub is read again once when the view opens with a proposal.
+	const hasProposal = view.state?.proposal !== undefined;
+	const refreshedOnOpen = useRef(false);
+	useEffect(() => {
+		if (hasProposal && !refreshedOnOpen.current) {
+			refreshedOnOpen.current = true;
+			void controller.refresh();
+		}
+	}, [controller, hasProposal]);
 
 	const card = describeCard(state, reviewRequired);
 	if (!card) {
@@ -166,8 +181,9 @@ export const ProposalCard = ({ view, disabled }: { view: ICheckpointsViewState; 
 	return (
 		<section aria-label={state.kind === 'none' ? Strings.proposals.askForReview() : Strings.proposals.cardLabel()} className='checkpoints-card checkpoints-proposal-card'>
 			<p>{card.sentence}</p>
+			{card.note && <p>{card.note}</p>}
 			{state.kind === 'known' && state.info.overlapsShared && <p>{Strings.proposals.overlapsShared()}</p>}
-			<div className='checkpoints-card-actions'>
+			{card.buttons.length > 0 && <div className='checkpoints-card-actions'>
 				{card.buttons.map((button, index) => (
 					<Button
 						key={button}
@@ -178,7 +194,7 @@ export const ProposalCard = ({ view, disabled }: { view: ICheckpointsViewState; 
 						{buttonLabel(button)}
 					</Button>
 				))}
-			</div>
+			</div>}
 		</section>
 	);
 };

@@ -41,6 +41,13 @@ export type AskStep = 'starting' | 'sending' | 'asking';
 /** The outcome of `ask`. A failure names the step that failed and says what was done. */
 export type AskResult = { ok: true } | { ok: false; failedStep: AskStep; message: string };
 
+/** The title, message, and number of checkpoints of the last attempt to ask for a review. The number is undefined when it was not known. */
+export interface IAskDraft {
+	title: string;
+	body: string;
+	count: number | undefined;
+}
+
 /** How long state change events are gathered before they start one read. */
 const STATE_CHANGE_DELAY_MS = 300;
 
@@ -72,7 +79,10 @@ export interface IProposalController {
 	 * Runs the steps of asking for a review that are not done yet, in order: start the proposal,
 	 * send it, and open it on GitHub. A pull request that is already open counts as asked.
 	 */
-	ask(title: string, body: string, onStep: (step: AskStep) => void): Promise<AskResult>;
+	ask(title: string, body: string, onStep: (step: AskStep) => void, count?: number): Promise<AskResult>;
+
+	/** The last attempt to ask for a review of the current proposal (or, with no proposal, of the unshared checkpoints), kept in memory. */
+	lastAsk(): IAskDraft | undefined;
 
 	/** Reads the state of the proposal again, and asks GitHub about it when it was sent. */
 	refresh(): Promise<void>;
@@ -83,7 +93,10 @@ export interface IProposalController {
 	/** Checks the shared copy, returns from the accepted proposal, and then gets the changes of the shared copy. */
 	finish(): Promise<OperationResult | undefined>;
 
-	/** Returns the proposal's checkpoints to the main line, then closes the proposal on GitHub when it is open there. */
+	/**
+	 * Returns the proposal's checkpoints to the main line, then closes the proposal on GitHub when it
+	 * is open there. A refusal until changes are got has the detail `get-changes-before-stop`.
+	 */
 	stop(): Promise<{ engine: OperationResult | undefined; closedOnGitHub: boolean }>;
 
 	/** Hides the review-required card or the notice of a failed close. */
@@ -93,6 +106,12 @@ export interface IProposalController {
 /** The GitHub project of the shared copy, or undefined when it is not on GitHub. */
 function gitHubProject(github: IGitHubClient, state: IEngineState | undefined): ProjectLink | undefined {
 	return state?.sharedUrl ? github.parseProjectLink(state.sharedUrl) : undefined;
+}
+
+/** The branch name of a shared-copy branch as git names it locally (`origin/main` gives `main`), or undefined. */
+function hostBranchName(name: string | undefined): string | undefined {
+	const slash = name?.indexOf('/') ?? -1;
+	return name !== undefined && slash > 0 && slash < name.length - 1 ? name.slice(slash + 1) : undefined;
 }
 
 export class ProposalController extends Disposable implements IProposalController {
@@ -109,6 +128,18 @@ export class ProposalController extends Disposable implements IProposalControlle
 	private _findRequest = 0;
 	/** The branch a GitHub lookup runs for, so that one runs at a time for it. */
 	private _finding: string | undefined;
+
+	/**
+	 * The current proposal as this window saw it. `seenUnsent` is true when this window saw it before
+	 * its first send, so that any pull request for it was opened after that. `reviewSeen` is true once
+	 * this window opened its pull request or GitHub reported an open one. `hostBase` is the base
+	 * branch as the shared copy names it. All of it is forgotten when the proposal goes away.
+	 */
+	private _seen: { branch: string; seenUnsent: boolean; reviewSeen: boolean; hostBase?: string } | undefined;
+	/** The base branch as the shared copy names it, read while no proposal exists. */
+	private _pendingHostBase: string | undefined;
+	/** The last attempt to ask, with the proposal it was for (undefined before the proposal started). */
+	private _lastAsk: (IAskDraft & { branch: string | undefined }) | undefined;
 
 	private readonly _canAskKey: IContextKey<boolean>;
 	private readonly _stateReader = this._register(new RunOnceScheduler(() => void this._readState(), STATE_CHANGE_DELAY_MS));
@@ -147,7 +178,17 @@ export class ProposalController extends Disposable implements IProposalControlle
 		if (!found.ok) {
 			return { kind: 'unreadable', reason: found.reason === 'sign-in-required' ? 'sign-in-required' : 'other' };
 		}
-		return found.proposal ? { kind: 'known', info: found.proposal } : { kind: 'not-asked' };
+		if (!found.proposal) {
+			return { kind: 'not-asked' };
+		}
+		// A proposal name can be used again after an earlier proposal ended. A pull request that already
+		// ended belongs to an earlier proposal when this window saw this one before its first send and
+		// has not seen its review open since.
+		const ended = found.proposal.state === 'accepted' || found.proposal.state === 'closed';
+		if (ended && this._seen?.branch === proposal.branch && this._seen.seenUnsent && !this._seen.reviewSeen) {
+			return { kind: 'not-asked' };
+		}
+		return { kind: 'known', info: found.proposal };
 	}
 
 	get reviewRequired(): boolean {
@@ -165,7 +206,15 @@ export class ProposalController extends Disposable implements IProposalControlle
 			&& gitHubProject(this._github, state) !== undefined;
 	}
 
-	async ask(title: string, body: string, onStep: (step: AskStep) => void): Promise<AskResult> {
+	lastAsk(): IAskDraft | undefined {
+		const draft = this._lastAsk;
+		if (!draft || draft.branch !== this._engineState?.proposal?.branch) {
+			return undefined;
+		}
+		return { title: draft.title, body: draft.body, count: draft.count };
+	}
+
+	async ask(title: string, body: string, onStep: (step: AskStep) => void, count?: number): Promise<AskResult> {
 		let state = await this._readState();
 		if (!state) {
 			return { ok: false, failedStep: 'starting', message: Strings.proposals.startFailed(Strings.status.couldNotRead()) };
@@ -175,14 +224,26 @@ export class ProposalController extends Disposable implements IProposalControlle
 			return { ok: false, failedStep: 'starting', message: Strings.proposals.startFailed(Strings.results.rejected('no-shared-copy')) };
 		}
 
+		const draft = { branch: state.proposal?.branch, title, body, count };
+		this._lastAsk = draft;
+
 		if (!state.proposal) {
 			onStep('starting');
+			const hostBase = this._pendingHostBase;
 			const started = await this._run(engine => engine.startProposal());
-			state = await this._readState();
-			if (started?.kind !== 'done' || !state?.proposal) {
+			if (started?.kind !== 'done') {
 				return { ok: false, failedStep: 'starting', message: Strings.proposals.startFailed(this._sentence(started)) };
 			}
 			this._reviewRequired = false;
+			state = await this._readState();
+			if (!state?.proposal) {
+				// The proposal exists; only its state could not be read, so the send did not start.
+				return { ok: false, failedStep: 'sending', message: Strings.proposals.sendFailed(Strings.status.couldNotRead()) };
+			}
+			draft.branch = state.proposal.branch;
+			if (this._seen?.branch === state.proposal.branch && this._seen.hostBase === undefined) {
+				this._seen.hostBase = hostBase;
+			}
 			this._onDidChange.fire();
 		}
 		const proposal = state.proposal;
@@ -200,12 +261,17 @@ export class ProposalController extends Disposable implements IProposalControlle
 		const current = this.state;
 		if (current.kind !== 'known' || !OPEN_STATES.has(current.info.state)) {
 			onStep('asking');
-			const opened = await this._github.openProposal(project.owner, project.name, proposal.branch, proposal.base, title, body);
+			const base = (this._seen?.branch === proposal.branch ? this._seen.hostBase : undefined) ?? proposal.base;
+			const opened = await this._github.openProposal(project.owner, project.name, proposal.branch, base, title, body);
 			if (!opened.ok && opened.reason !== 'already-open') {
 				await this.refresh();
 				return { ok: false, failedStep: 'asking', message: Strings.proposals.askFailed(Strings.proposals.gitHubFailure(opened.reason)) };
 			}
+			if (this._seen?.branch === proposal.branch) {
+				this._seen.reviewSeen = true;
+			}
 		}
+		this._lastAsk = undefined;
 		await this.refresh();
 		return { ok: true };
 	}
@@ -220,8 +286,10 @@ export class ProposalController extends Disposable implements IProposalControlle
 	}
 
 	async send(): Promise<OperationResult | undefined> {
+		const wasSent = this._engineState?.proposal?.sent === true;
 		const result = await this._run(engine => engine.sendChanges());
-		await this._readState();
+		// Sending more changes to a proposal can change its review, so GitHub is asked again.
+		await (wasSent ? this.refresh() : this._readState());
 		if (result?.kind === 'rejected' && result.reason === 'review-required' && gitHubProject(this._github, this._engineState) !== undefined) {
 			this._reviewRequired = true;
 			this._onDidChange.fire();
@@ -254,10 +322,11 @@ export class ProposalController extends Disposable implements IProposalControlle
 	async stop(): Promise<{ engine: OperationResult | undefined; closedOnGitHub: boolean }> {
 		const before = this.state;
 		const project = gitHubProject(this._github, this._engineState);
-		const stopped = await this._run(engine => engine.stopProposal());
-		if (stopped?.kind === 'unavailable' && stopped.detail === 'get-changes-first') {
-			this._messageService.show(Strings.proposals.getChangesBeforeStop());
-		}
+		const stopped = await this._run(async engine => {
+			const result = await engine.stopProposal();
+			// The engine's detail names Finish, so the result is shown with the detail that names Stop.
+			return result.kind === 'unavailable' && result.detail === 'get-changes-first' ? { ...result, detail: 'get-changes-before-stop' } : result;
+		});
 		if (stopped?.kind !== 'done') {
 			await this.refresh();
 			return { engine: stopped, closedOnGitHub: false };
@@ -316,9 +385,7 @@ export class ProposalController extends Disposable implements IProposalControlle
 			return state;
 		}
 		this._engineState = state;
-		if (state?.proposal) {
-			this._notClosedUrl = undefined;
-		}
+		this._noteProposal(state);
 		this._canAskKey.set(this.canAsk());
 		this._onDidChange.fire();
 		const proposal = state?.proposal;
@@ -326,6 +393,32 @@ export class ProposalController extends Disposable implements IProposalControlle
 			void this._find(state, proposal.branch);
 		}
 		return state;
+	}
+
+	/** Keeps what this window saw of the current proposal, and forgets the answers about any other. */
+	private _noteProposal(state: IEngineState | undefined): void {
+		const proposal = state?.proposal;
+		if (!proposal) {
+			this._found = undefined;
+			this._seen = undefined;
+			if (this._lastAsk?.branch !== undefined) {
+				this._lastAsk = undefined;
+			}
+			// Before a proposal starts, the shared copy is the base branch's upstream.
+			this._pendingHostBase = hostBranchName(state?.shared.name);
+			return;
+		}
+		this._notClosedUrl = undefined;
+		if (this._found && this._found.branch !== proposal.branch) {
+			this._found = undefined;
+		}
+		if (this._seen?.branch !== proposal.branch) {
+			this._seen = { branch: proposal.branch, seenUnsent: !proposal.sent, reviewSeen: false };
+		}
+		if (!proposal.sent) {
+			// Before the first send, the shared copy is the base branch's upstream.
+			this._seen.hostBase = hostBranchName(state.shared.name) ?? this._seen.hostBase;
+		}
 	}
 
 	/** Asks GitHub for the newest pull request of `branch`. */
@@ -347,6 +440,9 @@ export class ProposalController extends Disposable implements IProposalControlle
 			return;
 		}
 		this._found = { branch, result };
+		if (result.ok && result.proposal && OPEN_STATES.has(result.proposal.state) && this._seen?.branch === branch) {
+			this._seen.reviewSeen = true;
+		}
 		this._onDidChange.fire();
 	}
 }

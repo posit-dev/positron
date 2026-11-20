@@ -314,7 +314,26 @@ describe('GitHubClient', () => {
 					ok: true,
 					proposal: { number: 7, url: PULL.html_url, state: 'waiting', overlapsShared: false, headCommit: 'abc123' },
 				});
-				expect(requests.requests.map(request => request.url).slice(1)).toEqual([`${PULLS_URL}/7`, `${PULLS_URL}/7/reviews?per_page=100`]);
+				expect(requests.requests.map(request => request.url).slice(1)).toEqual([`${PULLS_URL}/7`, `${PULLS_URL}/7/reviews?per_page=100&page=1`]);
+			});
+
+			test('reads every page of reviews, so a later decision on a later page counts', async () => {
+				const comments = Array.from({ length: 100 }, () => ({ state: 'COMMENTED', user: { login: 'b' } }));
+				respondToOpenProposal([{ state: 'CHANGES_REQUESTED', user: { login: 'a' } }, ...comments.slice(1)]);
+				requests.respondOnceWith({ status: 200, body: [{ state: 'APPROVED', user: { login: 'a' } }] });
+
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'approved' } });
+				expect(requests.requests.map(request => request.url).slice(3)).toEqual([`${PULLS_URL}/7/reviews?per_page=100&page=2`]);
+			});
+
+			test('reads at most 10 pages of reviews', async () => {
+				const page = Array.from({ length: 100 }, () => ({ state: 'COMMENTED', user: { login: 'b' } }));
+				requests.respondWith({ status: 200, body: page });
+				requests.respondOnceWith({ status: 200, body: [PULL] });
+				requests.respondOnceWith({ status: 200, body: { ...PULL, mergeable_state: 'clean' } });
+
+				expect(await client.findProposal('me', 'proj', 'b')).toMatchObject({ ok: true, proposal: { state: 'waiting' } });
+				expect(requests.requests).toHaveLength(12);
 			});
 
 			test('comments alone leave the proposal waiting', async () => {

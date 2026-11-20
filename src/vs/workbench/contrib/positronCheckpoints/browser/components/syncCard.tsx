@@ -16,6 +16,7 @@ import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
 import { openDiff } from '../openDiff.js';
 import { ISyncController } from '../syncController.js';
 import { useAgentAvailable } from './useChangesDescription.js';
+import { useProposalState } from './proposalCard.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 
 /** The text of the incoming changes last rendered for the model, by engine, preview basis, and budget. */
@@ -99,7 +100,8 @@ function relationSentence(relation: IncomingRelation, overlaps: number): string 
  * changed file. While the agent has a summary of the incoming changes, the card shows who added
  * them, the summary, and how they relate to the person's work, and the button names the
  * colleague. Without one (while it loads, or when the agent is off or gave no usable answer) it
- * lists the incoming checkpoints with their authors. The preview is read when the card appears
+ * lists the incoming checkpoints with their authors. It is hidden while an accepted proposal
+ * waits for Finish. The preview is read when the card appears
  * and again when the number of waiting checkpoints changes.
  */
 export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
@@ -111,7 +113,10 @@ export const SyncCard = ({ view }: { view: ICheckpointsViewState }) => {
 
 	const state = view.state;
 	const behind = state?.shared.behind ?? 0;
-	const visible = state !== undefined && state.syncAvailable && state.shared.exists && (behind > 0 || state.pendingOverlap);
+	// After a proposal was accepted, Finish is the way forward, and it gets the changes itself.
+	const { state: proposalState } = useProposalState();
+	const accepted = proposalState.kind === 'known' && proposalState.info.state === 'accepted';
+	const visible = state !== undefined && state.syncAvailable && state.shared.exists && (behind > 0 || state.pendingOverlap) && !accepted;
 
 	useEffect(() => {
 		const listener = controller.onDidChange(() => setVersion(version => version + 1));

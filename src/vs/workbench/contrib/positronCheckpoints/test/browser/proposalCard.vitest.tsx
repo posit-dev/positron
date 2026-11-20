@@ -94,7 +94,7 @@ describe('ProposalCard', () => {
 		const region = await screen.findByRole('region', { name: 'Your proposal' });
 		return {
 			text: within(region).getAllByRole('paragraph').map(paragraph => paragraph.textContent ?? ''),
-			buttons: within(region).getAllByRole('button').map(button => button.textContent ?? ''),
+			buttons: within(region).queryAllByRole('button').map(button => button.textContent ?? ''),
 		};
 	}
 
@@ -128,11 +128,42 @@ describe('ProposalCard', () => {
 	test.each([
 		['sign-in-required', 'Sign in to GitHub'],
 		['offline', 'Check Again'],
-	] as const)('a lookup that fails with %s offers %s', async (reason, button) => {
+	] as const)('a lookup that fails with %s offers %s and Stop', async (reason, button) => {
 		findResult = { ok: false, reason, detail: '' };
 		renderPanel(proposalState(true));
 
-		await vi.waitFor(async () => expect(await card()).toEqual({ text: ['Positron could not read the state of your proposal.'], buttons: [button] }));
+		await vi.waitFor(async () => expect(await card()).toEqual({
+			text: ['Positron could not read the state of your proposal.', 'If you asked for a review, it may still be open on GitHub.'],
+			buttons: [button, 'Stop This Proposal'],
+		}));
+	});
+
+	test('while GitHub has not answered, the card says the state is being checked', async () => {
+		github = fakeProposalGitHub({ findProposal: () => new Promise(() => { }) });
+		renderPanel(proposalState(true));
+
+		await vi.waitFor(async () => expect(await card()).toEqual({ text: ['Checking the state of your proposal...'], buttons: [] }));
+	});
+
+	test('an accepted proposal offers Finish and no Get Changes', async () => {
+		findResult = { ok: true, proposal: info({ state: 'accepted' }) };
+		renderPanel(proposalState(true, { shared: { exists: true, ahead: 0, behind: 2 } }));
+
+		expect(await screen.findByRole('button', { name: 'Finish' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Get Changes' })).not.toBeInTheDocument();
+	});
+
+	test('opening the view with a proposal reads its state on GitHub again', async () => {
+		engine.state = proposalState(true);
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const controller = createProposalController(ctx.instantiationService, ctx.disposables, github);
+		ctx.instantiationService.stub(IProposalController, controller);
+		await controller.refresh();
+		const lookups = vi.mocked(github.findProposal).mock.calls.length;
+
+		rtl.render(<CheckpointsPanel />);
+
+		await vi.waitFor(() => expect(vi.mocked(github.findProposal).mock.calls.length).toBe(lookups + 1));
 	});
 
 	test('overlapsShared adds its sentence', async () => {

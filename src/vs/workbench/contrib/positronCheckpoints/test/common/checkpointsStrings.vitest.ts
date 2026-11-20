@@ -13,7 +13,7 @@ const unavailableReasons: UnavailableReason[] = ['busy', 'unusual-state', 'git-t
 const rejectedReasons: RejectedReason[] = ['shared-copy-moved', 'review-required', 'sign-in-required', 'no-shared-copy', 'offline', 'unknown'];
 const unusualKinds: UnusualKind[] = ['detached', 'operation-in-progress', 'staged-differs', 'unrecovered', 'git-missing'];
 /** The `unavailable` details of the engine that have their own sentence. */
-const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title', 'get-changes-first', 'proposal-ended', 'proposal-exists'];
+const unavailableDetails = ['staged-work', 'unresolved-operation', 'bad-title', 'get-changes-first', 'get-changes-before-stop', 'proposal-ended', 'proposal-exists'];
 
 const preview: IIncomingPreview = {
 	basis: 'b',
@@ -156,7 +156,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		gitHubFailure: [['sign-in-required'], ['not-allowed'], ['offline'], ['unknown']],
 		notSent: [[]], notAsked: [[]], waiting: [[]], changesRequested: [[]], approved: [[]], accepted: [[]], closed: [[]], unreadable: [[]],
 		overlapsShared: [[]], openOnGitHub: [[]], stop: [[]], finish: [[]], signIn: [[]], checkAgain: [[]], sendMoreChanges: [[]],
-		notInProposal: [[1], [2]], stopConfirm: [[]], getChangesBeforeStop: [[]], notClosed: [[]],
+		notInProposal: [[1], [2]], stopConfirm: [[]], notClosed: [[]], goesForReviewNoCount: [[]], mayStillBeOpen: [[]], checking: [[]],
 	},
 	view: { title: [[]], iconDescription: [[]] },
 };
@@ -257,7 +257,8 @@ describe('checkpointsStrings', () => {
 			'An interrupted action is waiting for your choice. Choose what to do with it, then try again. No files were changed.',
 			'A checkpoint title must be one line of 1 to 72 characters. No files were changed.',
 			'A colleague added changes to your proposal. Get changes, then finish.',
-			'Your proposal is no longer open, so nothing was sent. Finish or stop it first.',
+			'A colleague added changes to your proposal. Get changes, then stop it.',
+			'Your proposal is no longer open, so nothing was sent. Its state is shown at the top of the view.',
 			'You already have a proposal. Nothing was changed.',
 		]);
 	});
@@ -296,6 +297,10 @@ describe('checkpointsStrings', () => {
 		expect(Strings.changes.unsavedNote(2)).toBe('2 files have unsaved edits that are not shown');
 		expect(Strings.kept.heading()).toBe('Files kept aside');
 		expect(Strings.suggestions.goodPlace()).toBe('This looks like a good place for a checkpoint.');
+	});
+
+	test('the sentence for an ended proposal names no button', () => {
+		expect(Strings.results.unavailableDetail('proposal-ended')).not.toMatch(/Finish|Stop|Ask for a Review/i);
 	});
 
 	test('the proposal sentences and labels of the spec appear verbatim', () => {

@@ -81,6 +81,10 @@ const MAX_OWNER_LENGTH = 39;
 const NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const MAX_NAME_LENGTH = 100;
 
+/** The reviews GitHub returns on one page, and the most pages of reviews read for one proposal. */
+const REVIEWS_PER_PAGE = 100;
+const MAX_REVIEW_PAGES = 10;
+
 const LINK_PATTERNS: RegExp[] = [
 	/^https?:\/\/(?:www\.)?github\.com\/(?<owner>[^/\s]+)\/(?<name>[^/\s]+?)\/?$/i,
 	/^git@github\.com:(?<owner>[^/\s]+)\/(?<name>[^/\s]+)$/i,
@@ -341,14 +345,22 @@ export class GitHubClient implements IGitHubClient {
 			return proposalFailure(detail);
 		}
 		const overlapsShared = (detail.json as PullRequestSummary | undefined)?.mergeable_state === 'dirty';
-		const reviews = await this._send('GET', `${detailPath}/reviews?per_page=100`, token);
-		if (!isSuccess(reviews)) {
-			return proposalFailure(reviews);
+		// GitHub lists reviews oldest first, so every page is read to find the latest decisions.
+		const reviews: PullRequestReview[] = [];
+		for (let page = 1; page <= MAX_REVIEW_PAGES; page++) {
+			const response = await this._send('GET', `${detailPath}/reviews?per_page=${REVIEWS_PER_PAGE}&page=${page}`, token);
+			if (!isSuccess(response)) {
+				return proposalFailure(response);
+			}
+			if (!Array.isArray(response.json)) {
+				return { ok: false, reason: 'unknown', detail: 'GitHub returned reviews that could not be read.' };
+			}
+			reviews.push(...response.json as PullRequestReview[]);
+			if (response.json.length < REVIEWS_PER_PAGE) {
+				break;
+			}
 		}
-		if (!Array.isArray(reviews.json)) {
-			return { ok: false, reason: 'unknown', detail: 'GitHub returned reviews that could not be read.' };
-		}
-		return { ok: true, proposal: { ...common, state: stateFromReviews(reviews.json as PullRequestReview[]), overlapsShared } };
+		return { ok: true, proposal: { ...common, state: stateFromReviews(reviews), overlapsShared } };
 	}
 
 	async closeProposal(owner: string, name: string, number: number): Promise<CloseProposalResult> {

@@ -248,4 +248,80 @@ describe('ProposalController', () => {
 		await otherHost.send();
 		expect(otherHost.reviewRequired).toBe(false);
 	});
+
+	test('the GitHub answer for a finished proposal is not used for a new proposal with the same name', async () => {
+		engine.state = projectState({ branch: BRANCH, base: 'main', sent: true });
+		github.findProposal.mockResolvedValue({ ok: true, proposal: info({ state: 'accepted' }) });
+		const controller = await createController();
+		expect(controller.state).toEqual({ kind: 'known', info: info({ state: 'accepted' }) });
+
+		engine.state = projectState();
+		engine.fireChange();
+		await vi.waitFor(() => expect(controller.state).toEqual({ kind: 'none' }));
+		github.findProposal.mockResolvedValue({ ok: true });
+		engine.state = projectState({ branch: BRANCH, base: 'main', sent: true });
+		engine.fireChange();
+
+		await vi.waitFor(() => expect(controller.state).toEqual({ kind: 'not-asked' }));
+	});
+
+	test('an old accepted pull request for a proposal this window saw unsent does not count as its review', async () => {
+		followOperations();
+		github.findProposal.mockResolvedValue({ ok: true, proposal: info({ state: 'accepted', headCommit: 'old' }) });
+		github.openProposal.mockResolvedValue({ ok: false, reason: 'offline', detail: 'fetch failed' });
+		const controller = await createController();
+
+		await controller.ask('Fit the dose model', 'body', () => { });
+
+		expect(controller.state).toEqual({ kind: 'not-asked' });
+	});
+
+	test('the base is named as the shared copy names it', async () => {
+		followOperations();
+		engine.state = projectState(undefined, { branch: 'master', shared: { exists: true, ahead: 2, behind: 0, name: 'origin/trunk' } });
+		const controller = await createController();
+
+		await controller.ask('Fit the dose model', 'body', () => { });
+
+		expect(github.openProposal.mock.calls[0][3]).toBe('trunk');
+	});
+
+	test('a proposal whose state cannot be read after it started says it is ready', async () => {
+		engine.afterOperation = method => {
+			if (method === 'startProposal') {
+				engine.readError = new Error('checkpoints:timed-out: git status');
+			}
+		};
+		const controller = await createController();
+
+		const result = await controller.ask('Fit the dose model', 'body', () => { });
+
+		expect(result).toEqual({
+			ok: false,
+			failedStep: 'sending',
+			message: 'Your proposal is ready on this computer, but your checkpoints could not be sent. The state of this project could not be read.',
+		});
+	});
+
+	test('Send More Changes reads the state on GitHub again', async () => {
+		engine.state = projectState({ branch: BRANCH, base: 'main', sent: true });
+		const controller = await createController();
+		const lookups = github.findProposal.mock.calls.length;
+
+		await controller.send();
+
+		expect(github.findProposal.mock.calls.length).toBe(lookups + 1);
+	});
+
+	test('a Stop refused until changes are got shows only the sentence for Stop', async () => {
+		engine.state = projectState({ branch: BRANCH, base: 'main', sent: true });
+		engine.nextResult = { kind: 'unavailable', reason: 'nothing-to-do', detail: 'get-changes-first' };
+		const controller = await createController();
+		const shown: (string | undefined)[] = [];
+		ctx.disposables.add(messageService.onDidChangeMessage(() => shown.push(messageService.message)));
+
+		await controller.stop();
+
+		expect(shown).toEqual(['A colleague added changes to your proposal. Get changes, then stop it.']);
+	});
 });

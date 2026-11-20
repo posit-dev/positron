@@ -49,13 +49,9 @@ interface IAskForReviewDialogProps extends IAskForReviewDialogOptions {
 /** Where the dialog is: reading the checkpoints, asking, running the steps, or stopped at a failed step. */
 type Phase = 'loading' | 'form' | 'running' | 'failed';
 
-/**
- * The checkpoints that go for review, oldest first: the unshared checkpoints of the first page
- * of history. A proposal that was sent has none, so its newest checkpoint stands for it.
- */
-function checkpointsForReview(history: ICheckpoint[]): ICheckpoint[] {
-	const unshared = history.filter(checkpoint => !checkpoint.shared);
-	return (unshared.length > 0 ? unshared : history.slice(0, 1)).reverse();
+/** The unshared checkpoints of the first page of history, oldest first. */
+function unsharedCheckpoints(history: ICheckpoint[]): ICheckpoint[] {
+	return history.filter(checkpoint => !checkpoint.shared).reverse();
 }
 
 /** The message before the agent writes one: each checkpoint's title, with its description below it. */
@@ -81,16 +77,21 @@ function stepSentence(step: AskStep): string {
 
 /**
  * Asks for a review: a title and a message for the colleague, then, after one click, the steps
- * the proposal controller has not done yet. The title is the title of the one checkpoint, or of
- * the oldest. The message starts as the list of the checkpoints; while the agent is available, its
- * description replaces the message unless the person edited it. A failed step says what was
+ * the proposal controller has not done yet. Opened again for the same proposal, the dialog shows
+ * the fields of the last attempt. Otherwise the title is the title of the one unshared checkpoint,
+ * or of the oldest, and the message starts as the list of those checkpoints; while the agent is
+ * available, its description replaces the message unless the person edited it. For a sent
+ * proposal with no earlier attempt, the fields start from the newest checkpoint. A failed step says what was
  * done, and Try Again runs the steps that are left.
  */
 export const AskForReviewDialog = (props: IAskForReviewDialogProps) => {
 	const services = usePositronReactServicesContext();
 	const agentAvailable = useAgentAvailable();
 	const [phase, setPhase] = useState<Phase>('loading');
+	/** The checkpoints the agent describes; empty when the fields come from elsewhere. */
 	const [checkpoints, setCheckpoints] = useState<ICheckpoint[]>([]);
+	/** The number of checkpoints that go for review, or undefined when it is not known. */
+	const [count, setCount] = useState<number>();
 	const [title, setTitle] = useState('');
 	const [message, setMessage] = useState('');
 	const messageEdited = useRef(false);
@@ -110,10 +111,24 @@ export const AskForReviewDialog = (props: IAskForReviewDialogProps) => {
 			if (cancelled) {
 				return;
 			}
-			const chosen = checkpointsForReview(history);
-			setCheckpoints(chosen);
-			setTitle(chosen.length > 0 ? displayTitle(chosen[0]) : '');
-			setMessage(listMessage(chosen));
+			const last = services.get(IProposalController).lastAsk();
+			const unshared = unsharedCheckpoints(history);
+			if (last) {
+				// The fields of the last attempt for this proposal; the person wrote or accepted them.
+				messageEdited.current = true;
+				setTitle(last.title);
+				setMessage(last.body);
+				setCount(last.count);
+			} else if (unshared.length > 0) {
+				setCheckpoints(unshared);
+				setCount(unshared.length);
+				setTitle(displayTitle(unshared[0]));
+				setMessage(listMessage(unshared));
+			} else if (history.length > 0) {
+				// A sent proposal: its checkpoints count as shared, and their number is not known.
+				setTitle(displayTitle(history[0]));
+				setMessage(listMessage(history.slice(0, 1)));
+			}
 			setPhase('form');
 		};
 		void load();
@@ -153,7 +168,7 @@ export const AskForReviewDialog = (props: IAskForReviewDialogProps) => {
 	const run = async () => {
 		setPhase('running');
 		setFailure(undefined);
-		const result = await services.get(IProposalController).ask(title.trim(), message.trim(), setStep);
+		const result = await services.get(IProposalController).ask(title.trim(), message.trim(), setStep, count);
 		if (result.ok) {
 			props.renderer.dispose();
 			props.onFinished?.();
@@ -210,7 +225,7 @@ export const AskForReviewDialog = (props: IAskForReviewDialogProps) => {
 						}}
 					/>
 				</label>
-				{phase !== 'loading' && <p>{Strings.proposals.goesForReview(checkpoints.length)}</p>}
+				{phase !== 'loading' && <p>{count !== undefined ? Strings.proposals.goesForReview(count) : Strings.proposals.goesForReviewNoCount()}</p>}
 				{phase === 'running' && step && <p aria-live='polite' role='status'>{stepSentence(step)}</p>}
 				{phase === 'failed' && failure && <p className='checkpoint-dialog-warning' role='alert'>{failure}</p>}
 			</div>

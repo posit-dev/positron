@@ -292,8 +292,10 @@ const resultSentences = {
 				return localize('positron.checkpoints.results.unavailableDetail.badTitle', "A checkpoint title must be one line of 1 to {0} characters. No files were changed.", CHECKPOINT_TITLE_LIMIT);
 			case 'get-changes-first':
 				return localize('positron.checkpoints.results.unavailableDetail.getChangesFirst', "A colleague added changes to your proposal. Get changes, then finish.");
+			case 'get-changes-before-stop':
+				return localize('positron.checkpoints.results.unavailableDetail.getChangesBeforeStop', "A colleague added changes to your proposal. Get changes, then stop it.");
 			case 'proposal-ended':
-				return localize('positron.checkpoints.results.unavailableDetail.proposalEnded', "Your proposal is no longer open, so nothing was sent. Finish or stop it first.");
+				return localize('positron.checkpoints.results.unavailableDetail.proposalEnded', "Your proposal is no longer open, so nothing was sent. Its state is shown at the top of the view.");
 			case 'proposal-exists':
 				return localize('positron.checkpoints.results.unavailableDetail.proposalExists', "You already have a proposal. Nothing was changed.");
 			default:
@@ -599,6 +601,7 @@ const proposals = {
 	goesForReview: (count: number) => plural(count,
 		localize('positron.checkpoints.proposals.goesForReview.one', "1 checkpoint goes to your colleagues for review. Your files do not change."),
 		localize('positron.checkpoints.proposals.goesForReview.other', "{0} checkpoints go to your colleagues for review. Your files do not change.", count)),
+	goesForReviewNoCount: () => localize('positron.checkpoints.proposals.goesForReviewNoCount', "Your checkpoints go to your colleagues for review. Your files do not change."),
 	starting: () => localize('positron.checkpoints.proposals.starting', "Preparing your proposal..."),
 	sending: () => localize('positron.checkpoints.proposals.sending', "Sending your checkpoints..."),
 	asking: () => localize('positron.checkpoints.proposals.asking', "Asking for the review..."),
@@ -626,6 +629,8 @@ const proposals = {
 	accepted: () => localize('positron.checkpoints.proposals.accepted', "Your proposal joined the shared copy."),
 	closed: () => localize('positron.checkpoints.proposals.closed', "Your proposal was closed without joining the shared copy. Your checkpoints are still here."),
 	unreadable: () => localize('positron.checkpoints.proposals.unreadable', "Positron could not read the state of your proposal."),
+	mayStillBeOpen: () => localize('positron.checkpoints.proposals.mayStillBeOpen', "If you asked for a review, it may still be open on GitHub."),
+	checking: () => localize('positron.checkpoints.proposals.checking', "Checking the state of your proposal..."),
 	overlapsShared: () => localize('positron.checkpoints.proposals.overlapsShared', "Your proposal and the shared copy changed the same places. Open it on GitHub to choose what to keep."),
 	openOnGitHub: () => localize('positron.checkpoints.proposals.openOnGitHub', "Open on GitHub"),
 	stop: () => localize('positron.checkpoints.proposals.stop', "Stop This Proposal"),
@@ -637,7 +642,6 @@ const proposals = {
 		localize('positron.checkpoints.proposals.notInProposal.one', "1 checkpoint not in your proposal yet"),
 		localize('positron.checkpoints.proposals.notInProposal.other', "{0} checkpoints not in your proposal yet", count)),
 	stopConfirm: () => localize('positron.checkpoints.proposals.stopConfirm', "Your checkpoints stay on this computer and are no longer in review."),
-	getChangesBeforeStop: () => localize('positron.checkpoints.proposals.getChangesBeforeStop', "A colleague added changes to your proposal. Get changes, then stop it."),
 	notClosed: () => localize('positron.checkpoints.proposals.notClosed', "Your proposal was stopped on this computer, but Positron could not close it on GitHub."),
 };
 
