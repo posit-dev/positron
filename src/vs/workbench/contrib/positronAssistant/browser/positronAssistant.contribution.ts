@@ -46,6 +46,9 @@ import './inlineCompletionsMigration.js';
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
 
+// Register the `positronAssistant.getAiSettingKeys` command.
+import './aiSettingKeysCommand.js';
+
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
 
