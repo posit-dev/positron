@@ -64,8 +64,8 @@ describe('Files kept aside', () => {
 	let messageService: CheckpointsMessageService;
 
 	const kept: IKeptFile[] = [
-		{ id: 'op-1/data.csv', originalPath: 'data.csv', sizeBytes: MEGABYTE, time: '2026-11-19T10:00:00Z', action: 'Get Maya\'s changes' },
-		{ id: 'op-1/out/model.rds', originalPath: 'out/model.rds', sizeBytes: 2 * MEGABYTE, time: '2026-11-19T10:00:00Z', action: 'Get Maya\'s changes' },
+		{ id: 'op-1/data.csv', originalPath: 'data.csv', sizeBytes: MEGABYTE, time: '2026-11-19T10:00:00Z', action: 'Get Maya\'s Changes' },
+		{ id: 'op-1/out/model.rds', originalPath: 'out/model.rds', sizeBytes: 2 * MEGABYTE, time: '2026-11-19T10:00:00Z', action: 'Get Maya\'s Changes' },
 	];
 
 	beforeEach(() => {
@@ -174,7 +174,7 @@ describe('Files kept aside', () => {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Move to another place: out/model.rds' }));
+		await user.click(await screen.findByRole('button', { name: 'Move to Another Place: out/model.rds' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('restoreKeptFile')).toEqual([['op-1/out/model.rds', 'archive/model.rds']]));
 	});
@@ -184,7 +184,7 @@ describe('Files kept aside', () => {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Move to another place: out/model.rds' }));
+		await user.click(await screen.findByRole('button', { name: 'Move to Another Place: out/model.rds' }));
 
 		await vi.waitFor(() => expect(messageService.message).toBe('Choose a place inside this project. The file stays aside.'));
 		expect(engine.callsOf('restoreKeptFile')).toEqual([]);

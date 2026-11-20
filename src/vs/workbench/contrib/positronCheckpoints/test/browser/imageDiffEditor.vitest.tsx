@@ -124,6 +124,16 @@ describe('ImageDiffView', () => {
 		expect(screen.getByText('4.00KB')).toBeInTheDocument();
 	});
 
+	test('an image that fails to load in the slider says so', async () => {
+		const user = show({ left: before, right: after });
+		await user.click(screen.getByRole('radio', { name: 'Slider' }));
+
+		fireEvent.error(screen.getByRole('img', { name: 'After' }));
+
+		expect(screen.getByRole('alert')).toHaveTextContent('This image could not be shown.');
+		expect(screen.queryByRole('img')).not.toBeInTheDocument();
+	});
+
 	test('the slider mode stacks the two images and the range sets how much of After shows', async () => {
 		const user = show({ left: before, right: after });
 

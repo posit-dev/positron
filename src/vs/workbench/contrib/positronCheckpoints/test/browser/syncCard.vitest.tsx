@@ -112,13 +112,13 @@ describe('Sync card and collision dialog', () => {
 			'Updated the dosing tableMaya',
 			'Fixed a typo in the READMEMaya',
 		]);
-		expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+		expect(within(card).getByRole('button', { name: 'Get Maya\'s Changes' })).toBeEnabled();
 		expect(engine.callsOf('getIncoming')).toEqual([]);
 
-		await user.click(within(card).getByRole('button', { name: 'View detailed differences' }));
-		expect(within(card).getAllByRole('button', { name: /^View detailed differences: / }).map(button => button.getAttribute('aria-label'))).toEqual([
-			'View detailed differences: dosing.csv',
-			'View detailed differences: README.md',
+		await user.click(within(card).getByRole('button', { name: 'View Detailed Differences' }));
+		expect(within(card).getAllByRole('button', { name: /^View Detailed Differences: / }).map(button => button.getAttribute('aria-label'))).toEqual([
+			'View Detailed Differences: dosing.csv',
+			'View Detailed Differences: README.md',
 		]);
 	});
 
@@ -149,7 +149,7 @@ describe('Sync card and collision dialog', () => {
 		engine.nextResult = { kind: 'done', operationId: 'op-get', hookEditedFiles: [] };
 		const statesBefore = engine.callsOf('getState').length;
 
-		await user.click(screen.getByRole('button', { name: 'Get Maya\'s changes' }));
+		await user.click(screen.getByRole('button', { name: 'Get Maya\'s Changes' }));
 
 		expect(await screen.findByText('The changes from the shared copy are now in your project.')).toBeInTheDocument();
 		expect(engine.callsOf('getIncoming')).toEqual([['b1', [], []]]);
@@ -162,7 +162,7 @@ describe('Sync card and collision dialog', () => {
 		const user = await renderCard();
 		engine.nextResult = { kind: 'path-collisions', collisions: [collision] };
 
-		await user.click(screen.getByRole('button', { name: 'Get Maya\'s changes' }));
+		await user.click(screen.getByRole('button', { name: 'Get Maya\'s Changes' }));
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByText('Maya added a file named data.csv. You have your own data.csv that is in no checkpoint.')).toBeInTheDocument();
@@ -180,9 +180,9 @@ describe('Sync card and collision dialog', () => {
 		engine.queuedResults = [{ kind: 'path-collisions', collisions: [collision] }];
 		engine.nextResult = { kind: 'done', operationId: 'op-get', hookEditedFiles: [] };
 
-		await user.click(screen.getByRole('button', { name: 'Get Maya\'s changes' }));
+		await user.click(screen.getByRole('button', { name: 'Get Maya\'s Changes' }));
 		const dialog = await screen.findByRole('dialog');
-		await user.click(within(dialog).getByRole('checkbox', { name: 'Use theirs and keep a copy of mine' }));
+		await user.click(within(dialog).getByRole('checkbox', { name: 'Use Theirs and Keep a Copy of Mine' }));
 		expect(within(dialog).getByText('A copy of your data.csv is kept aside, and you can restore it later.')).toBeInTheDocument();
 		await user.click(within(dialog).getByRole('button', { name: 'Continue' }));
 
@@ -204,7 +204,7 @@ describe('Sync card and collision dialog', () => {
 		await user.click(screen.getByRole('button', { name: 'Go Back to This Checkpoint' }));
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByText('This action would replace your file big.bin (80.00MB), which is too large to keep in a checkpoint.')).toBeInTheDocument();
-		await user.click(within(dialog).getByRole('checkbox', { name: 'Use theirs and keep a copy of mine' }));
+		await user.click(within(dialog).getByRole('checkbox', { name: 'Use Theirs and Keep a Copy of Mine' }));
 		await user.click(within(dialog).getByRole('button', { name: 'Continue' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('goBackTo')).toEqual([
@@ -231,7 +231,7 @@ describe('Sync card and collision dialog', () => {
 			expect(within(card).getByText('Maya added 2 checkpoints to the shared copy.')).toBeInTheDocument();
 			expect(within(card).getByText('Their changes do not touch your work.')).toBeInTheDocument();
 			expect(within(card).queryAllByRole('listitem')).toEqual([]);
-			expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+			expect(within(card).getByRole('button', { name: 'Get Maya\'s Changes' })).toBeEnabled();
 
 			const input = agent.runsOf('summarize-incoming').at(-1)?.input as ISummarizeIncomingInput;
 			expect(input.preview).toEqual(mayaPreview);
@@ -277,7 +277,7 @@ describe('Sync card and collision dialog', () => {
 			const card = await screen.findByRole('region', { name: 'Get Changes' });
 			expect(await within(card).findByText('2 colleagues added 2 checkpoints to the shared copy.')).toBeInTheDocument();
 			expect(within(card).getByText('Their changes are close to your work and fit together.')).toBeInTheDocument();
-			expect(within(card).getByRole('button', { name: 'Get your colleagues\' changes' })).toBeEnabled();
+			expect(within(card).getByRole('button', { name: 'Get Your Colleagues\' Changes' })).toBeEnabled();
 		});
 
 		test('a failed job shows the list of titles', async () => {
@@ -292,7 +292,7 @@ describe('Sync card and collision dialog', () => {
 				'Updated the dosing tableMaya',
 				'Fixed a typo in the READMEMaya',
 			]);
-			expect(within(card).getByRole('button', { name: 'Get Maya\'s changes' })).toBeEnabled();
+			expect(within(card).getByRole('button', { name: 'Get Maya\'s Changes' })).toBeEnabled();
 		});
 	});
 });

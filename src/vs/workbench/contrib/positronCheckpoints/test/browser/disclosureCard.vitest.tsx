@@ -80,7 +80,7 @@ describe('DisclosureCard', () => {
 	test('the notice shows in a folder that is not keeping checkpoints', async () => {
 		engine.state = fakeEngineState({ tracking: 'not-a-project' });
 		rtl.render(<CheckpointsPanel />);
-		expect(await screen.findByRole('button', { name: 'Start keeping checkpoints' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' })).toBeInTheDocument();
 
 		void agentService.run(titleJob, 'diff', CancellationToken.None);
 

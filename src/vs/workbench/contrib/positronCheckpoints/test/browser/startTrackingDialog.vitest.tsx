@@ -87,7 +87,7 @@ describe('StartTrackingDialog', () => {
 	async function openDialog() {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Start keeping checkpoints' }));
+		await user.click(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' }));
 		const dialog = await screen.findByRole('dialog');
 		return { user, dialog };
 	}
@@ -200,7 +200,7 @@ describe('StartTrackingDialog', () => {
 
 		expect(await screen.findByText('Start of the dose model')).toBeInTheDocument();
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Start keeping checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Start Keeping Checkpoints' })).not.toBeInTheDocument();
 	});
 
 	test('Cancel changes nothing', async () => {

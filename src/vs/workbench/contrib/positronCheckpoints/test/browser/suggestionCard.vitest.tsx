@@ -153,17 +153,17 @@ describe('SuggestionCard', () => {
 		expect(rows.map(row => row.textContent)).toEqual(['Fixed the dose-response plot2 files', 'Started the import script1 file']);
 		expect(within(card).getByRole('checkbox', { name: 'Fixed the dose-response plot' })).toBeChecked();
 		expect(within(card).getByRole('checkbox', { name: 'Started the import script' })).not.toBeChecked();
-		expect(within(card).getByRole('button', { name: 'Create 1 checkpoint' })).toBeInTheDocument();
+		expect(within(card).getByRole('button', { name: 'Create 1 Checkpoint' })).toBeInTheDocument();
 
 		await userEvent.click(within(card).getByRole('checkbox', { name: 'Started the import script' }));
-		expect(within(card).getByRole('button', { name: 'Create 2 checkpoints' })).toBeInTheDocument();
+		expect(within(card).getByRole('button', { name: 'Create 2 Checkpoints' })).toBeInTheDocument();
 	});
 
 	test('Create opens the dialog with the chunks and creates nothing by itself', async () => {
 		const card = await renderWithSuggestion();
 		const user = userEvent.setup();
 
-		await user.click(within(card).getByRole('button', { name: 'Create 1 checkpoint' }));
+		await user.click(within(card).getByRole('button', { name: 'Create 1 Checkpoint' }));
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByDisplayValue('Fixed the dose-response plot')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('SuggestionCard', () => {
 		expect(within(groups[1]).getByRole('checkbox', { name: 'Checkpoint 2' })).not.toBeChecked();
 		expect(engine.callsOf('createCheckpoints')).toEqual([]);
 
-		await user.click(within(dialog).getByRole('button', { name: 'Create 1 checkpoint' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Create 1 Checkpoint' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('createCheckpoints')).toEqual([
 			// Every part of a file is sent as the whole file.

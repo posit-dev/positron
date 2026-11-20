@@ -60,7 +60,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		createCheckpoint: [[]], createCheckpoints: [[1], [2]], getChanges: [[]], getAuthorsChanges: [['Maya']], getColleaguesChanges: [[]], sendChanges: [[]],
 		checkSharedCopy: [[]], goBack: [[]], reverseCheckpoint: [[]], editDescription: [[]], startKeepingCheckpoints: [[]],
 		viewDetailedDifferences: [[]], viewDetailedDifferencesOf: [['dose.R']], showGitDetails: [[]], edit: [[]], dismiss: [[]], accept: [[]], chooseMyself: [[]], backOut: [[]],
-		cancel: [[]], undo: [['Get Maya\'s changes']], redo: [['Get Maya\'s changes']], undoLastAction: [[]], undoProjectCheckChanges: [[]],
+		cancel: [[]], undo: [['Get Maya\'s Changes']], redo: [['Get Maya\'s Changes']], undoLastAction: [[]], undoProjectCheckChanges: [[]],
 		undoHover: [[50, 30]], acceptCheckedCheckpoint: [[]], declineCheckedCheckpoint: [[]], reverseKeepNewer: [[]], leaveAsIs: [[]],
 		removeRecoverySnapshot: [[]], openSourceControl: [[]], useTheirsKeepCopy: [[]],
 		close: [[]], reviewCheckChanges: [[]], removeRecoverySnapshotAt: [['2 minutes ago']],
@@ -124,19 +124,19 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		dialogTitle: [[]], action: [[]], nameLabel: [[]], organizationLabel: [[]], organizationHelp: [[]], privateLabel: [[]], inviteLabel: [[]],
 		inviteHelp: [[]], shareButton: [[]], creating: [[]], copying: [[]], inviting: [['maya-ortiz']], shared: [[]],
 		sendLink: [['https://github.com/me/dose-model']], projectLink: [['https://github.com/me/dose-model']], invited: [['maya-ortiz']],
-		copyLink: [[]], signInNeeded: [[]], signInButton: [[]], tryAgain: [[]], signInMissing: [[]], offline: [[]], nameTaken: [['dose-model']],
+		copyLink: [[]], signInNeeded: [[]], signInButton: [[]], tryAgain: [[]], signInMissing: [[]], noAnswer: [[]], createFirst: [[]], notLinked: [['this folder has no checkpoints yet.']], notLinkedReason: [['origin-exists'], ['no-checkpoints'], ['already-shared'], ['bad-link'], ['inside-another-project'], [undefined]], nameTaken: [['dose-model']],
 		organizationRefuses: [['acme']], accountRefuses: [[]], createFailed: [[''], ['GitHub replied 500.']], copyFailed: [['dose-model']],
 		alreadyShared: [[]], noSuchUser: [['maya-ortiz', 'https://github.com/me/dose-model']], emailEntered: [[]],
 		inviteNotAllowed: [['https://github.com/me/dose-model']], signInLost: [['maya-ortiz']], inviteFailed: [['maya-ortiz', 'https://github.com/me/dose-model']],
 	},
 	join: {
 		dialogTitle: [[]], action: [[]], prompt: [[]], linkLabel: [[]], continueButton: [[]], notALink: [[]], chooseFolderTitle: [[]],
-		chooseFolderButton: [[]], folderExists: [['dose-model', '/work']], copying: [['dose-model']], ready: [['dose-model']],
-		copyFailed: [['acme']], partialFolder: [['/work/dose-model']],
+		chooseFolderButton: [[]], folderExists: [['dose-model', '/work']], copying: [['dose-model']], ready: [['dose-model']], openProject: [[]], notFinished: [[]],
+		partialFolder: [['/work/dose-model']],
 	},
 	kept: {
 		heading: [[]], totalSize: [['120 MB']], restore: [[]], moveToAnotherPlace: [[]], delete: [[]], restoreOf: [['data.csv']], moveOf: [['data.csv']],
-		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s changes']],
+		deleteOf: [['data.csv']], deleteConfirm: [['data.csv']], deleteDetail: [[]], keptBy: [['Get Maya\'s Changes']],
 		chooseNewPlace: [['data.csv']], moveHere: [[]], outsideProject: [[]], couldNotLoad: [[]], tryAgain: [[]],
 	},
 	unsaved: {
@@ -146,7 +146,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	interrupted: {
 		heading: [[]], changedFiles: [[]], stagedWork: [[]], dialogTitle: [[]], reviewButton: [[]], reverseHelp: [[]], leaveHelp: [[]], decideLater: [[]],
 	},
-	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]], chunkNotCreated: [[2, 3]] },
+	checkResult: { comparisonOpensLater: [[]], failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]], chunkNotCreated: [[2, 3]] },
 	suggestions: { goodPlace: [[]], heading: [[]], badge: [[]] },
 	aiNotice: { heading: [[]], disclosure: [[]], ok: [[]], turnOff: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },
@@ -274,10 +274,10 @@ describe('checkpointsStrings', () => {
 		expect(Strings.results.projectChanged()).toContain('Another tool changed this project after that action');
 		expect(Strings.undoRedo.filesChangedSince(3)).toBe('You changed 3 files since then. Undo will set them back, and Redo will return them.');
 		expect(Strings.collisions.explainWithAuthor('Maya', 'data.csv')).toBe('Maya added a file named data.csv. You have your own data.csv that is in no checkpoint.');
-		expect(Strings.actions.useTheirsKeepCopy()).toBe('Use theirs and keep a copy of mine');
+		expect(Strings.actions.useTheirsKeepCopy()).toBe('Use Theirs and Keep a Copy of Mine');
 		expect(Strings.actions.undoProjectCheckChanges()).toBe('Undo: changes made by the project check');
-		expect(Strings.actions.reverseKeepNewer()).toBe('Reverse the action and keep my newer files');
-		expect(Strings.actions.leaveAsIs()).toBe('Leave the project as it is');
+		expect(Strings.actions.reverseKeepNewer()).toBe('Reverse the Action and Keep My Newer Files');
+		expect(Strings.actions.leaveAsIs()).toBe('Leave the Project as It Is');
 		expect(Strings.unsaved.saveAndInclude(2)).toBe('Save 2 files and include them');
 		expect(Strings.unsaved.continueWithout()).toBe('Continue without the unsaved edits');
 		expect(Strings.unsaved.saveAllAndContinue()).toBe('Save all and continue');

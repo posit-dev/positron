@@ -24,7 +24,7 @@ import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { CreateRepositoryResult, IGitHubClient, InviteResult, parseProjectLink } from '../../browser/github/githubClient.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { FORBIDDEN_WORDS } from '../../common/forbiddenWords.js';
-import { FakeCheckpointsEngine, fakeEngineState } from './fakeCheckpointsEngine.js';
+import { FakeCheckpointsEngine, fakeCheckpoint, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 const CLONE_URL = 'https://github.com/me/dose-model.git';
 const WEB_URL = 'https://github.com/me/dose-model';
@@ -67,6 +67,7 @@ describe('ShareDialog', () => {
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		engine.state = fakeEngineState({ shared: { exists: false, ahead: 0, behind: 0 } });
+		engine.history = [fakeCheckpoint({ shared: false })];
 	});
 
 	afterEach(async () => {
@@ -80,7 +81,7 @@ describe('ShareDialog', () => {
 	async function openDialog() {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Share this project' }));
+		await user.click(await screen.findByRole('button', { name: 'Share This Project' }));
 		const dialog = await screen.findByRole('dialog');
 		return { user, dialog };
 	}
@@ -109,7 +110,7 @@ describe('ShareDialog', () => {
 		rtl.render(<CheckpointsPanel />);
 
 		expect(await screen.findByText('You have everything in the shared copy.')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Share this project' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Share This Project' })).not.toBeInTheDocument();
 	});
 
 	test('the form starts with the folder name, a private project, and no organization or colleague', async () => {
@@ -146,7 +147,7 @@ describe('ShareDialog', () => {
 		expect(within(dialog).getByText(`Send this link to your colleague: ${WEB_URL}`)).toBeInTheDocument();
 		expectNoGitWords(dialog);
 
-		await user.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Copy Link' }));
 		expect(writeText).toHaveBeenCalledWith(WEB_URL);
 	});
 
@@ -199,7 +200,7 @@ describe('ShareDialog', () => {
 			expect(createSession).not.toHaveBeenCalled();
 			expect(engine.callsOf('connectSharedCopy')).toEqual([]);
 
-			await user.click(within(dialog).getByRole('button', { name: 'Sign in to GitHub' }));
+			await user.click(within(dialog).getByRole('button', { name: 'Sign In to GitHub' }));
 
 			expect(await within(dialog).findByText('This project is shared.')).toBeInTheDocument();
 			expect(createSession).toHaveBeenCalledWith('github', ['repo']);
@@ -213,11 +214,11 @@ describe('ShareDialog', () => {
 			const { user, dialog } = await openDialog();
 
 			await share(user, dialog);
-			await user.click(await within(dialog).findByRole('button', { name: 'Sign in to GitHub' }));
+			await user.click(await within(dialog).findByRole('button', { name: 'Sign In to GitHub' }));
 
 			expect(await within(dialog).findByText('Positron did not get a GitHub sign-in. Nothing was changed.')).toBeInTheDocument();
 			expect(createRepository).toHaveBeenCalledTimes(1);
-			expect(within(dialog).getByRole('button', { name: 'Sign in to GitHub' })).toBeEnabled();
+			expect(within(dialog).getByRole('button', { name: 'Sign In to GitHub' })).toBeEnabled();
 		});
 
 		test('a sign-in lost before the invitation signs in again and invites without creating a second project', async () => {
@@ -229,7 +230,7 @@ describe('ShareDialog', () => {
 			expect(within(dialog).getByText(`The project is at ${WEB_URL}`)).toBeInTheDocument();
 			expect(createSession).not.toHaveBeenCalled();
 
-			await user.click(within(dialog).getByRole('button', { name: 'Sign in to GitHub' }));
+			await user.click(within(dialog).getByRole('button', { name: 'Sign In to GitHub' }));
 
 			expect(await within(dialog).findByText('maya-ortiz has an invitation by email and on GitHub.')).toBeInTheDocument();
 			expect(createSession).toHaveBeenCalledWith('github', ['repo']);
@@ -239,9 +240,32 @@ describe('ShareDialog', () => {
 		});
 	});
 
+	describe('before anything is created', () => {
+		test('a project with no checkpoints asks for one first and creates nothing', async () => {
+			engine.history = [];
+			const { user, dialog } = await openDialog();
+
+			await share(user, dialog);
+
+			expect(await within(dialog).findByText('Create a checkpoint first, then share.')).toBeInTheDocument();
+			expect(createRepository).not.toHaveBeenCalled();
+			expect(engine.callsOf('connectSharedCopy')).toEqual([]);
+		});
+
+		test('the project is read once before the project is created', async () => {
+			const { user, dialog } = await openDialog();
+
+			await share(user, dialog);
+
+			expect(await within(dialog).findByText('This project is shared.')).toBeInTheDocument();
+			expect(engine.callsOf('getHistory')).toContainEqual([0, 1]);
+		});
+	});
+
 	describe('when the project cannot be created', () => {
 		const failures: { name: string; result: CreateRepositoryResult; organization?: string; sentence: string }[] = [
-			{ name: 'no connection', result: { ok: false, reason: 'offline', detail: 'x' }, sentence: 'Positron could not reach GitHub. Check your internet connection. Nothing was changed.' },
+			{ name: 'no connection', result: { ok: false, reason: 'offline', detail: 'x' }, sentence: 'GitHub did not answer. The project may have been created; check your GitHub account before trying again.' },
+			{ name: 'a reply that cannot be read', result: { ok: false, reason: 'maybe-created', detail: 'x' }, sentence: 'GitHub did not answer. The project may have been created; check your GitHub account before trying again.' },
 			{ name: 'a name in use', result: { ok: false, reason: 'name-taken', detail: 'x' }, sentence: 'You already have a project named dose-model on GitHub. Choose another name. Nothing was changed.' },
 			{ name: 'an organization that refuses', result: { ok: false, reason: 'not-allowed', detail: 'x' }, organization: 'acme', sentence: 'GitHub does not let your account create projects in acme. Ask an owner of acme to allow it, or leave Organization empty. Nothing was changed.' },
 			{ name: 'an account that refuses', result: { ok: false, reason: 'not-allowed', detail: 'x' }, sentence: 'GitHub does not let your account create projects. Nothing was changed.' },
@@ -281,12 +305,12 @@ describe('ShareDialog', () => {
 
 			await share(user, dialog, { colleague: 'maya-ortiz' });
 
-			expect(await within(dialog).findByText('The project dose-model was created on GitHub, but Positron could not copy your checkpoints to it. Your files are safe. Select Try again.')).toBeInTheDocument();
+			expect(await within(dialog).findByText('The project dose-model was created on GitHub, but Positron could not copy your checkpoints to it. Your files are safe. Select Try Again.')).toBeInTheDocument();
 			expect(within(dialog).getByText(`The project is at ${WEB_URL}`)).toBeInTheDocument();
 			expect(invite).not.toHaveBeenCalled();
 			expectNoGitWords(dialog);
 
-			await user.click(within(dialog).getByRole('button', { name: 'Try again' }));
+			await user.click(within(dialog).getByRole('button', { name: 'Try Again' }));
 
 			expect(await within(dialog).findByText('This project is shared.')).toBeInTheDocument();
 			expect(createRepository).toHaveBeenCalledTimes(1);
@@ -301,18 +325,37 @@ describe('ShareDialog', () => {
 			await share(user, dialog);
 
 			expect(await within(dialog).findByText(/was created on GitHub, but Positron could not copy your checkpoints to it/)).toBeInTheDocument();
-			expect(within(dialog).getByRole('button', { name: 'Try again' })).toBeEnabled();
+			expect(within(dialog).getByRole('button', { name: 'Try Again' })).toBeEnabled();
 		});
 
-		test('a project that already has a shared copy says so and offers no retry', async () => {
-			engine.queuedResults = [{ kind: 'unavailable', reason: 'nothing-to-do', detail: 'already-shared' }];
+		test.each([
+			{ detail: 'origin-exists', reason: 'this folder is already linked to a different shared copy.' },
+			{ detail: 'no-checkpoints', reason: 'this folder has no checkpoints yet. Create a checkpoint, then link it.' },
+			{ detail: 'already-shared', reason: 'this project is already shared.' },
+			{ detail: 'bad-link', reason: 'the link GitHub gave is not one Positron can use.' },
+			{ detail: 'inside-another-project', reason: 'this folder is inside another project that keeps its own checkpoints. Share that project instead.' },
+		])('a permanent refusal ($detail) has its own sentence, keeps the link, and offers no retry', async ({ detail, reason }) => {
+			engine.queuedResults = [{ kind: 'unavailable', reason: 'nothing-to-do', detail }];
 			const { user, dialog } = await openDialog();
 
 			await share(user, dialog);
 
-			expect(await within(dialog).findByText('This project is already shared.')).toBeInTheDocument();
-			expect(within(dialog).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+			expect(await within(dialog).findByText(`A project was created on GitHub, but this folder could not be linked to it: ${reason}`)).toBeInTheDocument();
+			expect(within(dialog).queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument();
 			expect(within(dialog).getByText(`The project is at ${WEB_URL}`)).toBeInTheDocument();
+			expect(engine.callsOf('connectSharedCopy')).toHaveLength(1);
+			expectNoGitWords(dialog);
+		});
+
+		test('a web link that cannot be validated is never given to the engine', async () => {
+			createRepository.mockResolvedValueOnce({ ok: true, cloneUrl: 'https://evil.example/me/dose-model.git', htmlUrl: WEB_URL });
+			const { user, dialog } = await openDialog();
+
+			await share(user, dialog);
+
+			expect(await within(dialog).findByText('A project was created on GitHub, but this folder could not be linked to it: the link GitHub gave is not one Positron can use.')).toBeInTheDocument();
+			expect(engine.callsOf('connectSharedCopy')).toEqual([]);
+			expect(within(dialog).queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument();
 		});
 	});
 
@@ -331,7 +374,7 @@ describe('ShareDialog', () => {
 
 			expect(await within(dialog).findByText(sentence)).toBeInTheDocument();
 			expect(engine.callsOf('connectSharedCopy')).toEqual([[CLONE_URL]]);
-			expect(within(dialog).queryByRole('button', { name: 'Try again' }) !== null).toBe(retry);
+			expect(within(dialog).queryByRole('button', { name: 'Try Again' }) !== null).toBe(retry);
 			expectNoGitWords(dialog);
 		});
 
@@ -340,7 +383,7 @@ describe('ShareDialog', () => {
 			const { user, dialog } = await openDialog();
 
 			await share(user, dialog, { colleague: 'maya-ortiz' });
-			await user.click(await within(dialog).findByRole('button', { name: 'Try again' }));
+			await user.click(await within(dialog).findByRole('button', { name: 'Try Again' }));
 
 			expect(await within(dialog).findByText('maya-ortiz has an invitation by email and on GitHub.')).toBeInTheDocument();
 			expect(createRepository).toHaveBeenCalledTimes(1);

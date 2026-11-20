@@ -23,3 +23,9 @@ export const IMAGE_DIFF_LIMIT_MEGABYTES = 20;
 
 /** `IMAGE_DIFF_LIMIT_MEGABYTES` in bytes. */
 export const IMAGE_DIFF_LIMIT_BYTES = IMAGE_DIFF_LIMIT_MEGABYTES * 1024 * 1024;
+
+/** The size in megabytes above which a stored version that was read is not compared line by line. */
+export const STORED_SIDE_READ_LIMIT_MEGABYTES = 20;
+
+/** `STORED_SIDE_READ_LIMIT_MEGABYTES` in bytes. */
+export const STORED_SIDE_READ_LIMIT_BYTES = STORED_SIDE_READ_LIMIT_MEGABYTES * 1024 * 1024;

@@ -253,9 +253,9 @@ describe('History section', () => {
 
 		const files = await screen.findByRole('list', { name: 'Files in this checkpoint' });
 		expect(within(files).getAllByRole('listitem').map(item => item.textContent)).toEqual([
-			'dose.RchangedView detailed differences',
-			'notes.mdnewView detailed differences',
-			'fit.Rrenamedwas model.RView detailed differences',
+			'dose.RchangedView Detailed Differences',
+			'notes.mdnewView Detailed Differences',
+			'fit.Rrenamedwas model.RView Detailed Differences',
 		]);
 		expect(engine.callsOf('getCheckpointFiles')).toEqual([['c4']]);
 	});
@@ -268,7 +268,7 @@ describe('History section', () => {
 		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Fixed the plot' })]);
 		const user = await expandRow('Fixed the plot');
 
-		await user.click(await screen.findByRole('button', { name: 'View detailed differences: dose.R' }));
+		await user.click(await screen.findByRole('button', { name: 'View Detailed Differences: dose.R' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'checkpoint', id: 'c4', path: 'dose.R' }]]));
 		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({ label: 'dose.R (changes in "Fixed the plot")' })));
@@ -307,7 +307,7 @@ describe('History section', () => {
 		const user = await expandRow('Described');
 
 		expect(screen.getByText('Fixed the axis')).toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Show git details' }));
+		await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
 
 		const details = screen.getByLabelText('Git details');
 		expect(details).toHaveTextContent(/^Commit idabc123Branchmain$/);
@@ -321,7 +321,7 @@ describe('History section', () => {
 		await user.click(screen.getByRole('button', { name: 'Reverse This Checkpoint' }));
 		expect(await screen.findByText(/Reversing "Combined work from Maya"/)).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Cancel' }));
-		await user.click(screen.getByRole('button', { name: 'Show git details' }));
+		await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
 
 		expect(screen.getByLabelText('Git details')).toHaveTextContent('Merge pull request #12 from x/branch');
 	});
@@ -331,7 +331,7 @@ describe('History section', () => {
 		renderHistory([fakeCheckpoint({ id: 'abc123', title: 'Described' })]);
 		const user = await expandRow('Described');
 
-		await user.click(screen.getByRole('button', { name: 'Show git details' }));
+		await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
 
 		expect(screen.getByLabelText('Git details')).toHaveTextContent('Upstreamorigin/main');
 	});
@@ -526,7 +526,7 @@ describe('History section', () => {
 
 			expect(screen.getByText('Summary of c2.')).toBeInTheDocument();
 			expect(screen.queryByText('body of c2')).not.toBeInTheDocument();
-			await user.click(screen.getByRole('button', { name: 'Show git details' }));
+			await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
 
 			expect(screen.getByLabelText('Git details')).toHaveTextContent('Description from gitraw c2 body of c2');
 		});
@@ -538,7 +538,7 @@ describe('History section', () => {
 			await vi.waitFor(() => expect(describedIds()).toEqual(['c2']));
 			const user = await expandRow('raw c2');
 			expect(screen.getByText('body of c2')).toBeInTheDocument();
-			await user.click(screen.getByRole('button', { name: 'Show git details' }));
+			await user.click(screen.getByRole('button', { name: 'Show Git Details' }));
 			expect(screen.getByLabelText('Git details')).not.toHaveTextContent('Description from git');
 		});
 

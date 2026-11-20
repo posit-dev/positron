@@ -147,6 +147,7 @@ const CheckResultDialog = ({ actions, chunkCount, renderer, result }: ICheckResu
 										</li>
 									))}
 								</ul>
+								<p className='checkpoints-note'>{Strings.checkResult.comparisonOpensLater()}</p>
 							</>
 						)}
 						{result.hookEditedFiles.length > 0 && <p>{Strings.checkResult.filesChangedOnDisk(result.hookEditedFiles.length)}</p>}

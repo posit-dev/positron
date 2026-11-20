@@ -8,13 +8,16 @@ import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ContentRef, DiffTarget } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { LARGE_FILE_LIMIT_BYTES } from '../common/checkpointsLimits.js';
+import { LARGE_FILE_LIMIT_BYTES, STORED_SIDE_READ_LIMIT_BYTES } from '../common/checkpointsLimits.js';
 import { Strings } from '../common/checkpointsStrings.js';
+import { readFailureKind } from '../common/readFailure.js';
 import { blobResource, messageResource } from './checkpointsContentProvider.js';
+import { ICheckpointsMessageService } from './checkpointsMessages.js';
 import { projectRootUri } from './projectRoot.js';
 import { IRichDiffProvider, IRichDiffSides, richDiffRegistry } from './richDiff/richDiffRegistry.js';
 
@@ -60,6 +63,12 @@ export interface IKnownSizes {
 	tooLarge?: boolean;
 	before?: number;
 	after?: number;
+	/**
+	 * The most bytes a stored side may have. A stored side has no size before it is read, so it is
+	 * read once and the comparison does not open when the content is larger. Defaults to
+	 * `STORED_SIDE_READ_LIMIT_BYTES`.
+	 */
+	maxBytes?: number;
 }
 
 function looksBinary(bytes: VSBuffer): boolean {
@@ -84,11 +93,32 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 	const fileService = accessor.get(IFileService);
 	const workspaceContextService = accessor.get(IWorkspaceContextService);
 	const instantiationService = accessor.get(IInstantiationService);
+	const logService = accessor.get(ILogService);
+	const messageService = accessor.get(ICheckpointsMessageService);
+
+	/** Logs a failure and shows the could-not-load sentence on the status line of the view. */
+	const reportFailure = (what: string, error: unknown) => {
+		logService.error(`[Checkpoints] ${what}`, error);
+		messageService.show(Strings.status.couldNotLoad(readFailureKind(error)));
+	};
 
 	const engine = checkpointsService.engine;
 	if (!engine) {
+		reportFailure(`The differences of ${target.path} could not be opened.`, new Error('There is no checkpoints engine.'));
 		return;
 	}
+
+	// Each stored version is read once, even when a second attempt needs it again.
+	const storedReads = new Map<string, Promise<VSBuffer>>();
+	const readStored = (oid: string): Promise<VSBuffer> => {
+		let read = storedReads.get(oid);
+		if (!read) {
+			read = engine.readBlob(oid);
+			storedReads.set(oid, read);
+		}
+		return read;
+	};
+	const storedLimitBytes = known?.maxBytes ?? STORED_SIDE_READ_LIMIT_BYTES;
 
 	const openComparison = async (provider: IRichDiffProvider | undefined): Promise<IComparison> => {
 		const limitBytes = provider?.maxSideBytes ?? LARGE_FILE_LIMIT_BYTES;
@@ -113,7 +143,8 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 				const stat = await fileService.stat(resource);
 				const head = stat.size > limitBytes ? VSBuffer.alloc(0) : (await fileService.readFile(resource, { length: BINARY_SNIFF_BYTES })).value;
 				return { resource, sizeBytes: stat.size, binary: looksBinary(head), present: true };
-			} catch {
+			} catch (error) {
+				logService.warn(`[Checkpoints] The size of ${ref.path} could not be read.`, error instanceof Error ? error.message : String(error));
 				return { resource, sizeBytes: 0, binary: false, present: true };
 			}
 		};
@@ -121,10 +152,12 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 			if (ref.kind === 'empty') {
 				return { resource: blobResource(target.path, ''), sizeBytes: 0, binary: false, present: false };
 			}
-			const bytes = await engine.readBlob(ref.oid);
+			const bytes = await readStored(ref.oid);
 			return { resource: blobResource(target.path, ref.oid), sizeBytes: bytes.byteLength, binary: looksBinary(bytes), bytes, present: true };
 		};
-		const tooLarge = (...measured: (IDiffSide | undefined)[]) => measured.some(side => side !== undefined && side.sizeBytes > limitBytes);
+		// A stored side has no size before it is read, so its limit applies to the content read.
+		const limitOf = (side: IDiffSide) => side.bytes ? Math.min(limitBytes, storedLimitBytes) : limitBytes;
+		const tooLarge = (...measured: (IDiffSide | undefined)[]) => measured.some(side => side !== undefined && side.sizeBytes > limitOf(side));
 		const sizeOf = (side: IDiffSide | undefined) => side ? ByteSize.formatSize(side.sizeBytes) : undefined;
 
 		// Files on disk are measured first, so that a file that is too large stops the comparison
@@ -139,7 +172,8 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 		const rightSide = rightFile ?? await measureStored(right as ContentRef & { kind: 'blob' | 'empty' });
 		const sizes = Strings.diff.sizes(sizeOf(leftSide), sizeOf(rightSide));
 		if (tooLarge(leftSide, rightSide)) {
-			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, limitMegabytes, sizes) };
+			const exceeded = [leftSide, rightSide].find(side => side.sizeBytes > limitOf(side)) ?? leftSide;
+			return { kind: 'message', message: Strings.diff.tooLargeMessage(target.path, limitOf(exceeded) / ByteSize.MB, sizes) };
 		}
 		if (provider) {
 			const sideContent = async (side: IDiffSide, label: string) => side.present
@@ -173,14 +207,16 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 				await instantiationService.invokeFunction(providerAccessor => found.open(providerAccessor, richSides));
 				return;
 			}
-		} catch {
+		} catch (error) {
+			logService.warn(`[Checkpoints] The comparison of ${target.path} could not open in its own editor.`, error instanceof Error ? error.message : String(error));
 			sides = undefined;
 		}
 	}
 	if (!sides) {
 		try {
 			sides = await openComparison(undefined);
-		} catch {
+		} catch (error) {
+			logService.error(`[Checkpoints] The differences of ${target.path} could not be read.`, error);
 			sides = { kind: 'message', message: Strings.diff.unavailable(target.path) };
 		}
 	}
@@ -188,13 +224,17 @@ export async function openDiff(accessor: ServicesAccessor, target: DiffRequest, 
 	if (sides.kind === 'provider') {
 		return;
 	}
-	if (sides.kind === 'message') {
-		await editorService.openEditor({ resource: messageResource(target.path, sides.message), label: title, options: { pinned: true } });
-		return;
+	try {
+		if (sides.kind === 'message') {
+			await editorService.openEditor({ resource: messageResource(target.path, sides.message), label: title, options: { pinned: true } });
+			return;
+		}
+		await editorService.openEditor({
+			original: { resource: sides.left.resource },
+			modified: { resource: sides.right.resource },
+			label: title,
+		});
+	} catch (error) {
+		reportFailure(`The differences of ${target.path} could not be opened.`, error);
 	}
-	await editorService.openEditor({
-		original: { resource: sides.left.resource },
-		modified: { resource: sides.right.resource },
-		label: title,
-	});
 }

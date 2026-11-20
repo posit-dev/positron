@@ -137,6 +137,7 @@ interface IImageDiffViewProps {
 export const ImageDiffView = ({ left, right, urls }: IImageDiffViewProps) => {
 	const [mode, setMode] = useState<DiffMode>('side-by-side');
 	const [revealed, setRevealed] = useState(50);
+	const [sliderFailed, setSliderFailed] = useState(false);
 	const bothSides = urls.left !== undefined && urls.right !== undefined;
 	const effectiveMode = bothSides ? mode : 'side-by-side';
 
@@ -168,15 +169,20 @@ export const ImageDiffView = ({ left, right, urls }: IImageDiffViewProps) => {
 				</div>
 			) : (
 				<div className='checkpoints-image-slider'>
-					<div className='checkpoints-image-stack'>
-						<img alt={Strings.imageDiff.before()} className='checkpoints-image' src={urls.left} />
-						<img
-							alt={Strings.imageDiff.after()}
-							className='checkpoints-image checkpoints-image-overlay'
-							src={urls.right}
-							style={{ clipPath: `inset(0 ${100 - revealed}% 0 0)` }}
-						/>
-					</div>
+					{sliderFailed
+						? <p className='checkpoints-note' role='alert'>{Strings.imageDiff.cannotShow()}</p>
+						: (
+							<div className='checkpoints-image-stack'>
+								<img alt={Strings.imageDiff.before()} className='checkpoints-image' src={urls.left} onError={() => setSliderFailed(true)} />
+								<img
+									alt={Strings.imageDiff.after()}
+									className='checkpoints-image checkpoints-image-overlay'
+									src={urls.right}
+									style={{ clipPath: `inset(0 ${100 - revealed}% 0 0)` }}
+									onError={() => setSliderFailed(true)}
+								/>
+							</div>
+						)}
 					<input
 						aria-label={Strings.imageDiff.sliderLabel()}
 						max={100}

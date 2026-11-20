@@ -151,9 +151,9 @@ describe('Overlap editor', () => {
 		const user = await renderEditor([examples.text, examples.unsupported]);
 		const section = (path: string) => screen.getByRole('region', { name: `Overlap in ${path}` });
 
-		await user.click(within(section('dose.R')).getByRole('button', { name: 'View detailed differences of your changes' }));
+		await user.click(within(section('dose.R')).getByRole('button', { name: 'View Detailed Differences of Your Changes' }));
 		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledTimes(1));
-		await user.click(within(section('dose.R')).getByRole('button', { name: 'View detailed differences of Maya\'s changes' }));
+		await user.click(within(section('dose.R')).getByRole('button', { name: 'View Detailed Differences of Maya\'s Changes' }));
 		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledTimes(2));
 
 		expect(engine.callsOf('getDiff')).toEqual([
@@ -161,7 +161,7 @@ describe('Overlap editor', () => {
 			[{ kind: 'overlap', overlapId: 'dose', side: 'theirs' }],
 		]);
 		expect(openEditor.mock.calls.map(call => (call as unknown as [{ label: string }])[0].label)).toEqual(['dose.R (your changes)', 'dose.R (Maya\'s changes)']);
-		expect(within(section('vendor/lib')).queryByRole('button', { name: /View detailed differences/ })).not.toBeInTheDocument();
+		expect(within(section('vendor/lib')).queryByRole('button', { name: /View Detailed Differences/ })).not.toBeInTheDocument();
 	});
 
 	test('rendering the editor reads the incoming changes and applies nothing', async () => {
@@ -282,7 +282,7 @@ describe('Overlap editor', () => {
 		const user = await renderEditor([examples.text]);
 		await user.click(screen.getByRole('radio', { name: 'Keep mine' }));
 
-		await user.click(screen.getByRole('button', { name: 'Back out' }));
+		await user.click(screen.getByRole('button', { name: 'Back Out' }));
 
 		expect(onClose).toHaveBeenCalledTimes(1);
 		expect(controller.resolutions.size).toBe(0);
@@ -344,7 +344,7 @@ describe('Overlap editor', () => {
 			const user = await renderEditor([dose]);
 			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
 
-			await user.click(screen.getByRole('button', { name: 'Choose myself' }));
+			await user.click(screen.getByRole('button', { name: 'Choose Myself' }));
 
 			expect(screen.queryByText('Suggested combination selected. Review it before you apply.')).not.toBeInTheDocument();
 			expect(screen.queryByText('You: raised the cap to 500')).not.toBeInTheDocument();
@@ -498,7 +498,7 @@ describe('Overlap editor', () => {
 			const user = await renderEditor([dose]);
 			expect(await screen.findByText('Suggested combination selected. Review it before you apply.')).toBeInTheDocument();
 
-			await user.click(screen.getByRole('button', { name: 'Back out' }));
+			await user.click(screen.getByRole('button', { name: 'Back Out' }));
 
 			expect(controller.resolutions.size).toBe(0);
 			expect(engine.callsOf('getIncoming')).toEqual([]);

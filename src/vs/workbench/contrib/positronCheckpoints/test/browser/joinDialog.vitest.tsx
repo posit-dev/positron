@@ -12,6 +12,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileDialogService, IOpenDialogOptions } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { showJoinDialog } from '../../browser/components/joinDialog.js';
 import { IGitHubClient, parseProjectLink } from '../../browser/github/githubClient.js';
@@ -23,6 +24,7 @@ describe('JoinDialog', () => {
 	let showOpenDialog: ReturnType<typeof vi.fn<(options: IOpenDialogOptions) => Promise<URI[] | undefined>>>;
 	let executeCommand: ReturnType<typeof vi.fn<(id: string, ...args: unknown[]) => Promise<unknown>>>;
 	let existing: Set<string>;
+	let workbenchState: WorkbenchState;
 
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -32,11 +34,13 @@ describe('JoinDialog', () => {
 			defaultFolderPath: async () => URI.file('/home/maya'),
 		})
 		.stub(IFileService, { exists: async (resource: URI) => existing.has(resource.path) })
+		.stub(IWorkspaceContextService, { getWorkbenchState: () => workbenchState })
 		.stub(ICommandService, { executeCommand: (id: string, ...args: unknown[]) => executeCommand(id, ...args) })
 		.build();
 
 	beforeEach(() => {
 		existing = new Set();
+		workbenchState = WorkbenchState.EMPTY;
 		showOpenDialog = vi.fn(async () => [PARENT]);
 		executeCommand = vi.fn(async () => '/home/maya/projects/dose-model');
 		// PositronModalReactRenderer finds its container through this singleton.
@@ -102,8 +106,23 @@ describe('JoinDialog', () => {
 			canSelectMany: false,
 			defaultUri: URI.file('/home/maya'),
 		}));
-		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', PARENT.fsPath);
+		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', PARENT.fsPath, { postCloneAction: 'none' });
+		expect(within(ready).getByRole('button', { name: 'Open Project' })).toBeInTheDocument();
 		expectNoGitWords(ready);
+	});
+
+	test.each([
+		{ name: 'in this window when no folder is open', state: WorkbenchState.EMPTY, forceNewWindow: false },
+		{ name: 'in a new window when a folder is open', state: WorkbenchState.FOLDER, forceNewWindow: true },
+	])('Open Project opens the new folder $name', async ({ state, forceNewWindow }) => {
+		workbenchState = state;
+		const { user, dialog } = await openDialog();
+		await join(user, dialog, 'maya/dose-model');
+		const ready = await screen.findByRole('dialog');
+
+		await user.click(await within(ready).findByRole('button', { name: 'Open Project' }));
+
+		await vi.waitFor(() => expect(executeCommand).toHaveBeenCalledWith('vscode.openFolder', URI.file('/home/maya/projects/dose-model'), { forceNewWindow }));
 	});
 
 	test('owner/name and the ssh form are accepted', async () => {
@@ -112,7 +131,7 @@ describe('JoinDialog', () => {
 		await join(user, dialog, 'git@github.com:maya/dose-model.git');
 
 		expect(await screen.findByText('dose-model is ready.')).toBeInTheDocument();
-		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', PARENT.fsPath);
+		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', PARENT.fsPath, { postCloneAction: 'none' });
 	});
 
 	test('a cancelled folder picker copies nothing and keeps the link', async () => {
@@ -139,16 +158,16 @@ describe('JoinDialog', () => {
 		await user.click(within(dialog).getByRole('button', { name: 'Continue' }));
 
 		expect(await screen.findByText('dose-model is ready.')).toBeInTheDocument();
-		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', URI.file('/home/maya/other').fsPath);
+		expect(executeCommand).toHaveBeenCalledWith('git.clone', 'https://github.com/maya/dose-model.git', URI.file('/home/maya/other').fsPath, { postCloneAction: 'none' });
 	});
 
-	test('a copy that fails and leaves no folder says nothing was changed and keeps the link', async () => {
+	test('a copy that returns nothing says the copy did not finish and keeps the link', async () => {
 		executeCommand.mockResolvedValueOnce(undefined);
 		const { user, dialog } = await openDialog();
 
 		await join(user, dialog, 'maya/dose-model');
 
-		expect(await within(dialog).findByText('Positron could not copy this project. Check the link, and check that maya has invited you to it. Nothing was changed on this computer.')).toBeInTheDocument();
+		expect(await within(dialog).findByText('The copy did not finish.')).toBeInTheDocument();
 		expect(within(dialog).getByRole('textbox', { name: 'Link to the project' })).toHaveValue('maya/dose-model');
 		expectNoGitWords(dialog);
 	});
@@ -159,7 +178,7 @@ describe('JoinDialog', () => {
 
 		await join(user, dialog, 'maya/dose-model');
 
-		expect(await within(dialog).findByText(/Positron could not copy this project\. Check the link/)).toBeInTheDocument();
+		expect(await within(dialog).findByText('The copy did not finish.')).toBeInTheDocument();
 	});
 
 	test('a failed copy that leaves a folder behind does not claim nothing was changed', async () => {

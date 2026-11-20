@@ -73,12 +73,12 @@ describe('CheckpointsPanel', () => {
 		rtl.render(<CheckpointsPanel />);
 	}
 
-	test('plain folder shows "Start keeping checkpoints"', async () => {
+	test('plain folder shows "Start Keeping Checkpoints"', async () => {
 		const user = userEvent.setup();
 		engine.state = fakeEngineState({ tracking: 'not-a-project' });
 		renderPanel();
 
-		const start = await screen.findByRole('button', { name: 'Start keeping checkpoints' });
+		const start = await screen.findByRole('button', { name: 'Start Keeping Checkpoints' });
 		expect(screen.getByText('This folder is not keeping checkpoints yet.')).toBeInTheDocument();
 		expect(screen.queryByTestId('checkpoints-sections')).not.toBeInTheDocument();
 
@@ -110,7 +110,7 @@ describe('CheckpointsPanel', () => {
 		renderPanel();
 
 		expect(await screen.findByText(unusualSentences['git-missing'])).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Start keeping checkpoints' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Start Keeping Checkpoints' })).not.toBeInTheDocument();
 	});
 
 	test('behind 2 shows the colleagues-changed sentence', async () => {
@@ -250,7 +250,7 @@ describe('CheckpointsPanel', () => {
 		engine.nextResult = { kind: 'unavailable', reason: 'busy' };
 		renderPanel();
 
-		await user.click(await screen.findByRole('button', { name: 'Start keeping checkpoints' }));
+		await user.click(await screen.findByRole('button', { name: 'Start Keeping Checkpoints' }));
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
 		expect(await screen.findByRole('status')).toHaveTextContent('Another window is working on this project');

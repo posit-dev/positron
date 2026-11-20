@@ -25,6 +25,12 @@ interface CannedResponse {
 class FakeRequestService {
 	readonly requests: IRequestOptions[] = [];
 	private _next: CannedResponse | Error = { status: 200 };
+	private readonly _queue: (CannedResponse | Error)[] = [];
+
+	/** Answers the next request with `response`, before the answer of `respondWith`. */
+	respondOnceWith(response: CannedResponse | Error): void {
+		this._queue.push(response);
+	}
 
 	respondWith(response: CannedResponse | Error): void {
 		this._next = response;
@@ -32,10 +38,11 @@ class FakeRequestService {
 
 	async request(options: IRequestOptions, _token: CancellationToken): Promise<IRequestContext> {
 		this.requests.push(options);
-		if (this._next instanceof Error) {
-			throw this._next;
+		const next = this._queue.shift() ?? this._next;
+		if (next instanceof Error) {
+			throw next;
 		}
-		const { status, body } = this._next;
+		const { status, body } = next;
 		const text = body === undefined ? '' : JSON.stringify(body);
 		return {
 			res: { statusCode: status, headers: {} },
@@ -121,6 +128,31 @@ describe('GitHubClient', () => {
 			expect(result.ok === false && result.detail).toContain('Server Error');
 		});
 
+		test('an organization name GitHub does not allow is refused without a request', async () => {
+			expect(await client.createRepository('proj', true, '../orgs')).toMatchObject({ ok: false, reason: 'not-allowed' });
+			expect(requests.requests).toHaveLength(0);
+			expect(getSessions).not.toHaveBeenCalled();
+		});
+
+		test('a created project whose reply cannot be read gets its links from the organization and the name', async () => {
+			requests.respondWith({ status: 201 });
+			expect(await client.createRepository('proj', true, 'lab')).toEqual({ ok: true, cloneUrl: 'https://github.com/lab/proj.git', htmlUrl: 'https://github.com/lab/proj' });
+			expect(requests.requests).toHaveLength(1);
+		});
+
+		test('a created personal project whose reply cannot be read gets its links from the signed-in login', async () => {
+			requests.respondOnceWith({ status: 201 });
+			requests.respondOnceWith({ status: 200, body: { login: 'me' } });
+			expect(await client.createRepository('proj', true)).toEqual({ ok: true, cloneUrl: 'https://github.com/me/proj.git', htmlUrl: 'https://github.com/me/proj' });
+			expect(requests.requests.map(request => `${request.type} ${request.url}`)).toEqual(['POST https://api.github.com/user/repos', 'GET https://api.github.com/user']);
+		});
+
+		test('a created project whose links cannot be rebuilt says it may exist', async () => {
+			requests.respondOnceWith({ status: 201 });
+			requests.respondOnceWith({ status: 500 });
+			expect(await client.createRepository('proj', true)).toMatchObject({ ok: false, reason: 'maybe-created' });
+		});
+
 		test('reports a network error as offline', async () => {
 			requests.respondWith(new Error('getaddrinfo ENOTFOUND api.github.com'));
 			expect(await client.createRepository('proj', true)).toMatchObject({ ok: false, reason: 'offline' });
@@ -152,6 +184,12 @@ describe('GitHubClient', () => {
 		test('reports a user that does not exist', async () => {
 			requests.respondWith({ status: 404, body: { message: 'Not Found' } });
 			expect(await client.invite('me', 'proj', 'nobody')).toMatchObject({ ok: false, reason: 'no-such-user' });
+		});
+
+		test('a user name GitHub does not allow is refused without a request', async () => {
+			expect(await client.invite('me', 'proj', '../friend')).toMatchObject({ ok: false, reason: 'no-such-user' });
+			expect(await client.invite('../me', 'proj', 'friend')).toMatchObject({ ok: false, reason: 'not-allowed' });
+			expect(requests.requests).toHaveLength(0);
 		});
 
 		test('reports a refusal', async () => {

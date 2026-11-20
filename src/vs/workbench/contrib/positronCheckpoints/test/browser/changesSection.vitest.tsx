@@ -118,14 +118,14 @@ describe('Changes section and checkpoint dialog', () => {
 
 	async function openDialog() {
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Create checkpoint...' }));
+		await user.click(await screen.findByRole('button', { name: 'Create Checkpoint...' }));
 		expect(await screen.findByRole('dialog')).toBeInTheDocument();
 		return user;
 	}
 
 	/** The button that submits the dialog. */
 	function createButton(count: number) {
-		return screen.getByRole('button', { name: count === 1 ? 'Create 1 checkpoint' : `Create ${count} checkpoints` });
+		return screen.getByRole('button', { name: count === 1 ? 'Create 1 Checkpoint' : `Create ${count} Checkpoints` });
 	}
 
 	test('lists changed files with plain status words', async () => {
@@ -141,13 +141,13 @@ describe('Changes section and checkpoint dialog', () => {
 
 		const rows = await screen.findAllByRole('listitem');
 
-		expect(rows.map(row => row.textContent?.replace(/View detailed differences/, ''))).toEqual([
+		expect(rows.map(row => row.textContent?.replace(/View Detailed Differences/, ''))).toEqual([
 			'theme.Rchanged',
 			'import_march.Rnew',
 			'old_plot.Rremoved',
 			'plot.Rrenamedwas plot_dose.R',
 		]);
-		expect(screen.getAllByRole('button', { name: /^View detailed differences: / })).toHaveLength(4);
+		expect(screen.getAllByRole('button', { name: /^View Detailed Differences: / })).toHaveLength(4);
 	});
 
 	test('the detailed differences of a renamed file compare it with its old name', async () => {
@@ -156,7 +156,7 @@ describe('Changes section and checkpoint dialog', () => {
 		renderPanel({ basis: 'b1', files: [changedFile('plot.R', { status: 'renamed', oldPath: 'plot_dose.R' })] });
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'View detailed differences: plot.R' }));
+		await user.click(await screen.findByRole('button', { name: 'View Detailed Differences: plot.R' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'change', path: 'plot.R', oldPath: 'plot_dose.R' }]]));
 	});
@@ -173,7 +173,7 @@ describe('Changes section and checkpoint dialog', () => {
 		renderPanel({ basis: 'b1', files: [] });
 
 		expect(await screen.findByText('No changes since your last checkpoint.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Create checkpoint...' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Create Checkpoint...' })).toBeDisabled();
 	});
 
 	test('the create button is disabled with an empty or over-long title', async () => {
@@ -208,7 +208,7 @@ describe('Changes section and checkpoint dialog', () => {
 		renderPanel({ basis: 'b1', files: [changedFile('a.R'), changedFile('b.R'), changedFile('c.R')] });
 		const user = await openDialog();
 
-		await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
 		await user.selectOptions(screen.getByRole('combobox', { name: 'Move c.R to' }), 'Checkpoint 2');
 		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Checkpoint 2');
 		await user.click(screen.getByRole('checkbox', { name: 'b.R' }));
@@ -232,7 +232,7 @@ describe('Changes section and checkpoint dialog', () => {
 		engine.nextResult = { kind: 'check-failed', output: 'lint error', hookEditedFiles: [], chunkIndex: 1 };
 		const user = await openDialog();
 
-		await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+		await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
 		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Checkpoint 2');
 		const titles = screen.getAllByRole('textbox', { name: 'Title' });
 		await user.type(titles[0], 'First');
@@ -439,7 +439,7 @@ describe('Changes section and checkpoint dialog', () => {
 		/** The text of each row of the file list, without its action. */
 		async function rowTexts() {
 			const rows = await screen.findAllByRole('listitem');
-			return rows.map(row => row.textContent?.replace(/View detailed differences/, ''));
+			return rows.map(row => row.textContent?.replace(/View Detailed Differences/, ''));
 		}
 
 		test('the view shows the summary above the files and a note beside a file', async () => {
@@ -460,7 +460,7 @@ describe('Changes section and checkpoint dialog', () => {
 			await vi.waitFor(() => expect(agent.runsOf('describe-changes')).toHaveLength(1));
 			expect(await rowTexts()).toEqual(['plot_dose.Rchanged', 'theme.Rchanged']);
 			expect(screen.queryByText(description.summary)).not.toBeInTheDocument();
-			expect(screen.getByRole('button', { name: 'Create checkpoint...' })).toBeEnabled();
+			expect(screen.getByRole('button', { name: 'Create Checkpoint...' })).toBeEnabled();
 		});
 
 		test('while the description loads, the plain list shows and a checkpoint can be created', async () => {
@@ -712,7 +712,7 @@ describe('Changes section and checkpoint dialog', () => {
 		test('moving a part into its file where that file is not selected says so beside the file', async () => {
 			renderPanel(changes);
 			const user = await openDialog();
-			await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+			await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
 			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
 			await user.click(within(chunkGroups()[1]).getByRole('checkbox', { name: 'dose.R' }));
 			expect(screen.queryByText('Moved to a part that is not selected.')).not.toBeInTheDocument();
@@ -752,7 +752,7 @@ describe('Changes section and checkpoint dialog', () => {
 		test('moving a hunk between chunks updates both chunks', async () => {
 			renderPanel(changes);
 			const user = await openDialog();
-			await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+			await user.click(screen.getByRole('button', { name: 'Add Another Checkpoint' }));
 
 			await user.selectOptions(screen.getByRole('combobox', { name: 'Move part 2 of dose.R to' }), 'Checkpoint 2');
 

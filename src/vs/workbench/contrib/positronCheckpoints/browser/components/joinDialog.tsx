@@ -13,21 +13,25 @@ import { useState } from 'react';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { joinPath } from '../../../../../base/common/resources.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../../platform/workspace/common/workspace.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
-import { OKModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { IGitHubClient } from '../github/githubClient.js';
 
 const JOIN_DIALOG_WIDTH = 560;
 const JOIN_DIALOG_HEIGHT = 360;
 
-/** The built-in git command that copies a project to this computer and offers to open it. */
+/** The built-in git command that copies a project to this computer. */
 const CLONE_COMMAND_ID = 'git.clone';
+
+/** The command that opens a folder as the project of a window. */
+const OPEN_FOLDER_COMMAND_ID = 'vscode.openFolder';
 
 /** Opens the dialog that copies a colleague's project to this computer from its link. */
 export function showJoinDialog(): void {
@@ -44,10 +48,11 @@ type Phase = 'link' | 'copying' | 'ready';
 
 /**
  * Joins a project from its link. The person pastes the link, chooses the folder the project goes
- * into, and the built-in clone command copies it there and offers to open it. The dialog makes no
- * GitHub request, so a public project needs no sign-in. It never writes into a folder that
- * exists: when `parent/name` is taken, the person chooses another location. A failed copy states
- * whether a partly copied folder remains.
+ * into, and the built-in clone command copies it there without opening it or asking anything of
+ * its own. The dialog then offers Open Project. The dialog makes no GitHub request, so a public
+ * project needs no sign-in. It never writes into a folder that exists: when `parent/name` is
+ * taken, the person chooses another location. A copy that returns nothing (a cancel or a
+ * failure) states that the copy did not finish, and says so when a partly copied folder remains.
  */
 export const JoinDialog = (props: IJoinDialogProps) => {
 	const services = usePositronReactServicesContext();
@@ -56,6 +61,7 @@ export const JoinDialog = (props: IJoinDialogProps) => {
 	const [problem, setProblem] = useState<string>();
 	const [progressSentence, setProgressSentence] = useState<string>();
 	const [readySentence, setReadySentence] = useState<string>();
+	const [copiedFolder, setCopiedFolder] = useState<string>();
 
 	const accept = async () => {
 		if (phase !== 'link' || link.trim() === '') {
@@ -93,20 +99,34 @@ export const JoinDialog = (props: IJoinDialogProps) => {
 		setProgressSentence(Strings.join.copying(project.name));
 		let copiedTo: string | undefined;
 		try {
-			copiedTo = await services.get(ICommandService).executeCommand<string | undefined>(CLONE_COMMAND_ID, project.cloneUrl, parent.fsPath);
+			copiedTo = await services.get(ICommandService).executeCommand<string | undefined>(CLONE_COMMAND_ID, project.cloneUrl, parent.fsPath, { postCloneAction: 'none' });
 		} catch (error) {
 			services.get(ILogService).error('[Checkpoints] The project could not be copied.', error);
 		}
 		if (copiedTo) {
+			setCopiedFolder(copiedTo);
 			setReadySentence(Strings.join.ready(project.name));
 			setPhase('ready');
 			return;
 		}
-		// A failed copy removes its folder, and the dialog checks before it says nothing changed.
+		// A failed copy removes its folder, so a folder that remains is named.
 		setProblem(await fileService.exists(target)
 			? Strings.join.partialFolder(target.fsPath)
-			: Strings.join.copyFailed(project.owner));
+			: Strings.join.notFinished());
 		setPhase('link');
+	};
+
+	const openProject = async () => {
+		if (copiedFolder === undefined) {
+			return;
+		}
+		const folderIsOpen = services.get(IWorkspaceContextService).getWorkbenchState() !== WorkbenchState.EMPTY;
+		props.renderer.dispose();
+		try {
+			await services.get(ICommandService).executeCommand(OPEN_FOLDER_COMMAND_ID, URI.file(copiedFolder), { forceNewWindow: folderIsOpen });
+		} catch (error) {
+			services.get(ILogService).error('[Checkpoints] The copied project could not be opened.', error);
+		}
 	};
 
 	const cancel = () => {
@@ -118,19 +138,20 @@ export const JoinDialog = (props: IJoinDialogProps) => {
 
 	if (phase === 'ready') {
 		return (
-			<OKModalDialog
+			<OKCancelModalDialog
+				cancelButtonTitle={Strings.actions.close()}
 				height={JOIN_DIALOG_HEIGHT}
-				okButtonTitle={Strings.actions.close()}
+				okButtonTitle={Strings.join.openProject()}
 				renderer={props.renderer}
 				title={Strings.join.dialogTitle()}
 				width={JOIN_DIALOG_WIDTH}
-				onAccept={() => props.renderer.dispose()}
+				onAccept={openProject}
 				onCancel={() => props.renderer.dispose()}
 			>
 				<div className='checkpoint-dialog'>
 					<p role='status'>{readySentence}</p>
 				</div>
-			</OKModalDialog>
+			</OKCancelModalDialog>
 		);
 	}
 

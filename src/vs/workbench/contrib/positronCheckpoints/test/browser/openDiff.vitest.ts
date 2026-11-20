@@ -8,7 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IWorkspace, IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -16,6 +16,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { messageResource } from '../../browser/checkpointsContentProvider.js';
+import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { DiffRequest, openDiff } from '../../browser/openDiff.js';
 import { IRichDiffProvider, IRichDiffSides, richDiffRegistry } from '../../browser/richDiff/richDiffRegistry.js';
 import { FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
@@ -45,6 +46,7 @@ describe('openDiff', () => {
 		.build();
 
 	let engine: FakeCheckpointsEngine;
+	let messages: CheckpointsMessageService;
 	const text = (content: string) => new TextEncoder().encode(content);
 	const target: DiffRequest = { kind: 'change', path: 'analysis/dose.R' };
 
@@ -55,6 +57,9 @@ describe('openDiff', () => {
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
+		messages = ctx.disposables.add(new CheckpointsMessageService());
+		ctx.instantiationService.stub(ICheckpointsMessageService, messages);
+		ctx.instantiationService.stub(ILogService, new NullLogService());
 	});
 
 	function open(diffTarget: DiffRequest = target) {
@@ -144,13 +149,35 @@ describe('openDiff', () => {
 		expect(engine.callsOf('getDiff')).toEqual([]);
 	});
 
-	test('without an engine nothing opens', async () => {
+	test('without an engine nothing opens and the view says the differences could not be loaded', async () => {
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
 
 		await open();
 
 		expect(openEditor).not.toHaveBeenCalled();
+		expect(messages.message).toBe('Part of this view could not be loaded.');
+	});
+
+	test('a stored side over 20 MB with no known size is read once and opens the size message', async () => {
+		engine.diff = { left: { kind: 'blob', oid: 'big' }, right: { kind: 'empty' } };
+		engine.blobs.set('big', VSBuffer.wrap(new Uint8Array(21 * MEGABYTE)));
+
+		await open({ kind: 'pending', token: 't1', path: 'data/big.csv' });
+
+		const [input] = openEditor.mock.calls[0] as unknown as [{ resource: URI }];
+		expect(input.resource.toString()).toBe(messageResource('data/big.csv', 'data/big.csv is over 20 MB, so there is no line-by-line comparison. Before: 21.00MB. Now: 0B.').toString());
+		expect(engine.callsOf('readBlob')).toEqual([['big']]);
+	});
+
+	test('a size limit the caller gives replaces the 20 MB limit of an unmeasured side', async () => {
+		engine.diff = { left: { kind: 'blob', oid: 'mid' }, right: { kind: 'empty' } };
+		engine.blobs.set('mid', VSBuffer.wrap(new Uint8Array(3 * MEGABYTE)));
+
+		await ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, { kind: 'checkpoint', id: 'c1', path: 'data/mid.csv' }, 'mid.csv', { maxBytes: 2 * MEGABYTE }));
+
+		const [input] = openEditor.mock.calls[0] as unknown as [{ resource: URI }];
+		expect(input.resource.toString()).toBe(messageResource('data/mid.csv', 'data/mid.csv is over 2 MB, so there is no line-by-line comparison. Before: 3.00MB. Now: 0B.').toString());
 	});
 
 	describe('with a registered provider', () => {
@@ -231,6 +258,14 @@ describe('openDiff', () => {
 
 			const [input] = openEditor.mock.calls[0] as unknown as [{ resource: URI }];
 			expect(input.resource.toString()).toBe(messageResource('figures/Plot.PNG', 'figures/Plot.PNG is a data file, so there is no line-by-line comparison. Before: 4B. Now: 5B.').toString());
+		});
+
+		test('a stored version is read once even when the fallback needs it again', async () => {
+			providerOpen.mockRejectedValue(new Error('cannot decode'));
+
+			await open(image);
+
+			expect(engine.callsOf('readBlob')).toEqual([['old']]);
 		});
 
 		test('a file with no provider still opens the text comparison', async () => {

@@ -66,7 +66,7 @@ describe('positronCheckpoints.contribution', () => {
 	test('a window with no folder offers Join a Project in the welcome text of the Explorer', () => {
 		const welcome = Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).getViewWelcomeContent('workbench.explorer.emptyView');
 		const entry = welcome.find(content => content.content.includes(`command:${JOIN_PROJECT_COMMAND_ID}`));
-		expect(entry?.content).toContain('[Join a project]');
+		expect(entry?.content).toContain('[Join a Project]');
 		const when = entry?.when;
 		expect(typeof when === 'object' && when.equals(ContextKeyExpr.equals('workbenchState', 'empty'))).toBe(true);
 	});

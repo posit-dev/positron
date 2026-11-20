@@ -16,7 +16,9 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
+import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { readFailureKind } from '../../common/readFailure.js';
 import { CreateRepositoryResult, IGitHubClient, InviteResult } from '../github/githubClient.js';
 import { useRunAction } from './useRunAction.js';
 
@@ -26,8 +28,14 @@ const SHARE_DIALOG_HEIGHT = 540;
 const GITHUB_PROVIDER_ID = 'github';
 const GITHUB_SCOPES = ['repo'];
 
-/** The detail of the engine's `unavailable` answer when the project already has a shared copy. */
-const ALREADY_SHARED_DETAIL = 'already-shared';
+/**
+ * The details of the engine's `unavailable` answer to a link request that no second attempt
+ * changes, because the folder or the link itself is the cause.
+ */
+const PERMANENT_LINK_DETAILS: ReadonlySet<string> = new Set(['origin-exists', 'no-checkpoints', 'already-shared', 'bad-link', 'inside-another-project']);
+
+/** The reasons of an `unavailable` answer that describe the state of the folder, which no second attempt changes. */
+const PERMANENT_LINK_REASONS: ReadonlySet<string> = new Set(['unusual-state', 'not-tracking']);
 
 /** What the caller gives the dialog. */
 export interface IShareDialogOptions {
@@ -49,6 +57,7 @@ interface IShareDialogProps extends IShareDialogOptions {
 interface ICreatedProject {
 	owner: string;
 	name: string;
+	/** The validated link the folder is linked to. Empty when GitHub returned a link that is not usable. */
 	cloneUrl: string;
 	htmlUrl: string;
 }
@@ -88,7 +97,8 @@ function createFailureSentence(result: Extract<CreateRepositoryResult, { ok: fal
 		case 'not-allowed':
 			return owner !== '' ? Strings.share.organizationRefuses(owner) : Strings.share.accountRefuses();
 		case 'offline':
-			return Strings.share.offline();
+		case 'maybe-created':
+			return Strings.share.noAnswer();
 		case 'sign-in-required':
 		case 'unknown':
 			return Strings.share.createFailed(result.detail);
@@ -145,6 +155,31 @@ export const ShareDialog = (props: IShareDialogProps) => {
 		setPhase('stopped');
 	};
 
+	/**
+	 * Reads the project before anything is created. Returns the sentence that says why it cannot be
+	 * shared, or undefined when a shared copy can be linked.
+	 */
+	const checkProjectCanBeShared = async (): Promise<string | undefined> => {
+		const engine = services.get(ICheckpointsService).engine;
+		if (!engine) {
+			return Strings.status.noEngine();
+		}
+		try {
+			const state = await engine.getState();
+			if (state.shared.exists) {
+				return Strings.share.alreadyShared();
+			}
+			if (state.tracking !== 'tracking') {
+				return Strings.results.unavailable('not-tracking');
+			}
+			const history = await engine.getHistory(0, 1);
+			return history.length === 0 ? Strings.share.createFirst() : undefined;
+		} catch (error) {
+			services.get(ILogService).error('[Checkpoints] The project could not be read before sharing.', error);
+			return Strings.status.couldNotLoad(readFailureKind(error));
+		}
+	};
+
 	/** Runs the steps that are not done yet, in order, and stops at the first that fails. */
 	const run = async () => {
 		const github = services.get(IGitHubClient);
@@ -153,6 +188,13 @@ export const ShareDialog = (props: IShareDialogProps) => {
 		setStop(undefined);
 
 		if (!progress.current.created) {
+			// Nothing is created on GitHub before the project is known to accept a link to it.
+			const refusal = await checkProjectCanBeShared();
+			if (refusal !== undefined) {
+				setProblem(refusal);
+				setPhase('form');
+				return;
+			}
 			setProgressSentence(Strings.share.creating());
 			const trimmedName = name.trim();
 			const owner = organization.trim();
@@ -166,11 +208,12 @@ export const ShareDialog = (props: IShareDialogProps) => {
 				}
 				return;
 			}
+			// Only the validated link is given to the engine, never the text of GitHub's reply.
 			const link = github.parseProjectLink(result.cloneUrl);
 			progress.current.created = {
 				owner: link?.owner ?? owner,
 				name: link?.name ?? trimmedName,
-				cloneUrl: result.cloneUrl,
+				cloneUrl: link?.cloneUrl ?? '',
 				htmlUrl: result.htmlUrl,
 			};
 			setCreated(progress.current.created);
@@ -178,12 +221,16 @@ export const ShareDialog = (props: IShareDialogProps) => {
 		const project = progress.current.created;
 
 		if (!progress.current.connected) {
+			if (project.cloneUrl === '') {
+				stopWith({ sentence: Strings.share.notLinked(Strings.share.notLinkedReason('bad-link')), canRetry: false, needsSignIn: false });
+				return;
+			}
 			setProgressSentence(Strings.share.copying());
 			const connected = await runAction('no-guard', engine => engine.connectSharedCopy(project.cloneUrl));
 			if (connected?.kind === 'done') {
 				progress.current.connected = true;
-			} else if (connected?.kind === 'unavailable' && connected.detail === ALREADY_SHARED_DETAIL) {
-				stopWith({ sentence: Strings.share.alreadyShared(), canRetry: false, needsSignIn: false });
+			} else if (connected?.kind === 'unavailable' && ((connected.detail !== undefined && PERMANENT_LINK_DETAILS.has(connected.detail)) || PERMANENT_LINK_REASONS.has(connected.reason))) {
+				stopWith({ sentence: Strings.share.notLinked(Strings.share.notLinkedReason(connected.detail)), canRetry: false, needsSignIn: false });
 				return;
 			} else {
 				stopWith({ sentence: Strings.share.copyFailed(project.name), canRetry: true, needsSignIn: false });

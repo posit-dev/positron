@@ -15,7 +15,11 @@ const AUTH_PROVIDER_ID = 'github';
 const AUTH_SCOPES = ['repo'];
 const MAX_DETAIL_LENGTH = 300;
 
-export type CreateRepositoryFailure = 'sign-in-required' | 'name-taken' | 'not-allowed' | 'offline' | 'unknown';
+/**
+ * Why a request to create a project failed. `maybe-created` and `offline` leave it unknown
+ * whether GitHub created the project: GitHub did not answer, or its answer could not be used.
+ */
+export type CreateRepositoryFailure = 'sign-in-required' | 'name-taken' | 'not-allowed' | 'offline' | 'maybe-created' | 'unknown';
 export type InviteFailure = 'no-such-user' | 'not-allowed' | 'sign-in-required' | 'unknown';
 
 export type CreateRepositoryResult =
@@ -59,6 +63,11 @@ const LINK_PATTERNS: RegExp[] = [
 
 function isValidOwner(owner: string): boolean {
 	return owner.length <= MAX_OWNER_LENGTH && OWNER_PATTERN.test(owner);
+}
+
+/** A GitHub user name follows the same rules as the name of an owner. */
+function isValidLogin(login: string): boolean {
+	return isValidOwner(login);
 }
 
 function isValidName(name: string): boolean {
@@ -115,6 +124,9 @@ export class GitHubClient implements IGitHubClient {
 	}
 
 	async createRepository(name: string, isPrivate: boolean, owner?: string): Promise<CreateRepositoryResult> {
+		if (owner && !isValidOwner(owner)) {
+			return { ok: false, reason: 'not-allowed', detail: 'The organization name is not one GitHub allows.' };
+		}
 		const token = await this._getToken();
 		if (token === undefined) {
 			return { ok: false, reason: 'sign-in-required', detail: 'No GitHub sign-in.' };
@@ -131,7 +143,12 @@ export class GitHubClient implements IGitHubClient {
 				if (typeof created?.clone_url === 'string' && typeof created.html_url === 'string') {
 					return { ok: true, cloneUrl: created.clone_url, htmlUrl: created.html_url };
 				}
-				return { ok: false, reason: 'unknown', detail: 'GitHub did not return the new project links.' };
+				// GitHub created the project but its reply cannot be read, so the links come from the
+				// validated names. A personal project is under the signed-in user's login.
+				const links = await this._linksFromNames(owner, name, token);
+				return links
+					? { ok: true, ...links }
+					: { ok: false, reason: 'maybe-created', detail: 'GitHub did not return the new project links.' };
 			}
 			case 401:
 				return { ok: false, reason: 'sign-in-required', detail: response.detail };
@@ -150,6 +167,12 @@ export class GitHubClient implements IGitHubClient {
 	async invite(owner: string, name: string, login: string): Promise<InviteResult> {
 		if (login.includes('@')) {
 			return { ok: false, reason: 'no-such-user', detail: EMAIL_NOT_ACCEPTED_DETAIL };
+		}
+		if (!isValidLogin(login)) {
+			return { ok: false, reason: 'no-such-user', detail: 'The user name is not one GitHub allows.' };
+		}
+		if (!isValidOwner(owner) || !isValidName(name)) {
+			return { ok: false, reason: 'not-allowed', detail: 'The project name is not one GitHub allows.' };
 		}
 		const token = await this._getToken();
 		if (token === undefined) {
@@ -175,6 +198,18 @@ export class GitHubClient implements IGitHubClient {
 		}
 	}
 
+	/** The links of a project named `name` under `owner`, or under the signed-in user when `owner` is empty. */
+	private async _linksFromNames(owner: string | undefined, name: string, token: string): Promise<{ cloneUrl: string; htmlUrl: string } | undefined> {
+		let login = owner;
+		if (!login) {
+			const response = await this._send('GET', '/user', token);
+			const user = response.kind === 'response' ? response.json as { login?: unknown } | undefined : undefined;
+			login = typeof user?.login === 'string' ? user.login : undefined;
+		}
+		const link = login !== undefined && isValidName(name) ? parseProjectLink(`${login}/${name}`) : undefined;
+		return link ? { cloneUrl: link.cloneUrl, htmlUrl: `https://github.com/${link.owner}/${link.name}` } : undefined;
+	}
+
 	private async _getToken(): Promise<string | undefined> {
 		try {
 			const sessions = await this._authenticationService.getSessions(AUTH_PROVIDER_ID, AUTH_SCOPES);
@@ -185,7 +220,7 @@ export class GitHubClient implements IGitHubClient {
 		}
 	}
 
-	private async _send(method: 'POST' | 'PUT', path: string, token: string, body: object): Promise<
+	private async _send(method: 'GET' | 'POST' | 'PUT', path: string, token: string, body?: object): Promise<
 		| { kind: 'network-error'; detail: string }
 		| { kind: 'response'; status: number; text: string; json: unknown; detail: string }
 	> {
@@ -197,10 +232,10 @@ export class GitHubClient implements IGitHubClient {
 				headers: {
 					'Accept': 'application/vnd.github+json',
 					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/json',
+					...(body ? { 'Content-Type': 'application/json' } : {}),
 					'X-GitHub-Api-Version': '2022-11-28',
 				},
-				data: JSON.stringify(body),
+				data: body ? JSON.stringify(body) : undefined,
 				callSite: 'positronCheckpoints.github',
 			}, CancellationToken.None);
 		} catch (error) {

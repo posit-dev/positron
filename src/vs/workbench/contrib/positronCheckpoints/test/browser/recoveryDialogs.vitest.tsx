@@ -114,7 +114,7 @@ describe('Recovery and project check dialogs', () => {
 		const user = userEvent.setup();
 		expect(await screen.findByText('Getting Maya\'s changes was interrupted, and 2 files were changed afterwards.')).toBeInTheDocument();
 
-		await user.click(screen.getByRole('button', { name: 'Choose what to do' }));
+		await user.click(screen.getByRole('button', { name: 'Choose What to Do' }));
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByText('Getting Maya\'s changes was interrupted, and 2 files were changed afterwards.')).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('Recovery and project check dialogs', () => {
 		expect(within(dialog).getByText('Work set aside by another git tool was also changed.')).toBeInTheDocument();
 		expect(within(dialog).getByText('Project as it was before recovery')).toBeInTheDocument();
 
-		await user.click(within(dialog).getByRole('button', { name: 'Reverse the action and keep my newer files' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Reverse the Action and Keep My Newer Files' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('resolveInterrupted')).toEqual([['reverse-keep-newer']]));
 	});
@@ -133,8 +133,8 @@ describe('Recovery and project check dialogs', () => {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
-		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the project as it is' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the Project as It Is' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('resolveInterrupted')).toEqual([['leave-as-is']]));
 	});
@@ -145,14 +145,14 @@ describe('Recovery and project check dialogs', () => {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
-		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Reverse the action and keep my newer files' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Reverse the Action and Keep My Newer Files' }));
 
 		await vi.waitFor(() => expect(prompted).toEqual([['Save all and continue']]));
 		expect(engine.callsOf('resolveInterrupted')).toEqual([]);
 
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
-		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the project as it is' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
+		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Leave the Project as It Is' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('resolveInterrupted')).toEqual([['leave-as-is']]));
 		expect(prompted).toHaveLength(1);
@@ -163,7 +163,7 @@ describe('Recovery and project check dialogs', () => {
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
 		const dialog = await screen.findByRole('dialog');
 		await user.click(within(dialog).getByRole('button', { name: /^Remove: Project as it was before recovery/ }));
 
@@ -189,7 +189,7 @@ describe('Recovery and project check dialogs', () => {
 
 		const dialog = await screen.findByRole('dialog');
 
-		expect(within(dialog).getByRole('button', { name: 'Leave the project as it is' })).toBeInTheDocument();
+		expect(within(dialog).getByRole('button', { name: 'Leave the Project as It Is' })).toBeInTheDocument();
 	});
 
 	test('check-failed shows the output only under Show git details', async () => {
@@ -201,7 +201,7 @@ describe('Recovery and project check dialogs', () => {
 		expect(within(dialog).getByRole('list', { name: 'Files the check changed on disk:' })).toHaveTextContent('a.R');
 		expect(screen.queryByText('lint error on line 3')).not.toBeInTheDocument();
 
-		await user.click(within(dialog).getByRole('button', { name: 'Show git details' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Show Git Details' }));
 
 		expect(within(dialog).getByText('lint error on line 3')).toBeInTheDocument();
 	});
@@ -215,14 +215,14 @@ describe('Recovery and project check dialogs', () => {
 		const changed = within(dialog).getByRole('list', { name: 'Files the check changed:' });
 		await vi.waitFor(() => expect(within(changed).getAllByRole('listitem').map(item => item.firstChild?.textContent)).toEqual(['a.R', 'b.R']));
 		engine.nextResult = { kind: 'done', operationId: 'op-6', hookEditedFiles: [] };
-		await user.click(within(dialog).getByRole('button', { name: 'Create the checkpoint with these changes' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Create the Checkpoint with These Changes' }));
 		await vi.waitFor(() => expect(engine.callsOf('acceptCheckedCheckpoint')).toEqual([['tok-1']]));
 
 		engine.nextResult = { kind: 'check-changed-checkpoint', token: 'tok-2', changedPaths: ['a.R'], hookEditedFiles: [] };
 		await user.click(await screen.findByRole('button', { name: 'Send Changes' }));
 		dialog = await screen.findByRole('dialog');
 		engine.nextResult = { kind: 'done', operationId: 'op-7', hookEditedFiles: ['a.R'] };
-		await user.click(within(dialog).getByRole('button', { name: 'Do not create the checkpoint' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Do Not Create the Checkpoint' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('declineCheckedCheckpoint')).toEqual([['tok-2']]));
 		expect(await screen.findByText('The check also changed 1 file on disk.')).toBeInTheDocument();
@@ -236,11 +236,11 @@ describe('Recovery and project check dialogs', () => {
 
 		expect(await screen.findByText('A check set up for this project also changed these files.')).toBeInTheDocument();
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Review the changes' }));
+		await user.click(screen.getByRole('button', { name: 'Review the Changes' }));
 
 		const dialog = await screen.findByRole('dialog');
 		expect(within(dialog).getByRole('list', { name: 'Files the check changed:' })).toHaveTextContent(/^dose\.R/);
-		await user.click(within(dialog).getByRole('button', { name: 'Create the checkpoint with these changes' }));
+		await user.click(within(dialog).getByRole('button', { name: 'Create the Checkpoint with These Changes' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('acceptCheckedCheckpoint')).toEqual([['tok-9']]));
 	});
@@ -249,7 +249,7 @@ describe('Recovery and project check dialogs', () => {
 		engine.state = fakeEngineState({ interrupted, recoverySnapshots: [{ operationId: 'op-5', time: '2026-11-19T10:00:00Z' }] });
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
 		const dialog = await screen.findByRole('dialog');
 		engine.state = fakeEngineState({ interrupted });
 		const readsBefore = engine.callsOf('getState').length;
@@ -281,16 +281,16 @@ describe('Recovery and project check dialogs', () => {
 		engine.history = [fakeCheckpoint({ id: 'c1', title: 'Mine', shared: false })];
 		rtl.render(<CheckpointsPanel />);
 
-		await user.click(await screen.findByRole('button', { name: 'Choose what to do' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose What to Do' }));
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decide Later' }));
 		await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-		await user.click(screen.getByRole('button', { name: 'Choose what to do' }));
+		await user.click(screen.getByRole('button', { name: 'Choose What to Do' }));
 		expect(await screen.findByRole('dialog')).toBeInTheDocument();
 		await user.keyboard('{Escape}');
 		await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-		await user.click(screen.getByRole('button', { name: 'Review the changes' }));
+		await user.click(screen.getByRole('button', { name: 'Review the Changes' }));
 		await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Close' }));
 		await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
@@ -309,10 +309,10 @@ describe('Recovery and project check dialogs', () => {
 		engine.diff = { left: { kind: 'blob', oid: 'before' }, right: { kind: 'blob', oid: 'after' } };
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Review the changes' }));
+		await user.click(await screen.findByRole('button', { name: 'Review the Changes' }));
 		const dialog = await screen.findByRole('dialog');
 
-		await user.click(within(dialog).getByRole('button', { name: 'View detailed differences: dose.R' }));
+		await user.click(within(dialog).getByRole('button', { name: 'View Detailed Differences: dose.R' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'pending', token: 'tok-9', path: 'dose.R' }]]));
 		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({ label: 'dose.R (as the check changed it)' })));
@@ -323,16 +323,17 @@ describe('Recovery and project check dialogs', () => {
 		engine.pendingFiles.set('tok-9', [fakeChangedFile('dose.R'), fakeChangedFile('notes.md', { status: 'added' })]);
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Review the changes' }));
+		await user.click(await screen.findByRole('button', { name: 'Review the Changes' }));
 		const dialog = await screen.findByRole('dialog');
 
 		const changed = within(dialog).getByRole('list', { name: 'Files the check changed:' });
 		await vi.waitFor(() => expect(within(changed).getAllByRole('listitem').map(item => item.textContent)).toEqual([
-			'dose.RchangedView detailed differences',
-			'notes.mdnewView detailed differences',
+			'dose.RchangedView Detailed Differences',
+			'notes.mdnewView Detailed Differences',
 		]));
 		expect(engine.callsOf('getPendingFiles')).toEqual([['tok-9']]);
-		await user.click(within(dialog).getByRole('button', { name: 'View detailed differences: notes.md' }));
+		expect(within(dialog).getByText('The comparison opens when you close this window.')).toBeInTheDocument();
+		await user.click(within(dialog).getByRole('button', { name: 'View Detailed Differences: notes.md' }));
 
 		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'pending', token: 'tok-9', path: 'notes.md' }]]));
 	});
@@ -342,7 +343,7 @@ describe('Recovery and project check dialogs', () => {
 		engine.getPendingFiles = async () => { throw new Error('checkpoints:timed-out git diff-tree did not respond in time'); };
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
-		await user.click(await screen.findByRole('button', { name: 'Review the changes' }));
+		await user.click(await screen.findByRole('button', { name: 'Review the Changes' }));
 		const dialog = await screen.findByRole('dialog');
 
 		await vi.waitFor(() => expect(messageService.message).toBe('The project did not respond in time, so part of this view could not be loaded.'));
@@ -366,7 +367,7 @@ describe('Recovery and project check dialogs', () => {
 		engine.state = fakeEngineState({ interrupted });
 		rtl.render(<CheckpointsPanel />);
 
-		expect(await screen.findByRole('button', { name: 'Choose what to do' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Choose What to Do' })).toBeInTheDocument();
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 	});
 });
