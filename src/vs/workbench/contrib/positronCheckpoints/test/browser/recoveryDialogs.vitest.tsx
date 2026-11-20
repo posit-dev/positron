@@ -8,7 +8,7 @@
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -24,6 +24,7 @@ import { CheckpointsService } from '../../../../services/positronCheckpoints/bro
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { IWorkingCopy } from '../../../../services/workingCopy/common/workingCopy.js';
 import { IWorkingCopyService } from '../../../../services/workingCopy/common/workingCopyService.js';
+import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
@@ -47,6 +48,8 @@ describe('Recovery and project check dialogs', () => {
 		.stub(IDialogService, {})
 		.stub(IFileService, {})
 		.stub(IEditorService, { openEditor })
+		// The disclosure card of the panel reads the agent service; no job waits on it here.
+		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

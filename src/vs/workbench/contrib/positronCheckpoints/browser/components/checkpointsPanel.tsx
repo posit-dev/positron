@@ -6,6 +6,7 @@
 import '../media/positronCheckpoints.css';
 
 import { ChangesSection } from './changesSection.js';
+import { DisclosureCard } from './disclosureCard.js';
 import { HistorySection } from './historySection.js';
 import { KeptFilesSection } from './keptFilesSection.js';
 import { RecoverySnapshotsSection, StateCards } from './stateCards.js';
@@ -17,7 +18,7 @@ import { useCheckpointsMessage } from './useRunAction.js';
 
 /**
  * The content of the Checkpoints view: the status header, the status line of the last action,
- * the cards for open decisions, and the sections of a tracked project. In an unusual state the
+ * the cards for open decisions and the notice about the model provider, and the sections of a tracked project. In an unusual state the
  * sections are disabled.
  */
 export const CheckpointsPanel = () => {
@@ -35,6 +36,7 @@ export const CheckpointsPanel = () => {
 				{message}
 			</div>
 			{tracking && <StateCards view={view} />}
+			{tracking && <DisclosureCard />}
 			{tracking && (
 				// A disabled fieldset disables every control inside it.
 				<fieldset className='checkpoints-sections' data-testid='checkpoints-sections' disabled={!actionsEnabled}>

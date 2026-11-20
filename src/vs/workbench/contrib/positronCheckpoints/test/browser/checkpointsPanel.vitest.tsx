@@ -8,6 +8,7 @@
 import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -15,6 +16,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { UnusualKind } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
@@ -35,6 +37,8 @@ describe('CheckpointsPanel', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(ICommandService, { executeCommand })
+		// The disclosure card of the panel reads the agent service; no job waits on it here.
+		.stub(ICheckpointsAgentService, { pendingDisclosure: false, onDidChangePendingDisclosure: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

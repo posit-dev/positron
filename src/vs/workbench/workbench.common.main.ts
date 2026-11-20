@@ -558,6 +558,7 @@ import './services/positronDataExplorer/browser/positronDataImporterRegistry.js'
 import './services/positronObjectExplorer/browser/positronObjectExplorerService.js';
 import './services/positronConnections/browser/positronConnectionsService.js';
 import './services/positronCheckpoints/browser/checkpointsService.js';
+import './contrib/positronCheckpoints/browser/checkpointsAgentService.js';
 import './services/positronDataConnections/browser/positronDataConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import './contrib/positronAssistant/browser/positronAssistantService.js';

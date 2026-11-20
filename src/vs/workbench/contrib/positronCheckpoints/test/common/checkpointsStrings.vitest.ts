@@ -119,7 +119,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	},
 	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]] },
 	suggestions: { goodPlace: [[]] },
-	aiNotice: { disclosure: [[]], openSetting: [[]] },
+	aiNotice: { heading: [[]], disclosure: [[]], ok: [[]], turnOff: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },
 };
 

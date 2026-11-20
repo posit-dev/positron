@@ -411,7 +411,10 @@ const suggestions = {
 };
 
 const aiNotice = {
-	disclosure: () => localize('positron.checkpoints.aiNotice.disclosure', "To describe your changes, this view sends them to the language model provider you have set up."),
+	heading: () => localize('positron.checkpoints.aiNotice.heading', "Descriptions of your changes"),
+	disclosure: () => localize('positron.checkpoints.aiNotice.disclosure', "Checkpoints sends your changes to your configured model provider to describe them."),
+	ok: () => localize('positron.checkpoints.aiNotice.ok', "OK"),
+	turnOff: () => localize('positron.checkpoints.aiNotice.turnOff', "Turn off suggestions"),
 	openSetting: () => localize('positron.checkpoints.aiNotice.openSetting', "Open the setting"),
 };
 
