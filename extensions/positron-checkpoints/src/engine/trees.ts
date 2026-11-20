@@ -76,9 +76,8 @@ export async function worktreeTree(ports: EnginePorts, largeFileBytes = LARGE_FI
 
 	const tree = await withTempIndex(ports, async env => {
 		// Start from the real index so tracked paths (including newly staged ones) are known.
-		const realIndex = await ports.files.read(`${gitDir}/index`);
-		if (realIndex !== undefined) {
-			await ports.files.write(env.GIT_INDEX_FILE, realIndex, false);
+		if (await ports.files.stat(`${gitDir}/index`) !== undefined) {
+			await ports.files.copyKeepingTime(`${gitDir}/index`, env.GIT_INDEX_FILE);
 		}
 		// A copied assume-unchanged flag makes `add -u` skip an edited file.
 		const flagged = splitZ(await mustGit(ports, ['ls-files', '-v', '-z'], { env }))

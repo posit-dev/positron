@@ -15,6 +15,13 @@ export interface FilePort {
 	stat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean } | undefined>;
 	/** Like `stat`, but describes a symbolic link itself instead of its target. */
 	lstat(path: string): Promise<{ sizeBytes: number; isDirectory: boolean; isSymbolicLink: boolean } | undefined>;
+	/**
+	 * Copies a file and gives the copy the modification time of the original (rounded down to a
+	 * millisecond). Git treats an index entry as unverified when its file time is not older than
+	 * the index file, so a copy of an index needs the time of the original to keep that check.
+	 * Replaces an existing file at `to`.
+	 */
+	copyKeepingTime(from: string, to: string): Promise<void>;
 	appendDurable(path: string, line: string): Promise<void>;
 	caseInsensitive(): Promise<boolean>;
 }

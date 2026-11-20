@@ -106,6 +106,14 @@ export function createNodeFilePort(root: string, extraRoots: string[] = []): Fil
 				throw error;
 			}
 		},
+		async copyKeepingTime(from, to) {
+			const source = await resolve(from, true);
+			const target = await resolve(to);
+			await fsp.mkdir(path.dirname(target), { recursive: true });
+			await fsp.copyFile(source, target);
+			const info = await fsp.stat(source);
+			await fsp.utimes(target, info.atime, info.mtime);
+		},
 		async appendDurable(file, line) {
 			const full = await resolve(file, true);
 			await fsp.mkdir(path.dirname(full), { recursive: true });

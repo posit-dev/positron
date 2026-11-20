@@ -235,4 +235,21 @@ describe('trees', () => {
 		await worktreeTree(ports);
 		expect(timeouts).toEqual({ add: 600000, 'write-tree': 600000 });
 	});
+
+	test('worktreeTree sees an edit of the same size made in the same second as the last index write', async () => {
+		const repo = await create();
+		const stamp = new Date(Date.now() - 60_000);
+		stamp.setMilliseconds(0);
+		const file = path.join(repo.root, 'a.txt');
+		await repo.write('a.txt', 'one\n');
+		await fsp.utimes(file, stamp, stamp);
+		await repo.commit('first');
+		// The index entry, the index file, and the edited file all have the same time, so git
+		// verifies the content. A copy of the index with a later time would make it trust the entry.
+		await fsp.utimes(path.join(repo.root, '.git', 'index'), stamp, stamp);
+		await repo.write('a.txt', 'two\n');
+		await fsp.utimes(file, stamp, stamp);
+		const { tree } = await worktreeTree(repo.ports);
+		expect((await repo.git(['show', `${tree}:a.txt`])).stdout).toBe('two\n');
+	});
 });

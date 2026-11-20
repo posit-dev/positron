@@ -56,6 +56,17 @@ describe('createNodeFilePort', () => {
 		expect((await fsp.stat(path.join(root, 'locked.sh'))).mode & 0o777).toBe(0o300);
 	});
 
+	test('copyKeepingTime copies the content and the modification time', async () => {
+		await files.write('a/index', new TextEncoder().encode('data'), false);
+		const old = new Date('2020-01-02T03:04:05.678Z');
+		await fsp.utimes(path.join(root, 'a/index'), old, old);
+		await files.write('b/copy', new TextEncoder().encode('previous'), false);
+		await files.copyKeepingTime('a/index', 'b/copy');
+		expect(new TextDecoder().decode(await files.read('b/copy'))).toBe('data');
+		expect((await fsp.stat(path.join(root, 'b/copy'))).mtime.getTime()).toBe(old.getTime());
+		await expect(files.copyKeepingTime('a/index', '../escape')).rejects.toThrow();
+	});
+
 	test('appendDurable appends the text exactly as given', async () => {
 		await files.appendDurable('log/journal', 'one\n');
 		await files.appendDurable('log/journal', 'two\n');
