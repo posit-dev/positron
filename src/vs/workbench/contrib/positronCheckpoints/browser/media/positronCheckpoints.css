@@ -137,14 +137,13 @@
 	font-weight: 600;
 }
 
-/* The status word is read after the path and shown before it. */
-.positron-checkpoints .checkpoints-file-status {
-	order: -1;
+.positron-checkpoints .checkpoints-tag {
 	flex: none;
 	padding: 0 var(--vscode-spacing-size60);
 	border: 1px solid currentColor;
 	border-radius: var(--vscode-cornerRadius-small);
 	font-size: var(--vscode-fontSize-body2);
+	white-space: nowrap;
 	color: var(--vscode-descriptionForeground);
 }
 
@@ -208,22 +207,58 @@
 }
 
 .positron-checkpoints .checkpoints-history-row {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: auto auto 1fr auto;
 	align-items: baseline;
-	gap: var(--vscode-spacing-size80);
+	column-gap: var(--vscode-spacing-size80);
+	row-gap: var(--vscode-spacing-size20);
+	padding: var(--vscode-spacing-size40) 0;
 }
 
 .positron-checkpoints .checkpoints-history-title {
+	grid-row: 1;
+	grid-column: 1 / span 3;
+	display: flex;
+	align-items: baseline;
+	gap: var(--vscode-spacing-size40);
+	min-width: 0;
 	text-align: left;
 	overflow-wrap: anywhere;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.positron-checkpoints .checkpoints-history-title .codicon {
+	flex: none;
+	align-self: center;
+	color: var(--vscode-icon-foreground);
+}
+
+.positron-checkpoints .checkpoints-history-unshared {
+	grid-row: 1;
+	grid-column: 4;
+}
+
+.positron-checkpoints .checkpoints-history-author {
+	grid-row: 2;
+	grid-column: 1;
+	padding-left: var(--vscode-spacing-size200);
+}
+
+.positron-checkpoints .checkpoints-history-time {
+	grid-row: 2;
+	grid-column: 2;
 }
 
 .positron-checkpoints .checkpoints-details {
+	grid-row: 3;
+	grid-column: 1 / -1;
 	display: flex;
 	flex-direction: column;
 	gap: var(--vscode-spacing-size60);
-	flex-basis: 100%;
+	margin: var(--vscode-spacing-size40) 0 var(--vscode-spacing-size40) var(--vscode-spacing-size80);
+	padding-left: var(--vscode-spacing-size120);
+	border-left: 2px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
 }
 
 .positron-checkpoints .checkpoints-details-body {
@@ -234,7 +269,20 @@
 .positron-checkpoints .checkpoints-details-actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--vscode-spacing-size120);
+	gap: var(--vscode-spacing-size60);
+}
+
+.positron-checkpoints .checkpoints-details-actions .checkpoints-link {
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, var(--vscode-editorWidget-border)));
+	border-radius: var(--vscode-cornerRadius-small);
+	color: var(--vscode-button-secondaryForeground);
+	background-color: var(--vscode-button-secondaryBackground);
+}
+
+.positron-checkpoints .checkpoints-details-actions .checkpoints-link:hover {
+	text-decoration: none;
+	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 .positron-checkpoints .checkpoints-git-details {

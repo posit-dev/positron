@@ -11,7 +11,8 @@ import { Strings } from '../../common/checkpointsStrings.js';
 import { openDiff } from '../openDiff.js';
 import { isImagePath } from '../richDiff/imageDiffEditor.js';
 import { showCheckpointDialog } from './checkpointDialog.js';
-import { knownSizes, statusWord } from './fileStatus.js';
+import { FileRow } from './fileRow.js';
+import { knownSizes } from './fileStatus.js';
 import { SummaryText } from './summaryText.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { useChangesDescription } from './useChangesDescription.js';
@@ -62,29 +63,14 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 				: (
 					<ul className='checkpoints-file-list'>
 						{changes.files.map(file => (
-							<li key={file.path} className='checkpoints-file-row'>
-								<div className='checkpoints-file-main'>
-									<span className='checkpoints-file-path'>{file.path}</span>
-									<span className={`checkpoints-file-status checkpoints-file-status-${file.status}`}>{statusWord(file)}</span>
-									<Button
-										ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)}
-										className='checkpoints-icon-button'
-										tooltip={Strings.actions.viewDetailedDifferences()}
-										onPressed={() => viewDifferences(file)}
-									>
-										<span aria-hidden='true' className='codicon codicon-diff' />
-									</Button>
-								</div>
-								{file.oldPath !== undefined && (
-									<span className='checkpoints-file-note'>{Strings.changes.previousName(file.oldPath)}</span>
-								)}
+							<FileRow key={file.path} file={file} onViewDifferences={() => viewDifferences(file)}>
 								{file.binary && (
 									<span className='checkpoints-file-note'>{(isImagePath(file.path) ? Strings.changes.imageFile : Strings.changes.binaryFile)(ByteSize.formatSize(file.sizeBytes))}</span>
 								)}
 								{notes.has(file.path) && (
 									<span className='checkpoints-file-note'>{notes.get(file.path)}</span>
 								)}
-							</li>
+							</FileRow>
 						))}
 					</ul>
 				)}

@@ -73,13 +73,14 @@ export const HistorySection = ({ view, visible = true }: { view: ICheckpointsVie
 										className='checkpoints-link checkpoints-history-title'
 										onPressed={() => setExpandedId(expanded ? undefined : checkpoint.id)}
 									>
+										<span aria-hidden='true' className={`codicon ${expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
 										{title}
 									</Button>
-									<span className='checkpoints-file-note'>
+									<span className='checkpoints-file-note checkpoints-history-author'>
 										{checkpoint.authorIsMe ? Strings.history.you() : checkpoint.authorName}
 									</span>
-									<span className='checkpoints-file-note'>{fromNow(new Date(checkpoint.time), true)}</span>
-									{!checkpoint.shared && <span className='checkpoints-file-status'>{Strings.history.notYetShared()}</span>}
+									<span className='checkpoints-file-note checkpoints-history-time'>{fromNow(new Date(checkpoint.time), true)}</span>
+									{!checkpoint.shared && <span className='checkpoints-tag checkpoints-history-unshared'>{Strings.history.notYetShared()}</span>}
 									{expanded && (
 										<CheckpointDetails branch={branch} checkpoint={checkpoint} description={description} upstream={upstream} onChanged={view.refresh} />
 									)}

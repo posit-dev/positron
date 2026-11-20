@@ -14,7 +14,8 @@ import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
 import { ICheckpointsMessageService, reportReadFailure } from '../checkpointsMessages.js';
 import { openDiff } from '../openDiff.js';
-import { knownSizes, statusWord } from './fileStatus.js';
+import { FileRow } from './fileRow.js';
+import { knownSizes } from './fileStatus.js';
 import { GitDetails } from './gitDetails.js';
 import { showEditDescriptionDialog, showReverseDialog } from './historyDialogs.js';
 import { useRunAction } from './useRunAction.js';
@@ -94,20 +95,11 @@ export const CheckpointDetails = ({ checkpoint, description, branch, upstream, o
 				: (
 					<ul aria-label={Strings.history.files()} className='checkpoints-file-list'>
 						{files.map(file => (
-							<li key={file.path} className='checkpoints-file-row'>
-								<span className='checkpoints-file-path'>{file.path}</span>
-								<span className='checkpoints-file-status'>{statusWord(file)}</span>
-								{file.oldPath !== undefined && (
-									<span className='checkpoints-file-note'>{Strings.changes.previousName(file.oldPath)}</span>
-								)}
-								<Button
-									ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)}
-									className='checkpoints-link'
-									onPressed={() => openDiff(services, { kind: 'checkpoint', id: checkpoint.id, path: file.path }, Strings.diff.checkpointTitle(file.path, title), knownSizes(file))}
-								>
-									{Strings.actions.viewDetailedDifferences()}
-								</Button>
-							</li>
+							<FileRow
+								key={file.path}
+								file={file}
+								onViewDifferences={() => openDiff(services, { kind: 'checkpoint', id: checkpoint.id, path: file.path }, Strings.diff.checkpointTitle(file.path, title), knownSizes(file))}
+							/>
 						))}
 					</ul>
 				))}

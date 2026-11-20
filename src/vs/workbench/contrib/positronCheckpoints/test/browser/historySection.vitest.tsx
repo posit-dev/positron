@@ -256,9 +256,9 @@ describe('History section', () => {
 
 		const files = await screen.findByRole('list', { name: 'Files in this version' });
 		expect(within(files).getAllByRole('listitem').map(item => item.textContent)).toEqual([
-			'dose.RchangedView Detailed Differences',
-			'notes.mdnewView Detailed Differences',
-			'fit.Rrenamedwas model.RView Detailed Differences',
+			'dose.Rchanged',
+			'notes.mdnew',
+			'fit.Rrenamedwas model.R',
 		]);
 		expect(engine.callsOf('getCheckpointFiles')).toEqual([['c4']]);
 	});
