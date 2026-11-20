@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 // Other dependencies.
 import { DisposableResizeObserver, getWindow } from '../../../../../base/browser/dom.js';
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
+import { AssistantCard } from './components/assistantCard.js';
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { LayoutCards } from './components/layoutCards.js';
@@ -19,6 +20,7 @@ import { WalkthroughBanner } from './components/walkthroughBanner.js';
 import { WelcomeHeader } from './components/welcomeHeader.js';
 import { EnvironmentHealthLanguage } from './environmentHealth.js';
 import { IEnvironmentHealthService } from './environmentHealthService.js';
+import { WelcomeAssistantCard } from './welcomeAssistantCard.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -49,6 +51,12 @@ export interface PositronWelcomePageProps {
 	 * auto-expand rule decides for it.
 	 */
 	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
+
+	/**
+	 * The Posit Assistant chat card. Built by the editor pane, because its
+	 * webview has to outlive this component.
+	 */
+	readonly assistantCard: WelcomeAssistantCard;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
@@ -86,6 +94,7 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 			<WelcomeHeader />
 			<LayoutCards />
 			<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
+			<AssistantCard card={props.assistantCard} />
 			<div className='positron-welcome-page-columns'>
 				<div className='positron-welcome-page-column-main'>
 					<DomSlot element={props.recentList} />

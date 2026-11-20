@@ -1,0 +1,27 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-welcome-page-assistant .positron-welcome-page-assistant-title {
+	margin: 0 0 8px;
+}
+
+/*
+ * The card frame. Matches the environment setup card's border, background, and
+ * radius. The padding keeps the webview, which is a square-cornered rectangle,
+ * inside the rounded border.
+ */
+.positron-welcome-page-assistant .positron-welcome-page-assistant-card {
+	background-color: var(--vscode-positronWelcome-environmentSetupBackground);
+	border: 1px solid var(--vscode-positronWelcome-environmentSetupBorder);
+	border-radius: 6px;
+	box-sizing: border-box;
+	height: 360px;
+	padding: 4px;
+}
+
+/* Where the webview is drawn. It fills the frame inside the padding. */
+.positron-welcome-page-assistant .positron-welcome-page-assistant-anchor {
+	height: 100%;
+}

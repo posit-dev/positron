@@ -96,6 +96,7 @@ import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/c
 import { createPositronWelcomePage } from './positronWelcomePage/positronWelcomePage.js';
 import { EnvironmentHealthLanguage } from './positronWelcomePage/environmentHealth.js';
 import { IEnvironmentHealthService } from './positronWelcomePage/environmentHealthService.js';
+import { WelcomeAssistantCard } from './positronWelcomePage/welcomeAssistantCard.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -214,6 +215,10 @@ export class GettingStartedPage extends EditorPane {
 	// walkthrough registers. One map per pane, so two welcome pages side by side
 	// fold independently while sharing their check results.
 	private readonly expandedByLanguage = new Map<EnvironmentHealthLanguage, boolean>();
+	// The Posit Assistant chat card. On the pane rather than in the React tree,
+	// because its webview would reload every time the tree is rebuilt. Built on
+	// the first welcome page build.
+	private assistantCard: WelcomeAssistantCard | undefined;
 	// --- End Positron ---
 
 	get editorInput(): GettingStartedInput | undefined {
@@ -1176,12 +1181,15 @@ export class GettingStartedPage extends EditorPane {
 			this.environmentHealthService.rerunChecksForPage(this.editorInput);
 		}
 
+		this.assistantCard ??= this._register(this.instantiationService.createInstance(WelcomeAssistantCard));
+
 		const reactHost = $('div');
 		this.positronReactRenderer.value = createPositronWelcomePage(reactHost, {
 			recentList: recentList.getDomElement(),
 			footer,
 			environmentHealthService: this.environmentHealthService,
 			expandedByLanguage: this.expandedByLanguage,
+			assistantCard: this.assistantCard,
 			// React mounts asynchronously, so the elements above are not in the
 			// DOM yet when the caller runs registerDispatchListeners, nor when it
 			// measures the slide for scrolling. Redo both once they are.
