@@ -65,3 +65,15 @@ export function ensureNoLeakedDisposables(): Pick<DisposableStore, 'add'> {
 	};
 	return testContext;
 }
+
+/**
+ * Creates a bubbling, cancelable wheel event. The test DOM's WheelEvent ignores the modifier keys
+ * in its init dictionary, so ctrlKey is defined on the event directly.
+ * @param init The vertical delta and whether Ctrl is held.
+ * @returns The wheel event.
+ */
+export function createWheelEvent(init: { deltaY: number; ctrlKey?: boolean }): WheelEvent {
+	const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: init.deltaY });
+	Object.defineProperty(event, 'ctrlKey', { value: init.ctrlKey ?? false });
+	return event;
+}

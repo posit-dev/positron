@@ -7,11 +7,11 @@
 import './variablesInstance.css';
 
 // React.
-import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -26,6 +26,7 @@ import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableI
 import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { keepWheelFromWorkbench } from '../../../../browser/positronWorkbenchWheel.js';
 
 /**
  * Constants.
@@ -540,15 +541,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
-	// workaround for web disabling scrolling on the window to prevent URL navigation
-	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
-		if (!isWeb) {
-			return;
-		}
-
-		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
-	};
-
 	// Build the row data passed to the stable virtualized row component. Identity changes
 	// each render, but `VariableEntryRow` itself is hoisted at module scope so react-window
 	// re-renders rows with new props instead of unmounting and remounting them.
@@ -570,6 +562,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 	// Render.
 	return (
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- existing debt: this focusable container handles the list's navigation keys and has no role yet.
 		<div
 			ref={outerRef}
 			className={'variables-instance state-' + clientState}
@@ -582,7 +575,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onBlur={blurHandler}
 			onFocus={focusHandler}
 			onKeyDown={keyDownHandler}
-			onWheel={wheelHandler}
+			onWheel={keepWheelFromWorkbench}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :

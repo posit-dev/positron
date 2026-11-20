@@ -21,9 +21,10 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
-import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
+import { keepWheelFromWorkbench } from '../../../../browser/positronWorkbenchWheel.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
@@ -732,20 +733,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
-	 * Fixes the scroll event override that VS Code drops to prevent gesture navigation.
-	 * @param e A WheelEvent<HTMLDivElement>
-	 */
-	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
-		if (isWeb) {
-			consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
-		}
-	};
-
-	/**
 	 * onWheel event handler.
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
 	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
+		// Ctrl + wheel does not scroll the console, so it must not engage scroll lock.
+		if (!keepWheelFromWorkbench(e)) {
+			return;
+		}
+
 		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
 		if (e.deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
@@ -791,7 +787,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			<div
 				ref={consoleInstanceContainerRef}
 				className='console-instance-container'
-				onWheel={scrollOverrideHandler}
 			>
 				<ConsoleInstanceItems
 					consoleInputWidth={consoleInputWidth}
