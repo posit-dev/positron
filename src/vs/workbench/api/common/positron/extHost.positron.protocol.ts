@@ -28,7 +28,8 @@ import { PlotRenderSettings } from '../../../services/positronPlots/common/posit
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
-import { EvalResult } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { EvalResult, PlotPoint } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { IPlotSize } from '../../../services/positronPlots/common/sizingPolicy.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
@@ -534,8 +535,29 @@ export interface ExtHostAiFeaturesShape {
 	$askErrorActionHandler(handle: number, action: ErrorAction, context: IErrorActionContext, continueChat: boolean): Promise<void>;
 }
 
+export interface IEditReviewEntryDto {
+	readonly uri: UriComponents;
+	readonly state: 'pending' | 'kept' | 'undone';
+	readonly edits: readonly { readonly operationId: number; readonly state: 'pending' | 'kept' | 'undone' | 'partial' }[];
+}
+
+export interface MainThreadEditReviewShape extends IDisposable {
+	$createSession(handle: number): Promise<void>;
+	$startEdits(handle: number, resources: UriComponents[]): Promise<number>;
+	$stopEdits(handle: number, operationId: number): Promise<void>;
+	$keep(handle: number, resources: UriComponents[] | undefined): Promise<void>;
+	$undo(handle: number, resources: UriComponents[] | undefined): Promise<void>;
+	$show(handle: number): Promise<void>;
+	$disposeSession(handle: number): void;
+}
+
+export interface ExtHostEditReviewShape {
+	$onDidChangeEntries(handle: number, entries: IEditReviewEntryDto[]): void;
+}
+
 export interface MainThreadPlotsServiceShape {
 	$getPlotsRenderSettings(): Promise<PlotRenderSettings>;
+	$locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined>;
 }
 
 export interface ExtHostPlotsServiceShape {
@@ -673,6 +695,7 @@ export const ExtHostPositronContext = {
 	ExtHostEnvironment: createProxyIdentifier<ExtHostEnvironmentShape>('ExtHostEnvironment'),
 	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
+	ExtHostEditReview: createProxyIdentifier<ExtHostEditReviewShape>('ExtHostEditReview'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
@@ -699,6 +722,7 @@ export const MainPositronContext = {
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
+	MainThreadEditReview: createProxyIdentifier<MainThreadEditReviewShape>('MainThreadEditReview'),
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),

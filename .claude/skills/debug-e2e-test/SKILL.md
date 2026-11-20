@@ -91,8 +91,8 @@ These hold on both entries unless a line names one.
   Nothing in this skill needs `unzip`: local evidence reads traces with `yauzl`
   instead.
 - **CI entry only:** `E2E_INSIGHTS_API_KEY` set, or present in the repo-root `.env.e2e` (the query
-  script falls back to it automatically). Get it from 1Password at
-  `op://Positron/E2E_dashboard_api_key/credential`; without 1Password access, ask
+  script falls back to it automatically). Get it from 1Password: the first `password` field of
+  `CONNECT_API_KEY - e2e-test-insights` (`op://Positron/vj4m6mljkplpec24joxrc2x2d4/tsc6gr5mwhtnmpvyeolldohle4`); without 1Password access, ask
   the Positron QA team. `triage-history.js` pre-flights this and exits with
   `cause: "missing-api-key"` plus the setup steps -- **relay those steps and stop;
   this is not a triage finding and there is no degraded mode.** A `cause:

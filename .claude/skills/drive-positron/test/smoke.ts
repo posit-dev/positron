@@ -6,7 +6,7 @@
 // drive-positron's smoke test: launches one Positron on a copy of fixture/,
 // runs every helper once through its .sh, as an agent would, and checks the
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
-// venv; about 8 minutes, --quick about 2):
+// venv; about 14 minutes, --quick about 2):
 //
 //   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start]] [--results FILE] [--keep] [-- APP ARGS...]
 //   node .claude/skills/drive-positron/test/smoke.ts --list
@@ -91,6 +91,8 @@ const keys = (j: Json | null, ...ks: string[]) => { const miss = ks.filter(k => 
 const startedCopied = (o: Out) => (o.json!.started !== true && `not started: ${o.json!.error}`) || (!found.copied.startsWith(`${o.json!.runtime} (`) && `started ${o.json!.runtime}, not ${found.copied}`);
 /** A runtime picker row as "shown" writes it is a Python one: its label ("Python 3.12.3") or description ("uv: ws (Python 3.14.7)") leads with Python. */
 const pythonRow = (x: string) => /^Python |\(Python /.test(x);
+/** The plot shown is thumbnail n's. */
+const showsThumbnail = (o: Out, n: number) => o.json!.plot?.name !== o.json!.filmstrip?.[n - 1]?.name && `shows ${o.json!.plot?.name}, thumbnail ${n} is ${o.json!.filmstrip?.[n - 1]?.name}`;
 /** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
@@ -114,8 +116,11 @@ const cases: Case[] = [
 	{ name: 'panel sessio names the nearest command', run: ['panel.sh', 'sessio'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"sessio" is not a command: the nearest is sessions') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// The workspace's interpreter can lead its row with its environment ("uv: ws (Python 3.14.7)"): it is listed too.
-	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) },
-	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
+	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !pythonRow(x)) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (!o.json!.shown.some((x: string) => found.pyName.split(' ').every(w => x.includes(w))) && `no row for ${found.pyName} in shown: ${JSON.stringify(o.json!.shown)}`) || void (found.pyRows = String(o.json!.shown.length)) },
+	// No --name and several Python interpreters: the first in picker order (Suggested leads) starts, and the rest are named.
+	// A machine with one Python (as the case above listed) starts it with no picked/others.
+	{ name: 'start-session several interpreters match takes the first and names the others', run: ['start-session.sh', '--language', 'python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (Number(found.pyRows) > 1 && (keys(o.json, 'picked', 'others') || ((!pythonRow(o.json!.picked) && `picked ${o.json!.picked}`) || (o.json!.others?.some((x: string) => !pythonRow(x)) && `others: ${JSON.stringify(o.json!.others)}`) || logged(`start-session.sh -s=net1: ${o.json!.runtime} (first of: `)))) || void (found.pyFirst = o.json!.sessionId) },
+	{ name: 'panel delete-session the first-match session', run: () => ['panel.sh', 'delete-session', found.pyFirst], check: o => !o.json!.deleted && `not deleted: ${JSON.stringify(o.json)}` },
 	// A menu item that opens a quick pick closes its menu: the click still names the quick pick as what opened.
 	{ name: 'ui click Quick Launch Session (opens its menu)', run: ['ui.sh', 'click', 'button', 'Quick Launch Session...'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
 	{ name: 'ui click Start Another... in the menu names the quick pick it opens', run: ['ui.sh', 'click', 'menuitem', 'Start Another...', '--in', 'menu'], check: o => includes(o.json!.opened, 'a quick pick: read it with ui.sh read quickpick') },
@@ -154,9 +159,9 @@ const cases: Case[] = [
 	{ name: 'shot --view missing view', run: ['shot.sh', '--view', 'No Such View', 'smoke-none-view.png'], fail: true },
 	{ name: 'shot --view with no value is a usage error', run: ['shot.sh', 'smoke-no-view.png', '--view'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--view needs a value') },
 	// Last in the section, since it starts a third Python session: a row of "shown", parentheses and all, is a --name that starts that row.
-	// The workspace has several Python interpreters, so --new with no --name lists them in "shown" rather than starting one.
+	// A --name that several Python interpreters fit lists them in "shown" rather than starting one.
 	{
-		name: 'start-session --new with no --name lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true,
+		name: 'start-session --name several match lists Python rows with a description', run: ['start-session.sh', '--language', 'python', '--name', 'Python', '--new', '--timeout', '5'], fail: true,
 		check: o => {
 			const row = (o.json!.shown ?? []).find((x: string) => /^.+ \((?!.*running)Python .+\)$/.test(x));
 			return row ? void (found.copied = row) : `no Python row with a description that is not running in shown: ${JSON.stringify(o.json!.shown)}`;
@@ -264,11 +269,16 @@ const cases: Case[] = [
 	{ name: 'plots unknown command is a usage error, logged', run: ['plots.sh', 'foo'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"foo" is not a command') || logged('plots.sh -s=net1: FAILED foo: "foo" is not a command') },
 	{ name: 'plots save --format=SVG takes the glued value', run: ['plots.sh', 'save', '--format=SVG'], check: o => includes(o.json!.tree, 'button "Format": SVG') },
 	{ name: 'ui click Cancel (save --format=SVG)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
+	// R's plots are named, so their thumbnails' images have alt "" and no img role: select N must still find thumbnail N.
+	{ name: 'plots select 2 clicks the second thumbnail of named plots', before: showFilmstrip, run: ['plots.sh', 'select', '2'], check: o => showsThumbnail(o, 2) },
+	{ name: 'plots select 1 clicks the first thumbnail of named plots', run: ['plots.sh', 'select', '1'], check: o => showsThumbnail(o, 1) },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
 	{ name: 'plots open editor', run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "plot') },
 	{ name: 'plots read --editor', run: ['plots.sh', 'read', '--editor'], check: o => includes(o.json!.toolbar, 'Save Plot From Active Editor') },
+	{ name: 'plots remove 1 removes the first thumbnail of named plots', run: ['plots.sh', 'remove', '1'] },
 	{ name: 'plots clear', run: ['plots.sh', 'clear'] },
 	{ name: 'plots read after clear', wait: 500, run: ['plots.sh', 'read'], check: o => !o.json!.blank && 'a plot is still shown' },
+	{ name: 'panel resize secondary back to its width before the filmstrip', run: () => ['panel.sh', 'resize', 'secondary', found.secondaryWidth], check: o => !o.json!.ok && `not resized: ${JSON.stringify(o.json)}` },
 
 	// ---- Views and the Viewer
 	{ name: 'view-read Variables', run: ['view-read.sh', '--view', 'Variables'], check: o => includes(o.text, 'smoke_f') },
@@ -359,7 +369,10 @@ const cases: Case[] = [
 	{ name: 'ui click the current editor type (closes the menu)', run: ['ui.sh', 'click', 'menuitemcheckbox', 'Positron Notebook', '--partial', '--in', 'menu'], check: o => includes(o.json!.note, 'the menu closed') },
 	{ name: 'ui choose an editor type from the editor-type button', run: ['ui.sh', 'choose', 'button', 'Positron Notebook', 'Positron Notebook - Native .ipynb Support', '--in', 'editor'], check: o => o.json!.chose !== 'Positron Notebook - Native .ipynb Support' && `chose ${o.json!.chose}` },
 	{ name: 'open-file report.qmd', quick: true, run: ['open-file.sh', 'report.qmd'] },
-	{ name: 'qmd cells', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
+	// An Explorer click opens a preview tab, named "report.qmd, preview": the helpers compare the file name alone.
+	{ name: 'palette-run Close Editor (report.qmd, to reopen it as a preview)', run: ['palette-run.sh', 'View: Close Editor'] },
+	{ name: 'tree click report.qmd opens a preview tab', run: ['tree.sh', '--view', 'Explorer', 'click', 'report.qmd'], check: o => includes(o.json!.text, 'report.qmd') },
+	{ name: 'qmd cells on a preview tab', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
 	// run reports the cell before and after the click; wait waits for its Run button to show again.
 	{ name: 'qmd run 1', quick: true, run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => (!o.json!.changed && 'nothing changed') || keys(o.json!.before, 'toolbar', 'output') },
 	{ name: 'qmd wait 1', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.text, 'qmd-answer 42') || includes(o.json!.toolbar?.buttons, 'Run this cell') || logged('qmd.sh -s=net1: read report.qmd cell 1 after wait: completed') },
@@ -542,6 +555,13 @@ function closeAllSessions(): string | undefined {
 	for (const s of list()) { sh([join(scripts, 'panel.sh'), '--session', SESSION, 'delete-session', s.id]); }
 	const left = list().length;
 	return left ? `${left} sessions still open after closing them all` : undefined;
+}
+
+/** A case's `before`: widens the secondary side bar, where the Plots view is, so its filmstrip shows (it needs 300 px and several plots). */
+function showFilmstrip(): string | undefined {
+	const o = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'resize', 'secondary', '600']);
+	found.secondaryWidth = String(o.json?.before ?? 600);
+	return o.json?.ok ? undefined : `panel.sh resize secondary 600: ${o.json?.error ?? o.stderr}`;
 }
 
 // ---- Running ---------------------------------------------------------------------

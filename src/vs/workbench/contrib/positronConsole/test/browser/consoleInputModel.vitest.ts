@@ -10,7 +10,7 @@ import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { createConsoleInputModel } from '../../browser/components/consoleInputModel.js';
+import { createActivityPromptModel, createConsoleInputModel } from '../../browser/components/consoleInputModel.js';
 
 describe('createConsoleInputModel', () => {
 	// Capture the resource passed to createModel and echo it back on the model so
@@ -60,5 +60,46 @@ describe('createConsoleInputModel', () => {
 		// real resolver is what finally allows the model to be disposed.
 		store.dispose();
 		expect(refDispose).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('createActivityPromptModel', () => {
+	function setup() {
+		const modelDispose = vi.fn();
+		const modelUri = URI.parse('inmemory://model/1');
+		const modelService = stubInterface<IModelService>({
+			createModel: vi.fn(() => stubInterface<ITextModel>({ uri: modelUri, dispose: modelDispose }))
+		});
+		const refDispose = vi.fn();
+		const textModelService = stubInterface<ITextModelService>({
+			createModelReference: vi.fn().mockResolvedValue({ object: {}, dispose: refDispose })
+		});
+		return { modelService, textModelService, modelDispose, refDispose, modelUri };
+	}
+
+	it('holds a reference to the prompt model', () => {
+		const { modelService, textModelService, modelUri } = setup();
+		const store = new DisposableStore();
+
+		const model = createActivityPromptModel(modelService, textModelService, store);
+
+		expect(model.uri).toBe(modelUri);
+		expect(textModelService.createModelReference).toHaveBeenCalledWith(modelUri);
+
+		store.dispose();
+	});
+
+	it('releases the reference and disposes the model when the store is disposed', async () => {
+		const { modelService, textModelService, modelDispose, refDispose } = setup();
+		const store = new DisposableStore();
+
+		createActivityPromptModel(modelService, textModelService, store);
+
+		// The reference is acquired asynchronously; let it resolve and register.
+		await Promise.resolve();
+		expect(refDispose).not.toHaveBeenCalled();
+
+		store.dispose();
+		expect({ model: modelDispose.mock.calls.length, ref: refDispose.mock.calls.length }).toEqual({ model: 1, ref: 1 });
 	});
 });

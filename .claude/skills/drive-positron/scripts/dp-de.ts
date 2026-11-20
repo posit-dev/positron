@@ -17,7 +17,7 @@ const read: PageFn<{ rows: number; title: string }> = async (page, a, lib) => {
 	const hidden = await lib.editorAreaHidden();
 	if (hidden) { return { ok: false, error: hidden }; }
 	const group = page.locator(lib.css.editorGroup.active);
-	const active = await group.getByRole('tab', { selected: true }).first().getAttribute('aria-label').catch(() => null);
+	const active = (await group.getByRole('tab', { selected: true }).first().getAttribute('aria-label').catch(() => null))?.replace(new RegExp(lib.tabSuffix), '') ?? null;
 	if (a.title && active !== a.title) { return { ok: false, error: `the active tab is ${active}, not ${a.title}` }; }
 	return group.evaluate(async (g, args) => {
 		const clean = (e: Element | null | undefined) => e ? (e.textContent ?? '').replace(/\s+/g, ' ').trim() : '';

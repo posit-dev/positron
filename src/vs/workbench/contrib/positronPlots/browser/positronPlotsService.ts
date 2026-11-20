@@ -5,9 +5,10 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
 import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation, PlotClientState } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -34,7 +35,7 @@ import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, pa
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
-import { ShowHtmlFileDestination, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { PlotPoint, ShowHtmlFileDestination, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { NotebookOutputPlotClient } from './notebookOutputPlotClient.js';
@@ -59,10 +60,17 @@ import { dirname, joinPath } from '../../../../base/common/resources.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { PlotSaveMemory } from './plotSaveMemory.js';
+import { IPlotLocator, IPlotLocatorPoints, PlotLocatorState } from '../../../services/positronPlots/common/plotLocator.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
+
+/**
+ * Time in milliseconds to wait for the plot of a locator request that arrived before
+ * the plot. The locator ends with no point if the plot does not arrive by then.
+ */
+const LocatorPlotWaitTimeout = 5_000;
 
 /** The maximum number of plots with an active webview. */
 const MaxActiveWebviewPlots = 5;
@@ -230,6 +238,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The folder and format of the last plot save in this workspace */
 	private readonly _saveMemory: PlotSaveMemory;
 
+	/** Tracks the active locator() request. */
+	private readonly _locatorState = this._register(new PlotLocatorState());
+
+	/** Waits for the plot of the active locator to arrive, when the request came first. */
+	private readonly _locatorPlotWait = this._register(new MutableDisposable<DisposableStore>());
+
+	/** The listeners that end a locator() request, per session. Removed with the session. */
+	private readonly _locatorSessionListeners = this._register(new DisposableMap<string, DisposableStore>());
+
 	/** Creates the Positron plots service instance */
 	constructor(
 		@IClipboardService private _clipboardService: IClipboardService,
@@ -269,6 +286,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Register for session deletions to clean up render queues
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			this._locatorSessionListeners.deleteAndDispose(sessionId);
 			// Remove the render queue for this session
 			if (this._renderQueues.has(sessionId)) {
 				const renderQueue = this._renderQueues.get(sessionId);
@@ -785,12 +803,131 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidChangeDarkFilterMode.fire(mode);
 	}
 
+	get activeLocator(): IPlotLocator | undefined {
+		return this._locatorState.activeLocator;
+	}
+
+	get onDidChangeLocator(): Event<IPlotLocator | undefined> {
+		return this._locatorState.onDidChangeLocator;
+	}
+
+	get locatorPoints(): IPlotLocatorPoints | undefined {
+		return this._locatorState.points;
+	}
+
+	get onDidChangeLocatorPoints(): Event<IPlotLocatorPoints | undefined> {
+		return this._locatorState.onDidChangePoints;
+	}
+
+	locatePlotPoint(sessionId: string, plotId: string, size: IPlotSize, executionId?: string): Promise<PlotPoint | undefined> {
+		const locator: IPlotLocator = { sessionId, plotId, size, executionId };
+		const result = this._locatorState.begin(locator);
+		if (this.hasPlot(sessionId, plotId)) {
+			this._locatorPlotWait.clear();
+			this._showLocatorPlot(plotId);
+		} else {
+			this._waitForLocatorPlot(locator);
+		}
+		return result;
+	}
+
+	/**
+	 * Selects the plot of a locator request and raises the Plots pane.
+	 */
+	private _showLocatorPlot(plotId: string): void {
+		this.selectPlot(plotId);
+		this._showPlotsPane();
+	}
+
+	/**
+	 * Waits for the plot of a locator request that arrived before the plot itself. The kernel
+	 * sends the plot on IOPub and the request on stdin, so the request can win the race. The
+	 * locator ends with `undefined` if the plot does not arrive in time.
+	 */
+	private _waitForLocatorPlot(locator: IPlotLocator): void {
+		const store = new DisposableStore();
+		this._locatorPlotWait.value = store;
+
+		store.add(this.onDidEmitPlot(plot => {
+			if (plot.id === locator.plotId && this.hasPlot(locator.sessionId, locator.plotId)) {
+				this._locatorPlotWait.clear();
+				this._showLocatorPlot(locator.plotId);
+			}
+		}));
+
+		// Stop waiting when this locator ends for any other reason.
+		store.add(this._locatorState.onDidChangeLocator(active => {
+			if (active !== locator) {
+				this._locatorPlotWait.clear();
+			}
+		}));
+
+		disposableTimeout(() => {
+			this._locatorPlotWait.clear();
+			if (this._locatorState.activeLocator === locator) {
+				this._logService.warn(`Plot ${locator.plotId} for locator() did not arrive in time; ending the locator`);
+				this._locatorState.resolve(undefined);
+			}
+		}, LocatorPlotWaitTimeout, store);
+	}
+
+	resolveLocator(point: PlotPoint | undefined): void {
+		this._locatorState.resolve(point);
+	}
+
+	/**
+	 * Ends the active locator, and removes the chosen points, if their plot is no longer in the
+	 * Plots pane.
+	 */
+	private _cancelLocatorIfPlotGone(): void {
+		// A plot that has not arrived yet is not gone.
+		if (this._locatorPlotWait.value) {
+			return;
+		}
+		const plotId = (this._locatorState.activeLocator ?? this._locatorState.points)?.plotId;
+		if (plotId && !this._plots.some(plot => plot.id === plotId)) {
+			this._locatorState.cancelPlot(plotId);
+		}
+	}
+
 	/**
 	 * Attaches to a language runtime session.
 	 *
 	 * @param session The language session to attach to.
 	 */
 	private attachRuntime(session: ILanguageRuntimeSession) {
+		// End a locator() request when the session leaves the busy states. Interrupting
+		// and Offline are not listed on purpose: R is still waiting in locator() then.
+		const locatorListeners = new DisposableStore();
+		this._locatorSessionListeners.set(session.sessionId, locatorListeners);
+		locatorListeners.add(session.onDidChangeRuntimeState(state => {
+			switch (state) {
+				case RuntimeState.Idle:
+					// The session also goes idle after each comm request that the kernel
+					// answers while R waits in locator(), for example a Variables request.
+					// When the waiting execute request is known, only its own Idle (below)
+					// ends the locator.
+					this._locatorState.cancelExecution(session.sessionId, undefined);
+					break;
+				case RuntimeState.Ready:
+				case RuntimeState.Exiting:
+				case RuntimeState.Exited:
+				case RuntimeState.Restarting:
+				case RuntimeState.Starting:
+				case RuntimeState.Uninitialized:
+					this._locatorState.cancelSession(session.sessionId);
+					break;
+			}
+		}));
+
+		// End a locator() request when the execute request that waits for it goes idle,
+		// for example after an interrupt or an error.
+		locatorListeners.add(session.onDidReceiveRuntimeMessageState(message => {
+			if (message.state === RuntimeOnlineState.Idle) {
+				this._locatorState.cancelExecution(session.sessionId, message.parent_id);
+			}
+		}));
+
 		// Get the list of existing plot clients; these are expected in the
 		// case of reconnecting to a running language runtime, and represent
 		// the user's active set of plot objects.
@@ -1821,6 +1958,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		plotClient.dispose();
+
+		this._cancelLocatorIfPlotGone();
 	}
 
 	/**
