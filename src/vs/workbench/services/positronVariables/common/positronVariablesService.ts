@@ -9,13 +9,15 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronVariablesInstance } from './positronVariablesInstance.js';
 import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
-import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
+import { IPositronVariablesInstance, PositronVariablesGrouping } from './interfaces/positronVariablesInstance.js';
 import { LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { isSimplifiedLayoutEnabled } from '../../positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 
 /**
  * PositronVariablesService class.
@@ -74,7 +76,8 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -302,6 +305,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		// Create the new Positron variables instance.
 		const positronVariablesInstance = this._register(new PositronVariablesInstance(
 			session, this._logService, this._notificationService, this._accessibilityService));
+
+		// The simplified layout shows variables as one flat list, without group headers.
+		if (isSimplifiedLayoutEnabled(this._configurationService)) {
+			positronVariablesInstance.grouping = PositronVariablesGrouping.None;
+		}
 
 		this._positronVariablesInstancesBySessionId.set(
 			session.sessionId,
