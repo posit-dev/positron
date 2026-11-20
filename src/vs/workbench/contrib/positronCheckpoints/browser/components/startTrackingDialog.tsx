@@ -24,7 +24,11 @@ import { useRunAction } from './useRunAction.js';
 const START_DIALOG_WIDTH = 560;
 const START_DIALOG_HEIGHT = 560;
 
-/** The detail of the engine's `unavailable` answer when git has no name and email to record. */
+/**
+ * The engine's answer when git has no name and email to record: `unavailable`, with this reason
+ * and detail.
+ */
+const IDENTITY_MISSING_REASON = 'nothing-to-do';
 const IDENTITY_MISSING_DETAIL = 'identity-missing';
 
 /** Where the proposed list of files to leave out is: being read, read, or not readable. */
@@ -119,7 +123,7 @@ export const StartTrackingDialog = (props: IStartTrackingDialogProps) => {
 		try {
 			result = await runAction('checkpoint', async engine => {
 				const started = await engine.startTracking(identity, gitignore);
-				if (started.kind === 'unavailable' && started.detail === IDENTITY_MISSING_DETAIL) {
+				if (started.kind === 'unavailable' && started.reason === IDENTITY_MISSING_REASON && started.detail === IDENTITY_MISSING_DETAIL) {
 					if (identity) {
 						// The fields were filled and the engine still has no name and email.
 						setIdentityNotRecorded(true);

@@ -29,8 +29,9 @@ import { ICheckpointsAgentService } from '../../browser/checkpointsAgentService.
 import { ICheckpointsSuggestionService } from '../../browser/checkpointsSuggestionService.js';
 import { CheckpointsMessageService, ICheckpointsMessageService } from '../../browser/checkpointsMessages.js';
 import { CheckpointsPanel } from '../../browser/components/checkpointsPanel.js';
+import { showCheckResultDialog } from '../../browser/components/checkResultDialog.js';
 import { ISyncController, SyncController } from '../../browser/syncController.js';
-import { FakeCheckpointsEngine, fakeCheckpoint, fakeEngineState } from './fakeCheckpointsEngine.js';
+import { FakeCheckpointsEngine, fakeChangedFile, fakeCheckpoint, fakeEngineState } from './fakeCheckpointsEngine.js';
 
 describe('Recovery and project check dialogs', () => {
 	const openEditor = vi.fn(async () => undefined);
@@ -65,6 +66,7 @@ describe('Recovery and project check dialogs', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	let engine: FakeCheckpointsEngine;
+	let messageService: CheckpointsMessageService;
 
 	const interrupted = {
 		operationId: 'op-5',
@@ -81,7 +83,8 @@ describe('Recovery and project check dialogs', () => {
 		engine = ctx.disposables.add(new FakeCheckpointsEngine());
 		const checkpointsService = ctx.disposables.add(new CheckpointsService(new NullLogService()));
 		ctx.instantiationService.stub(ICheckpointsService, checkpointsService);
-		ctx.instantiationService.stub(ICheckpointsMessageService, ctx.disposables.add(new CheckpointsMessageService()));
+		messageService = ctx.disposables.add(new CheckpointsMessageService());
+		ctx.instantiationService.stub(ICheckpointsMessageService, messageService);
 		ctx.instantiationService.stub(ISyncController, ctx.disposables.add(ctx.instantiationService.createInstance(SyncController)));
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 	});
@@ -205,11 +208,12 @@ describe('Recovery and project check dialogs', () => {
 
 	test('check-changed-checkpoint Accept and Decline call the engine with the token', async () => {
 		engine.nextResult = { kind: 'check-changed-checkpoint', token: 'tok-1', changedPaths: ['a.R', 'b.R'], hookEditedFiles: [] };
+		engine.pendingFiles.set('tok-1', [fakeChangedFile('a.R'), fakeChangedFile('b.R', { status: 'added' })]);
 		const user = await renderWithSend();
 
 		let dialog = await screen.findByRole('dialog');
 		const changed = within(dialog).getByRole('list', { name: 'Files the check changed:' });
-		expect(within(changed).getAllByRole('listitem').map(item => item.firstChild?.textContent)).toEqual(['a.R', 'b.R']);
+		await vi.waitFor(() => expect(within(changed).getAllByRole('listitem').map(item => item.firstChild?.textContent)).toEqual(['a.R', 'b.R']));
 		engine.nextResult = { kind: 'done', operationId: 'op-6', hookEditedFiles: [] };
 		await user.click(within(dialog).getByRole('button', { name: 'Create the checkpoint with these changes' }));
 		await vi.waitFor(() => expect(engine.callsOf('acceptCheckedCheckpoint')).toEqual([['tok-1']]));
@@ -226,6 +230,7 @@ describe('Recovery and project check dialogs', () => {
 
 	test('a pending approval in state reopens the dialog after a restart', async () => {
 		engine.state = fakeEngineState({ pendingApproval: { token: 'tok-9', changedPaths: ['dose.R'], hookEditedFiles: [] } });
+		engine.pendingFiles.set('tok-9', [fakeChangedFile('dose.R')]);
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
 
@@ -300,6 +305,7 @@ describe('Recovery and project check dialogs', () => {
 
 	test('View detailed differences opens the file as the check changed it', async () => {
 		engine.state = fakeEngineState({ pendingApproval: { token: 'tok-9', changedPaths: ['dose.R'], hookEditedFiles: [] } });
+		engine.pendingFiles.set('tok-9', [fakeChangedFile('dose.R')]);
 		engine.diff = { left: { kind: 'blob', oid: 'before' }, right: { kind: 'blob', oid: 'after' } };
 		rtl.render(<CheckpointsPanel />);
 		const user = userEvent.setup();
@@ -310,6 +316,50 @@ describe('Recovery and project check dialogs', () => {
 
 		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'pending', token: 'tok-9', path: 'dose.R' }]]));
 		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({ label: 'dose.R (as the check changed it)' })));
+	});
+
+	test('the files of a pending approval come from the engine, each with its status word and its differences', async () => {
+		engine.state = fakeEngineState({ pendingApproval: { token: 'tok-9', changedPaths: ['dose.R'], hookEditedFiles: [] } });
+		engine.pendingFiles.set('tok-9', [fakeChangedFile('dose.R'), fakeChangedFile('notes.md', { status: 'added' })]);
+		rtl.render(<CheckpointsPanel />);
+		const user = userEvent.setup();
+		await user.click(await screen.findByRole('button', { name: 'Review the changes' }));
+		const dialog = await screen.findByRole('dialog');
+
+		const changed = within(dialog).getByRole('list', { name: 'Files the check changed:' });
+		await vi.waitFor(() => expect(within(changed).getAllByRole('listitem').map(item => item.textContent)).toEqual([
+			'dose.RchangedView detailed differences',
+			'notes.mdnewView detailed differences',
+		]));
+		expect(engine.callsOf('getPendingFiles')).toEqual([['tok-9']]);
+		await user.click(within(dialog).getByRole('button', { name: 'View detailed differences: notes.md' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'pending', token: 'tok-9', path: 'notes.md' }]]));
+	});
+
+	test('pending files that cannot be read leave the paths of the result and say so on the status line', async () => {
+		engine.state = fakeEngineState({ pendingApproval: { token: 'tok-9', changedPaths: ['dose.R'], hookEditedFiles: [] } });
+		engine.getPendingFiles = async () => { throw new Error('checkpoints:timed-out git diff-tree did not respond in time'); };
+		rtl.render(<CheckpointsPanel />);
+		const user = userEvent.setup();
+		await user.click(await screen.findByRole('button', { name: 'Review the changes' }));
+		const dialog = await screen.findByRole('dialog');
+
+		await vi.waitFor(() => expect(messageService.message).toBe('The project did not respond in time, so part of this view could not be loaded.'));
+		expect(within(dialog).getByRole('list', { name: 'Files the check changed:' })).toHaveTextContent(/^dose\.R/);
+	});
+
+	test('a project check result names the checkpoint that was not created when there were several', async () => {
+		const actions = { run: vi.fn(async () => undefined), removeRecoverySnapshot: vi.fn(async () => true) };
+		showCheckResultDialog({ kind: 'check-failed', output: '', hookEditedFiles: [], chunkIndex: 1 }, actions, 3);
+
+		const dialog = await screen.findByRole('dialog');
+		expect(within(dialog).getByText('Checkpoint 2 of 3 was not created.')).toBeInTheDocument();
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+		showCheckResultDialog({ kind: 'check-failed', output: '', hookEditedFiles: [], chunkIndex: 0 }, actions, 1);
+		const single = await screen.findByRole('dialog');
+		expect(within(single).queryByText(/was not created/)).not.toBeInTheDocument();
 	});
 
 	test('an interrupted action in state opens no dialog until the card is used', async () => {

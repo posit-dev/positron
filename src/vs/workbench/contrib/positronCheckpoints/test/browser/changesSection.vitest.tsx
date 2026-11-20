@@ -150,6 +150,17 @@ describe('Changes section and checkpoint dialog', () => {
 		expect(screen.getAllByRole('button', { name: /^View detailed differences: / })).toHaveLength(4);
 	});
 
+	test('the detailed differences of a renamed file compare it with its old name', async () => {
+		const openEditor = vi.fn(async () => undefined);
+		ctx.instantiationService.stub(IEditorService, { openEditor });
+		renderPanel({ basis: 'b1', files: [changedFile('plot.R', { status: 'renamed', oldPath: 'plot_dose.R' })] });
+		const user = userEvent.setup();
+
+		await user.click(await screen.findByRole('button', { name: 'View detailed differences: plot.R' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'change', path: 'plot.R', oldPath: 'plot_dose.R' }]]));
+	});
+
 	test('states the number of unsaved files that are not shown', async () => {
 		const unsaved = (path: string) => stubInterface<IWorkingCopy>({ resource: URI.file(path), capabilities: WorkingCopyCapabilities.None });
 		dirty = [unsaved('/work/dose-model/a.R'), unsaved('/work/dose-model/b.R'), unsaved('/work/other/c.R')];
@@ -214,6 +225,22 @@ describe('Changes section and checkpoint dialog', () => {
 				{ title: 'Second', body: '', hunkIds: [], wholeFiles: ['c.R'] },
 			]],
 		]));
+	});
+
+	test('a project check that stops the second of two checkpoints says which one was not created', async () => {
+		renderPanel({ basis: 'b1', files: [changedFile('a.R'), changedFile('b.R')] });
+		engine.nextResult = { kind: 'check-failed', output: 'lint error', hookEditedFiles: [], chunkIndex: 1 };
+		const user = await openDialog();
+
+		await user.click(screen.getByRole('button', { name: 'Add another checkpoint' }));
+		await user.selectOptions(screen.getByRole('combobox', { name: 'Move b.R to' }), 'Checkpoint 2');
+		const titles = screen.getAllByRole('textbox', { name: 'Title' });
+		await user.type(titles[0], 'First');
+		await user.type(titles[1], 'Second');
+		await user.click(createButton(2));
+
+		expect(await screen.findByText('Checkpoint 2 of 2 was not created.')).toBeInTheDocument();
+		await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 	});
 
 	test('a file over 50 MB is unticked and shows the large-file warning', async () => {

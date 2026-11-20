@@ -5,10 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { DiffTarget, ICheckpoint, ICheckpointsEngineProxy, IChangedFile } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { cacheKey, fullSystemPrompt } from '../../common/agent/jobRunner.js';
 import { STYLE_THIRD_PERSON } from '../../common/agent/jobTypes.js';
-import { describeHistoryJob, IDescribeHistoryInput, MAX_HISTORY_SUMMARY_CHARS } from '../../common/agent/describeHistory.js';
+import { describeHistoryJob, IDescribeHistoryInput, MAX_HISTORY_DIFF_CHARS, MAX_HISTORY_SUMMARY_CHARS, readHistoryDiff } from '../../common/agent/describeHistory.js';
 
 const checkpoint: ICheckpoint = {
 	id: 'abc123',
@@ -89,5 +91,54 @@ describe('describeHistoryJob', () => {
 		const second = describeHistoryJob.buildPrompt(input());
 
 		expect(cacheKey(describeHistoryJob, [], first.systemPrompt, first.user)).toBe(cacheKey(describeHistoryJob, [], second.systemPrompt, second.user));
+	});
+});
+
+describe('readHistoryDiff', () => {
+	const textFile = (path: string): IChangedFile => ({ path, status: 'modified', binary: false, sizeBytes: 10, tooLarge: false, hunks: [] });
+
+	/** An engine whose checkpoint `abc123` changed `files`; each file's sides are `old <path>` and `new <path>` repeated `lines` times. */
+	function engineWith(files: IChangedFile[], lines = 1) {
+		const compared: string[] = [];
+		const engine = stubInterface<ICheckpointsEngineProxy>({
+			getCheckpointFiles: async () => files,
+			getDiff: async (target: DiffTarget) => {
+				const path = target.kind === 'overlap' ? target.overlapId : target.path;
+				compared.push(path);
+				return { left: { kind: 'blob' as const, oid: `old ${path}` }, right: { kind: 'blob' as const, oid: `new ${path}` } };
+			},
+			readBlob: async oid => VSBuffer.fromString(`${oid}\n`.repeat(lines)),
+		});
+		return { engine, compared };
+	}
+
+	test('reads the contents of at most 5 files and names the others', async () => {
+		const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(name => textFile(`${name}.R`));
+		const { engine, compared } = engineWith(files);
+
+		const diff = await readHistoryDiff(engine, 'abc123');
+
+		expect(compared).toEqual(['a.R', 'b.R', 'c.R', 'd.R', 'e.R']);
+		expect(diff).toContain('File: e.R (changed)\n@@ line 1 before, line 1 now @@\n-old e.R\n+new e.R');
+		expect(diff.split('\n').slice(-2)).toEqual(['File: f.R (contents not shown)', 'File: g.R (contents not shown)']);
+	});
+
+	test('reads no data file and no file over the size limit', async () => {
+		const { engine, compared } = engineWith([textFile('a.R'), { ...textFile('plot.png'), binary: true }, { ...textFile('big.csv'), tooLarge: true }]);
+
+		const diff = await readHistoryDiff(engine, 'abc123');
+
+		expect(compared).toEqual(['a.R']);
+		expect(diff).toContain('File: plot.png (contents not shown)\nFile: big.csv (contents not shown)');
+	});
+
+	test('is at most 6,000 characters long', async () => {
+		const { engine } = engineWith(['a', 'b', 'c'].map(name => textFile(`${name}.R`)), 400);
+
+		const diff = await readHistoryDiff(engine, 'abc123');
+
+		expect(MAX_HISTORY_DIFF_CHARS).toBe(6000);
+		expect(diff.length).toBeLessThanOrEqual(MAX_HISTORY_DIFF_CHARS);
+		expect(diff).toContain('File: a.R');
 	});
 });

@@ -246,6 +246,16 @@ describe('runAction', () => {
 		expect(messageService.message).toBe('That action was interrupted, and some files were changed while it ran. Choose what to do next.');
 	});
 
+	test('the chunk count of an action reaches the check result dialog', async () => {
+		ctx.disposables.add(checkpointsService.registerEngine(engine));
+		const failed: OperationResult = { kind: 'check-failed', output: 'x', hookEditedFiles: [], chunkIndex: 1 };
+		engine.nextResult = failed;
+
+		await ctx.instantiationService.invokeFunction(accessor => runAction(accessor, 'no-guard', e => e.createCheckpoints('b', []), { chunkCount: 3 }));
+
+		expect(vi.mocked(showCheckResultDialog).mock.calls.map(call => [call[0], call[2]])).toEqual([[failed, 3]]);
+	});
+
 	test('no result kind produces a notification', async () => {
 		ctx.disposables.add(checkpointsService.registerEngine(engine));
 		const preview: IIncomingPreview = { basis: 'b', incoming: [], changedPaths: [], touchesLocalWork: false, overlaps: [], collisions: [] };

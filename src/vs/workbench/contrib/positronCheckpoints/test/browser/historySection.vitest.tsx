@@ -9,6 +9,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { extUri } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -36,7 +37,7 @@ import { GitDetails } from '../../browser/components/gitDetails.js';
 import { IHistoryDescription } from '../../common/agent/describeHistory.js';
 import { JobOutcome } from '../../common/agent/jobTypes.js';
 import { FakeCheckpointsAgentService } from './fakeAgentService.js';
-import { fakeCheckpoint, fakeEngineState, FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
+import { fakeChangedFile, fakeCheckpoint, fakeEngineState, FakeCheckpointsEngine } from './fakeCheckpointsEngine.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -240,6 +241,58 @@ describe('History section', () => {
 		expect(prompts).toEqual(['1 file in this project has unsaved edits.']);
 	});
 
+	test('an expanded row lists the checkpoint\'s files with plain status words', async () => {
+		engine.checkpointFiles.set('c4', [
+			fakeChangedFile('dose.R'),
+			fakeChangedFile('notes.md', { status: 'added' }),
+			fakeChangedFile('fit.R', { status: 'renamed', oldPath: 'model.R' }),
+		]);
+		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Fixed the plot' })]);
+
+		await expandRow('Fixed the plot');
+
+		const files = await screen.findByRole('list', { name: 'Files in this checkpoint' });
+		expect(within(files).getAllByRole('listitem').map(item => item.textContent)).toEqual([
+			'dose.RchangedView detailed differences',
+			'notes.mdnewView detailed differences',
+			'fit.Rrenamedwas model.RView detailed differences',
+		]);
+		expect(engine.callsOf('getCheckpointFiles')).toEqual([['c4']]);
+	});
+
+	test('View detailed differences of a checkpoint file opens the checkpoint comparison', async () => {
+		const openEditor = vi.fn(async () => undefined);
+		ctx.instantiationService.stub(IEditorService, { openEditor });
+		engine.checkpointFiles.set('c4', [fakeChangedFile('dose.R')]);
+		engine.diff = { left: { kind: 'blob', oid: 'before' }, right: { kind: 'blob', oid: 'after' } };
+		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Fixed the plot' })]);
+		const user = await expandRow('Fixed the plot');
+
+		await user.click(await screen.findByRole('button', { name: 'View detailed differences: dose.R' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'checkpoint', id: 'c4', path: 'dose.R' }]]));
+		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledWith(expect.objectContaining({ label: 'dose.R (changes in "Fixed the plot")' })));
+	});
+
+	test('a checkpoint that changed no files says so', async () => {
+		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Empty' })]);
+
+		await expandRow('Empty');
+
+		expect(await screen.findByText('This checkpoint changed no files.')).toBeInTheDocument();
+	});
+
+	test('checkpoint files that cannot be read say so on the status line', async () => {
+		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Fixed the plot' })]);
+		expect(await screen.findByRole('button', { name: 'Show details of Fixed the plot' })).toBeInTheDocument();
+		engine.getCheckpointFiles = async () => { throw new Error('checkpoints:git-missing spawn git ENOENT'); };
+
+		await expandRow('Fixed the plot');
+
+		expect(await screen.findByText('Checkpoints need the git program, and it was not found on this computer.')).toBeInTheDocument();
+		expect(screen.queryByRole('list', { name: 'Files in this checkpoint' })).not.toBeInTheDocument();
+	});
+
 	test('a checkpoint with partialFiles shows the partial note', async () => {
 		renderHistory([fakeCheckpoint({ id: 'c4', title: 'Part', partialFiles: ['dose.R', 'plot.R'] })]);
 
@@ -274,9 +327,7 @@ describe('History section', () => {
 	});
 
 	test('git details show the name of the shared copy when the engine reports it', async () => {
-		const state = fakeEngineState({ branch: 'main' });
-		Object.assign(state.shared, { name: 'origin/main' });
-		engine.state = state;
+		engine.state = fakeEngineState({ branch: 'main', shared: { exists: true, ahead: 0, behind: 0, name: 'origin/main' } });
 		renderHistory([fakeCheckpoint({ id: 'abc123', title: 'Described' })]);
 		const user = await expandRow('Described');
 
@@ -367,7 +418,7 @@ describe('History section', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Show older checkpoints' }));
 
-		expect(await screen.findByText('That action could not finish. Your project is as it was.')).toBeInTheDocument();
+		expect(await screen.findByText('Part of this view could not be loaded.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Show older checkpoints' })).toBeInTheDocument();
 		expect(screen.getAllByRole('listitem')).toHaveLength(50);
 	});
@@ -408,6 +459,30 @@ describe('History section', () => {
 			expect(screen.getByText('Mine')).toBeInTheDocument();
 			expect(describedIds()).toEqual(['c2', 'c3']);
 			expect(agent.runsOf('describe-history')[0].input).toEqual({ checkpoint: colleague('c2'), diff: '' });
+		});
+
+		test('sends the changes of the checkpoint with its message', async () => {
+			engine.checkpointFiles.set('c2', [fakeChangedFile('dose.R'), fakeChangedFile('plot.png', { binary: true })]);
+			engine.diff = { left: { kind: 'blob', oid: 'before' }, right: { kind: 'blob', oid: 'after' } };
+			engine.blobs.set('before', VSBuffer.fromString('cap <- 400\n'));
+			engine.blobs.set('after', VSBuffer.fromString('cap <- 500\n'));
+			renderHistory([colleague('c2')]);
+
+			expect(await screen.findByText('Plain c2')).toBeInTheDocument();
+			expect(agent.runsOf('describe-history')[0].input).toEqual({
+				checkpoint: colleague('c2'),
+				diff: 'File: dose.R (changed)\n@@ line 1 before, line 1 now @@\n-cap <- 400\n+cap <- 500\nFile: plot.png (contents not shown)',
+			});
+			expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'checkpoint', id: 'c2', path: 'dose.R' }]]);
+		});
+
+		test('changes that cannot be read leave the message alone in the request and say so on the status line', async () => {
+			engine.getCheckpointFiles = async () => { throw new Error('checkpoints:timed-out git diff-tree did not respond in time'); };
+			renderHistory([colleague('c2')]);
+
+			expect(await screen.findByText('Plain c2')).toBeInTheDocument();
+			expect(agent.runsOf('describe-history')[0].input).toEqual({ checkpoint: colleague('c2'), diff: '' });
+			expect(screen.getByText('The project did not respond in time, so part of this view could not be loaded.')).toBeInTheDocument();
 		});
 
 		test('runs for visible rows only, 3 at a time', async () => {

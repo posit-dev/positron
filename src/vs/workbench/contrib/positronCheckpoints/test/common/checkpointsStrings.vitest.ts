@@ -46,7 +46,7 @@ const results: OperationResult[] = [
  */
 const samples: Record<string, Record<string, unknown[][]>> = {
 	status: {
-		noEngine: [[]], couldNotRead: [[]], interrupted: [['Getting Maya\'s changes']], syncUnavailable: [['2.40']], behind: [[1], [2]],
+		noEngine: [[]], couldNotRead: [[]], couldNotLoad: [['timed-out'], ['git-missing'], ['other']], interrupted: [['Getting Maya\'s changes']], syncUnavailable: [['2.40']], behind: [[1], [2]],
 		partOfProject: [['dose-model']], onlyOnThisComputer: [[]], notKeepingCheckpoints: [[]], identityMissing: [[]], upToDate: [[]],
 		waitingToSend: [[1], [3]], incoming: [['Maya', 1], ['Maya', 2]], incomingWithoutAuthor: [[1], [2]],
 		incomingTouchesWork: [[]], incomingSeparate: [[]], lastChecked: [['2 minutes ago']],
@@ -72,6 +72,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	diff: {
 		changeTitle: [['dose.R']], sizes: [['1 MB', '2 MB'], ['1 MB', undefined], [undefined, '2 MB']],
 		binaryMessage: [['plot.png', 'Before: 1 MB. Now: 2 MB.']], tooLargeMessage: [['big.csv', 50, 'Now: 80 MB.']], unavailable: [['dose.R']], pendingTitle: [['dose.R']],
+		checkpointTitle: [['dose.R', 'Fixed the plot']], overlapMineTitle: [['dose.R']], overlapTheirsTitle: [['dose.R', 'Maya']],
 	},
 	imageDiff: {
 		before: [[]], after: [[]], sideBySide: [[]], slider: [[]], modes: [[]], sliderLabel: [[]], isNew: [[]], wasRemoved: [[]],
@@ -81,6 +82,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		heading: [[]], empty: [[]], you: [[]], notYetShared: [[]], partialFiles: [[['dose.R']], [['a.R', 'b.R']]],
 		returnedTo: [['Tuesday\'s version']], loadMore: [[]], showDetails: [['Fixed the plot']], editDialogTitle: [[]], editSave: [[]],
 		reverseDialogTitle: [[]], reverseExplain: [['Fixed the plot']], reverseConfirm: [[]], combinedWorkFrom: [['Maya']], workFrom: [['Maya']],
+		files: [[]], noFiles: [[]],
 	},
 	results: {
 		checkFailed: [[]], checkChangedCheckpoint: [[]], checkChangedFilesOnDisk: [[1], [2]], createAgain: [[]], couldNotFinish: [[]],
@@ -108,6 +110,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 		newNameInvalid: [['plot.png']], mineNameLabel: [[]], copyNameLabel: [[]], combinedTextEmpty: [[]], choicesFor: [['dose.R']], chooseEach: [[]], none: [[]], editorLabel: [[]],
 		proposalLoading: [[]], proposalLabel: [[]], youDid: [['raised the cap']], authorDid: [['Maya', 'changed the units']], proposalSelected: [[]],
 		proposalUncertain: [[]], proposalEdited: [[]], dropsBothChanges: [[]], proposalBesideChoice: [[]], accept: [[]], edit: [[]], chooseMyself: [[]], oneSideKept: [[]], newText: [[]], leavesOutPartOfChange: [[]],
+		viewMineDifferences: [[]], viewTheirsDifferences: [['Maya']],
 	},
 	start: {
 		dialogTitle: [[]], intro: [[]], startButton: [[]], identityWhy: [[]], nameLabel: [[]], emailLabel: [[]], emailInvalid: [[]],
@@ -139,7 +142,7 @@ const samples: Record<string, Record<string, unknown[][]>> = {
 	interrupted: {
 		heading: [[]], changedFiles: [[]], stagedWork: [[]], dialogTitle: [[]], reviewButton: [[]], reverseHelp: [[]], leaveHelp: [[]], decideLater: [[]],
 	},
-	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]] },
+	checkResult: { failedTitle: [[]], changedTitle: [[]], changedFiles: [[]], editedFiles: [[]], filesChangedOnDisk: [[1], [2]], chunkNotCreated: [[2, 3]] },
 	suggestions: { goodPlace: [[]], heading: [[]], badge: [[]] },
 	aiNotice: { heading: [[]], disclosure: [[]], ok: [[]], turnOff: [[]], openSetting: [[]] },
 	view: { title: [[]], iconDescription: [[]] },

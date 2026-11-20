@@ -8,13 +8,13 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { ICheckpointsMessageService } from '../checkpointsMessages.js';
-import { createDialogActions, runAction, RunActionCall, RunActionMode } from '../runAction.js';
+import { createDialogActions, IRunActionOptions, runAction, RunActionCall, RunActionMode } from '../runAction.js';
 import { IDialogActions } from './dialogActions.js';
 
 /** `runAction` for React components, which have the services context instead of an accessor. */
-export function useRunAction(): (mode: RunActionMode, call: RunActionCall) => Promise<OperationResult | undefined> {
+export function useRunAction(): (mode: RunActionMode, call: RunActionCall, options?: IRunActionOptions) => Promise<OperationResult | undefined> {
 	const services = usePositronReactServicesContext();
-	return useCallback((mode, call) => runAction(services, mode, call), [services]);
+	return useCallback((mode, call, options) => runAction(services, mode, call, options), [services]);
 }
 
 /** The actions for a dialog that the view opens from state, such as the interrupted-action dialog. */

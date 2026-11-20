@@ -3,12 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { ICheckpoint, IChangedFile } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { IHistoryDescription } from '../../common/agent/describeHistory.js';
 import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { ICheckpointsMessageService, reportReadFailure } from '../checkpointsMessages.js';
+import { openDiff } from '../openDiff.js';
+import { knownSizes, statusWord } from './fileStatus.js';
 import { GitDetails } from './gitDetails.js';
 import { showEditDescriptionDialog, showReverseDialog } from './historyDialogs.js';
 import { useRunAction } from './useRunAction.js';
@@ -26,15 +32,52 @@ export interface ICheckpointDetailsProps {
 }
 
 /**
- * The expanded row of a checkpoint: its description, the note about partly included files, and
- * the actions that fit it. An unshared checkpoint can be reworded; a shared one can be reversed.
+ * The files the checkpoint `id` changed, read from the engine once per id. Undefined while they
+ * load, and when they could not be read (the could-not-load sentence then shows on the status
+ * line of the view).
+ */
+function useCheckpointFiles(id: string): IChangedFile[] | undefined {
+	const services = usePositronReactServicesContext();
+	const [loaded, setLoaded] = useState<{ id: string; files: IChangedFile[] }>();
+
+	useEffect(() => {
+		const engine = services.get(ICheckpointsService).engine;
+		if (!engine) {
+			return;
+		}
+		let current = true;
+		engine.getCheckpointFiles(id).then(
+			files => {
+				if (current) {
+					setLoaded({ id, files });
+				}
+			},
+			error => {
+				if (current) {
+					reportReadFailure(services.get(ILogService), services.get(ICheckpointsMessageService), 'The files of a checkpoint could not be read.', error);
+				}
+			}
+		);
+		return () => { current = false; };
+	}, [services, id]);
+
+	return loaded?.id === id ? loaded.files : undefined;
+}
+
+/**
+ * The expanded row of a checkpoint: its description, the files it changed with a plain status
+ * word and the detailed differences of each, the note about partly included files, and the
+ * actions that fit it. An unshared checkpoint can be reworded; a shared one can be reversed.
  * With a plain-language `description`, its summary takes the place of the original description,
  * and the original message shows in the git details. The original message also shows there when
  * the row shows a neutral title in place of one with a git word (`displayTitle`).
  */
 export const CheckpointDetails = ({ checkpoint, description, branch, upstream, onChanged }: ICheckpointDetailsProps) => {
+	const services = usePositronReactServicesContext();
 	const runAction = useRunAction();
 	const [gitShown, setGitShown] = useState(false);
+	const files = useCheckpointFiles(checkpoint.id);
+	const title = description?.title ?? displayTitle(checkpoint);
 
 	const goBack = async () => {
 		await runAction('file-changing', (engine, { collisionChoices }) => engine.goBackTo(checkpoint.id, collisionChoices));
@@ -46,6 +89,28 @@ export const CheckpointDetails = ({ checkpoint, description, branch, upstream, o
 			{description
 				? <p className='checkpoints-details-body'>{description.summary}</p>
 				: checkpoint.body !== '' && <p className='checkpoints-details-body'>{checkpoint.body}</p>}
+			{files !== undefined && (files.length === 0
+				? <p className='checkpoints-note'>{Strings.history.noFiles()}</p>
+				: (
+					<ul aria-label={Strings.history.files()} className='checkpoints-file-list'>
+						{files.map(file => (
+							<li key={file.path} className='checkpoints-file-row'>
+								<span className='checkpoints-file-path'>{file.path}</span>
+								<span className='checkpoints-file-status'>{statusWord(file)}</span>
+								{file.oldPath !== undefined && (
+									<span className='checkpoints-file-note'>{Strings.changes.previousName(file.oldPath)}</span>
+								)}
+								<Button
+									ariaLabel={Strings.actions.viewDetailedDifferencesOf(file.path)}
+									className='checkpoints-link'
+									onPressed={() => openDiff(services, { kind: 'checkpoint', id: checkpoint.id, path: file.path }, Strings.diff.checkpointTitle(file.path, title), knownSizes(file))}
+								>
+									{Strings.actions.viewDetailedDifferences()}
+								</Button>
+							</li>
+						))}
+					</ul>
+				))}
 			{checkpoint.partialFiles.length > 0 && (
 				<p className='checkpoints-note'>{Strings.history.partialFiles(checkpoint.partialFiles)}</p>
 			)}

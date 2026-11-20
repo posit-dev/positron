@@ -46,7 +46,7 @@ const examples: Record<OverlapKind, IOverlap> = {
 	'binary': overlap('plot', 'binary', { path: 'figures/plot.png', mineSizeBytes: 1024, theirsSizeBytes: 2048 }),
 	'edit-delete': overlap('old', 'edit-delete', { deletedBy: 'them' }),
 	'rename': overlap('model', 'rename', { path: 'model.R', otherPaths: ['dose_model.R', 'fit.R'] }),
-	'file-folder': overlap('out', 'file-folder', { path: 'out', mineSizeBytes: 10 }),
+	'file-folder': overlap('out', 'file-folder', { path: 'out', fileSide: 'mine' }),
 	'unsupported': overlap('sub', 'unsupported', { path: 'vendor/lib' }),
 };
 
@@ -128,6 +128,40 @@ describe('Overlap editor', () => {
 
 		const section = screen.getByRole('region', { name: `Overlap in ${examples[kind].path}` });
 		expect(within(section).queryAllByRole('radio').map(radio => radio.closest('label')?.textContent)).toEqual(expectedChoices[kind]);
+	});
+
+	test('the engine\'s fileSide says who has the file, and Keep both renames that side', async () => {
+		const user = await renderEditor([
+			overlap('mine-file', 'file-folder', { path: 'out', fileSide: 'mine', theirsSizeBytes: 10 }),
+			overlap('their-file', 'file-folder', { path: 'results', fileSide: 'theirs', mineSizeBytes: 10 }),
+		]);
+		const section = (path: string) => screen.getByRole('region', { name: `Overlap in ${path}` });
+
+		expect(within(section('out')).getByText('You have a file named out where Maya has a folder. Keep both under different names, or choose one.')).toBeInTheDocument();
+		expect(within(section('results')).getByText('Maya has a file named results where you have a folder. Keep both under different names, or choose one.')).toBeInTheDocument();
+		await user.click(within(section('results')).getByRole('radio', { name: 'Keep both' }));
+
+		expect(controller.resolutions.get('their-file')).toEqual({ type: 'keep-both', renamedSide: 'theirs', newPath: 'results (Maya)' });
+	});
+
+	test('each side of an overlap opens its detailed differences, and an unsupported overlap has none', async () => {
+		const openEditor = vi.fn(async () => undefined);
+		ctx.instantiationService.stub(IEditorService, { openEditor });
+		engine.diff = { left: { kind: 'blob', oid: 'base' }, right: { kind: 'blob', oid: 'side' } };
+		const user = await renderEditor([examples.text, examples.unsupported]);
+		const section = (path: string) => screen.getByRole('region', { name: `Overlap in ${path}` });
+
+		await user.click(within(section('dose.R')).getByRole('button', { name: 'View detailed differences of your changes' }));
+		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledTimes(1));
+		await user.click(within(section('dose.R')).getByRole('button', { name: 'View detailed differences of Maya\'s changes' }));
+		await vi.waitFor(() => expect(openEditor).toHaveBeenCalledTimes(2));
+
+		expect(engine.callsOf('getDiff')).toEqual([
+			[{ kind: 'overlap', overlapId: 'dose', side: 'mine' }],
+			[{ kind: 'overlap', overlapId: 'dose', side: 'theirs' }],
+		]);
+		expect(openEditor.mock.calls.map(call => (call as unknown as [{ label: string }])[0].label)).toEqual(['dose.R (your changes)', 'dose.R (Maya\'s changes)']);
+		expect(within(section('vendor/lib')).queryByRole('button', { name: /View detailed differences/ })).not.toBeInTheDocument();
 	});
 
 	test('rendering the editor reads the incoming changes and applies nothing', async () => {

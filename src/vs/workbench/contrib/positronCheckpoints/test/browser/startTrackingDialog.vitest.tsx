@@ -135,6 +135,17 @@ describe('StartTrackingDialog', () => {
 		expect(within(dialog).getByRole('button', { name: 'Start' })).toBeDisabled();
 	});
 
+	test('identity-missing with another reason is an ordinary result, not a request for the name and email', async () => {
+		engine.nextResult = { kind: 'unavailable', reason: 'busy', detail: 'identity-missing' };
+		const { user, dialog } = await openDialog();
+
+		await user.click(within(dialog).getByRole('button', { name: 'Start' }));
+
+		expect(await screen.findByText('Another window is working on this project.')).toBeInTheDocument();
+		expect(screen.queryByRole('textbox', { name: 'Your name' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+	});
+
 	test('a failed state read leaves the dialog open with Start enabled again', async () => {
 		const { user, dialog } = await openDialog();
 		const readState = engine.getState.bind(engine);

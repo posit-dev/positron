@@ -211,15 +211,16 @@ describe('SyncController', () => {
 		expect(controller.preview?.basis).toBe('b2');
 	});
 
-	test('a failed preview read is logged and keeps the previous preview', async () => {
+	test('a failed preview read is logged, says so on the status line, and keeps the previous preview', async () => {
 		engine.incoming = preview('b1', []);
 		await controller.refreshPreview();
-		const failure = new Error('git is busy');
+		const failure = new Error('checkpoints:timed-out git fetch did not respond in time');
 		engine.previewIncoming = async () => { throw failure; };
 
 		await controller.refreshPreview();
 
 		expect(logError).toHaveBeenCalledWith(expect.any(String), failure);
+		expect(messageService.message).toBe('The project did not respond in time, so part of this view could not be loaded.');
 		expect(controller.preview?.basis).toBe('b1');
 	});
 

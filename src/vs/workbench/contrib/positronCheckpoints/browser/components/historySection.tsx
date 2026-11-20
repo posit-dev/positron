@@ -11,7 +11,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
 import { displayTitle } from '../../common/checkpointTitle.js';
 import { Strings } from '../../common/checkpointsStrings.js';
-import { ICheckpointsMessageService } from '../checkpointsMessages.js';
+import { ICheckpointsMessageService, reportReadFailure } from '../checkpointsMessages.js';
 import { CheckpointDetails } from './checkpointDetails.js';
 import { ICheckpointsViewState } from './useCheckpointsState.js';
 import { useHistoryDescriptions } from './useHistoryDescriptions.js';
@@ -34,11 +34,10 @@ export const HistorySection = ({ view, visible = true }: { view: ICheckpointsVie
 		const engine = services.get(ICheckpointsService).engine;
 		return engine ? engine.getHistory(skip, limit) : [];
 	}, [services]);
-	const showCouldNotFinish = useCallback((error: unknown) => {
-		services.get(ILogService).error('The next page of history could not be read.', error);
-		services.get(ICheckpointsMessageService).show(Strings.results.couldNotFinish());
+	const showCouldNotLoad = useCallback((error: unknown) => {
+		reportReadFailure(services.get(ILogService), services.get(ICheckpointsMessageService), 'The next page of history could not be read.', error);
 	}, [services]);
-	const { checkpoints, hasMore, loadMore } = useHistoryPaging(view.history, fetchPage, showCouldNotFinish);
+	const { checkpoints, hasMore, loadMore } = useHistoryPaging(view.history, fetchPage, showCouldNotLoad);
 	const descriptions = useHistoryDescriptions(checkpoints, visible);
 
 	const hasUnshared = checkpoints.some(checkpoint => !checkpoint.shared);

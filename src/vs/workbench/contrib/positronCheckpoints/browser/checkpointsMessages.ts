@@ -7,6 +7,9 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { Strings } from '../common/checkpointsStrings.js';
+import { readFailureKind } from '../common/readFailure.js';
 
 export const ICheckpointsMessageService = createDecorator<ICheckpointsMessageService>('positronCheckpointsMessageService');
 
@@ -46,6 +49,19 @@ export class CheckpointsMessageService extends Disposable implements ICheckpoint
 		this._message = message;
 		this._onDidChangeMessage.fire();
 	}
+}
+
+/**
+ * Reports a read of the project that failed: logs `error` with `what`, and shows the could-not-load
+ * sentence for its kind on the status line of the view.
+ *
+ * @returns The sentence shown.
+ */
+export function reportReadFailure(logService: ILogService, messageService: ICheckpointsMessageService, what: string, error: unknown): string {
+	logService.error(what, error);
+	const sentence = Strings.status.couldNotLoad(readFailureKind(error));
+	messageService.show(sentence);
+	return sentence;
 }
 
 registerSingleton(ICheckpointsMessageService, CheckpointsMessageService, InstantiationType.Delayed);

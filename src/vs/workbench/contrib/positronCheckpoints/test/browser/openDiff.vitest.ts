@@ -61,6 +61,18 @@ describe('openDiff', () => {
 		return ctx.instantiationService.invokeFunction(accessor => openDiff(accessor, diffTarget, 'dose.R (changes)'));
 	}
 
+	test('an overlap request names its file, and the engine gets the overlap target alone', async () => {
+		engine.diff = { left: { kind: 'blob', oid: 'base' }, right: { kind: 'blob', oid: 'mine' } };
+		engine.blobs.set('base', VSBuffer.fromString('cap <- 450\n'));
+		engine.blobs.set('mine', VSBuffer.fromString('cap <- 500\n'));
+
+		await open({ kind: 'overlap', overlapId: 'o1', side: 'mine', path: 'analysis/dose.R' });
+
+		expect(engine.callsOf('getDiff')).toEqual([[{ kind: 'overlap', overlapId: 'o1', side: 'mine' }]]);
+		const [input] = openEditor.mock.calls[0] as unknown as [{ original: { resource: URI }; modified: { resource: URI } }];
+		expect([input.original.resource.path, input.modified.resource.path]).toEqual(['/analysis/dose.R', '/analysis/dose.R']);
+	});
+
 	test('openDiff opens blob against file for a modified file', async () => {
 		engine.diff = { left: { kind: 'blob', oid: 'abc123' }, right: { kind: 'file', path: 'analysis/dose.R' } };
 		engine.blobs.set('abc123', VSBuffer.fromString('x <- 0\n'));

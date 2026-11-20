@@ -67,7 +67,8 @@ async function routeResult(
 	instantiationService: IInstantiationService,
 	logService: ILogService,
 	engine: ICheckpointsEngineProxy,
-	result: OperationResult
+	result: OperationResult,
+	options: IRunActionOptions
 ): Promise<void> {
 	switch (result.kind) {
 		case 'overlaps':
@@ -112,7 +113,7 @@ async function routeResult(
 		case 'check-changed-checkpoint':
 			messageService.show(Strings.results.forOperation(result));
 			try {
-				showCheckResultDialog(result, createDialogActions(instantiationService));
+				showCheckResultDialog(result, createDialogActions(instantiationService), options.chunkCount);
 			} catch (error) {
 				logService.error('The project check dialog could not open.', error);
 			}
@@ -160,6 +161,15 @@ export interface IRunActionContext {
 	collisionChoices: ICollisionChoice[];
 }
 
+/** What `runAction` needs to know about an action besides its call. */
+export interface IRunActionOptions {
+	/**
+	 * The number of checkpoints the action asks the engine to create, so that the dialog of a
+	 * project check result can say which of them was not created.
+	 */
+	chunkCount?: number;
+}
+
 /**
  * The engine call of an action. It returns undefined when it decides not to call the engine, for
  * example because a save changed what the person reviewed.
@@ -180,7 +190,8 @@ export type RunActionCall = (engine: ICheckpointsEngineProxy, context: IRunActio
 export async function runAction(
 	accessor: ServicesAccessor,
 	mode: RunActionMode,
-	call: RunActionCall
+	call: RunActionCall,
+	options: IRunActionOptions = {}
 ): Promise<OperationResult | undefined> {
 	// An accessor is valid only until the first await, so every service is read here.
 	const checkpointsService = accessor.get(ICheckpointsService);
@@ -246,7 +257,7 @@ export async function runAction(
 			collisionChoices = mergeCollisionChoices(collisionChoices, chosen);
 			continue;
 		}
-		await routeResult(messageService, instantiationService, logService, engine, result);
+		await routeResult(messageService, instantiationService, logService, engine, result, options);
 		return result;
 	}
 }

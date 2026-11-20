@@ -43,7 +43,7 @@ export const ChangesSection = ({ view, visible }: IChangesSectionProps) => {
 	const notes = new Map(description?.fileNotes.map(entry => [entry.path, entry.note]));
 	const suggestedText = description && { title: description.title, body: description.summary };
 	const create = () => showCheckpointDialog({ changes, suggestedText, onFinished: () => view.refresh() });
-	const viewDifferences = (file: IChangedFile) => openDiff(services, { kind: 'change', path: file.path }, Strings.diff.changeTitle(file.path), knownSizes(file));
+	const viewDifferences = (file: IChangedFile) => openDiff(services, { kind: 'change', path: file.path, oldPath: file.oldPath }, Strings.diff.changeTitle(file.path), knownSizes(file));
 
 	return (
 		<section aria-labelledby='checkpoints-changes-heading' className='checkpoints-section checkpoints-changes'>

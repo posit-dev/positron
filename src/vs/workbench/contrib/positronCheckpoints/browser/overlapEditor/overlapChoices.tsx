@@ -9,6 +9,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IOverlap, OverlapChoice } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../../common/checkpointsStrings.js';
+import { openDiff } from '../openDiff.js';
 import { CombinationProposalState, useCombinationProposal } from './useCombinationProposal.js';
 
 /** The command that opens the Source Control view. */
@@ -60,14 +61,9 @@ export function proposedName(path: string, rawLabel: string): string {
 		: `${folder}${base} (${label})`;
 }
 
-/**
- * Which person has the file in a file-and-folder overlap. The side with content or a size is the
- * file; when that cannot be told, it is mine.
- */
+/** Which person has the file in a file-and-folder overlap, as the engine reports it in `fileSide`. */
 function fileSideOf(overlap: IOverlap): 'me' | 'them' {
-	const mineIsFile = overlap.mine !== undefined || overlap.mineSizeBytes !== undefined;
-	const theirsIsFile = overlap.theirs !== undefined || overlap.theirsSizeBytes !== undefined;
-	return theirsIsFile && !mineIsFile ? 'them' : 'me';
+	return overlap.fileSide === 'theirs' ? 'them' : 'me';
 }
 
 /** The plain explanation of an overlap. */
@@ -90,16 +86,31 @@ function explain(overlap: IOverlap): string {
 }
 
 /**
- * One overlap in the overlap editor: its title, its explanation, and its choices. A text overlap
- * also gets a combined text proposed by the agent while the agent is available.
+ * One overlap in the overlap editor: its title, its explanation, the detailed differences of each
+ * side against the version before either change, and its choices. A text overlap also gets a
+ * combined text proposed by the agent while the agent is available. An overlap only a git tool
+ * can resolve has no detailed differences.
  */
 export const OverlapSection = ({ readChoice, ...props }: IOverlapChoicesProps & { readChoice(): OverlapChoice | undefined }) => {
-	const headingId = `checkpoints-overlap-${props.overlap.id}`;
-	const proposal = useCombinationProposal(props.overlap, readChoice, props.onChoose);
+	const services = usePositronReactServicesContext();
+	const { overlap } = props;
+	const headingId = `checkpoints-overlap-${overlap.id}`;
+	const proposal = useCombinationProposal(overlap, readChoice, props.onChoose);
+	const viewSide = (side: 'mine' | 'theirs') => openDiff(
+		services,
+		{ kind: 'overlap', overlapId: overlap.id, side, path: overlap.path },
+		side === 'mine' ? Strings.diff.overlapMineTitle(overlap.path) : Strings.diff.overlapTheirsTitle(overlap.path, overlap.theirAuthor)
+	);
 	return (
 		<section aria-labelledby={headingId} className='checkpoints-overlap'>
-			<h3 className='checkpoints-heading' id={headingId}>{Strings.overlaps.title(props.overlap.path)}</h3>
-			<p>{explain(props.overlap)}</p>
+			<h3 className='checkpoints-heading' id={headingId}>{Strings.overlaps.title(overlap.path)}</h3>
+			<p>{explain(overlap)}</p>
+			{overlap.kind !== 'unsupported' && (
+				<div className='checkpoints-card-actions'>
+					<Button className='checkpoints-link' onPressed={() => viewSide('mine')}>{Strings.overlaps.viewMineDifferences()}</Button>
+					<Button className='checkpoints-link' onPressed={() => viewSide('theirs')}>{Strings.overlaps.viewTheirsDifferences(overlap.theirAuthor)}</Button>
+				</div>
+			)}
 			<OverlapChoices {...props} proposal={proposal} />
 		</section>
 	);

@@ -45,6 +45,11 @@ export function fakeCheckpoint(overrides: Partial<ICheckpoint> = {}): ICheckpoin
 	};
 }
 
+/** One changed text file without hunk text, as `getCheckpointFiles` and `getPendingFiles` list it. */
+export function fakeChangedFile(path: string, overrides: Partial<IChangedFile> = {}): IChangedFile {
+	return { path, status: 'modified', binary: false, sizeBytes: 10, tooLarge: false, hunks: [], ...overrides };
+}
+
 /** One call made to the fake engine. */
 export interface IFakeEngineCall {
 	method: CheckpointsMethod;

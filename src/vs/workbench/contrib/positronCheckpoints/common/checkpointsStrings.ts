@@ -6,6 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { plural, ServiceStrings } from '../../../services/positronCheckpoints/common/checkpointsServiceStrings.js';
 import { OperationResult, UnavailableReason, RejectedReason, UnusualKind } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ReadFailureKind } from './readFailure.js';
 
 // Every user-facing string of the Checkpoints view is defined here, so the vocabulary changes in
 // one place. The main view never shows the words branch, commit, stage, rebase, merge, pull, push,
@@ -23,6 +24,17 @@ function joinSentences(sentences: string[]): string {
 const status = {
 	noEngine: () => localize('positron.checkpoints.status.noEngine', "Checkpoints are not available yet."),
 	couldNotRead: () => localize('positron.checkpoints.status.couldNotRead', "The state of this project could not be read."),
+	/** The sentence for a part of the view that could not be read from the project. */
+	couldNotLoad: (kind: ReadFailureKind): string => {
+		switch (kind) {
+			case 'timed-out':
+				return localize('positron.checkpoints.status.couldNotLoad.timedOut', "The project did not respond in time, so part of this view could not be loaded.");
+			case 'git-missing':
+				return status.unusual('git-missing');
+			case 'other':
+				return localize('positron.checkpoints.status.couldNotLoad.other', "Part of this view could not be loaded.");
+		}
+	},
 	interrupted: (description: string) => localize('positron.checkpoints.status.interrupted', "The action \"{0}\" was interrupted before it finished.", description),
 	syncUnavailable: (version: string) => localize('positron.checkpoints.status.syncUnavailable', "Getting and sending changes needs git version {0} or newer.", version),
 	behind: (count: number) => plural(count,
@@ -163,6 +175,9 @@ const diff = {
 	tooLargeMessage: (path: string, limitMegabytes: number, sizes: string) => localize('positron.checkpoints.diff.tooLargeMessage', "{0} is over {1} MB, so there is no line-by-line comparison. {2}", path, limitMegabytes, sizes),
 	unavailable: (path: string) => localize('positron.checkpoints.diff.unavailable', "The differences for {0} could not be read.", path),
 	pendingTitle: (path: string) => localize('positron.checkpoints.diff.pendingTitle', "{0} (as the check changed it)", path),
+	checkpointTitle: (path: string, checkpointTitle: string) => localize('positron.checkpoints.diff.checkpointTitle', "{0} (changes in \"{1}\")", path, checkpointTitle),
+	overlapMineTitle: (path: string) => localize('positron.checkpoints.diff.overlapMineTitle', "{0} (your changes)", path),
+	overlapTheirsTitle: (path: string, author: string) => localize('positron.checkpoints.diff.overlapTheirsTitle', "{0} ({1}'s changes)", path, author),
 };
 
 const imageDiff = {
@@ -195,6 +210,8 @@ const history = {
 	reverseConfirm: () => localize('positron.checkpoints.history.reverseConfirm', "Reverse"),
 	combinedWorkFrom: (author: string) => localize('positron.checkpoints.history.combinedWorkFrom', "Combined work from {0}", author),
 	workFrom: (author: string) => localize('positron.checkpoints.history.workFrom', "Work from {0}", author),
+	files: () => localize('positron.checkpoints.history.files', "Files in this checkpoint"),
+	noFiles: () => localize('positron.checkpoints.history.noFiles', "This checkpoint changed no files."),
 };
 
 const resultSentences = {
@@ -398,6 +415,8 @@ const overlaps = {
 	dropsBothChanges: () => localize('positron.checkpoints.overlaps.dropsBothChanges', "The suggestion drops both changes."),
 	newText: () => localize('positron.checkpoints.overlaps.newText', "The suggestion contains text that neither of you wrote."),
 	leavesOutPartOfChange: () => localize('positron.checkpoints.overlaps.leavesOutPartOfChange', "The suggestion leaves out part of a change."),
+	viewMineDifferences: () => localize('positron.checkpoints.overlaps.viewMineDifferences', "View detailed differences of your changes"),
+	viewTheirsDifferences: (author: string) => localize('positron.checkpoints.overlaps.viewTheirsDifferences', "View detailed differences of {0}'s changes", author),
 };
 
 const start = {
@@ -507,6 +526,8 @@ const checkResult = {
 	changedFiles: () => localize('positron.checkpoints.checkResult.changedFiles', "Files the check changed:"),
 	editedFiles: () => localize('positron.checkpoints.checkResult.editedFiles', "Files the check changed on disk:"),
 	filesChangedOnDisk: (count: number) => joinSentences([resultSentences.checkChangedFilesOnDisk(count)]),
+	/** `number` counts from 1. */
+	chunkNotCreated: (number: number, count: number) => localize('positron.checkpoints.checkResult.chunkNotCreated', "Checkpoint {0} of {1} was not created.", number, count),
 };
 
 const suggestions = {

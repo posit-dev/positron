@@ -104,6 +104,16 @@ describe('Undo and Redo', () => {
 		));
 	});
 
+	test('the undo of files a project check changed has its own name', async () => {
+		engine.state = fakeEngineState({ undo: { operationId: 'op-8', description: 'Project check changed files', kind: 'check-changed-files', restoresFiles: true } });
+		rtl.render(<CheckpointsPanel />);
+		const user = userEvent.setup();
+
+		await user.click(await screen.findByRole('button', { name: 'Undo: changes made by the project check' }));
+
+		await vi.waitFor(() => expect(engine.callsOf('undo')).toEqual([['op-8', []]]));
+	});
+
 	test('Undo and Redo call the engine with the operation id and no collision choices', async () => {
 		engine.state = fakeEngineState({ undo: undoEntry, redo: redoEntry });
 		rtl.render(<CheckpointsPanel />);

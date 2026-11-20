@@ -10,21 +10,22 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { ICheckpoint } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
-import { describeHistoryJob, IDescribeHistoryInput, IHistoryDescription } from '../../common/agent/describeHistory.js';
+import { ICheckpointsService } from '../../../../services/positronCheckpoints/common/checkpointsService.js';
+import { ICheckpoint, ICheckpointsEngineProxy } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { describeHistoryJob, IDescribeHistoryInput, IHistoryDescription, readHistoryDiff } from '../../common/agent/describeHistory.js';
 import { ICheckpointsAgentService } from '../checkpointsAgentService.js';
+import { ICheckpointsMessageService, reportReadFailure } from '../checkpointsMessages.js';
 import { useAgentAvailable } from './useChangesDescription.js';
 
 /** The most descriptions of history rows that are requested at the same time. */
 export const MAX_CONCURRENT_HISTORY_DESCRIPTIONS = 3;
 
 /**
- * The input of the "describe history" job for one checkpoint. The engine has no list of the
- * changes of one checkpoint yet, so the job reads the checkpoint's own title and description, and
- * `diff` is empty.
+ * The input of the "describe history" job for one checkpoint: the checkpoint and its changes as
+ * text (`readHistoryDiff`). Without an engine, `diff` is empty. A failed read rejects.
  */
-export function historyDescriptionInput(checkpoint: ICheckpoint): IDescribeHistoryInput {
-	return { checkpoint, diff: '' };
+export async function historyDescriptionInput(engine: ICheckpointsEngineProxy | undefined, checkpoint: ICheckpoint): Promise<IDescribeHistoryInput> {
+	return { checkpoint, diff: engine ? await readHistoryDiff(engine, checkpoint.id) : '' };
 }
 
 /**
@@ -64,7 +65,20 @@ export function useHistoryDescriptions(checkpoints: readonly ICheckpoint[], acti
 
 		const describe = async (checkpoint: ICheckpoint) => {
 			try {
-				const outcome = await agentService.run(describeHistoryJob, historyDescriptionInput(checkpoint), source.token);
+				let input: IDescribeHistoryInput;
+				try {
+					input = await historyDescriptionInput(services.get(ICheckpointsService).engine, checkpoint);
+				} catch (error) {
+					// The description is still asked for, from the message alone.
+					if (!source.token.isCancellationRequested) {
+						reportReadFailure(services.get(ILogService), services.get(ICheckpointsMessageService), 'The changes of a checkpoint could not be read for its description.', error);
+					}
+					input = { checkpoint, diff: '' };
+				}
+				if (source.token.isCancellationRequested) {
+					return;
+				}
+				const outcome = await agentService.run(describeHistoryJob, input, source.token);
 				if (source.token.isCancellationRequested) {
 					return;
 				}

@@ -10,7 +10,7 @@ import { userEvent } from '@testing-library/user-event';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CheckpointsService } from '../../../../services/positronCheckpoints/browser/checkpointsService.js';
@@ -175,6 +175,33 @@ describe('CheckpointsPanel', () => {
 		renderPanel();
 
 		expect(await screen.findByText('The state of this project could not be read.')).toBeInTheDocument();
+	});
+
+	test('a read that times out says so on the status line, and a later clean load empties the line', async () => {
+		const timedOut = new Error('checkpoints:timed-out git status did not respond in time');
+		const readChanges = engine.getChanges.bind(engine);
+		engine.getChanges = async () => { throw timedOut; };
+		renderPanel();
+
+		expect(await screen.findByText('The project did not respond in time, so part of this view could not be loaded.')).toBeInTheDocument();
+		expect(screen.getByText('You have everything in the shared copy.')).toBeInTheDocument();
+
+		engine.getChanges = readChanges;
+		act(() => engine.fireChange());
+
+		await vi.waitFor(() => expect(screen.queryByText('The project did not respond in time, so part of this view could not be loaded.')).not.toBeInTheDocument());
+	});
+
+	test('a failed state read is logged and says so on the status line', async () => {
+		const logError = vi.fn();
+		ctx.instantiationService.stub(ILogService, { error: logError });
+		const failure = new Error('checkpoints:git-missing spawn git ENOENT');
+		engine.getState = async () => { throw failure; };
+		renderPanel();
+
+		expect(await screen.findByText('The state of this project could not be read.')).toBeInTheDocument();
+		expect(within(screen.getByRole('status')).getByText('Checkpoints need the git program, and it was not found on this computer.')).toBeInTheDocument();
+		expect(logError).toHaveBeenCalledWith('The state of the project could not be read.', failure);
 	});
 
 	test('the panel refreshes when the service fires onDidChangeState', async () => {

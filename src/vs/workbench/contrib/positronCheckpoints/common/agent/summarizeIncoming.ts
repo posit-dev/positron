@@ -5,7 +5,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ISequence, LcsDiff } from '../../../../../base/common/diff/diff.js';
-import { ContentRef, ICheckpointsEngineProxy, IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ContentRef, DiffTarget, ICheckpointsEngineProxy, IIncomingPreview } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { containsForbiddenWord, field, PROMPT_ALLOWANCE_CHARS, startsWithYou } from './describeChanges.js';
 import { fitFilesToLength } from './diffText.js';
 import { Job, MAX_INPUT_CHARS, STYLE_THIRD_PERSON, wrapUntrusted } from './jobTypes.js';
@@ -26,7 +26,7 @@ const MAX_FILES_READ = 40;
 const MAX_PARALLEL_READS = 4;
 
 /** The largest side of a file, in bytes, that is compared. A larger file is listed by name and size. */
-const MAX_SIDE_BYTES = 512 * 1024;
+export const MAX_SIDE_BYTES = 512 * 1024;
 
 /** The longest time, in milliseconds, spent comparing one file. A slower file is listed by name and line counts. */
 export const MAX_DIFF_MS = 50;
@@ -104,13 +104,14 @@ function changedLines(before: string[], after: string[], now: () => number): str
 }
 
 /**
- * The texts of one incoming file, from the full one to the shortest: its changed lines (at most
- * `MAX_RENDERED_LINES_PER_FILE`), then its "File:" line with line counts. A data file, a side that
- * is a file on disk, a file too large to compare, or a file whose comparison takes longer than
- * `MAX_DIFF_MS` has its "File:" line only.
+ * The texts of the file that `target` compares, from the full one to the shortest: its changed
+ * lines (at most `MAX_RENDERED_LINES_PER_FILE`), then its "File:" line with line counts. A data
+ * file, a side that is a file on disk, a file too large to compare, or a file whose comparison
+ * takes longer than `MAX_DIFF_MS` has its "File:" line only.
  */
-async function renderIncomingFile(engine: ICheckpointsEngineProxy, path: string, now: () => number): Promise<string[]> {
-	const { left, right } = await engine.getDiff({ kind: 'incoming', path });
+export async function renderComparedFile(engine: ICheckpointsEngineProxy, target: Exclude<DiffTarget, { kind: 'overlap' }>, now: () => number = Date.now): Promise<string[]> {
+	const path = target.path;
+	const { left, right } = await engine.getDiff(target);
 	const read = async (ref: ContentRef): Promise<VSBuffer | undefined> => {
 		switch (ref.kind) {
 			case 'empty': return VSBuffer.alloc(0);
@@ -169,7 +170,7 @@ export async function renderIncomingForModel(engine: ICheckpointsEngineProxy, pr
 	const worker = async () => {
 		while (length < maxChars && next < Math.min(paths.length, MAX_FILES_READ)) {
 			const index = next++;
-			forms[index] = await renderIncomingFile(engine, paths[index], now);
+			forms[index] = await renderComparedFile(engine, { kind: 'incoming', path: paths[index] }, now);
 			length += forms[index][0].length + 1;
 		}
 	};

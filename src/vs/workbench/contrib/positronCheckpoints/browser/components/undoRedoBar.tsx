@@ -55,9 +55,9 @@ function useHoverManager(): IHoverManager | undefined {
 
 /**
  * Undo and Redo, each named by the action it applies to. They show only while their lists have an
- * entry. When Undo or Redo would set files back to how they were (the engine reports
- * `restoresFiles`), a note says how many files the person changed since the action. The hover text
- * states the limit of the undo list.
+ * entry. The undo of the files a project check changed has its own name (spec 6.1). When Undo or
+ * Redo would set files back to how they were (the engine reports `restoresFiles`), a note says how
+ * many files the person changed since the action. The hover text states the limit of the undo list.
  */
 export const UndoRedoBar = ({ view }: { view: ICheckpointsViewState }) => {
 	const runAction = useRunAction();
@@ -69,7 +69,7 @@ export const UndoRedoBar = ({ view }: { view: ICheckpointsViewState }) => {
 		return null;
 	}
 	const { undo, redo } = state;
-	const restoresFiles = undo?.restoresFiles === true || redo?.restoresFiles === true;
+	const restoresFiles = (undo?.restoresFiles ?? false) || (redo?.restoresFiles ?? false);
 	const tooltip = Strings.actions.undoHover(UNDO_LIMIT_OPERATIONS, UNDO_LIMIT_DAYS);
 
 	const undoLast = async () => {
@@ -91,7 +91,7 @@ export const UndoRedoBar = ({ view }: { view: ICheckpointsViewState }) => {
 			<div className='checkpoints-card-actions'>
 				{undo && (
 					<Button className='checkpoints-link' hoverManager={hoverManager} tooltip={tooltip} onPressed={undoLast}>
-						{Strings.actions.undo(undo.description)}
+						{undo.kind === 'check-changed-files' ? Strings.actions.undoProjectCheckChanges() : Strings.actions.undo(undo.description)}
 					</Button>
 				)}
 				{redo && (

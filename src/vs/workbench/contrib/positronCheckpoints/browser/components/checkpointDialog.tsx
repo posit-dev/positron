@@ -18,7 +18,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { OKCancelModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { IChangedFile, IChangeSet, IChunk, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
+import { ICheckpointsEngineProxy, IChangedFile, IChangeSet, IChunk, OperationResult } from '../../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { splitIntoChunksJob } from '../../common/agent/splitIntoChunks.js';
 import { CHECKPOINT_TITLE_LIMIT, LARGE_FILE_LIMIT_MEGABYTES } from '../../common/checkpointsLimits.js';
 import { Strings } from '../../common/checkpointsStrings.js';
@@ -153,6 +153,14 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 		edited.current = true;
 		const arranged = draft;
 		setRunning(true);
+		// Every answer of the engine closes this dialog. It closes before `runAction` routes the
+		// answer, because closing a dialog also closes the dialogs opened above it, such as the
+		// dialog of a project check result.
+		const create = async (engine: ICheckpointsEngineProxy) => {
+			const created = await engine.createCheckpoints(changes.basis, toChunks(arranged));
+			props.renderer.dispose();
+			return created;
+		};
 		let result: OperationResult | undefined;
 		try {
 			result = await runAction('checkpoint', async (engine, { decision }) => {
@@ -160,11 +168,11 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 				// other case the reviewed basis is sent, so the engine refuses with changes-moved when
 				// the files changed in any other way.
 				if (decision !== 'proceed-after-save') {
-					return engine.createCheckpoints(changes.basis, toChunks(arranged));
+					return create(engine);
 				}
 				const current = await engine.getChanges();
 				if (current.basis === changes.basis) {
-					return engine.createCheckpoints(changes.basis, toChunks(arranged));
+					return create(engine);
 				}
 				const reconciled = reconcileDraft(arranged, current.files);
 				const before = draftPaths(arranged);
@@ -181,14 +189,13 @@ export const CheckpointDialog = (props: ICheckpointDialogProps) => {
 					setNotice(removed || !isDraftReady(reconciled) ? Strings.changes.savedAndChanged() : Strings.changes.savedContentChanged());
 				}
 				return undefined;
-			});
+			}, { chunkCount: toChunks(arranged).length });
 		} finally {
 			setRunning(false);
 		}
 		if (result === undefined) {
 			return;
 		}
-		props.renderer.dispose();
 		props.onFinished?.(result);
 	};
 
@@ -330,7 +337,7 @@ const ChunkEditor = (props: IChunkEditorProps) => {
 							<Button
 								ariaLabel={Strings.actions.viewDetailedDifferencesOf(draftFile.path)}
 								className='checkpoints-link'
-								onPressed={() => openDiff(services, { kind: 'change', path: draftFile.path }, Strings.diff.changeTitle(draftFile.path), file && knownSizes(file))}
+								onPressed={() => openDiff(services, { kind: 'change', path: draftFile.path, oldPath: file?.oldPath }, Strings.diff.changeTitle(draftFile.path), file && knownSizes(file))}
 							>
 								{Strings.actions.viewDetailedDifferences()}
 							</Button>

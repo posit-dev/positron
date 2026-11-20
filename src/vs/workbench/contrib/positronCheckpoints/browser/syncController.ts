@@ -11,7 +11,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { ICheckpointsService } from '../../../services/positronCheckpoints/common/checkpointsService.js';
 import { ICollisionChoice, IIncomingPreview, IResolution, OperationResult, OverlapChoice, OverlapKind } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
 import { Strings } from '../common/checkpointsStrings.js';
-import { ICheckpointsMessageService } from './checkpointsMessages.js';
+import { ICheckpointsMessageService, reportReadFailure } from './checkpointsMessages.js';
 import { mergeCollisionChoices, runAction } from './runAction.js';
 
 /** The choices the engine accepts for each kind of overlap (spec 6.4). */
@@ -143,7 +143,7 @@ export class SyncController extends Disposable implements ISyncController {
 		try {
 			preview = await engine.previewIncoming();
 		} catch (error) {
-			this._logService.error('The incoming changes could not be read.', error);
+			reportReadFailure(this._logService, this._messageService, 'The incoming changes could not be read.', error);
 			return;
 		}
 		if (request === this._previewRequest && this._resolutions.size === 0) {
