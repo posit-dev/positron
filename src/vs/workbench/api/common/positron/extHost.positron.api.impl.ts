@@ -35,6 +35,7 @@ import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
+import { ExtHostCheckpoints } from './extHostCheckpoints.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
 import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
@@ -98,6 +99,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService,
 			extHostConsoleService, new ExtHostDialogs(rpcProtocol)));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
+	const extHostCheckpoints = rpcProtocol.set(ExtHostPositronContext.ExtHostCheckpoints, new ExtHostCheckpoints(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
@@ -329,6 +331,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 */
 			registerConnectionDriver(driver: positron.ConnectionsDriver): vscode.Disposable {
 				return extHostConnections.registerConnectionDriver(driver);
+			}
+		};
+
+		const checkpoints: typeof positron.checkpoints = {
+			/**
+			 * Register a checkpoints engine. Positron uses the first registered engine.
+			 * @param engine The checkpoints engine to register.
+			 */
+			registerEngine(engine: positron.checkpoints.CheckpointsEngine): vscode.Disposable {
+				return extHostCheckpoints.registerEngine(engine);
 			}
 		};
 
@@ -704,6 +716,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			paths,
 			docs,
 			connections,
+			checkpoints,
 			dataConnections,
 			dataExplorer,
 			ai,

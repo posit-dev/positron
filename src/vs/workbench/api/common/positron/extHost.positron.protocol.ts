@@ -32,6 +32,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
 import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ICheckpointsRequest, ICheckpointsResponse } from '../../../services/positronCheckpoints/common/checkpointsTypes.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -273,6 +274,24 @@ export interface ExtHostConnectionsShape {
 	$driverConnect(driverId: string, code: string): Promise<void>;
 	$driverCheckDependencies(driverId: string): Promise<boolean>;
 	$driverInstallDependencies(driverId: string): Promise<boolean>;
+}
+
+/**
+ * Main thread side of the checkpoints channel. The ext host registers each engine under a handle
+ * and reports its state changes.
+ */
+export interface MainThreadCheckpointsShape extends IDisposable {
+	$registerEngine(handle: number): void;
+	$unregisterEngine(handle: number): void;
+	$onDidChangeState(handle: number): void;
+}
+
+/**
+ * Ext host side of the checkpoints channel. The main thread calls an engine method through it.
+ * The response is wrapped so that the buffer of `readBlob` crosses the protocol as binary data.
+ */
+export interface ExtHostCheckpointsShape {
+	$call(handle: number, request: ICheckpointsRequest): Promise<SerializableObjectWithBuffers<ICheckpointsResponse>>;
 }
 
 /**
@@ -652,6 +671,7 @@ export const ExtHostPositronContext = {
 	ExtHostDataExplorer: createProxyIdentifier<ExtHostDataExplorerShape>('ExtHostDataExplorer'),
 	ExtHostLifecycle: createProxyIdentifier<ExtHostLifecycleShape>('ExtHostLifecycle'),
 	ExtHostFileTransfer: createProxyIdentifier<ExtHostFileTransferShape>('ExtHostFileTransfer'),
+	ExtHostCheckpoints: createProxyIdentifier<ExtHostCheckpointsShape>('ExtHostCheckpoints'),
 };
 
 export interface MainThreadPositronEphemeralStorageShape extends IDisposable {
@@ -678,4 +698,5 @@ export const MainPositronContext = {
 	MainThreadDataExplorer: createProxyIdentifier<MainThreadDataExplorerShape>('MainThreadDataExplorer'),
 	MainThreadLifecycle: createProxyIdentifier<MainThreadLifecycleShape>('MainThreadLifecycle'),
 	MainThreadFileTransfer: createProxyIdentifier<MainThreadFileTransferShape>('MainThreadFileTransfer'),
+	MainThreadCheckpoints: createProxyIdentifier<MainThreadCheckpointsShape>('MainThreadCheckpoints'),
 };
