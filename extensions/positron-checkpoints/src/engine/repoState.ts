@@ -118,6 +118,14 @@ export async function isSyncAvailable(ports: EnginePorts, root = ports.projectRo
 }
 
 /**
+ * True unless git has an explicit identity (see `isIdentityMissing`) for work in `folder`, which
+ * need not be a repository.
+ */
+export async function isIdentityMissingIn(ports: EnginePorts, folder: string): Promise<boolean> {
+	return isIdentityMissing((args, env) => runGit(ports.git, ['-C', folder, ...args], env && { env }));
+}
+
+/**
  * True unless git has both a name and an email, for the author and for the committer, that
  * were set explicitly (in configuration or through `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, or `EMAIL`). Without `user.useConfigOnly`
  * git guesses an address such as `user@host.local`, which must not author checkpoints.
