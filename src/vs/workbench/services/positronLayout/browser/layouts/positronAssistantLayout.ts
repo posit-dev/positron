@@ -92,7 +92,7 @@ registerAction2(class extends PositronLayoutAction {
 			},
 		};
 
-		accessor.get(IPositronLayoutService).setLayout(layoutDescriptor);
+		accessor.get(IPositronLayoutService).setLayout(layoutDescriptor, positronAssistantLayout.id);
 
 		// The layout opens the sidebar container fire-and-forget; for an
 		// extension-contributed, webview-backed composite (Posit Assistant) that

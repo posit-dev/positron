@@ -7,13 +7,14 @@
 import './layoutCards.css';
 
 // React.
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import type { GettingStartedActionClassification, GettingStartedActionEvent } from '../../gettingStarted.js';
+import { IPositronLayoutService } from '../../../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
 import { isSimplifiedLayoutEnabled } from '../../../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import { positronSimplifiedLayout } from '../../../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
 import { positronFourPaneDsLayout } from '../../../../../services/positronLayout/browser/layouts/positronFourPaneDsLayout.js';
@@ -116,16 +117,30 @@ function getLayoutCards(): LayoutCard[] {
 
 /**
  * LayoutCards component. Shows each layout as a picture the user can click to
- * switch to it. Only shown with the simplified layout setting on.
+ * switch to it, with the layout the window is in marked as current. Only shown with
+ * the simplified layout setting on.
  * @returns The rendered component, or null when the setting is off.
  */
 export const LayoutCards = () => {
 	const services = usePositronReactServicesContext();
-	const headingId = useId();
+	return isSimplifiedLayoutEnabled(services.configurationService) ? <LayoutCardsSection /> : null;
+};
 
-	if (!isSimplifiedLayoutEnabled(services.configurationService)) {
-		return null;
-	}
+/**
+ * The layout cards themselves, split from LayoutCards so the layout service is only
+ * read when the cards show.
+ * @returns The rendered component.
+ */
+const LayoutCardsSection = () => {
+	const services = usePositronReactServicesContext();
+	const headingId = useId();
+	const layoutService = services.get(IPositronLayoutService);
+	const [currentLayoutId, setCurrentLayoutId] = useState(() => layoutService.currentLayoutId);
+
+	useEffect(() => {
+		const disposable = layoutService.onDidChangeCurrentLayout(setCurrentLayoutId);
+		return () => disposable.dispose();
+	}, [layoutService]);
 
 	const applyLayout = (commandId: string) => {
 		services.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>(
@@ -139,18 +154,21 @@ export const LayoutCards = () => {
 		services.commandService.executeCommand(commandId);
 	};
 
-	// Render. The picture is hidden from screen readers, which read the name and
+	// Render. The cards are radio buttons because exactly one layout is current at a
+	// time. The picture is hidden from screen readers, which read the name and
 	// description instead.
 	return (
 		<section aria-labelledby={headingId} className='positron-welcome-page-layouts'>
 			<h2 id={headingId}>
 				{localize('positron.welcome.layouts', "Choose a Layout")}
 			</h2>
-			<div className='layout-cards'>
+			<div aria-labelledby={headingId} className='layout-cards' role='radiogroup'>
 				{getLayoutCards().map(card => (
 					<Button
 						key={card.commandId}
-						className='layout-card'
+						ariaChecked={card.commandId === currentLayoutId}
+						className={card.commandId === currentLayoutId ? 'layout-card current' : 'layout-card'}
+						role='radio'
 						onPressed={() => applyLayout(card.commandId)}
 					>
 						<span
@@ -174,7 +192,14 @@ export const LayoutCards = () => {
 								</span>
 							))}
 						</span>
-						<span className='layout-card-name'>{card.name}</span>
+						<span className='layout-card-name'>
+							{card.name}
+							{card.commandId === currentLayoutId &&
+								<span className='layout-card-current-badge'>
+									{localize('positron.welcome.layout.current', "Current")}
+								</span>
+							}
+						</span>
 						<span className='layout-card-description'>{card.description}</span>
 					</Button>
 				))}

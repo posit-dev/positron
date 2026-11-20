@@ -5,6 +5,7 @@
 
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { Event } from '../../../../../base/common/event.js';
 import { ISerializableView, IViewSize } from '../../../../../base/browser/ui/grid/gridview.js';
 import { PanelAlignment } from '../../../layout/browser/layoutService.js';
 
@@ -25,10 +26,25 @@ export interface IPositronLayoutService {
 	initialize(): void;
 
 	/**
+	 * The command id of the named layout the window is in, such as
+	 * `workbench.action.positronSimplifiedLayout`. Set when a named layout is applied, and
+	 * updated when the user moves views or shows or hides parts: it is then the named
+	 * layout the window matches, or undefined when it matches none.
+	 */
+	readonly currentLayoutId: string | undefined;
+
+	/**
+	 * Fires when {@link currentLayoutId} changes.
+	 */
+	readonly onDidChangeCurrentLayout: Event<string | undefined>;
+
+	/**
 	 * Set the layout for the editor.
 	 * @param layout Layout description to set.
+	 * @param layoutId The command id of the named layout, remembered as
+	 * {@link currentLayoutId}. Leave it out for a layout that has no name.
 	 */
-	setLayout(layout: CustomPositronLayoutDescription): void;
+	setLayout(layout: CustomPositronLayoutDescription, layoutId?: string): void;
 
 }
 

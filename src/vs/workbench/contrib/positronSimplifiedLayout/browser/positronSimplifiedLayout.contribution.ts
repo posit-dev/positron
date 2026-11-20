@@ -46,7 +46,7 @@ class SimplifiedLayoutStartupContribution extends Disposable implements IWorkben
 		const appliedToWorkspace = storageService.getBoolean(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.WORKSPACE, false);
 
 		if (enabled && (!appliedToProfile || !appliedToWorkspace)) {
-			positronLayoutService.setLayout(positronSimplifiedLayout.layoutDescriptor);
+			positronLayoutService.setLayout(positronSimplifiedLayout.layoutDescriptor, positronSimplifiedLayout.id);
 			storageService.store(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.MACHINE);
 			storageService.store(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		} else if (enabled) {
@@ -58,7 +58,7 @@ class SimplifiedLayoutStartupContribution extends Disposable implements IWorkben
 				layoutService.setPartHidden(true, Parts.PANEL_PART);
 			}
 		} else if (appliedToProfile) {
-			positronLayoutService.setLayout(positronFourPaneDsLayout.layoutDescriptor);
+			positronLayoutService.setLayout(positronFourPaneDsLayout.layoutDescriptor, positronFourPaneDsLayout.id);
 			storageService.remove(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.PROFILE);
 			storageService.remove(SIMPLIFIED_LAYOUT_APPLIED_STORAGE_KEY, StorageScope.WORKSPACE);
 		}

@@ -76,6 +76,6 @@ registerAction2(class extends Action2 {
 		const commandService = accessor.get(ICommandService);
 		const positronLayoutService = accessor.get(IPositronLayoutService);
 		await commandService.executeCommand('ipynb.newUntitledIpynb');
-		positronLayoutService.setLayout(positronNotebookLayout.layoutDescriptor);
+		positronLayoutService.setLayout(positronNotebookLayout.layoutDescriptor, positronNotebookLayout.id);
 	}
 });

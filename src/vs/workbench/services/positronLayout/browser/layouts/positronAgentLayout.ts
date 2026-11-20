@@ -84,7 +84,7 @@ registerAction2(class extends PositronLayoutAction {
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		const extensionService = accessor.get(IExtensionService);
-		accessor.get(IPositronLayoutService).setLayout(positronAgentLayout.layoutDescriptor);
+		accessor.get(IPositronLayoutService).setLayout(positronAgentLayout.layoutDescriptor, positronAgentLayout.id);
 
 		// The layout descriptor only covers the panel, sidebar, and auxiliary
 		// bar; the big Assistant pane in the editor area comes from Posit

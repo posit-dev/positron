@@ -10,6 +10,7 @@ import { ServicesAccessor } from '../../../../../platform/instantiation/common/i
 import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
+import { registerMatchableLayout } from './layoutMatch.js';
 
 
 export type PositronLayoutInfo = {
@@ -41,6 +42,7 @@ export type PositronLayoutInfo = {
 
 export abstract class PositronLayoutAction extends Action2 {
 	private _layout: CustomPositronLayoutDescription;
+	private _layoutId: string;
 	constructor(
 		layoutInfo: PositronLayoutInfo
 	) {
@@ -58,9 +60,11 @@ export abstract class PositronLayoutAction extends Action2 {
 		});
 
 		this._layout = layoutInfo.layoutDescriptor;
+		this._layoutId = layoutInfo.id;
+		registerMatchableLayout(layoutInfo);
 	}
 	run(accessor: ServicesAccessor): void {
 		const positronLayoutService = accessor.get(IPositronLayoutService);
-		positronLayoutService.setLayout(this._layout);
+		positronLayoutService.setLayout(this._layout, this._layoutId);
 	}
 }
