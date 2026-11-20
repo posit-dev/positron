@@ -356,7 +356,7 @@ async function planPaths(ports: EnginePorts, before: TriState, after: TriState, 
 }
 
 /** The mode of a file the engine writes, null for an absent file, undefined for a submodule. */
-function fileMode(mode: string): FileMode | null | undefined {
+export function fileMode(mode: string): FileMode | null | undefined {
 	if (mode === '000000') {
 		return null;
 	}
