@@ -3,6 +3,7 @@ name = "posit"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
+    "altair",
     "bokeh",
     "databricks-sql-connector[pyarrow] ; python_full_version < '3.15'",
     "duckdb ; python_full_version < '3.15'",
