@@ -52,7 +52,7 @@ export const ViewEmptyState = (props: ViewEmptyStateProps) => {
 		<div className='view-empty-state'>
 			<span aria-hidden='true' className={`view-empty-state-icon codicon codicon-${props.icon}`} />
 			<div className='view-empty-state-message'>{props.message}</div>
-			<Button ariaLabel={props.docsAriaLabel} className='view-empty-state-action' onPressed={openDocs}>
+			<Button ariaLabel={props.docsAriaLabel} className='view-empty-state-action border' onPressed={openDocs}>
 				<span aria-hidden='true' className='view-empty-state-action-icon codicon codicon-link-external' />
 				{viewDocumentation}
 			</Button>
