@@ -76,4 +76,13 @@ describe('findMatchingLayout', () => {
 		const panelHidden = windowState([SIDEBAR, AUX], { console: PANEL, session: AUX }, { consoleView: 'console', variables: 'session' });
 		expect(findMatchingLayout(layouts, panelHidden, 'stacked')).toBeUndefined();
 	});
+
+	it('matches a side bar that hides itself in a narrow window either way', () => {
+		const notebook: CustomPositronLayoutDescription = {
+			[SIDEBAR]: { hidden: false, hideIfBelowMinSize: true },
+			[AUX]: { hidden: false, viewContainers: [{ id: 'session', views: [{ id: 'variables' }] }] },
+		};
+		const narrowWindow = windowState([AUX], { session: AUX }, { variables: 'session' });
+		expect(findMatchingLayout([{ id: 'notebook', layoutDescriptor: notebook }], narrowWindow, undefined)).toBe('notebook');
+	});
 });

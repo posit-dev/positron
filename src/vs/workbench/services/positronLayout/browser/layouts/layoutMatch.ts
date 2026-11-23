@@ -37,7 +37,8 @@ export interface MatchableLayout {
 export function layoutMatches(layout: CustomPositronLayoutDescription, state: LayoutState): boolean {
 	for (const part of Object.keys(layout) as KnownPositronLayoutParts[]) {
 		const description = layout[part];
-		if (state.isPartVisible(part) === description.hidden) {
+		// A part that hides itself when the window is too narrow can be either way.
+		if (!description.hideIfBelowMinSize && state.isPartVisible(part) === description.hidden) {
 			return false;
 		}
 		for (const container of description.viewContainers ?? []) {
