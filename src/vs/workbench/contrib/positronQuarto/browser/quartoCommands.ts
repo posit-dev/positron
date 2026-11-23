@@ -5,6 +5,7 @@
 
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -12,6 +13,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { hostedCellLanguages } from '../common/quartoLanguages.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager, QuartoOutputContribution } from './quartoOutputManager.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_BUSY, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
@@ -92,6 +94,19 @@ function getQuartoContext(editorService: IEditorService): {
 	};
 }
 
+
+/**
+ * Lists the hosted cell languages (e.g. `rcpp`), lower-cased: the languages
+ * of cells that no runtime runs but that run with inline output, as a whole,
+ * as code in a host language's session (an `{Rcpp}` cell is compiled in R
+ * with `Rcpp::sourceCpp()`).
+ *
+ * The Quarto extension probes for this command to decide whether to send such
+ * cells here to run inline. Positron builds without it would send them to a
+ * runtime of the cell's own language, and there is none, so the extension
+ * runs them in the host language's console instead.
+ */
+CommandsRegistry.registerCommand('_quartoHostedCellLanguages', () => hostedCellLanguages());
 
 /**
  * Cancel running or queued execution.

@@ -55,7 +55,7 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
-import { isExecutableLanguage, isShellLanguage } from '../common/quartoLanguages.js';
+import { cellRuntimeLanguage, getHostedCellLanguage, isExecutableLanguage, isShellLanguage } from '../common/quartoLanguages.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
 import type { EditorLayoutMetadata } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
@@ -295,7 +295,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						textModel.getLineMaxColumn(cell.codeEndLine)
 					);
 					const code = textModel.getValueInRange(codeRange);
-					const { options } = parseCellExecutionOptions(code);
+					const { options } = parseCellExecutionOptions(code, cell.language);
 					if (!options.eval) {
 						this._logService.debug(
 							`[QuartoExecutionManager] Skipping cell ${cell.id} due to eval: false`
@@ -499,18 +499,27 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			// Clamp the range to the cell's code boundaries to exclude
 			// fence lines (```{python} / ```) that may be included by
 			// callers such as the Quarto extension's runAllCells command.
-			const clampedRange = new Range(
-				Math.max(range.startLineNumber, containingCell.codeStartLine),
-				range.startLineNumber < containingCell.codeStartLine ? 1 : range.startColumn,
-				Math.min(range.endLineNumber, containingCell.codeEndLine),
-				range.endLineNumber > containingCell.codeEndLine
-					? textModel.getLineMaxColumn(containingCell.codeEndLine)
-					: range.endColumn
-			);
+			// A cell in a hosted language (e.g. Rcpp) can't run by line or
+			// statement, so a line or selection in it runs the whole cell.
+			const clampedRange = getHostedCellLanguage(containingCell.language)
+				? new Range(
+					containingCell.codeStartLine,
+					1,
+					containingCell.codeEndLine,
+					textModel.getLineMaxColumn(containingCell.codeEndLine)
+				)
+				: new Range(
+					Math.max(range.startLineNumber, containingCell.codeStartLine),
+					range.startLineNumber < containingCell.codeStartLine ? 1 : range.startColumn,
+					Math.min(range.endLineNumber, containingCell.codeEndLine),
+					range.endLineNumber > containingCell.codeEndLine
+						? textModel.getLineMaxColumn(containingCell.codeEndLine)
+						: range.endColumn
+				);
 
 			// Get the code content and parse execution options
 			const code = textModel.getValueInRange(clampedRange);
-			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
+			const { options, optionLineCount, metadata } = parseCellExecutionOptions(code, containingCell.language);
 
 			// Calculate effective code range (excluding option lines at the start)
 			let effectiveCodeRange = clampedRange;
@@ -677,13 +686,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Whether a cell's language can be executed: an executable language, or the
-	 * document's primary language, whose kernel the run starts even when no
-	 * extension provides runtimes for it.
+	 * Whether a cell's language can be executed: an executable language, or one
+	 * that runs in the document's primary language, whose kernel the run starts
+	 * even when no extension provides runtimes for it.
 	 */
 	private _isExecutableLanguage(language: string, primaryLanguage: string | undefined): boolean {
 		return isExecutableLanguage(language, this._runtimeStartupService)
-			|| language.toLowerCase() === primaryLanguage?.toLowerCase();
+			|| cellRuntimeLanguage(language).toLowerCase() === primaryLanguage?.toLowerCase();
 	}
 
 	/**
@@ -705,7 +714,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		token?: CancellationToken,
 		executionMetadata?: Record<string, unknown>
 	): Promise<boolean> {
-		const cellLanguage = cell.language.toLowerCase();
+		// A cell in a hosted language (e.g. Rcpp) runs as code in its host
+		// language (R), in that language's session
+		const hostedLanguage = getHostedCellLanguage(cell.language);
+		const runtimeLanguage = cellRuntimeLanguage(cell.language);
+		const cellLanguage = runtimeLanguage.toLowerCase();
 
 		// Check if this is a shell language - execute via terminal
 		if (isShellLanguage(cellLanguage)) {
@@ -775,7 +788,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				});
 				cancellationPromise.catch(() => undefined);
 
-				const { fragments: codeFragments, lineRanges } = await this._getCodeFragments(cellLanguage, code, cts.token);
+				// A hosted language cell runs as a whole, as host language code
+				const { fragments: codeFragments, lineRanges }: QuartoCodeFragments = hostedLanguage
+					? { fragments: [hostedLanguage.toHostCode(code)] }
+					: await this._getCodeFragments(cellLanguage, code, cts.token);
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
@@ -832,15 +848,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					// document. When the code was split into statements, narrow
 					// the whole range to the fragment's lines; otherwise use the
 					// whole range. The location is forwarded to the kernel so that
-					// outputs (e.g. plots) can link back to the source.
+					// outputs (e.g. plots) can link back to the source. A hosted
+					// language cell's host code isn't the text at that location,
+					// so it gets none (Ark rejects a location that doesn't match
+					// the code it runs).
 					const lineRange = lineRanges?.[index];
-					const codeLocation = lineRange
-						? fragmentCodeLocation(wholeCodeLocation, fragment, lineRange.start, lineRange.end)
-						: wholeCodeLocation;
+					const codeLocation = hostedLanguage
+						? undefined
+						: lineRange
+							? fragmentCodeLocation(wholeCodeLocation, fragment, lineRange.start, lineRange.end)
+							: wholeCodeLocation;
 					const attribution: IConsoleCodeAttribution = {
 						source: CodeAttributionSource.Notebook,
 						metadata: {
-							codeLocation,
+							...(codeLocation && { codeLocation }),
 							cell: {
 								uri: cell.id,
 								notebook: {
@@ -866,7 +887,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 						sessionId: session.sessionId,
 						attribution,
 						code: fragment,
-						languageId: cell.language,
+						languageId: runtimeLanguage,
 						runtimeName: session.runtimeMetadata.runtimeName,
 						errorBehavior,
 						mode: RuntimeCodeExecutionMode.Interactive,
@@ -919,6 +940,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			`[QuartoExecutionManager] Executing ${cell.language} code via console (non-primary language)`
 		);
 
+		// A cell in a hosted language (e.g. Rcpp) runs as code in its host
+		// language (R), in that language's console
+		const hostedLanguage = getHostedCellLanguage(cell.language);
+		const language = cellRuntimeLanguage(cell.language);
+
 		return this._withExecutionTracking(
 			documentUri, cell, codeRange, 'console',
 			async (tracker) => {
@@ -931,12 +957,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				if (!codeAndLocation?.code) {
 					throw new Error('Could not get code in range');
 				}
-				const { code, codeLocation } = codeAndLocation;
+				// A hosted language cell runs as host language code, which isn't
+				// the text at the cell's location, so it gets no location (Ark
+				// rejects a location that doesn't match the code it runs)
+				const code = hostedLanguage
+					? hostedLanguage.toHostCode(codeAndLocation.code)
+					: codeAndLocation.code;
+				const codeLocation = hostedLanguage ? undefined : codeAndLocation.codeLocation;
 
 				// Set up message handlers BEFORE executing to avoid race conditions.
 				// If a session already exists, set up handlers on it directly.
 				// If not, listen for the new session to start so we capture it immediately.
-				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(cell.language);
+				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(language);
 				if (existingSession) {
 					this._setupMessageHandlers(tracker, existingSession, documentUri, () => {
 						hadError = true;
@@ -945,7 +977,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					// Listen for the session to start so we can set up handlers
 					// before any messages arrive
 					disposables.add(this._runtimeSessionService.onDidStartRuntime(session => {
-						if (session.runtimeMetadata.languageId === cell.language) {
+						if (session.runtimeMetadata.languageId === language) {
 							this._setupMessageHandlers(tracker, session, documentUri, () => {
 								hadError = true;
 							});
@@ -962,13 +994,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				// Attribute the code to its source location in the document so
 				// that outputs (e.g. plots) can link back to the source chunk.
 				await this._consoleService.executeCode(
-					cell.language,
+					language,
 					undefined,
 					code,
 					{
 						source: CodeAttributionSource.Notebook,
 						metadata: {
-							codeLocation,
+							...(codeLocation && { codeLocation }),
 							cell: {
 								uri: cell.id,
 								notebook: {
@@ -2071,7 +2103,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		// Parse execution options from cell code
 		const code = textModel.getValueInRange(codeRange);
-		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code);
+		const { options, optionLineCount, metadata } = parseCellExecutionOptions(code, currentCell.language);
 
 		// Calculate effective code range (excluding option lines at the start)
 		let effectiveCodeRange = codeRange;
