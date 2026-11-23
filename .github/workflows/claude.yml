@@ -488,14 +488,18 @@ jobs:
             g reset -q -- "${RESTORED[@]}" 2>/dev/null || true
             for p in "${RESTORED[@]}"; do SPEC+=(":(exclude)$p"); done
           fi
-          if [ -n "$(g status --porcelain "${SPEC[@]}")" ]; then
+          # The dependency install leaves untracked files in the ai-lib submodule. They show in
+          # the status but cannot be staged from here, so a commit of them fails.
+          if [ -n "$(g status --porcelain --ignore-submodules=dirty "${SPEC[@]}")" ]; then
             IDENT=()
             if ! g config user.email >/dev/null; then
               IDENT=(-c "user.name=github-actions[bot]" -c "user.email=41898282+github-actions[bot]@users.noreply.github.com")
             fi
             g add -A "${SPEC[@]}"
-            g "${IDENT[@]}" commit -q --no-verify -m "Uncommitted changes from @claude"
-            echo "Committed uncommitted changes"
+            if ! g diff --cached --quiet; then
+              g "${IDENT[@]}" commit -q --no-verify -m "Uncommitted changes from @claude"
+              echo "Committed uncommitted changes"
+            fi
           fi
 
           if ! g cat-file -e "${BASE}^{commit}" 2>/dev/null || ! g merge-base --is-ancestor "$BASE" HEAD; then
