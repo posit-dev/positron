@@ -1783,7 +1783,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param executionId The ID of the execution that produced the plot, if known.
 	 */
 	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
-		this._plots.unshift(client);
+		this._plots.push(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);

@@ -5,6 +5,7 @@
 
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -14,6 +15,8 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronPlots } from '../../browser/positronPlots.js';
 import { PlotsNextAction, PlotsPreviousAction } from '../../browser/positronPlotsActions.js';
+import { INotebookOutputWebview } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { PositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
@@ -29,6 +32,11 @@ describe('Plot gallery removal', () => {
 				font: '',
 				measureText: () => stubInterface<TextMetrics>({ width: 30 }),
 			}));
+		// Webview plots never finish creating their webview; these tests check
+		// the toolbar, not the rendered plot. A .stub() can't do this because
+		// the preset builds the plots service before user stubs apply.
+		vi.spyOn(PositronNotebookOutputWebviewService.prototype, 'createNotebookOutputWebview')
+			.mockReturnValue(new DeferredPromise<INotebookOutputWebview>().p);
 	});
 	afterEach(() => { restoreLayout(); vi.unstubAllGlobals(); });
 
@@ -89,35 +97,37 @@ describe('Plot gallery removal', () => {
 		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
 	});
 
-	it('keeps toolbar capabilities and navigation aligned after a static plot is prepended', async () => {
+	it('describes a webview plot added after a removal, and navigates in creation order', async () => {
 		const plotsService = ctx.reactServices.positronPlotsService;
 		const user = userEvent.setup();
-		const nextAction = registerAction2(PlotsNextAction);
-		const previousAction = registerAction2(PlotsPreviousAction);
-		ctx.disposables.add(nextAction);
-		ctx.disposables.add(previousAction);
+		ctx.disposables.add(registerAction2(PlotsNextAction));
+		ctx.disposables.add(registerAction2(PlotsPreviousAction));
 		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 		session.createClient(RuntimeClientType.Plot, {}, {}, 'earlier');
 		session.createClient(RuntimeClientType.Plot, {}, {}, 'remaining');
 		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
 		act(() => plotsService.removePlot('earlier'));
 
-		act(() => session.receiveOutputMessage({ id: 'static', kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } }));
+		// What the toolbar shows. A webview plot has no Save or Copy buttons and
+		// a dynamic plot has both, so this tells the two plots apart.
+		const toolbar = () => ({
+			selected: plotsService.selectedPlotId,
+			save: screen.queryByRole('button', { name: 'Save Plot' }) !== null,
+			copy: screen.queryByRole('button', { name: 'Copy Plot to Clipboard' }) !== null,
+			previousEnabled: !screen.getByRole('button', { name: 'Show Previous Plot' }).hasAttribute('disabled'),
+			nextEnabled: !screen.getByRole('button', { name: 'Show Next Plot' }).hasAttribute('disabled'),
+		});
 
-		expect(plotsService.selectedPlotId).toBe('static');
-		expect(screen.getByRole('button', { name: 'Save Plot' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Copy Plot to Clipboard' })).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Automatic' })).not.toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeEnabled();
-
-		await user.click(screen.getByRole('button', { name: 'Show Next Plot' }));
-		expect(plotsService.selectedPlotId).toBe('remaining');
-		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeEnabled();
-		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+		// A webview plot, like the Plotly plot in issue 17245, goes after the
+		// remaining plot.
+		act(() => session.receiveOutputMessage({ id: 'widget', kind: RuntimeOutputKind.PlotWidget, data: { 'text/html': '<div></div>' } }));
+		expect(toolbar()).toEqual({ selected: 'widget', save: false, copy: false, previousEnabled: true, nextEnabled: false });
 
 		await user.click(screen.getByRole('button', { name: 'Show Previous Plot' }));
-		expect(plotsService.selectedPlotId).toBe('static');
+		expect(toolbar()).toEqual({ selected: 'remaining', save: true, copy: true, previousEnabled: false, nextEnabled: true });
+
+		await user.click(screen.getByRole('button', { name: 'Show Next Plot' }));
+		expect(toolbar()).toEqual({ selected: 'widget', save: false, copy: false, previousEnabled: true, nextEnabled: false });
 	});
 
 	it('shows controls for the surviving plot when the selected plot is removed', async () => {
