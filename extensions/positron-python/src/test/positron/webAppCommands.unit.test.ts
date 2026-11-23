@@ -262,6 +262,25 @@ suite('Web app commands', () => {
             "def create_app(\n    title: str = 'My API',\n) -> FastAPI:\n    local_app: FastAPI = FastAPI(title=title)\n    return local_app\napp: FastAPI = create_app()",
             'app',
         ],
+        ['module annotation after one-line factory', 'def create_app(): return FastAPI()\napp: FastAPI = create_app()', 'app'],
+        ['module direct construction after one-line factory', 'def create_app(): return FastAPI()\napp = FastAPI()', 'app'],
+        ['module annotation after one-line async function', 'async def setup(): pass\napp: FastAPI = create_app()', 'app'],
+        ['module annotation after one-line class', 'class Factory: pass\napp: FastAPI = create_app()', 'app'],
+        [
+            'module annotation after colon in one-line default string',
+            'def create_app(title="My: API"): return FastAPI()\napp: FastAPI = create_app()',
+            'app',
+        ],
+        [
+            'module annotation after colon in bracketed default',
+            "def create_app(options={'title': 'My API'}): return FastAPI()\napp: FastAPI = create_app()",
+            'app',
+        ],
+        [
+            'module annotation after multiline header with annotated parameter',
+            'def create_app(\n    title: str\n): return FastAPI()\napp: FastAPI = create_app()',
+            'app',
+        ],
     ]) {
         test(`Exec FastAPI in terminal - ${description}`, async () => {
             isFastAPICliInstalled = false;
@@ -284,6 +303,8 @@ suite('Web app commands', () => {
         ['indented local', 'def make_app():\n    app: FastAPI = create_app()'],
         ['nested local', 'def make_app():\n    if enabled:\n        app: FastAPI = create_app()'],
         ['local direct construction', 'def make_app():\n    app = FastAPI()'],
+        ['local annotation in one-line factory', 'def make_app(): app: FastAPI = create_app()'],
+        ['local direct construction in one-line factory', 'def make_app(): app = FastAPI()'],
     ]) {
         test(`Exec FastAPI in terminal - ${description} prompts`, async () => {
             isFastAPICliInstalled = false;

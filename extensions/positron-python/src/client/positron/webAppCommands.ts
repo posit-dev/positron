@@ -357,6 +357,35 @@ function pathToModule(p: string): string {
     return parts.concat(mod).join('.');
 }
 
+/** Find a Python header's suite colon, ignoring annotations, strings, and comments. */
+function scanScopeHeader(line: string, initialBracketDepth: number): { hasSuiteColon: boolean; bracketDepth: number } {
+    let bracketDepth = initialBracketDepth;
+    let quote: string | undefined;
+    let escaped = false;
+    for (const character of line) {
+        if (quote) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === '\\') {
+                escaped = true;
+            } else if (character === quote) {
+                quote = undefined;
+            }
+        } else if (character === '\'' || character === '"') {
+            quote = character;
+        } else if (character === '#') {
+            break;
+        } else if (character === '(' || character === '[' || character === '{') {
+            bracketDepth++;
+        } else if (character === ')' || character === ']' || character === '}') {
+            bracketDepth--;
+        } else if (character === ':' && bracketDepth === 0) {
+            return { hasSuiteColon: true, bracketDepth };
+        }
+    }
+    return { hasSuiteColon: false, bracketDepth };
+}
+
 /**
  * Get an ASGI application object's name from a document, prompting the user if necessary.
  *
@@ -375,13 +404,16 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     let appName: string | undefined;
     let localScopeIndent: number | undefined;
     let inLocalScopeHeader = false;
+    let headerBracketDepth = 0;
     for (const line of text.split(/\r?\n/)) {
         const statement = line.trimStart();
         if (!statement || statement.startsWith('#')) {
             continue;
         }
         if (inLocalScopeHeader) {
-            inLocalScopeHeader = !/:\s*(?:#.*)?$/.test(statement);
+            const header = scanScopeHeader(statement, headerBracketDepth);
+            inLocalScopeHeader = !header.hasSuiteColon;
+            headerBracketDepth = header.bracketDepth;
             continue;
         }
         const indent = line.length - statement.length;
@@ -393,7 +425,9 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
             /^(?:async[ \t]+def|def|class)[ \t]+[a-zA-Z_][a-zA-Z0-9_]*/.test(statement)
         ) {
             localScopeIndent = indent;
-            inLocalScopeHeader = !/:\s*(?:#.*)?$/.test(statement);
+            const header = scanScopeHeader(statement, 0);
+            inLocalScopeHeader = !header.hasSuiteColon;
+            headerBracketDepth = header.bracketDepth;
             continue;
         }
         if (localScopeIndent !== undefined) {
