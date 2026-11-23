@@ -28,6 +28,15 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+/*
+ * The icon is subtle, like the letterpress on the empty editor. In
+ * high-contrast themes the letterpress is solid, so the icon is too.
+ */
+.monaco-workbench.hc-black .view-empty-state .view-empty-state-icon.codicon,
+.monaco-workbench.hc-light .view-empty-state .view-empty-state-icon.codicon {
+	opacity: 1;
+}
+
 .view-empty-state .view-empty-state-message {
 	margin-top: 12px;
 	color: var(--vscode-descriptionForeground);
