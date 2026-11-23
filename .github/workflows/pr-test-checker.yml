@@ -131,6 +131,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      id-token: write
     concurrency:
       group: pr-test-checker-${{ github.event.issue.number }}
       cancel-in-progress: true
@@ -183,19 +184,24 @@ jobs:
             extensions
             test/e2e
 
-      - name: Load Anthropic API key
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
+      # AWS rejects role session names outside [\w+=,.@-], such as `positron-projects[bot]`.
+      - name: Sanitize role session name
+        id: session-name
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-2
 
       - name: Run pr-test-checker (from base, source from PR head)
         uses: ./base/.github/actions/pr-test-checker
         with:
           pr-number: ${{ github.event.issue.number }}
-          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           repo-root: ${{ github.workspace }}/pr-head
 
       # Replace the "eyes" acknowledgement with a terminal reaction once PETE

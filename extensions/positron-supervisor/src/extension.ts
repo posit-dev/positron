@@ -104,6 +104,7 @@ export async function deactivate(): Promise<void> {
 		// connections. This is a no-op for detached servers that are meant to
 		// outlive the application.
 		await API_INSTANCE.shutdownForQuit();
+		await API_INSTANCE.removeOutputFiles();
 		API_INSTANCE.dispose();
 	}
 }

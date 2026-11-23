@@ -63,10 +63,6 @@ test.describe('Source Content Management', {
 			await app.workbench.scm.stage(file);
 
 			await app.workbench.scm.commit(message);
-
-			// This works locally but not in CI where we have no
-			// git user for a real commit to take place:
-			// await app.workbench.scm.verifyCurrentHistoryItem(message);
 		});
 	});
 });

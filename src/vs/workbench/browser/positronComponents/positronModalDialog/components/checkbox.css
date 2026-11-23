@@ -41,3 +41,23 @@
 	font-weight: bold;
 	color: var(--vscode-positronCheckbox-foreground);
 }
+
+.positron-modal-dialog-box .checkbox.disabled label,
+.positron-dynamic-modal-dialog-box .checkbox.disabled label {
+	color: var(--vscode-disabledForeground);
+}
+
+.positron-modal-dialog-box .checkbox.disabled .checkbox-button,
+.positron-dynamic-modal-dialog-box .checkbox.disabled .checkbox-button {
+	border-color: var(--vscode-disabledForeground);
+}
+
+.positron-modal-dialog-box .checkbox.disabled .checkbox-button .codicon[class*="codicon-"],
+.positron-dynamic-modal-dialog-box .checkbox.disabled .checkbox-button .codicon[class*="codicon-"] {
+	color: var(--vscode-disabledForeground);
+}
+
+.positron-modal-dialog-box .checkbox-button:disabled,
+.positron-dynamic-modal-dialog-box .checkbox-button:disabled {
+	cursor: default;
+}

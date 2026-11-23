@@ -19,7 +19,7 @@ import { mainReplayMs } from '../../../.claude/skills/exploratory-test/renderer/
 import { buildKnownIssuesBrief, pageIssueRefs } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, exploreRepo, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, exploreRepo, describeChange, takeStepSummary, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT, addCost, exploreTurnsUp, wrapUpTurn } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -36,6 +36,15 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
+// Turns kept back from exploring to write the report: the explorer is told to
+// wrap up this many before the cap. Recent runs spent under 10 on it.
+const WRAP_UP_TURNS = parsePosIntEnv('WRAP_UP_TURNS', 25, process.env.WRAP_UP_TURNS);
+const WRAP_UP_AT = wrapUpTurn(MAX_TURNS, WRAP_UP_TURNS);
+// Summarized display returns the notes the model writes between tool calls,
+// which otherwise arrive as empty thinking blocks. gate.mjs and the analyzers
+// still disable thinking for claude-code#63192; if a run wedges that way,
+// disable it here too. The wrap-up resumes the same session, so it keeps it.
+const THINKING = { type: 'adaptive', display: 'summarized' };
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
 let timeWasUp = false;
@@ -217,18 +226,31 @@ async function main() {
 		cwd: REPO_ROOT,
 		timeLimit: TIME_LIMIT,
 		timeUpMessage: EXPLORE_TIME_UP,
+		turnWarning: { at: WRAP_UP_AT, message: turns => exploreTurnsUp(MAX_TURNS - turns) },
 		effort: EFFORT,
-		// Summarized display returns the notes the model writes between tool
-		// calls, which otherwise arrive as empty thinking blocks. gate.mjs and the
-		// analyzers still disable thinking for claude-code#63192; if a run wedges
-		// that way, disable it here too.
-		thinking: { type: 'adaptive', display: 'summarized' },
+		thinking: THINKING,
 		claudeCodePath: CLAUDE_CODE_PATH,
 		label: 'exploratory',
 	});
-	const cost = session.cost;
+	let cost = session.cost;
 	timedOut = session.timedOut;
 	timeWasUp = session.timeWasUp;
+	// Warned before the cap, an explorer that still reached it without a report
+	// gets its session resumed with a few turns to write one.
+	if (session.turnCapHit && session.sessionId && !existsSync(join(WORK_DIR, 'report.json'))) {
+		console.log(`[exploratory] hit the ${MAX_TURNS}-turn cap with no report; resuming for up to ${WRAP_UP_TURNS} turns to write one`);
+		try {
+			const wrapUp = await runSession({
+				prompt: exploreTurnsUp(0), systemPrompt, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], model: MODEL, maxTurns: WRAP_UP_TURNS,
+				cwd: REPO_ROOT, resume: session.sessionId, effort: EFFORT, thinking: THINKING, claudeCodePath: CLAUDE_CODE_PATH, label: 'wrap-up',
+				// Its own time limit and hard stop, so a hung command cannot hold the job.
+				timeLimit: WRAP_UP_MINUTES, timeUpMessage: exploreTurnsUp(0),
+			});
+			cost = addCost(cost, wrapUp.cost);
+		} catch (err) {
+			console.error(`[exploratory] the wrap-up failed: ${err?.message ?? err}`);
+		}
+	}
 
 	writeFileSync(join(WORK_DIR, 'cost.json'), JSON.stringify(cost, null, 2));
 
@@ -245,9 +267,9 @@ async function main() {
 	// The explorer's alone when there is no report to carry the rest.
 	const passes = report?.cost.passes ?? costPasses(explored, []);
 	const footer = () => renderCostFooter(passes);
-	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
+	const partial = session.turnCapHit || (typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS);
 	if (process.env.GITHUB_OUTPUT) {
-		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS, timedOut })}\n`);
+		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS, timedOut, turnWarned: session.turnWarned })}\n`);
 	}
 	const nearCap = turnCapWarning({ numTurns: cost.num_turns, maxTurns: MAX_TURNS });
 	if (nearCap) {

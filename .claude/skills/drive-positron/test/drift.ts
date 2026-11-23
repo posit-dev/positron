@@ -61,6 +61,7 @@ const GENERIC = new Set(['title', 'selected', 'dirty', 'active', 'disabled', 'fo
  */
 const PATTERNS: Record<string, string[]> = {
 	'names.editor.cursorStatusPattern': ['Ln {0}, Col {1}', 'Ln {0}, Col {1} ({2} selected)'],
+	'names.editor.tabSuffixPattern': ['{0}, preview', '{0}, pinned', 'Editor Group {0}'],
 	'names.plots.zoomPattern': ['Fit'],
 	'names.nb.runCellPattern': ['Run Cell', 'Execute Cell'],
 	// A Run App button is named by its extension's command title; both patterns pick it out.

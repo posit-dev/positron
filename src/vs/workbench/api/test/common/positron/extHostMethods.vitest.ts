@@ -19,6 +19,7 @@ import { ExtHostConsoleService } from '../../../common/positron/extHostConsoleSe
 import { ExtHostContextKeyService } from '../../../common/positron/extHostContextKeyService.js';
 import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguageRuntime.js';
 import { ExtHostMethods } from '../../../common/positron/extHostMethods.js';
+import { ExtHostPlotsService } from '../../../common/positron/extHostPlotsService.js';
 import { ExtHostModalDialogs } from '../../../common/positron/extHostModalDialogs.js';
 import { UiFrontendRequest } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { JsonRpcErrorCode } from '../../../../services/languageRuntime/common/positronBaseComm.js';
@@ -59,6 +60,7 @@ function createMethods(options: {
 	consoleInputFocusedLastSessionId?: string;
 	runtime?: ExtHostLanguageRuntime;
 	fileDialogs?: ExtHostDialogs;
+	plots?: ExtHostPlotsService;
 }) {
 	const editors = new class extends mock<ExtHostEditors>() {
 		override getActiveTextEditor(): vscode.TextEditor | undefined {
@@ -86,6 +88,7 @@ function createMethods(options: {
 		new (mock<ExtHostContextKeyService>())(),
 		consoleService,
 		options.fileDialogs ?? new (mock<ExtHostDialogs>())(),
+		options.plots ?? new (mock<ExtHostPlotsService>())(),
 	);
 }
 
@@ -362,6 +365,43 @@ describe('ExtHostMethods', function () {
 			const response = await methods.call('ext', UiFrontendRequest.SelectFile, { title: 'Select File', existing: true, default_dir: '/data' });
 
 			expect(response).toEqual({ result: null });
+		});
+	});
+
+	describe('call: locate_plot_point', function () {
+		it('asks the plots service about the caller session, plot, and execution', async function () {
+			const locatePlotPoint = vi.fn<ExtHostPlotsService['locatePlotPoint']>(async () => ({ x: 0.2, y: 0.4 }));
+			const methods = createMethods({ plots: stubInterface<ExtHostPlotsService>({ locatePlotPoint }) });
+
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1', width: 400, height: 300 }, 's1', 'exec1');
+
+			expect(response).toEqual({ result: { x: 0.2, y: 0.4 } });
+			expect(locatePlotPoint.mock.calls).toEqual([['s1', 'p1', { width: 400, height: 300 }, 'exec1']]);
+		});
+
+		it('replies null when the user finishes', async function () {
+			const locatePlotPoint = vi.fn<ExtHostPlotsService['locatePlotPoint']>(async () => undefined);
+			const methods = createMethods({ plots: stubInterface<ExtHostPlotsService>({ locatePlotPoint }) });
+
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1', width: 400, height: 300 }, 's1');
+
+			expect(response).toEqual({ result: null });
+		});
+
+		it('rejects a request without a plot id', async function () {
+			const methods = createMethods({});
+
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { width: 400, height: 300 }, 's1');
+
+			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
+		});
+
+		it('rejects a request without an image size', async function () {
+			const methods = createMethods({});
+
+			const response = await methods.call('ext', UiFrontendRequest.LocatePlotPoint, { plot_id: 'p1' }, 's1');
+
+			expect(response).toHaveProperty('error.code', JsonRpcErrorCode.InvalidParams);
 		});
 	});
 });

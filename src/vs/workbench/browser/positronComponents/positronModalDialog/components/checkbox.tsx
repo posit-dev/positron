@@ -17,12 +17,13 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
  */
 interface CheckboxProps {
 	label: string;
+	disabled?: boolean;
 	initialChecked?: boolean;
 	onChanged: (checked: boolean) => void;
 }
 
 // Toggle component.
-export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) => {
+export const Checkbox = ({ label, disabled, initialChecked, onChanged }: CheckboxProps) => {
 	// Hooks.
 	const [id] = useState(() => generateUuid());
 	const [checked, setChecked] = useState(initialChecked ?? false);
@@ -36,8 +37,8 @@ export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) =>
 
 	// Render.
 	return (
-		<div className='checkbox'>
-			<button aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} type='button' onClick={clickHandler}>
+		<div className={disabled ? 'checkbox disabled' : 'checkbox'}>
+			<button aria-checked={checked} className='checkbox-button' disabled={disabled} id={id} role='checkbox' tabIndex={0} type='button' onClick={clickHandler}>
 				{checked && <div className='check-indicator codicon codicon-check' />}
 			</button>
 			<label htmlFor={id}>{label}</label>

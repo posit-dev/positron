@@ -1,6 +1,6 @@
 # heal/: the nightly self-heal
 
-`.github/workflows/drive-positron-nightly.yml` runs these, in order, sharing one build:
+`drive-positron-nightly.yml` in posit-dev/positron-builds runs these, in order, sharing one build:
 
 1. `test/smoke.ts --results` (the full suite)
 2. `rerun.ts`: reruns smoke once per group with a failure, `--until` its last failed case; a case
@@ -10,7 +10,7 @@
 3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
    and the earlier verdicts in each fixer brief (and the earlier nights that fixed a finding that
    came back, `fixedBefore`)
-4. `leads.ts`: reads the helper failures from the past week's exploratory runs (`test-exploratory.yml`
+4. `leads.ts`: reads the helper failures from the past week's exploratory runs (positron-builds' `explore-pr.yml`
    artifacts' `actions.log`) into `leads.json`, grouped by helper and error, with what the agent
    did next. Those runs reach the features PRs change, which smoke and the areas do not
 5. `finder.ts`: one agent session reproduces the top leads and writes findings. It runs only when

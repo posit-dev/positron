@@ -78,13 +78,15 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 		return () => disposableStore.dispose();
 	}, [props.plotClient]);
 
+	// The container is focusable only programmatically, so a plot in locator mode can hand the
+	// focus back to it when the mode ends.
 	return (
 		<div className={'dark-filter-' + darkFilterMode} style={
 			{
 				width: props.width,
 				height: props.height
 			}
-		}>
+		} tabIndex={-1}>
 			{render()}
 		</div>
 	);

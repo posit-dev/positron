@@ -2581,7 +2581,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Get the response from Positron
 		const response = await positron.methods.call(request.method, request.params,
-			{ sessionId: this.metadata.sessionId });
+			{ sessionId: this.metadata.sessionId, parentId: msg.parent_header?.msg_id });
 
 		// Send the response back to the kernel
 		const reply = new RpcReplyCommand(msg.header, response);

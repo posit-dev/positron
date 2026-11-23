@@ -137,7 +137,7 @@ then_read() {
 }
 
 # The editor tab titles, and the app's window titles: what an open made.
-tabs() { bash "$DIR/panel.sh" "${S[@]}" editors | jq -c '[.groups[]? | .tabs[].title | sub(", Editor Group [0-9]+$"; "")]'; }
+tabs() { bash "$DIR/panel.sh" "${S[@]}" editors | jq -c '[.groups[]? | .tabs[].title]'; }
 windows() { bash "$DIR/shot.sh" "${S[@]}" --list | jq -c '[.windows[]?.title]'; }
 
 run() {
