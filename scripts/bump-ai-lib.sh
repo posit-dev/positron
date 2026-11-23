@@ -34,14 +34,29 @@ die() {
 
 while [ $# -gt 0 ]; do
 	case "$1" in
-		--target) TARGET="${2:-}"; shift 2 ;;
-		--base) BASE_REF="${2:-}"; shift 2 ;;
-		--summary) SUMMARY_FILE="${2:-}"; shift 2 ;;
-		--pr-body) PR_BODY_FILE="${2:-}"; shift 2 ;;
+		--target|--base|--summary|--pr-body)
+			[ $# -ge 2 ] || die "$1 needs a value"
+			case "$1" in
+				--target) TARGET=$2 ;;
+				--base) BASE_REF=$2 ;;
+				--summary) SUMMARY_FILE=$2 ;;
+				--pr-body) PR_BODY_FILE=$2 ;;
+			esac
+			shift 2 ;;
 		-h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) die "unknown argument '$1' (see --help)" ;;
 	esac
 done
+
+# Output paths are relative to where the script was run, not the repo root.
+abspath() {
+	case "$1" in
+		/*) echo "$1" ;;
+		*) echo "$PWD/$1" ;;
+	esac
+}
+[ -z "$SUMMARY_FILE" ] || SUMMARY_FILE=$(abspath "$SUMMARY_FILE")
+[ -z "$PR_BODY_FILE" ] || PR_BODY_FILE=$(abspath "$PR_BODY_FILE")
 
 for cmd in git jq npm; do
 	command -v "$cmd" >/dev/null 2>&1 || die "$cmd is required"
@@ -61,7 +76,7 @@ pointer_at() {
 # HEADLESS_CONTRACT_VERSION at an ai-lib commit, or empty if not found.
 contract_version_at() {
 	git -C "$SUBMODULE" show "$1:$CONTRACT_FILE" 2>/dev/null \
-		| sed -nE 's/^export const HEADLESS_CONTRACT_VERSION = ([0-9]+);.*/\1/p' \
+		| sed -nE 's/^export const HEADLESS_CONTRACT_VERSION[^=]*=[[:space:]]*([0-9]+).*/\1/p' \
 		| head -1
 }
 
@@ -74,6 +89,19 @@ if [ ! -e "$SUBMODULE/.git" ]; then
 	echo "Checking out the $SUBMODULE submodule..." >&2
 	git submodule update --init --quiet "$SUBMODULE"
 fi
+# Local edits would carry over the checkout and end up in the lockfiles.
+if [ -n "$(git -C "$SUBMODULE" status --porcelain --untracked-files=no)" ]; then
+	die "$SUBMODULE has uncommitted changes; commit or stash them first"
+fi
+
+# Lockfiles next to a package.json with a file: dependency into ai-lib. They
+# record ai-lib's dependencies, so a bump can change them.
+LOCKFILES=()
+while IFS= read -r manifest; do
+	lockfile="$(dirname "$manifest")/package-lock.json"
+	lockfile=${lockfile#./}
+	[ -f "$lockfile" ] && LOCKFILES+=("$lockfile")
+done < <(git grep -l -E '"file:[^"]*ai-lib/packages/' -- '*package.json' ':!ai-lib')
 
 if [ -n "$TARGET" ]; then
 	git -C "$SUBMODULE" fetch --quiet origin "$TARGET"
@@ -81,7 +109,7 @@ else
 	git -C "$SUBMODULE" fetch --quiet origin main
 	TARGET=$(git -C "$SUBMODULE" rev-parse FETCH_HEAD)
 fi
-# The base and current pointers may be older than what the clone has.
+# The base and current pointers may be missing from the clone (shallow, or not on main).
 for sha in "$BASE" "$CURRENT"; do
 	git -C "$SUBMODULE" cat-file -e "$sha^{commit}" 2>/dev/null \
 		|| git -C "$SUBMODULE" fetch --quiet origin "$sha"
@@ -96,21 +124,23 @@ else
 	git add "$SUBMODULE"
 	CHANGED=true
 
-	# Each package.json with a file: dependency into ai-lib has a lockfile that
-	# records ai-lib's dependencies. --package-lock-only resolves without
-	# installing anything or running scripts.
-	while IFS= read -r manifest; do
-		dir=$(dirname "$manifest")
-		[ -f "$dir/package-lock.json" ] || continue
-		echo "Refreshing $dir/package-lock.json" >&2
-		(cd "$dir" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=error >&2)
-		git add "$dir/package-lock.json"
-	done < <(git grep -l -E '"file:[^"]*ai-lib/packages/' -- '*package.json' ':!ai-lib')
+	# --package-lock-only resolves without installing anything or running scripts.
+	for lockfile in ${LOCKFILES[@]+"${LOCKFILES[@]}"}; do
+		echo "Refreshing $lockfile" >&2
+		(cd "$(dirname "$lockfile")" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=error >&2)
+		git add "$lockfile"
+	done
 fi
 
-# Lockfiles that differ from the base, staged or already committed on the branch.
-LOCKFILES_JSON=$(git diff --cached --name-only "$BASE_REF" -- '*package-lock.json' \
-	| jq -R . | jq -s .)
+# Of those lockfiles, the ones this branch changes (staged or committed). Count
+# from where the branch left the base, so the base's own later changes don't
+# show up; fall back to the base itself if history is too shallow to tell.
+FORK_POINT=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || echo "$BASE_REF")
+LOCKFILES_JSON=$(
+	if [ ${#LOCKFILES[@]} -gt 0 ]; then
+		git diff --cached --name-only "$FORK_POINT" -- "${LOCKFILES[@]}"
+	fi | jq -R . | jq -s .
+)
 
 # The ai-lib commits the base pointer doesn't have, newest first. ai-lib
 # squash-merges, so each first-parent subject ends in "(#N)".
@@ -148,8 +178,11 @@ fi
 
 if [ -n "$PR_BODY_FILE" ]; then
 	jq -r --arg repo "$AI_LIB_REPO" --arg file "$CONTRACT_FILE" '
-		def line: if .pr then "- \($repo)#\(.pr) \(.subject | sub(" \\(#[0-9]+\\)$"; ""))"
-			else "- \($repo)@\(.sha[0:10]) \(.subject)" end;
+		# Code spans keep @mentions, #N links and closing keywords in ai-lib
+		# subjects from acting on positron.
+		def code: "`" + gsub("`"; "'"'"'") + "`";
+		def line: if .pr then "- \($repo)#\(.pr) \(.subject | sub(" \\(#[0-9]+\\)$"; "") | code)"
+			else "- \($repo)@\(.sha[0:10]) \(.subject | code)" end;
 		"### Summary",
 		"Bumps the ai-lib submodule to [`\(.to[0:10])`](https://github.com/\($repo)/commit/\(.to)):",
 		"",
@@ -165,7 +198,7 @@ if [ -n "$PR_BODY_FILE" ]; then
 			else empty end),
 		"",
 		"### QA Notes",
-		"@:assistant"
+		"@:assistant @:workbench"
 	' <<<"$SUMMARY" > "$PR_BODY_FILE"
 fi
 

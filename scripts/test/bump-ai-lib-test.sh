@@ -50,6 +50,10 @@ git -C "$POSITRON" -c protocol.file.allow=always submodule add -q "$AILIB" ai-li
 printf '{ "name": "p", "version": "0.0.0", "dependencies": { "ai-provider-bridge": "file:./ai-lib/packages/ai-provider-bridge" } }\n' \
 	> "$POSITRON/package.json"
 (cd "$POSITRON" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null)
+# A lockfile that has nothing to do with ai-lib.
+mkdir -p "$POSITRON/other"
+printf '{ "name": "other", "lockfileVersion": 3 }\n' > "$POSITRON/other/package-lock.json"
+printf '{ "name": "other" }\n' > "$POSITRON/other/package.json"
 git -C "$POSITRON" add -A
 git -C "$POSITRON" commit -q -m "Add ai-lib"
 
@@ -89,7 +93,7 @@ assert_eq "contract bump: contract versions" "1 2 true" "$(summary '.contractVer
 assert_eq "contract bump: commits newest first" "null 13" "$(summary '[.commits[].pr] | map(tostring) | join(" ")')"
 grep -q 'from 1 to 2' "$TMP/body.md"
 assert_eq "contract bump: body warns" "0" "$?"
-grep -q "^- posit-dev/ai-lib@${FOURTH:0:10} Direct commit without a PR$" "$TMP/body.md"
+grep -q "^- posit-dev/ai-lib@${FOURTH:0:10} \`Direct commit without a PR\`$" "$TMP/body.md"
 assert_eq "contract bump: commit without a PR linked by sha" "0" "$?"
 git -C "$POSITRON" commit -q -m "Bump ai-lib again"
 
@@ -105,10 +109,51 @@ assert_eq "--target: pointer staged" "$THIRD" "$(git -C "$POSITRON" ls-files -s 
 git -C "$POSITRON" reset -q --hard
 git -C "$POSITRON" submodule update -q
 
+# --- Subjects can't mention people or close positron issues; tags are set ---
+ailib_commit 1.1.0 "3 as const" 'Bump @ai-sdk, Fixes #42, keep `code` (#14)' >/dev/null
+run
+assert_eq "subject: wrapped in a code span" "- posit-dev/ai-lib#14 \`Bump @ai-sdk, Fixes #42, keep 'code'\`" "$(grep '#14' "$TMP/body.md")"
+assert_eq "tags: assistant and workbench" "@:assistant @:workbench" "$(tail -1 "$TMP/body.md")"
+assert_eq "contract: 'as const' form parsed" "2 3" "$(summary '.contractVersion | "\(.old) \(.new)"')"
+git -C "$POSITRON" commit -q -m "Bump ai-lib a third time"
+
+# --- A bump branch behind main only lists its own lockfile changes ---
+git -C "$POSITRON" branch bot
+printf '{ "name": "other", "lockfileVersion": 3, "changed": true }\n' > "$POSITRON/other/package-lock.json"
+jq '.name = "p2"' "$POSITRON/package-lock.json" > "$TMP/lock" && mv "$TMP/lock" "$POSITRON/package-lock.json"
+git -C "$POSITRON" commit -q -am "Unrelated lockfile changes on main"
+git -C "$POSITRON" checkout -q bot
+ailib_commit 1.1.0 "3 as const" "Another change (#15)" >/dev/null
+run --base main
+assert_eq "behind main: bumped" "true" "$(summary .changed)"
+assert_eq "behind main: main's lockfile changes not listed" "0" "$(summary '.lockfiles | length')"
+git -C "$POSITRON" reset -q --hard
+git -C "$POSITRON" checkout -q main
+git -C "$POSITRON" submodule update -q
+
+# --- Output paths are relative to where the script runs ---
+mkdir -p "$POSITRON/sub"
+(cd "$POSITRON/sub" && "$SCRIPT" --summary rel.json 2>/dev/null)
+assert_eq "relative --summary: written in the current folder" "true" "$([ -s "$POSITRON/sub/rel.json" ] && echo true)"
+git -C "$POSITRON" reset -q --hard
+git -C "$POSITRON" submodule update -q
+rm -rf "$POSITRON/sub"
+
+# --- Local edits in ai-lib stop the bump ---
+printf 'edited\n' >> "$POSITRON/ai-lib/packages/ai-provider-bridge/package.json"
+run
+assert_eq "dirty ai-lib: fails" "1" "$?"
+assert_eq "dirty ai-lib: says why" "1" "$(grep -c 'uncommitted changes' "$TMP/stderr")"
+assert_eq "dirty ai-lib: nothing staged" "" "$(git -C "$POSITRON" diff --cached --name-only)"
+git -C "$POSITRON/ai-lib" checkout -q -- .
+
 # --- Bad input ---
 run --target abc123
 assert_eq "--target short sha: fails" "1" "$?"
 run --nope
 assert_eq "unknown flag: fails" "1" "$?"
+(cd "$POSITRON" && "$SCRIPT" --summary 2>"$TMP/stderr")
+assert_eq "flag without a value: fails" "1" "$?"
+assert_eq "flag without a value: says why" "Error: --summary needs a value" "$(cat "$TMP/stderr")"
 
 exit $fail
