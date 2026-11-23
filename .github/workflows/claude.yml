@@ -456,6 +456,20 @@ jobs:
       # steering Claude, controls the workspace and .git/config, so run only git, with hooks,
       # fsmonitor, and signing off, no global config, and no tokens or credentials in its
       # environment. The publish job checks the bundle, so this step does not have to.
+      # Names and reasons only: a tool input can hold file content, and this log is public.
+      - &list-denials
+        name: List the tool calls that were denied
+        if: always() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          jq -r '(if type == "array" then .[] else . end)
+            | if .type == "system" and .subtype == "permission_denied" then
+                "denied: \(.tool_name) (\(.decision_reason_type // "no reason type"): \(.decision_reason // "no reason"))"
+              elif .type == "result" then
+                (.permission_denials // [])[] | "denied: \(.tool_name)"
+              else empty end' "$EXECUTION_FILE" || echo "::warning::Could not read the execution file."
+
       - &bundle-commits
         name: Bundle Claude's commits
         id: bundle
@@ -748,7 +762,9 @@ jobs:
             --model opus
             --fallback-model sonnet
             --json-schema '{"type":"object","properties":{"pr_title":{"type":"string"},"pr_body":{"type":"string"}},"required":["pr_title","pr_body"]}'
-            --allowedTools "WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git restore:*),Bash(git reset:*),Bash(git stash:*),Bash(git mv:*),Bash(git rm:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git merge:*),Bash(git cherry-pick:*),Bash(git revert:*),Bash(git fetch origin:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+            --allowedTools "Edit(/**),WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git restore:*),Bash(git reset:*),Bash(git stash:*),Bash(git mv:*),Bash(git rm:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git merge:*),Bash(git cherry-pick:*),Bash(git revert:*),Bash(git fetch origin:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+
+      - *list-denials
 
       - *bundle-commits
 
