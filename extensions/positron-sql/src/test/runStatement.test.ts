@@ -55,6 +55,16 @@ suite('sql.runStatement', () => {
 			{ first: true, second: true, notifications: 2 },
 		);
 	});
+
+	for (const command of ['sql.runStatementWithoutAdvancing', 'sql.runToCurrentLine', 'sql.runFromCurrentLine']) {
+		test(`${command} finds a statement and asks for a connection, as sql.runStatement does`, async () => {
+			await vscode.window.showTextDocument(await sqlDocument('SELECT 1;'));
+
+			const settled = await settlesWithin(vscode.commands.executeCommand(command));
+
+			assert.deepStrictEqual({ settled, notifications: shownMessages.length }, { settled: true, notifications: 1 });
+		});
+	}
 });
 
 /** Whether a promise settles within a second; far longer than a run that asks nothing takes. */

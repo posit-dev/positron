@@ -90,6 +90,48 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('several statements run one at a time, in order', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2', 'SELECT 3']);
+		await turns();
+
+		assert.deepStrictEqual(
+			{ outcome, executed: api.executed },
+			{
+				outcome: { kind: 'executed', sessionId: 'gg' },
+				executed: [['gg', 'SELECT 1'], ['gg', 'SELECT 2'], ['gg', 'SELECT 3']],
+			},
+		);
+	});
+
+	test('the next statement waits for the one before it to finish', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.statementsSettle = false;
+
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await turns();
+
+		// The run itself does not wait: a long first statement does not hold up the command.
+		assert.deepStrictEqual(
+			{ outcome, executed: api.executed },
+			{ outcome: { kind: 'executed', sessionId: 'gg' }, executed: [['gg', 'SELECT 1']] },
+		);
+	});
+
+	test('a statement that fails stops the ones after it', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.failingStatement = 'SELECT * FROM missing';
+
+		await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT * FROM missing', 'SELECT 3']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT * FROM missing']]);
+	});
+
 	test('a notebook session on the database is passed over', async () => {
 		const api = new FakeApi();
 		api.addSession('nb', SHOP, positron.LanguageRuntimeSessionMode.Notebook);
@@ -215,6 +257,11 @@ function runner(api: ExecutionApi, reportTimeoutMs?: number): StatementRunner {
 	return new StatementRunner(api, testLog().log, reportTimeoutMs);
 }
 
+/** Lets statements the runner sends without waiting go out. */
+function turns(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 function document(): Thenable<vscode.TextDocument> {
 	return sqlDocument('SELECT 1');
 }
@@ -252,6 +299,9 @@ class FakeApi implements ExecutionApi {
 
 	/** Whether the user's statements finish. */
 	public statementsSettle = true;
+
+	/** A statement that fails when it runs, as one with an error in it does. */
+	public failingStatement: string | undefined;
 
 	public readonly executed: [string, string][] = [];
 	public started = 0;
@@ -311,6 +361,9 @@ class FakeApi implements ExecutionApi {
 	executeCode(code: string, sessionId: string): Thenable<unknown> {
 		this.executed.push([sessionId, code]);
 		if (!code.startsWith('-- @connect: ')) {
+			if (code === this.failingStatement) {
+				return Promise.reject(new Error('Catalog Error: no such table'));
+			}
 			return this.statementsSettle ? Promise.resolve() : new Promise(() => { });
 		}
 		switch (this.onConnect) {

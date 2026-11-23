@@ -6,6 +6,8 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { StatementSpan } from '../analyzer';
+import { statementsFromLine, statementsToLine } from '../statementRange';
 
 suite('SqlStatementRangeProvider', () => {
 	suiteSetup(async () => {
@@ -113,6 +115,46 @@ SELECT 2;
 		assert.strictEqual(result, undefined);
 	});
 });
+
+suite('statementsToLine and statementsFromLine', () => {
+
+	const text = 'SELECT 1;\nSELECT 2,\n  3;\nSELECT 4;\n';
+	const one = span(text, 'SELECT 1;');
+	const two = span(text, 'SELECT 2,\n  3;');
+	const four = span(text, 'SELECT 4;');
+	const statements = [one, two, four];
+
+	test('to a line runs each statement that starts by its end, whole', () => {
+		// The second statement starts on line 1 and ends on line 2; it is not cut at line 1.
+		assert.deepStrictEqual(statementsToLine(statements, lineEnd(text, 1)), [one, two]);
+		assert.deepStrictEqual(statementsToLine(statements, lineEnd(text, 0)), [one]);
+	});
+
+	test('from a line runs each statement that ends after its start, whole', () => {
+		// Line 2 is the end of the second statement, which runs from where it starts on line 1.
+		assert.deepStrictEqual(statementsFromLine(statements, lineStart(text, 2)), [two, four]);
+		assert.deepStrictEqual(statementsFromLine(statements, lineStart(text, 3)), [four]);
+	});
+
+	test('nothing from the blank line after the last statement', () => {
+		assert.deepStrictEqual(statementsFromLine(statements, lineStart(text, 4)), []);
+	});
+});
+
+/** The span of a statement as the analyzer would report it, found by its text. */
+function span(text: string, statement: string): StatementSpan {
+	const start = text.indexOf(statement);
+	const end = start + statement.length;
+	return { start, end, terminated: true, trailingEnd: end };
+}
+
+function lineStart(text: string, line: number): number {
+	return text.split('\n').slice(0, line).reduce((offset, previous) => offset + previous.length + 1, 0);
+}
+
+function lineEnd(text: string, line: number): number {
+	return lineStart(text, line) + text.split('\n')[line].length;
+}
 
 /** Sets `sql.enabled` for the user, or clears it with `undefined`. */
 async function setEnabled(enabled: boolean | undefined): Promise<void> {

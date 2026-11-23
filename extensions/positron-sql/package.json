@@ -117,6 +117,24 @@
         "title": "%command.runStatement.title%",
         "category": "SQL",
         "enablement": "config.sql.enabled && editorLangId == sql"
+      },
+      {
+        "command": "sql.runStatementWithoutAdvancing",
+        "title": "%command.runStatementWithoutAdvancing.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled && editorLangId == sql"
+      },
+      {
+        "command": "sql.runToCurrentLine",
+        "title": "%command.runToCurrentLine.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled && editorLangId == sql"
+      },
+      {
+        "command": "sql.runFromCurrentLine",
+        "title": "%command.runFromCurrentLine.title%",
+        "category": "SQL",
+        "enablement": "config.sql.enabled && editorLangId == sql"
       }
     ],
     "keybindings": [
@@ -130,6 +148,35 @@
         "command": "sql.runStatement",
         "key": "ctrl+enter",
         "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runStatementWithoutAdvancing",
+        "key": "alt+enter",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runToCurrentLine",
+        "key": "ctrl+alt+home",
+        "mac": "cmd+alt+home",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runFromCurrentLine",
+        "key": "ctrl+alt+end",
+        "mac": "cmd+alt+end",
+        "when": "config.sql.enabled && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runToCurrentLine",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "config.sql.enabled && config.workbench.keybindings.rstudioKeybindings && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runFromCurrentLine",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "config.sql.enabled && config.workbench.keybindings.rstudioKeybindings && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
       }
     ],
     "menus": {
@@ -144,6 +191,18 @@
         },
         {
           "command": "sql.runStatement",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.runStatementWithoutAdvancing",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.runToCurrentLine",
+          "when": "config.sql.enabled"
+        },
+        {
+          "command": "sql.runFromCurrentLine",
           "when": "config.sql.enabled"
         }
       ]

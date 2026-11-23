@@ -81,3 +81,35 @@ export function statementAt(
 ): StatementSpan | undefined {
 	return statements.find(statement => offset <= statement.trailingEnd);
 }
+
+/**
+ * The statements to run from the top of the file to the cursor's line: each one that starts before
+ * that line ends.
+ *
+ * The Console's own command runs those lines as text. A SQL statement cut off at a line would not
+ * parse, so a statement that starts on or above the line runs whole, even when it goes on below it.
+ *
+ * @param lineEnd The offset of the end of the cursor's line.
+ */
+export function statementsToLine(
+	statements: readonly StatementSpan[],
+	lineEnd: number,
+): StatementSpan[] {
+	return statements.filter(statement => statement.start < lineEnd);
+}
+
+/**
+ * The statements to run from the cursor's line to the end of the file: each one that ends after
+ * that line starts.
+ *
+ * As with {@link statementsToLine}, a statement that crosses the line runs whole, including one
+ * that starts above it.
+ *
+ * @param lineStart The offset of the start of the cursor's line.
+ */
+export function statementsFromLine(
+	statements: readonly StatementSpan[],
+	lineStart: number,
+): StatementSpan[] {
+	return statements.filter(statement => statement.end > lineStart);
+}
