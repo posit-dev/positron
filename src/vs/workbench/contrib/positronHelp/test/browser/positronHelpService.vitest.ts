@@ -16,16 +16,20 @@ vi.hoisted(() => {
 });
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { HelpClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
-import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ShowHelpEvent, ShowHelpKind } from '../../../../services/languageRuntime/common/positronHelpComm.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { HelpTopicResult, PositronHelpService } from '../../browser/positronHelpService.js';
 
 const START_PROXY_COMMAND = 'positronProxy.startHelpProxyServer';
@@ -37,7 +41,7 @@ describe('PositronHelpService', () => {
 	// happens across an extension host restart.
 	let proxyOrigin: string | undefined;
 
-	const executeCommand = vi.fn(async (command: string) =>
+	const executeCommand = vi.fn(async (command: string, ..._args: unknown[]) =>
 		command === START_PROXY_COMMAND ? proxyOrigin : undefined
 	);
 	const notifyError = vi.fn();
@@ -51,6 +55,8 @@ describe('PositronHelpService', () => {
 		// internally and only affects the HTML the pane would render.
 		.stub(IFileService, { readFile: () => Promise.reject(new Error('not needed')) })
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
+		.stub(IViewsService, { openView: () => Promise.resolve(null) })
+		.stub(IContextKeyService, new MockContextKeyService())
 		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None, onDidChangeForegroundSession: Event.None })
 		.build();
 
@@ -231,6 +237,78 @@ describe('PositronHelpService', () => {
 
 				await expect(service.searchHelp('linear model', CancellationToken.None)).rejects.toBe(error);
 			});
+		});
+	});
+
+	describe('when a help client closes', () => {
+		let service: PositronHelpService;
+		let session: ILanguageRuntimeSession;
+
+		beforeEach(() => {
+			session = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'r-session',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r', languageName: 'R' }),
+				onDidChangeRuntimeState: Event.None,
+			});
+			service = createService();
+			executeCommand.mockClear();
+		});
+
+		const attachClient = () => {
+			const helpEvents = ctx.disposables.add(new Emitter<ShowHelpEvent>());
+			const closeEvents = ctx.disposables.add(new Emitter<void>());
+			service.attachClientInstance(session, stubInterface<HelpClientInstance>({
+				onDidEmitHelpContent: helpEvents.event,
+				onDidClose: closeEvents.event,
+				dispose: () => { },
+			}));
+			const show = async (content: string) => {
+				helpEvents.fire({ content, kind: ShowHelpKind.Url, focus: false });
+				await vi.waitFor(() => expect(service.currentHelpEntry?.targetUrl).toBe(content));
+			};
+			return { show, close: () => closeEvents.fire() };
+		};
+
+		const state = () => ({
+			entries: service.helpEntries.map(helpEntry => helpEntry.targetUrl),
+			current: service.currentHelpEntry?.targetUrl,
+			stopped: executeCommand.mock.calls.filter(([c]) => c === 'positronProxy.stopProxyServer').map(([, origin]) => origin),
+		});
+
+		it('keeps only the current page, stops its proxy, and drops the page once it is left', async () => {
+			const client = attachClient();
+			await client.show('http://localhost:1234/a.html');
+			await client.show('http://localhost:1234/b.html');
+			service.navigateBackward();
+
+			client.close();
+			const afterClose = state();
+
+			// The session restarts and its new help server shows a page.
+			await attachClient().show('http://localhost:5678/c.html');
+
+			expect({ afterClose, afterRestart: state() }).toMatchInlineSnapshot(`
+				{
+				  "afterClose": {
+				    "current": "http://localhost:1234/a.html",
+				    "entries": [
+				      "http://localhost:1234/a.html",
+				    ],
+				    "stopped": [
+				      "http://localhost:1234",
+				    ],
+				  },
+				  "afterRestart": {
+				    "current": "http://localhost:5678/c.html",
+				    "entries": [
+				      "http://localhost:5678/c.html",
+				    ],
+				    "stopped": [
+				      "http://localhost:1234",
+				    ],
+				  },
+				}
+			`);
 		});
 	});
 });

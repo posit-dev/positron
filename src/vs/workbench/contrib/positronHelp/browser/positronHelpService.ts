@@ -11,7 +11,7 @@ import { localize } from '../../../../nls.js';
 import { AppResourcePath, FileAccess } from '../../../../base/common/network.js';
 import { join } from '../../../../base/common/path.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -201,6 +201,18 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Gets or sets the help entry index.
 	 */
 	private _helpEntryIndex = -1;
+
+	/**
+	 * The current help entry, kept after its session ended. Its proxy server is
+	 * stopped, so it isn't reloaded or navigated from, and it's removed once it
+	 * stops being current.
+	 */
+	private _endedHelpEntry?: HelpEntry;
+
+	/**
+	 * The navigation listeners of each help entry.
+	 */
+	private readonly _helpEntryListeners = this._register(new DisposableMap<HelpEntry, DisposableStore>());
 
 	/**
 	 * Gets the help clients. Keyed by the runtime session ID.
@@ -548,7 +560,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// Set the help entry index and fire the onDidChangeCurrentHelpEntry event.
 		this._helpEntryIndex = helpEntryIndex;
-		this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
+		this.currentHelpEntryChanged();
 	}
 
 	/**
@@ -560,7 +572,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// Ignore navigations from anything but the current help entry. A hidden
 		// help entry's webview can still be alive and posting messages.
 		const currentHelpEntry = this._helpEntries[this._helpEntryIndex];
-		if (currentHelpEntry !== fromHelpEntry) {
+		if (currentHelpEntry !== fromHelpEntry || currentHelpEntry === this._endedHelpEntry) {
 			return;
 		}
 
@@ -579,7 +591,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	navigateBackward() {
 		if (this._helpEntryIndex > 0) {
-			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[--this._helpEntryIndex]);
+			this._helpEntryIndex--;
+			this.currentHelpEntryChanged();
 		}
 	}
 
@@ -588,7 +601,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	navigateForward() {
 		if (this._helpEntryIndex < this._helpEntries.length - 1) {
-			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[++this._helpEntryIndex]);
+			this._helpEntryIndex++;
+			this.currentHelpEntryChanged();
 		}
 	}
 
@@ -708,20 +722,21 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	) {
 		// Create the help entry. The entry resolves the source URL it loads
 		// through the service, every time it loads; see resolveSourceUrl.
-		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+		const helpEntry: HelpEntry = this._instantiationService.createInstance(HelpEntry,
 			helpHTML,
 			languageId,
 			sessionId,
 			languageName,
 			targetUrl,
-			target => this.resolveSourceUrl(target)
+			async target => helpEntry === this._endedHelpEntry ? undefined : this.resolveSourceUrl(target)
 		);
 
-		// Add the navigation event handlers. The emitters behind these events
-		// belong to the help entry, so the listeners go away when it does.
-		helpEntry.onDidNavigate(toTargetUrl => this.navigate(helpEntry, toTargetUrl));
-		helpEntry.onDidNavigateBackward(() => this.navigateBackward());
-		helpEntry.onDidNavigateForward(() => this.navigateForward());
+		// Add the navigation event handlers. They're disposed with the help entry; see disposeHelpEntry.
+		const listeners = new DisposableStore();
+		listeners.add(helpEntry.onDidNavigate(toTargetUrl => this.navigate(helpEntry, toTargetUrl)));
+		listeners.add(helpEntry.onDidNavigateBackward(() => this.navigateBackward()));
+		listeners.add(helpEntry.onDidNavigateForward(() => this.navigateForward()));
+		this._helpEntryListeners.set(helpEntry, listeners);
 
 		return helpEntry;
 	}
@@ -754,71 +769,81 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		];
 
 		// Dispose of the deleted help entries.
-		deletedHelpEntries.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
+		deletedHelpEntries.forEach(deletedHelpEntry => this.disposeHelpEntry(deletedHelpEntry));
 
 		// Set the new help entry index.
 		this._helpEntryIndex = this._helpEntries.length - 1;
+		this.currentHelpEntryChanged();
+	}
 
-		// Raise the onDidChangeCurrentHelpEntry event for the newly added help entry.
+	/**
+	 * Disposes a help entry and its navigation listeners.
+	 * @param helpEntry The help entry to dispose.
+	 */
+	private disposeHelpEntry(helpEntry: HelpEntry) {
+		this._helpEntryListeners.deleteAndDispose(helpEntry);
+		helpEntry.dispose();
+	}
+
+	/**
+	 * Removes the ended help entry if it's no longer current, then raises the
+	 * onDidChangeCurrentHelpEntry event.
+	 */
+	private currentHelpEntryChanged() {
+		const endedHelpEntry = this._endedHelpEntry;
+		if (endedHelpEntry && endedHelpEntry !== this._helpEntries[this._helpEntryIndex]) {
+			this._endedHelpEntry = undefined;
+			const index = this._helpEntries.indexOf(endedHelpEntry);
+			if (index !== -1) {
+				this._helpEntries.splice(index, 1);
+				if (index < this._helpEntryIndex) {
+					this._helpEntryIndex--;
+				}
+				this.disposeHelpEntry(endedHelpEntry);
+			}
+		}
 		this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
 	}
 
 	/**
-	 * Deletes help entries for the specified runtime session ID.
+	 * Deletes help entries for the specified runtime session ID and stops
+	 * their proxy servers. The current help entry stays, as the ended help
+	 * entry, until it stops being current.
 	 *
 	 * @param sessionId The session ID of the help entries to delete.
 	 */
 	private deleteLanguageRuntimeHelpEntries(sessionId: string) {
-		// Get help entries to delete.
-		const helpEntriesToDelete = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.sessionId === sessionId
-		);
-
-		// If there are no help entries to delete, there's nothing more to do.
-		if (!helpEntriesToDelete.length) {
+		const sessionHelpEntries = this._helpEntries.filter(helpEntry => helpEntry.sessionId === sessionId);
+		if (!sessionHelpEntries.length) {
 			return;
 		}
 
-		// Get the current help entry.
-		const currentHelpEntry = this._helpEntryIndex === -1 ?
-			undefined :
-			this._helpEntries[this._helpEntryIndex];
-
-		// Filter out the help entries to delete.
-		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.sessionId !== sessionId
-		);
-
-		// Update the current help entry, if there was one.
-		if (currentHelpEntry) {
-			this._helpEntryIndex = currentHelpEntry.sessionId === sessionId ?
-				-1 :
-				this._helpEntries.indexOf(currentHelpEntry);
-			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
+		// Remove the session's help entries, except the current one.
+		const currentHelpEntry = this._helpEntries[this._helpEntryIndex];
+		if (currentHelpEntry?.sessionId === sessionId) {
+			this._endedHelpEntry = currentHelpEntry;
 		}
-
-		// Dispose of the deleted help entries.
-		helpEntriesToDelete.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
-
-		// Get the set of target origins that we may want to clean up.
-		const cleanupTargetOrigins = helpEntriesToDelete.map(helpEntry =>
-			new URL(helpEntry.targetUrl).origin
+		this._helpEntries = this._helpEntries.filter(helpEntry =>
+			helpEntry.sessionId !== sessionId || helpEntry === currentHelpEntry
 		);
+		this._helpEntryIndex = this._helpEntries.indexOf(currentHelpEntry);
+		sessionHelpEntries
+			.filter(helpEntry => helpEntry !== currentHelpEntry)
+			.forEach(helpEntry => this.disposeHelpEntry(helpEntry));
+		this.currentHelpEntryChanged();
 
-		// Get the set of active target origins so we don't accidentally clean one of them up.
-		const activeTargetOrigins = this._helpEntries.map(helpEntry =>
-			new URL(helpEntry.targetUrl).origin
+		// Stop the proxy servers for the session's target origins that no other
+		// session's help entry uses.
+		const activeTargetOrigins = new Set(this._helpEntries
+			.filter(helpEntry => helpEntry.sessionId !== sessionId)
+			.map(helpEntry => tryParseUrl(helpEntry.targetUrl)?.origin)
 		);
-
-		// Stop proxy servers that can be stopped.
-		cleanupTargetOrigins.forEach(targetOrigin => {
-			if (!activeTargetOrigins.includes(targetOrigin)) {
-				this._commandService.executeCommand<boolean>(
-					'positronProxy.stopProxyServer',
-					targetOrigin
-				);
+		const targetOrigins = new Set(sessionHelpEntries.map(helpEntry => tryParseUrl(helpEntry.targetUrl)?.origin));
+		for (const targetOrigin of targetOrigins) {
+			if (targetOrigin && !activeTargetOrigins.has(targetOrigin)) {
+				void this._commandService.executeCommand('positronProxy.stopProxyServer', targetOrigin);
 			}
-		});
+		}
 	}
 
 	/**
@@ -987,7 +1012,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		const helpEntry = this.createHelpEntry(
 			this._helpHTML,
 			session.runtimeMetadata.languageId,
-			session.runtimeMetadata.runtimeId,
+			session.sessionId,
 			session.runtimeMetadata.languageName,
 			targetUrl.toString()
 		);
