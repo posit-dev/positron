@@ -285,7 +285,7 @@ New tests are not complete until they run successfully in Github Actions. The te
 
 There are three lanes:
 
-- **PR lane.** The [Test: PR (dispatch)](https://github.com/posit-dev/positron/actions/workflows/test-pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs without credentials, so tests that need a credential skip. A PR from a fork is not tested automatically. A maintainer runs it through the trusted Full Suite lane.
+- **PR lane.** The [Test: PR (dispatch)](https://github.com/posit-dev/positron/actions/workflows/test-pr-dispatch.yml) workflow starts the tests in `positron-builds` for each PR and waits for the result. The PR shows one `required-tests` check and one status for each lane (for example `unit / vitest` and `e2e / electron`). The PR lane runs with the test credentials. A PR from a fork is not tested automatically. A maintainer runs it through the Full Suite lane.
 - **Merge lane.** Each push to `main`, `prerelease/**`, or `release/**` runs the full suite with credentials.
 - **Full Suite lane.** Posit staff can run the tests, with credentials, against `main`, a release tag, or a commit of this repository.
 
