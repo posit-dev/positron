@@ -21,4 +21,4 @@ These actions also have callers in this repository, and `posit-dev/positron-buil
 
 To check an action, search the workflows of `posit-dev/positron-builds` for `.github/actions/<name>`.
 
-Some actions here come from upstream VS Code and have no caller in either repository (for example `detect-changes` and `save-node-modules`). Leave them in place: deleting them causes a conflict at each upstream merge.
+Some actions here come from upstream VS Code and have no caller in either repository (for example `detect-changes` and `save-node-modules`; the workflows `pr-linux-test.yml` and `sessions-e2e.yml` are upstream files too). Leave them in place: deleting them causes a conflict at each upstream merge.
