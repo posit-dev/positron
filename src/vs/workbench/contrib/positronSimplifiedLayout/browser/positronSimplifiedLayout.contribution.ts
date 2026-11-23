@@ -14,6 +14,7 @@ import { positronFourPaneDsLayout } from '../../../services/positronLayout/brows
 import { positronSimplifiedLayout } from '../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
 import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import './titleBarSessionPicker.js';
+import { PositronToolsContainerContribution } from './positronToolsContainer.js';
 
 /**
  * Remembers that the Simplified layout was applied. The profile key covers what the profile
@@ -69,4 +70,10 @@ registerWorkbenchContribution2(
 	SimplifiedLayoutStartupContribution.ID,
 	SimplifiedLayoutStartupContribution,
 	WorkbenchPhase.AfterRestored
+);
+
+registerWorkbenchContribution2(
+	PositronToolsContainerContribution.ID,
+	PositronToolsContainerContribution,
+	WorkbenchPhase.BlockStartup
 );
