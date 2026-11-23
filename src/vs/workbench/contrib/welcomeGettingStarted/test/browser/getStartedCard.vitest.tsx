@@ -6,7 +6,6 @@
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
@@ -17,7 +16,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { GetStartedCard } from '../../browser/positronWelcomePage/components/getStartedCard.js';
 import { EnvironmentHealthLanguage } from '../../browser/positronWelcomePage/environmentHealth.js';
 import { EnvironmentHealthSnapshot, IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
-import { WelcomeAssistantCard } from '../../browser/positronWelcomePage/welcomeAssistantCard.js';
+import { IAgentSetupState, WelcomeAgentSetup } from '../../browser/positronWelcomePage/welcomeAgentSetup.js';
 
 const SIMPLIFIED = 'workbench.action.positronSimplifiedLayout';
 const STACKED = 'workbench.action.positronFourPaneDataScienceLayout';
@@ -44,15 +43,12 @@ const environmentHealthService = stubInterface<IEnvironmentHealthService>({
 });
 
 /**
- * Builds an Assistant card stub.
- * @param available Whether the Assistant is installed and AI features are on.
+ * Builds an agent setup stub: Posit Assistant installed, no provider signed in.
+ * @param aiEnabled Whether AI features are on.
  */
-function assistantCard(available: boolean) {
-	return stubInterface<WelcomeAssistantCard>({
-		available,
-		onDidChangeAvailable: Event.None,
-		attach: () => Disposable.None,
-	});
+function agentSetup(aiEnabled: boolean) {
+	const state: IAgentSetupState = { aiEnabled, assistant: 'on', providerSignedIn: false, mcpServerEnabled: false };
+	return stubInterface<WelcomeAgentSetup>({ state, onDidChange: Event.None });
 }
 
 describe('GetStartedCard', () => {
@@ -68,7 +64,7 @@ describe('GetStartedCard', () => {
 
 	const render = (available: boolean) => rtl.render(
 		<GetStartedCard
-			assistantCard={assistantCard(available)}
+			agentSetup={agentSetup(available)}
 			environmentHealthService={environmentHealthService}
 			expandedByLanguage={new Map<EnvironmentHealthLanguage, boolean>()}
 		/>
@@ -78,7 +74,7 @@ describe('GetStartedCard', () => {
 		ctx.get(IStorageService).remove(SETUP_DONE_STORAGE_KEY, StorageScope.PROFILE);
 	});
 
-	it('walks through the environment, the Assistant, and the layout', async () => {
+	it('walks through the environment, AI setup, and the layout', async () => {
 		const user = userEvent.setup();
 		render(true);
 
@@ -87,17 +83,18 @@ describe('GetStartedCard', () => {
 		expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
 
 		await user.click(screen.getByRole('button', { name: 'Next' }));
-		expect(screen.getByRole('heading', { name: 'Meet Posit Assistant' })).toHaveFocus();
+		expect(screen.getByRole('heading', { name: 'Set up AI agents' })).toHaveFocus();
+		expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Next' }));
 		expect(screen.getByRole('heading', { name: 'Choose a layout' })).toBeInTheDocument();
 		expect(screen.getByText('Step 3 of 3')).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Back' }));
-		expect(screen.getByRole('heading', { name: 'Meet Posit Assistant' })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { name: 'Set up AI agents' })).toBeInTheDocument();
 	});
 
-	it('leaves out the Assistant step when the Assistant is not available', async () => {
+	it('leaves out the AI step when AI features are off', async () => {
 		const user = userEvent.setup();
 		render(false);
 
@@ -140,10 +137,20 @@ describe('GetStartedCard', () => {
 		expect(screen.getByText('Python ready')).toBeInTheDocument();
 		expect(screen.getByText('R: 1 fix left')).toBeInTheDocument();
 		expect(screen.getByText('Layout: Simplified')).toBeInTheDocument();
+		expect(screen.queryByText('Assistant: not set up')).not.toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Review setup' }));
 
 		expect(screen.getByRole('heading', { name: 'Check your environment' })).toBeInTheDocument();
+	});
+
+	it('says the Assistant is not set up when no provider is signed in', async () => {
+		const user = userEvent.setup();
+		render(true);
+
+		await user.click(screen.getByRole('button', { name: 'Skip setup' }));
+
+		expect(screen.getByText('Assistant: not set up')).toBeInTheDocument();
 	});
 
 	it('shows the summary when setup was finished before', () => {

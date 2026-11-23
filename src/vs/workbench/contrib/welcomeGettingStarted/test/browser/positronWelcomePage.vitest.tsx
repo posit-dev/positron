@@ -13,7 +13,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IResolvedWalkthrough, IWalkthroughsService } from '../../browser/gettingStartedService.js';
 import { IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { createPositronWelcomePage, PositronWelcomePage } from '../../browser/positronWelcomePage/positronWelcomePage.js';
-import { WelcomeAssistantCard } from '../../browser/positronWelcomePage/welcomeAssistantCard.js';
+import { IAgentSetupState, WelcomeAgentSetup } from '../../browser/positronWelcomePage/welcomeAgentSetup.js';
 
 class FakeResizeObserver implements ResizeObserver {
 	public static instances: FakeResizeObserver[] = [];
@@ -63,8 +63,11 @@ const environmentHealthService: IEnvironmentHealthService = {
 	runFix: vi.fn(),
 };
 
-/** A chat card that never shows, so the rest of the page is what renders. */
-const assistantCard = stubInterface<WelcomeAssistantCard>({ available: false, onDidChangeAvailable: Event.None });
+/** AI features off, so the agent setup card never shows and the rest of the page is what renders. */
+const agentSetup = stubInterface<WelcomeAgentSetup>({
+	state: stubInterface<IAgentSetupState>({ aiEnabled: false }),
+	onDidChange: Event.None,
+});
 
 /**
  * Builds the DOM the editor pane hands to the page. These are real widgets
@@ -93,7 +96,7 @@ describe('PositronWelcomePage', () => {
 		const { recentList, footer } = slottedDom();
 		const { container } = rtl.render(
 			<PositronWelcomePage
-				assistantCard={assistantCard} environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
+				agentSetup={agentSetup} environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidChangeContentSize={vi.fn()}
@@ -119,7 +122,7 @@ describe('PositronWelcomePage', () => {
 
 		rtl.render(
 			<PositronWelcomePage
-				assistantCard={assistantCard} environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
+				agentSetup={agentSetup} environmentHealthService={environmentHealthService} expandedByLanguage={new Map()}
 				footer={footer}
 				recentList={recentList}
 				onDidChangeContentSize={vi.fn()}
@@ -159,7 +162,7 @@ describe('createPositronWelcomePage', () => {
 
 		return createPositronWelcomePage(
 			container,
-			{ environmentHealthService, expandedByLanguage: new Map(), assistantCard, recentList, footer, onDidMount: vi.fn(), onDidChangeContentSize },
+			{ environmentHealthService, expandedByLanguage: new Map(), agentSetup, recentList, footer, onDidMount: vi.fn(), onDidChangeContentSize },
 			FakeResizeObserver
 		);
 	};

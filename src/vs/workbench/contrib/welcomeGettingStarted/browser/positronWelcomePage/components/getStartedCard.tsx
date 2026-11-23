@@ -20,8 +20,8 @@ import { IPositronLayoutService } from '../../../../../services/positronLayout/b
 import { positronSimplifiedLayout } from '../../../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
 import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthEntry, IEnvironmentHealthService } from '../environmentHealthService.js';
-import { WelcomeAssistantCard } from '../welcomeAssistantCard.js';
-import { AssistantCard } from './assistantCard.js';
+import { IAgentSetupState, WelcomeAgentSetup } from '../welcomeAgentSetup.js';
+import { AgentSetupSection, isAssistantReady } from './agentSetupSection.js';
 import { EnvironmentHealthSection } from './environmentHealthSection.js';
 import { getLayoutCards, LayoutCardList } from './layoutCards.js';
 
@@ -39,12 +39,12 @@ type GetStartedStep = 'environment' | 'assistant' | 'layout';
 export interface GetStartedCardProps {
 	readonly environmentHealthService: IEnvironmentHealthService;
 	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
-	readonly assistantCard: WelcomeAssistantCard;
+	readonly agentSetup: WelcomeAgentSetup;
 }
 
 /**
  * GetStartedCard component. Walks a new user through setup one step at a time:
- * check the environment, try the Assistant, then pick a layout. Layout comes last
+ * check the environment, set up AI agents, then pick a layout. Layout comes last
  * because applying it changes what is on screen. Once the user finishes or skips,
  * the card shrinks to a one-line summary.
  * @param props A GetStartedCardProps that contains the component properties.
@@ -63,15 +63,15 @@ export const GetStartedCard = (props: GetStartedCardProps) => {
 
 	const languages = useEventState(props.environmentHealthService.onDidChange, () => props.environmentHealthService.state);
 	const currentLayoutId = useEventState(layoutService.onDidChangeCurrentLayout, () => layoutService.currentLayoutId);
-	const assistantAvailable = useEventState(props.assistantCard.onDidChangeAvailable, () => props.assistantCard.available);
+	const agentSetup = useEventState(props.agentSetup.onDidChange, () => props.agentSetup.state);
 
 	// A step shows only when it has something in it: no languages checked means no
-	// environment step, and no Assistant means no Assistant step.
+	// environment step, and AI features off means no AI step.
 	const steps: GetStartedStep[] = [];
 	if (languages.some(language => language.state.kind !== 'hidden')) {
 		steps.push('environment');
 	}
-	if (assistantAvailable) {
+	if (agentSetup.aiEnabled) {
 		steps.push('assistant');
 	}
 	steps.push('layout');
@@ -129,7 +129,7 @@ export const GetStartedCard = (props: GetStartedCardProps) => {
 	};
 
 	if (done) {
-		return <GetStartedSummary currentLayoutId={currentLayoutId} languages={languages} onReview={review} />;
+		return <GetStartedSummary agentSetup={agentSetup} currentLayoutId={currentLayoutId} languages={languages} onReview={review} />;
 	}
 
 	const stepText = getStepText(step);
@@ -160,10 +160,8 @@ export const GetStartedCard = (props: GetStartedCardProps) => {
 						labelledBy={titleId}
 					/>
 				}
-				{/* Only mounted on its own step: the Assistant draws on top of the
-					page, so leaving it mounted would draw it over the other steps. */}
 				{step === 'assistant' &&
-					<AssistantCard card={props.assistantCard} labelledBy={titleId} />
+					<AgentSetupSection agentSetup={props.agentSetup} labelledBy={titleId} />
 				}
 				{step === 'layout' &&
 					<LayoutCardList
@@ -223,9 +221,9 @@ function getStepText(step: GetStartedStep): { title: string; description: string
 			};
 		case 'assistant':
 			return {
-				title: localize('positron.welcome.getStartedAssistantTitle', "Meet Posit Assistant"),
-				description: localize('positron.welcome.getStartedAssistantDescription', "Ask questions about your data, get help writing code, and fix errors. You can also chat later from the Assistant view."),
-				label: localize('positron.welcome.getStartedAssistantLabel', "Assistant"),
+				title: localize('positron.welcome.getStartedAssistantTitle', "Set up AI agents"),
+				description: localize('positron.welcome.getStartedAssistantDescription', "Posit Assistant answers questions about your data, writes code, and fixes errors. Sign in to a model provider to use it, and turn on Positron's MCP server to let other coding agents work in your sessions."),
+				label: localize('positron.welcome.getStartedAssistantLabel', "AI"),
 			};
 		case 'layout':
 			return {
@@ -241,6 +239,7 @@ function getStepText(step: GetStartedStep): { title: string; description: string
  */
 interface GetStartedSummaryProps {
 	readonly languages: readonly IEnvironmentHealthEntry[];
+	readonly agentSetup: IAgentSetupState;
 	readonly currentLayoutId: string | undefined;
 	readonly onReview: () => void;
 }
@@ -269,6 +268,20 @@ const GetStartedSummary = (props: GetStartedSummaryProps) => {
 							{summary.text}
 						</li>;
 				})}
+				{props.agentSetup.aiEnabled &&
+					<li className='get-started-summary-item'>
+						{isAssistantReady(props.agentSetup)
+							? <>
+								<span aria-hidden='true' className='codicon codicon-pass-filled get-started-summary-pass' />
+								{localize('positron.welcome.getStartedSummaryAssistantReady', "Assistant ready")}
+							</>
+							: <>
+								<span aria-hidden='true' className='codicon codicon-warning get-started-summary-warn' />
+								{localize('positron.welcome.getStartedSummaryAssistantNotSetUp', "Assistant: not set up")}
+							</>
+						}
+					</li>
+				}
 				<li className='get-started-summary-item'>
 					<span aria-hidden='true' className='codicon codicon-layout' />
 					{localize('positron.welcome.getStartedSummaryLayout', "Layout: {0}", layoutName)}

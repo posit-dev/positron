@@ -14,7 +14,7 @@ import { DisposableResizeObserver, getWindow } from '../../../../../base/browser
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { isSimplifiedLayoutEnabled } from '../../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
-import { AssistantCard } from './components/assistantCard.js';
+import { AgentSetupSection } from './components/agentSetupSection.js';
 import { DomSlot } from './components/domSlot.js';
 import { EnvironmentHealthSection } from './components/environmentHealthSection.js';
 import { GetStartedCard } from './components/getStartedCard.js';
@@ -22,7 +22,7 @@ import { WalkthroughBanner } from './components/walkthroughBanner.js';
 import { WelcomeHeader } from './components/welcomeHeader.js';
 import { EnvironmentHealthLanguage } from './environmentHealth.js';
 import { IEnvironmentHealthService } from './environmentHealthService.js';
-import { WelcomeAssistantCard } from './welcomeAssistantCard.js';
+import { WelcomeAgentSetup } from './welcomeAgentSetup.js';
 
 /**
  * PositronWelcomePageProps interface.
@@ -55,10 +55,10 @@ export interface PositronWelcomePageProps {
 	readonly expandedByLanguage: Map<EnvironmentHealthLanguage, boolean>;
 
 	/**
-	 * The Posit Assistant chat card. Built by the editor pane, because its
-	 * webview has to outlive this component.
+	 * Tracks the user's AI agent setup. Built by the editor pane, because it has
+	 * to outlive this component.
 	 */
-	readonly assistantCard: WelcomeAssistantCard;
+	readonly agentSetup: WelcomeAgentSetup;
 
 	/**
 	 * Called once the page is in the DOM. The editor pane uses this to attach
@@ -99,13 +99,13 @@ export const PositronWelcomePage = (props: PositronWelcomePageProps) => {
 				single card, in place of the separate sections. */}
 			{isSimplifiedLayoutEnabled(services.configurationService)
 				? <GetStartedCard
-					assistantCard={props.assistantCard}
+					agentSetup={props.agentSetup}
 					environmentHealthService={props.environmentHealthService}
 					expandedByLanguage={props.expandedByLanguage}
 				/>
 				: <>
 					<EnvironmentHealthSection environmentHealthService={props.environmentHealthService} expandedByLanguage={props.expandedByLanguage} />
-					<AssistantCard card={props.assistantCard} />
+					<AgentSetupSection agentSetup={props.agentSetup} />
 				</>
 			}
 			<div className='positron-welcome-page-columns'>
