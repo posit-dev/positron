@@ -508,13 +508,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
 				<div className='selected-plot'>
 					{positronPlotsContext.positronPlotInstances.length === 0 &&
-						<div className='plot-placeholder'>
-							<ViewEmptyState
-								docsAriaLabel={plotsDocsAriaLabel}
-								docsPath='plots-pane.html'
-								icon='graph'
-								message={plotsHint} />
-						</div>}
+						<ViewEmptyState
+							docsAriaLabel={plotsDocsAriaLabel}
+							docsPath='plots-pane.html'
+							icon='graph'
+							message={plotsHint} />}
 					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 						plotInstance.id === positronPlotsContext.selectedInstanceId &&
 						render(plotInstance)
