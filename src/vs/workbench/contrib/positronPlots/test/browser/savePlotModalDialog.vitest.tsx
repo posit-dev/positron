@@ -45,7 +45,7 @@ function createFakePlotClient(policy: IPositronPlotSizingPolicy, intrinsicSize?:
 		},
 		intrinsicSize,
 		lastRender: withLastRender
-			? { size: { width: 700, height: 500 }, pixel_ratio: 2, uri: 'data:image/png;base64,AA==', renderTimeMs: 0 }
+			? { size: { width: 700, height: 500 }, unit: PlotUnit.Pixels, pixel_ratio: 2, uri: 'data:image/png;base64,AA==', renderTimeMs: 0 }
 			: undefined,
 		sizingPolicy: policy,
 		render,

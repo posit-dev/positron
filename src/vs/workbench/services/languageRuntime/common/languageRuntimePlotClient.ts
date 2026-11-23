@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, PlotOrigin, PlotResult, PlotRenderFormat, PlotSize } from './positronPlotComm.js';
+import { IntrinsicSize, PlotOrigin, PlotResult, PlotRenderFormat, PlotSize, PlotUnit } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
@@ -20,6 +20,7 @@ function plotResultToRenderedPlot(preRender: PlotResult & { settings: NonNullabl
 	return {
 		uri,
 		size: preRender.settings.size,
+		unit: PlotUnit.Pixels,
 		pixel_ratio: preRender.settings.pixel_ratio,
 		format: preRender.settings.format,
 		renderTimeMs: 0,
@@ -370,8 +371,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
 	}
 
-	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
-		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
+	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false, unit = PlotUnit.Pixels): Promise<IRenderedPlot> {
+		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview, unit);
 	}
 
 	/**
@@ -383,6 +384,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @param format The format of the plot ('png', 'svg')
 	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
+	 * @param unit The unit of `size`. Pixel sizes are floored to whole pixels; inch sizes are sent as given.
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
 
@@ -390,9 +392,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * Check if the render settings match
 	 */
 	private settingsEqual(
-		left: { size?: PlotSize; pixel_ratio: number; format?: PlotRenderFormat },
-		right: { size?: PlotSize; pixel_ratio: number; format?: PlotRenderFormat },
+		left: { size?: PlotSize; unit?: PlotUnit; pixel_ratio: number; format?: PlotRenderFormat },
+		right: { size?: PlotSize; unit?: PlotUnit; pixel_ratio: number; format?: PlotRenderFormat },
 	): boolean {
+		if ((left.unit ?? PlotUnit.Pixels) !== (right.unit ?? PlotUnit.Pixels)) {
+			return false;
+		}
 		if (left.size?.height !== right.size?.height) {
 			return false;
 		}
@@ -423,18 +428,18 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		return this._configurationService.getValue<boolean>(OldFreezeSlowPlotsConfigKey) ?? true;
 	}
 
-	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
-		// Deal with whole pixels only
-		const sizeInt = size && {
+	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false, unit = PlotUnit.Pixels): Promise<IRenderedPlot> {
+		// Deal with whole pixels only; inch sizes keep their fractional part
+		const sizeInt = size && (unit === PlotUnit.Pixels ? {
 			height: Math.floor(size.height),
 			width: Math.floor(size.width)
-		};
+		} : { height: size.height, width: size.width });
 
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
 		if (sizeInt && this._lastRender?.size && this._lastRender && this.settingsEqual(
-			{ size: sizeInt, pixel_ratio, format },
+			{ size: sizeInt, unit, pixel_ratio, format },
 			this._lastRender
 		)) {
 			// The last render request was the same size; return the last render
@@ -445,6 +450,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Create a new deferred promise to track the render request
 		const request: RenderRequest = {
 			size: sizeInt,
+			unit,
 			pixel_ratio,
 			format
 		};
@@ -600,10 +606,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Use the dimensions of the last or current render request to determine
 		// the size and DPI of the plot to update.
-		const sizeInt = render.size && {
+		const unit = render.unit;
+		const sizeInt = render.size && (unit === PlotUnit.Pixels ? {
 			height: Math.floor(render.size.height),
 			width: Math.floor(render.size.width)
-		};
+		} : { height: render.size.height, width: render.size.width });
 		const pixel_ratio = render.pixel_ratio;
 
 		// If there is already a render request in flight, cancel it. This
@@ -620,6 +627,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// timer for any previously deferred render requests.
 		const req = new DeferredRender({
 			size: sizeInt,
+			unit,
 			pixel_ratio: pixel_ratio,
 			format: this._currentRender?.renderRequest.format ?? PlotRenderFormat.Png
 		});

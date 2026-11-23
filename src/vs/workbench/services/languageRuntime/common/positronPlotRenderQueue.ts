@@ -9,7 +9,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from './languageRuntimeService.js';
-import { PlotRenderFormat, PositronPlotComm, IntrinsicSize, PlotMetadata } from './positronPlotComm.js';
+import { PlotRenderFormat, PlotUnit, PositronPlotComm, IntrinsicSize, PlotMetadata } from './positronPlotComm.js';
 import { padBase64 } from './utils.js';
 
 /**
@@ -32,6 +32,9 @@ export type PlotOperationResult = IRenderedPlot | IntrinsicSize | PlotMetadata |
 export interface IRenderedPlot {
 	/** The size of the plot, in logical pixels, if known */
 	size?: IPlotSize;
+
+	/** The unit of the size the plot was rendered at */
+	unit: PlotUnit;
 
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
@@ -62,6 +65,9 @@ export interface PlotOperationRequest {
 	 */
 	size?: IPlotSize;
 
+	/** For render operations: the unit of `size` */
+	unit?: PlotUnit;
+
 	/** For render operations: the pixel ratio of the device for which the plot was rendered */
 	pixel_ratio?: number;
 
@@ -78,6 +84,9 @@ export interface RenderRequest {
 	 * intrinsic size, if known.
 	 */
 	size?: IPlotSize;
+
+	/** The unit of `size` (logical pixels or inches) */
+	unit: PlotUnit;
 
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
@@ -276,6 +285,7 @@ export class PositronPlotRenderQueue extends Disposable {
 		const operationRequest: PlotOperationRequest = {
 			type: OperationType.Render,
 			size: deferredRender.renderRequest.size,
+			unit: deferredRender.renderRequest.unit,
 			pixel_ratio: deferredRender.renderRequest.pixel_ratio,
 			format: deferredRender.renderRequest.format
 		};
@@ -408,7 +418,8 @@ export class PositronPlotRenderQueue extends Disposable {
 
 		if (operationRequest.type === OperationType.Render) {
 			// Handle render operation
-			queuedOperation.comm.render(operationRequest.size,
+			const unit = operationRequest.unit ?? PlotUnit.Pixels;
+			queuedOperation.comm.render(operationRequest.size && { ...operationRequest.size, unit },
 				operationRequest.pixel_ratio!,
 				operationRequest.format!).then((response) => {
 					// The render was successful; record the render time
@@ -419,6 +430,7 @@ export class PositronPlotRenderQueue extends Disposable {
 					const uri = `data:${response.mime_type};base64,${padBase64(response.data)}`;
 					const renderResult: IRenderedPlot = {
 						size: operationRequest.size,
+						unit,
 						pixel_ratio: operationRequest.pixel_ratio!,
 						format: operationRequest.format,
 						uri,

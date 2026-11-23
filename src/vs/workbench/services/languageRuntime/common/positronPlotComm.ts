@@ -106,6 +106,29 @@ export interface PlotSize {
 }
 
 /**
+ * The requested size of a rendered plot, with its unit
+ */
+export interface RenderSize {
+	/**
+	 * The width of the plot, in the given unit. Pixel sizes are integers.
+	 */
+	width: number;
+
+	/**
+	 * The height of the plot, in the given unit. Pixel sizes are integers.
+	 */
+	height: number;
+
+	/**
+	 * The unit of measurement of the plot's dimensions. Inches are valid
+	 * only for vector formats (svg, pdf); the pixel_ratio does not scale an
+	 * inch size.
+	 */
+	unit: PlotUnit;
+
+}
+
+/**
  * The origin (source) of a plot
  */
 export interface PlotOrigin {
@@ -194,10 +217,10 @@ export enum PlotRenderFormat {
  */
 export interface RenderParams {
 	/**
-	 * The requested size of the plot. If not provided, the plot will be
-	 * rendered at its intrinsic size.
+	 * The requested size of the plot, with its unit. If not provided, the
+	 * plot will be rendered at its intrinsic size.
 	 */
-	size?: PlotSize;
+	size?: RenderSize;
 
 	/**
 	 * The pixel ratio of the display device
@@ -304,14 +327,14 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * Requests a plot to be rendered. The plot data is returned in a
 	 * base64-encoded string.
 	 *
-	 * @param size The requested size of the plot. If not provided, the plot
-	 * will be rendered at its intrinsic size.
+	 * @param size The requested size of the plot, with its unit. If not
+	 * provided, the plot will be rendered at its intrinsic size.
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
 	 *
 	 * @returns A rendered plot
 	 */
-	render(size: PlotSize | undefined, pixelRatio: number, format: PlotRenderFormat): Promise<PlotResult> {
+	render(size: RenderSize | undefined, pixelRatio: number, format: PlotRenderFormat): Promise<PlotResult> {
 		return super.performRpc('render', ['size', 'pixel_ratio', 'format'], [size, pixelRatio, format]);
 	}
 

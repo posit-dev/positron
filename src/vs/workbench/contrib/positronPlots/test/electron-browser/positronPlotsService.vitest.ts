@@ -559,7 +559,7 @@ describe('Positron - Plots Service', () => {
 				await vi.waitFor(() => expect(assistant.getCurrentPlotUri()).toBe('data:image/png;base64,dGVzdA=='));
 				expect(rpc).toHaveBeenCalledWith(expect.objectContaining({
 					method: 'render',
-					params: { size: hasIntrinsicSize ? undefined : { width: 640, height: 400 }, pixel_ratio: 1, format: 'png' },
+					params: { size: hasIntrinsicSize ? undefined : { width: 640, height: 400, unit: PlotUnit.Pixels }, pixel_ratio: 1, format: 'png' },
 				}), expect.any(Number));
 				expect(openViewSpy).not.toHaveBeenCalled();
 			});

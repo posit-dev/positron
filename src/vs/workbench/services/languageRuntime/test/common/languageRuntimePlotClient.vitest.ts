@@ -11,7 +11,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { IPositronPlotMetadata, PlotClientInstance } from '../../common/languageRuntimePlotClient.js';
 import { PositronPlotCommProxy } from '../../common/positronPlotCommProxy.js';
 import { IPositronPlotSizingPolicy } from '../../../positronPlots/common/sizingPolicy.js';
-import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
+import { PlotRenderFormat, PlotResult, PlotSize, PlotUnit, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
 import { DeferredRender, IRenderedPlot } from '../../common/positronPlotRenderQueue.js';
 
 describe('Positron - PlotClientInstance', () => {
@@ -88,5 +88,55 @@ describe('Positron - PlotClientInstance', () => {
 		expect(renderSpy).toHaveBeenCalledTimes(1);
 		const queued = renderSpy.mock.calls[0][0] as DeferredRender;
 		expect(queued.renderRequest.size).toEqual({ width: 200, height: 200 });
+	});
+
+	describe('render units', () => {
+		it('sends a fractional inch size unfloored with its unit', async () => {
+			const client = createPlotClient({});
+			void client.render({ width: 7.25, height: 5.5 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+			await timeout(0);
+
+			expect(renderSpy).toHaveBeenCalledTimes(1);
+			const queued = renderSpy.mock.calls[0][0] as DeferredRender;
+			expect(queued.renderRequest).toEqual({
+				size: { width: 7.25, height: 5.5 },
+				unit: PlotUnit.Inches,
+				pixel_ratio: 1,
+				format: PlotRenderFormat.Pdf,
+			});
+		});
+
+		it('still floors a pixel size and sends unit pixels', async () => {
+			const client = createPlotClient({});
+			void client.render({ width: 700.6, height: 500.2 }, 2);
+			await timeout(0);
+
+			expect(renderSpy).toHaveBeenCalledTimes(1);
+			const queued = renderSpy.mock.calls[0][0] as DeferredRender;
+			expect(queued.renderRequest.size).toEqual({ width: 700, height: 500 });
+			expect(queued.renderRequest.unit).toBe(PlotUnit.Pixels);
+		});
+
+		it('does not reuse a pixel render for an inch request with the same numbers', async () => {
+			const client = createPlotClient({});
+			const first = client.render({ width: 7, height: 5 }, 1);
+			await timeout(0);
+			const firstQueued = renderSpy.mock.calls[0][0] as DeferredRender;
+			firstQueued.complete({
+				size: { width: 7, height: 5 },
+				unit: PlotUnit.Pixels,
+				pixel_ratio: 1,
+				format: PlotRenderFormat.Png,
+				uri: 'data:image/png;base64,AAAA',
+				renderTimeMs: 1,
+			});
+			await first;
+
+			void client.render({ width: 7, height: 5 }, 1, PlotRenderFormat.Png, false, PlotUnit.Inches);
+			await timeout(0);
+			await timeout(600);
+
+			expect(renderSpy).toHaveBeenCalledTimes(2);
+		});
 	});
 });
