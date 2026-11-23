@@ -24,7 +24,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import type { IInputBoundary } from '../../../../editor/common/languages.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { QuartoCodeCell } from '../common/quartoTypes.js';
+import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import {
 	CellExecution,
 	CellExecutionState,
@@ -54,7 +54,7 @@ import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../servic
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
-import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
+import { extractExecutableCode, parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 import { GGSQL_LANGUAGE, isRunnableCell, isShellLanguage, leadingConnectLine, runtimeLanguageOf } from '../common/quartoLanguages.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -126,6 +126,16 @@ interface QuartoCodeFragments {
 interface SerializedQueueState {
 	queuedCells: string[];
 	runningCell: string | undefined;
+}
+
+/**
+ * A cell that runs in ggsql: its document's text and Quarto models, and its
+ * index among the Quarto model's cells.
+ */
+interface GgsqlCellLocation {
+	readonly textModel: ITextModel;
+	readonly quartoModel: IQuartoDocumentModel;
+	readonly index: number;
 }
 
 /**
@@ -678,28 +688,75 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return executionPromise;
 	}
 
+	async consoleCode(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string> {
+		const located = await this._ggsqlCellAt(documentUri, lineNumber);
+		if (!located) {
+			return code;
+		}
+		// A selection or statement taken from the top of the cell can include its
+		// option lines, which a cell run strips but the console does not; ggsql
+		// would stop reading the cell's directives at them, and `#|` isn't SQL.
+		const stripped = extractExecutableCode(code, located.quartoModel.cells[located.index].language);
+		return this._connectPreambleAt(located, stripped, sessionId) + stripped;
+	}
+
+	/**
+	 * The text model and Quarto model of a document, and the index of the cell
+	 * at `lineNumber`, when that cell runs in ggsql.
+	 */
+	private async _ggsqlCellAt(documentUri: URI, lineNumber: number): Promise<GgsqlCellLocation | undefined> {
+		const textModel = await this._getTextModel(documentUri);
+		if (!textModel) {
+			return undefined;
+		}
+		const quartoModel = this._documentModelService.getModel(textModel);
+		const cells = quartoModel.cells;
+		const index = cells.findIndex(cell => cell.codeStartLine <= lineNumber && lineNumber <= cell.codeEndLine);
+		if (index < 0 || runtimeLanguageOf(cells[index].language, quartoModel) !== GGSQL_LANGUAGE) {
+			return undefined;
+		}
+		return { textModel, quartoModel, index };
+	}
+
+	/**
+	 * The `-- @connect:` line to run ahead of code taken from a cell that runs
+	 * in ggsql, or an empty string when none is needed.
+	 *
+	 * A cell's database is its own leading `@connect` line, or the nearest
+	 * earlier ggsql-run cell's; ggsql applies the line only at the top of an
+	 * execution, so a statement run from the middle of a cell, or a cell that
+	 * inherits its connection, would otherwise run wherever the session happens
+	 * to be. Not needed when the code starts with its own line, or when the
+	 * session is known to be on that database already: sending it again would
+	 * reconnect and drop the session's temporary state.
+	 *
+	 * @param documentUri The Quarto document.
+	 * @param lineNumber A line of the cell the code comes from (1-based).
+	 * @param code The code about to run.
+	 * @param sessionId The session it will run in, if known.
+	 */
 	async connectPreamble(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string> {
 		if (leadingConnectLine(code)) {
 			return '';
 		}
-		const textModel = await this._getTextModel(documentUri);
-		if (!textModel) {
+		const located = await this._ggsqlCellAt(documentUri, lineNumber);
+		return located ? this._connectPreambleAt(located, code, sessionId) : '';
+	}
+
+	/** {@link connectPreamble}, for a cell already located. */
+	private _connectPreambleAt({ textModel, quartoModel, index }: GgsqlCellLocation, code: string, sessionId: string | undefined): string {
+		if (leadingConnectLine(code)) {
 			return '';
 		}
-		const quartoModel = this._documentModelService.getModel(textModel);
-		const runsInGgsql = (cell: QuartoCodeCell) => runtimeLanguageOf(cell.language, quartoModel) === GGSQL_LANGUAGE;
 		const cells = quartoModel.cells;
-		const index = cells.findIndex(cell => cell.codeStartLine <= lineNumber && lineNumber <= cell.codeEndLine);
-		if (index < 0 || !runsInGgsql(cells[index])) {
-			return '';
-		}
 		// The nearest declaration at or above the cell, as positron-sql reads it for completions.
 		let line: string | undefined;
 		for (let i = index; i >= 0 && !line; i--) {
 			const cell = cells[i];
-			if (runsInGgsql(cell) && cell.codeEndLine >= cell.codeStartLine) {
-				line = leadingConnectLine(textModel.getValueInRange(
-					new Range(cell.codeStartLine, 1, cell.codeEndLine, textModel.getLineMaxColumn(cell.codeEndLine))));
+			if (runtimeLanguageOf(cell.language, quartoModel) === GGSQL_LANGUAGE && cell.codeEndLine >= cell.codeStartLine) {
+				const source = textModel.getValueInRange(
+					new Range(cell.codeStartLine, 1, cell.codeEndLine, textModel.getLineMaxColumn(cell.codeEndLine)));
+				line = leadingConnectLine(extractExecutableCode(source, cell.language));
 			}
 		}
 		if (!line || (sessionId && this._connectionsService.getSessionConnectionCode(sessionId) === line)) {

@@ -414,6 +414,34 @@ describe('QuartoExecutionManager', () => {
 				await executionManager.connectPreamble(documentUri, 2, '-- @connect: duckdb://a.db\nSELECT 1;', undefined),
 			]).toEqual(['-- @connect: duckdb://a.db\n', '-- @connect: duckdb://a.db\n', '', '']);
 		});
+
+		it('gives the console a cell\'s code without its option lines, and with the @connect it needs', async () => {
+			const optionLines = [
+				'```{ggsql}', '#| label: q', '-- @connect: duckdb://a.db', 'SELECT 1;', '```',   // 1-5
+				'```{python}', '#| label: p', 'x = 1', '```',                                    // 6-9
+			];
+			const ggsql: QuartoCodeCell = { ...cell('a', 0, 1, 5), language: 'ggsql' };
+			const python: QuartoCodeCell = { ...cell('p', 1, 6, 9), language: 'python' };
+			const documentUri = URI.file('/test-console-code.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([ggsql, python], optionLines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return optionLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// the whole cell selected: the options go, and its own @connect stays first
+				await executionManager.consoleCode(documentUri, 2, '#| label: q\n-- @connect: duckdb://a.db\nSELECT 1;', undefined),
+				// a statement below the @connect: the cell's @connect goes ahead of it
+				await executionManager.consoleCode(documentUri, 4, 'SELECT 1;', undefined),
+				// a cell that doesn't run in ggsql is sent as it is
+				await executionManager.consoleCode(documentUri, 7, '#| label: p\nx = 1', undefined),
+			]).toEqual([
+				'-- @connect: duckdb://a.db\nSELECT 1;',
+				'-- @connect: duckdb://a.db\nSELECT 1;',
+				'#| label: p\nx = 1',
+			]);
+		});
 	});
 
 	describe('SQL cells', () => {

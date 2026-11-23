@@ -42,7 +42,7 @@ describe('runtimeLanguageOf', () => {
 describe('leadingConnectLine', () => {
 	it('reads the last leading @connect line, past options and blank lines, as ggsql does', () => {
 		expect([
-			leadingConnectLine('--| label: q\n\n-- @connect: duckdb://a.db\n-- @connect:  duckdb://b.db \nSELECT 1'),
+			leadingConnectLine('\n-- @connect: duckdb://a.db\n-- @connect:  duckdb://b.db \nSELECT 1'),
 			leadingConnectLine('SELECT 1;\n-- @connect: duckdb://a.db'),
 			leadingConnectLine('--@connect: duckdb://a.db'),
 			leadingConnectLine('SELECT 1'),
@@ -52,10 +52,10 @@ describe('leadingConnectLine', () => {
 
 	it('stops where ggsql stops reading directives', () => {
 		expect([
-			// a run strips options only from the very top, so after a blank line one is code
-			leadingConnectLine('\n--| label: q\n-- @connect: duckdb://a.db\nSELECT 1'),
 			// ggsql knows no directive besides @connect and @uncache
 			leadingConnectLine('-- @typo\n-- @connect: duckdb://a.db\nSELECT 1'),
+			// ggsql reads an option line left in the code as code
+			leadingConnectLine('--| label: q\n-- @connect: duckdb://a.db\nSELECT 1'),
 		]).toEqual([undefined, undefined]);
 	});
 });

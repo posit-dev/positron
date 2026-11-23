@@ -92,13 +92,6 @@ export function isRunnableCell(
 const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
 
 /**
- * A Quarto cell option line in a SQL or ggsql cell. A run strips the block of
- * them at the very top of a cell before ggsql sees the code (see
- * `parseCellExecutionOptions`), so they don't end its leading directives.
- */
-const OPTION_LINE = /^\s*(?:--|#)\|/;
-
-/**
  * Lines ggsql reads past among an execution's leading directives, as its
  * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything
  * else, a cell option that wasn't stripped or a misspelled directive
@@ -114,16 +107,13 @@ const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
  * Mirrors ggsql's own reading of an execution's leading directives, and
  * positron-sql's `connectIn`, which decides the tables a cell completes from;
  * the three must agree on which database a cell runs against.
+ *
+ * Reads `code` as ggsql would receive it: a cell's source must have its
+ * option lines stripped first (see `extractExecutableCode`).
  */
 export function leadingConnectLine(code: string): string | undefined {
 	let uri: string | undefined;
-	const lines = code.split(/\r?\n/);
-	// the option lines a run strips, which are only those at the very top
-	let first = 0;
-	while (first < lines.length && OPTION_LINE.test(lines[first])) {
-		first++;
-	}
-	for (const line of lines.slice(first)) {
+	for (const line of code.split(/\r?\n/)) {
 		const match = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
 		if (match) {
 			uri = match;

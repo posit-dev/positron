@@ -690,11 +690,11 @@ export function registerPositronConsoleActions() {
 			};
 
 			// A statement from a Quarto cell that runs in ggsql runs against the cell's
-			// database, which the statement itself does not name; see connectPreamble.
+			// database, which the statement itself does not name; see consoleCode.
 			let sessionId: string | undefined;
 			if (isQuartoDoc && opts.languageId) {
 				sessionId = runtimeSessionService.getConsoleSessionForLanguage(opts.languageId)?.sessionId;
-				code = await quartoExecutionManager.connectPreamble(model.uri, position.lineNumber, code, sessionId) + code;
+				code = await quartoExecutionManager.consoleCode(model.uri, position.lineNumber, code, sessionId);
 			}
 
 			// Use the helper function to execute the code

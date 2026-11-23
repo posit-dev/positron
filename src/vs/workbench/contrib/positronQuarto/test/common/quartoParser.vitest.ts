@@ -75,6 +75,14 @@ describe('parseQuartoDocument', () => {
 			]).toEqual([true, false, false, true, false, undefined]);
 		});
 
+		it('declares no engine in frontmatter with YAML errors, as the Quarto extension reads it', () => {
+			const knitrEngine = (yaml: string) => assertReturnsDefined(parseQuarto(`---\n${yaml}\n---\n`).frontmatter).knitrEngine;
+			expect([
+				knitrEngine('engine: knitr\nengine: jupyter'),
+				knitrEngine('title: x\n  bad: y\nknitr: 1'),
+			]).toEqual([undefined, undefined]);
+		});
+
 		it('frontmatter with no jupyter key has no kernel', () => {
 			const content = '---\ntitle: Test\nformat: html\n---\n';
 			const result = parseQuarto(content);

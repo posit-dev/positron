@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { parse as parseYaml, YamlNode, YamlMapNode } from '../../../../base/common/yaml.js';
+import { parse as parseYaml, YamlNode, YamlMapNode, YamlParseError } from '../../../../base/common/yaml.js';
 import {
 	QuartoNodeType,
 	QuartoSourceLocation,
@@ -82,11 +82,20 @@ function declaredKnitrEngine(root: YamlMapNode): boolean | undefined {
 function parseFrontmatter(frontmatterContent: string): { jupyterKernel?: string; knitrEngine?: boolean } {
 	const result: { jupyterKernel?: string; knitrEngine?: boolean } = {};
 
-	const root = parseYaml(frontmatterContent);
+	const errors: YamlParseError[] = [];
+	const root = parseYaml(frontmatterContent, errors);
 	if (!root || root.type !== 'map') {
 		return result;
 	}
-	result.knitrEngine = declaredKnitrEngine(root);
+	// The Quarto extension reads frontmatter with a strict YAML parser, which
+	// rejects frontmatter this lenient one only reports errors for (a
+	// duplicate key or bad indentation), and then decides as if none were
+	// declared; so does this. What this parser reads past without an error
+	// (a tab-indented key, `a: b: c`) it still reads, where the extension
+	// would not.
+	if (errors.length === 0) {
+		result.knitrEngine = declaredKnitrEngine(root);
+	}
 
 	const jupyter = getObjectProperty(root, 'jupyter');
 	if (!jupyter) {
