@@ -83,6 +83,23 @@ export function statementAt(
 }
 
 /**
+ * What to run for a selection: each statement in it separately, when it holds more than one;
+ * otherwise the selection exactly as selected.
+ *
+ * ggsql cannot run several statements as one execution: SQLite refuses them, and DuckDB shows
+ * only the last result. Something less than one statement -- part of a query the user wants to
+ * try on its own -- is sent as is, since the user has said exactly what they mean.
+ *
+ * @param selected The selected text.
+ * @param statements The statements in it, as the analyzer splits it.
+ */
+export function selectionQueries(selected: string, statements: readonly StatementSpan[]): string[] {
+	return statements.length > 1
+		? statements.map(statement => selected.slice(statement.start, statement.end))
+		: [selected];
+}
+
+/**
  * The statements to run from the top of the file to the cursor's line: each one that starts before
  * that line ends.
  *

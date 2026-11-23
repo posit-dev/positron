@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { statementsFromLine, statementsToLine } from '../statementRange';
+import { selectionQueries, statementsFromLine, statementsToLine } from '../statementRange';
 import { sqlDocument, testAnalyzer } from './support';
 
 suite('SqlStatementRangeProvider', () => {
@@ -113,6 +113,25 @@ SELECT 2;
 		);
 
 		assert.strictEqual(result, undefined);
+	});
+});
+
+suite('selectionQueries', () => {
+
+	function queries(selected: string): string[] {
+		return selectionQueries(selected, testAnalyzer().statements(selected, ''));
+	}
+
+	test('a selection of several statements runs each on its own', () => {
+		assert.deepStrictEqual(
+			queries('SELECT * FROM customers;\n\n-- then\nSELECT * FROM orders;\n'),
+			['SELECT * FROM customers;', 'SELECT * FROM orders;'],
+		);
+	});
+
+	test('a selection of one statement, or part of one, runs as selected', () => {
+		assert.deepStrictEqual(queries('SELECT 1;\n'), ['SELECT 1;\n']);
+		assert.deepStrictEqual(queries('SELECT id\nFROM orders'), ['SELECT id\nFROM orders']);
 	});
 });
 

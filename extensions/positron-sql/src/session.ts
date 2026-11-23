@@ -17,7 +17,7 @@ import { SqlLog } from './log';
 import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, Donor, EffectiveSelection, resolveSelection } from './selection';
-import { SqlStatementRangeProvider, statementAt, statementsFromLine, statementsToLine } from './statementRange';
+import { selectionQueries, SqlStatementRangeProvider, statementAt, statementsFromLine, statementsToLine } from './statementRange';
 import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explainDataConnectionsOff, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
@@ -867,7 +867,10 @@ export class SqlSession implements vscode.Disposable {
 	 */
 	private _statementToRun(editor: vscode.TextEditor, advance: boolean): StatementToRun | undefined {
 		if (!editor.selection.isEmpty) {
-			return { queries: [editor.document.getText(editor.selection)], advance: false };
+			const selected = editor.document.getText(editor.selection);
+			const analyzer = this._require();
+			const statements = analyzer?.statements(selected, this._dialectFor(editor.document)) ?? [];
+			return { queries: selectionQueries(selected, statements), advance: false };
 		}
 
 		const analyzer = this._require();
