@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { useState } from 'react';
 import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -23,14 +24,18 @@ function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = Ru
 	const onDidRegisterRuntime = new Emitter<ILanguageRuntimeMetadata>();
 	const onDidChangeRuntimeStartupPhase = new Emitter<RuntimeStartupPhase>();
 	const registeredRuntimes: ILanguageRuntimeMetadata[] = [];
+	const service = {
+		registeredRuntimes,
+		startupPhase: initialPhase,
+		onDidRegisterRuntime: onDidRegisterRuntime.event,
+		onDidChangeRuntimeStartupPhase: onDidChangeRuntimeStartupPhase.event,
+	};
+
+	// Like the real service, update the phase before anyone else hears about the change.
+	onDidChangeRuntimeStartupPhase.event(phase => service.startupPhase = phase);
 
 	return {
-		service: {
-			registeredRuntimes,
-			startupPhase: initialPhase,
-			onDidRegisterRuntime: onDidRegisterRuntime.event,
-			onDidChangeRuntimeStartupPhase: onDidChangeRuntimeStartupPhase.event,
-		},
+		service,
 		onDidRegisterRuntime,
 		onDidChangeRuntimeStartupPhase,
 		registeredRuntimes,
@@ -77,9 +82,31 @@ describe('StartupStatus', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+		beforeEach(() => {
+			langMock.service.startupPhase = RuntimeStartupPhase.Initializing;
+		});
+
 		it('shows "Waiting for extensions" during Initializing phase', () => {
 			rtl.render(<StartupStatus />);
 			expect(screen.getByText(/Waiting for extensions/)).toBeInTheDocument();
+		});
+
+		it('shows a phase change that happens after it renders but before it subscribes', () => {
+			// React renders this after StartupStatus but runs StartupStatus's effects only after
+			// it, so the phase changes in the gap between reading it and subscribing to it.
+			const ChangePhaseDuringRender = () => {
+				useState(() => langMock.onDidChangeRuntimeStartupPhase.fire(RuntimeStartupPhase.Discovering));
+				return null;
+			};
+
+			rtl.render(
+				<>
+					<StartupStatus />
+					<ChangePhaseDuringRender />
+				</>
+			);
+
+			expect(screen.getByText(/Discovering interpreters/)).toBeInTheDocument();
 		});
 
 		it('shows "Cannot start consoles in Restricted Mode" during AwaitingTrust phase', () => {
