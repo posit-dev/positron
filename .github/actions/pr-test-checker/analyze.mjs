@@ -262,26 +262,29 @@ function wrapWithMarker(body) {
 // can open absolute paths (e.g. /proc/self/environ), so a prompt-injection in
 // PR content could in theory coax the model into echoing a secret from the
 // environment into its report. As a last line of defense, scrub known secret
-// shapes -- and the live ANTHROPIC_API_KEY value -- out of the report before it
+// shapes -- and the live credential values -- out of the report before it
 // is ever written to comment.md. Any hit fails the step so nothing is posted.
 const SECRET_PATTERNS = [
 	/sk-ant-[A-Za-z0-9_-]{20,}/g,         // Anthropic API keys
+	/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,      // AWS access key IDs
 	/gh[psour]_[A-Za-z0-9]{20,}/g,        // GitHub tokens (ghp_/gho_/ghs_/ghu_/ghr_)
 	/github_pat_[A-Za-z0-9_]{20,}/g,      // GitHub fine-grained PATs
 	/-----BEGIN[A-Z ]+PRIVATE KEY-----/g, // PEM private-key headers (App keys)
 ];
 
 /**
- * Replace any occurrence of the live Anthropic key or a known secret shape with
+ * Replace any occurrence of a live credential value or a known secret shape with
  * `[REDACTED]`. Returns the scrubbed text and the number of redactions made.
  */
 function redactSecrets(text) {
 	let redactions = 0;
 	let out = text;
-	const liveKey = process.env.ANTHROPIC_API_KEY;
-	if (liveKey && out.includes(liveKey)) {
-		out = out.split(liveKey).join('[REDACTED]');
-		redactions++;
+	for (const name of ['ANTHROPIC_API_KEY', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN']) {
+		const live = process.env[name];
+		if (live && out.includes(live)) {
+			out = out.split(live).join('[REDACTED]');
+			redactions++;
+		}
 	}
 	for (const re of SECRET_PATTERNS) {
 		out = out.replace(re, () => { redactions++; return '[REDACTED]'; });
