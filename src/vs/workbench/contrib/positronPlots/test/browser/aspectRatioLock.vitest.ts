@@ -30,6 +30,14 @@ describe('aspectRatioLock', () => {
 		it('never returns less than 1', () => {
 			expect(linkedHeight(1, 1.4)).toBe(1);
 		});
+
+		it('rounds to the given number of decimals', () => {
+			expect(linkedHeight(7.25, 7 / 5, 2)).toBe(5.18);
+		});
+
+		it('never returns less than one unit of the given precision', () => {
+			expect(linkedHeight(0.001, 1.4, 2)).toBe(0.01);
+		});
 	});
 
 	describe('linkedWidth', () => {
@@ -39,6 +47,10 @@ describe('aspectRatioLock', () => {
 
 		it('never returns less than 1', () => {
 			expect(linkedWidth(1, 0.1)).toBe(1);
+		});
+
+		it('rounds to the given number of decimals', () => {
+			expect(linkedWidth(5.18, 7 / 5, 2)).toBe(7.25);
 		});
 	});
 

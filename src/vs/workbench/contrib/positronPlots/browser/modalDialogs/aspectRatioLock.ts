@@ -34,18 +34,31 @@ export function ratioOf(width: number, height: number): number | undefined {
  * Gets the height that keeps the given aspect ratio for a width.
  * @param width The width.
  * @param ratio The aspect ratio (width divided by height).
- * @returns The height, rounded to a whole pixel and at least 1.
+ * @param decimals The number of decimal places to round to. Defaults to whole pixels.
+ * @returns The height, rounded to the given decimals and at least one unit of that precision.
  */
-export function linkedHeight(width: number, ratio: number): number {
-	return Math.max(1, Math.round(width / ratio));
+export function linkedHeight(width: number, ratio: number, decimals = 0): number {
+	return roundAtLeastOneUnit(width / ratio, decimals);
 }
 
 /**
  * Gets the width that keeps the given aspect ratio for a height.
  * @param height The height.
  * @param ratio The aspect ratio (width divided by height).
- * @returns The width, rounded to a whole pixel and at least 1.
+ * @param decimals The number of decimal places to round to. Defaults to whole pixels.
+ * @returns The width, rounded to the given decimals and at least one unit of that precision.
  */
-export function linkedWidth(height: number, ratio: number): number {
-	return Math.max(1, Math.round(height * ratio));
+export function linkedWidth(height: number, ratio: number, decimals = 0): number {
+	return roundAtLeastOneUnit(height * ratio, decimals);
+}
+
+/**
+ * Rounds a value to a number of decimal places, but never below one unit of that precision.
+ * @param value The value to round.
+ * @param decimals The number of decimal places.
+ * @returns The rounded value, at least 10^-decimals.
+ */
+function roundAtLeastOneUnit(value: number, decimals: number): number {
+	const scale = 10 ** decimals;
+	return Math.max(1 / scale, Math.round(value * scale) / scale);
 }
