@@ -52,11 +52,6 @@
 
 .view-empty-state .view-empty-state-action:hover {
 	background: var(--vscode-toolbar-hoverBackground);
-	/*
-	 * contrastActiveBorder is defined only in high-contrast themes, where
-	 * toolbar.hoverBackground is null and hover would otherwise show nothing.
-	 */
-	border-color: var(--vscode-contrastActiveBorder, var(--vscode-panel-border));
 }
 
 .view-empty-state .view-empty-state-action:focus-visible {
