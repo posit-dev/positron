@@ -358,32 +358,38 @@ function pathToModule(p: string): string {
 }
 
 /** Find a Python header's suite colon, ignoring annotations, strings, and comments. */
-function scanScopeHeader(line: string, initialBracketDepth: number): { hasSuiteColon: boolean; bracketDepth: number } {
-    let bracketDepth = initialBracketDepth;
-    let quote: string | undefined;
+function scanScopeHeader(line: string, state: { bracketDepth: number; quote?: string }): boolean {
     let escaped = false;
-    for (const character of line) {
-        if (quote) {
+    for (let index = 0; index < line.length; index++) {
+        const character = line[index];
+        if (state.quote) {
             if (escaped) {
                 escaped = false;
             } else if (character === '\\') {
                 escaped = true;
-            } else if (character === quote) {
-                quote = undefined;
+            } else if (line.startsWith(state.quote, index)) {
+                index += state.quote.length - 1;
+                state.quote = undefined;
             }
         } else if (character === '\'' || character === '"') {
-            quote = character;
+            const tripleQuote = character.repeat(3);
+            state.quote = line.startsWith(tripleQuote, index) ? tripleQuote : character;
+            index += state.quote.length - 1;
         } else if (character === '#') {
             break;
         } else if (character === '(' || character === '[' || character === '{') {
-            bracketDepth++;
+            state.bracketDepth++;
         } else if (character === ')' || character === ']' || character === '}') {
-            bracketDepth--;
-        } else if (character === ':' && bracketDepth === 0) {
-            return { hasSuiteColon: true, bracketDepth };
+            state.bracketDepth--;
+        } else if (character === ':' && state.bracketDepth === 0) {
+            return true;
         }
     }
-    return { hasSuiteColon: false, bracketDepth };
+    // Only triple-quoted strings and escaped line continuations span header lines.
+    if (state.quote?.length === 1 && !escaped) {
+        state.quote = undefined;
+    }
+    return false;
 }
 
 /**
@@ -396,7 +402,7 @@ function scanScopeHeader(line: string, initialBracketDepth: number): { hasSuiteC
 async function getAppName(document: vscode.TextDocument, className: string): Promise<string | undefined> {
     const text = document.getText();
     // Inspect assignments in source order, including module-level blocks. This is
-    // a line-based heuristic, not a Python parser (e.g. triple-quoted examples).
+    // a line-based heuristic, not a Python parser.
     const annotatedAssignment = new RegExp(
         String.raw`^(?<name>[a-zA-Z_][a-zA-Z0-9_]*)[ \t]*:[ \t]*${className}[ \t]*=[ \t]*[^#=\s][^\r\n#]*`,
     );
@@ -404,16 +410,14 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     let appName: string | undefined;
     let localScopeIndent: number | undefined;
     let inLocalScopeHeader = false;
-    let headerBracketDepth = 0;
+    let headerState: { bracketDepth: number; quote?: string } = { bracketDepth: 0 };
     for (const line of text.split(/\r?\n/)) {
         const statement = line.trimStart();
-        if (!statement || statement.startsWith('#')) {
+        if (inLocalScopeHeader) {
+            inLocalScopeHeader = !scanScopeHeader(statement, headerState);
             continue;
         }
-        if (inLocalScopeHeader) {
-            const header = scanScopeHeader(statement, headerBracketDepth);
-            inLocalScopeHeader = !header.hasSuiteColon;
-            headerBracketDepth = header.bracketDepth;
+        if (!statement || statement.startsWith('#')) {
             continue;
         }
         const indent = line.length - statement.length;
@@ -425,9 +429,8 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
             /^(?:async[ \t]+def|def|class)[ \t]+[a-zA-Z_][a-zA-Z0-9_]*/.test(statement)
         ) {
             localScopeIndent = indent;
-            const header = scanScopeHeader(statement, 0);
-            inLocalScopeHeader = !header.hasSuiteColon;
-            headerBracketDepth = header.bracketDepth;
+            headerState = { bracketDepth: 0 };
+            inLocalScopeHeader = !scanScopeHeader(statement, headerState);
             continue;
         }
         if (localScopeIndent !== undefined) {

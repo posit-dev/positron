@@ -281,6 +281,21 @@ suite('Web app commands', () => {
             'def create_app(\n    title: str\n): return FastAPI()\napp: FastAPI = create_app()',
             'app',
         ],
+        [
+            'module annotation after triple-quoted multiline default',
+            'def create_app(x="""\n)\n"""):\n    pass\napp: FastAPI = create_app()',
+            'app',
+        ],
+        [
+            'module direct construction after triple-quoted multiline default',
+            'async def setup(x="""\n)\n"""): pass\napp = FastAPI()',
+            'app',
+        ],
+        [
+            'module annotation after hash-prefixed triple-quoted default line',
+            "def create_app(x='''\n#'''):\n    pass\napp: FastAPI = create_app()",
+            'app',
+        ],
     ]) {
         test(`Exec FastAPI in terminal - ${description}`, async () => {
             isFastAPICliInstalled = false;
