@@ -455,7 +455,7 @@ wb_prepare_positron_build() {
 
 # One line of the public key src/vs/server/node/remoteLicenseKey.ts ships with.
 # A build for Workbench has it replaced with Workbench's key
-# (scripts/replace-license.sh, run by build-workbench-linux.yml); a build that
+# (scripts/replace-license.sh, run by build-workbench.yml in positron-builds); a build that
 # still carries it fails Workbench's license check, and every session exits at
 # startup. Read from this checkout rather than hardcoded so it follows a key
 # change; empty (check skipped) when the source is not here. The second line of
@@ -502,7 +502,7 @@ wb_apply_positron_build() {
 			echo "" >&2
 			echo "WARNING: this build still has the default Positron license key, so Workbench" >&2
 			echo "         rejects it and every session exits at startup. Build it with the" >&2
-			echo "         Workbench key swapped in, as build-workbench-linux.yml does" >&2
+			echo "         Workbench key swapped in, as build-workbench.yml in positron-builds does" >&2
 			echo "         (scripts/replace-license.sh)." >&2
 			echo "" >&2
 		fi
@@ -978,7 +978,7 @@ USAGE
                              or azure (set the provider's vars in .env first).
   npm run pwb -- --positron-build=<run|file>
                              Swap in a Positron Workbench build in place of the official
-                             one: a GitHub Actions run ID (posit-dev/positron) or run URL
+                             one: a GitHub Actions run ID (posit-dev/positron-builds) or run URL
                              (any repo) with a Workbench build artifact, or a local
                              positron-workbench-linux-<arch>*.tar.gz. Downloads are kept
                              in docker/environments/wb-local/.builds (latest only).

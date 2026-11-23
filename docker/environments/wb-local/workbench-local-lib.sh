@@ -65,7 +65,7 @@ wb_os_image() {
 	case "${1:-}" in
 		ubuntu24)   printf 'ghcr.io/posit-dev/positron-ubuntu24:24.22.1-py3.14.7-r4.6.1' ;;
 		rocky9)     printf 'ghcr.io/posit-dev/positron-rocky9:24.22.1-py3.14.7-r4.6.1' ;;
-		# The same image test-e2e-suse.yml runs, so the Workbench lane and the
+		# The same image the openSUSE lanes run, so the Workbench lane and the
 		# electron SUSE lane share one openSUSE definition.
 		opensuse15) printf 'ghcr.io/posit-dev/positron-opensuse156:24.22.1-py3.14.7-r4.6.1' ;;
 		*) return 1 ;;
@@ -357,7 +357,7 @@ wb_host_path() {
 }
 
 # Where a --positron-build comes from. Prints one tab-separated line:
-#   run<TAB><owner/repo><TAB><run ID>   a bare run ID (posit-dev/positron) or a run URL
+#   run<TAB><owner/repo><TAB><run ID>   a bare run ID (posit-dev/positron-builds) or a run URL
 #   file<TAB><path>                     anything else, taken as a local .tar.gz
 # A URL that is not an Actions run is refused rather than read as a file name.
 wb_parse_build_source() {
@@ -368,7 +368,7 @@ wb_parse_build_source() {
 	[ -n "$src" ] || { echo "--positron-build needs a value: a run ID, a run URL, or a .tar.gz path." >&2; return 1; }
 	case "$src" in
 		*[!0-9]*) : ;;
-		*) printf 'run\tposit-dev/positron\t%s\n' "$src"; return 0 ;;
+		*) printf 'run\tposit-dev/positron-builds\t%s\n' "$src"; return 0 ;;
 	esac
 	if [[ $src =~ $re ]]; then
 		printf 'run\t%s\t%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
