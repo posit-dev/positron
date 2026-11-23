@@ -54,9 +54,6 @@ const RUN_STATEMENT_WITHOUT_ADVANCING_COMMAND = 'sql.runStatementWithoutAdvancin
 const RUN_TO_CURRENT_LINE_COMMAND = 'sql.runToCurrentLine';
 const RUN_FROM_CURRENT_LINE_COMMAND = 'sql.runFromCurrentLine';
 
-/** What a run command runs; see {@link SqlSession._statementToRun}. */
-type RunScope = 'statement' | 'statementWithoutAdvancing' | 'toCurrentLine' | 'fromCurrentLine';
-
 /** Set when the user asks not to be offered ggsql again; see the `no-runtime` case of a run. */
 const HIDE_GGSQL_INSTALL_KEY = 'sql.hideGgsqlInstallPrompt';
 
@@ -316,11 +313,14 @@ export class SqlSession implements vscode.Disposable {
 				return this.refreshSchema(true);
 			}),
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
-			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND, () => this._runStatement('statement')),
+			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND,
+				() => this._runStatement(editor => this._statementToRun(editor, true))),
 			vscode.commands.registerCommand(RUN_STATEMENT_WITHOUT_ADVANCING_COMMAND,
-				() => this._runStatement('statementWithoutAdvancing')),
-			vscode.commands.registerCommand(RUN_TO_CURRENT_LINE_COMMAND, () => this._runStatement('toCurrentLine')),
-			vscode.commands.registerCommand(RUN_FROM_CURRENT_LINE_COMMAND, () => this._runStatement('fromCurrentLine')),
+				() => this._runStatement(editor => this._statementToRun(editor, false))),
+			vscode.commands.registerCommand(RUN_TO_CURRENT_LINE_COMMAND,
+				() => this._runStatement(editor => this._statementsByLine(editor, 'to'))),
+			vscode.commands.registerCommand(RUN_FROM_CURRENT_LINE_COMMAND,
+				() => this._runStatement(editor => this._statementsByLine(editor, 'from'))),
 
 			// The item speaks for the file in front of the user, so it changes with the editor.
 			vscode.window.onDidChangeActiveTextEditor(() => {
@@ -707,14 +707,16 @@ export class SqlSession implements vscode.Disposable {
 	 * run, making sure the file has said what to run it against, moving the cursor on afterwards,
 	 * and saying what happened when nothing did.
 	 */
-	private async _runStatement(scope: RunScope): Promise<void> {
+	private async _runStatement(
+		pick: (editor: vscode.TextEditor) => StatementToRun | undefined,
+	): Promise<void> {
 		const editor = activeSqlEditor();
 		if (!editor || this._running) {
 			// The keybinding is scoped to SQL editors, but the command is still reachable by hand.
 			return;
 		}
 
-		const target = this._statementToRun(editor, scope);
+		const target = pick(editor);
 		if (!target) {
 			// An empty file, or a cursor past the last statement. Nothing to run and nothing to
 			// explain: the user can see there is no statement there.
@@ -734,7 +736,7 @@ export class SqlSession implements vscode.Disposable {
 					return;
 				}
 				connection = chosen;
-				outcome = await this._runner.run(editor.document, connection, target.query);
+				outcome = await this._runner.run(editor.document, connection, target.queries);
 			} catch (error) {
 				// Not one of the outcomes below: an API call failing outright, such as Data
 				// Connections being switched off mid-run. Said here rather than left to surface as
@@ -857,48 +859,52 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
-	 * What a run command runs.
+	 * What cmd+enter (or, without advancing, alt+enter) runs: the selection if there is one,
+	 * otherwise the statement at the cursor.
 	 *
-	 * For a statement, the selection if there is one, otherwise the statement at the cursor. A
-	 * selection wins for the same reason it does everywhere else in Positron -- the user has said
-	 * exactly what they mean, including when what they mean is half a statement.
-	 *
-	 * From or to the cursor's line, every statement on that side of it, whatever is selected, as
-	 * with the Console's commands. Each runs whole; see {@link statementsToLine}.
+	 * A selection wins for the same reason it does everywhere else in Positron -- the user has
+	 * said exactly what they mean, including when what they mean is half a statement.
 	 */
-	private _statementToRun(editor: vscode.TextEditor, scope: RunScope): StatementToRun | undefined {
-		const document = editor.document;
-		const isStatement = scope === 'statement' || scope === 'statementWithoutAdvancing';
-		if (isStatement && !editor.selection.isEmpty) {
-			return { query: document.getText(editor.selection), advance: false };
+	private _statementToRun(editor: vscode.TextEditor, advance: boolean): StatementToRun | undefined {
+		if (!editor.selection.isEmpty) {
+			return { queries: [editor.document.getText(editor.selection)], advance: false };
 		}
 
 		const analyzer = this._require();
 		if (!analyzer) {
 			return undefined;
 		}
-		const text = document.getText();
-		const statements = analyzer.statements(text, this._dialectFor(document));
-
-		if (!isStatement) {
-			const line = document.lineAt(editor.selection.active.line).range;
-			const chosen = scope === 'toCurrentLine'
-				? statementsToLine(statements, document.offsetAt(line.end))
-				: statementsFromLine(statements, document.offsetAt(line.start));
-			if (chosen.length === 0) {
-				return undefined;
-			}
-			return { query: chosen.map(statement => text.slice(statement.start, statement.end)), advance: false };
-		}
-
-		const statement = statementAt(statements, document.offsetAt(editor.selection.active));
+		const text = editor.document.getText();
+		const statements = analyzer.statements(text, this._dialectFor(editor.document));
+		const statement = statementAt(statements, editor.document.offsetAt(editor.selection.active));
 		if (!statement) {
 			return undefined;
 		}
-		const query = text.slice(statement.start, statement.end);
-		return scope === 'statement'
-			? { query, advance: true, statements, statement }
-			: { query, advance: false };
+		const queries = [text.slice(statement.start, statement.end)];
+		return advance ? { queries, advance, statements, statement } : { queries, advance };
+	}
+
+	/**
+	 * What running to or from the cursor's line runs: every statement on that side of it,
+	 * whatever is selected, as with the Console's commands. Each runs whole; see
+	 * {@link statementsToLine}.
+	 */
+	private _statementsByLine(editor: vscode.TextEditor, side: 'to' | 'from'): StatementToRun | undefined {
+		const analyzer = this._require();
+		if (!analyzer) {
+			return undefined;
+		}
+		const document = editor.document;
+		const text = document.getText();
+		const statements = analyzer.statements(text, this._dialectFor(document));
+		const line = document.lineAt(editor.selection.active.line).range;
+		const chosen = side === 'to'
+			? statementsToLine(statements, document.offsetAt(line.end))
+			: statementsFromLine(statements, document.offsetAt(line.start));
+		if (chosen.length === 0) {
+			return undefined;
+		}
+		return { queries: chosen.map(statement => text.slice(statement.start, statement.end)), advance: false };
 	}
 
 	/**
@@ -1184,9 +1190,9 @@ function activeSqlEditor(): vscode.TextEditor | undefined {
  * the user is still editing.
  */
 type StatementToRun =
-	| { readonly query: string | readonly string[]; readonly advance: false }
+	| { readonly queries: readonly string[]; readonly advance: false }
 	| {
-		readonly query: string;
+		readonly queries: readonly string[];
 		readonly advance: true;
 		readonly statements: readonly StatementSpan[];
 		readonly statement: StatementSpan;

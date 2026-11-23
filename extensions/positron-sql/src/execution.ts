@@ -238,12 +238,12 @@ export class StatementRunner {
 	/**
 	 * @param document The file the statement came from, so the execution is attributed to it.
 	 * @param connection The connection the file is written against.
-	 * @param query The statement to run, as the user wrote it; or several, to run in order.
+	 * @param queries The statements to run, in order, as the user wrote them.
 	 */
 	public async run(
 		document: vscode.TextDocument,
 		connection: ConnectionRef,
-		query: string | readonly string[],
+		queries: readonly string[],
 	): Promise<ExecutionOutcome> {
 		const connect = await this._api.getConnectCode(connection.profileId);
 		if (connect.kind !== 'code') {
@@ -260,18 +260,15 @@ export class StatementRunner {
 			sessionId = started.sessionId;
 		}
 
-		const queries = typeof query === 'string' ? [query] : query;
-		this._log.info(`Running ${queries.length} statement(s) from ${document.uri.toString(true)}`
+		const uri = document.uri;
+		this._log.info(`Running ${queries.length} statement(s) from ${uri.toString(true)}`
 			+ ` against ${connection.name} in ggsql session ${sessionId}.`);
 		// Not awaited. The statements are the user's and may take as long as they take; the console
 		// shows each result or error. A later run in the same session waits only until this one has
 		// sent its last statement, so it lands behind all of them in the console's queue rather
 		// than between them.
 		const id = sessionId;
-		const previous = this._sending.get(id);
-		const sent = previous
-			? previous.then(() => this._send(queries, id, document.uri))
-			: this._send(queries, id, document.uri);
+		const sent = (this._sending.get(id) ?? Promise.resolve()).then(() => this._send(queries, id, uri));
 		this._sending.set(id, sent);
 		void sent.then(() => {
 			if (this._sending.get(id) === sent) {
@@ -295,27 +292,20 @@ export class StatementRunner {
 	 * with its own result. A statement that fails stops the rest, since they may depend on it.
 	 */
 	private async _send(queries: readonly string[], sessionId: string, documentUri: vscode.Uri): Promise<void> {
-		const failed = (index: number, error: unknown) => {
-			const skipped = queries.length - index - 1;
-			this._log.warn(`A statement from ${documentUri.toString(true)} failed in ggsql`
-				+ ` session ${sessionId}: ${errorMessage(error)}`
-				+ (skipped ? `; ${skipped} statement(s) after it were not run.` : ''));
-		};
+		const failed = (error: unknown, skipped = 0) => this._log.warn(
+			`A statement from ${documentUri.toString(true)} failed in ggsql session ${sessionId}:`
+			+ ` ${errorMessage(error)}` + (skipped ? `; ${skipped} statement(s) after it were not run.` : ''));
 		const last = queries.length - 1;
-		for (const [index, query] of queries.entries()) {
-			const execution = this._api.executeCode(query, sessionId, documentUri);
-			if (index === last) {
-				// Nothing waits on this one: the console queues whatever is sent after it.
-				execution.then(undefined, error => failed(index, error));
-				return;
-			}
+		for (let index = 0; index < last; index++) {
 			try {
-				await execution;
+				await this._api.executeCode(queries[index], sessionId, documentUri);
 			} catch (error) {
-				failed(index, error);
+				failed(error, last - index);
 				return;
 			}
 		}
+		// Nothing waits on the last one: the console queues whatever is sent after it.
+		this._api.executeCode(queries[last], sessionId, documentUri).then(undefined, error => failed(error));
 	}
 
 	/** The ggsql console already on the database, if there is one. */

@@ -52,7 +52,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('gg', SHOP);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -65,7 +65,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('gg', MEMORY);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed, started: api.started },
@@ -81,8 +81,8 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		const run = runner(api);
 
-		await run.run(await document(), CONNECTION, 'SELECT 1');
-		await run.run(await document(), CONNECTION, 'SELECT 2');
+		await run.run(await document(), CONNECTION, ['SELECT 1']);
+		await run.run(await document(), CONNECTION, ['SELECT 2']);
 
 		assert.deepStrictEqual(
 			{ started: api.started, executed: api.executed },
@@ -128,7 +128,7 @@ suite('StatementRunner', () => {
 		const run = runner(api);
 
 		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2', 'SELECT 3']);
-		await run.run(await document(), CONNECTION, 'SELECT 9');
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
 		await turns();
 		// Not sent between the first run's statements while the first of them is still running.
 		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
@@ -148,8 +148,8 @@ suite('StatementRunner', () => {
 		api.statementsSettle = false;
 		const run = runner(api);
 
-		await run.run(await document(), CONNECTION, 'SELECT 1');
-		await run.run(await document(), CONNECTION, 'SELECT 2');
+		await run.run(await document(), CONNECTION, ['SELECT 1']);
+		await run.run(await document(), CONNECTION, ['SELECT 2']);
 		await turns();
 
 		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT 2']]);
@@ -170,7 +170,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('nb', SHOP, positron.LanguageRuntimeSessionMode.Notebook);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
 	});
@@ -179,7 +179,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -193,7 +193,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
 	});
@@ -204,8 +204,8 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		await runner(api).run(await document(), CONNECTION, 'SELECT 1');
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 2');
+		await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 2']);
 
 		assert.deepStrictEqual({ outcome, started: api.started }, { outcome: { kind: 'executed', sessionId: 'new-1' }, started: 1 });
 	});
@@ -215,7 +215,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'unreported';
 
-		const outcome = await runner(api, 10).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api, 10).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -229,7 +229,7 @@ suite('StatementRunner', () => {
 		api.startCode = undefined;
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'connect-failed' });
 	});
@@ -240,7 +240,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'exit';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'exited' });
 	});
@@ -251,7 +251,7 @@ suite('StatementRunner', () => {
 		api.addSession('gg', SHOP);
 		api.statementsSettle = false;
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'gg' });
 	});
@@ -260,7 +260,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.connectCode = { kind: 'unsupported' };
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, started: api.started, executed: api.executed },
@@ -272,7 +272,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.runtime = undefined;
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'no-runtime' });
 	});
@@ -281,7 +281,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.startError = new Error('kernel died');
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'not-started', reason: 'kernel died' });
 	});
