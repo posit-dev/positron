@@ -727,7 +727,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch ipywidgets Output to capture output in the kernel, so that output captured
         # before the widget is displayed isn't lost
-        patch_ipywidgets_output(self.session_mode)
+        patch_ipywidgets_output()
 
     @property
     def kernel_info(self):

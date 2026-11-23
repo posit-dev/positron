@@ -4,33 +4,60 @@
 #
 
 """
-Patches for ipywidgets to improve the experience in the Positron console.
+Patches for ipywidgets to improve the experience in Positron.
 
 The ipywidgets `Output` widget captures output on the frontend: entering `with out:` sets
-`out.msg_id`, and the frontend redirects messages with that parent ID into the widget. In the
-Positron console, the frontend only creates a widget manager once a widget is displayed. Output
+`out.msg_id`, and the frontend redirects messages with that parent ID into the widget. In
+Positron, the frontend only creates a widget manager once a widget is displayed. Output
 captured before the `Output` widget is displayed (for example, `with out: display(x)` followed by
 `display(out)`) is lost. Libraries like leafmap rely on this pattern for legends and linked maps.
 
 We patch `Output` to capture output in the kernel instead, by appending it to `out.outputs`
 (like `Output.append_display_data`). The frontend then renders the outputs whenever the widget
-is displayed.
+is displayed. Captured outputs are buffered and sent to the frontend at most every
+`_FLUSH_INTERVAL` seconds, and when the capture ends, since each update sends all of the
+widget's outputs.
 """
 
 from __future__ import annotations
 
 import logging
 import sys
+import time
 import weakref
-from typing import TYPE_CHECKING, Any, Literal
-
-if TYPE_CHECKING:
-    from ..session_mode import SessionMode
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
+# Minimum number of seconds between updates of a capturing Output widget's `outputs`.
+_FLUSH_INTERVAL = 0.5
+
+
+class _Capture:
+    """An Output widget that is capturing output, with outputs buffered between flushes."""
+
+    def __init__(self, widget: Any) -> None:
+        self.widget = widget
+        self.outputs: list[dict[str, Any]] = list(widget.outputs)
+        self._dirty = False
+        self._last_flush = float("-inf")
+
+    def changed(self) -> None:
+        """Mark the outputs as changed, flushing them if the last flush was long enough ago."""
+        self._dirty = True
+        if time.monotonic() - self._last_flush >= _FLUSH_INTERVAL:
+            self.flush()
+
+    def flush(self) -> None:
+        """Send the buffered outputs to the widget."""
+        if self._dirty:
+            self._dirty = False
+            self.widget.outputs = tuple(self.outputs)
+        self._last_flush = time.monotonic()
+
+
 # Stack of Output widgets that are currently capturing output. The last one receives output.
-_capture_stack: list[Any] = []
+_capture_stack: list[_Capture] = []
 
 # The original objects that are replaced while capturing.
 _originals: dict[str, Any] = {}
@@ -46,11 +73,11 @@ def is_capturing() -> bool:
 
 def _append_output(output: dict[str, Any]) -> None:
     """Append an output to the innermost capturing Output widget."""
-    widget = _capture_stack[-1]
-    if widget in _clear_pending:
-        _clear_pending.discard(widget)
-        widget.outputs = ()
-    outputs = widget.outputs
+    capture = _capture_stack[-1]
+    outputs = capture.outputs
+    if capture.widget in _clear_pending:
+        _clear_pending.discard(capture.widget)
+        outputs.clear()
     # Merge consecutive stream outputs with the same name, as Jupyter output areas do.
     if (
         output["output_type"] == "stream"
@@ -59,9 +86,10 @@ def _append_output(output: dict[str, Any]) -> None:
         and outputs[-1].get("name") == output["name"]
     ):
         last = outputs[-1]
-        widget.outputs = (*outputs[:-1], {**last, "text": last["text"] + output["text"]})
+        outputs[-1] = {**last, "text": last["text"] + output["text"]}
     else:
-        widget.outputs = (*outputs, output)
+        outputs.append(output)
+    capture.changed()
 
 
 class _CaptureStream:
@@ -92,12 +120,13 @@ def _publish(data, metadata=None, *args, update=False, **kwargs) -> None:
 
 
 def _clear_output(wait=False) -> None:  # noqa: FBT002
-    widget = _capture_stack[-1]
+    capture = _capture_stack[-1]
     if wait:
-        _clear_pending.add(widget)
+        _clear_pending.add(capture.widget)
     else:
-        _clear_pending.discard(widget)
-        widget.outputs = ()
+        _clear_pending.discard(capture.widget)
+        capture.outputs.clear()
+        capture.changed()
 
 
 def _start_capture(widget: Any) -> None:
@@ -114,12 +143,26 @@ def _start_capture(widget: Any) -> None:
         display_pub.clear_output = _clear_output
         sys.stdout = _CaptureStream(sys.stdout, "stdout")
         sys.stderr = _CaptureStream(sys.stderr, "stderr")
-    _capture_stack.append(widget)
+    else:
+        # Flush the outer capture, in case it's for the same widget.
+        _capture_stack[-1].flush()
+    _capture_stack.append(_Capture(widget))
 
 
 def _stop_capture() -> None:
-    _capture_stack.pop()
-    if not _capture_stack:
+    capture = _capture_stack.pop()
+    try:
+        capture.flush()
+    finally:
+        _restore_capture()
+
+
+def _restore_capture() -> None:
+    if _capture_stack:
+        # Reload the outer capture's outputs, in case the inner capture was for the same widget.
+        outer = _capture_stack[-1]
+        outer.outputs = list(outer.widget.outputs)
+    else:
         display_pub = _originals.pop("display_pub")
         # Remove the instance attributes so the class methods are used again.
         del display_pub.publish
@@ -167,19 +210,8 @@ def _positron_exit(self, etype, evalue, tb) -> Literal[True] | None:
     return True if etype is not None and ip is not None else None
 
 
-def patch_ipywidgets_output(session_mode: SessionMode) -> None:
-    """
-    Patch the ipywidgets `Output` widget to capture output in the kernel.
-
-    Args:
-        session_mode: The mode that the kernel application was started in.
-    """
-    from ..session_mode import SessionMode
-
-    if session_mode == SessionMode.NOTEBOOK:
-        # Notebooks have a widget manager from the start, so frontend capture works.
-        return
-
+def patch_ipywidgets_output() -> None:
+    """Patch the ipywidgets `Output` widget to capture output in the kernel."""
     try:
         from ipywidgets import Output
     except ImportError:

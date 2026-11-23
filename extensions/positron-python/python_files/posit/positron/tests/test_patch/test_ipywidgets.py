@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+from positron.patch import ipywidgets as ipywidgets_patch
 from positron.positron_ipkernel import PositronShell
 
 from ..conftest import MockSession
@@ -66,6 +67,26 @@ with out:
     assert shell.user_ns["out"].outputs == (
         {"output_type": "stream", "name": "stdout", "text": "a\nb\n"},
         {"output_type": "stream", "name": "stderr", "text": "c\n"},
+    )
+
+
+def test_output_batches_updates(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ipywidgets_patch, "_FLUSH_INTERVAL", float("inf"))
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+changes = []
+out.observe(changes.append, 'outputs')
+with out:
+    for i in range(100):
+        print(i)
+"""
+    )
+    # The first output is sent right away, the rest when the capture ends.
+    assert len(shell.user_ns["changes"]) == 2
+    assert shell.user_ns["out"].outputs == (
+        {"output_type": "stream", "name": "stdout", "text": "".join(f"{i}\n" for i in range(100))},
     )
 
 
