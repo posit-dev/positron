@@ -31,6 +31,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PdfSizeChoice } from './pdfPageSize.js';
 import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
 import { defaultSaveResolution, isRasterFormat, normalizeSaveResolutions, SaveResolutionsConfigKey } from './saveResolution.js';
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -47,6 +48,8 @@ export interface SavePlotOptions {
 	 * on, so remembering it would carry a 1x save on a 1x monitor over to a 2x screen.
 	 */
 	resolutionPicked?: boolean;
+	/** The PDF size the plot was saved at; undefined for other formats. */
+	pdfSize?: PdfSizeChoice;
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
@@ -61,6 +64,7 @@ const BASE_DPI = 100; // matplotlib default DPI, used to show an intrinsic size 
  * @param suggestedPath the pre-filled save path
  * @param suggestedFormat the pre-selected format
  * @param suggestedResolution the pre-selected resolution for raster formats, if it is still offered
+ * @param suggestedPdfSize the pre-selected PDF size
  */
 export const showSavePlotModalDialog = (
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
@@ -69,6 +73,7 @@ export const showSavePlotModalDialog = (
 	suggestedPath?: URI,
 	suggestedFormat?: PlotRenderFormat,
 	suggestedResolution?: number,
+	suggestedPdfSize?: PdfSizeChoice,
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
@@ -83,6 +88,7 @@ export const showSavePlotModalDialog = (
 			savePlotCallback={savePlotCallback}
 			suggestedFormat={suggestedFormat}
 			suggestedPath={suggestedPath}
+			suggestedPdfSize={suggestedPdfSize}
 			suggestedResolution={suggestedResolution}
 		/>
 	);
@@ -98,6 +104,7 @@ interface SavePlotModalDialogProps {
 	suggestedPath?: URI;
 	suggestedFormat?: PlotRenderFormat;
 	suggestedResolution?: number;
+	suggestedPdfSize?: PdfSizeChoice;
 }
 
 interface DirectoryState {
