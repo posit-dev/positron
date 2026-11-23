@@ -26,7 +26,7 @@ import { HelpTopicSuggestion, ShowHelpEvent } from '../../../services/languageRu
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
-import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 
@@ -213,6 +213,11 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * The navigation listeners of each help entry.
 	 */
 	private readonly _helpEntryListeners = this._register(new DisposableMap<HelpEntry, DisposableStore>());
+
+	/**
+	 * The session end listeners. Keyed by the runtime session ID.
+	 */
+	private readonly _sessionEndListeners = this._register(new DisposableMap<string>());
 
 	/**
 	 * Gets the help clients. Keyed by the runtime session ID.
@@ -928,14 +933,22 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				.finally(() => search?.shown.complete());
 		}));
 
-		// When the client closes, delete the help entries for the runtime.
+		// When the client closes, forget it.
 		this._register(client.onDidClose(() => {
 			if (this._helpClients.get(sessionId) === client) {
 				if (this._search?.client === client) {
 					this.cancelSearch();
 				}
-				this.deleteLanguageRuntimeHelpEntries(sessionId);
 				this._helpClients.delete(sessionId);
+			}
+		}));
+
+		// When the session ends, delete its help entries. An extension host
+		// restart is skipped: the session reconnects with its help server still
+		// running, and its help entries start new proxy servers when they load.
+		this._sessionEndListeners.set(sessionId, session.onDidEndSession(exit => {
+			if (exit.reason !== RuntimeExitReason.ExtensionHost) {
+				this.deleteLanguageRuntimeHelpEntries(sessionId);
 			}
 		}));
 

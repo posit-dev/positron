@@ -26,7 +26,7 @@ import { IThemeService } from '../../../../../platform/theme/common/themeService
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { HelpClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
-import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ShowHelpEvent, ShowHelpKind } from '../../../../services/languageRuntime/common/positronHelpComm.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
@@ -135,6 +135,7 @@ describe('PositronHelpService', () => {
 				sessionId: 'r-session',
 				getRuntimeState: () => state,
 				onDidChangeRuntimeState: Event.None,
+				onDidEndSession: Event.None,
 			});
 			foregroundSession = session;
 			state = RuntimeState.Idle;
@@ -240,15 +241,18 @@ describe('PositronHelpService', () => {
 		});
 	});
 
-	describe('when a help client closes', () => {
+	describe('when a session ends', () => {
 		let service: PositronHelpService;
 		let session: ILanguageRuntimeSession;
+		let endEvents: Emitter<ILanguageRuntimeExit>;
 
 		beforeEach(() => {
+			endEvents = ctx.disposables.add(new Emitter<ILanguageRuntimeExit>());
 			session = stubInterface<ILanguageRuntimeSession>({
 				sessionId: 'r-session',
 				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r', languageName: 'R' }),
 				onDidChangeRuntimeState: Event.None,
+				onDidEndSession: endEvents.event,
 			});
 			service = createService();
 			executeCommand.mockClear();
@@ -266,7 +270,12 @@ describe('PositronHelpService', () => {
 				helpEvents.fire({ content, kind: ShowHelpKind.Url, focus: false });
 				await vi.waitFor(() => expect(service.currentHelpEntry?.targetUrl).toBe(content));
 			};
-			return { show, close: () => closeEvents.fire() };
+			// A session's help client closes before the session reports its exit.
+			const end = (reason: RuntimeExitReason) => {
+				closeEvents.fire();
+				endEvents.fire(stubInterface<ILanguageRuntimeExit>({ reason }));
+			};
+			return { show, end };
 		};
 
 		const state = () => ({
@@ -281,15 +290,15 @@ describe('PositronHelpService', () => {
 			await client.show('http://localhost:1234/b.html');
 			service.navigateBackward();
 
-			client.close();
-			const afterClose = state();
+			client.end(RuntimeExitReason.Restart);
+			const afterEnd = state();
 
 			// The session restarts and its new help server shows a page.
 			await attachClient().show('http://localhost:5678/c.html');
 
-			expect({ afterClose, afterRestart: state() }).toMatchInlineSnapshot(`
+			expect({ afterEnd, afterRestart: state() }).toMatchInlineSnapshot(`
 				{
-				  "afterClose": {
+				  "afterEnd": {
 				    "current": "http://localhost:1234/a.html",
 				    "entries": [
 				      "http://localhost:1234/a.html",
@@ -307,6 +316,25 @@ describe('PositronHelpService', () => {
 				      "http://localhost:1234",
 				    ],
 				  },
+				}
+			`);
+		});
+
+		it('keeps the history when the extension host restarts', async () => {
+			const client = attachClient();
+			await client.show('http://localhost:1234/a.html');
+			await client.show('http://localhost:1234/b.html');
+
+			client.end(RuntimeExitReason.ExtensionHost);
+
+			expect(state()).toMatchInlineSnapshot(`
+				{
+				  "current": "http://localhost:1234/b.html",
+				  "entries": [
+				    "http://localhost:1234/a.html",
+				    "http://localhost:1234/b.html",
+				  ],
+				  "stopped": [],
 				}
 			`);
 		});
