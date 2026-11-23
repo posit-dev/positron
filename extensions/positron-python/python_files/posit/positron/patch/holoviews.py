@@ -10,13 +10,14 @@ import itertools
 import logging
 from typing import TYPE_CHECKING, cast
 
+from ..plot_comm import PlotUnit
 from ..session_mode import SessionMode
 
 if TYPE_CHECKING:
     from holoviews.core.dimension import Dimensioned
     from matplotlib.figure import Figure
 
-    from ..plot_comm import PlotSize
+    from ..plot_comm import RenderSize
     from ..positron_ipkernel import PositronIPyKernel
     from ..ui import UiService
 
@@ -211,9 +212,12 @@ def _show_in_plots_pane(figure: Figure) -> None:
 
     intrinsic_size = tuple(figure.get_size_inches())
 
-    def render(size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
+    def render(size: RenderSize | None, pixel_ratio: float, format_: str) -> bytes:
         if size is None:
             figure.set_size_inches(*intrinsic_size, forward=False)
+        elif size.unit == PlotUnit.Inches:
+            # An exact page size for vector formats; the pixel ratio does not scale it.
+            figure.set_size_inches(size.width, size.height, forward=False)
         else:
             figure.set_size_inches(size.width / figure.dpi, size.height / figure.dpi, forward=False)
         with io.BytesIO() as buffer:

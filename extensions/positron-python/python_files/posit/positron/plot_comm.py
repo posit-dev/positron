@@ -128,6 +128,24 @@ class PlotSize(BaseModel):
     )
 
 
+class RenderSize(BaseModel):
+    """
+    The requested size of a rendered plot, with its unit
+    """
+
+    width: Union[StrictInt, StrictFloat] = Field(
+        description="The width of the plot, in the given unit. Pixel sizes are integers.",
+    )
+
+    height: Union[StrictInt, StrictFloat] = Field(
+        description="The height of the plot, in the given unit. Pixel sizes are integers.",
+    )
+
+    unit: PlotUnit = Field(
+        description="The unit of measurement of the plot's dimensions. Inches are valid only for vector formats (svg, pdf); the pixel_ratio does not scale an inch size.",
+    )
+
+
 class PlotOrigin(BaseModel):
     """
     The origin (source) of a plot
@@ -236,9 +254,9 @@ class RenderParams(BaseModel):
     base64-encoded string.
     """
 
-    size: Optional[PlotSize] = Field(
+    size: Optional[RenderSize] = Field(
         default=None,
-        description="The requested size of the plot. If not provided, the plot will be rendered at its intrinsic size.",
+        description="The requested size of the plot, with its unit. If not provided, the plot will be rendered at its intrinsic size.",
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(
@@ -319,6 +337,8 @@ PlotMetadata.update_forward_refs()
 PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
+
+RenderSize.update_forward_refs()
 
 PlotOrigin.update_forward_refs()
 

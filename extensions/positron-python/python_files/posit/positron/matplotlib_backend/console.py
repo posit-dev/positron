@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+from ..plot_comm import PlotUnit
 from .backend import Backend
 from .registry import registry
 
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
     from IPython.core.interactiveshell import InteractiveShell
     from matplotlib.figure import Figure
 
-    from ..plot_comm import PlotSize
+    from ..plot_comm import RenderSize
     from ..plots import Plot
 
 logger = logging.getLogger(__name__)
@@ -297,7 +298,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
                     logger.debug("Canvas: hash changed, requesting an update")
                     self.manager.update()
 
-    def render(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
+    def render(self, size: RenderSize | None, pixel_ratio: float, format_: str) -> bytes:
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
@@ -317,6 +318,11 @@ class FigureCanvasPositron(FigureCanvasAgg):
             # produced in Jupyter Notebooks which is probably what users expect.
             # See https://github.com/posit-dev/positron/issues/5068.
             bbox_inches = "tight"
+        elif size.unit == PlotUnit.Inches:
+            # An inch size is the exact page size of a vector format. The device pixel ratio only
+            # scales pixels, so it must not affect it.
+            self.figure.set_size_inches(size.width, size.height, forward=False)
+            bbox_inches = None
         else:
             # If a specific size is requested, resize the image accordingly.
             width_in = size.width * self.device_pixel_ratio / self.figure.dpi

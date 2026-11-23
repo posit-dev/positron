@@ -7,6 +7,7 @@ import base64
 import gc
 import inspect
 import io
+import re
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -17,7 +18,7 @@ from PIL import Image
 
 from positron.matplotlib_backend.backend import Backend
 from positron.matplotlib_backend.registry import registry
-from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
+from positron.plot_comm import PlotRenderFormat, PlotUnit, RenderSize
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
 
@@ -137,7 +138,12 @@ def _verify_show_notification(message: dict[str, Any]) -> None:
 
 
 def _do_render(
-    plot_comm: DummyComm, size: PlotSize | None = None, pixel_ratio=2.0, format_="png"
+    plot_comm: DummyComm,
+    size: RenderSize | None = None,
+    pixel_ratio=2.0,
+    format_="png",
+    *,
+    raise_errors: bool = True,
 ) -> dict[str, Any]:
     msg = json_rpc_request(
         "render",
@@ -148,7 +154,7 @@ def _do_render(
         },
         comm_id="dummy_comm_id",
     )
-    plot_comm.handle_msg(msg)
+    plot_comm.handle_msg(msg, raise_errors=raise_errors)
 
     assert len(plot_comm.messages) == 1
     response = plot_comm.messages[0]
@@ -275,7 +281,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     plot_comm.messages.clear()
 
     # Send a render request to the plot comm. The frontend would send this on comm creation.
-    size = PlotSize(width=400, height=300)
+    size = RenderSize(width=400, height=300, unit=PlotUnit.Pixels)
     pixel_ratio = 2.0
     format_ = "png"
     response = _do_render(plot_comm, size, pixel_ratio, format_)
@@ -341,6 +347,60 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     )
 
 
+def _pdf_media_box(pdf_bytes: bytes) -> list[float]:
+    match = re.search(rb"/MediaBox\s*\[([^\]]+)\]", pdf_bytes)
+    assert match is not None
+    return [float(v) for v in match.group(1).split()]
+
+
+@pytest.mark.parametrize("figure_dpi", [None, 200])
+def test_mpl_render_pdf_in_inches(
+    shell: PositronShell, plots_service: PlotsService, figure_dpi: int | None
+) -> None:
+    if figure_dpi is not None:
+        plt.rcParams["figure.dpi"] = figure_dpi
+    plot_comm = _create_mpl_plot(shell, plots_service, (6.0, 4.0), 100)
+    shell.run_cell("plt.gca().plot([0, 1], [0, 1])").raise_error()
+    plot_comm.messages.clear()
+
+    size = RenderSize(width=7.25, height=5.5, unit=PlotUnit.Inches)
+    response = _do_render(plot_comm, size, 2.0, "pdf")
+
+    result = response["data"]["result"]
+    assert result["mime_type"] == "application/pdf"
+    assert result["settings"] is None
+    assert _pdf_media_box(base64.b64decode(result["data"])) == pytest.approx([0, 0, 522, 396])
+
+
+def test_mpl_render_inches_rejects_raster(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service, (6.0, 4.0), 100)
+    plot_comm.messages.clear()
+    before = plots_service.get_render_settings()
+
+    size = RenderSize(width=7.25, height=5.5, unit=PlotUnit.Inches)
+    response = _do_render(plot_comm, size, 2.0, "png", raise_errors=False)
+
+    assert "error" in response["data"]
+    assert "result" not in response["data"]
+    assert plots_service.get_render_settings() == before
+
+
+def test_mpl_render_inches_does_not_update_render_settings(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    plot_comm = _create_mpl_plot(shell, plots_service, (6.0, 4.0), 100)
+    plot_comm.messages.clear()
+    _do_render(plot_comm, RenderSize(width=400, height=300, unit=PlotUnit.Pixels), 2.0, "png")
+    before = plots_service.get_render_settings()
+    assert before is not None
+
+    _do_render(plot_comm, RenderSize(width=7.25, height=5.5, unit=PlotUnit.Inches), 2.0, "pdf")
+
+    assert plots_service.get_render_settings() == before
+
+
 def test_mpl_pre_render_only_after_render_settings_known(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
@@ -361,7 +421,7 @@ def test_mpl_pre_render_only_after_render_settings_known(
 
     # Render the first plot at an explicit size; this records the frontend's render
     # settings on the plots service.
-    _do_render(first_comm, PlotSize(width=400, height=300))
+    _do_render(first_comm, RenderSize(width=400, height=300, unit=PlotUnit.Pixels))
 
     # A subsequent plot now has known render settings, so its comm_open SHOULD carry
     # a pre-render (at the matching size, so the frontend won't need to re-render).

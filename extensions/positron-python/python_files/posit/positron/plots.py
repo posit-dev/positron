@@ -26,6 +26,7 @@ from .plot_comm import (
     PlotSize,
     PlotUnit,
     RenderRequest,
+    RenderSize,
 )
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 
@@ -38,6 +39,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# Formats for which a size in inches is exact.
+VECTOR_FORMATS = ("pdf", "svg")
+
 MIME_TYPE = {
     "png": "image/png",
     "svg": "image/svg+xml",
@@ -48,11 +52,17 @@ MIME_TYPE = {
 
 
 def _render_to_plot_result(
-    render: Callable[[PlotSize | None, float, str], bytes],
+    render: Callable[[RenderSize | None, float, str], bytes],
     settings: PlotRenderSettings,
 ) -> PlotResult:
     """Render a plot and return a PlotResult with base64-encoded data."""
-    rendered = render(settings.size, settings.pixel_ratio, settings.format.value)
+    # Render settings always hold a pixel size; the renderer takes a unit-tagged size.
+    size = (
+        RenderSize(width=settings.size.width, height=settings.size.height, unit=PlotUnit.Pixels)
+        if settings.size is not None
+        else None
+    )
+    rendered = render(size, settings.pixel_ratio, settings.format.value)
     return PlotResult(
         data=base64.b64encode(rendered).decode(),
         mime_type=MIME_TYPE[settings.format.value],
@@ -225,10 +235,18 @@ class Plot:
 
     def _handle_render(
         self,
-        size: PlotSize | None,
+        size: RenderSize | None,
         pixel_ratio: float,
         format_: str,
     ) -> None:
+        # Inch sizes are only meaningful for vector formats, where the page size is exact.
+        if size is not None and size.unit == PlotUnit.Inches and format_ not in VECTOR_FORMATS:
+            self._comm.send_error(
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"A size in inches is only supported for vector formats, not '{PlotRenderFormat(format_).value}'.",
+            )
+            return
+
         try:
             rendered = self._render(size, pixel_ratio, format_)
         except Exception:
@@ -244,11 +262,14 @@ class Plot:
 
         data = base64.b64encode(rendered).decode()
 
-        # Track render settings for future pre-renders
+        # Track render settings for future pre-renders. Only pixel sizes are tracked; an inch render
+        # is a one-off export that must not change what the pane pre-renders.
         settings = None
-        if size is not None:
+        if size is not None and size.unit == PlotUnit.Pixels:
             settings = PlotRenderSettings(
-                size=size, pixel_ratio=pixel_ratio, format=PlotRenderFormat(format_)
+                size=PlotSize(width=int(size.width), height=int(size.height)),
+                pixel_ratio=pixel_ratio,
+                format=PlotRenderFormat(format_),
             )
             self._plots_service.update_render_settings(settings)
 
@@ -286,7 +307,7 @@ class Plot:
 class Renderer(Protocol):
     """A callable that renders a plot. See `plot_comm.RenderRequest` for parameter details."""
 
-    def __call__(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes: ...
+    def __call__(self, size: RenderSize | None, pixel_ratio: float, format_: str) -> bytes: ...
 
 
 class PlotsService:

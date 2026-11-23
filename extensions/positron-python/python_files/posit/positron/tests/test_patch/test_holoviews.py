@@ -11,7 +11,7 @@ from importlib.util import find_spec
 import pytest
 
 from positron.matplotlib_backend.backend import Backend
-from positron.plot_comm import PlotSize
+from positron.plot_comm import PlotUnit, RenderSize
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 
@@ -57,7 +57,7 @@ def test_matplotlib_backend_shows_in_plots_pane(
     # The plot renders at the requested size.
     from PIL import Image
 
-    rendered = plots[0]._render(PlotSize(width=400, height=300), 2.0, "png")  # noqa: SLF001
+    rendered = plots[0]._render(RenderSize(width=400, height=300, unit=PlotUnit.Pixels), 2.0, "png")  # noqa: SLF001
     assert Image.open(io.BytesIO(rendered)).size == (800, 600)
 
 
