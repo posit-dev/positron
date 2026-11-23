@@ -28,6 +28,9 @@ const MODAL_CLOSE_BUTTON = `${MODAL_EDITOR} .modal-editor-action-container .codi
 
 const PROVIDER_LIST = '[data-testid="provider-list"]';
 const PROVIDER_CARD = (provider: ModelProvider) => `[data-testid="provider-card-${provider}"]`;
+// The list groups rows into Connected, Needs attention, Checking, and Not connected sections; a row has no status text of its own.
+const CONNECTED_CARD = (provider: ModelProvider) => `[data-testid="provider-section-connected"] ${PROVIDER_CARD(provider)}`;
+const CHECKING_CARD = (provider: ModelProvider) => `[data-testid="provider-section-checking"] ${PROVIDER_CARD(provider)}`;
 const PROVIDER_ACTION = (kind: string, provider: ModelProvider) => `[data-testid="provider-action-${kind}-${provider}"]`;
 const API_KEY_INPUT = '[data-testid="provider-api-key-input"]';
 const BASE_URL_INPUT = '[data-testid="provider-base-url-input"]';
@@ -111,12 +114,12 @@ export class ProviderManager {
 
 				if (provider === 'snowflake-cortex') {
 					await this.connectSnowflake(frame, options);
-					await expect(card).toContainText('Connected', { timeout });
+					await this.expectConnected(frame, provider, timeout);
 					return;
 				}
 				if (provider === 'databricks') {
 					await this.connectDatabricks(frame, options);
-					await expect(card).toContainText('Connected', { timeout });
+					await this.expectConnected(frame, provider, timeout);
 					return;
 				}
 
@@ -161,14 +164,14 @@ export class ProviderManager {
 					}
 					case 'aws':
 						// Positron's authentication extension signs Bedrock in from the AWS credential chain, which can finish after the panel renders.
-						await expect(card, `${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`)
-							.toContainText('Connected', { timeout });
+						await expect(frame.locator(CONNECTED_CARD(provider)), `${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`)
+							.toBeVisible({ timeout });
 						return;
 					default:
 						throw new Error(`The provider manager page object doesn't support ${provider} yet`);
 				}
 
-				await expect(frame.locator(PROVIDER_CARD(provider))).toContainText('Connected', { timeout });
+				await this.expectConnected(frame, provider, timeout);
 			} finally {
 				await this.close();
 			}
@@ -195,7 +198,7 @@ export class ProviderManager {
 				await action.first().click();
 				await frame.locator(CONFIRM_VIEW).getByRole('button').last().click();
 
-				await expect(frame.locator(PROVIDER_CARD(provider))).not.toContainText('Connected', { timeout });
+				await expect(frame.locator(CONNECTED_CARD(provider))).toHaveCount(0, { timeout });
 			} finally {
 				await this.close();
 			}
@@ -209,8 +212,8 @@ export class ProviderManager {
 		await test.step(`Check ${provider} is managed by ${managedBy}`, async () => {
 			const frame = await this.open();
 			try {
+				await this.expectConnected(frame, provider, timeout);
 				const card = frame.locator(PROVIDER_CARD(provider));
-				await expect(card).toContainText('Connected', { timeout });
 				// Posit Assistant names the button "Managed, <provider>" and describes it with the host note.
 				const managed = card.getByRole('button', { name: /^Managed\b/ });
 				await expect(managed).toBeDisabled();
@@ -282,9 +285,14 @@ export class ProviderManager {
 		await expect(page.locator(MODAL_EDITOR)).toHaveCount(0, { timeout: 15000 });
 	}
 
+	private async expectConnected(frame: FrameLocator, provider: ModelProvider, timeout: number) {
+		await expect(frame.locator(CONNECTED_CARD(provider)), `${provider} isn't under Connected`).toBeVisible({ timeout });
+	}
+
+	/** Waits out a credential check, which parks the row under Checking, so a saved credential isn't read as signed out. */
 	private async isConnected(frame: FrameLocator, provider: ModelProvider): Promise<boolean> {
-		const card = frame.locator(PROVIDER_CARD(provider));
-		await expect(card).toBeVisible();
-		return (await card.textContent())?.includes('Connected') ?? false;
+		await expect(frame.locator(PROVIDER_CARD(provider))).toBeVisible();
+		await expect(frame.locator(CHECKING_CARD(provider))).toHaveCount(0);
+		return await frame.locator(CONNECTED_CARD(provider)).count() > 0;
 	}
 }
