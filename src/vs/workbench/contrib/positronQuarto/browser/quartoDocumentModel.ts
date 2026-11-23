@@ -12,7 +12,7 @@ import { StringSHA1 } from '../../../../base/common/hash.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModel, QuartoCodeCell, QuartoCellChangeEvent, QuartoNodeType } from '../common/quartoTypes.js';
 import { kernelToLanguageId, parseQuarto } from '../common/quartoParser.js';
-import { hasRuntimeProvider } from '../common/quartoLanguages.js';
+import { cellRuntimeLanguage, hasRuntimeProvider } from '../common/quartoLanguages.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 /**
@@ -331,14 +331,17 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	 * rather than leaving the primary language undefined (which would disable the
 	 * kernel picker and Run Cell). Languages with no runtimes, such as mermaid
 	 * diagrams, can't host a kernel; a document made only of those has no primary
-	 * language.
+	 * language. A cell in a hosted language counts as its host language (`r`
+	 * for `{Rcpp}`), so that it runs in the same session as the host language's
+	 * cells, which call the functions it defines.
 	 *
 	 * Derived on read, since the providers are known only once extensions have
 	 * been scanned, which can happen after the document is first parsed.
 	 */
 	private _derivePrimaryLanguage(): string | undefined {
 		return (this._jupyterKernel ? kernelToLanguageId(this._jupyterKernel) : undefined)
-			?? this._cells.find(
-				cell => hasRuntimeProvider(cell.language, this._runtimeStartupService))?.language;
+			?? this._cells
+				.map(cell => cellRuntimeLanguage(cell.language))
+				.find(language => hasRuntimeProvider(language, this._runtimeStartupService));
 	}
 }

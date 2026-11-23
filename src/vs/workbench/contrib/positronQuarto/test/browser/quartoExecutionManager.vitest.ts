@@ -490,6 +490,120 @@ describe('QuartoExecutionManager', () => {
 		});
 	});
 
+	describe('Rcpp cells', () => {
+		// knitr's Rcpp engine compiles an {Rcpp} cell in R with Rcpp::sourceCpp(),
+		// so Positron runs it the same way, in R's session.
+
+		function rcppCell(id: string, codeStartLine: number, codeEndLine: number, index = 0): QuartoCodeCell {
+			return {
+				id,
+				index,
+				language: 'Rcpp',
+				startLine: codeStartLine - 1,
+				endLine: codeEndLine + 1,
+				codeStartLine,
+				codeEndLine,
+				label: undefined,
+				options: '',
+				contentHash: id,
+			};
+		}
+
+		const documentLines = [
+			'```{Rcpp}',
+			'//| label: one',
+			'#include <Rcpp.h>',
+			'// [[Rcpp::export]]',
+			'int one() { return 1; }',
+			'```',
+		];
+		const compiled = 'Rcpp::sourceCpp(code = r"--(#include <Rcpp.h>\n// [[Rcpp::export]]\nint one() { return 1; })--")';
+
+		/** Use a real text model with the given lines for the document. */
+		function useDocument(cells: QuartoCodeCell[], lines: string[], primaryLanguage: string): void {
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel(cells, lines, primaryLanguage));
+			mockEditorService.textModel = ctx.disposables.add(modelService.createModel(lines.join('\n'), null));
+		}
+
+		/** Runs `run`, finishing each kernel execution, and returns the code sent. */
+		async function executeOnKernel(run: () => Promise<void>, executions = 1): Promise<string[]> {
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+			const promise = run();
+			for (let i = 0; i < executions; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+			await promise;
+			return executeSpy.mock.calls.map(([code]) => code);
+		}
+
+		it('compiles the cell with Rcpp::sourceCpp() in the R kernel', async () => {
+			const cell = rcppCell('rcpp-kernel', 2, 5);
+			useDocument([cell], documentLines, 'r');
+			const languages: string[] = [];
+			ctx.disposables.add(executionManager.onDidExecuteCode(event => languages.push(event.languageId)));
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const sent = await executeOnKernel(() => executionManager.executeCell(URI.file('/rcpp-kernel.qmd'), cell));
+
+			expect(sent).toEqual([compiled]);
+			expect(languages).toEqual(['r']);
+			// The compiled code isn't the cell's text, so it has no code location
+			// (Ark rejects one that doesn't match the code), but keeps its cell.
+			const attribution = executeSpy.mock.calls[0][4];
+			expect(attribution?.metadata).not.toHaveProperty('codeLocation');
+			expect(attribution?.metadata?.cell?.uri).toBe(cell.id);
+		});
+
+		it('runs the whole cell when a line in it is run', async () => {
+			const cell = rcppCell('rcpp-line', 2, 5);
+			useDocument([cell], documentLines, 'r');
+
+			// Run the `int one()` line, as Execute Code does with no selection.
+			const sent = await executeOnKernel(() => executionManager.executeInlineCells(
+				URI.file('/rcpp-line.qmd'), [new Range(5, 1, 5, 24)]));
+
+			expect(sent).toEqual([compiled]);
+		});
+
+		it('compiles the cell in the R console when R is not the primary language', async () => {
+			const cell = rcppCell('rcpp-console', 2, 5);
+			useDocument([cell], documentLines, 'python');
+			mockRuntimeSessionService.setConsoleSessionForLanguage('r', mockSession);
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
+
+			const promise = executionManager.executeCell(URI.file('/rcpp-console.qmd'), cell);
+			const executionId = await mockConsoleService.waitForExecution();
+			mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
+			await promise;
+
+			expect(consoleSpy.mock.calls.map(([language, , code]) => ({ language, code })))
+				.toEqual([{ language: 'r', code: compiled }]);
+			expect(consoleSpy.mock.calls[0][3]?.metadata).not.toHaveProperty('codeLocation');
+		});
+
+		it('runs Rcpp cells in a multi-cell run, skipping one with //| eval: false', async () => {
+			const lines = [
+				...documentLines,
+				'```{Rcpp}',
+				'//| eval: false',
+				'int two() { return 2; }',
+				'```',
+			];
+			const first = rcppCell('rcpp-run-all-1', 2, 5);
+			const second = rcppCell('rcpp-run-all-2', 8, 9, 1);
+			useDocument([first, second], lines, 'r');
+
+			const sent = await executeOnKernel(() => executionManager.executeCells(
+				URI.file('/rcpp-run-all.qmd'), [first, second]));
+
+			expect(sent).toEqual([compiled]);
+			expect(executionManager.getExecutionState(first.id)).toBe(CellExecutionState.Completed);
+			expect(executionManager.getExecutionState(second.id)).toBe(CellExecutionState.Idle);
+		});
+	});
+
 	describe('Output Handling', () => {
 		const quartoInputBoundarySelector = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' };
 

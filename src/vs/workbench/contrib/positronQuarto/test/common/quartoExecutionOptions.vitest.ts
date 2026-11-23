@@ -176,6 +176,28 @@ print("hello")`;
 		});
 	});
 
+	describe('option comments of hosted languages', () => {
+		it('reads //| option lines in an Rcpp cell, as knitr does', () => {
+			const code = `//| eval: false
+//| label: one
+int one() { return 1; }`;
+			const result = parseCellExecutionOptions(code, 'Rcpp');
+
+			expect(result.options.eval).toBe(false);
+			expect(result.optionLineCount).toBe(2);
+			expect(result.metadata).toEqual({ label: 'one' });
+		});
+
+		it('does not read //| lines in other cells', () => {
+			const code = `//| eval: false
+x = 1`;
+			const result = parseCellExecutionOptions(code, 'python');
+
+			expect(result.options.eval).toBe(true);
+			expect(result.optionLineCount).toBe(0);
+		});
+	});
+
 	describe('extractExecutableCode', () => {
 		it('returns full code when no options present', () => {
 			const code = `print("hello")
