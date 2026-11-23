@@ -160,8 +160,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	);
 	// The PDF page size, kept apart from the pixel size so switching formats keeps both.
 	const [paneInches] = React.useState(() => plotPaneInches(props.plotSize, props.plotIntrinsicSize));
-	const [pdfChoice, setPdfChoice] = React.useState<PdfSizeChoice>(() => props.suggestedPdfSize ??
-		{ preset: 'plotPane', orientation: orientationOf(paneInches.width, paneInches.height, 'landscape') });
+	const [pdfChoice, setPdfChoice] = React.useState<PdfSizeChoice>(() => {
+		// The Plot Pane preset always follows the current pane, so a remembered orientation is ignored.
+		const paneOrientation = orientationOf(paneInches.width, paneInches.height, 'landscape');
+		if (!props.suggestedPdfSize || props.suggestedPdfSize.preset === 'plotPane') {
+			return { preset: 'plotPane', orientation: paneOrientation };
+		}
+		return props.suggestedPdfSize;
+	});
 	const [pdfWidth, setPdfWidth] = React.useState(() => inchField(resolvePdfSize(pdfChoice, paneInches).width));
 	const [pdfHeight, setPdfHeight] = React.useState(() => inchField(resolvePdfSize(pdfChoice, paneInches).height));
 	// The aspect ratio kept while editing the PDF size, or undefined when unlocked.
@@ -351,7 +357,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						format,
 						resolution: isRasterFormat(format) ? resolution : undefined,
 						resolutionPicked,
-						pdfSize: isPdf ? currentPdfSizeChoice() : undefined,
+						pdfSize: isPdf && !enableIntrinsicSize ? currentPdfSizeChoice() : undefined,
 					});
 				})
 				.catch((error) => {

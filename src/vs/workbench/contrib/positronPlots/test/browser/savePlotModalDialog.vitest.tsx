@@ -31,7 +31,7 @@ import { SaveResolutionsConfigKey } from '../../browser/modalDialogs/saveResolut
  * client's: it passes the requested size through the plot's sizing policy
  * before rendering. `render` records the size the kernel would be asked for.
  */
-function createFakePlotClient(policy: IPositronPlotSizingPolicy, intrinsicSize?: IntrinsicSize, withLastRender = true) {
+function createFakePlotClient(policy: IPositronPlotSizingPolicy, intrinsicSize?: IntrinsicSize, withLastRender = true, lastRenderSize: IPlotSize = { width: 700, height: 500 }) {
 	const render: Mock<(size: IPlotSize | undefined, pixelRatio: number, format?: PlotRenderFormat, preview?: boolean, unit?: PlotUnit) => Promise<IRenderedPlot>> =
 		vi.fn().mockResolvedValue({ uri: 'data:image/svg+xml;base64,AA==', pixel_ratio: 1 });
 	const client = stubInterface<PlotClientInstance>({
@@ -46,7 +46,7 @@ function createFakePlotClient(policy: IPositronPlotSizingPolicy, intrinsicSize?:
 		},
 		intrinsicSize,
 		lastRender: withLastRender
-			? { size: { width: 700, height: 500 }, unit: PlotUnit.Pixels, pixel_ratio: 2, uri: 'data:image/png;base64,AA==', renderTimeMs: 0 }
+			? { size: lastRenderSize, unit: PlotUnit.Pixels, pixel_ratio: 2, uri: 'data:image/png;base64,AA==', renderTimeMs: 0 }
 			: undefined,
 		sizingPolicy: policy,
 		render,
@@ -428,10 +428,10 @@ describe('Save Plot dialog PDF size', () => {
 	const widthInput = () => screen.getByRole('spinbutton', { name: 'Width' });
 	const heightInput = () => screen.getByRole('spinbutton', { name: 'Height' });
 
-	async function open(format: PlotRenderFormat, suggestedPdfSize?: PdfSizeChoice) {
-		const { client, render } = createFakePlotClient(new PlotSizingPolicyAuto());
+	async function open(format: PlotRenderFormat, suggestedPdfSize?: PdfSizeChoice, lastRenderSize?: IPlotSize, policy: IPositronPlotSizingPolicy = new PlotSizingPolicyAuto(), plotIntrinsicSize?: IntrinsicSize) {
+		const { client, render } = createFakePlotClient(policy, plotIntrinsicSize, true, lastRenderSize);
 		const savePlotCallback = vi.fn();
-		showSavePlotModalDialog(new PlotSizingPolicyAuto(), client, savePlotCallback, URI.file('/tmp'), format, undefined, suggestedPdfSize);
+		showSavePlotModalDialog(policy, client, savePlotCallback, URI.file('/tmp'), format, undefined, suggestedPdfSize);
 		expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
 		return { render, savePlotCallback };
 	}
@@ -529,6 +529,37 @@ describe('Save Plot dialog PDF size', () => {
 		expect(widthInput()).toHaveValue(7.29);
 		expect(heightInput()).toHaveValue(5.21);
 		await close(user);
+	});
+
+	it('follows the current pane orientation for a remembered Plot Pane', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Pdf, { preset: 'plotPane', orientation: 'landscape' }, { width: 480, height: 672 });
+
+		expect(widthInput()).toHaveValue(5);
+		expect(heightInput()).toHaveValue(7);
+		expect(screen.getByRole('radio', { name: 'Portrait' })).toBeChecked();
+		await close(user);
+	});
+
+	it('derives the orientation from a typed Custom size', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Pdf);
+
+		await unlockAspectRatio(user);
+		await typeInto(user, widthInput(), 3);
+		await typeInto(user, heightInput(), 6);
+
+		expect(screen.getByRole('radio', { name: 'Portrait' })).toBeChecked();
+		await close(user);
+	});
+
+	it('reports no PDF size when Use intrinsic size is ticked', async () => {
+		const user = userEvent.setup();
+		const { savePlotCallback } = await open(PlotRenderFormat.Pdf, undefined, undefined, new PlotSizingPolicyIntrinsic(), { width: 6.3, height: 4.7, unit: PlotUnit.Inches, source: 'Matplotlib' });
+
+		await save(user, savePlotCallback);
+
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ pdfSize: undefined }));
 	});
 
 	it('restores a remembered Custom size and locks its ratio', async () => {

@@ -28,7 +28,11 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
+import { IFileService, IFileSystemProvider } from '../../../../../platform/files/common/files.js';
+import { showSavePlotModalDialog } from '../../browser/modalDialogs/savePlotModalDialog.js';
 import { PositronAssistantService } from '../../../positronAssistant/browser/positronAssistantService.js';
+
+vi.mock('../../browser/modalDialogs/savePlotModalDialog.js', () => ({ showSavePlotModalDialog: vi.fn() }));
 
 describe('Positron - Plots Service', () => {
 
@@ -705,6 +709,34 @@ describe('Positron - Plots Service', () => {
 			// The most recent plot is still cached and is recreated on reselection.
 			plotsService.selectPlot(`nb-plot-${total - 1}`);
 			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual([`nb-plot-${total - 1}`]);
+		});
+	});
+
+	describe('save plot', () => {
+		it('remembers the PDF size of a save and offers it to the next dialog', async () => {
+			const out = await createSession();
+			out.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+			plotsService.selectPlot('plot1');
+			const writeFile = vi.fn().mockResolvedValue(undefined);
+			vi.spyOn(ctx.get(IFileService), 'getProvider').mockReturnValue(stubInterface<IFileSystemProvider>({ writeFile }));
+			const showDialog = vi.mocked(showSavePlotModalDialog);
+
+			plotsService.saveViewPlot();
+			await vi.waitFor(() => expect(showDialog).toHaveBeenCalledTimes(1));
+			expect(showDialog.mock.calls[0][6]).toBeUndefined();
+
+			const savePlotAs = showDialog.mock.calls[0][2];
+			await savePlotAs({
+				path: URI.file('/tmp/plot.pdf'),
+				uri: 'data:application/pdf;base64,AA==',
+				format: PlotRenderFormat.Pdf,
+				resolutionPicked: false,
+				pdfSize: { preset: 'a4', orientation: 'portrait' },
+			});
+
+			plotsService.saveViewPlot();
+			await vi.waitFor(() => expect(showDialog).toHaveBeenCalledTimes(2));
+			expect(showDialog.mock.calls[1][6]).toEqual({ preset: 'a4', orientation: 'portrait' });
 		});
 	});
 

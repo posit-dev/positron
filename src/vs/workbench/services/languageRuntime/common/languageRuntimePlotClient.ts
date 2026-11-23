@@ -283,7 +283,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				// Capture the current render request BEFORE updating _lastRender; otherwise
 				// the fallback `?? this._lastRender` below would compare against the pre-render
 				// itself and always short-circuit, never queuing a full re-render.
-				const currentRenderRequest = this._currentRender?.renderRequest ?? this._lastRender;
+				const currentRenderRequest = this._currentPaneRender?.renderRequest ?? this._lastRender;
 
 				// Store the pre-rendering as the last render
 				this._lastRender = preRenderPlot;
@@ -371,22 +371,17 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
 	}
 
-	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false, unit = PlotUnit.Pixels): Promise<IRenderedPlot> {
-		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview, unit);
+	/**
+	 * The current render request, unless it is a preview. A preview (e.g. a render
+	 * made to save the plot) must never be the template for re-rendering the pane.
+	 */
+	private get _currentPaneRender(): DeferredRender | undefined {
+		return this._currentRender?.preview ? undefined : this._currentRender;
 	}
 
-	/**
-	 * Requests that the plot be rendered at a specific size.
-	 *
-	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
-	 * @param height The plot height, in pixels
-	 * @param width The plot width, in pixels
-	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
-	 * @param format The format of the plot ('png', 'svg')
-	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
-	 * @param unit The unit of `size`. Pixel sizes are floored to whole pixels; inch sizes are sent as given.
-	 * @returns A promise that resolves to a rendered image, or rejects with an error.
-	 */
+	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
+	}
 
 	/**
 	 * Check if the render settings match
@@ -428,6 +423,18 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		return this._configurationService.getValue<boolean>(OldFreezeSlowPlotsConfigKey) ?? true;
 	}
 
+	/**
+	 * Requests that the plot be rendered at a specific size.
+	 *
+	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
+	 * @param height The plot height, in pixels
+	 * @param width The plot width, in pixels
+	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
+	 * @param format The format of the plot ('png', 'svg')
+	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
+	 * @param unit The unit of `size`. Pixel sizes are floored to whole pixels; inch sizes are sent as given.
+	 * @returns A promise that resolves to a rendered image, or rejects with an error.
+	 */
 	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false, unit = PlotUnit.Pixels): Promise<IRenderedPlot> {
 		// Deal with whole pixels only; inch sizes keep their fractional part
 		const sizeInt = size && (unit === PlotUnit.Pixels ? {
@@ -599,7 +606,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// If we have never rendered this plot, we can't process any updates
 		// yet.
-		const render = this._currentRender?.renderRequest ?? this._lastRender;
+		const render = this._currentPaneRender?.renderRequest ?? this._lastRender;
 		if (!render) {
 			return Promise.reject(new Error('Cannot update plot before it has been rendered'));
 		}
@@ -629,7 +636,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			size: sizeInt,
 			unit,
 			pixel_ratio: pixel_ratio,
-			format: this._currentRender?.renderRequest.format ?? PlotRenderFormat.Png
+			format: this._currentPaneRender?.renderRequest.format ?? PlotRenderFormat.Png
 		});
 
 		this.scheduleRender(req, 0);

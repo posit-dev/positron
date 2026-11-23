@@ -139,4 +139,47 @@ describe('Positron - PlotClientInstance', () => {
 			expect(renderSpy).toHaveBeenCalledTimes(2);
 		});
 	});
+
+	it('does not re-render an update with a preview request', async () => {
+		const client = createPlotClient({});
+		const first = client.render({ width: 700, height: 500 }, 2);
+		await timeout(0);
+		(renderSpy.mock.calls[0][0] as DeferredRender).complete({
+			size: { width: 700, height: 500 },
+			unit: PlotUnit.Pixels,
+			pixel_ratio: 2,
+			format: PlotRenderFormat.Png,
+			uri: 'data:image/png;base64,AAAA',
+			renderTimeMs: 1,
+		});
+		await first;
+
+		// A save renders a preview PDF in inches.
+		void client.render({ width: 8.5, height: 11 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+		await timeout(600);
+		expect(renderSpy).toHaveBeenCalledTimes(2);
+		const preview = renderSpy.mock.calls[1][0] as DeferredRender;
+		preview.complete({
+			size: { width: 8.5, height: 11 },
+			unit: PlotUnit.Inches,
+			pixel_ratio: 1,
+			format: PlotRenderFormat.Pdf,
+			uri: 'data:application/pdf;base64,BBBB',
+			renderTimeMs: 1,
+		});
+		await timeout(0);
+
+		// A backend update must re-render with the pane's pixel request.
+		renderUpdateEmitter.fire({});
+		await timeout(0);
+
+		expect(renderSpy).toHaveBeenCalledTimes(3);
+		const update = renderSpy.mock.calls[2][0] as DeferredRender;
+		expect(update.renderRequest).toEqual({
+			size: { width: 700, height: 500 },
+			unit: PlotUnit.Pixels,
+			pixel_ratio: 2,
+			format: PlotRenderFormat.Png,
+		});
+	});
 });
