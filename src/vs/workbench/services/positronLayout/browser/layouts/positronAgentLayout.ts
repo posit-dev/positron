@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -29,6 +29,7 @@ export const positronAgentLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronAgentLayout',
 	codicon: 'sparkle',
 	label: localize2('choseLayout.agent', 'Agent Layout'),
+	taskLayout: { name: localize('positron.taskLayout.agent', "Agent"), order: 3 },
 	// Requires Posit Assistant: the layout opens the Assistant in the editor
 	// area via a posit-assistant command, so there is no legacy-chat fallback.
 	// Gate on the config values directly (not ChatContextKeys.aiFeaturesEnabled):

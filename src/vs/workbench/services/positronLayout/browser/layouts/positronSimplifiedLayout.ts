@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
@@ -22,6 +22,7 @@ export const positronSimplifiedLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronSimplifiedLayout',
 	codicon: 'positron-two-pane-ds-layout',
 	label: localize2('choseLayout.simplified', 'Simplified Layout'),
+	taskLayout: { name: localize('positron.taskLayout.simplified', "Simplified"), order: 0 },
 	precondition: ContextKeyExpr.equals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true),
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -21,6 +21,7 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronAssistantLayout',
 	codicon: 'positron-assistant-layout',
 	label: localize2('choseLayout.assistant', 'Assistant Layout'),
+	taskLayout: { name: localize('positron.taskLayout.assistant', "Assistant"), order: 2 },
 	precondition: ContextKeyExpr.or(
 		ChatContextKeys.aiFeaturesEnabled,
 		ContextKeyExpr.has('config.assistant.enabled'),

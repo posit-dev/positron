@@ -28,6 +28,7 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 import { Parts, IWorkbenchLayoutService, ActivityBarPosition, LayoutSettings, /*EditorActionsLocation, EditorTabsMode*/ } from '../../../services/layout/browser/layoutService.js';
 // --- Start Positron ---
 import { isSimplifiedLayoutEnabled } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
+import { PositronTitleBarLayoutPicker } from './positronTitleBarLayoutPicker.js';
 // --- End Positron ---
 // --- End Positron ---
 import { createActionViewItem, fillInActionBarActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
@@ -272,6 +273,10 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	private rightContent!: HTMLElement;
 
 	protected readonly customMenubar = this._register(new MutableDisposable<CustomMenubarControl>());
+	// --- Start Positron ---
+	// The layout picker on the left of the title bar, in the simplified layout.
+	private readonly positronLayoutPicker = this._register(new MutableDisposable<PositronTitleBarLayoutPicker>());
+	// --- End Positron ---
 	private readonly customMenubarDisposables = this._register(new DisposableStore());
 	protected appIcon: HTMLElement | undefined;
 	private appIconBadge: HTMLElement | undefined;
@@ -497,6 +502,13 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		) {
 			this.installMenubar();
 		}
+
+		// --- Start Positron ---
+		// The layout picker sits after the menu bar, in the main window only.
+		if (!this.isAuxiliary && isSimplifiedLayoutEnabled(this.configurationService)) {
+			this.positronLayoutPicker.value = this.instantiationService.createInstance(PositronTitleBarLayoutPicker, this.leftContent);
+		}
+		// --- End Positron ---
 
 		// Title
 		this.title = append(this.centerContent, $('div.window-title'));

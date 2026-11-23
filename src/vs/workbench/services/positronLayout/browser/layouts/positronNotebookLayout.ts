@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -16,6 +16,7 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',
 	codicon: 'positron-notebook-layout',
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
+	taskLayout: { name: localize('positron.taskLayout.notebook', "Notebook"), order: 1 },
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
 	agentDescription: 'Switch the workbench to the notebook layout (optimised for working with a single notebook, with the console collapsed).',

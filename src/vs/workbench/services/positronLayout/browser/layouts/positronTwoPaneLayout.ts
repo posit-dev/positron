@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
@@ -14,6 +14,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronTwoPaneDataScienceLayout',
 	codicon: 'positron-two-pane-ds-layout',
 	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
+	taskLayout: { name: localize('positron.taskLayout.sideBySide', "Side by Side"), order: 4 },
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
 	agentDescription: 'Switch the workbench to the side-by-side data-science layout (editor plus a wide session panel with variables and plots).',

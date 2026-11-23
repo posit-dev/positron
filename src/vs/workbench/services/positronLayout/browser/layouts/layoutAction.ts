@@ -11,6 +11,7 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 import { registerMatchableLayout } from './layoutMatch.js';
+import { registerTaskLayout } from './taskLayouts.js';
 
 
 export type PositronLayoutInfo = {
@@ -38,6 +39,11 @@ export type PositronLayoutInfo = {
 	 * `positron.ai.getAgentAllowedCommands()`.
 	 */
 	agentCompatible?: boolean;
+	/**
+	 * When set, the layout is built for one kind of work and the title bar's
+	 * layout picker lists it under this short name, in this order.
+	 */
+	taskLayout?: { name: string; order: number };
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -62,6 +68,15 @@ export abstract class PositronLayoutAction extends Action2 {
 		this._layout = layoutInfo.layoutDescriptor;
 		this._layoutId = layoutInfo.id;
 		registerMatchableLayout(layoutInfo);
+		if (layoutInfo.taskLayout) {
+			registerTaskLayout({
+				id: layoutInfo.id,
+				name: layoutInfo.taskLayout.name,
+				codicon: layoutInfo.codicon,
+				order: layoutInfo.taskLayout.order,
+				precondition: layoutInfo.precondition,
+			});
+		}
 	}
 	run(accessor: ServicesAccessor): void {
 		const positronLayoutService = accessor.get(IPositronLayoutService);

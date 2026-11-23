@@ -1,0 +1,44 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The layout picker on the left of the title bar. Styled like the title bar's other buttons. */
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker {
+	-webkit-app-region: no-drag;
+	align-items: center;
+	background: none;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-medium, 4px);
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	font-size: 12px;
+	gap: 4px;
+	height: 22px;
+	margin: auto 0 auto 8px;
+	padding: 0 6px;
+	/* Above the title bar's drag region, which covers the whole bar. */
+	position: relative;
+	white-space: nowrap;
+	z-index: 1;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker .codicon {
+	font-size: 14px;
+}
+
+/* On macOS the window's close, minimize, and zoom buttons sit over the left end of the title bar. */
+.monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker {
+	margin-left: 78px;
+}

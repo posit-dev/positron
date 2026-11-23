@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../nls.js';
+import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
@@ -14,6 +14,7 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
 	label: localize2('choseLayout.stacked', 'Stacked Layout'),
+	taskLayout: { name: localize('positron.taskLayout.stacked', "Stacked"), order: 5 },
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
 	agentDescription: 'Switch the workbench to the four-pane stacked data-science layout (explorer, editor, console + terminal, variables + plots).',
