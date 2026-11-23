@@ -22,7 +22,7 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { FileFilter } from 'electron';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { IntrinsicSize } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
@@ -31,7 +31,8 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { PdfSizeChoice } from './pdfPageSize.js';
+import { orientationOf, PdfOrientation, PdfPreset, PdfSizeChoice, plotPaneInches, resolvePdfSize, roundInches } from './pdfPageSize.js';
+import { InchField, PdfSizeInputs } from './pdfSizeInputs.js';
 import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
 import { defaultSaveResolution, isRasterFormat, normalizeSaveResolutions, SaveResolutionsConfigKey } from './saveResolution.js';
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -55,6 +56,26 @@ export interface SavePlotOptions {
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
 const SAVE_PLOT_MODAL_DIALOG_HEIGHT = 600;
 const BASE_DPI = 100; // matplotlib default DPI, used to show an intrinsic size in inches as pixels
+const PDF_PREVIEW_DPI = 96; // the pixels per inch a PDF's PNG preview is rendered at
+
+/**
+ * Makes a size field from a value in inches.
+ * @param value The value in inches.
+ * @returns The field, showing the value.
+ */
+function inchField(value: number): InchField {
+	return { text: String(value), value, valid: value > 0 };
+}
+
+/**
+ * Makes a size field from typed text.
+ * @param text The typed text.
+ * @returns The field, with the text parsed to inches rounded to two decimals.
+ */
+function parseInchField(text: string): InchField {
+	const value = roundInches(parseFloat(text));
+	return { text, value, valid: Number.isFinite(value) && value > 0 };
+}
 
 /**
  * Show the save plot modal dialog for dynamic plots.
@@ -137,6 +158,16 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [lockedRatio, setLockedRatio] = React.useState<number | undefined>(
 		() => initialSize ? ratioOf(initialSize.width, initialSize.height) : undefined
 	);
+	// The PDF page size, kept apart from the pixel size so switching formats keeps both.
+	const [paneInches] = React.useState(() => plotPaneInches(props.plotSize, props.plotIntrinsicSize));
+	const [pdfChoice, setPdfChoice] = React.useState<PdfSizeChoice>(() => props.suggestedPdfSize ??
+		{ preset: 'plotPane', orientation: orientationOf(paneInches.width, paneInches.height, 'landscape') });
+	const [pdfWidth, setPdfWidth] = React.useState(() => inchField(resolvePdfSize(pdfChoice, paneInches).width));
+	const [pdfHeight, setPdfHeight] = React.useState(() => inchField(resolvePdfSize(pdfChoice, paneInches).height));
+	// The aspect ratio kept while editing the PDF size, or undefined when unlocked.
+	const [pdfLockedRatio, setPdfLockedRatio] = React.useState<number | undefined>(
+		() => ratioOf(pdfWidth.value, pdfHeight.value)
+	);
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null!);
@@ -150,9 +181,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
 	}, [props.plotClient.lastRender?.uri]);
 
+	const isPdf = format === PlotRenderFormat.Pdf;
+
+	// The size fields of the chosen format's family: inches for PDF, pixels otherwise.
+	const sizeValid = isPdf ? pdfWidth.valid && pdfHeight.valid : width.valid && height.valid;
+
 	const validateInput = React.useCallback((): boolean => {
-		return directory.valid && width.valid && height.valid && name.valid;
-	}, [directory, width, height, name]);
+		return directory.valid && sizeValid && name.valid;
+	}, [directory, sizeValid, name]);
 
 	React.useEffect(() => {
 		validateInput();
@@ -176,11 +212,84 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 	};
 
-	// The ratio a new lock would capture from the current size, if both fields are valid.
-	const currentRatio = width.valid && height.valid ? ratioOf(width.value, height.value) : undefined;
+	// The orientation the PDF size has: a Custom size's own, otherwise the chosen one.
+	const pdfOrientation: PdfOrientation = pdfChoice.preset === 'custom' && pdfWidth.valid && pdfHeight.valid
+		? orientationOf(pdfWidth.value, pdfHeight.value, pdfChoice.orientation)
+		: pdfChoice.orientation;
+
+	/** Shows a PDF size, re-capturing the aspect ratio if it is locked. */
+	const setPdfSize = (newWidth: number, newHeight: number): void => {
+		setPdfWidth(inchField(newWidth));
+		setPdfHeight(inchField(newHeight));
+		if (pdfLockedRatio !== undefined) {
+			setPdfLockedRatio(ratioOf(newWidth, newHeight));
+		}
+	};
+
+	const updatePdfPreset = (preset: PdfPreset): void => {
+		if (preset === 'custom') {
+			// Keep the current size, which is now typed rather than taken from a preset.
+			setPdfChoice({ preset, orientation: pdfOrientation });
+			return;
+		}
+		const choice: PdfSizeChoice = { preset, orientation: pdfOrientation };
+		const size = resolvePdfSize(choice, paneInches);
+		setPdfChoice(choice);
+		setPdfSize(size.width, size.height);
+	};
+
+	const updatePdfOrientation = (orientation: PdfOrientation): void => {
+		if (orientation === pdfOrientation) {
+			return;
+		}
+		if (pdfChoice.preset === 'custom') {
+			// Swap the typed size; it stays Custom.
+			setPdfChoice({ preset: 'custom', orientation });
+			setPdfWidth(pdfHeight);
+			setPdfHeight(pdfWidth);
+			if (pdfLockedRatio !== undefined) {
+				setPdfLockedRatio(1 / pdfLockedRatio);
+			}
+			return;
+		}
+		const choice: PdfSizeChoice = { preset: pdfChoice.preset, orientation };
+		const size = resolvePdfSize(choice, paneInches);
+		setPdfChoice(choice);
+		setPdfSize(size.width, size.height);
+	};
+
+	const updatePdfWidth = (text: string): void => {
+		const field = parseInchField(text);
+		setPdfWidth(field);
+		setPdfChoice({ preset: 'custom', orientation: pdfChoice.orientation });
+		if (pdfLockedRatio !== undefined && field.valid) {
+			setPdfHeight(inchField(linkedHeight(field.value, pdfLockedRatio, 2)));
+		}
+	};
+
+	const updatePdfHeight = (text: string): void => {
+		const field = parseInchField(text);
+		setPdfHeight(field);
+		setPdfChoice({ preset: 'custom', orientation: pdfChoice.orientation });
+		if (pdfLockedRatio !== undefined && field.valid) {
+			setPdfWidth(inchField(linkedWidth(field.value, pdfLockedRatio, 2)));
+		}
+	};
+
+	// The lock of the chosen format's family, and the ratio a new lock would capture from its
+	// current size, if both fields are valid.
+	const activeLockedRatio = isPdf ? pdfLockedRatio : lockedRatio;
+	const currentRatio = isPdf
+		? (pdfWidth.valid && pdfHeight.valid ? ratioOf(pdfWidth.value, pdfHeight.value) : undefined)
+		: (width.valid && height.valid ? ratioOf(width.value, height.value) : undefined);
 
 	const maintainAspectRatio = (checked: boolean): void => {
-		setLockedRatio(checked ? currentRatio : undefined);
+		const ratio = checked ? currentRatio : undefined;
+		if (isPdf) {
+			setPdfLockedRatio(ratio);
+		} else {
+			setLockedRatio(ratio);
+		}
 	};
 
 	const updatePath = (path: URI) => {
@@ -242,6 +351,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						format,
 						resolution: isRasterFormat(format) ? resolution : undefined,
 						resolutionPicked,
+						pdfSize: isPdf ? currentPdfSizeChoice() : undefined,
 					});
 				})
 				.catch((error) => {
@@ -253,6 +363,11 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 				});
 		}
 	};
+
+	/** The PDF size to remember: a preset and orientation, plus the size for Custom. */
+	const currentPdfSizeChoice = (): PdfSizeChoice => pdfChoice.preset === 'custom'
+		? { preset: 'custom', orientation: pdfOrientation, width: pdfWidth.value, height: pdfHeight.value }
+		: { preset: pdfChoice.preset, orientation: pdfOrientation };
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
@@ -278,17 +393,32 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		format: PlotRenderFormat,
 		pixelRatio = isRasterFormat(format) ? resolution : 1,
 	): Promise<IRenderedPlot> => {
-		let size: IPlotSize | undefined;
-		if (!enableIntrinsicSize) {
-			if (!width.value || !height.value) {
-				throw new Error('Width and height must be defined for plots that do not support intrinsic size.');
-			}
-			size = { height: height.value, width: width.value };
-		}
 		// Render at exactly the requested size. The Plots pane's sizing policy
 		// governs the pane, not an export the user sized explicitly. Vector formats
 		// always render at 1: a larger pixel ratio would enlarge the page, not sharpen it.
-		return props.plotClient.render(size, pixelRatio, format, true);
+		if (enableIntrinsicSize) {
+			return props.plotClient.render(undefined, pixelRatio, format, true, PlotUnit.Pixels);
+		}
+		if (isPdf) {
+			if (!pdfWidth.valid || !pdfHeight.valid) {
+				throw new Error('Width and height must be greater than 0.');
+			}
+			if (format === PlotRenderFormat.Pdf) {
+				// A PDF page is sized in inches, sent as typed rather than rounded to whole units.
+				return props.plotClient.render({ width: pdfWidth.value, height: pdfHeight.value }, 1, format, true, PlotUnit.Inches);
+			}
+			// The PNG preview of a PDF shows the page at screen size.
+			const previewSize = {
+				width: Math.round(pdfWidth.value * PDF_PREVIEW_DPI),
+				height: Math.round(pdfHeight.value * PDF_PREVIEW_DPI),
+			};
+			return props.plotClient.render(previewSize, 1, format, true, PlotUnit.Pixels);
+		}
+		if (!width.value || !height.value) {
+			throw new Error('Width and height must be defined for plots that do not support intrinsic size.');
+		}
+		const size: IPlotSize = { height: height.value, width: width.value };
+		return props.plotClient.render(size, pixelRatio, format, true, PlotUnit.Pixels);
 	};
 
 	let intrinsicWidth = '';
@@ -397,7 +527,16 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									type={'text'}
 									value={intrinsicHeight}
 								/>
-							</> : <>
+							</> : isPdf ? <PdfSizeInputs
+								height={pdfHeight}
+								orientation={pdfOrientation}
+								preset={pdfChoice.preset}
+								width={pdfWidth}
+								onHeightChanged={updatePdfHeight}
+								onOrientationChanged={updatePdfOrientation}
+								onPresetChanged={updatePdfPreset}
+								onWidthChanged={updatePdfWidth}
+							/> : <>
 								<LabeledTextInput
 									error={!width.valid}
 									label={localize(
@@ -445,7 +584,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									)}
 								</div>
 								<div>
-									{(!width.valid || !height.valid) && localize(
+									{!sizeValid && localize(
 										'positron.savePlotModalDialog.dimensionError',
 										"Width and height must be greater than 0."
 									)}
@@ -460,8 +599,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						</div>
 						<div className='size-options'>
 							<Checkbox
-								disabled={enableIntrinsicSize || (lockedRatio === undefined && currentRatio === undefined)}
-								initialChecked={lockedRatio !== undefined}
+								// Each format family keeps its own lock, so the box is remade when the family changes.
+								key={isPdf ? 'pdf-lock' : 'pixel-lock'}
+								disabled={enableIntrinsicSize || (activeLockedRatio === undefined && currentRatio === undefined)}
+								initialChecked={activeLockedRatio !== undefined}
 								label={localize(
 									'positron.savePlotModalDialog.maintainAspectRatio',
 									"Maintain aspect ratio"

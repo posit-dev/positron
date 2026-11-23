@@ -128,3 +128,34 @@ img.plot-preview {
 	min-width: 72px;
 	margin-top: 4px;
 }
+
+.plot-preview-input .plot-input .pdf-size .drop-down-list-box {
+	/* As wide as the Width input, so the Width and Height inputs line up below. */
+	min-width: 100px;
+	margin-top: 4px;
+}
+
+.plot-preview-input .plot-input .pdf-orientation {
+	display: flex;
+	flex-direction: column;
+	row-gap: 4px;
+}
+
+.plot-preview-input .plot-input .pdf-orientation .radio-group {
+	flex-direction: row;
+	column-gap: 16px;
+}
+
+.plot-preview-input .plot-input .pdf-inches {
+	flex-basis: 100%;
+	display: flex;
+	align-items: flex-end;
+	column-gap: 16px;
+	margin-top: 10px;
+}
+
+.plot-preview-input .plot-input .pdf-inches .unit {
+	/* Sits on the inputs' baseline rather than their labels'. */
+	margin-left: -12px;
+	padding-bottom: 6px;
+}

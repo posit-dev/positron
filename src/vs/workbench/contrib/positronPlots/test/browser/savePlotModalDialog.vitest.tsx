@@ -22,6 +22,7 @@ import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/posit
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { PdfSizeChoice } from '../../browser/modalDialogs/pdfPageSize.js';
 import { showSavePlotModalDialog } from '../../browser/modalDialogs/savePlotModalDialog.js';
 import { SaveResolutionsConfigKey } from '../../browser/modalDialogs/saveResolution.js';
 
@@ -31,7 +32,7 @@ import { SaveResolutionsConfigKey } from '../../browser/modalDialogs/saveResolut
  * before rendering. `render` records the size the kernel would be asked for.
  */
 function createFakePlotClient(policy: IPositronPlotSizingPolicy, intrinsicSize?: IntrinsicSize, withLastRender = true) {
-	const render: Mock<(size: IPlotSize | undefined, pixelRatio: number, format?: PlotRenderFormat, preview?: boolean) => Promise<IRenderedPlot>> =
+	const render: Mock<(size: IPlotSize | undefined, pixelRatio: number, format?: PlotRenderFormat, preview?: boolean, unit?: PlotUnit) => Promise<IRenderedPlot>> =
 		vi.fn().mockResolvedValue({ uri: 'data:image/svg+xml;base64,AA==', pixel_ratio: 1 });
 	const client = stubInterface<PlotClientInstance>({
 		metadata: {
@@ -75,6 +76,12 @@ async function typeSize(user: UserEvent, width: number, height: number) {
 	await user.type(heightInput, String(height));
 }
 
+/** Picks an entry from the drop down list box with the given label. */
+async function pick(user: UserEvent, label: string, entry: string) {
+	await user.click(screen.getByRole('button', { name: label }));
+	await user.click(await screen.findByRole('button', { name: entry }));
+}
+
 describe('Save Plot dialog size', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -114,7 +121,7 @@ describe('Save Plot dialog size', () => {
 		await typeSize(user, 3270, 1772);
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 3270, height: 1772 }, 1, PlotRenderFormat.Svg, true);
+		expect(render).toHaveBeenCalledWith({ width: 3270, height: 1772 }, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 	});
 
 	it('honors the typed size under a Custom policy', async () => {
@@ -124,7 +131,7 @@ describe('Save Plot dialog size', () => {
 		await typeSize(user, 800, 600);
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 800, height: 600 }, 1, PlotRenderFormat.Svg, true);
+		expect(render).toHaveBeenCalledWith({ width: 800, height: 600 }, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 	});
 
 	it('honors the typed size under the Intrinsic policy when Use intrinsic size is unticked', async () => {
@@ -135,7 +142,7 @@ describe('Save Plot dialog size', () => {
 		await typeSize(user, 600, 400);
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 600, height: 400 }, 1, PlotRenderFormat.Svg, true);
+		expect(render).toHaveBeenCalledWith({ width: 600, height: 400 }, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 	});
 
 	it('renders at the intrinsic size when Use intrinsic size is ticked', async () => {
@@ -144,7 +151,7 @@ describe('Save Plot dialog size', () => {
 
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith(undefined, 1, PlotRenderFormat.Svg, true);
+		expect(render).toHaveBeenCalledWith(undefined, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 	});
 
 	it('previews at the typed size', async () => {
@@ -154,7 +161,7 @@ describe('Save Plot dialog size', () => {
 		await typeSize(user, 3270, 1772);
 		await user.click(screen.getByRole('button', { name: 'Preview' }));
 
-		await vi.waitFor(() => expect(render).toHaveBeenCalledWith({ width: 3270, height: 1772 }, 1, PlotRenderFormat.Png, true));
+		await vi.waitFor(() => expect(render).toHaveBeenCalledWith({ width: 3270, height: 1772 }, 1, PlotRenderFormat.Png, true, PlotUnit.Pixels));
 
 		// Preview leaves the dialog open; close it so its renderer is disposed.
 		await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -202,7 +209,7 @@ describe('Save Plot dialog size', () => {
 			await typeInto(user, widthInput(), 1400);
 			await save(user, savePlotCallback);
 
-			expect(render).toHaveBeenCalledWith({ width: 1400, height: 1000 }, 1, PlotRenderFormat.Svg, true);
+			expect(render).toHaveBeenCalledWith({ width: 1400, height: 1000 }, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 		});
 
 		it('keeps the fields independent when turned off', async () => {
@@ -326,12 +333,6 @@ describe('Save Plot dialog resolution', () => {
 		await vi.waitFor(() => expect(savePlotCallback).toHaveBeenCalled());
 	}
 
-	/** Picks an entry from the drop down list box with the given label. */
-	async function pick(user: UserEvent, label: string, entry: string) {
-		await user.click(screen.getByRole('button', { name: label }));
-		await user.click(await screen.findByRole('button', { name: entry }));
-	}
-
 	it('starts at the screen density rounded up and saves at it without remembering it', async () => {
 		const user = userEvent.setup();
 		const { render, savePlotCallback } = await open(PlotRenderFormat.Png);
@@ -340,7 +341,7 @@ describe('Save Plot dialog resolution', () => {
 		expect(resolutionButton()).toHaveTextContent('2x');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true, PlotUnit.Pixels);
 		// Saved at the default, which is reported as not picked, so it isn't remembered: a 1x
 		// default on a 1x monitor must not stick when the window moves to a 2x screen.
 		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 2, resolutionPicked: false }));
@@ -353,7 +354,7 @@ describe('Save Plot dialog resolution', () => {
 		await pick(user, 'Resolution', '3x');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Jpeg, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Jpeg, true, PlotUnit.Pixels);
 		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: 3, resolutionPicked: true }));
 	});
 
@@ -364,7 +365,7 @@ describe('Save Plot dialog resolution', () => {
 		expect(resolutionButton()).toHaveTextContent('3x');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Png, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 3, PlotRenderFormat.Png, true, PlotUnit.Pixels);
 	});
 
 	it('ignores a remembered resolution that the setting no longer offers', async () => {
@@ -374,7 +375,7 @@ describe('Save Plot dialog resolution', () => {
 
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 2, PlotRenderFormat.Png, true, PlotUnit.Pixels);
 	});
 
 	it('offers the resolutions from the setting', async () => {
@@ -386,7 +387,7 @@ describe('Save Plot dialog resolution', () => {
 		await pick(user, 'Resolution', '6x');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 6, PlotRenderFormat.Png, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 6, PlotRenderFormat.Png, true, PlotUnit.Pixels);
 	});
 
 	it('is hidden for vector formats', async () => {
@@ -405,7 +406,187 @@ describe('Save Plot dialog resolution', () => {
 		await pick(user, 'Format', 'SVG');
 		await save(user, savePlotCallback);
 
-		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 1, PlotRenderFormat.Svg, true);
+		expect(render).toHaveBeenCalledWith({ width: 700, height: 500 }, 1, PlotRenderFormat.Svg, true, PlotUnit.Pixels);
 		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ resolution: undefined }));
+	});
+});
+
+describe('Save Plot dialog PDF size', () => {
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IFileService, { exists: vi.fn().mockResolvedValue(false) })
+		.build();
+
+	setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		// See 'Save Plot dialog size'.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	// The fake plot's last render is 700 x 500 px, so the Plot Pane preset is 7.29 x 5.21 in.
+	const widthInput = () => screen.getByRole('spinbutton', { name: 'Width' });
+	const heightInput = () => screen.getByRole('spinbutton', { name: 'Height' });
+
+	async function open(format: PlotRenderFormat, suggestedPdfSize?: PdfSizeChoice) {
+		const { client, render } = createFakePlotClient(new PlotSizingPolicyAuto());
+		const savePlotCallback = vi.fn();
+		showSavePlotModalDialog(new PlotSizingPolicyAuto(), client, savePlotCallback, URI.file('/tmp'), format, undefined, suggestedPdfSize);
+		expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+		return { render, savePlotCallback };
+	}
+
+	async function save(user: UserEvent, savePlotCallback: Mock) {
+		await user.click(screen.getByRole('button', { name: 'Save' }));
+		await vi.waitFor(() => expect(savePlotCallback).toHaveBeenCalled());
+	}
+
+	async function close(user: UserEvent) {
+		await user.click(screen.getByRole('button', { name: 'Cancel' }));
+	}
+
+	async function typeInto(user: UserEvent, input: HTMLElement, value: number) {
+		await user.clear(input);
+		await user.type(input, String(value));
+	}
+
+	it('starts PDF at the plot pane size in inches', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Pdf);
+
+		expect(screen.getByRole('button', { name: 'Size' })).toHaveTextContent('Plot Pane');
+		expect(widthInput()).toHaveValue(7.29);
+		expect(heightInput()).toHaveValue(5.21);
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 7.29, height: 5.21 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ pdfSize: { preset: 'plotPane', orientation: 'landscape' } }));
+	});
+
+	it('fills the preset size in the current orientation', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Pdf);
+
+		await pick(user, 'Size', 'Letter');
+		expect(widthInput()).toHaveValue(11);
+		expect(heightInput()).toHaveValue(8.5);
+
+		await user.click(screen.getByRole('radio', { name: 'Portrait' }));
+		expect(widthInput()).toHaveValue(8.5);
+		expect(heightInput()).toHaveValue(11);
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 8.5, height: 11 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({ pdfSize: { preset: 'letter', orientation: 'portrait' } }));
+	});
+
+	it('switches to Custom when a size is typed', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Pdf);
+
+		await typeInto(user, widthInput(), 7.25);
+
+		expect(screen.getByRole('button', { name: 'Size' })).toHaveTextContent('Custom');
+		expect(heightInput()).toHaveValue(5.18);
+		await save(user, savePlotCallback);
+
+		// Inches are sent as typed, not floored to whole numbers.
+		expect(render).toHaveBeenCalledWith({ width: 7.25, height: 5.18 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+		expect(savePlotCallback).toHaveBeenCalledWith(expect.objectContaining({
+			pdfSize: { preset: 'custom', orientation: 'landscape', width: 7.25, height: 5.18 },
+		}));
+	});
+
+	it('swaps a Custom size when the orientation changes', async () => {
+		const user = userEvent.setup();
+		const { render, savePlotCallback } = await open(PlotRenderFormat.Pdf, { preset: 'custom', orientation: 'landscape', width: 3.5, height: 2.5 });
+
+		await user.click(screen.getByRole('radio', { name: 'Portrait' }));
+
+		expect(screen.getByRole('button', { name: 'Size' })).toHaveTextContent('Custom');
+		expect(widthInput()).toHaveValue(2.5);
+		expect(heightInput()).toHaveValue(3.5);
+		await save(user, savePlotCallback);
+
+		expect(render).toHaveBeenCalledWith({ width: 2.5, height: 3.5 }, 1, PlotRenderFormat.Pdf, true, PlotUnit.Inches);
+	});
+
+	it('starts at a remembered preset', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Pdf, { preset: 'a5', orientation: 'landscape' });
+
+		expect(screen.getByRole('button', { name: 'Size' })).toHaveTextContent('A5');
+		expect(widthInput()).toHaveValue(8.27);
+		expect(heightInput()).toHaveValue(5.83);
+		expect(screen.getByRole('radio', { name: 'Landscape' })).toBeChecked();
+		await close(user);
+	});
+
+	it('recomputes a remembered Plot Pane from this plot', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Pdf, { preset: 'plotPane', orientation: 'landscape' });
+
+		expect(widthInput()).toHaveValue(7.29);
+		expect(heightInput()).toHaveValue(5.21);
+		await close(user);
+	});
+
+	it('restores a remembered Custom size and locks its ratio', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Pdf, { preset: 'custom', orientation: 'landscape', width: 3.5, height: 2.5 });
+
+		expect(widthInput()).toHaveValue(3.5);
+		expect(heightInput()).toHaveValue(2.5);
+
+		await typeInto(user, widthInput(), 7);
+		expect(heightInput()).toHaveValue(5);
+		await close(user);
+	});
+
+	it('keeps separate sizes per format', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Png);
+
+		await typeSize(user, 1000, 714);
+		await pick(user, 'Format', 'PDF');
+		expect(widthInput()).toHaveValue(7.29);
+		expect(heightInput()).toHaveValue(5.21);
+
+		await pick(user, 'Format', 'PNG');
+		expect(widthInput()).toHaveValue(1000);
+		expect(heightInput()).toHaveValue(714);
+		await close(user);
+	});
+
+	it('rejects an empty or zero inch size', async () => {
+		const user = userEvent.setup();
+		const { render } = await open(PlotRenderFormat.Pdf);
+
+		await user.clear(widthInput());
+
+		expect(screen.getByText('Width and height must be greater than 0.')).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Save' }));
+		expect(render).not.toHaveBeenCalled();
+		await close(user);
+	});
+
+	it('previews a PDF as a PNG at 96 pixels per inch', async () => {
+		const user = userEvent.setup();
+		const { render } = await open(PlotRenderFormat.Pdf);
+
+		await pick(user, 'Size', 'Letter');
+		await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+		await vi.waitFor(() => expect(render).toHaveBeenCalledWith({ width: 1056, height: 816 }, 1, PlotRenderFormat.Png, true, PlotUnit.Pixels));
+		await close(user);
+	});
+
+	it('hides Size and Orientation for other formats', async () => {
+		const user = userEvent.setup();
+		await open(PlotRenderFormat.Svg);
+
+		expect(screen.queryByRole('button', { name: 'Size' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('radiogroup', { name: 'Orientation' })).not.toBeInTheDocument();
+		await close(user);
 	});
 });

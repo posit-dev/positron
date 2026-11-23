@@ -28,6 +28,10 @@ export interface LabeledTextInputProps {
 	autoFocus?: boolean;
 	max?: number;
 	min?: number;
+	/**
+	 * The granularity of a number input's value.
+	 */
+	step?: number;
 	type?: 'text' | 'number' | 'password';
 	error?: boolean;
 	/**
@@ -83,6 +87,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 					max={props.max}
 					maxLength={props.maxLength}
 					min={props.min}
+					step={props.step}
 					type={props.type}
 					value={props.value}
 					onChange={props.onChange}
