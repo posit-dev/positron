@@ -243,6 +243,15 @@ export class Debug {
 	}
 
 	/**
+	 * Verify: The debugger is paused, as shown in the call stack
+	 */
+	async expectPaused(): Promise<void> {
+		await test.step('Verify debugger is paused', async () => {
+			await expect(this.callStack.getByText(/Paused/).first()).toBeVisible();
+		});
+	}
+
+	/**
 	 * Verify: The debug variable pane is visible
 	 */
 	async expectDebugVariablePaneVisible(): Promise<void> {
