@@ -21,7 +21,8 @@ runs:
     - name: Set up Node
       uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        # Claude Code needs Node 22; on Node 20 npm installs an old release that cannot use the Bedrock model.
+        node-version: "22"
 
     - name: Install action dependencies
       shell: bash
