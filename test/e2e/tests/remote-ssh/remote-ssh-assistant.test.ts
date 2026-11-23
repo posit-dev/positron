@@ -10,7 +10,7 @@ test.use({
 	// appEnv keeps ANTHROPIC_API_KEY out of the client, so Anthropic starts disconnected and
 	// the test drives the provider manager's connect flow. The provider manager types
 	// `ANTHROPIC_KEY`, which the lane loads separately (see
-	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
+	// test-e2e-ssh.yml in posit-dev/positron-builds).
 	suiteId: __filename,
 });
 

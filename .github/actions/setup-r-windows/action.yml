@@ -1,8 +1,8 @@
 name: "Setup R (Windows)"
 description: "Installs rig and the current R release, then installs the e2e test-files R packages through a shared package cache, on a Windows runner"
 
-# Shared by test-e2e-windows-run.yml and test-ext-host-windows.yml so both jobs
-# use the same R version, cache key, library path and PPM snapshot. The cache
+# Used by test-e2e-windows.yml in posit-dev/positron-builds so every job there
+# uses the same R version, cache key, library path and PPM snapshot. The cache
 # is saved only by the caller that passes save-cache: 'true'; other callers
 # restore the same key.
 
