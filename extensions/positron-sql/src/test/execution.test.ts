@@ -121,6 +121,40 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('a later run waits for an earlier one to send all its statements', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const finishFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2', 'SELECT 3']);
+		await run.run(await document(), CONNECTION, 'SELECT 9');
+		await turns();
+		// Not sent between the first run's statements while the first of them is still running.
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+
+		finishFirst();
+		await turns();
+		assert.deepStrictEqual(
+			api.executed,
+			[['gg', 'SELECT 1'], ['gg', 'SELECT 2'], ['gg', 'SELECT 3'], ['gg', 'SELECT 9']],
+		);
+	});
+
+	test('a single statement does not wait for the one before it to finish', async () => {
+		// The console queues it; only a run with more statements still to send holds the next back.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.statementsSettle = false;
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, 'SELECT 1');
+		await run.run(await document(), CONNECTION, 'SELECT 2');
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT 2']]);
+	});
+
 	test('a statement that fails stops the ones after it', async () => {
 		const api = new FakeApi();
 		api.addSession('gg', SHOP);
@@ -303,6 +337,15 @@ class FakeApi implements ExecutionApi {
 	/** A statement that fails when it runs, as one with an error in it does. */
 	public failingStatement: string | undefined;
 
+	private readonly _held = new Map<string, Promise<void>>();
+
+	/** Makes a statement run until the returned function is called, as a long query does. */
+	public holdStatement(code: string): () => void {
+		let finish!: () => void;
+		this._held.set(code, new Promise<void>(resolve => finish = resolve));
+		return () => finish();
+	}
+
 	public readonly executed: [string, string][] = [];
 	public started = 0;
 
@@ -363,6 +406,10 @@ class FakeApi implements ExecutionApi {
 		if (!code.startsWith('-- @connect: ')) {
 			if (code === this.failingStatement) {
 				return Promise.reject(new Error('Catalog Error: no such table'));
+			}
+			const held = this._held.get(code);
+			if (held) {
+				return held;
 			}
 			return this.statementsSettle ? Promise.resolve() : new Promise(() => { });
 		}

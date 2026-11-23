@@ -264,27 +264,55 @@ export class StatementRunner {
 		this._log.info(`Running ${queries.length} statement(s) from ${document.uri.toString(true)}`
 			+ ` against ${connection.name} in ggsql session ${sessionId}.`);
 		// Not awaited. The statements are the user's and may take as long as they take; the console
-		// shows each result or error, and the next Cmd+Enter is queued behind them there rather
-		// than held up here.
-		void this._send(queries, sessionId, document.uri);
+		// shows each result or error. A later run in the same session waits only until this one has
+		// sent its last statement, so it lands behind all of them in the console's queue rather
+		// than between them.
+		const id = sessionId;
+		const previous = this._sending.get(id);
+		const sent = previous
+			? previous.then(() => this._send(queries, id, document.uri))
+			: this._send(queries, id, document.uri);
+		this._sending.set(id, sent);
+		void sent.then(() => {
+			if (this._sending.get(id) === sent) {
+				this._sending.delete(id);
+			}
+		});
 		return { kind: 'executed', sessionId };
 	}
 
 	/**
-	 * Sends statements to a session one at a time, each once the one before it has run.
+	 * Per session, the latest run that is still sending statements: it settles once that run has
+	 * sent its last one, or stopped. Never rejects.
+	 */
+	private readonly _sending = new Map<string, Promise<void>>();
+
+	/**
+	 * Sends statements to a session one at a time, each once the one before it has run, resolving
+	 * once the last has been sent (not run).
 	 *
 	 * One execution each, rather than the lot as one block, so the console shows each statement
 	 * with its own result. A statement that fails stops the rest, since they may depend on it.
 	 */
 	private async _send(queries: readonly string[], sessionId: string, documentUri: vscode.Uri): Promise<void> {
+		const failed = (index: number, error: unknown) => {
+			const skipped = queries.length - index - 1;
+			this._log.warn(`A statement from ${documentUri.toString(true)} failed in ggsql`
+				+ ` session ${sessionId}: ${errorMessage(error)}`
+				+ (skipped ? `; ${skipped} statement(s) after it were not run.` : ''));
+		};
+		const last = queries.length - 1;
 		for (const [index, query] of queries.entries()) {
+			const execution = this._api.executeCode(query, sessionId, documentUri);
+			if (index === last) {
+				// Nothing waits on this one: the console queues whatever is sent after it.
+				execution.then(undefined, error => failed(index, error));
+				return;
+			}
 			try {
-				await this._api.executeCode(query, sessionId, documentUri);
+				await execution;
 			} catch (error) {
-				const skipped = queries.length - index - 1;
-				this._log.warn(`A statement from ${documentUri.toString(true)} failed in ggsql`
-					+ ` session ${sessionId}: ${errorMessage(error)}`
-					+ (skipped ? `; ${skipped} statement(s) after it were not run.` : ''));
+				failed(index, error);
 				return;
 			}
 		}
