@@ -10,6 +10,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { PostgreSQLConnection } from './postgresqlConnection.js';
 import { PostgresDataExplorerRpcHandler } from './postgresqlDataExplorerRpcHandler.js';
+import { azureTokenProvider, isWorkbenchAzureAvailable } from './workbenchCredentials.js';
 
 /**
  * Type guard for a non-empty string.
@@ -111,6 +112,38 @@ const CERT_MECHANISM_ID = 'clientCert';
  * and in the connect/generate switches, so they stay in sync.
  */
 const CONNECTION_STRING_MECHANISM_ID = 'connectionString';
+
+/**
+ * The id of the Microsoft Entra ID mechanism for Azure Database for PostgreSQL. On Posit Workbench, the
+ * password is a delegated Entra ID access token Workbench issues for the signed-in user. Used both in
+ * the driver's mechanism list and in the connect/generate switches, so they stay in sync.
+ */
+const ENTRA_MECHANISM_ID = 'workbench-entra';
+
+/** The Azure resource whose tokens Azure Database for PostgreSQL accepts as passwords. */
+const AZURE_POSTGRES_RESOURCE = 'https://ossrdbms-aad.database.windows.net';
+
+/** The service name shown in Azure credential errors. */
+const AZURE_POSTGRES_SERVICE_NAME = 'Azure Database for PostgreSQL';
+
+/**
+ * The Entra ID user name an access token was issued to, from its `upn` or `preferred_username` claim,
+ * which is the role name Azure Database for PostgreSQL expects. Undefined when the token is not a JWT
+ * or carries neither claim. The token is decoded, not verified; the server verifies it.
+ */
+function entraUserFromToken(token: string): string | undefined {
+	const payload = token.split('.')[1];
+	if (!payload) {
+		return undefined;
+	}
+	try {
+		const claims: Record<string, unknown> = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+		const user = claims.upn ?? claims.preferred_username ?? claims.unique_name;
+		return isNonEmptyString(user) ? user : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 // --- Parameter fragments ---
 //
@@ -248,6 +281,17 @@ interface PostgresConnectionFields {
 	sslrootcert?: string;
 	sslcert?: string;
 	sslkey?: string;
+	// When set, the password is a delegated Entra ID access token for this Azure resource, fetched from
+	// Posit Workbench by the generated code rather than written into it.
+	entraResource?: string;
+}
+
+/**
+ * The comment and statement that fetch a Workbench-delegated Entra ID token into `token`, for the
+ * generated Python code.
+ */
+function pythonEntraTokenLines(resource: string): string {
+	return `# Requires posit-sdk. The token is valid for about an hour.\ntoken = Client().oauth.get_delegated_azure_token("${escapeDoubleQuoted(resource)}")["access_token"]\n`;
 }
 
 /** Renders psycopg2 connection code from normalized fields. */
@@ -256,16 +300,23 @@ function renderPsycopg2Code(fields: PostgresConnectionFields): positron.Connecti
 	if (fields.host) { args.push(`host="${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port=${fields.port}`); }
 	if (fields.user) { args.push(`user="${escapeDoubleQuoted(fields.user)}"`); }
-	if (fields.password) { args.push(`password="${escapeDoubleQuoted(fields.password)}"`); }
+	if (fields.entraResource) {
+		args.push('password=token');
+	} else if (fields.password) {
+		args.push(`password="${escapeDoubleQuoted(fields.password)}"`);
+	}
 	if (fields.database) { args.push(`dbname="${escapeDoubleQuoted(fields.database)}"`); }
 	if (fields.sslmode) { args.push(`sslmode="${escapeDoubleQuoted(fields.sslmode)}"`); }
 	if (fields.sslrootcert) { args.push(`sslrootcert="${escapeDoubleQuoted(fields.sslrootcert)}"`); }
 	if (fields.sslcert) { args.push(`sslcert="${escapeDoubleQuoted(fields.sslcert)}"`); }
 	if (fields.sslkey) { args.push(`sslkey="${escapeDoubleQuoted(fields.sslkey)}"`); }
+	const preamble = fields.entraResource
+		? `import psycopg2\nfrom posit.workbench import Client\n\n${pythonEntraTokenLines(fields.entraResource)}\n`
+		: 'import psycopg2\n\n';
 	return {
 		id: 'psycopg2',
 		label: 'psycopg2',
-		code: `import psycopg2\n\nconn = psycopg2.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+		code: `${preamble}conn = psycopg2.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
 	};
 }
 
@@ -279,7 +330,9 @@ function renderSqlAlchemyCode(fields: PostgresConnectionFields): positron.Connec
 	if (fields.host) { args.push(`host="${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port=${fields.port}`); }
 	if (fields.user) { args.push(`username="${escapeDoubleQuoted(fields.user)}"`); }
-	if (fields.password) { args.push(`password="${escapeDoubleQuoted(fields.password)}"`); }
+	// An Entra ID token expires, so it is supplied per connection by the do_connect hook below rather
+	// than fixed in the URL, where the pool's later connections would reuse a stale token.
+	if (fields.password && !fields.entraResource) { args.push(`password="${escapeDoubleQuoted(fields.password)}"`); }
 	if (fields.database) { args.push(`database="${escapeDoubleQuoted(fields.database)}"`); }
 
 	const queryEntries: string[] = [];
@@ -289,10 +342,22 @@ function renderSqlAlchemyCode(fields: PostgresConnectionFields): positron.Connec
 	if (fields.sslkey) { queryEntries.push(`"sslkey": "${escapeDoubleQuoted(fields.sslkey)}"`); }
 	if (queryEntries.length > 0) { args.push(`query={${queryEntries.join(', ')}}`); }
 
+	const engine = `engine = sa.create_engine(sa.URL.create(\n${args.map(arg => `\t${arg},`).join('\n')}\n))\n`;
+	if (fields.entraResource) {
+		return {
+			id: 'sqlalchemy',
+			label: 'SQLAlchemy',
+			code: `import sqlalchemy as sa\nfrom posit.workbench import Client\n\n${engine}\n` +
+				`# Requires posit-sdk. Fetches a fresh token for each new connection in the pool.\n` +
+				`@sa.event.listens_for(engine, "do_connect")\n` +
+				`def provide_token(dialect, conn_rec, cargs, cparams):\n` +
+				`\tcparams["password"] = Client().oauth.get_delegated_azure_token("${escapeDoubleQuoted(fields.entraResource)}")["access_token"]\n`,
+		};
+	}
 	return {
 		id: 'sqlalchemy',
 		label: 'SQLAlchemy',
-		code: `import sqlalchemy as sa\n\nengine = sa.create_engine(sa.URL.create(\n${args.map(arg => `\t${arg},`).join('\n')}\n))\n`,
+		code: `import sqlalchemy as sa\n\n${engine}`,
 	};
 }
 
@@ -302,17 +367,25 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
 	if (fields.host) { args.push(`host = "${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port = ${fields.port}`); }
 	if (fields.user) { args.push(`user = "${escapeDoubleQuoted(fields.user)}"`); }
-	if (fields.password) { args.push(`password = "${escapeDoubleQuoted(fields.password)}"`); }
+	if (fields.entraResource) {
+		args.push('password = token');
+	} else if (fields.password) {
+		args.push(`password = "${escapeDoubleQuoted(fields.password)}"`);
+	}
 	if (fields.database) { args.push(`dbname = "${escapeDoubleQuoted(fields.database)}"`); }
 	if (fields.sslmode) { args.push(`sslmode = "${escapeDoubleQuoted(fields.sslmode)}"`); }
 	if (fields.sslrootcert) { args.push(`sslrootcert = "${escapeDoubleQuoted(fields.sslrootcert)}"`); }
 	if (fields.sslcert) { args.push(`sslcert = "${escapeDoubleQuoted(fields.sslcert)}"`); }
 	if (fields.sslkey) { args.push(`sslkey = "${escapeDoubleQuoted(fields.sslkey)}"`); }
+	// rstudioapi 0.18.0 is the first release whose getDelegatedAzureToken() works outside RStudio.
+	const preamble = fields.entraResource
+		? `library(DBI)\n\n# Requires rstudioapi 0.18.0 or later. The token is valid for about an hour.\ntoken <- rstudioapi::getDelegatedAzureToken("${escapeDoubleQuoted(fields.entraResource)}")$access_token\n\n`
+		: 'library(DBI)\n\n';
 	return {
 		id: 'dbi',
 		label: 'DBI',
 		// R does not allow a trailing comma, so join the arguments with commas.
-		code: `library(DBI)\n\ncon <- dbConnect(\n${args.map(arg => `\t${arg}`).join(',\n')}\n)\n`,
+		code: `${preamble}con <- dbConnect(\n${args.map(arg => `\t${arg}`).join(',\n')}\n)\n`,
 	};
 }
 
@@ -338,7 +411,8 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
  *   instead be checked against psqlODBC's default root store.
  */
 function renderGgsqlCode(fields: PostgresConnectionFields): positron.ConnectionCodeVariant | undefined {
-	if (!fields.host || fields.sslrootcert || fields.sslcert || fields.sslkey) {
+	// An Entra ID token cannot be fetched from inside an ODBC connection string either.
+	if (!fields.host || fields.sslrootcert || fields.sslcert || fields.sslkey || fields.entraResource) {
 		return undefined;
 	}
 	const dsn = buildOdbcConnectionString([
@@ -401,6 +475,26 @@ function passwordConnectionFields(params: positron.DataConnectionParameterValues
 		password: isNonEmptyString(params.password) ? params.password : undefined,
 		database: isNonEmptyString(params.database) ? params.database : undefined,
 		sslmode: params.ssl === true ? 'require' : undefined,
+	};
+}
+
+/**
+ * Maps the Entra ID mechanism's parameter values to normalized fields. SSL is always required, as
+ * Azure Database for PostgreSQL requires it. The user falls back to the one named in `defaultUser`
+ * (taken from the token) when the form leaves it blank. Returns undefined when the host is missing.
+ */
+function entraConnectionFields(params: positron.DataConnectionParameterValues, defaultUser?: string): PostgresConnectionFields | undefined {
+	const host = isNonEmptyString(params.host) ? params.host : undefined;
+	if (!host) {
+		return undefined;
+	}
+	return {
+		host,
+		port: typeof params.port === 'number' ? params.port : 5432,
+		user: isNonEmptyString(params.user) ? params.user : defaultUser,
+		database: isNonEmptyString(params.database) ? params.database : undefined,
+		sslmode: 'require',
+		entraResource: AZURE_POSTGRES_RESOURCE,
 	};
 }
 
@@ -599,12 +693,52 @@ export function createPostgreSQLDriver(
 		parameters: [connectionStringParam()],
 	};
 
+	// Microsoft Entra ID through Posit Workbench: the password is an access token Workbench issues
+	// for the signed-in user. Offered on every Workbench session that can request one; whether
+	// Workbench signs in with Entra ID (and the admin has granted the permission) is only known when
+	// a token is requested, which fails with a message saying what to ask the administrator.
+	const entraMechanism: positron.DataConnectionMechanism | undefined = isWorkbenchAzureAvailable() ? {
+		id: ENTRA_MECHANISM_ID,
+		label: vscode.l10n.t('Entra ID (Workbench Managed Credentials)'),
+		description: vscode.l10n.t('Connect to Azure Database for PostgreSQL with the Microsoft Entra ID credentials Posit Workbench manages for you.'),
+		parameters: [
+			{
+				id: 'host',
+				label: vscode.l10n.t('Host'),
+				type: positron.DataConnectionParameterType.String,
+				required: true,
+				placeholder: 'myserver.postgres.database.azure.com',
+			},
+			{
+				id: 'port',
+				label: vscode.l10n.t('Port'),
+				type: positron.DataConnectionParameterType.Number,
+				required: true,
+				defaultValue: 5432,
+			},
+			{
+				id: 'user',
+				label: vscode.l10n.t('User'),
+				description: vscode.l10n.t('Leave empty to use your Microsoft Entra ID user name.'),
+				type: positron.DataConnectionParameterType.String,
+			},
+			databaseParam(),
+		],
+	} : undefined;
+
 	// Local socket authentication is only available over Unix domain sockets; Windows has no
 	// equivalent (its analogue is SSPI), so only offer the local-server mechanism on macOS and Linux.
 	// The password, connection-string, and client-cert mechanisms are available everywhere.
 	const mechanisms = process.platform === 'win32'
 		? [passwordMechanism, connectionStringMechanism, certMechanism]
 		: [passwordMechanism, connectionStringMechanism, localServerMechanism, certMechanism];
+	if (entraMechanism) {
+		mechanisms.push(entraMechanism);
+	}
+
+	// Fetches the delegated token. The Authentication extension caches it, so calling this on every
+	// connect, reconnect, and code preview costs one token exchange per token lifetime.
+	const entraToken = azureTokenProvider(AZURE_POSTGRES_RESOURCE, AZURE_POSTGRES_SERVICE_NAME);
 
 	// Return the driver.
 	return {
@@ -692,6 +826,28 @@ export function createPostgreSQLDriver(
 					// Return the connection.
 					return connection;
 				}
+				case ENTRA_MECHANISM_ID: {
+					const { host, port } = requireTcpEndpoint(params);
+
+					// Fetch a token now so a refusal surfaces before any client is built, and so a blank
+					// user can be filled from the token. Each client fetches its own (cached) token after.
+					const user = isNonEmptyString(params.user) ? params.user : entraUserFromToken(await entraToken());
+					if (!user) {
+						throw new Error(vscode.l10n.t('Could not read your Microsoft Entra ID user name from the token. Enter the user name.'));
+					}
+
+					const connection = new PostgreSQLConnection({
+						kind: 'fields',
+						host,
+						port,
+						user,
+						password: entraToken,
+						database: isNonEmptyString(params.database) ? params.database : undefined,
+						ssl: true,
+					}, dataExplorerHandler, logger);
+					await connection.connect();
+					return connection;
+				}
 				case CONNECTION_STRING_MECHANISM_ID: {
 					// The connection string is the only parameter and is handed to the client verbatim.
 					const connectionString = params.connectionString;
@@ -722,6 +878,15 @@ export function createPostgreSQLDriver(
 					return generateConnectionCodeForFields(languageId, certConnectionFields(params));
 				case CONNECTION_STRING_MECHANISM_ID:
 					return generateConnectionCodeForFields(languageId, isNonEmptyString(params.connectionString) ? parseConnectionString(params.connectionString) : undefined);
+				case ENTRA_MECHANISM_ID: {
+					// A blank user is filled from the token, as at connect time. If no token can be had,
+					// the code omits the user and the client library's default applies.
+					let defaultUser: string | undefined;
+					if (!isNonEmptyString(params.user) && isNonEmptyString(params.host)) {
+						defaultUser = await entraToken().then(entraUserFromToken, () => undefined);
+					}
+					return generateConnectionCodeForFields(languageId, entraConnectionFields(params, defaultUser));
+				}
 				default:
 					return [];
 			}

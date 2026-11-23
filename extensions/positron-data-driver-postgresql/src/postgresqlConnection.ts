@@ -40,7 +40,9 @@ export interface PostgreSQLFieldConfig {
 	host?: string;
 	port?: number;
 	user?: string;
-	password?: string;
+	// A function is called for every new client, so a short-lived access token (Microsoft Entra ID
+	// on Azure Database for PostgreSQL) is fetched fresh for each connect and reconnect.
+	password?: string | (() => Promise<string>);
 	database?: string;
 	ssl?: boolean;
 	// Paths to the PEM files for client-certificate authentication. When any is set, SSL is enabled

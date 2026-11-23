@@ -7,6 +7,7 @@ import {
 	DATABRICKS_AUTH_PROVIDER_ID,
 	IS_RUNNING_ON_PWB,
 } from './constants';
+import { isDelegatedAzureTokenAvailable } from './credentials/azure';
 
 /**
  * Managed credentials backed by an environment variable.
@@ -21,9 +22,19 @@ export interface EnvVarCredentialConfig {
 }
 
 /**
+ * Managed credentials Workbench serves on request over its session RPC, one token per resource,
+ * rather than provisioning a file. Nothing in the environment says whether Workbench is configured to
+ * serve them (it must sign in with Entra ID); only a request can tell.
+ */
+export interface WorkbenchRpcCredentialConfig {
+	readonly kind: 'workbench-rpc';
+	readonly displayName: string;
+}
+
+/**
  * Configuration for managed credentials on Posit Workbench.
  */
-export type ManagedCredentialConfig = EnvVarCredentialConfig;
+export type ManagedCredentialConfig = EnvVarCredentialConfig | WorkbenchRpcCredentialConfig;
 
 /**
  * Snowflake managed credentials configuration for Posit Workbench.
@@ -43,6 +54,15 @@ export const DATABRICKS_MANAGED_CREDENTIALS: EnvVarCredentialConfig = {
 	displayName: 'OAuth (Workbench Managed Credentials)',
 	envVar: 'DATABRICKS_CONFIG_FILE',
 	validator: (value: string) => value.includes('posit-workbench'),
+};
+
+/**
+ * Delegated Azure (Entra ID) credentials for Posit Workbench. Not backed by an auth provider; the data
+ * connection drivers ask for a token per Azure resource through the managed-credentials API.
+ */
+export const AZURE_DELEGATED_CREDENTIALS: WorkbenchRpcCredentialConfig = {
+	kind: 'workbench-rpc',
+	displayName: 'Entra ID (Workbench Managed Credentials)',
 };
 
 /** Managed credentials by the auth provider ID they back. */
@@ -65,6 +85,10 @@ export function hasManagedCredentials(
 		: target;
 	if (!credentialConfig || !isRunningOnPwb) {
 		return undefined;
+	}
+
+	if (credentialConfig.kind === 'workbench-rpc') {
+		return isDelegatedAzureTokenAvailable() ? credentialConfig : undefined;
 	}
 
 	const envValue = process.env[credentialConfig.envVar];

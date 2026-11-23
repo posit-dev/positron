@@ -15,5 +15,9 @@
 		"src/**/*",
 		"../../src/vscode-dts/vscode.d.ts"
 	],
-	"exclude": ["node_modules"]
+	"exclude": [
+		"node_modules",
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
+	]
 }

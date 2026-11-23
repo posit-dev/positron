@@ -35,6 +35,7 @@ export interface ManagedCredential {
  */
 interface ManagedCredentialsApi {
 	getManagedCredential(authProviderId: string): Promise<ManagedCredential | undefined>;
+	getDelegatedAzureToken?(resource: string, serviceName: string): Promise<{ accessToken: string; expiresAt: number } | undefined>;
 }
 
 /** The shape of the Authentication extension's `activate()` return value that a driver reads. */
@@ -58,6 +59,52 @@ export function isWorkbenchManaged(envVar: string, env: NodeJS.ProcessEnv = proc
 }
 
 /**
+ * Whether this Posit Workbench session can ask Workbench for delegated Azure (Entra ID) tokens: the
+ * session names the Workbench server and has an RPC cookie. Mirrors the Authentication extension's own
+ * check, so a driver can decide which mechanisms to offer at registration without waiting for that
+ * extension to activate. True on every Workbench, including ones that do not sign in with Entra ID,
+ * where a token request fails with a message saying so.
+ *
+ * @param env The environment to read; the process environment by default.
+ * @param uiKind The UI kind; Workbench always serves the web UI.
+ */
+export function isWorkbenchAzureAvailable(env: NodeJS.ProcessEnv = process.env, uiKind = vscode.env.uiKind): boolean {
+	return !!env.RS_SERVER_URL && uiKind === vscode.UIKind.Web && !!env.RS_SERVER_ADDRESS &&
+		(!!env.PWB_SESSION_RUNTIME_DIR || !!env.RS_SESSION_RPC_COOKIE);
+}
+
+/** The Authentication extension's managed-credentials API, activating that extension if needed. */
+async function managedCredentialsApi(): Promise<ManagedCredentialsApi | undefined> {
+	const extension = vscode.extensions.getExtension<AuthenticationExtensionExports>(AUTHENTICATION_EXTENSION_ID);
+	return (extension?.isActive ? extension.exports : await extension?.activate())?.managedCredentials;
+}
+
+/**
+ * A token provider for a delegated Azure (Entra ID) token for one resource, for the connection to call
+ * on every connect and reconnect. Each call asks the Authentication extension, whose cache keeps that
+ * from becoming one Entra ID token exchange per connect. Throws the Authentication extension's
+ * localized error, which says what the user or their administrator needs to do.
+ *
+ * @param resource The Azure resource URI or application id the token is for.
+ * @param displayName The service's user-facing name, for error messages.
+ */
+export function azureTokenProvider(resource: string, displayName: string): () => Promise<string> {
+	return async () => {
+		let api: ManagedCredentialsApi | undefined;
+		try {
+			api = await managedCredentialsApi();
+		} catch {
+			// A broken Authentication extension surfaces as the missing-credential error below.
+		}
+		const token = await api?.getDelegatedAzureToken?.(resource, displayName);
+		if (!token) {
+			throw new Error(vscode.l10n.t('No Posit Workbench managed Azure credentials are available for {0}.', displayName));
+		}
+		return token.accessToken;
+	};
+}
+
+/**
  * Reads the current Workbench-managed credential through the Authentication extension, activating
  * that extension if needed. Called on every (re)connect, so a token Workbench has rotated is picked
  * up. Throws a localized error when the extension is unavailable or the credential is missing or
@@ -67,11 +114,9 @@ export function isWorkbenchManaged(envVar: string, env: NodeJS.ProcessEnv = proc
  * @param displayName The service's user-facing name, for the error message.
  */
 export async function getManagedCredential(authProviderId: string, displayName: string): Promise<ManagedCredential> {
-	const extension = vscode.extensions.getExtension<AuthenticationExtensionExports>(AUTHENTICATION_EXTENSION_ID);
 	let credential: ManagedCredential | undefined;
 	try {
-		const api = (extension?.isActive ? extension.exports : await extension?.activate())?.managedCredentials;
-		credential = await api?.getManagedCredential(authProviderId);
+		credential = await (await managedCredentialsApi())?.getManagedCredential(authProviderId);
 	} catch {
 		// A broken Authentication extension or an unreadable credential file surfaces as the
 		// missing-credential error below, rather than as an unlocalized internal error.

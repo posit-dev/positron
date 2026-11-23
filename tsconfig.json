@@ -6,6 +6,7 @@
 	"references": [
 		{ "path": "./vitest.tsconfig.json" },
 		{ "path": "./test/e2e/tsconfig.vitest.json" },
+		{ "path": "./extensions/authentication/tsconfig.vitest.json" },
 		{ "path": "./extensions/open-remote-ssh/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-claude-code/tsconfig.vitest.json" },
 		{ "path": "./extensions/positron-data-driver-databricks/tsconfig.vitest.json" },

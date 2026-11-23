@@ -15,6 +15,7 @@ import * as path from 'path';
 const COPIES = [
 	'positron-data-driver-snowflake/src/workbenchCredentials.ts',
 	'positron-data-driver-databricks/src/workbenchCredentials.ts',
+	'positron-data-driver-postgresql/src/workbenchCredentials.ts',
 ] as const;
 
 // `__dirname` is this file's own directory, so the paths hold wherever Vitest is started from.
@@ -23,8 +24,8 @@ function read(relativePath: string): string {
 }
 
 describe('workbenchCredentials copies', () => {
-	it('keeps the Databricks copy identical to the Snowflake copy', () => {
-		const [snowflake, databricks] = COPIES;
-		expect(read(databricks)).toBe(read(snowflake));
+	const [first, ...rest] = COPIES;
+	it.each(rest)('keeps %s identical to the first copy', copy => {
+		expect(read(copy)).toBe(read(first));
 	});
 });
