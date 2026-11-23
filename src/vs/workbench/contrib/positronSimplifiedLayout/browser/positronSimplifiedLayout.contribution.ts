@@ -15,6 +15,7 @@ import { positronSimplifiedLayout } from '../../../services/positronLayout/brows
 import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import './titleBarSessionPicker.js';
 import { PositronToolsContainerContribution } from './positronToolsContainer.js';
+import { RemoteExplorerHiddenContextContribution } from './remoteExplorerCommands.js';
 
 /**
  * Remembers that the Simplified layout was applied. The profile key covers what the profile
@@ -75,5 +76,11 @@ registerWorkbenchContribution2(
 registerWorkbenchContribution2(
 	PositronToolsContainerContribution.ID,
 	PositronToolsContainerContribution,
+	WorkbenchPhase.BlockStartup
+);
+
+registerWorkbenchContribution2(
+	RemoteExplorerHiddenContextContribution.ID,
+	RemoteExplorerHiddenContextContribution,
 	WorkbenchPhase.BlockStartup
 );
