@@ -45,6 +45,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
+import { IQuartoDocumentModelService } from '../../positronQuarto/browser/quartoDocumentModelService.js';
+import { getHostedCellLanguage } from '../../positronQuarto/common/quartoLanguages.js';
 import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
 import { IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
 
@@ -486,6 +488,7 @@ export function registerPositronConsoleActions() {
 				try {
 					logService.debug(`[ExecuteCode] Taking quarto inline output path`);
 					const quartoExecutionManager = accessor.get(IQuartoExecutionManager);
+					const quartoDocumentModelService = accessor.get(IQuartoDocumentModelService);
 					return await this.executeInQuartoInlineOutput(
 						model,
 						editor,
@@ -494,6 +497,7 @@ export function registerPositronConsoleActions() {
 						languageFeaturesService,
 						logService,
 						quartoExecutionManager,
+						quartoDocumentModelService,
 						editorService,
 						notificationService
 					);
@@ -902,6 +906,7 @@ export function registerPositronConsoleActions() {
 			languageFeaturesService: ILanguageFeaturesService,
 			logService: ILogService,
 			quartoExecutionManager: IQuartoExecutionManager,
+			quartoDocumentModelService: IQuartoDocumentModelService,
 			editorService: IEditorService,
 			notificationService: INotificationService
 		): Promise<Position | undefined> {
@@ -967,6 +972,22 @@ export function registerPositronConsoleActions() {
 								throw new Error(`Unrecognized 'StatementRangeKind': ${statementRange}`);
 							}
 						}
+					}
+				}
+
+				// A cell in a hosted language (e.g. Rcpp) runs as a whole, so
+				// run the cell and advance past it.
+				const cell = codeRange ? undefined :
+					quartoDocumentModelService.getModel(model).getCellAtLine(position.lineNumber);
+				if (cell && getHostedCellLanguage(cell.language)) {
+					codeRange = new Range(
+						cell.codeStartLine,
+						1,
+						cell.codeEndLine,
+						model.getLineMaxColumn(cell.codeEndLine)
+					);
+					if (advance) {
+						nextPosition = this.advanceLine(model, editor, position, cell.codeEndLine, model.getLineContent(cell.codeEndLine), editorService);
 					}
 				}
 
