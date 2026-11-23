@@ -11,3 +11,5 @@ Positron provides the following built-in extensions:
 - [**Zed**](extensions/positron-zed), the Positron extension for a test-bed language, intended for fast simulations primarily to aid UI development
 
 <!-- End Positron -->
+
+<!-- pushed by a person during the run: test -->
