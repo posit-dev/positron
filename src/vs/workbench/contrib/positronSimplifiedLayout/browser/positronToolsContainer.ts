@@ -9,7 +9,6 @@ import { localize, localize2 } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -35,12 +34,6 @@ const CONTAINERS_MOVED_TO_TOOLS: ReadonlySet<string> = new Set([
 	'workbench.view.extension.test',
 ]);
 
-/**
- * The views already collapsed on their first arrival in Tools. After that, the
- * user's own expanded or collapsed choice sticks.
- */
-const COLLAPSED_VIEWS_STORAGE_KEY = 'positron.tools.collapsedViews';
-
 const positronToolsViewIcon = registerIcon(
 	'positron-tools-view-icon',
 	Codicon.tools,
@@ -54,14 +47,17 @@ const positronToolsViewIcon = registerIcon(
  *
  * It changes each view's default container rather than moving the view for the
  * user, so nothing is saved to the profile, and applying a layout keeps the
- * views in Tools. Each view starts collapsed, so Tools opens as a list of names.
+ * views in Tools.
+ *
+ * Each window starts with every view in Tools collapsed, so Tools opens as a
+ * list of names. Changing a view's default container expands it, so the
+ * expanded or collapsed state a user picks lasts only until the next window.
  */
 export class PositronToolsContainerContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronToolsContainer';
 
 	constructor(
 		@IConfigurationService configurationService: IConfigurationService,
-		@IStorageService storageService: IStorageService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		super();
@@ -86,27 +82,19 @@ export class PositronToolsContainerContribution extends Disposable implements IW
 			ViewContainerLocation.AuxiliaryBar,
 		);
 
-		const collapsedViews = new Set<string>(JSON.parse(storageService.get(COLLAPSED_VIEWS_STORAGE_KEY, StorageScope.PROFILE, '[]')));
-
 		const moveToTools = (views: IViewDescriptor[], from: ViewContainer) => {
 			if (!CONTAINERS_MOVED_TO_TOOLS.has(from.id) || !views.length) {
 				return;
 			}
 			viewsRegistry.moveViews(views, toolsContainer);
 
-			const toCollapse = views.filter(view => !collapsedViews.has(view.id));
-			if (!toCollapse.length) {
-				return;
-			}
 			const model = viewDescriptorService.getViewContainerModel(toolsContainer);
-			for (const view of toCollapse) {
+			for (const view of views) {
 				// A view the user already moved somewhere else is not in Tools.
 				if (model.allViewDescriptors.some(descriptor => descriptor.id === view.id)) {
 					model.setCollapsed(view.id, true);
 				}
-				collapsedViews.add(view.id);
 			}
-			storageService.store(COLLAPSED_VIEWS_STORAGE_KEY, JSON.stringify([...collapsedViews]), StorageScope.PROFILE, StorageTarget.USER);
 		};
 
 		// Views already registered.
