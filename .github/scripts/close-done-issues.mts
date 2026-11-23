@@ -29,6 +29,32 @@ export function openInDone(items: BoardItem[], repo: string): number[] {
 		.map(i => i.content!.number!);
 }
 
+interface BoardPage {
+	pageInfo: { hasNextPage: boolean; endCursor: string | null };
+	nodes: BoardItem[];
+}
+
+export interface BoardResponse {
+	data?: { organization: { projectV2: { items: BoardPage } | null } | null } | null;
+	errors?: { message: string }[];
+}
+
+/**
+ * The page of items in a board query response. Items from repos the token can't read come back
+ * with null content plus an error; those are warnings, so one private-repo item can't fail the run.
+ */
+export function boardPage(res: BoardResponse, warn: (msg: string) => void = console.warn): BoardPage {
+	const errors = res.errors?.map(e => e.message).join('; ');
+	const page = res.data?.organization?.projectV2?.items;
+	if (!page) {
+		throw new Error(`graphql: ${errors ?? 'board not found'}`);
+	}
+	if (errors) {
+		warn(`graphql (partial): ${errors}`);
+	}
+	return page;
+}
+
 const API = process.env.GITHUB_API_URL ?? 'https://api.github.com';
 
 async function rest<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -52,10 +78,7 @@ async function boardItems(projectOwner: string, projectNumber: number): Promise<
 	const items: BoardItem[] = [];
 	let cursor: string | null = null;
 	for (;;) {
-		const res: {
-			data?: { organization: { projectV2: { items: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: BoardItem[] } } } };
-			errors?: { message: string }[];
-		} = await rest('POST', '/graphql', {
+		const res: BoardResponse = await rest('POST', '/graphql', {
 			query: `
 				query($projectOwner: String!, $projectNumber: Int!, $cursor: String) {
 					organization(login: $projectOwner) {
@@ -72,10 +95,7 @@ async function boardItems(projectOwner: string, projectNumber: number): Promise<
 				}`,
 			variables: { projectOwner, projectNumber, cursor },
 		});
-		if (res.errors?.length || !res.data) {
-			throw new Error(`graphql: ${res.errors?.map(e => e.message).join('; ')}`);
-		}
-		const page = res.data.organization.projectV2.items;
+		const page = boardPage(res);
 		items.push(...page.nodes);
 		if (!page.pageInfo.hasNextPage) {
 			return items;

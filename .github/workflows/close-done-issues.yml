@@ -14,6 +14,11 @@ on:
         type: boolean
         default: true
 
+# A manual run waits for a scheduled one (and vice versa), so an issue isn't closed and commented twice.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   close-done:
     runs-on: ubuntu-latest

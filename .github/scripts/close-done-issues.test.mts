@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { openInDone, type BoardItem } from './close-done-issues.mts';
+import { boardPage, openInDone, type BoardItem } from './close-done-issues.mts';
 
 const item = (status: string | null, number: number, state: string, repo = 'posit-dev/positron'): BoardItem => ({
 	fieldValueByName: status === null ? null : { name: status },
@@ -26,4 +26,22 @@ test('picks only open issues in this repo that are Done', () => {
 		{ fieldValueByName: { name: 'Done' }, content: null },
 	];
 	assert.deepEqual(openInDone(items, 'posit-dev/positron'), [1]);
+});
+
+test('an unreadable item is a warning, not a failure', () => {
+	const warnings: string[] = [];
+	const page = { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ fieldValueByName: { name: 'Done' }, content: null }] };
+	const res = {
+		data: { organization: { projectV2: { items: page } } },
+		errors: [{ message: 'Resource not accessible by integration' }],
+	};
+	assert.deepEqual({ page: boardPage(res, w => warnings.push(w)), warnings }, {
+		page,
+		warnings: ['graphql (partial): Resource not accessible by integration'],
+	});
+});
+
+test('a response without the board fails', () => {
+	assert.throws(() => boardPage({ data: { organization: { projectV2: null } }, errors: [{ message: 'no access' }] }), /graphql: no access/);
+	assert.throws(() => boardPage({ errors: [{ message: 'bad query' }] }), /graphql: bad query/);
 });
