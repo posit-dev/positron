@@ -104,27 +104,22 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 
 	test.describe('Notebook Layout', () => {
 
-		test('Verify Notebook Layout collapses Panel by default and expands correctly', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
+		test('Verify Notebook Layout puts the console and terminal in the session view, collapsed', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
 
 			const layouts = app.workbench.layouts;
 
-			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('notebook');
 
 			// ------ Panel -------
-			// Panel should be collapsed
 			await expect(layouts.panelContent).not.toBeVisible();
 
-			// In the collapsed layout, the first tab should be the console and the second
-			// should be the terminal
-			await expect(layouts.panelViewsTab.nth(0)).toHaveText('Console');
-			await expect(layouts.panelViewsTab.nth(1)).toHaveText('Terminal');
-
-			// When expanding the panel it should go to roughly 40% the height of the window
-			await layouts.panelExpandButton.click();
-			const fullAppHeight = await layouts.boundingBoxProperty(layouts.fullApp, 'height');
-			const panelHeight = await layouts.boundingBoxProperty(layouts.panel, 'height');
-			expect(panelHeight).toBeGreaterThan(fullAppHeight * 0.3);
+			// ------ Auxiliary Bar -------
+			// Variables starts open; the console and terminal sit below it, collapsed
+			await expect(layouts.auxBar).toBeVisible();
+			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
+			await expect(layouts.auxBar.getByLabel(/variables section/i)).toHaveAttribute('aria-expanded', 'true');
+			await expect(layouts.auxBar.getByLabel(/console section/i)).toHaveAttribute('aria-expanded', 'false');
+			await expect(layouts.auxBar.getByLabel(/terminal section/i)).toHaveAttribute('aria-expanded', 'false');
 
 
 			// ------ Sidebar -------
@@ -171,24 +166,16 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 			await layouts.expectActiveSidebarView('Chat');
 
 			// ------ Panel -------
-			// Should be visible with Console and Terminal tabs
-			await expect(layouts.panelContent).toBeVisible();
-			await expect(layouts.panelViewsTab.nth(0)).toHaveText('Console');
-			await expect(layouts.panelViewsTab.nth(1)).toHaveText('Terminal');
+			await expect(layouts.panelContent).not.toBeVisible();
 
 			// ------ Auxiliary Bar -------
-			// Should be visible with Session view
+			// The console starts open; the terminal, variables, and plots sit below it, collapsed
 			await expect(layouts.auxBar).toBeVisible();
 			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
-
-			const variablesSection = layouts.auxBar.getByLabel('Variables Section');
-			const plotsSection = layouts.auxBar.getByLabel('Plots Section');
-			await expect(variablesSection).toBeVisible();
-			await expect(plotsSection).toBeVisible();
-
-			// Both sections should be expanded
-			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
-			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
+			await expect(layouts.auxBar.getByLabel(/console section/i)).toHaveAttribute('aria-expanded', 'true');
+			await expect(layouts.auxBar.getByLabel(/terminal section/i)).toHaveAttribute('aria-expanded', 'false');
+			await expect(layouts.auxBar.getByLabel(/variables section/i)).toHaveAttribute('aria-expanded', 'false');
+			await expect(layouts.auxBar.getByLabel(/plots section/i)).toHaveAttribute('aria-expanded', 'false');
 		});
 
 		// Intentionally untagged for every browser-based project (no @:web, @:cross-browser,

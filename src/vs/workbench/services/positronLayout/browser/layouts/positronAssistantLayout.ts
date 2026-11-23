@@ -25,6 +25,8 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 		ChatContextKeys.aiFeaturesEnabled,
 		ContextKeyExpr.has('config.assistant.enabled'),
 	)!,
+	// Input on the left, output on the right: the chat and the editor on the left,
+	// and the console, terminal, variables, and plots on the right.
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '30%',
@@ -37,18 +39,9 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 			]
 		},
 		[Parts.PANEL_PART]: {
-			size: '40%',
-			hidden: false,
+			hidden: true,
+			closeWhenHidden: true,
 			alignment: 'center',
-			viewContainers: [
-				{
-					id: 'workbench.panel.positronConsole',
-					opened: true,
-				},
-				{
-					id: 'terminal',
-				},
-			]
 		},
 		[Parts.AUXILIARYBAR_PART]: {
 			size: '30%',
@@ -59,10 +52,19 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 					opened: true,
 					views: [
 						{
+							id: 'workbench.panel.positronConsole',
+						},
+						{
+							id: 'terminal',
+							collapsed: true,
+						},
+						{
 							id: 'workbench.panel.positronVariables',
+							collapsed: true,
 						},
 						{
 							id: 'workbench.panel.positronPlots',
+							collapsed: true,
 						},
 					]
 				},

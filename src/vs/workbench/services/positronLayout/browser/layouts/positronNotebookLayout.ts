@@ -18,21 +18,15 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
-	agentDescription: 'Switch the workbench to the notebook layout (optimised for working with a single notebook, with the console panel hidden).',
+	agentDescription: 'Switch the workbench to the notebook layout (optimised for working with a single notebook, with the console collapsed).',
+	// Input on the left, output on the right: the notebook and the file tree on the
+	// left, and the console, terminal, and variables on the right. Variables starts
+	// open, because a notebook shows its own output.
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
-			size: '40%',
 			hidden: true,
+			closeWhenHidden: true,
 			alignment: 'center',
-			viewContainers: [
-				{
-					id: 'workbench.panel.positronConsole',
-					opened: true,
-				},
-				{
-					id: 'terminal',
-				},
-			]
 		},
 		[Parts.SIDEBAR_PART]: {
 			hidden: false,
@@ -50,6 +44,14 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 					views: [
 						{
 							id: 'workbench.panel.positronVariables',
+						},
+						{
+							id: 'workbench.panel.positronConsole',
+							collapsed: true,
+						},
+						{
+							id: 'terminal',
+							collapsed: true,
 						},
 					]
 				},
