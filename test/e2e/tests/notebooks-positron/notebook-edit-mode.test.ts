@@ -141,6 +141,8 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.selectCellAtIndex(0);
 		await keyboard.press('Alt+Shift+Enter');
 		await debug.expectDebugVariablePaneVisible();
+		// The pane opens at session start, before the debugger pauses.
+		await debug.expectPaused();
 
 		// End the debug session before the shared afterEach closes the notebook.
 		// A kernel paused at a breakpoint never exits after the shutdown request

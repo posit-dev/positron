@@ -43,6 +43,7 @@ from .lsp import LSPService
 from .matplotlib_backend.backend import Backend
 from .matplotlib_backend.compat import register_with_legacy_ipython
 from .object_explorer import ObjectExplorerService
+from .patch.altair import patch_altair_renderer
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
@@ -728,6 +729,9 @@ class PositronIPyKernel(IPythonKernel):
         # Patch ipywidgets Output to capture output in the kernel, so that output captured
         # before the widget is displayed isn't lost
         patch_ipywidgets_output()
+
+        # Show altair charts in the plots pane as HTML plots, like plotly
+        patch_altair_renderer(self.session_mode)
 
     @property
     def kernel_info(self):
