@@ -794,6 +794,7 @@ jobs:
         id: src
         env:
           BRANCH_PREFIX: ${{ needs.triage.outputs.branch_prefix }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           get() { jq -r --arg k "$1" '.[$k] // ""' <<<"$SOURCE_OUTPUTS"; }
@@ -810,7 +811,15 @@ jobs:
             exit 1
           fi
           case "$TARGET" in
-            pr) BRANCH=$(get head_ref) ;;
+            pr)
+              BRANCH=$(get head_ref)
+              # The job that ran Claude could forge its outputs, so ask GitHub for the PR's branch.
+              IFS=$'\t' read -r HEAD_REPO HEAD_REF < <(gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" --jq '[.head.repo.full_name // "", .head.ref] | @tsv')
+              if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ] || [ "$HEAD_REF" != "$BRANCH" ]; then
+                echo "::error::Branch '${BRANCH}' is not the head of pull request #${NUMBER} ('${HEAD_REPO}' '${HEAD_REF}')"
+                exit 1
+              fi
+              ;;
             new) BRANCH="${BRANCH_PREFIX}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ;;
             *) echo "::error::Unexpected target '${TARGET}'"; exit 1 ;;
           esac
