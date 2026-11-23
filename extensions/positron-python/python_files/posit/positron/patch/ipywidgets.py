@@ -16,13 +16,15 @@ We patch `Output` to capture output in the kernel instead, by appending it to `o
 (like `Output.append_display_data`). The frontend then renders the outputs whenever the widget
 is displayed. Captured outputs are buffered and sent to the frontend at most every
 `_FLUSH_INTERVAL` seconds, and when the capture ends, since each update sends all of the
-widget's outputs.
+widget's outputs. Output that arrives sooner is sent by a timer once the interval has passed.
 """
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import sys
+import threading
 import time
 import weakref
 from typing import Any, Literal
@@ -39,21 +41,41 @@ class _Capture:
     def __init__(self, widget: Any) -> None:
         self.widget = widget
         self.outputs: list[dict[str, Any]] = list(widget.outputs)
+        # Guards `outputs` and the flush state, since the timer flushes from another thread.
+        self.lock = threading.RLock()
         self._dirty = False
         self._last_flush = float("-inf")
+        self._timer: threading.Timer | None = None
 
     def changed(self) -> None:
-        """Mark the outputs as changed, flushing them if the last flush was long enough ago."""
-        self._dirty = True
-        if time.monotonic() - self._last_flush >= _FLUSH_INTERVAL:
-            self.flush()
+        """
+        Mark the outputs as changed.
+
+        Flush them now if the last flush was long enough ago, otherwise when the interval ends.
+        """
+        with self.lock:
+            self._dirty = True
+            delay = self._last_flush + _FLUSH_INTERVAL - time.monotonic()
+            if delay <= 0:
+                self.flush()
+            elif self._timer is None:
+                # Run the flush in the current context, so that the widget update is sent
+                # with the executing cell as its parent.
+                context = contextvars.copy_context()
+                self._timer = threading.Timer(delay, context.run, args=(self.flush,))
+                self._timer.daemon = True
+                self._timer.start()
 
     def flush(self) -> None:
         """Send the buffered outputs to the widget."""
-        if self._dirty:
-            self._dirty = False
-            self.widget.outputs = tuple(self.outputs)
-        self._last_flush = time.monotonic()
+        with self.lock:
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            if self._dirty:
+                self._dirty = False
+                self.widget.outputs = tuple(self.outputs)
+            self._last_flush = time.monotonic()
 
 
 # Stack of Output widgets that are currently capturing output. The last one receives output.
@@ -74,22 +96,23 @@ def is_capturing() -> bool:
 def _append_output(output: dict[str, Any]) -> None:
     """Append an output to the innermost capturing Output widget."""
     capture = _capture_stack[-1]
-    outputs = capture.outputs
-    if capture.widget in _clear_pending:
-        _clear_pending.discard(capture.widget)
-        outputs.clear()
-    # Merge consecutive stream outputs with the same name, as Jupyter output areas do.
-    if (
-        output["output_type"] == "stream"
-        and outputs
-        and outputs[-1].get("output_type") == "stream"
-        and outputs[-1].get("name") == output["name"]
-    ):
-        last = outputs[-1]
-        outputs[-1] = {**last, "text": last["text"] + output["text"]}
-    else:
-        outputs.append(output)
-    capture.changed()
+    with capture.lock:
+        outputs = capture.outputs
+        if capture.widget in _clear_pending:
+            _clear_pending.discard(capture.widget)
+            outputs.clear()
+        # Merge consecutive stream outputs with the same name, as Jupyter output areas do.
+        if (
+            output["output_type"] == "stream"
+            and outputs
+            and outputs[-1].get("output_type") == "stream"
+            and outputs[-1].get("name") == output["name"]
+        ):
+            last = outputs[-1]
+            outputs[-1] = {**last, "text": last["text"] + output["text"]}
+        else:
+            outputs.append(output)
+        capture.changed()
 
 
 class _CaptureStream:
@@ -125,8 +148,9 @@ def _clear_output(wait=False) -> None:  # noqa: FBT002
         _clear_pending.add(capture.widget)
     else:
         _clear_pending.discard(capture.widget)
-        capture.outputs.clear()
-        capture.changed()
+        with capture.lock:
+            capture.outputs.clear()
+            capture.changed()
 
 
 def _start_capture(widget: Any) -> None:
@@ -161,7 +185,8 @@ def _restore_capture() -> None:
     if _capture_stack:
         # Reload the outer capture's outputs, in case the inner capture was for the same widget.
         outer = _capture_stack[-1]
-        outer.outputs = list(outer.widget.outputs)
+        with outer.lock:
+            outer.outputs = list(outer.widget.outputs)
     else:
         display_pub = _originals.pop("display_pub")
         # Remove the instance attributes so the class methods are used again.

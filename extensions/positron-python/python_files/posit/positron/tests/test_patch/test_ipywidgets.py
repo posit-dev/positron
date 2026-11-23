@@ -71,7 +71,7 @@ with out:
 
 
 def test_output_batches_updates(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(ipywidgets_patch, "_FLUSH_INTERVAL", float("inf"))
+    monkeypatch.setattr(ipywidgets_patch, "_FLUSH_INTERVAL", 60)
     shell.run_cell(
         """\
 import ipywidgets as w
@@ -87,6 +87,28 @@ with out:
     assert len(shell.user_ns["changes"]) == 2
     assert shell.user_ns["out"].outputs == (
         {"output_type": "stream", "name": "stdout", "text": "".join(f"{i}\n" for i in range(100))},
+    )
+
+
+def test_output_flushes_after_interval(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ipywidgets_patch, "_FLUSH_INTERVAL", 0.1)
+    shell.run_cell(
+        """\
+import time
+import ipywidgets as w
+out = w.Output()
+with out:
+    print('a')
+    print('b')
+    time.sleep(0.5)
+    during = out.outputs
+"""
+    )
+    # Output held back by the interval is sent once it ends, before the capture ends.
+    assert shell.user_ns["during"] == (
+        {"output_type": "stream", "name": "stdout", "text": "a\nb\n"},
     )
 
 
