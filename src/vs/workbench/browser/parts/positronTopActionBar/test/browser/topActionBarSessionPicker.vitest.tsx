@@ -5,7 +5,7 @@
 
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { Emitter } from '../../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, IRuntimeSessionService } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -193,6 +193,30 @@ describe('TopActionBarSessionPicker', () => {
 		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
 			rtl.render(<TopActionBarSessionPicker />);
 			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
+		});
+	});
+
+	describe('notebook with no session started', () => {
+		const notStartedInfo = makeDisplayInfo({
+			sessionName: 'analysis.ipynb',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: URI.file('/workspace/analysis.ipynb'),
+			sessionState: undefined,
+		});
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: notStartedInfo,
+				activeSessions: [],
+				onDidChangeForegroundSessionDisplayInfo: Event.None,
+			})
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+		it('shows the not-started status and the notebook filename', () => {
+			rtl.render(<TopActionBarSessionPicker />);
+			expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: SESSION_BUTTON_NAME })).toHaveTextContent('analysis.ipynb');
 		});
 	});
 

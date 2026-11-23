@@ -21,9 +21,11 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 	const sc = await lib.scope(a.editor ? 'editor' : lib.names.views.plots);
 	if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc, hint: a.editor ? 'open the plot with plots.sh open editor' : 'the Plots view is not on screen; run Session: Focus on Plots View' }; }
 	const pane = sc.loc;
-	// Thumbnails: buttons that hold an image. The plot shown is the image outside them.
-	const thumbs = pane.getByRole('button').filter({ has: page.getByRole('img') }).filter({ visible: true });
-	const read = () => pane.evaluate(async (el, { s, n, editor }) => {
+	// A thumbnail: a button holding an img or a placeholder. A named plot's img has
+	// alt "" and so no img role. The plot shown is the image outside them.
+	const pic = 'img, [role=img]';
+	const thumbs = pane.getByRole('button').filter({ has: page.locator(pic) }).filter({ visible: true });
+	const read = () => pane.evaluate(async (el, { s, n, editor, pic }) => {
 		const shown = (e: Element) => (e as HTMLElement).offsetParent !== null;
 		const name = (e: Element) => (e.getAttribute('aria-label') ?? e.textContent ?? '').trim();
 		const main = [...el.querySelectorAll('img')].filter(shown).find(i => !i.closest('button'));
@@ -50,8 +52,7 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 		const buttons = [...new Set(toolbars.filter(shown))].map(b => ({
 			label: b.getAttribute('aria-label') ?? '', off: (b as HTMLButtonElement).disabled || b.getAttribute('aria-disabled') === 'true',
 		})).filter(b => b.label && b.label !== n.overflow);
-		// A thumbnail not drawn yet holds a placeholder, an element of role img.
-		const thumbEls = [...el.querySelectorAll('button')].filter(b => shown(b) && b.querySelector('img, [role=img]'));
+		const thumbEls = [...el.querySelectorAll('button')].filter(b => shown(b) && b.querySelector(pic));
 		// A thumbnail's name as drawn under it; its image's alt is an interactive plot's id ("Plot 8959...").
 		const thumbName = (t: Element) => (t.querySelector(s.thumbnailName)?.textContent ?? '').trim() || t.querySelector('img')?.alt || name(t);
 		const selectedThumb = thumbEls.find(t => t.getAttribute('aria-pressed') === 'true' || !!t.closest(s.selected));
@@ -94,7 +95,7 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 				selected: t.getAttribute('aria-pressed') === 'true' || !!t.closest(s.selected),
 			})),
 		};
-	}, { s: lib.css.plots, n: lib.names.plots, editor: a.editor });
+	}, { s: lib.css.plots, n: lib.names.plots, editor: a.editor, pic });
 	// No editor buttons: a compact window shows none, or the helper found no action bar.
 	const why = async () => await page.getByRole('button', { name: lib.names.workbench.compactModeOff, exact: true }).filter({ visible: true }).count()
 		? `this window is in compact mode (its title bar has "${lib.names.workbench.compactModeOff}"), which shows no tabs or editor buttons: no toolbar here`
@@ -116,11 +117,10 @@ const plots: PageFn<{ cmd: string; n: number; editor: boolean }> = async (page, 
 	if (a.cmd === 'select') {
 		await t.click({ timeout: 3000 });
 	} else {
-		// The thumbnail's other button, beside it, removes it; it shows on hover.
+		// The remove button beside the thumbnail shows on hover.
 		const box = t.locator('xpath=..');
 		await box.hover({ timeout: 3000 });
-		const remove = box.getByRole('button').filter({ hasNot: page.getByRole('img') }).first();
-		await remove.click({ timeout: 3000 });
+		await box.getByRole('button', { name: lib.names.plots.remove, exact: true }).click({ timeout: 3000 });
 	}
 	let after = before;
 	for (let i = 0; i < 20; i++) {

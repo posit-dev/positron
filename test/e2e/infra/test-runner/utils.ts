@@ -49,14 +49,17 @@ export function provisionTestFiles(workspacePath = process.env.WORKSPACE_PATH ||
 	}
 
 	// Initialize a git baseline so teardown can reset the workspace between tests.
-	// Inline identity + disabled signing so CI hosts without global git config succeed.
 	try {
 		const git = (args: string) => cp.execSync(`git ${args}`, { cwd: workspacePath, stdio: 'pipe' });
 		// Pin the branch name: it otherwise comes from init.defaultBranch, which is unset
 		// on CI runners, so release screenshots of the workspace show "master".
 		git('init -q -b main');
+		// Repo-local, so commits made from the app (scm spec) also work on CI hosts with no git user.
+		git('config user.email e2e@posit.co');
+		git('config user.name e2e');
+		git('config commit.gpgsign false');
 		git('add -A');
-		git('-c user.email=e2e@posit.co -c user.name=e2e -c commit.gpgsign=false commit -q -m "test-files baseline"');
+		git('commit -q -m "test-files baseline"');
 	} catch (error) {
 		console.error('✗ Failed to initialize test-files git baseline:', error);
 		return;

@@ -304,7 +304,7 @@ export const ImportDataModalDialog = (props: ImportDataModalDialogProps) => {
 									<Checkbox
 										label={localize(
 											'positron.importData.includeFiltersAndSorts',
-											"Include current filters and sorts (experimental)"
+											"Include current filters and sorts"
 										)}
 										onChanged={checked => setIncludeView(checked)}
 									/>

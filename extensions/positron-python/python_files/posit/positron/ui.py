@@ -24,6 +24,7 @@ from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
 from .help import get_help_page, get_package_vignette, list_package_docs
+from .patch import altair as altair_patch
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
@@ -682,10 +683,12 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         destination = ShowHtmlFileDestination.Viewer
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
-            # Send bokeh and plotly plots to the plots pane.
+            # Send bokeh, plotly and altair plots to the plots pane.
             # Identify them by checking the stack for their respective modules/functions.
-            if self._is_module_function("bokeh.io.showing", "show") or self._is_module_function(
-                "plotly.basedatatypes"
+            if (
+                self._is_module_function("bokeh.io.showing", "show")
+                or self._is_module_function("plotly.basedatatypes")
+                or self._is_module_function(altair_patch.__name__, "positron_altair_renderer")
             ):
                 destination = ShowHtmlFileDestination.Plot
 

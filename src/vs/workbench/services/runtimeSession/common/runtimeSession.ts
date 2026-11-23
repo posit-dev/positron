@@ -272,12 +272,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
 
-	// A map of the last known session display info per notebook URI. This is set when a
-	// notebook session is attached and updated when the session exits. It persists after
-	// the session is deleted/disposed, allowing UI components to show what runtime was
-	// last used for a notebook.
-	private readonly _lastNotebookSessionByNotebookUri = new ResourceMap<IRuntimeSessionDisplayInfo>();
-
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
@@ -590,14 +584,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
 		return this._lastActiveConsoleSession;
-	}
-
-	/**
-	 * Gets the last known session display info for a notebook URI.
-	 * This persists after the session has been deleted/disposed.
-	 */
-	getLastNotebookSessionInfo(notebookUri: URI): IRuntimeSessionDisplayInfo | undefined {
-		return this._lastNotebookSessionByNotebookUri.get(notebookUri);
 	}
 
 	/**
@@ -2436,7 +2422,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (isNotebookLanguageRuntimeSession(session)) {
 					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
-					this._saveNotebookSessionInfo(session);
 				} else {
 					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 						`does not have a notebook URI.`);
@@ -2814,32 +2799,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			if (session.metadata.notebookUri) {
 				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
-				// Update the cached session info before removing the session from the active map.
-				this._lastNotebookSessionByNotebookUri.set(
-					session.metadata.notebookUri,
-					new RuntimeSessionDisplayInfo(session),
-				);
 				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
 			} else {
 				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 					`does not have a notebook URI.`);
 			}
 		}
-	}
-
-	/**
-	 * Saves the display info for a notebook session into
-	 * `_lastNotebookSessionByNotebookUri` so it can be shown after
-	 * the session is disposed.
-	 */
-	private _saveNotebookSessionInfo(session: ILanguageRuntimeSession): void {
-		if (!session.metadata.notebookUri) {
-			return;
-		}
-		this._lastNotebookSessionByNotebookUri.set(
-			session.metadata.notebookUri,
-			new RuntimeSessionDisplayInfo(session),
-		);
 	}
 
 	/**

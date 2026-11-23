@@ -122,6 +122,17 @@ interface ICachedPlotThumbnailDescriptor {
 }
 
 /**
+ * Finds the sizing policy a plot was stored with. A stored custom size keeps its own
+ * width and height, since the service's one custom policy may have changed since.
+ */
+export function findStoredSizingPolicy(stored: IPositronPlotMetadata['sizing_policy'], policies: readonly IPositronPlotSizingPolicy[]): IPositronPlotSizingPolicy | undefined {
+	if (stored?.id === PlotSizingPolicyCustom.ID && stored.size) {
+		return new PlotSizingPolicyCustom(stored.size);
+	}
+	return policies.find(policy => policy.id === stored?.id);
+}
+
+/**
 * PositronPlotsService class.
 */
 export class PositronPlotsService extends Disposable implements IPositronPlotsService {
@@ -1278,6 +1289,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plot.metadata.zoom_level = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
 		}));
+		// Editor plots aren't in the periodic save, so save a sizing change now to survive a reload.
+		this._register(plot.onDidChangeSizingPolicy(() => this.storePlotMetadata(plot.metadata)));
 		this._editorPlots.set(metadata.id, plot);
 	}
 
@@ -1599,13 +1612,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
 		} else if (plotClient instanceof PlotClientInstance) {
 			// if it's a dynamic plot, present options dialog
-			const { directory, format } = await this.getSuggestedSaveLocation();
+			const { directory, format, resolution } = await this.getSuggestedSaveLocation();
 			showSavePlotModalDialog(
 				this._selectedSizingPolicy,
 				plotClient,
 				this.savePlotAs,
 				directory,
-				format
+				format,
+				resolution
 			);
 		}
 		// webview plots can't be saved
@@ -1630,7 +1644,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			return;
 		}
-		await this._saveMemory.remember(dirname(options.path), options.format);
+		// Only remember a resolution the user picked; a default comes from the current screen.
+		await this._saveMemory.remember(dirname(options.path), options.format, options.resolutionPicked ? options.resolution : undefined);
 	};
 
 	async showSavePlotDialog(uri: string, suggestedFileName?: string) {
@@ -2060,9 +2075,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		// Use existing sizing policy if specified, otherwise use the default
-		const sizingPolicy =
-			this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
-			?? defaultSizingPolicy;
+		const sizingPolicy = findStoredSizingPolicy(metadata.sizing_policy, this._sizingPolicies) ?? defaultSizingPolicy;
 
 		metadata.sizing_policy = {
 			id: sizingPolicy.id,

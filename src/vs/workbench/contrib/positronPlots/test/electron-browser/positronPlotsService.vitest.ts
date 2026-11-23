@@ -7,7 +7,7 @@ import { raceTimeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
@@ -29,6 +29,7 @@ import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '..
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
 import { PositronAssistantService } from '../../../positronAssistant/browser/positronAssistantService.js';
+import { findStoredSizingPolicy } from '../../browser/positronPlotsService.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -229,6 +230,28 @@ describe('Positron - Plots Service', () => {
 		await plotInstance.getIntrinsicSize();
 
 		expect(plotInstance.sizingPolicy.id).toBe('auto');
+	});
+
+	it('sizing policy: an editor plot saves a sizing change to storage', async () => {
+		const { session } = await createSession();
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		await expect(plotsService.openEditor('plot1')).rejects.toThrow('Failed to open editor');
+
+		plotsService.setEditorSizingPolicy('plot1', 'square');
+
+		const storageService = ctx.instantiationService.get(IStorageService);
+		const stored = storageService.get(`positron.plot.${session.sessionId}.plot1.${PlotClientLocation.Editor}`, StorageScope.WORKSPACE);
+		plotsService.removeEditorPlot('plot1');
+		expect(JSON.parse(stored!).sizing_policy.id).toBe('square');
+	});
+
+	it('sizing policy: a stored custom size keeps its own width and height', () => {
+		plotsService.setCustomPlotSize({ width: 500, height: 200 });
+
+		const policy = findStoredSizingPolicy({ id: 'custom', size: { width: 300, height: 500 } }, plotsService.sizingPolicies);
+
+		expect(policy?.getPlotSize({ width: 800, height: 600 })).toEqual({ width: 300, height: 500 });
+		expect(findStoredSizingPolicy({ id: 'square' }, plotsService.sizingPolicies)?.id).toBe('square');
 	});
 
 	it('selection: select plot', async () => {
