@@ -38,8 +38,9 @@ export interface ICanvasRestoreSweepServices {
  * session quit in Canvas mode; a window not presenting Canvas must not sit
  * next to one. Merge its Canvas back into the IDE as an inline tab (the
  * conversation survives; the emptied window closes itself). Recognized by
- * the `lockCompact` trait, which only Canvas mode sets; a Canvas the user
- * popped out by hand lacks it and is left alone. Idempotent.
+ * the `lockCompact` trait plus Canvas-only editors (dedicated Assistant
+ * windows carry the trait too); a Canvas the user popped out by hand lacks
+ * the trait and is left alone. Idempotent.
  */
 export async function sweepRestoredCanvasWindows(services: ICanvasRestoreSweepServices): Promise<void> {
 	const { auxiliaryWindowService, editorGroupsService, layoutService, logService } = services;

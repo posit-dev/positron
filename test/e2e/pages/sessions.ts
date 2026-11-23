@@ -1204,23 +1204,42 @@ export class Sessions {
 	 */
 	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {
 		await test.step(`Verify session count: ${count}`, async () => {
-			await expect(async () => {
-				if (sessionType === 'active') {
-					const activeSessionsFromConsole = await this.getActiveSessions();
-					expect(activeSessionsFromConsole).toHaveLength(count);
-				} else {
-					if (count === 0) {
-						await expect(this.sessionTabs).not.toBeVisible();
-						await expect(this.metadataButton).not.toBeVisible();
-					} else if (count === 1) {
-						await expect(this.sessionTabs).not.toBeVisible();
-						await expect(this.metadataButton).toBeVisible();
+			try {
+				await expect(async () => {
+					if (sessionType === 'active') {
+						const activeSessionsFromConsole = await this.getActiveSessions();
+						expect(activeSessionsFromConsole).toHaveLength(count);
 					} else {
-						await expect(this.sessionTabs).toHaveCount(count);
+						if (count === 0) {
+							await expect(this.sessionTabs).not.toBeVisible();
+							await expect(this.metadataButton).not.toBeVisible();
+						} else if (count === 1) {
+							await expect(this.sessionTabs).not.toBeVisible();
+							await expect(this.metadataButton).toBeVisible();
+						} else {
+							await expect(this.sessionTabs).toHaveCount(count);
+						}
 					}
-				}
-			}).toPass({ timeout: 45000 });
+				}).toPass({ timeout: 45000 });
+			} catch (error) {
+				const found = await this.describeSessionsForFailure();
+				throw found ? new Error(`Expected ${count} session(s), but found: ${found}`, { cause: error }) : error;
+			}
 		});
+	}
+
+	// Empty when no session can be read, so a closed page or a test timeout is not blamed on a session.
+	private async describeSessionsForFailure(): Promise<string> {
+		try {
+			const sessions = await this.getAllSessionIdsAndNames();
+			const described = await Promise.all(sessions.map(async ({ id, name }) => {
+				const reason = await this.getMetadata(id).then(metadata => metadata.startReasonId, () => undefined);
+				return `"${name}" (start reason: ${reason ?? 'unknown'})`;
+			}));
+			return described.join(', ');
+		} catch {
+			return '';
+		}
 	}
 
 	/**

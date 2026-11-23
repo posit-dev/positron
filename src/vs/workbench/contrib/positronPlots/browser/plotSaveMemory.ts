@@ -12,10 +12,11 @@ export type PlotSaveMemoryFileService = { stat(uri: URI): Promise<{ isDirectory:
 interface SavedPlotLocation {
 	directory: string;
 	format?: PlotRenderFormat;
+	resolution?: number;
 }
 
 /**
- * Remembers the folder and format of the last plot save, per workspace, until
+ * Remembers the folder, format, and resolution of the last plot save, per workspace, until
  * Positron quits. Ephemeral state is used so the value survives window reloads.
  */
 export class PlotSaveMemory {
@@ -29,20 +30,23 @@ export class PlotSaveMemory {
 		this._key = `positron.plots.lastSaveLocation.${workspaceId}`;
 	}
 
-	/** The last folder and format saved to. Uses the fallback folder if there is none or it is no longer a folder. */
-	async get(fallback: URI): Promise<{ directory: URI; format?: PlotRenderFormat }> {
+	/** The last folder, format, and resolution saved with. Uses the fallback folder if there is none or it is no longer a folder. */
+	async get(fallback: URI): Promise<{ directory: URI; format?: PlotRenderFormat; resolution?: number }> {
 		const saved = await this._read();
 		const directory = saved ? URI.parse(saved.directory) : undefined;
 		return {
 			directory: directory && await this._isDirectory(directory) ? directory : fallback,
 			format: saved?.format,
+			resolution: saved?.resolution,
 		};
 	}
 
-	/** Records a successful save. Omit the format to keep the previous one. */
-	async remember(directory: URI, format?: PlotRenderFormat): Promise<void> {
-		format ??= (await this._read())?.format;
-		const saved: SavedPlotLocation = { directory: directory.toString(), format };
+	/** Records a successful save. Omit the format or resolution to keep the previous one. */
+	async remember(directory: URI, format?: PlotRenderFormat, resolution?: number): Promise<void> {
+		const previous = format === undefined || resolution === undefined ? await this._read() : undefined;
+		format ??= previous?.format;
+		resolution ??= previous?.resolution;
+		const saved: SavedPlotLocation = { directory: directory.toString(), format, resolution };
 		try {
 			await this._ephemeralState.setItem(this._key, saved);
 		} catch {

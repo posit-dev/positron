@@ -6,7 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { prCard, renderOutcomesPage, renderView, resolveRange, runUrl, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
+import { readFileSync } from 'node:fs';
+import { OUTCOMES, prCard, renderOutcomesPage, renderView, resolveRange, runUrl, splitEvidence, summarize, VIEW_SOURCE } from './outcomes-page.mjs';
 
 const row = (outcome, extra = {}) => ({
 	pr: 1, run: '10', finding: 1, title: 'A finding', severity: 'minor', trigger: 'explore', decidedBy: 'diff+model',
@@ -566,4 +567,15 @@ test('a finding on a draft PR is still PR still open', () => {
 	const html = render([row('pending', { decidedBy: 'pr-open', prPreview: preview({ state: 'draft' }) })]);
 	assert.match(text(section(html, 'all-h')), /Not counted 1/);
 	assert.match(html, /data-key="pending"/);
+});
+
+test('every outcome set by hand in finding-overrides.json is one the page shows, with a reason', () => {
+	const overrides = JSON.parse(readFileSync(new URL('./finding-overrides.json', import.meta.url), 'utf8'));
+	const known = new Set(OUTCOMES.map(o => o.key));
+	for (const [key, entry] of Object.entries(overrides)) {
+		assert.ok(entry.why, `${key} has no why`);
+		if (entry.outcome !== undefined) {
+			assert.ok(known.has(entry.outcome), `${key} sets unknown outcome ${entry.outcome}`);
+		}
+	}
 });

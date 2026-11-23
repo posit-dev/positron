@@ -49,8 +49,10 @@
 		"@types/express": "^4.17.17",
 		"@types/mocha": "^10.0.10",
 		"@types/node": "22.x",
+		"@types/yauzl": "^2.10.3",
 		"pdfjs-dist": "^5.4.624",
-		"ts-node": "^10.9.1"
+		"ts-node": "^10.9.1",
+		"yauzl": "^3.4.0"
 	},
 	"repository": {
 		"type": "git",

@@ -20,6 +20,9 @@ import {
     FileCoverageDetail,
     TestRun,
     MarkdownString,
+    // --- Start Positron ---
+    Disposable,
+    // --- End Positron ---
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IWorkspaceService } from '../../common/application/types';
@@ -153,7 +156,12 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.disposables.push(envChangeRediscoverTrigger);
         this.envChangeRediscoverTrigger = envChangeRediscoverTrigger;
 
-        this.disposables.push(
+        // --- Start Positron ---
+        // Create profiles only while pytest or unittest is enabled;
+        // see gateRunProfiles().
+        // this.disposables.push(
+        this.createRunProfiles = () => [
+            // --- End Positron ---
             this.testController.createRunProfile(
                 'Run Tests',
                 TestRunProfileKind.Run,
@@ -175,7 +183,11 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 true,
                 RunTestTag,
             ),
-        );
+            // --- Start Positron ---
+            // );
+        ];
+        this.gateRunProfiles();
+        // --- End Positron ---
 
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
@@ -192,6 +204,44 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             return this.refreshTestData(undefined, { forceRefresh: true });
         };
     }
+
+    // --- Start Positron ---
+    private readonly createRunProfiles: () => Disposable[];
+
+    private runProfiles: Disposable | undefined;
+
+    /**
+     * Keep Python test profiles from polluting the Testing view in non-Python
+     * workspaces (e.g. R packages). Register Python test profiles only when
+     * pytest or unittest is enabled.
+     */
+    private gateRunProfiles(): void {
+        this.disposables.push(
+            { dispose: () => this.runProfiles?.dispose() },
+            this.workspaceService.onDidChangeConfiguration((event) => {
+                if (event.affectsConfiguration('python.testing')) {
+                    this.updateRunProfiles();
+                }
+            }),
+            this.workspaceService.onDidChangeWorkspaceFolders(() => this.updateRunProfiles()),
+        );
+        this.updateRunProfiles();
+    }
+
+    private updateRunProfiles(): void {
+        const enabled = (this.workspaceService.workspaceFolders ?? []).some((workspace) => {
+            const settings = this.configSettings.getSettings(workspace.uri);
+            return settings.testing.pytestEnabled || settings.testing.unittestEnabled;
+        });
+
+        if (enabled && !this.runProfiles) {
+            this.runProfiles = Disposable.from(...this.createRunProfiles());
+        } else if (!enabled && this.runProfiles) {
+            this.runProfiles.dispose();
+            this.runProfiles = undefined;
+        }
+    }
+    // --- End Positron ---
 
     /**
      * Determines the test provider (pytest or unittest) based on workspace settings.

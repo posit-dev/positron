@@ -26,7 +26,7 @@ interface Args { notebook: string; cmd: string; n: number; arg: string; timeout:
 const nb: PageFn<Args> = async (page, a, lib) => {
 	const n$ = lib.names.nb;
 	const group = page.locator(lib.css.editorGroup.active);
-	const active = await group.getByRole('tab', { selected: true }).first().getAttribute('aria-label').catch(() => null);
+	const active = (await group.getByRole('tab', { selected: true }).first().getAttribute('aria-label').catch(() => null))?.replace(new RegExp(lib.tabSuffix), '') ?? null;
 	if (active !== a.notebook) { return { ok: false, error: `the active editor is ${active ?? 'none'}, not ${a.notebook}; open it with open-file.sh` }; }
 	const cells = group.getByRole('article');
 	if (!await cells.count()) { return { ok: false, error: `${a.notebook} is not open in the Positron notebook editor` }; }

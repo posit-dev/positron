@@ -9,13 +9,15 @@
 //   judge     one model call with no tools; fails closed, i.e. silent
 //   post      re-checks the thread and posts the suggestion, or for an author
 //             on the auto-run list (#16610), starts test-exploratory.yml
-//             instead. That run posts to the PR only if its gate passes it.
+//             instead. When that run's gate declines, it says so on the PR.
+//             When the judge says no to a listed author's PR, post says why,
+//             so a wrong call can be overridden with /explore.
 // DRY_RUN=true runs every step's logic but posts nothing, and judges a PR the
 // precheck would skip, so verdicts can be read on any PR.
 
 import { appendFileSync } from 'node:fs';
-import { postOrEditComment } from './comment.mjs';
-import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { deleteComment, postOrEditComment } from './comment.mjs';
+import { autoRunName, buildSuggestPrompt, findDeclinedNote, findPriorUse, isAutoRunAuthor, isAutoRunTitle, parseVerdict, renderDeclinedComment, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
@@ -103,7 +105,8 @@ async function precheck() {
 		skip = prior ? `auto-run already started (${prior.html_url})` : null;
 	}
 	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${auto ? ' (author is on the auto-run list)' : ''}`);
-	output({ proceed: !skip || DRY_RUN, reason: skip || '', auto });
+	// head_sha labels a declined note with the commit the judge is about to read.
+	output({ proceed: !skip || DRY_RUN, reason: skip || '', auto, head_sha: pr.head?.sha ?? '' });
 }
 
 async function judge() {
@@ -136,13 +139,27 @@ async function judge() {
 
 async function post() {
 	const token = mustEnv('GH_TOKEN');
+	const comments = await ghGet(token, `/repos/${REPO}/issues/${PR_NUMBER}/comments`);
 	// Someone may have run /explore while the model was deciding.
-	const prior = findPriorUse(await ghGet(token, `/repos/${REPO}/issues/${PR_NUMBER}/comments`));
+	const prior = findPriorUse(comments);
 	if (prior) {
 		console.log(`[suggest] not posting: exploratory testing already ${prior.kind} (comment ${prior.id})`);
 		return;
 	}
+	// One note per PR: a later "no" edits it. A later "yes" leaves it to
+	// whatever speaks next: the tip below, or the auto-run's own comment.
+	const declined = findDeclinedNote(comments);
+	// The workflow runs post on a "no" only for an auto-run author, with its reason.
+	if (process.env.SUGGEST !== 'true') {
+		// HEAD_SHA is the head precheck saw before the judge read the diff, not
+		// whatever was pushed while it ran.
+		const { action, id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, commentId: declined?.id, body: renderDeclinedComment(process.env.REASON, process.env.HEAD_SHA) });
+		console.log(`[suggest] ${action} the declined note, comment ${id}`);
+		return;
+	}
 	// Anything wrong on the auto-run path falls back to the tip, so the PR still hears.
+	// The note stays until the run posts: a run the gate refuses posts nothing,
+	// and the note is then all the PR has. test-exploratory.yml removes it.
 	if (process.env.AUTO_RUN === 'true') {
 		try {
 			await startAutoRun(token);
@@ -153,6 +170,15 @@ async function post() {
 	}
 	const { id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, body: renderSuggestComment(mustEnv('REASON')) });
 	console.log(`[suggest] posted comment ${id}`);
+	// The tip supersedes the note. A note left behind is only stale.
+	if (declined) {
+		try {
+			await deleteComment({ fetchImpl: fetch, token, repo: REPO, commentId: declined.id });
+			console.log(`[suggest] removed the earlier declined note, comment ${declined.id}`);
+		} catch (err) {
+			console.log(`[suggest] could not remove the earlier declined note, comment ${declined.id}: ${err}`);
+		}
+	}
 }
 
 /**

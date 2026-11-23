@@ -54,7 +54,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		// If the mouse is inside, show the hover. This has the effect of showing the hover when
 		// mouseInside is set to true and updating the hover when the tooltip changes.
 		if (mouseInside) {
-			positronActionBarContext.hoverManager.showHover(ref.current, props.directoryLabel);
+			positronActionBarContext.hoverManager?.showHover(ref.current, props.directoryLabel);
 		}
 	}, [mouseInside, positronActionBarContext.hoverManager, props.directoryLabel]);
 
@@ -66,7 +66,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		// Stop propagation.
 		e.stopPropagation();
 
-		// If the left mouse button was pressed, show the context menu.
+		// If the right mouse button was pressed, show the context menu.
 		if (e.button === 2) {
 			// Build the context menu entries.
 			const entries: CustomContextMenuEntry[] = [
@@ -96,6 +96,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 
 	// Render.
 	return (
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- existing debt: the mouse handlers only show the hover and the right-click copy menu, which has no keyboard path yet.
 		<div
 			ref={ref}
 			aria-label={positronCurrentWorkingDirectory}

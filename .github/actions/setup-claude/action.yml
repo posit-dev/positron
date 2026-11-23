@@ -13,6 +13,16 @@ runs:
         path: .claude-plugins/simple-english
         persist-credentials: false
 
+    # actions/checkout can only write inside the workspace, so move the plugin out. claude-code-action
+    # checks out a PR's head into the workspace without restoring .claude-plugins from the base
+    # branch, so a PR could otherwise add files to the plugin, such as hooks that run commands.
+    # The jobs load the plugin from $RUNNER_TEMP/simple-english.
+    - name: Move Simple English plugin out of the workspace
+      shell: bash
+      run: |
+        mv .claude-plugins/simple-english "$RUNNER_TEMP/simple-english"
+        rmdir .claude-plugins
+
     # claude-code-action only installs bubblewrap when allowed_non_write_users is set, so the
     # @claude workflow mirrors its setup here. CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs it.
     - name: Install subprocess isolation dependencies

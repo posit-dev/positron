@@ -14,6 +14,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
+import { PlotLocatorPrompt } from './plotLocatorBanner.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
 import { StaticPlotInstance } from './staticPlotInstance.js';
 import { StaticPlotThumbnail } from './staticPlotThumbnail.js';
@@ -23,12 +24,18 @@ import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { DarkFilter, IPositronPlotClient, isZoomablePlotClient, PlotRenderFormat, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
+import { IPlotLocator, isLocatorForPlot } from '../../../../services/positronPlots/common/plotLocator.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { isNavigableSourceUri, openPlotOriginFile, openPlotSource } from '../plotUtils.js';
+import { localize } from '../../../../../nls.js';
+import { ViewEmptyState } from '../../../../browser/positronComponents/viewEmptyState/viewEmptyState.js';
+
+const plotsHint = localize('positron.plots.empty.plotsHint', "Plots created in your session appear here.");
+const plotsDocsAriaLabel = localize('positron.plots.empty.docsAriaLabel', "View documentation for the Plots pane");
 
 /**
  * PlotContainerProps interface.
@@ -85,6 +92,23 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		),
 		[positronPlotsContext.positronPlotInstances, positronPlotsContext.selectedInstanceId]
 	);
+
+	// The active locator() request, if any. While it waits on the current plot, the plot info
+	// header shows the locator prompt.
+	const [activeLocator, setActiveLocator] = React.useState<IPlotLocator | undefined>(
+		() => services.positronPlotsService.activeLocator
+	);
+	useEffect(() => {
+		setActiveLocator(services.positronPlotsService.activeLocator);
+		const disposable = services.positronPlotsService.onDidChangeLocator(setActiveLocator);
+		return () => disposable.dispose();
+	}, [services.positronPlotsService]);
+	const locatingCurrentPlot = !!currentPlotInstance &&
+		isLocatorForPlot(activeLocator, currentPlotInstance.metadata.session_id, currentPlotInstance.id);
+	// A plot in this pane that the locator waits on while another plot is shown.
+	const locatorPlotId = !locatingCurrentPlot ? positronPlotsContext.positronPlotInstances.find(
+		plot => isLocatorForPlot(activeLocator, plot.metadata.session_id, plot.id)
+	)?.id : undefined;
 
 	// Bumped by the plots context when plot metadata (kind, name, origin)
 	// changes, so the memos below recompute.
@@ -297,6 +321,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				key={plotInstance.id}
 				height={plotHeight}
 				plotClient={plotInstance}
+				showLocatorBanner={false}
 				width={plotWidth}
 				zoom={zoom} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
@@ -479,6 +504,21 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// source, so a second identical button is redundant.
 		const showOriginFile = !!originFileName && originFileName !== sessionName;
 
+		// While a locator() call waits on a plot in this pane, the prompt takes the place of the
+		// origin file and plot name, so the plot keeps its full height. If the user selected
+		// another plot, the prompt offers to go back, so the busy console is explained.
+		if (locatingCurrentPlot || locatorPlotId) {
+			return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
+				<span className='plot-info-text'>
+					{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
+					<PlotLocatorPrompt
+						onFinish={() => services.positronPlotsService.resolveLocator(undefined)}
+						onShowPlot={locatorPlotId ? () => services.positronPlotsService.selectPlot(locatorPlotId) : undefined}
+					/>
+				</span>
+			</div>;
+		}
+
 		// If no info to display, show a placeholder to maintain consistent height
 		if (!sessionName && !plotName && !showOriginFile) {
 			return <div className='plot-info-header'>
@@ -503,7 +543,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
 				<div className='selected-plot'>
 					{positronPlotsContext.positronPlotInstances.length === 0 &&
-						<div className='plot-placeholder'></div>}
+						<ViewEmptyState
+							docsAriaLabel={plotsDocsAriaLabel}
+							docsPath='plots-pane.html'
+							icon='graph'
+							message={plotsHint} />}
 					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 						plotInstance.id === positronPlotsContext.selectedInstanceId &&
 						render(plotInstance)

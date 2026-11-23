@@ -161,7 +161,7 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 			// Every group, also while the editor area is hidden (the panel
 			// maximized): its tabs are still in the page, only not laid out.
 			const hidden = (await layout()).editor === 'hidden';
-			const groups = await page.locator(lib.css.editorGroup.group).evaluateAll((all, { e, label }) => all
+			const groups = await page.locator(lib.css.editorGroup.group).evaluateAll((all, { e, label, suffix }) => all
 				.filter((g, _i, gs) => g.getClientRects().length > 0 || !gs.some(x => x.getClientRects().length > 0))
 				.sort((p, q) => p.getBoundingClientRect().left - q.getBoundingClientRect().left || p.getBoundingClientRect().top - q.getBoundingClientRect().top)
 				.map((g, i) => ({
@@ -171,12 +171,12 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 						const folder = clean(t.querySelector(label.description));
 						const path = (t.querySelector(label.icon)?.getAttribute('aria-label') ?? '').split(' \u2022 ')[0];
 						return {
-							title: clean(t.querySelector(label.name)) || (t.getAttribute('aria-label') ?? '').replace(/, Editor Group \d+$/, ''),
+							title: clean(t.querySelector(label.name)) || (t.getAttribute('aria-label') ?? '').replace(new RegExp(suffix), ''),
 							...(folder ? { folder } : {}), ...(path.startsWith('/') || /^[A-Za-z]:/.test(path) ? { path } : {}),
 							active: t.getAttribute('aria-selected') === 'true', modified: t.matches(e.dirty),
 						};
 					}),
-				})), { e: lib.css.editorGroup, label: lib.css.label });
+				})), { e: lib.css.editorGroup, label: lib.css.label, suffix: lib.tabSuffix });
 			return { ok: true, groups, ...(hidden ? { editorArea: 'hidden', note: 'the editor area is hidden (the panel is maximized, or the editors are closed): these tabs are open but not on screen' } : {}) };
 		}
 		case 'layout': return { ok: true, ...(await layout()) };

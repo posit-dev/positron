@@ -35,9 +35,12 @@ import { URI } from '../../../../base/common/uri.js';
  * so those states need explicit mappings to avoid a Disconnected icon.
  * Once a session is attached, its RuntimeState is authoritative and this
  * fallback isn't needed.
+ *
+ * `None` is NotStarted here; the badge shows Disconnected instead when a
+ * session ran for the document and ended while it stayed open.
  */
 const quartoStateToRuntimeStatus: Partial<Record<QuartoKernelState, RuntimeStatus>> = {
-	[QuartoKernelState.None]: RuntimeStatus.Disconnected,
+	[QuartoKernelState.None]: RuntimeStatus.NotStarted,
 	[QuartoKernelState.Starting]: RuntimeStatus.Active,
 	[QuartoKernelState.Error]: RuntimeStatus.Disconnected,
 	[QuartoKernelState.ShuttingDown]: RuntimeStatus.Active,
@@ -169,9 +172,13 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 
 	// Prefer the session's runtime state. Fall back to the manager's
 	// pre-session kernel state (None / Error) when no session exists.
-	const runtimeStatus = runtimeState !== undefined
+	let runtimeStatus = runtimeState !== undefined
 		? runtimeStateToRuntimeStatus[runtimeState]
 		: quartoStateToRuntimeStatus[kernelState] ?? RuntimeStatus.Disconnected;
+	if (runtimeStatus === RuntimeStatus.NotStarted &&
+		documentUri && quartoKernelManager.hasEndedSession(documentUri)) {
+		runtimeStatus = RuntimeStatus.Disconnected;
+	}
 	// Label priority:
 	// 1. A running session's runtime name.
 	// 2. When no kernel has started, the interpreter that would start if code

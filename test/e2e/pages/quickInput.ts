@@ -131,10 +131,10 @@ export class QuickInput {
 		).not.toHaveAttribute('placeholder', /Discovering interpreters/i, { timeout });
 	}
 
-	async type(value: string): Promise<void> {
+	async type(value: string, options?: { timeout?: number }): Promise<void> {
 		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
-			.selectText();
+			.selectText({ timeout: options?.timeout });
 		await this.code.driver.currentPage.keyboard.press('Backspace');
 		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)

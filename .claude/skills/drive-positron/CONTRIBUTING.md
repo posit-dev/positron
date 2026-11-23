@@ -140,7 +140,7 @@ node .claude/skills/drive-positron/test/smoke.ts   # every helper on one instanc
 node .claude/skills/drive-positron/test/smoke.ts --quick   # one happy path per helper, ~2 min
 ```
 
-In CI, `.github/workflows/drive-positron-nightly.yml` runs smoke.ts every
+In CI, `drive-positron-nightly.yml` in posit-dev/positron-builds runs smoke.ts every
 weekday night and fixes the helper bugs it finds; no PR check runs drift.ts.
 
 Every new command needs a smoke case, marked `quick: true` when it is the

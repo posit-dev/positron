@@ -22,7 +22,6 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILifecycleService } from '../../lifecycle/common/lifecycle.js';
-import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { toUtcDay } from '../../../../platform/update/common/positronUpdateUtils.js';
@@ -273,12 +272,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// owning the session.
 	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
 
-	// A map of the last known session display info per notebook URI. This is set when a
-	// notebook session is attached and updated when the session exits. It persists after
-	// the session is deleted/disposed, allowing UI components to show what runtime was
-	// last used for a notebook.
-	private readonly _lastNotebookSessionByNotebookUri = new ResourceMap<IRuntimeSessionDisplayInfo>();
-
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
@@ -360,7 +353,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
 		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -471,23 +463,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 		));
-
-		// Changing the application storage scope causes disconnected sessions
-		// to become unusable, since the information needed to reconnect to them
-		// is stored in the old scope.
-		this._register(this._storageService.onDidChangeTarget((e) => {
-			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
-				this._logService.debug(`Application storage scope changed; ` +
-					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
-
-				// Clear map and fire deletion events to update
-				// console session service consumers.
-				this._disconnectedSessions.forEach(value => {
-					this._onDidDeleteRuntimeSessionEmitter.fire(value.session.sessionId);
-				});
-				this._disconnectedSessions.clear();
-			}
-		}));
 
 		this.scheduleUpdateActiveLanguages(25 * 1000);
 	}
@@ -609,14 +584,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getLastActiveConsoleSession(): ILanguageRuntimeSession | undefined {
 		return this._lastActiveConsoleSession;
-	}
-
-	/**
-	 * Gets the last known session display info for a notebook URI.
-	 * This persists after the session has been deleted/disposed.
-	 */
-	getLastNotebookSessionInfo(notebookUri: URI): IRuntimeSessionDisplayInfo | undefined {
-		return this._lastNotebookSessionByNotebookUri.get(notebookUri);
 	}
 
 	/**
@@ -1265,6 +1232,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined {
 		return this._activeSessionsBySessionId.get(sessionId);
+	}
+
+	/**
+	 * Checks whether a session lost its extension host and waits to be
+	 * reconnected.
+	 */
+	isSessionDisconnected(sessionId: string): boolean {
+		return this._disconnectedSessions.has(sessionId);
 	}
 
 	/**
@@ -2447,7 +2422,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (isNotebookLanguageRuntimeSession(session)) {
 					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
-					this._saveNotebookSessionInfo(session);
 				} else {
 					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 						`does not have a notebook URI.`);
@@ -2825,32 +2799,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			if (session.metadata.notebookUri) {
 				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
-				// Update the cached session info before removing the session from the active map.
-				this._lastNotebookSessionByNotebookUri.set(
-					session.metadata.notebookUri,
-					new RuntimeSessionDisplayInfo(session),
-				);
 				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
 			} else {
 				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 					`does not have a notebook URI.`);
 			}
 		}
-	}
-
-	/**
-	 * Saves the display info for a notebook session into
-	 * `_lastNotebookSessionByNotebookUri` so it can be shown after
-	 * the session is disposed.
-	 */
-	private _saveNotebookSessionInfo(session: ILanguageRuntimeSession): void {
-		if (!session.metadata.notebookUri) {
-			return;
-		}
-		this._lastNotebookSessionByNotebookUri.set(
-			session.metadata.notebookUri,
-			new RuntimeSessionDisplayInfo(session),
-		);
 	}
 
 	/**
