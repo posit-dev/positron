@@ -35,3 +35,5 @@ Positron™ is licensed under the [Elastic License 2.0](https://github.com/posit
 
 Positron™ and the Positron icon™ are trademarks of Posit Software, PBC. All rights reserved.
 
+This sentence is a test of the Claude workflow and must not be merged.
+
