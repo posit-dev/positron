@@ -16,6 +16,7 @@ const POSITRON_DOCS_DEFAULT_URL = 'https://positron.posit.co/';
  * Service identifier for the Positron docs service.
  */
 // Test line from the Claude workflow check. Do not merge.
+// Second test line. Do not merge.
 export const IPositronDocsService = createDecorator<IPositronDocsService>('positronDocsService');
 
 /**
