@@ -31,6 +31,11 @@ import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { isNavigableSourceUri, openPlotOriginFile, openPlotSource } from '../plotUtils.js';
+import { localize } from '../../../../../nls.js';
+import { ViewEmptyState } from '../../../../browser/positronComponents/viewEmptyState/viewEmptyState.js';
+
+const plotsHint = localize('positron.plots.empty.plotsHint', "Plots created in your session appear here.");
+const plotsDocsAriaLabel = localize('positron.plots.empty.docsAriaLabel', "View documentation for the Plots pane");
 
 /**
  * PlotContainerProps interface.
@@ -538,7 +543,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
 				<div className='selected-plot'>
 					{positronPlotsContext.positronPlotInstances.length === 0 &&
-						<div className='plot-placeholder'></div>}
+						<ViewEmptyState
+							docsAriaLabel={plotsDocsAriaLabel}
+							docsPath='plots-pane.html'
+							icon='graph'
+							message={plotsHint} />}
 					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 						plotInstance.id === positronPlotsContext.selectedInstanceId &&
 						render(plotInstance)
