@@ -157,8 +157,12 @@ def _is_file_run(raw_cell: str) -> bool:
 
     Uses a fresh `TransformerManager` with only IPython's built-in transforms, rather than
     `shell.transform_cell`, so that the user's own input transformers (which may be
-    stateful) don't run a second time for the cell.
+    stateful) don't run a second time for the cell. Skips the transform for cells that
+    can't contain `%run`.
     """
+    if "run" not in raw_cell:
+        return False
+
     from IPython.core.inputtransformer2 import TransformerManager
 
     return _RUN_FILE_RE.search(TransformerManager().transform_cell(raw_cell)) is not None
