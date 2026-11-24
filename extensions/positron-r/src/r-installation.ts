@@ -163,6 +163,11 @@ export function isRVersionsMetadata(metadata: PackagerMetadata): metadata is RVe
 	return 'type' in metadata && metadata.type === 'rversions';
 }
 
+/**
+ * Why an R installation was discovered or rejected, in English, for the R
+ * output log. Not localized. The user-facing wording for a rejection is
+ * rejectionSentence() in environmentHealth.ts; update both when adding a reason.
+ */
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
 	if (Object.values(ReasonDiscovered).includes(reason as ReasonDiscovered)) {
 		switch (reason) {
