@@ -913,7 +913,13 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	private get layoutControlEnabled(): boolean {
-		return this.configurationService.getValue<boolean>(LayoutSettings.LAYOUT_ACTIONS) !== false;
+		// --- Start Positron ---
+		// The simplified layout's layout picker on the left of the title bar replaces the
+		// layout buttons, so the title bar has one place to change the layout.
+		// return this.configurationService.getValue<boolean>(LayoutSettings.LAYOUT_ACTIONS) !== false;
+		return this.configurationService.getValue<boolean>(LayoutSettings.LAYOUT_ACTIONS) !== false &&
+			!isSimplifiedLayoutEnabled(this.configurationService);
+		// --- End Positron ---
 	}
 
 	protected get isCommandCenterVisible() {

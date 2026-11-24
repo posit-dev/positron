@@ -39,6 +39,13 @@ export interface IPositronLayoutService {
 	readonly onDidChangeCurrentLayout: Event<string | undefined>;
 
 	/**
+	 * The command id of the last layout from the title bar's layout picker that was
+	 * applied. Unlike {@link currentLayoutId}, it stays set after the user moves views,
+	 * so the picker can offer to put that layout back. Remembered per folder.
+	 */
+	readonly lastAppliedLayoutId: string | undefined;
+
+	/**
 	 * In the simplified layout, whether the window shows every view where it
 	 * normally lives. True after the Default layout is applied. False after a
 	 * task layout is applied: it hides the views its work does not need, and

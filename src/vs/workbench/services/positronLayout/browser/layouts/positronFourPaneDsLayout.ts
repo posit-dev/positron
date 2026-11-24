@@ -23,7 +23,12 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
 	label: localize2('choseLayout.default', 'Default Layout'),
-	taskLayout: { name: localize('positron.taskLayout.default', "Default"), group: 'layout', order: 0 },
+	taskLayout: {
+		name: localize('positron.taskLayout.default', "Default"),
+		description: localize('positron.taskLayout.defaultDescription', "Every view, where it normally lives"),
+		group: 'layout',
+		order: 0,
+	},
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
 	agentDescription: 'Switch the workbench to the default four-pane layout (explorer, editor, console + terminal, variables + plots).',

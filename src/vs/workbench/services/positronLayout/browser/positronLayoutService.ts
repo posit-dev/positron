@@ -28,6 +28,12 @@ const CURRENT_LAYOUT_STORAGE_KEY = 'positron.layout.currentLayoutId';
  */
 const SHOWS_ALL_VIEWS_STORAGE_KEY = 'positron.layout.showsAllViews';
 
+/**
+ * Where {@link IPositronLayoutService.lastAppliedLayoutId} is saved. Workspace scope, like
+ * the containers the layout hides.
+ */
+const LAST_APPLIED_LAYOUT_STORAGE_KEY = 'positron.layout.lastAppliedLayoutId';
+
 const PART_FOR_LOCATION = new Map<ViewContainerLocation, KnownPositronLayoutParts>([
 	[ViewContainerLocation.Sidebar, Parts.SIDEBAR_PART],
 	[ViewContainerLocation.Panel, Parts.PANEL_PART],
@@ -47,6 +53,8 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 	readonly onDidChangeShowsAllViews = this._onDidChangeShowsAllViews.event;
 
 	private _showsAllViews: boolean;
+
+	private _lastAppliedLayoutId: string | undefined;
 
 	/**
 	 * True while setLayout runs. Applying a layout moves views and shows and hides
@@ -68,6 +76,7 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		super();
 
 		this._showsAllViews = this._storageService.getBoolean(SHOWS_ALL_VIEWS_STORAGE_KEY, StorageScope.WORKSPACE, false);
+		this._lastAppliedLayoutId = this._storageService.get(LAST_APPLIED_LAYOUT_STORAGE_KEY, StorageScope.WORKSPACE);
 
 		this._currentLayoutId = this._storageService.get(CURRENT_LAYOUT_STORAGE_KEY, StorageScope.PROFILE);
 
@@ -87,6 +96,10 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		return this._showsAllViews;
 	}
 
+	get lastAppliedLayoutId(): string | undefined {
+		return this._lastAppliedLayoutId;
+	}
+
 	setLayout(layout: CustomPositronLayoutDescription, layoutId?: string) {
 		this._applyingLayout = true;
 		try {
@@ -98,6 +111,10 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 			this._workbenchLayoutService.enterCustomLayout(layout);
 		} finally {
 			this._applyingLayout = false;
+		}
+		if (layoutId && getTaskLayout(layoutId)) {
+			this._lastAppliedLayoutId = layoutId;
+			this._storageService.store(LAST_APPLIED_LAYOUT_STORAGE_KEY, layoutId, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 		}
 		this._setCurrentLayoutId(layoutId);
 	}

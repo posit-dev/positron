@@ -44,7 +44,7 @@ export type PositronLayoutInfo = {
 	 * name, in this group and order. A task layout can also name view
 	 * containers it hides.
 	 */
-	taskLayout?: { name: string; group: TaskLayoutGroup; order: number; hiddenViewContainers?: readonly string[] };
+	taskLayout?: { name: string; description?: string; group: TaskLayoutGroup; order: number; hiddenViewContainers?: readonly string[] };
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -73,6 +73,7 @@ export abstract class PositronLayoutAction extends Action2 {
 			registerTaskLayout({
 				id: layoutInfo.id,
 				name: layoutInfo.taskLayout.name,
+				description: layoutInfo.taskLayout.description,
 				codicon: layoutInfo.codicon,
 				group: layoutInfo.taskLayout.group,
 				order: layoutInfo.taskLayout.order,

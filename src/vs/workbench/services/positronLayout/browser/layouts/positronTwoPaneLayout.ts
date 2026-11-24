@@ -24,6 +24,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 	label: localize2('choseLayout.dataAnalysis', 'Data Analysis Layout'),
 	taskLayout: {
 		name: localize('positron.taskLayout.dataAnalysis', "Data Analysis"),
+		description: localize('positron.taskLayout.dataAnalysisDescription', "Scripts, console, variables, and plots"),
 		group: 'task',
 		order: 0,
 		hiddenViewContainers: [

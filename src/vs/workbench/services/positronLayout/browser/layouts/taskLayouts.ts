@@ -23,6 +23,8 @@ export interface TaskLayout {
 	readonly id: string;
 	/** The short name the picker shows, such as "Notebook". */
 	readonly name: string;
+	/** A few words under the name saying what the layout is for. */
+	readonly description?: string;
 	/** The icon the picker shows. */
 	readonly codicon?: string;
 	/** The group the picker shows the layout in. */

@@ -25,6 +25,7 @@ export const positronAppDevelopmentLayout: PositronLayoutInfo = {
 	label: localize2('choseLayout.appDevelopment', 'App Development Layout'),
 	taskLayout: {
 		name: localize('positron.taskLayout.appDevelopment', "App Development"),
+		description: localize('positron.taskLayout.appDevelopmentDescription', "Your app running in the Viewer"),
 		group: 'task',
 		order: 2,
 		hiddenViewContainers: [

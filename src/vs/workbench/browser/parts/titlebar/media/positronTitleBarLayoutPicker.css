@@ -42,3 +42,96 @@
 .monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar > .titlebar-container > .titlebar-left > .positron-title-bar-layout-picker {
 	margin-left: 78px;
 }
+
+/* The layout picker's menu. Colored like the workbench's other menus. */
+.positron-layout-menu {
+	background-color: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, transparent));
+	border-radius: var(--vscode-cornerRadius-large, 6px);
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	color: var(--vscode-menu-foreground);
+	font-size: 13px;
+	min-width: 260px;
+	padding: 4px 0;
+	user-select: none;
+}
+
+.positron-layout-menu-heading {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	padding: 6px 12px 2px 12px;
+}
+
+.positron-layout-menu-separator {
+	border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border));
+	margin: 4px 0;
+}
+
+.positron-layout-menu-item {
+	align-items: center;
+	border-radius: var(--vscode-cornerRadius-medium, 4px);
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	margin: 0 4px;
+	outline: none;
+	padding: 4px 8px;
+}
+
+.positron-layout-menu-item:focus {
+	background-color: var(--vscode-menu-selectionBackground);
+	color: var(--vscode-menu-selectionForeground);
+}
+
+.positron-layout-menu-icon {
+	flex: none;
+	font-size: 14px;
+	width: 16px;
+}
+
+.positron-layout-menu-text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.positron-layout-menu-description {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.positron-layout-menu-item:focus .positron-layout-menu-description {
+	color: inherit;
+	opacity: 0.8;
+}
+
+/* An on/off switch, drawn from the item's checked state. */
+.positron-layout-menu-switch {
+	background-color: var(--vscode-input-border, var(--vscode-widget-border));
+	border-radius: 7px;
+	flex: none;
+	height: 14px;
+	position: relative;
+	width: 26px;
+}
+
+.positron-layout-menu-switch::after {
+	background-color: var(--vscode-menu-background);
+	border-radius: 50%;
+	content: '';
+	height: 10px;
+	left: 2px;
+	position: absolute;
+	top: 2px;
+	transition: left 0.1s ease-out;
+	width: 10px;
+}
+
+.positron-layout-menu-item[aria-checked="true"] .positron-layout-menu-switch {
+	background-color: var(--vscode-button-background);
+}
+
+.positron-layout-menu-item[aria-checked="true"] .positron-layout-menu-switch::after {
+	left: 14px;
+}

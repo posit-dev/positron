@@ -49,6 +49,7 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 	label: localize2('choseLayout.assistant', 'Assistant Layout'),
 	taskLayout: {
 		name: localize('positron.taskLayout.assistant', "Assistant"),
+		description: localize('positron.taskLayout.assistantDescription', "Work alongside an AI assistant"),
 		group: 'task',
 		order: 3,
 		hiddenViewContainers: [

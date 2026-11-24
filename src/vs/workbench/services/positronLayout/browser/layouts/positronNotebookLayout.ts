@@ -19,6 +19,7 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
 	taskLayout: {
 		name: localize('positron.taskLayout.notebook', "Notebook"),
+		description: localize('positron.taskLayout.notebookDescription', "A wide notebook with variables"),
 		group: 'task',
 		order: 1,
 		hiddenViewContainers: [
