@@ -15,6 +15,8 @@ export interface LayoutState {
 	partOfContainer(containerId: string): KnownPositronLayoutParts | undefined;
 	/** The id of the view container a view is in, or undefined when the view is not registered. */
 	containerOfView(viewId: string): string | undefined;
+	/** Whether a view container holds any views, shown or not. */
+	containerHasViews(containerId: string): boolean;
 }
 
 /**
@@ -28,8 +30,10 @@ export interface MatchableLayout {
 /**
  * Whether the window has the shape a layout describes. Sizes and order are ignored:
  * each part must be shown or hidden as the layout says, and every view container and
- * view the layout places must be where it put them. Views the layout does not mention
- * can be anywhere.
+ * view the layout places must be where it put them. A container the layout places
+ * without naming its views must still have views in it: a container keeps its place
+ * after its views move elsewhere, and an empty one does not show. Views the layout
+ * does not mention can be anywhere.
  * @param layout The layout description to check.
  * @param state What the window looks like now.
  * @returns True when the window matches the layout.
@@ -43,6 +47,9 @@ export function layoutMatches(layout: CustomPositronLayoutDescription, state: La
 		}
 		for (const container of description.viewContainers ?? []) {
 			if (state.partOfContainer(container.id) !== part) {
+				return false;
+			}
+			if (!container.views && !state.containerHasViews(container.id)) {
 				return false;
 			}
 			for (const view of container.views ?? []) {

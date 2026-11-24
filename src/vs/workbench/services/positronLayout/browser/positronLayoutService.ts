@@ -154,6 +154,10 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 			return location === null ? undefined : PART_FOR_LOCATION.get(location);
 		},
 		containerOfView: viewId => this._viewDescriptorService.getViewContainerByViewId(viewId)?.id,
+		containerHasViews: containerId => {
+			const container = this._viewDescriptorService.getViewContainerById(containerId);
+			return container !== null && this._viewDescriptorService.getViewContainerModel(container).allViewDescriptors.length > 0;
+		},
 	};
 
 	private _setCurrentLayoutId(layoutId: string | undefined) {

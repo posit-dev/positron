@@ -48,6 +48,7 @@ function windowState(
 		isPartVisible: part => visible.includes(part),
 		partOfContainer: id => containers[id],
 		containerOfView: id => views[id],
+		containerHasViews: id => Object.values(views).includes(id),
 	};
 }
 
@@ -75,6 +76,12 @@ describe('findMatchingLayout', () => {
 	it('forgets the layout when a part the layout shows is hidden', () => {
 		const panelHidden = windowState([SIDEBAR, AUX], { console: PANEL, session: AUX }, { consoleView: 'console', variables: 'session' });
 		expect(findMatchingLayout(layouts, panelHidden, 'stacked')).toBeUndefined();
+	});
+
+	it('does not match a container the layout names when its views moved out', () => {
+		// The console's container is still in the panel, but its view is in the session.
+		const consoleMoved = windowState([SIDEBAR, PANEL, AUX], { console: PANEL, session: AUX }, { consoleView: 'session', variables: 'session' });
+		expect(findMatchingLayout(layouts, consoleMoved, undefined)).toBeUndefined();
 	});
 
 	it('matches a side bar that hides itself in a narrow window either way', () => {
