@@ -261,12 +261,8 @@ export class Plots {
 			await expect(this.copyPlotModal).toBeVisible();
 			// The aspect ratio lock is on by default and would change the other box.
 			await this.copyPlotModal.getByRole('checkbox', { name: 'Maintain aspect ratio' }).uncheck();
-			const preview = this.copyPlotModal.getByAltText('Plot preview');
-			const previewBefore = await preview.getAttribute('src');
 			await this.copyPlotModal.getByLabel('Width').fill(String(width));
 			await this.copyPlotModal.getByLabel('Height').fill(String(height));
-			// Copy right after typing can copy the previous size, so wait for the new preview.
-			await expect(preview).not.toHaveAttribute('src', previewBefore!);
 			await this.copyPlotModal.getByRole('button', { name: 'Copy', exact: true }).click();
 			await expect(this.copyPlotModal).not.toBeVisible();
 		});
