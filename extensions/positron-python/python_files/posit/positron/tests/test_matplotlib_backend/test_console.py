@@ -905,7 +905,7 @@ def _plot_figures(plots_service: PlotsService) -> list[Any]:
         pytest.param(FILE_A, FILE_B, True, id="different-file"),
         pytest.param(FILE_A, FILE_A, False, id="same-file"),
         pytest.param(FILE_A, None, False, id="console-after-file"),
-        pytest.param(None, FILE_A, True, id="file-after-console"),
+        pytest.param(None, FILE_A, False, id="file-after-console"),
         pytest.param(None, None, False, id="console-twice"),
     ],
 )
@@ -937,6 +937,18 @@ def test_mpl_console_cell_keeps_remembered_file(
     _run_from("plt.plot([3, 4])", FILE_A)
 
     assert len(plots_service._plots) == 1  # noqa: SLF001
+
+
+def test_mpl_console_cell_between_files_keeps_file_change(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    """Code from a file after a console plot draws on it, but a second file starts anew."""
+    _run_from("plt.plot([1, 2])", None)
+    _run_from("plt.title('from a file')", FILE_A)
+    _run_from("plt.plot([3, 4])", FILE_B)
+
+    assert len(plots_service._plots) == 2  # noqa: SLF001
 
 
 def test_mpl_run_file_twice_starts_new_figure(
@@ -1028,8 +1040,24 @@ def test_mpl_selection_after_console_run_starts_new_figure(
     assert len(plots_service._plots) == 3  # noqa: SLF001
 
 
+_INSTALL_BACKEND = (
+    "from positron.matplotlib_backend import console\nconsole.install(get_ipython())\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("next_uri", "expect_new_figure"),
+    [
+        pytest.param(FILE_A, False, id="same-file"),
+        pytest.param(FILE_B, True, id="different-file"),
+    ],
+)
 def test_mpl_backend_activated_by_file_cell_remembers_file(
-    shell: PositronShell, plots_service: PlotsService
+    next_uri: str,
+    *,
+    expect_new_figure: bool,
+    shell: PositronShell,
+    plots_service: PlotsService,
 ) -> None:
     """
     The cell that activates the backend counts as the remembered file.
@@ -1043,15 +1071,28 @@ def test_mpl_backend_activated_by_file_cell_remembers_file(
     console.uninstall(shell)
 
     # Install the hooks mid-cell, as making the first figure does, then plot in the same cell.
-    _run_from(
-        "from positron.matplotlib_backend import console\n"
-        "console.install(get_ipython())\n"
-        "plt.plot([1, 2])",
-        FILE_A,
-    )
+    _run_from(_INSTALL_BACKEND + "plt.plot([1, 2])", FILE_A)
+    _run_from("plt.plot([3, 4])", next_uri)
+
+    assert len(plots_service._plots) == (2 if expect_new_figure else 1)  # noqa: SLF001
+
+
+def test_mpl_backend_activated_by_console_run_starts_new_figure_for_file(
+    shell: PositronShell,
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """A file selection doesn't draw on the figure of a console `%run` that activated the backend."""
+    from positron.matplotlib_backend import console
+
+    script = tmp_path / "script.py"
+    script.write_text("import matplotlib.pyplot as plt\nplt.plot([1, 2])\n")
+    console.uninstall(shell)
+
+    _run_from(_INSTALL_BACKEND + f"%run -- {script}", None)
     _run_from("plt.plot([3, 4])", FILE_A)
 
-    assert len(plots_service._plots) == 1  # noqa: SLF001
+    assert len(plots_service._plots) == 2  # noqa: SLF001
 
 
 def test_mpl_detached_figure_updates_through_held_reference(

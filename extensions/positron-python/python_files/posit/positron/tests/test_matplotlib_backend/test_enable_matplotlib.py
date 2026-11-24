@@ -91,7 +91,7 @@ CONSOLE = BackendCase(
     console,
     Backend.CONSOLE,
     _console_integration_installed,
-    hook_count=2,
+    hook_count=3,
 )
 NOTEBOOK = BackendCase(
     SessionMode.NOTEBOOK,

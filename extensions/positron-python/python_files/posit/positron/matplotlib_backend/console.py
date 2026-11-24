@@ -36,7 +36,7 @@ from .backend import Backend
 from .registry import registry
 
 if TYPE_CHECKING:
-    from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
+    from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
     from matplotlib.figure import Figure
 
     from ..plot_comm import PlotSize
@@ -139,9 +139,13 @@ def _detach_library_figures() -> None:
 # finds `%run` on any line, but not in a string or a cell magic's body.
 _RUN_FILE_RE = re.compile(r"\bget_ipython\(\)\.run_line_magic\('run',")
 
-# The URI of the editor that the last file-attributed cell or whole-file run came from.
-# None until code is run from a file, or after a `%run` typed in the console. Other
-# console cells (which have no code location) don't change it.
+# Stands in for a file URI after a `%run` typed in the console, so that the next cell run
+# from any file starts a new figure instead of drawing on the run's. Not a valid URI.
+_CONSOLE_RUN = "<console %run>"
+
+# The URI of the editor that the last file-attributed cell or whole-file run came from,
+# or `_CONSOLE_RUN`. None until either happens. Other console cells (which have no code
+# location) don't change it.
 _last_source_uri: str | None = None
 
 
@@ -172,25 +176,45 @@ def _detach_figures_on_source_change(info: ExecutionInfo) -> None:
     """
     Detach all figures before a cell that starts a new program.
 
-    A cell starts a new program when it comes from a different file than the last
-    file-attributed cell, or when it runs a whole file. Without this, a script's
-    `plt.plot` draws onto the figure left over from another script.
+    A cell starts a new program when it runs a whole file, or when it comes from a
+    different file than the last file-attributed cell or whole-file run. Without this, a
+    script's `plt.plot` draws onto the figure left over from another script.
     See https://github.com/posit-dev/positron/issues/7591.
 
-    Console cells other than a `%run` never detach, so plotting from a script and then
-    adjusting the figure in the console keeps working.
+    Console cells other than a `%run` are ignored in both directions: they never detach,
+    and code from a file after them keeps drawing on their figure. So plotting from a
+    script and then adjusting the figure in the console works, and so does the reverse.
+    """
+    try:
+        source_uri = _current_source_uri()
+        is_new_file = (
+            source_uri is not None
+            and _last_source_uri is not None
+            and source_uri != _last_source_uri
+        )
+        if is_new_file or _is_file_run(cast("str", info.raw_cell) or ""):
+            _detach_figures()
+    except Exception:
+        logger.exception("Error detaching figures on source change")
+
+
+def _remember_source(result: ExecutionResult) -> None:
+    """
+    Remember where a cell came from, for `_detach_figures_on_source_change`.
+
+    Runs after the cell rather than before it so that it also sees the cell that
+    activates the backend, whose pre-run hooks fired before the backend was installed.
     """
     global _last_source_uri
     try:
-        raw_cell = cast("str", info.raw_cell) or ""
         source_uri = _current_source_uri()
-        is_file_run = _is_file_run(raw_cell)
-        if is_file_run or (source_uri is not None and source_uri != _last_source_uri):
-            _detach_figures()
-        if is_file_run or source_uri is not None:
+        raw_cell = cast("str", result.info.raw_cell) if result.info is not None else ""
+        if _is_file_run(raw_cell or ""):
+            _last_source_uri = source_uri if source_uri is not None else _CONSOLE_RUN
+        elif source_uri is not None:
             _last_source_uri = source_uri
     except Exception:
-        logger.exception("Error detaching figures on source change")
+        logger.exception("Error remembering the cell's source")
 
 
 # Positron figure managers with a plot that `_detach_figures` removed from the registry.
@@ -541,10 +565,11 @@ def install(shell: InteractiveShell) -> None:
     """Install the console backend's shell hooks. See `BackendModule`."""
     global _last_source_uri
 
-    # This usually runs partway through the cell that first makes a figure, after that
-    # cell's pre-run hooks fired, so remember that cell's file here instead.
-    _last_source_uri = _current_source_uri()
+    # This usually runs partway through the cell that first makes a figure. That cell's
+    # `post_run_cell` still fires, so `_remember_source` records where it came from.
+    _last_source_uri = None
     shell.events.register("pre_run_cell", _detach_figures_on_source_change)
+    shell.events.register("post_run_cell", _remember_source)
     shell.events.register("post_execute", _after_cell)
 
     _install_library_gca_redirect()
@@ -556,6 +581,8 @@ def uninstall(shell: InteractiveShell) -> None:
     # switch shouldn't crash over it.
     with contextlib.suppress(ValueError):
         shell.events.unregister("pre_run_cell", _detach_figures_on_source_change)
+    with contextlib.suppress(ValueError):
+        shell.events.unregister("post_run_cell", _remember_source)
     with contextlib.suppress(ValueError):
         shell.events.unregister("post_execute", _after_cell)
 
