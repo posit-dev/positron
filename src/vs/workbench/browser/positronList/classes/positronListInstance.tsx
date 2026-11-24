@@ -260,11 +260,29 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
 		}
 
-		// Put the cursor back on the item it was on, if that item is still present.
-		if (carriedCursorKey !== undefined) {
-			const cursorRowIndex = this.findRowByKey(carriedCursorKey);
+		// Put the cursor and the selection back on the carried items that are still present, in one
+		// pass over the new entries. The row selection is replaced in one step, so subscribers
+		// never see an empty selection in between.
+		if (this._getItemKey && (carriedCursorKey !== undefined || carriedSelectedKeys.size > 0)) {
+			let cursorRowIndex: number | undefined;
+			const selectedRowIndexes: number[] = [];
+			for (let rowIndex = 0; rowIndex < entries.length; rowIndex++) {
+				const key = this.getKeyAtRow(rowIndex);
+				if (key === undefined) {
+					continue;
+				}
+				if (key === carriedCursorKey) {
+					cursorRowIndex = rowIndex;
+				}
+				if (carriedSelectedKeys.has(key)) {
+					selectedRowIndexes.push(rowIndex);
+				}
+			}
 			if (cursorRowIndex !== undefined) {
 				this.setCursorRow(cursorRowIndex);
+			}
+			if (carriedSelectedKeys.size > 0) {
+				this.selectRows(selectedRowIndexes);
 			}
 		}
 
@@ -284,19 +302,6 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 					break;
 				}
 			}
-		}
-
-		// Re-select the carried items that are still present. The row selection is replaced in one
-		// step, so subscribers never see an empty selection in between.
-		if (carriedSelectedKeys.size > 0) {
-			const selectedRowIndexes: number[] = [];
-			for (let rowIndex = 0; rowIndex < entries.length; rowIndex++) {
-				const key = this.getKeyAtRow(rowIndex);
-				if (key !== undefined && carriedSelectedKeys.has(key)) {
-					selectedRowIndexes.push(rowIndex);
-				}
-			}
-			this.selectRows(selectedRowIndexes);
 		}
 
 		// Notify subscribers (the host PositronDataGrid) that they need to redraw.
@@ -375,6 +380,9 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	 */
 	private getSelectedKeys(): Set<string> {
 		const keys = new Set<string>();
+		if (!this._getItemKey) {
+			return keys;
+		}
 		for (let rowIndex = 0; rowIndex < this._entries.length; rowIndex++) {
 			if (this.rowSelectionState(rowIndex) !== RowSelectionState.None) {
 				const key = this.getKeyAtRow(rowIndex);
@@ -384,19 +392,6 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			}
 		}
 		return keys;
-	}
-
-	/**
-	 * Finds the row of the item with a key.
-	 * @param key The key.
-	 */
-	private findRowByKey(key: string): number | undefined {
-		for (let rowIndex = 0; rowIndex < this._entries.length; rowIndex++) {
-			if (this.getKeyAtRow(rowIndex) === key) {
-				return rowIndex;
-			}
-		}
-		return undefined;
 	}
 
 	//#endregion Private Methods
