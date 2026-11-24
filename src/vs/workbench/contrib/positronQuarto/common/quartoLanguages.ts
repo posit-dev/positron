@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { extractExecutableCode, parseCellExecutionOptions } from './quartoExecutionOptions.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
@@ -116,14 +117,18 @@ const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
  * reports the connection back in, or undefined if it starts with none. Of
  * several, the last: ggsql applies each in turn.
  *
- * Mirrors ggsql's own reading of an execution's leading directives, and
- * positron-sql's `connectIn`, which decides the tables a cell completes from;
- * the three must agree on which database a cell runs against.
+ * Mirrors ggsql's own reading of an execution's leading directives.
  *
  * Reads `code` as ggsql would receive it: a cell's source must have its
  * option lines stripped first (see `extractExecutableCode`).
  */
 export function leadingConnectLine(code: string): string | undefined {
+	const uri = leadingConnectUri(code);
+	return uri ? connectLine(uri) : undefined;
+}
+
+/** The URI of {@link leadingConnectLine}. */
+function leadingConnectUri(code: string): string | undefined {
 	let uri: string | undefined;
 	for (const line of code.split(/\r?\n/)) {
 		const match = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
@@ -133,5 +138,41 @@ export function leadingConnectLine(code: string): string | undefined {
 			break;
 		}
 	}
-	return uri ? `-- @connect: ${uri}` : undefined;
+	return uri;
+}
+
+/** The `-- @connect:` line for a URI, in the form ggsql reports the connection back in. */
+export function connectLine(uri: string): string {
+	return `-- @connect: ${uri}`;
+}
+
+/**
+ * The database each cell of a Quarto document runs against, for the cells that
+ * run in ggsql: the URI of its own leading `@connect` line, or else that of the
+ * nearest earlier ggsql-run cell that a render runs (not one with
+ * `eval: false`), since a document's cells share one session. An empty string
+ * for a ggsql-run cell that runs against no named database, and undefined for
+ * a cell that does not run in ggsql at all.
+ *
+ * The one place this is decided: a run reads it to send a cell's database
+ * ahead of it, and positron-sql reads it (from the hidden notebook's cell
+ * metadata) for the tables the cell completes from, so the two agree.
+ *
+ * @param cellCodes Each cell's code, option lines included, by index.
+ */
+export function ggsqlCellConnects(document: ICellRuntimeContext, cellCodes: readonly string[]): (string | undefined)[] {
+	let inherited = '';
+	return document.cells.map((cell, index) => {
+		if (runtimeLanguageOf(cell.language, document) !== GGSQL_LANGUAGE) {
+			return undefined;
+		}
+		const code = cellCodes[index] ?? '';
+		const own = leadingConnectUri(extractExecutableCode(code, cell.language));
+		// A cell a render skips connects nothing for the cells after it, though
+		// run by hand it still runs against its own database.
+		if (own && parseCellExecutionOptions(code, cell.language).options.eval) {
+			inherited = own;
+		}
+		return own ?? inherited;
+	});
 }

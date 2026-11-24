@@ -55,7 +55,7 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { extractExecutableCode, parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
-import { GGSQL_LANGUAGE, isRunnableCell, isShellLanguage, leadingConnectLine, liveConsoleSession, runtimeLanguageOf } from '../common/quartoLanguages.js';
+import { connectLine, GGSQL_LANGUAGE, ggsqlCellConnects, isRunnableCell, isShellLanguage, leadingConnectLine, liveConsoleSession, runtimeLanguageOf } from '../common/quartoLanguages.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
@@ -763,23 +763,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		if (leadingConnectLine(code)) {
 			return '';
 		}
-		const cells = quartoModel.cells;
-		// The nearest declaration at or above the cell, as positron-sql reads it for
-		// completions. An earlier cell with `eval: false` is passed over: a render
-		// never runs it, so its line never reaches the session.
-		let line: string | undefined;
-		for (let i = index; i >= 0 && !line; i--) {
-			const cell = cells[i];
-			if (runtimeLanguageOf(cell.language, quartoModel) !== GGSQL_LANGUAGE) {
-				continue;
-			}
-			const source = cellSource(textModel, cell);
-			if (i < index && !parseCellExecutionOptions(source, cell.language).options.eval) {
-				continue;
-			}
-			line = leadingConnectLine(extractExecutableCode(source, cell.language));
+		// The cell's database, as positron-sql reads it for completions.
+		const uri = ggsqlCellConnects(quartoModel, quartoModel.cells.map(cell => cellSource(textModel, cell)))[index];
+		if (!uri) {
+			return '';
 		}
-		if (!line || (sessionId && this._connectionsService.getSessionConnectionCode(sessionId) === line)) {
+		const line = connectLine(uri);
+		if (sessionId && this._connectionsService.getSessionConnectionCode(sessionId) === line) {
 			return '';
 		}
 		return `${line}\n`;

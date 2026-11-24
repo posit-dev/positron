@@ -15,26 +15,14 @@ import * as vscode from 'vscode';
  * as much as for the kernel, and the same way when it renders.
  *
  * A file is read for its first such line, wherever it is: its statements run one at a time, and
- * the line rides along with the first. A Quarto cell is read for its own leading lines, as the
- * kernel reads them, and failing that for the nearest earlier `{ggsql}` or `{sql}` cell's that a
- * render runs (not one with `eval: false`), since a document's cells share one session.
+ * the line rides along with the first. A Quarto cell is not read here at all: which cells run in
+ * ggsql, and which database each runs against (its own line, or one it inherits from an earlier
+ * cell), is decided by Positron, which runs them, and handed over in the hidden notebook's cell
+ * metadata, so that the tables a cell completes from are those it runs against.
  */
 
 /** What ggsql recognizes, to the character: the prefix is matched exactly, not loosely. */
 const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
-
-/**
- * A Quarto cell option line (`--|`, `#|`). A run strips the block of them at the very top of a
- * cell before the kernel sees the code, so they don't end the cell's leading directives.
- */
-const OPTION_LINE = /^\s*(?:--|#)\|/;
-
-/**
- * Lines the kernel reads past among an execution's leading directives, as ggsql's
- * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything else, a cell option
- * that wasn't stripped or a misspelled directive included, ends them.
- */
-const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
 
 /** The scheme the extension host gives the cells of a notebook. */
 const CELL_SCHEME = 'vscode-notebook-cell';
@@ -42,8 +30,12 @@ const CELL_SCHEME = 'vscode-notebook-cell';
 /** The notebook type of the hidden notebooks Positron backs Quarto documents with. */
 const QUARTO_CELLS_NOTEBOOK = 'quarto-cells';
 
-/** The languages of Quarto cells that run in ggsql, and so share a session. */
-const GGSQL_CELL_LANGUAGES: ReadonlySet<string> = new Set(['sql', 'ggsql']);
+/**
+ * The cell metadata key under which Positron gives a Quarto cell that runs in ggsql the `@connect`
+ * URI it runs against, or an empty string when it names none; absent from any other cell.
+ * Positron's `QUARTO_CELL_GGSQL_CONNECT_KEY`.
+ */
+const GGSQL_CONNECT_KEY = 'ggsqlConnect';
 
 /**
  * The name the Quarto extension gives the temporary file it copies a document's cells of one
@@ -54,51 +46,15 @@ const QUARTO_VDOC = /^\.vdoc\.[0-9a-f-]+\.[a-z]+$/i;
 /** The setting under which Positron, rather than the Quarto extension, serves a document's cells. */
 const NATIVE_CELL_FEATURES_SETTING = 'quarto.embeddedLanguageFeatures.native';
 
-/**
- * The `@connect` URI in a piece of ggsql, or undefined if it has none.
- *
- * @param leadingOnly Read only the lines at the top, where the kernel looks for directives.
- */
-export function connectIn(text: string, leadingOnly: boolean): string | undefined {
-	let found: string | undefined;
-	const lines = text.split(/\r?\n/);
-	// the option lines a run strips, which are only those at the very top
-	let first = 0;
-	while (leadingOnly && first < lines.length && OPTION_LINE.test(lines[first])) {
-		first++;
-	}
-	for (const line of lines.slice(first)) {
+/** The first `@connect` URI in a piece of ggsql, wherever it is, or undefined if it has none. */
+export function connectIn(text: string): string | undefined {
+	for (const line of text.split(/\r?\n/)) {
 		const uri = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
 		if (uri) {
-			if (!leadingOnly) {
-				return uri;
-			}
-			// The kernel applies each one in turn, so the last of them is where it ends up.
-			found = uri;
-		} else if (leadingOnly && !LEADING_NOISE.test(line)) {
-			break;
+			return uri;
 		}
 	}
-	return found;
-}
-
-/**
- * A cell's `eval: false` option line, YAML comment allowed. Positron's cell runs read the same
- * lines with a YAML parser; this reads the one option the editor needs without one.
- */
-const EVAL_FALSE_OPTION = /^\s*(?:--|#)\|\s*eval:\s+false(?:\s+#.*)?\s*$/i;
-
-/** Whether a Quarto cell's option lines, those at its very top, turn it off with `eval: false`. */
-export function skippedByRender(text: string): boolean {
-	for (const line of text.split(/\r?\n/)) {
-		if (!OPTION_LINE.test(line)) {
-			return false;
-		}
-		if (EVAL_FALSE_OPTION.test(line)) {
-			return true;
-		}
-	}
-	return false;
+	return undefined;
 }
 
 /**
@@ -139,6 +95,11 @@ function quartoNotebookOf(document: vscode.TextDocument): vscode.NotebookDocumen
 		&& notebook.getCells().some(cell => cell.document === document));
 }
 
+/** The hidden notebook cell a document is, if it is a code cell of a Quarto document. */
+function quartoCellOf(document: vscode.TextDocument): vscode.NotebookCell | undefined {
+	return quartoNotebookOf(document)?.getCells().find(cell => cell.document === document);
+}
+
 /** Whether a document is a code cell of a Quarto document. */
 export function isQuartoCell(document: vscode.TextDocument): boolean {
 	return document.uri.scheme === CELL_SCHEME && quartoNotebookOf(document) !== undefined;
@@ -158,30 +119,32 @@ export function isQuartoCopy(document: vscode.TextDocument): boolean {
 		&& vscode.workspace.getConfiguration().get<boolean>(NATIVE_CELL_FEATURES_SETTING) === true;
 }
 
-/** Whether a document is a Quarto cell that runs in ggsql: `{ggsql}`, or `{sql}`. */
+/**
+ * Whether a document is a Quarto cell that runs in ggsql: a `{ggsql}` cell, or a `{sql}` cell
+ * in a document that does not render with knitr, as Positron decides it.
+ */
 export function isGgsqlCell(document: vscode.TextDocument): boolean {
-	return GGSQL_CELL_LANGUAGES.has(document.languageId) && isQuartoCell(document);
+	return typeof quartoCellOf(document)?.metadata[GGSQL_CONNECT_KEY] === 'string';
 }
 
 /** The `@connect` URI a ggsql document, or Quarto cell, runs against, if it says. */
 export function declaredConnect(document: vscode.TextDocument): string | undefined {
-	const notebook = quartoNotebookOf(document);
-	if (!notebook) {
-		return connectIn(document.getText(), false);
+	if (!isQuartoCell(document)) {
+		return connectIn(document.getText());
 	}
-	const cells = notebook.getCells();
-	const index = cells.findIndex(cell => cell.document === document);
-	for (let i = index; i >= 0; i--) {
-		const cell = cells[i].document;
-		// An earlier cell a render never runs never connects the session.
-		if (GGSQL_CELL_LANGUAGES.has(cell.languageId) && (i === index || !skippedByRender(cell.getText()))) {
-			const uri = connectIn(cell.getText(), true);
-			if (uri) {
-				return uri;
-			}
-		}
+	const uri = quartoCellOf(document)?.metadata[GGSQL_CONNECT_KEY];
+	return typeof uri === 'string' && uri ? uri : undefined;
+}
+
+/**
+ * The Quarto cells whose database a change to a hidden notebook moved, whichever cell's text
+ * moved it: Positron works the databases out again for the whole document.
+ */
+export function cellsWithNewConnect(event: vscode.NotebookDocumentChangeEvent): vscode.TextDocument[] {
+	if (event.notebook.notebookType !== QUARTO_CELLS_NOTEBOOK) {
+		return [];
 	}
-	return undefined;
+	return event.cellChanges.filter(change => change.metadata !== undefined).map(change => change.cell.document);
 }
 
 /** The folder a document's relative `@connect` paths are read from, if it has one. */
@@ -192,14 +155,4 @@ export function baseDirectoryOf(document: vscode.TextDocument): string | undefin
 		return path.dirname(notebook.uri.with({ scheme: 'file' }).fsPath);
 	}
 	return document.uri.scheme === 'file' ? path.dirname(document.uri.fsPath) : undefined;
-}
-
-/** The ggsql cells after this one in its Quarto document, whose connection may follow from it. */
-export function laterCellsOf(document: vscode.TextDocument): vscode.TextDocument[] {
-	const notebook = quartoNotebookOf(document);
-	if (!notebook) {
-		return [];
-	}
-	const cells = notebook.getCells().map(cell => cell.document);
-	return cells.slice(cells.indexOf(document) + 1).filter(cell => GGSQL_CELL_LANGUAGES.has(cell.languageId));
 }

@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer';
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
-import { baseDirectoryOf, connectIn, declaredConnect, isGgsqlCell, isQuartoCell, isQuartoCopy, laterCellsOf, normalizeConnect } from './connect';
+import { baseDirectoryOf, cellsWithNewConnect, connectIn, declaredConnect, isGgsqlCell, isQuartoCell, isQuartoCopy, normalizeConnect } from './connect';
 import { defaultSchemaOf, dialectOfConnectUri, dialectOfDriver } from './dialects';
 import { ConnectCode, errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, GGSQL_LANGUAGE_ID, positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
@@ -363,9 +363,12 @@ export class SqlSession implements vscode.Disposable {
 					void this._adopt(event.document);
 				}
 				this._schedule(event.document);
-				// A `@connect` line in one Quarto cell decides the connection of the cells after it.
-				for (const later of laterCellsOf(event.document)) {
-					this._schedule(later);
+			}),
+			// A `@connect` line in one Quarto cell decides the connection of the cells after it, and
+			// Positron says so by moving their database (see `declaredConnect`).
+			vscode.workspace.onDidChangeNotebookDocument(event => {
+				for (const cell of cellsWithNewConnect(event)) {
+					this._schedule(cell);
 				}
 			}),
 			vscode.workspace.onDidCloseTextDocument(document => {
@@ -685,7 +688,7 @@ export class SqlSession implements vscode.Disposable {
 			for (const connection of this._payload.configured) {
 				try {
 					const code = await this._connectCode(connection.profileId);
-					const uri = code.kind === 'code' ? connectIn(code.code, false) : undefined;
+					const uri = code.kind === 'code' ? connectIn(code.code) : undefined;
 					if (uri) {
 						index.set(normalizeConnect(uri, undefined), connection.profileId);
 					}

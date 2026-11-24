@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ICellRuntimeContext, leadingConnectLine, rendersWithKnitr, runtimeLanguageOf } from '../../common/quartoLanguages.js';
+import { ggsqlCellConnects, ICellRuntimeContext, leadingConnectLine, rendersWithKnitr, runtimeLanguageOf } from '../../common/quartoLanguages.js';
 
 function context(knitrEngine: boolean | undefined, ...languages: string[]): ICellRuntimeContext {
 	return { primaryLanguage: languages[0], knitrEngine, cells: languages.map(language => ({ language })) };
@@ -57,5 +57,34 @@ describe('leadingConnectLine', () => {
 			// ggsql reads an option line left in the code as code
 			leadingConnectLine('--| label: q\n-- @connect: duckdb://a.db\nSELECT 1'),
 		]).toEqual([undefined, undefined]);
+	});
+});
+
+describe('ggsqlCellConnects', () => {
+	const doc = (cells: [string, string][], knitrEngine?: boolean): [ICellRuntimeContext, string[]] =>
+		[{ primaryLanguage: undefined, knitrEngine, cells: cells.map(([language]) => ({ language })) }, cells.map(([, code]) => code)];
+
+	it('gives each ggsql-run cell its own @connect or the nearest earlier one a render runs', () => {
+		expect(ggsqlCellConnects(...doc([
+			['sql', '-- @connect: duckdb://a.db\nSELECT 1'],
+			// a render skips this cell, so it connects nothing for the cells after it...
+			['sql', '--| eval: false  # draft\n-- @connect: duckdb://scratch.db\nSELECT 2'],
+			['ggsql', 'SELECT 3'],
+			['python', 'x = 1'],
+			// ...and options above a cell's own line don't hide it
+			['ggsql', '#| label: q\n-- @connect: duckdb://b.db\nSELECT 4'],
+			['sql', 'SELECT 5'],
+		]))).toEqual(['duckdb://a.db', 'duckdb://scratch.db', 'duckdb://a.db', undefined, 'duckdb://b.db', 'duckdb://b.db']);
+	});
+
+	it('names no database before any @connect, and none for {sql} cells under knitr', () => {
+		expect([
+			ggsqlCellConnects(...doc([['sql', 'SELECT 1'], ['sql', '-- @connect: duckdb://a.db\nSELECT 2']])),
+			// knitr runs {sql} with DBI, so neither the cell nor a later {ggsql} cell takes its line
+			ggsqlCellConnects(...doc([['r', 'x <- 1'], ['sql', '-- @connect: duckdb://a.db\nSELECT 1'], ['ggsql', 'SELECT 2']])),
+		]).toEqual([
+			['', 'duckdb://a.db'],
+			[undefined, undefined, ''],
+		]);
 	});
 });
