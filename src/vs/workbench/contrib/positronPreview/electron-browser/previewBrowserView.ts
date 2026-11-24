@@ -261,6 +261,8 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			this.layout();
 			this._onDidChangeZoom.fire();
 		}));
+		// What the page can zoom to now comes from the model.
+		this._onDidChangeZoom.fire();
 		this._modelStore.add(model.onDidChangeFocus(e => {
 			if (e.focused) {
 				focusWebContentsViewContainer(this._container);

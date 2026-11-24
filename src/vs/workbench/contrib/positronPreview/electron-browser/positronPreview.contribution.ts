@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID, POSITRON_VIEWER_USE_INTEGRATED_BROWSER } from '../browser/positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_VIEWER_USE_INTEGRATED_BROWSER } from '../browser/positronPreviewSevice.js';
+import { POSITRON_VIEWER_FOCUSED } from '../browser/positronPreviewActions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ElectronPositronPreviewService } from './positronPreviewServiceImpl.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
-import { FocusedViewContext } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindings, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -54,7 +54,7 @@ function registerFindCommand(id: string, title: ILocalizedString, keybindings: (
 }
 
 // Escape, F3 and Cmd+G work while the find widget shows, even with focus in the page.
-const findShowing = ContextKeyExpr.and(POSITRON_VIEWER_FIND_VISIBLE, FocusedViewContext.isEqualTo(POSITRON_PREVIEW_VIEW_ID));
+const findShowing = ContextKeyExpr.and(POSITRON_VIEWER_FIND_VISIBLE, POSITRON_VIEWER_FOCUSED);
 registerFindCommand(VIEWER_FIND_NEXT_ID, localize2('positronViewerFindNext', "Find Next"), [
 	{ primary: KeyCode.Enter, when: POSITRON_VIEWER_FIND_FOCUSED },
 	{ primary: KeyCode.F3, mac: { primary: KeyMod.CtrlCmd | KeyCode.KeyG }, when: findShowing },

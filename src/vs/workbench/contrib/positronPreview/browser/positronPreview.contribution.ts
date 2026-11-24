@@ -68,6 +68,15 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
+registerAction2(PositronOpenUrlInViewerAction);
+registerAction2(PositronViewerGoBackAction);
+registerAction2(PositronViewerGoForwardAction);
+registerAction2(PositronViewerReloadAction);
+registerAction2(PositronViewerClearAction);
+registerAction2(PositronViewerFindAction);
+registerAction2(PositronViewerOpenInBrowserAction);
+registerAction2(PositronViewerOpenInEditorAction);
+
 class PositronPreviewContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
@@ -75,8 +84,6 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super();
-		this.registerActions();
-
 		const hasContent = POSITRON_VIEWER_HAS_CONTENT.bindTo(contextKeyService);
 		const hasAddress = POSITRON_VIEWER_HAS_ADDRESS.bindTo(contextKeyService);
 		const isIntegratedBrowser = POSITRON_VIEWER_IS_INTEGRATED_BROWSER.bindTo(contextKeyService);
@@ -88,17 +95,6 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 		};
 		update();
 		this._register(positronPreviewService.onDidChangeActivePreviewWebview(update));
-	}
-
-	private registerActions(): void {
-		registerAction2(PositronOpenUrlInViewerAction);
-		registerAction2(PositronViewerGoBackAction);
-		registerAction2(PositronViewerGoForwardAction);
-		registerAction2(PositronViewerReloadAction);
-		registerAction2(PositronViewerClearAction);
-		registerAction2(PositronViewerFindAction);
-		registerAction2(PositronViewerOpenInBrowserAction);
-		registerAction2(PositronViewerOpenInEditorAction);
 	}
 }
 

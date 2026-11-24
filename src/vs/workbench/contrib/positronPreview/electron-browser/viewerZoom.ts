@@ -13,10 +13,9 @@ import { browserZoomAccessibilityLabel } from '../../../../platform/browserView/
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindings, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { FocusedViewContext } from '../../../common/contextkeys.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from '../browser/positronPreviewSevice.js';
-import { POSITRON_PREVIEW_ACTION_CATEGORY, POSITRON_VIEWER_CAN_ZOOM_IN, POSITRON_VIEWER_CAN_ZOOM_OUT, POSITRON_VIEWER_FIT_TO_WIDTH, POSITRON_VIEWER_IS_INTEGRATED_BROWSER, VIEWER_BROWSER_COMMANDS } from '../browser/positronPreviewActions.js';
+import { IPositronPreviewService } from '../browser/positronPreviewSevice.js';
+import { POSITRON_PREVIEW_ACTION_CATEGORY, POSITRON_VIEWER_CAN_ZOOM_IN, POSITRON_VIEWER_CAN_ZOOM_OUT, POSITRON_VIEWER_FIT_TO_WIDTH, POSITRON_VIEWER_FOCUSED, POSITRON_VIEWER_IS_INTEGRATED_BROWSER, VIEWER_BROWSER_COMMANDS } from '../browser/positronPreviewActions.js';
 import { PreviewBrowserView } from './previewBrowserView.js';
 
 const category = { value: POSITRON_PREVIEW_ACTION_CATEGORY, original: 'Viewer' };
@@ -65,7 +64,7 @@ export class ViewerZoomContribution extends Disposable implements IWorkbenchCont
 }
 
 /** The same keys as the workbench's zoom, while the Viewer's integrated browser has focus. */
-const whenFocused = ContextKeyExpr.and(FocusedViewContext.isEqualTo(POSITRON_PREVIEW_VIEW_ID), POSITRON_VIEWER_IS_INTEGRATED_BROWSER);
+const whenFocused = ContextKeyExpr.and(POSITRON_VIEWER_FOCUSED, POSITRON_VIEWER_IS_INTEGRATED_BROWSER);
 
 abstract class ViewerZoomAction extends Action2 {
 	constructor(id: string, title: ILocalizedString, keybinding: IKeybindings, precondition: ContextKeyExpression | undefined = POSITRON_VIEWER_IS_INTEGRATED_BROWSER) {

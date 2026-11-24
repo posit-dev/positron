@@ -16,7 +16,6 @@ import { raceTimeout } from '../../../../base/common/async.js';
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { FocusedViewContext } from '../../../common/contextkeys.js';
 import { POSIT_ASSISTANT_CAN_CHAT } from '../../positronAssistant/browser/positAssistantChat.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
@@ -26,6 +25,13 @@ const LOAD_TIMEOUT_MS = 30_000;
 
 export const POSITRON_PREVIEW_ACTION_CATEGORY = nls.localize('positronViewerCategory', "Viewer");
 const category: ILocalizedString = { value: POSITRON_PREVIEW_ACTION_CATEGORY, original: 'Viewer' };
+
+/**
+ * Whether focus is in the Viewer. Uses the Viewer pane's scoped `view` key rather than `focusedView`,
+ * which isn't set while focus is in the integrated browser's page, so it also matches keys the page
+ * forwards to the Viewer.
+ */
+export const POSITRON_VIEWER_FOCUSED = ContextKeyExpr.equals('view', POSITRON_PREVIEW_VIEW_ID);
 
 /** Whether the Viewer is showing anything. */
 export const POSITRON_VIEWER_HAS_CONTENT = new RawContextKey<boolean>('positronViewer.hasContent', false);
@@ -171,7 +177,7 @@ export class PositronViewerFindAction extends ViewerPreviewAction {
 			category,
 			precondition: POSITRON_VIEWER_HAS_CONTENT,
 			keybinding: {
-				when: ContextKeyExpr.and(POSITRON_VIEWER_HAS_CONTENT, FocusedViewContext.isEqualTo(POSITRON_PREVIEW_VIEW_ID)),
+				when: ContextKeyExpr.and(POSITRON_VIEWER_HAS_CONTENT, POSITRON_VIEWER_FOCUSED),
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
 			},
