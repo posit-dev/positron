@@ -3,7 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+
+/**
+ * The console session of a language that code can still run in, if there is
+ * one. An exited session is none: the console service starts or picks a live
+ * one in its place, unless the code is pinned to the exited one by its ID.
+ */
+export function liveConsoleSession(languageId: string, runtimeSessionService: IRuntimeSessionService): ILanguageRuntimeSession | undefined {
+	const session = runtimeSessionService.getConsoleSessionForLanguage(languageId);
+	return session && session.getRuntimeState() !== RuntimeState.Exited ? session : undefined;
+}
 
 /**
  * Shell languages that are executed via terminal.

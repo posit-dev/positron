@@ -43,7 +43,7 @@ describe('explainUnrunnableCell', () => {
 
 		expect(answers).toEqual([false, true, true, true]);
 		expect(said.map(s => s.split(' ').slice(0, 3).join(' '))).toEqual([
-			'info: SQL cells', 'prompt: Install the', 'info: There is',
+			'prompt: This SQL', 'prompt: Install the', 'info: There is',
 		]);
 
 		// for the Quarto extension, only a cell Positron could run but for a reason
@@ -55,7 +55,7 @@ describe('explainUnrunnableCell', () => {
 			explainUnrunnableCell('stata', python, services(['python']), true),
 		]).toEqual([true, true, false, false]);
 		expect(said.map(s => s.split(' ').slice(0, 3).join(' '))).toEqual([
-			'info: SQL cells', 'prompt: Install the',
+			'prompt: This SQL', 'prompt: Install the',
 		]);
 	});
 });

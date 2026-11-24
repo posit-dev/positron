@@ -5,7 +5,22 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-import { connectIn, normalizeConnect } from '../connect';
+import { connectIn, normalizeConnect, skippedByRender } from '../connect';
+
+suite('skippedByRender', () => {
+
+	test('a cell is skipped by an eval: false among its leading option lines only', () => {
+		assert.deepStrictEqual([
+			skippedByRender('--| label: q\n--| eval: false\n-- @connect: duckdb://a.db\nSELECT 1;'),
+			skippedByRender('#| eval: FALSE\nSELECT 1;'),
+			// a YAML comment after it, which Positron's YAML parse of the line reads past
+			skippedByRender('--| eval: false  # draft only\nSELECT 1;'),
+			skippedByRender('--| eval: true\nSELECT 1;'),
+			// after the option lines, it is a comment
+			skippedByRender('SELECT 1;\n--| eval: false'),
+		], [true, true, true, false, false]);
+	});
+});
 
 suite('connectIn', () => {
 
@@ -36,17 +51,18 @@ suite('connectIn', () => {
 });
 
 suite('normalizeConnect', () => {
-	const base = path.resolve('/work/report');
+	const base = '/work/report';
 
 	test('a relative database file is the one beside the document', () => {
-		assert.strictEqual(
-			normalizeConnect('duckdb://data/sales.db', base),
-			`duckdb://${path.resolve(base, 'data/sales.db')}`,
-		);
-		assert.strictEqual(
-			normalizeConnect(`sqlite://${path.resolve('/db/x.sqlite')}`, base),
-			`sqlite://${path.resolve('/db/x.sqlite')}`,
-		);
+		assert.strictEqual(normalizeConnect('duckdb://data/sales.db', base, path.posix), 'duckdb:///work/report/data/sales.db');
+		assert.strictEqual(normalizeConnect('sqlite:///db/x.sqlite', base, path.posix), 'sqlite:///db/x.sqlite');
+	});
+
+	test('on Windows, a driver\'s line and a document\'s relative path name the same file', () => {
+		// a driver writes forward slashes and the drive letter as picked; fsPath lowercases it
+		const driver = normalizeConnect('duckdb://C:/proj/data/sales.db', undefined, path.win32);
+		const user = normalizeConnect('duckdb://data/sales.db', 'c:\\proj', path.win32);
+		assert.deepStrictEqual([driver, user], ['duckdb://c:/proj/data/sales.db', 'duckdb://c:/proj/data/sales.db']);
 	});
 
 	test('options do not change which database it is', () => {

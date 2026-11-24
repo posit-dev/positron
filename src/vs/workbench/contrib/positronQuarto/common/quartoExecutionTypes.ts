@@ -258,11 +258,14 @@ export interface IQuartoExecutionManager {
 	 * database; any other code as it is.
 	 *
 	 * @param documentUri The Quarto document.
-	 * @param lineNumber A line of the cell the code comes from (1-based).
-	 * @param code The selection or statement about to run.
+	 * @param lineNumber A line of the cell the code comes from (1-based), or
+	 *   undefined when the code is a whole cell's, without its option lines, as
+	 *   the Quarto extension runs a cell; the cell is then the first whose code
+	 *   it is.
+	 * @param code The selection, statement or cell about to run.
 	 * @param sessionId The session it will run in, if known.
 	 */
-	consoleCode(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string>;
+	consoleCode(documentUri: URI, lineNumber: number | undefined, code: string, sessionId: string | undefined): Promise<string>;
 
 	/**
 	 * Cancel execution for a document.

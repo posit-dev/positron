@@ -16,8 +16,8 @@ import * as vscode from 'vscode';
  *
  * A file is read for its first such line, wherever it is: its statements run one at a time, and
  * the line rides along with the first. A Quarto cell is read for its own leading lines, as the
- * kernel reads them, and failing that for the nearest earlier `{ggsql}` or `{sql}` cell's, since
- * a document's cells share one session.
+ * kernel reads them, and failing that for the nearest earlier `{ggsql}` or `{sql}` cell's that a
+ * render runs (not one with `eval: false`), since a document's cells share one session.
  */
 
 /** What ggsql recognizes, to the character: the prefix is matched exactly, not loosely. */
@@ -83,26 +83,50 @@ export function connectIn(text: string, leadingOnly: boolean): string | undefine
 }
 
 /**
+ * A cell's `eval: false` option line, YAML comment allowed. Positron's cell runs read the same
+ * lines with a YAML parser; this reads the one option the editor needs without one.
+ */
+const EVAL_FALSE_OPTION = /^\s*(?:--|#)\|\s*eval:\s+false(?:\s+#.*)?\s*$/i;
+
+/** Whether a Quarto cell's option lines, those at its very top, turn it off with `eval: false`. */
+export function skippedByRender(text: string): boolean {
+	for (const line of text.split(/\r?\n/)) {
+		if (!OPTION_LINE.test(line)) {
+			return false;
+		}
+		if (EVAL_FALSE_OPTION.test(line)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * The form a `@connect` URI is compared in, so that the line a driver writes and the line a user
  * writes match when they name the same database.
  *
  * Drivers write absolute paths, and a document kept with its data will say `duckdb://data.db`; a
  * relative file path is resolved against the document's folder, which is where Quarto runs the
  * kernel when it renders. Options after `?` are dropped: `access_mode=read_only` does not change
- * which tables there are.
+ * which tables there are. A file path is compared with forward slashes and a lowercase drive
+ * letter: drivers write the former, and a document's `fsPath` gives the latter.
+ *
+ * @param pathApi The platform's path module; Windows' in tests.
  */
-export function normalizeConnect(uri: string, baseDirectory: string | undefined): string {
+export function normalizeConnect(uri: string, baseDirectory: string | undefined, pathApi: path.PlatformPath = path): string {
 	const withoutOptions = uri.split('?')[0].trim();
-	const match = /^(duckdb|sqlite):\/\/(.+)$/i.exec(withoutOptions);
-	if (!match || !baseDirectory) {
+	const match = /^(?<scheme>duckdb|sqlite):\/\/(?<location>.+)$/i.exec(withoutOptions);
+	if (!match?.groups) {
 		return withoutOptions;
 	}
-	const [, scheme, location] = match;
+	const { scheme, location } = match.groups;
 	// In-memory databases and MotherDuck are not files.
-	if (/^(memory|:memory:|md:)/i.test(location) || path.isAbsolute(location)) {
+	if (/^(memory|:memory:|md:)/i.test(location)) {
 		return withoutOptions;
 	}
-	return `${scheme.toLowerCase()}://${path.resolve(baseDirectory, location)}`;
+	const resolved = pathApi.isAbsolute(location) || !baseDirectory ? location : pathApi.resolve(baseDirectory, location);
+	const comparable = resolved.replace(/\\/g, '/').replace(/^[a-z]:/i, drive => drive.toLowerCase());
+	return `${scheme.toLowerCase()}://${comparable}`;
 }
 
 /** The hidden notebook a Quarto cell belongs to, if the document is one. */
@@ -149,7 +173,8 @@ export function declaredConnect(document: vscode.TextDocument): string | undefin
 	const index = cells.findIndex(cell => cell.document === document);
 	for (let i = index; i >= 0; i--) {
 		const cell = cells[i].document;
-		if (GGSQL_CELL_LANGUAGES.has(cell.languageId)) {
+		// An earlier cell a render never runs never connects the session.
+		if (GGSQL_CELL_LANGUAGES.has(cell.languageId) && (i === index || !skippedByRender(cell.getText()))) {
 			const uri = connectIn(cell.getText(), true);
 			if (uri) {
 				return uri;

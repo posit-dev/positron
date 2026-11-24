@@ -55,7 +55,7 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { extractExecutableCode, parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
-import { GGSQL_LANGUAGE, isRunnableCell, isShellLanguage, leadingConnectLine, runtimeLanguageOf } from '../common/quartoLanguages.js';
+import { GGSQL_LANGUAGE, isRunnableCell, isShellLanguage, leadingConnectLine, liveConsoleSession, runtimeLanguageOf } from '../common/quartoLanguages.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
@@ -126,6 +126,12 @@ interface QuartoCodeFragments {
 interface SerializedQueueState {
 	queuedCells: string[];
 	runningCell: string | undefined;
+}
+
+/** The code of a cell, option lines included; empty for an empty cell. */
+function cellSource(textModel: ITextModel, cell: QuartoCodeCell): string {
+	return cell.codeEndLine < cell.codeStartLine ? '' : textModel.getValueInRange(
+		new Range(cell.codeStartLine, 1, cell.codeEndLine, textModel.getLineMaxColumn(cell.codeEndLine)));
 }
 
 /**
@@ -688,8 +694,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return executionPromise;
 	}
 
-	async consoleCode(documentUri: URI, lineNumber: number, code: string, sessionId: string | undefined): Promise<string> {
-		const located = await this._ggsqlCellAt(documentUri, lineNumber);
+	async consoleCode(documentUri: URI, lineNumber: number | undefined, code: string, sessionId: string | undefined): Promise<string> {
+		const located = await this._ggsqlCellAt(documentUri, lineNumber ?? code);
 		if (!located) {
 			return code;
 		}
@@ -701,18 +707,27 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * The text model and Quarto model of a document, and the index of the cell
-	 * at `lineNumber`, when that cell runs in ggsql.
+	 * The text model and Quarto model of a document, and the index of a cell
+	 * that runs in ggsql: the one at a line, or else the first whose code,
+	 * without its option lines, is `code`.
 	 */
-	private async _ggsqlCellAt(documentUri: URI, lineNumber: number): Promise<GgsqlCellLocation | undefined> {
+	private async _ggsqlCellAt(documentUri: URI, where: number | string): Promise<GgsqlCellLocation | undefined> {
 		const textModel = await this._getTextModel(documentUri);
 		if (!textModel) {
 			return undefined;
 		}
 		const quartoModel = this._documentModelService.getModel(textModel);
+		const runsInGgsql = (cell: QuartoCodeCell) => runtimeLanguageOf(cell.language, quartoModel) === GGSQL_LANGUAGE;
 		const cells = quartoModel.cells;
-		const index = cells.findIndex(cell => cell.codeStartLine <= lineNumber && lineNumber <= cell.codeEndLine);
-		if (index < 0 || runtimeLanguageOf(cells[index].language, quartoModel) !== GGSQL_LANGUAGE) {
+		let index: number;
+		if (typeof where === 'number') {
+			index = cells.findIndex(cell => cell.codeStartLine <= where && where <= cell.codeEndLine);
+		} else {
+			const code = where.trim();
+			index = !code ? -1 : cells.findIndex(cell => runsInGgsql(cell)
+				&& extractExecutableCode(cellSource(textModel, cell), cell.language).trim() === code);
+		}
+		if (index < 0 || !runsInGgsql(cells[index])) {
 			return undefined;
 		}
 		return { textModel, quartoModel, index };
@@ -749,15 +764,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return '';
 		}
 		const cells = quartoModel.cells;
-		// The nearest declaration at or above the cell, as positron-sql reads it for completions.
+		// The nearest declaration at or above the cell, as positron-sql reads it for
+		// completions. An earlier cell with `eval: false` is passed over: a render
+		// never runs it, so its line never reaches the session.
 		let line: string | undefined;
 		for (let i = index; i >= 0 && !line; i--) {
 			const cell = cells[i];
-			if (runtimeLanguageOf(cell.language, quartoModel) === GGSQL_LANGUAGE && cell.codeEndLine >= cell.codeStartLine) {
-				const source = textModel.getValueInRange(
-					new Range(cell.codeStartLine, 1, cell.codeEndLine, textModel.getLineMaxColumn(cell.codeEndLine)));
-				line = leadingConnectLine(extractExecutableCode(source, cell.language));
+			if (runtimeLanguageOf(cell.language, quartoModel) !== GGSQL_LANGUAGE) {
+				continue;
 			}
+			const source = cellSource(textModel, cell);
+			if (i < index && !parseCellExecutionOptions(source, cell.language).options.eval) {
+				continue;
+			}
+			line = leadingConnectLine(extractExecutableCode(source, cell.language));
 		}
 		if (!line || (sessionId && this._connectionsService.getSessionConnectionCode(sessionId) === line)) {
 			return '';
@@ -1032,7 +1052,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				// Set up message handlers BEFORE executing to avoid race conditions.
 				// If a session already exists, set up handlers on it directly.
 				// If not, listen for the new session to start so we capture it immediately.
-				const existingSession = this._runtimeSessionService.getConsoleSessionForLanguage(language);
+				// An exited session is none: the console service starts a live one.
+				const existingSession = liveConsoleSession(language, this._runtimeSessionService);
 				if (existingSession) {
 					this._setupMessageHandlers(tracker, existingSession, documentUri, () => {
 						hadError = true;

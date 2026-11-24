@@ -65,6 +65,8 @@ import { LanguageRuntimeDynState, RuntimeSessionStartOptions } from 'positron';
 import { localize } from '../../../../nls.js';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
+import { isQuartoDocument } from '../../../contrib/positronQuarto/common/positronQuartoConfig.js';
+import { GGSQL_LANGUAGE, liveConsoleSession } from '../../../contrib/positronQuarto/common/quartoLanguages.js';
 import * as perf from '../../../../base/common/performance.js';
 
 /**
@@ -2262,6 +2264,19 @@ export class MainThreadLanguageRuntime
 				source: CodeAttributionSource.Extension,
 				metadata: this.createAttributionMetadata(extensionId, callerSessionId, attributionMetadata),
 			};
+		}
+
+		// A cell the Quarto extension runs in ggsql, with inline output off, comes
+		// with its document but not its place in it; the cell is found by its
+		// code, so that it runs against its database (see consoleCode).
+		if (revivedUri && languageId === GGSQL_LANGUAGE && isQuartoDocument(revivedUri.path, undefined)) {
+			// Code given a preamble runs in the session it was decided for.
+			const targetSessionId = sessionId ?? liveConsoleSession(languageId, this._runtimeSessionService)?.sessionId;
+			const prepared = await this._quartoExecutionManager.consoleCode(revivedUri, undefined, code, targetSessionId);
+			if (prepared !== code) {
+				sessionId = targetSessionId;
+				code = prepared;
+			}
 		}
 
 		return this._positronConsoleService.executeCode(

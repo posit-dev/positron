@@ -45,6 +45,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
+import { liveConsoleSession } from '../../positronQuarto/common/quartoLanguages.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
 import { IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
@@ -691,10 +692,16 @@ export function registerPositronConsoleActions() {
 
 			// A statement from a Quarto cell that runs in ggsql runs against the cell's
 			// database, which the statement itself does not name; see consoleCode.
+			// Only that code is pinned to the session it was prepared for; any other
+			// runs where the console service sends it.
 			let sessionId: string | undefined;
 			if (isQuartoDoc && opts.languageId) {
-				sessionId = runtimeSessionService.getConsoleSessionForLanguage(opts.languageId)?.sessionId;
-				code = await quartoExecutionManager.consoleCode(model.uri, position.lineNumber, code, sessionId);
+				const liveSessionId = liveConsoleSession(opts.languageId, runtimeSessionService)?.sessionId;
+				const prepared = await quartoExecutionManager.consoleCode(model.uri, position.lineNumber, code, liveSessionId);
+				if (prepared !== code) {
+					sessionId = liveSessionId;
+					code = prepared;
+				}
 			}
 
 			// Use the helper function to execute the code

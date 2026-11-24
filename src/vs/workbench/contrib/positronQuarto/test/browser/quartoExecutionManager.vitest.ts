@@ -32,7 +32,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
-import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
@@ -387,6 +387,26 @@ describe('QuartoExecutionManager', () => {
 				range: { start: { line: 1, character: 0 }, end: { line: 2, character: 8 } },
 			}]);
 		});
+
+		it('leaves the session to the console service when the language\'s console session has exited', async () => {
+			const cell = rCell('location-console-exited', 2, 3);
+			const documentUri = URI.file('/location-console-exited.qmd');
+			useDocument([cell], ['```{r}', 'x <- 1', 'print(x)', '```'], 'python');
+			const exited = ctx.disposables.add(new TestLanguageRuntimeSession(createSessionMetadata('exited-r'), TestLanguageRuntimeMetadata));
+			exited.setRuntimeState(RuntimeState.Exited);
+			mockRuntimeSessionService.setConsoleSessionForLanguage('r', exited);
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
+
+			// No session starts in the mocks to end the run, so it is cancelled.
+			const cts = ctx.disposables.add(new CancellationTokenSource());
+			const promise = executionManager.executeCell(documentUri, cell, cts.token);
+			await mockConsoleService.waitForExecution();
+			cts.cancel();
+			await promise.catch(() => undefined);
+
+			// the session ID: none, so that the console service starts or picks a live one
+			expect(consoleSpy.mock.calls.map(call => call[1])).toEqual([undefined]);
+		});
 	});
 
 	describe('connectPreamble', () => {
@@ -441,6 +461,47 @@ describe('QuartoExecutionManager', () => {
 				'-- @connect: duckdb://a.db\nSELECT 1;',
 				'#| label: p\nx = 1',
 			]);
+		});
+
+		it('finds a cell the Quarto extension runs by its code, to give it the @connect it inherits', async () => {
+			const documentUri = URI.file('/test-console-cell.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell('a', 0, 1, 5), cell('b', 1, 6, 8)], lines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return lines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// the second cell, which inherits the first one's database
+				await executionManager.consoleCode(documentUri, undefined, 'SELECT 3\n', undefined),
+				// code that is no cell's runs as it is
+				await executionManager.consoleCode(documentUri, undefined, 'SELECT 4', undefined),
+			]).toEqual([
+				'-- @connect: duckdb://a.db\nSELECT 3\n',
+				'SELECT 4',
+			]);
+		});
+
+		it('passes over an earlier cell with eval: false, which a render never runs', async () => {
+			const evalLines = [
+				'```{sql}', '-- @connect: duckdb://a.db', 'SELECT 1;', '```',                       // 1-4
+				'```{sql}', '--| eval: false  # draft only', '-- @connect: duckdb://scratch.db', 'SELECT 2;', '```', // 5-9
+				'```{sql}', 'SELECT 3', '```',                                                    // 10-12
+			];
+			const documentUri = URI.file('/test-connect-eval-false.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel(
+				[cell('a', 0, 1, 4), cell('s', 1, 5, 9), cell('b', 2, 10, 12)], evalLines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return evalLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// a later cell inherits from the cell before the skipped one
+				await executionManager.connectPreamble(documentUri, 11, 'SELECT 3', undefined),
+				// the eval: false cell, run by hand, still runs against its own database
+				await executionManager.connectPreamble(documentUri, 8, 'SELECT 2;', undefined),
+			]).toEqual(['-- @connect: duckdb://a.db\n', '-- @connect: duckdb://scratch.db\n']);
 		});
 	});
 

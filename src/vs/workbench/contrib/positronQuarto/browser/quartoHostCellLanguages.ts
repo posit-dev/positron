@@ -88,8 +88,14 @@ export function explainUnrunnableCell(
 		return false;
 	}
 	if (cellLanguage.toLowerCase() === 'sql' && rendersWithKnitr(document)) {
-		notificationService.info(localize('quarto.cannotRun.sqlRunsAtRender',
-			"SQL cells in a document rendered with knitr run when the document is rendered, against the connection the chunk names."));
+		// `quarto.preview` with no arguments previews the active editor: the
+		// document, unless the user has switched editors since the notification.
+		notificationService.prompt(Severity.Info,
+			localize('quarto.cannotRun.sqlRunsAtRender', "This SQL cell runs with R when you preview or render the document, because the document uses knitr."),
+			[{
+				label: localize('quarto.cannotRun.previewAction', "Preview"),
+				run: () => commandService.executeCommand('quarto.preview'),
+			}]);
 	} else if (runtimeLanguageOf(cellLanguage, document) === GGSQL_LANGUAGE
 		&& !hasRuntimeProvider(GGSQL_LANGUAGE, runtimeStartupService)) {
 		notificationService.prompt(Severity.Info,
