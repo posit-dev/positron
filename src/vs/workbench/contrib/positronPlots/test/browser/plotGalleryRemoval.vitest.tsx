@@ -17,7 +17,8 @@ import { PositronPlots } from '../../browser/positronPlots.js';
 import { PlotsNextAction, PlotsPreviousAction } from '../../browser/positronPlotsActions.js';
 import { INotebookOutputWebview } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { PositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
-import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 
@@ -174,5 +175,72 @@ describe('Plot gallery removal', () => {
 		expect(screen.queryByRole('button', { name: 'Save Plot' })).not.toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Show Previous Plot' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Show Next Plot' })).toBeDisabled();
+	});
+
+	it('selects the neighbour that takes the removed plot\'s place', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'oldest');
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'removed');
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'neighbour');
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'newest');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+		act(() => plotsService.selectPlot('removed'));
+
+		act(() => plotsService.removePlot('removed'));
+
+		// 'neighbour' moves into the removed plot's slot, as if Next was
+		// pressed; neither the oldest nor the newest plot is selected.
+		expect({
+			selected: plotsService.selectedPlotId,
+			previousEnabled: !screen.getByRole('button', { name: 'Show Previous Plot' }).hasAttribute('disabled'),
+			nextEnabled: !screen.getByRole('button', { name: 'Show Next Plot' }).hasAttribute('disabled'),
+		}).toEqual({ selected: 'neighbour', previousEnabled: true, nextEnabled: true });
+	});
+
+	it('drops a plot whose comm closes, even one the pane had when it mounted', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'first');
+		await session.createClient(RuntimeClientType.Plot, {}, {}, 'second');
+		const selected = await session.createClient(RuntimeClientType.Plot, {}, {}, 'selected');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		// The backend closes the selected plot's comm, as a kernel does.
+		act(() => selected.setClientState(RuntimeClientState.Closed));
+
+		// Two plots remain, so the gallery still shows their thumbnails.
+		expect({
+			service: plotsService.positronPlotInstances.map(p => p.id),
+			thumbnails: screen.getAllByRole('button', { name: 'Remove plot' }).length,
+			selected: plotsService.selectedPlotId,
+			save: screen.queryByRole('button', { name: 'Save Plot' }) !== null,
+		}).toEqual({ service: ['first', 'second'], thumbnails: 2, selected: 'second', save: true });
+	});
+
+	it('moves the selection at most once while a restarting session closes its plots', async () => {
+		const plotsService = ctx.reactServices.positronPlotsService;
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		act(() => session.receiveOutputMessage({ id: 'static1', kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } }));
+		act(() => session.receiveOutputMessage({ id: 'static2', kind: RuntimeOutputKind.StaticImage, data: { 'image/png': 'dGVzdA==' } }));
+		const first = await session.createClient(RuntimeClientType.Plot, {}, {}, 'first');
+		const last = await session.createClient(RuntimeClientType.Plot, {}, {}, 'last');
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+		const selections: string[] = [];
+		ctx.disposables.add(plotsService.onDidSelectPlot(id => selections.push(id)));
+
+		// A restart closes every comm-backed plot, one at a time. Static plots
+		// are not comms and stay.
+		act(() => session.setRuntimeState(RuntimeState.Restarting));
+		act(() => last.setClientState(RuntimeClientState.Closed));
+		act(() => first.setClientState(RuntimeClientState.Closed));
+
+		// 'last' was at the end, so the selection looks back. It skips 'first',
+		// which is closing too, and goes straight to a plot that survives.
+		expect({
+			selections,
+			service: plotsService.positronPlotInstances.map(p => p.id),
+			thumbnails: screen.getAllByRole('button', { name: 'Remove plot' }).length,
+		}).toEqual({ selections: ['static2'], service: ['static1', 'static2'], thumbnails: 2 });
 	});
 });

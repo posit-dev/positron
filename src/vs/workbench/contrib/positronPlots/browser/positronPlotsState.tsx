@@ -6,7 +6,6 @@
 import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotClient } from '../../../services/positronPlots/common/positronPlots.js';
-import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
@@ -30,7 +29,7 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 
 	// Initial set of plot instances.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(
-		[...services.positronPlotsService.positronPlotInstances]);
+		() => [...services.positronPlotsService.positronPlotInstances]);
 
 	// Initial selected plot instance.
 	const initialSelectedId = services.positronPlotsService.selectedPlotId;
@@ -46,22 +45,13 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 
-		// Listen for new plot instances.
-		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
-			// Keep the pane in service order, which is also the order used by
-			// the Previous/Next commands. New static plots can be prepended.
-			setPositronPlotInstances([...services.positronPlotsService.positronPlotInstances]);
+		// The service changes its plot list in place, so each handler copies it
+		// to give React a new array. Copying (rather than updating a list of our
+		// own) keeps the pane in the order Previous/Next use.
+		const copyPlots = () => setPositronPlotInstances([...services.positronPlotsService.positronPlotInstances]);
 
-			// When the plot closes, remove it from the list of plot instances.
-			// (If the plot is not a plot client instance, then it doesn't have
-			// a backend and therefore doesn't need to be removed from the list
-			// of active plot instances.)
-			if (plotInstance instanceof PlotClientInstance) {
-				disposableStore.add(plotInstance.onDidClose(() => {
-					setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p !== plotInstance));
-				}));
-			}
-		}));
+		// Listen for new plot instances.
+		disposableStore.add(services.positronPlotsService.onDidEmitPlot(copyPlots));
 
 		// Listen for plot selection changes.
 		disposableStore.add(services.positronPlotsService.onDidSelectPlot(id => {
@@ -69,15 +59,11 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 			setSelectedInstanceId(id);
 		}));
 
-		// Listen for plot removal.
-		disposableStore.add(services.positronPlotsService.onDidRemovePlot(id => {
-			setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p.id !== id));
-		}));
+		// Listen for plot removal, including a plot whose comm closed.
+		disposableStore.add(services.positronPlotsService.onDidRemovePlot(copyPlots));
 
 		// Listen for replacing all plots.
-		disposableStore.add(services.positronPlotsService.onDidReplacePlots((plots) => {
-			setPositronPlotInstances([...plots]);
-		}));
+		disposableStore.add(services.positronPlotsService.onDidReplacePlots(copyPlots));
 
 		// Listen for metadata updates.
 		disposableStore.add(services.positronPlotsService.onDidUpdatePlotMetadata(() => {
