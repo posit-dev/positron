@@ -49,9 +49,11 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS
 		const radiusReadout = notebooksPositron.widgetReadout.first();
 		const radiusSlider = notebooksPositron.widgetSlider.first();
 
-		// interact() defers the first render: the plot is absent until a slider moves.
+		// interact() renders the plot for the initial slider values.
 		await expect(radiusReadout).toHaveText('1.00');
-		await expect(plotImage).toHaveCount(0);
+		await expect(plotImage).toBeVisible();
+		const initialSrc = await plotImage.getAttribute('src');
+		expect(initialSrc).toMatch(/^data:image\/png/);
 
 		// Retry the keypress until the value changes (a single press can precede focus).
 		await radiusSlider.click();
@@ -59,6 +61,7 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS
 			await radiusSlider.press('ArrowRight');
 			await expect(radiusReadout).not.toHaveText('1.00');
 			await expect(plotImage).toBeVisible();
+			await expect(plotImage).not.toHaveAttribute('src', initialSrc ?? '');
 		}).toPass({ timeout: 30000 });
 
 		expect(await plotImage.getAttribute('src')).toMatch(/^data:image\/png/);
