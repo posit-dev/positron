@@ -396,6 +396,8 @@ export function probeDedicatedEnvironment(deps: {
 }
 
 export function probeEnvironmentReady(deps: {
+    // With no folder open, recreateFix is an Open Folder button, so the detail asks for a folder.
+    workspaceOpen: boolean;
     resolvesAndRuns: boolean;
     versionSupported: boolean;
     kernelReady: boolean;
@@ -409,18 +411,26 @@ export function probeEnvironmentReady(deps: {
 
     if (!deps.resolvesAndRuns) {
         return healthItem(id, 'fail', {
-            detail: vscode.l10n.t(
-                'The Python in this environment does not start. The environment may be out of date or deleted. Create a new Python environment to replace this one. Installed packages do not carry over.',
-            ),
+            detail: deps.workspaceOpen
+                ? vscode.l10n.t(
+                      'Positron could not run the Python interpreter in this environment. The environment may be out of date or deleted. Create a new Python environment to replace this one. Installed packages do not carry over.',
+                  )
+                : vscode.l10n.t(
+                      'Positron could not run the Python interpreter it tried to use. Open a folder, then create a dedicated environment in that folder.',
+                  ),
             fix: deps.recreateFix,
         });
     }
     if (!deps.versionSupported) {
         return healthItem(id, 'fail', {
-            detail: vscode.l10n.t(
-                'This environment uses an unsupported Python version. Positron supports Python {0}. Create a new environment with a supported Python version.',
-                SUPPORTED_PYTHON_VERSION_RANGE,
-            ),
+            detail: deps.workspaceOpen
+                ? vscode.l10n.t(
+                      'This environment uses an unsupported Python version. Positron supports Python {0}. Create a new environment with a supported Python version.',
+                      SUPPORTED_PYTHON_VERSION_RANGE,
+                  )
+                : vscode.l10n.t(
+                      'Positron does not support the Python version it tried to use. Open a folder, then create a dedicated environment in that folder.',
+                  ),
             fix: deps.recreateFix,
         });
     }
@@ -673,6 +683,7 @@ async function evaluateReady(
         : buildOpenFolderFix();
 
     return probeEnvironmentReady({
+        workspaceOpen: ctx.workspaceUri !== undefined,
         resolvesAndRuns,
         versionSupported,
         kernelReady,

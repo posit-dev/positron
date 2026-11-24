@@ -348,6 +348,7 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
     const installIpykernelFix = { commandId: 'python.installIpykernel', label: 'k', args: ['/py'] };
     const installNativePythonFix = { commandId: 'python.installPythonViaUv', label: 'n' };
     const green = {
+        workspaceOpen: true,
         resolvesAndRuns: true,
         versionSupported: true,
         kernelReady: true,
@@ -368,6 +369,16 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
         const item = probeEnvironmentReady({ ...green, versionSupported: false });
         assert.strictEqual(item.status, 'fail');
         assert.strictEqual(item.fix, recreateFix);
+    });
+
+    test('with no folder open, the recreate details ask for a folder', () => {
+        const items = [
+            probeEnvironmentReady({ ...green, workspaceOpen: false, resolvesAndRuns: false }),
+            probeEnvironmentReady({ ...green, workspaceOpen: false, versionSupported: false }),
+        ];
+        for (const item of items) {
+            assert.include(item.detail ?? '', 'Open a folder, then create a dedicated environment in that folder.');
+        }
     });
 
     test('kernel not ready fails with install-ipykernel fix', () => {
