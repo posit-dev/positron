@@ -23,7 +23,7 @@ import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explai
 /** The configuration section every setting this extension reads lives under. */
 export const CONFIGURATION_SECTION = 'sql';
 
-/** The setting, under {@link CONFIGURATION_SECTION}, that turns every feature on. Off by default. */
+/** The setting, under {@link CONFIGURATION_SECTION}, that turns every feature on. On by default. */
 export const ENABLED_SETTING = 'enabled';
 
 /** The command that re-reads the tables and columns of the user's data connections. */

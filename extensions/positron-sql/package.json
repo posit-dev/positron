@@ -22,12 +22,9 @@
       "properties": {
         "sql.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "order": 0,
-          "markdownDescription": "%configuration.enabled.description%",
-          "tags": [
-            "experimental"
-          ]
+          "markdownDescription": "%configuration.enabled.description%"
         },
         "sql.dialect": {
           "type": "string",

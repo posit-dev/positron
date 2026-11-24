@@ -9,17 +9,22 @@ import * as vscode from 'vscode';
 
 suite('SqlStatementRangeProvider', () => {
 	suiteSetup(async () => {
-		// The provider is registered once the extension is active and `sql.enabled` is on.
+		// The provider is registered once the extension is active, with `sql.enabled` at its
+		// default. Cleared rather than set, so that every test here runs under the default.
 		await vscode.extensions.getExtension('positron.positron-sql')!.activate();
-		await setEnabled(true);
-	});
-
-	suiteTeardown(async () => {
 		await setEnabled(undefined);
 	});
 
 	teardown(async () => {
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+	});
+
+	test('registered by default', async () => {
+		assert.strictEqual(vscode.workspace.getConfiguration('sql').inspect<boolean>('enabled')?.defaultValue, true);
+
+		const result = await getStatementRange('SELECT 1;\n', new vscode.Position(0, 3));
+
+		assert.ok(result, 'Expected a statement range result');
 	});
 
 	test('not registered while sql.enabled is off', async () => {
@@ -29,7 +34,7 @@ suite('SqlStatementRangeProvider', () => {
 
 			assert.strictEqual(result, undefined);
 		} finally {
-			await setEnabled(true);
+			await setEnabled(undefined);
 		}
 	});
 

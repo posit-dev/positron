@@ -2,7 +2,7 @@
 	"displayName": "SQL",
 	"description": "SQL support for Positron, including running statements against a data connection, completions, hovers and syntax diagnostics.",
 	"configuration.title": "SQL",
-	"configuration.enabled.description": "Enable SQL support in `.sql` files: completions, hovers, diagnostics and links against a data connection, and running the statement under the cursor. When disabled, the SQL extension loads nothing.",
+	"configuration.enabled.description": "SQL support in `.sql` files and Quarto SQL cells: completions, hovers, diagnostics and links against a data connection, and running the statement under the cursor. Turn this off to stop SQL support from loading.",
 	"configuration.dialect.automatic": "Automatic",
 	"configuration.dialect.description": "The SQL dialect used to parse `.sql` files. Affects syntax diagnostics and which quoting styles are accepted. Automatic follows the data connection a file is written against, and parses a file with no connection permissively, accepting a superset of most dialects and reporting fewer errors. Set a dialect here to use it for every `.sql` file whatever it is written against.",
 	"configuration.diagnostics.enabled.description": "Report problems in SQL files: syntax errors in queries, and names the data connection does not have (see the unknown names setting). Turning this off clears both.",
