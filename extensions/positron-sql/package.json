@@ -128,13 +128,13 @@
         "command": "sql.runToCurrentLine",
         "title": "%command.runToCurrentLine.title%",
         "category": "SQL",
-        "enablement": "config.sql.enabled && editorLangId == sql"
+        "enablement": "config.sql.enabled && (editorLangId == sql || positronConsoleFocused && sql.activeEditorIsSql)"
       },
       {
         "command": "sql.runFromCurrentLine",
         "title": "%command.runFromCurrentLine.title%",
         "category": "SQL",
-        "enablement": "config.sql.enabled && editorLangId == sql"
+        "enablement": "config.sql.enabled && (editorLangId == sql || positronConsoleFocused && sql.activeEditorIsSql)"
       }
     ],
     "keybindings": [
@@ -177,6 +177,30 @@
         "key": "ctrl+alt+e",
         "mac": "cmd+alt+e",
         "when": "config.sql.enabled && config.workbench.keybindings.rstudioKeybindings && editorTextFocus && editorLangId == sql && !notebookEditorFocused && !cellEditorFocused"
+      },
+      {
+        "command": "sql.runToCurrentLine",
+        "key": "ctrl+alt+home",
+        "mac": "cmd+alt+home",
+        "when": "config.sql.enabled && positronConsoleFocused && sql.activeEditorIsSql"
+      },
+      {
+        "command": "sql.runFromCurrentLine",
+        "key": "ctrl+alt+end",
+        "mac": "cmd+alt+end",
+        "when": "config.sql.enabled && positronConsoleFocused && sql.activeEditorIsSql"
+      },
+      {
+        "command": "sql.runToCurrentLine",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "config.sql.enabled && config.workbench.keybindings.rstudioKeybindings && positronConsoleFocused && sql.activeEditorIsSql"
+      },
+      {
+        "command": "sql.runFromCurrentLine",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "config.sql.enabled && config.workbench.keybindings.rstudioKeybindings && positronConsoleFocused && sql.activeEditorIsSql"
       }
     ],
     "menus": {

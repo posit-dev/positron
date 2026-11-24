@@ -54,6 +54,16 @@ const RUN_STATEMENT_WITHOUT_ADVANCING_COMMAND = 'sql.runStatementWithoutAdvancin
 const RUN_TO_CURRENT_LINE_COMMAND = 'sql.runToCurrentLine';
 const RUN_FROM_CURRENT_LINE_COMMAND = 'sql.runFromCurrentLine';
 
+/**
+ * Context key: whether the active editor is a SQL file, wherever focus is.
+ *
+ * Run To/From Current Line also answer their keys from the Console, as the Console's own commands
+ * do for R and Python, so the user can scroll back through results and run again without clicking
+ * back into the file. Neither `editorLangId` (the Console input's, `ggsql`) nor `resourceLangId`
+ * (set only inside the editor area) says what file is active while the Console has focus.
+ */
+const ACTIVE_EDITOR_IS_SQL_KEY = 'sql.activeEditorIsSql';
+
 /** Set when the user asks not to be offered ggsql again; see the `no-runtime` case of a run. */
 const HIDE_GGSQL_INSTALL_KEY = 'sql.hideGgsqlInstallPrompt';
 
@@ -460,6 +470,7 @@ export class SqlSession implements vscode.Disposable {
 			disposable.dispose();
 		}
 		this._links?.dispose();
+		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY, false);
 	}
 
 	/**
@@ -694,6 +705,7 @@ export class SqlSession implements vscode.Disposable {
 
 	/** Remembers the SQL document now in front of the user, if it is one; see {@link _recentlyActive}. */
 	private _noteActive(): void {
+		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY, activeSqlEditor() !== undefined);
 		const active = activeSqlDocument()?.uri.toString();
 		if (active && this._recentlyActive.at(-1) !== active) {
 			this._recentlyActive = [...this._recentlyActive.filter(uri => uri !== active), active].slice(-2);

@@ -141,6 +141,68 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('an interrupt drops the runs waiting behind the interrupted one', async () => {
+		// As an interrupt clears the console's queue of what is waiting to run there.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['DELETE FROM t']);
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+		stopFirst(INTERRUPTED);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+	});
+
+	test('a session that exits drops the runs waiting behind the one it was running', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['DELETE FROM t']);
+		await turns();
+		stopFirst(EXITED);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+	});
+
+	test('the next run after an interrupt is sent', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await turns();
+		stopFirst(INTERRUPTED);
+		await turns();
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT 9']]);
+	});
+
+	test('a statement that fails does not drop the run waiting behind it', async () => {
+		// The user asked for that run separately; only the failing run's own statements depend on it.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.failingStatement = 'SELECT * FROM missing';
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT * FROM missing', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT * FROM missing'], ['gg', 'SELECT 9']]);
+	});
+
 	test('a single statement does not wait for the one before it to finish', async () => {
 		// The console queues it; only a run with more statements still to send holds the next back.
 		const api = new FakeApi();
@@ -287,6 +349,12 @@ suite('StatementRunner', () => {
 	});
 });
 
+/** How the runtime API ends an execution the user interrupted. */
+const INTERRUPTED = { name: 'Interrupted', message: 'The user interrupted the code execution.' };
+
+/** How the runtime API ends an execution in a session that exited. */
+const EXITED = { name: 'Interrupted', message: 'The session exited unexpectedly.' };
+
 function runner(api: ExecutionApi, reportTimeoutMs?: number): StatementRunner {
 	return new StatementRunner(api, testLog().log, reportTimeoutMs);
 }
@@ -339,11 +407,18 @@ class FakeApi implements ExecutionApi {
 
 	private readonly _held = new Map<string, Promise<void>>();
 
-	/** Makes a statement run until the returned function is called, as a long query does. */
-	public holdStatement(code: string): () => void {
+	/**
+	 * Makes a statement run until the returned function is called, as a long query does. Called
+	 * with an error, the statement ends with it, as an interrupted one does.
+	 */
+	public holdStatement(code: string): (error?: unknown) => void {
 		let finish!: () => void;
-		this._held.set(code, new Promise<void>(resolve => finish = resolve));
-		return () => finish();
+		let fail!: (error: unknown) => void;
+		this._held.set(code, new Promise<void>((resolve, reject) => {
+			finish = resolve;
+			fail = reject;
+		}));
+		return error => error === undefined ? finish() : fail(error);
 	}
 
 	public readonly executed: [string, string][] = [];
