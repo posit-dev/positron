@@ -929,6 +929,10 @@ export class SqlSession implements vscode.Disposable {
 			? statementsToLine(statements, document.offsetAt(line.end))
 			: statementsFromLine(statements, document.offsetAt(line.start));
 		if (chosen.length === 0) {
+			// As the Console's own commands say, rather than a key press that does nothing.
+			void vscode.window.showInformationMessage(side === 'to'
+				? vscode.l10n.t("No SQL statements found up to the current line.")
+				: vscode.l10n.t("No SQL statements found from the current line."));
 			return undefined;
 		}
 		return { queries: chosen.map(statement => text.slice(statement.start, statement.end)), advance: false };
