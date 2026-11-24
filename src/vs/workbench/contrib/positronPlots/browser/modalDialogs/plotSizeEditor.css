@@ -36,8 +36,14 @@
 	height: 4px;
 }
 
-.plot-size-editor .plot-size-status:empty {
-	display: none;
+.plot-size-editor .plot-size-activity {
+	display: flex;
+	flex-direction: column;
+}
+
+/* The live region stays rendered when empty; it only takes space when it has a note. */
+.plot-size-editor .plot-size-status:not(:empty) {
+	margin-top: 4px;
 }
 
 .plot-size-editor .plot-size-frame {

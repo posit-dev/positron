@@ -38,10 +38,14 @@ export interface PlotSizeEditorProps {
 	/** Called when the user settles on a new size: after typing stops, on Enter, or on drag release. */
 	onCommit: (size: IPlotSize, source: PlotSizeCommitSource) => void;
 	onValidityChange: (valid: boolean) => void;
+	/** Called with the size the frame is drawn at, on mount and whenever it changes, including during a drag. */
+	onFrameSizeChange?: (size: IPlotSize) => void;
 }
 
 const KEY_STEP = 10;
 const KEY_STEP_LARGE = 50;
+
+const NO_KEY_LIMIT: IPlotSize = { width: MAX_PLOT_SIZE, height: MAX_PLOT_SIZE };
 
 const sameSize = (a: IPlotSize, b: IPlotSize) => a.width === b.width && a.height === b.height;
 
@@ -86,14 +90,14 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		() => props.keepRatio ? ratioOf(props.initialSize.width, props.initialSize.height) : undefined
 	);
 	const [lastCommitted, setLastCommitted] = useState<IPlotSize>(props.initialSize);
-	// The size the frame follows during a drag or a handle key resize, before it commits.
+	// The real size during a drag or a handle key resize, before it commits.
 	const [liveSize, setLiveSize] = useState<IPlotSize | undefined>(undefined);
 
 	// Refs, so timer and pointer callbacks see the latest values.
 	const lastCommittedRef = useRef(props.initialSize);
 	const onCommitRef = useRef(props.onCommit);
 	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	const dragRef = useRef<{ x: number; y: number; start: IPlotSize } | undefined>(undefined);
+	const dragRef = useRef<{ x: number; y: number; start: IPlotSize; moved: boolean } | undefined>(undefined);
 	const pairRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -174,6 +178,9 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 
 	const pairKeyDownHandler = (e: React.KeyboardEvent) => {
 		if (e.key === 'Enter') {
+			// Keep a host from also acting on Enter (e.g. a dialog's default button).
+			e.preventDefault();
+			e.stopPropagation();
 			commitTypedNow();
 		}
 	};
@@ -196,9 +203,18 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 
 	// The frame.
 
-	const committedFrame = fitWithin(lastCommitted, props.maxDragSize);
-	const frameSize = liveSize ?? committedFrame;
-	const scaled = !liveSize && !sameSize(committedFrame, lastCommitted);
+	// The frame shows the real size, scaled down to fit maxDragSize.
+	const shownSize = liveSize ?? lastCommitted;
+	const frameSize = fitWithin(shownSize, props.maxDragSize);
+	const scaled = !liveSize && !sameSize(frameSize, lastCommitted);
+
+	const onFrameSizeChangeRef = useRef(props.onFrameSizeChange);
+	useEffect(() => {
+		onFrameSizeChangeRef.current = props.onFrameSizeChange;
+	}, [props.onFrameSizeChange]);
+	useEffect(() => {
+		onFrameSizeChangeRef.current?.({ width: frameSize.width, height: frameSize.height });
+	}, [frameSize.width, frameSize.height]);
 
 	// Dragging.
 
@@ -208,8 +224,8 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		}
 		e.currentTarget.setPointerCapture(e.pointerId);
 		clearTimer();
-		dragRef.current = { x: e.clientX, y: e.clientY, start: frameSize };
-		setLiveSize(frameSize);
+		// A drag starts from the frame as drawn, so a scaled size clamps to maxDragSize once it moves.
+		dragRef.current = { x: e.clientX, y: e.clientY, start: frameSize, moved: false };
 	};
 
 	const dragSize = (e: React.PointerEvent) => {
@@ -221,6 +237,10 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		if (!dragRef.current) {
 			return;
 		}
+		if (e.clientX === dragRef.current.x && e.clientY === dragRef.current.y && !dragRef.current.moved) {
+			return;
+		}
+		dragRef.current.moved = true;
 		const size = dragSize(e);
 		setLiveSize(size);
 		setBoxes(size);
@@ -230,9 +250,15 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		if (!dragRef.current) {
 			return;
 		}
+		const drag = dragRef.current;
+		const moved = drag.moved || e.clientX !== drag.x || e.clientY !== drag.y;
 		const size = dragSize(e);
 		dragRef.current = undefined;
 		setLiveSize(undefined);
+		// A click without movement leaves the size alone.
+		if (!moved) {
+			return;
+		}
 		setBoxes(size);
 		commit(size, 'drag');
 	};
@@ -259,7 +285,8 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 			return;
 		}
 		e.preventDefault();
-		const size = resizeFromDrag(frameSize, delta[0], delta[1], lockedRatio, props.maxDragSize);
+		// Keys step from the real size, so they work on sizes larger than maxDragSize.
+		const size = resizeFromDrag(shownSize, delta[0], delta[1], lockedRatio, NO_KEY_LIMIT);
 		setLiveSize(size);
 		setBoxes(size);
 		clearTimer();
@@ -308,10 +335,12 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 					onChanged={keepRatioChangedHandler}
 				/>
 			</div>
-			<div className='plot-size-progress'>
-				{props.status === 'drawing' && <ProgressBar />}
+			<div className='plot-size-activity'>
+				<div className='plot-size-progress'>
+					{props.status === 'drawing' && <ProgressBar />}
+				</div>
+				<div className='plot-size-status' role='status'>{statusNote}</div>
 			</div>
-			<div className='plot-size-status' role='status'>{statusNote}</div>
 			<div
 				className='plot-size-frame'
 				data-testid='plot-size-frame'

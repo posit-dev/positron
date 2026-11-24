@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { readFileSync } from 'fs';
 import { act, configure, getConfig, screen } from '@testing-library/react';
 import { userEvent, UserEvent } from '@testing-library/user-event';
+import { mainWindow } from '../../../../../base/browser/window.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PlotPreviewStatus, PlotSizeEditor, PlotSizeEditorProps } from '../../browser/modalDialogs/plotSizeEditor.js';
 
@@ -37,6 +39,7 @@ describe('PlotSizeEditor', () => {
 		const onCommit = vi.fn();
 		const onValidityChange = vi.fn();
 		const onKeepRatioChange = vi.fn();
+		const onFrameSizeChange = vi.fn();
 		const props: PlotSizeEditorProps = {
 			initialSize: { width: 400, height: 200 },
 			keepRatio: false,
@@ -46,13 +49,14 @@ describe('PlotSizeEditor', () => {
 			status: 'idle',
 			onCommit,
 			onValidityChange,
+			onFrameSizeChange,
 			...overrides,
 		};
 		const result = rtl.render(<PlotSizeEditor {...props} />);
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		const rerender = (next: Partial<PlotSizeEditorProps>) =>
 			result.rerender(<PlotSizeEditor {...props} {...next} />);
-		return { user, onCommit, onValidityChange, onKeepRatioChange, rerender };
+		return { user, onCommit, onValidityChange, onKeepRatioChange, onFrameSizeChange, rerender };
 	}
 
 	const widthBox = () => screen.getByRole('spinbutton', { name: 'Width' });
@@ -269,5 +273,85 @@ describe('PlotSizeEditor', () => {
 		await user.click(screen.getByRole('checkbox', { name: 'Maintain aspect ratio' }));
 
 		expect(onKeepRatioChange).toHaveBeenCalledWith(false);
+	});
+
+	it('does not let Enter in the size boxes bubble out of the editor', async () => {
+		const { user } = renderEditor();
+		// React handles events at its root, so listen outside the root, as a host would.
+		const hostKeyDown = vi.fn();
+		document.body.addEventListener('keydown', hostKeyDown);
+		try {
+			await retype(user, widthBox(), '640');
+			expect(hostKeyDown).toHaveBeenCalled();
+			hostKeyDown.mockClear();
+			await user.keyboard('{Enter}');
+
+			expect(hostKeyDown).not.toHaveBeenCalled();
+		} finally {
+			document.body.removeEventListener('keydown', hostKeyDown);
+		}
+	});
+
+	it('a click on the handle without moving does not commit the scaled frame size', async () => {
+		const { user, onCommit } = renderEditor();
+		await retype(user, widthBox(), '2200');
+		await user.keyboard('{Enter}');
+		onCommit.mockClear();
+
+		await user.pointer([
+			{ keys: '[MouseLeft>]', target: handle(), coords: { clientX: 500, clientY: 300 } },
+			{ keys: '[/MouseLeft]', target: handle(), coords: { clientX: 500, clientY: 300 } },
+		]);
+		advance(300);
+
+		expect(onCommit).not.toHaveBeenCalled();
+		expect(widthBox()).toHaveValue(2200);
+	});
+
+	it('handle arrow keys step from the real size when the frame is scaled', async () => {
+		const { user, onCommit } = renderEditor();
+
+		await retype(user, widthBox(), '2200');
+		await user.keyboard('{Enter}');
+		onCommit.mockClear();
+
+		handle().focus();
+		await user.keyboard('{ArrowRight}');
+		advance(300);
+
+		expect(onCommit).toHaveBeenCalledWith({ width: 2210, height: 200 }, 'drag');
+		expect(screen.getByText('Preview scaled to fit. The copy is 2210 x 200 px.')).toBeInTheDocument();
+	});
+
+	it('reports the frame size on mount, during a drag, and scaled after a large commit', async () => {
+		const { user, onFrameSizeChange } = renderEditor();
+		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 400, height: 200 });
+
+		await user.pointer([
+			{ keys: '[MouseLeft>]', target: handle(), coords: { clientX: 500, clientY: 300 } },
+			{ target: handle(), coords: { clientX: 550, clientY: 320 } },
+		]);
+		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 450, height: 220 });
+		await user.pointer({ keys: '[/MouseLeft]', target: handle(), coords: { clientX: 550, clientY: 320 } });
+
+		await retype(user, widthBox(), '2200');
+		await retype(user, heightBox(), '200');
+		await user.keyboard('{Enter}');
+		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 1100, height: 100 });
+	});
+
+	it('keeps the status live region rendered and shown while idle', () => {
+		const style = document.createElement('style');
+		style.textContent = readFileSync(`${import.meta.dirname}/../../browser/modalDialogs/plotSizeEditor.css`, 'utf8');
+		document.head.appendChild(style);
+		try {
+			renderEditor();
+			const status = screen.getAllByRole('status').find(e => e.classList.contains('plot-size-status'));
+			expect(status).toBeInTheDocument();
+			expect(status).toBeEmptyDOMElement();
+			expect(mainWindow.getComputedStyle(status!).display).not.toBe('none');
+		} finally {
+			style.remove();
+		}
 	});
 });
