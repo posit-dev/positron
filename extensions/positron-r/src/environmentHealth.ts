@@ -139,7 +139,7 @@ export function itemSummary(id: HealthItemId, status: HealthItemStatus): string 
 	// vscode.l10n.t needs the activated l10n bundle.
 	const summaries: Record<HealthItemId, ItemSummaries> = {
 		discovery: {
-			pass: vscode.l10n.t('R is available on this machine'),
+			pass: vscode.l10n.t('R is installed on this machine'),
 			fail: vscode.l10n.t('Positron cannot find R on this machine'),
 			skipped: vscode.l10n.t('R installation discovery'),
 		},
