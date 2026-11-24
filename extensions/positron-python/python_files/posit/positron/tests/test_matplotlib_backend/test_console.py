@@ -17,7 +17,7 @@ from PIL import Image
 
 from positron.matplotlib_backend.backend import Backend
 from positron.matplotlib_backend.registry import registry
-from positron.plot_comm import PlotRenderFormat, PlotSize, PlotUnit
+from positron.plot_comm import PlotRenderFormat, PlotRenderSettings, PlotSize, PlotUnit
 from positron.plots import PlotsService
 from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
 
@@ -284,10 +284,9 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     def verify_response(
         response,
         filename: str,
+        requested_size: PlotSize | None,
         expected_size: tuple[float, float],
         threshold=0.0,
-        *,
-        expect_settings: bool = False,
     ):
         # Check that the response includes the expected base64-encoded resized image.
         image_bytes = response["data"]["result"].pop("data")
@@ -302,22 +301,14 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
         assert percent_difference(image.size[1], expected_size[1] * pixel_ratio) <= threshold
 
         # Check the rest of the response.
-        if expect_settings:
-            # Pop settings for separate verification
-            settings = response["data"]["result"].pop("settings")
-            assert settings["size"]["width"] == size.width
-            assert settings["size"]["height"] == size.height
-            assert settings["pixel_ratio"] == pixel_ratio
-            assert settings["format"] == format_
-            assert response == json_rpc_response({"mime_type": f"image/{format_}"})
-        else:
-            assert response == json_rpc_response(
-                {"mime_type": f"image/{format_}", "settings": None}
-            )
+        settings = PlotRenderSettings(
+            size=requested_size, pixel_ratio=pixel_ratio, format=PlotRenderFormat(format_)
+        )
+        assert response == json_rpc_response(
+            {"mime_type": f"image/{format_}", "settings": settings.dict()}
+        )
 
-    verify_response(
-        response, "test-mpl-render-0-explicit-size", (size.width, size.height), expect_settings=True
-    )
+    verify_response(response, "test-mpl-render-0-explicit-size", size, (size.width, size.height))
 
     # Now render the plot at its intrinsic size.
     # Having rendered the plot at an explicit size should not affect the intrinsic size.
@@ -326,6 +317,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     verify_response(
         response,
         "test-mpl-render-1-intrinsic-size",
+        None,
         (intrinsic_size[0] * dpi, intrinsic_size[1] * dpi),
         # The size of the image isn't guaranteed when using a tight bounding box, we arbitrarily
         # check that it's within 10% of the intrinsic size in pixels.
@@ -337,39 +329,83 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     verify_response(
         response,
         "test-mpl-render-2-explicit-size-after-intrinsic-size",
+        size,
         (size.width, size.height),
-        expect_settings=True,
     )
 
 
-def test_mpl_pre_render_only_after_render_settings_known(
+@pytest.fixture
+def no_render_settings(plots_service: PlotsService) -> Iterator[None]:
+    """Start with no render settings, as at the start of a session, and restore them after."""
+    previous = plots_service.get_render_settings()
+    plots_service._current_render_settings = None  # noqa: SLF001
+    yield
+    plots_service._current_render_settings = previous  # noqa: SLF001
+
+
+@pytest.mark.usefixtures("no_render_settings")
+def test_mpl_no_pre_render_without_render_settings(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
-    # Simulate the start of a session: no render settings are known yet. (The
-    # plots service is shared across tests, so reset explicitly rather than relying
-    # on test ordering.)
-    plots_service._current_render_settings = None  # noqa: SLF001
+    # Until the frontend sends render settings, there's nothing to pre-render at:
+    # a guessed size would be shown and then replaced (see issue #13066).
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    shell.run_cell("plt.plot([1, 2]); plt.show()").raise_error()
 
-    # The first plot of a session has no known frontend render settings, so its
-    # comm_open must NOT carry a pre-render: an intrinsic-size pre-render would be
-    # displayed and then immediately replaced by a render at the actual pane size,
-    # causing a visible flash and a wasted render (see issue #13066).
-    shell.run_cell("plt.figure()").raise_error()
-    first_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
-    assert first_comm.messages[0]["msg_type"] == "comm_open"
-    assert "pre_render" not in (first_comm.messages[0].get("data") or {})
-    first_comm.messages.clear()
+    assert plot_comm.messages
+    for message in plot_comm.messages:
+        assert "pre_render" not in message["data"]["params"]
 
-    # Render the first plot at an explicit size; this records the frontend's render
-    # settings on the plots service.
-    _do_render(first_comm, PlotSize(width=400, height=300))
 
-    # A subsequent plot now has known render settings, so its comm_open SHOULD carry
-    # a pre-render (at the matching size, so the frontend won't need to re-render).
-    shell.run_cell("plt.figure()").raise_error()
-    second_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
-    assert second_comm.messages[0]["msg_type"] == "comm_open"
-    assert "pre_render" in (second_comm.messages[0].get("data") or {})
+@pytest.mark.usefixtures("no_render_settings")
+def test_mpl_render_does_not_change_render_settings(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # Render settings come only from the frontend's `did_change_plots_render_settings`
+    # notification. A render request is for one plot, e.g. one open in an editor tab at
+    # a custom size, so it must not change what other plots are pre-rendered at.
+    plot_comm = _create_mpl_plot(shell, plots_service)
+    _do_render(plot_comm, PlotSize(width=400, height=300))
+
+    assert plots_service.get_render_settings() is None
+
+
+@pytest.mark.usefixtures("no_render_settings")
+@pytest.mark.parametrize(
+    ("size", "expected_pixels"),
+    [
+        # Sizing policies such as Fill: the size the frontend asked for.
+        (PlotSize(width=400, height=300), (400, 300)),
+        # The Intrinsic sizing policy: the figure's own size, 6x4 inches at 100 dpi. The
+        # tight bounding box trims the image a little, so the size is checked to within 10%.
+        (None, (600, 400)),
+    ],
+)
+def test_mpl_pre_render_uses_render_settings(
+    shell: PositronShell,
+    plots_service: PlotsService,
+    size: PlotSize | None,
+    expected_pixels: tuple[int, int],
+) -> None:
+    pixel_ratio = 2.0
+    settings = PlotRenderSettings(size=size, pixel_ratio=pixel_ratio, format=PlotRenderFormat.Png)
+    plots_service.update_render_settings(settings)
+
+    # The figure is created and shown in the same cell, the way a plot is shown from inside a
+    # loop: the pre-render is the only way the frontend gets an image before the cell finishes.
+    shell.run_cell("plt.figure(figsize=(6, 4), dpi=100); plt.plot([1, 2]); plt.show()")
+    plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
+
+    comm_open, show = plot_comm.messages[0], plot_comm.messages[1]
+    assert comm_open["msg_type"] == "comm_open"
+    _verify_show_notification(show)
+
+    for pre_render in [comm_open["data"]["pre_render"], show["data"]["params"]["pre_render"]]:
+        assert pre_render["settings"] == settings.dict()
+        image = Image.open(io.BytesIO(base64.b64decode(pre_render["data"])))
+        threshold = 0.0 if size is not None else 0.1
+        assert percent_difference(image.size[0], expected_pixels[0] * pixel_ratio) <= threshold
+        assert percent_difference(image.size[1], expected_pixels[1] * pixel_ratio) <= threshold
 
 
 @pytest.mark.parametrize(

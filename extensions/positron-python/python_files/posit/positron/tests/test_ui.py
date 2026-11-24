@@ -14,7 +14,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron.plot_comm import PlotRenderFormat
+from positron.plot_comm import PlotRenderFormat, PlotSize
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
 from positron.ui_comm import ShowHtmlFileDestination, UiFrontendEvent
@@ -463,18 +463,33 @@ def test_is_module_loaded(ui_comm: DummyComm) -> None:
     assert ui_comm.messages == [json_rpc_response(result=False)]
 
 
-def test_did_change_plots_render_settings(kernel: PositronIPyKernel, ui_comm: DummyComm) -> None:
+@pytest.mark.parametrize(
+    ("size", "expected_size"),
+    [
+        ({"width": 800, "height": 600}, PlotSize(width=800, height=600)),
+        # No size means the plot's intrinsic size.
+        (None, None),
+    ],
+)
+def test_did_change_plots_render_settings(
+    kernel: PositronIPyKernel,
+    ui_comm: DummyComm,
+    size: dict[str, int] | None,
+    expected_size: PlotSize | None,
+) -> None:
+    settings_json: dict[str, Any] = {"pixel_ratio": 2.0, "format": "png"}
+    if size is not None:
+        settings_json["size"] = size
     msg = json_rpc_request(
         "did_change_plots_render_settings",
-        {"settings": {"size": {"width": 800, "height": 600}, "pixel_ratio": 2.0, "format": "png"}},
+        {"settings": settings_json},
         comm_id="dummy_comm_id",
     )
     ui_comm.handle_msg(msg)
 
     settings = kernel.plots_service.get_render_settings()
     assert settings is not None
-    assert settings.size.width == 800
-    assert settings.size.height == 600
+    assert settings.size == expected_size
     assert settings.pixel_ratio == 2.0
     assert settings.format == PlotRenderFormat.Png
 

@@ -220,7 +220,7 @@
 				"description": "The settings used to render the plot",
 				"properties": {
 					"size": {
-						"description": "Plot size to render the plot to",
+						"description": "Plot size to render the plot to. If not provided, the plot is rendered at its intrinsic size.",
 						"$ref": "#/components/schemas/plot_size"
 					},
 					"pixel_ratio": {
@@ -232,7 +232,7 @@
 						"$ref": "#/components/schemas/plot_render_format"
 					}
 				},
-				"required": ["size", "pixel_ratio", "format"],
+				"required": ["pixel_ratio", "format"],
 				"rust": {
 					"copy": true
 				}
