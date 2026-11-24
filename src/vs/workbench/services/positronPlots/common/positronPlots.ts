@@ -373,6 +373,21 @@ export interface IPositronPlotsService {
 	copyEditorPlotToClipboard(plotId: string): Promise<void>;
 
 	/**
+	 * Opens the Copy Plot dialog for the current plot in the Plots View, to copy it at a chosen size.
+	 *
+	 * @param container The element to show the dialog in, if not the active window's.
+	 */
+	copyViewPlotAtCustomSize(container?: HTMLElement): void;
+
+	/**
+	 * Opens the Copy Plot dialog for the plot in an editor tab, to copy it at a chosen size.
+	 *
+	 * @param plotId The id of the plot to copy.
+	 * @param container The element to show the dialog in, if not the active window's.
+	 */
+	copyEditorPlotAtCustomSize(plotId: string, container?: HTMLElement): void;
+
+	/**
 	 * Opens the selected plot in a new window.
 	 */
 	openPlotInNewWindow(): void;

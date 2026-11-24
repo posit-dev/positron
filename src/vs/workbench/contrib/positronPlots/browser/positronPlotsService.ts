@@ -33,6 +33,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { decodeImageDataUrl, getImageContentId, getImageExtensionForMimeType, parseImageDataUrl, toBase64ImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
+import { showCopyPlotModalDialog } from './modalDialogs/copyPlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
 import { PlotPoint, ShowHtmlFileDestination, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
@@ -96,6 +97,9 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 
 /** The key used to store the custom plot size */
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
+
+/** Whether the Copy Plot dialog keeps the aspect ratio. */
+const CopyKeepAspectRatioStorageKey = 'positronPlots.copyKeepAspectRatio';
 
 /** The config key used to store the dark mode setting */
 const OldDarkFilterModeConfigKey = 'positron.plots.darkFilter';
@@ -1711,6 +1715,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			throw new Error('Plot not found');
 		}
 
+	}
+
+	copyViewPlotAtCustomSize(container?: HTMLElement): void {
+		this.copyPlotAtCustomSize(this._plots.find(plot => plot.id === this.selectedPlotId), container);
+	}
+
+	copyEditorPlotAtCustomSize(plotId: string, container?: HTMLElement): void {
+		this.copyPlotAtCustomSize(this._editorPlots.get(plotId), container);
+	}
+
+	private copyPlotAtCustomSize(plot: IPositronPlotClient | undefined, container: HTMLElement | undefined): void {
+		if (!plot) {
+			this._notificationService.error(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+			return;
+		}
+		// Only a plot the kernel can redraw can be copied at a new size.
+		if (!(plot instanceof PlotClientInstance)) {
+			this._notificationService.info(localize('positron.plots.cannotCopyAtCustomSize', "This plot cannot be copied at a custom size."));
+			return;
+		}
+		showCopyPlotModalDialog({
+			plotClient: plot,
+			keepRatio: this._storageService.getBoolean(CopyKeepAspectRatioStorageKey, StorageScope.PROFILE, true),
+			onKeepRatioChange: keepRatio => this._storageService.store(CopyKeepAspectRatioStorageKey, keepRatio, StorageScope.PROFILE, StorageTarget.USER),
+			// writeImage requires base64, while SVG plot URIs are URL-encoded.
+			onCopy: uri => this._clipboardService.writeImage(toBase64ImageDataUrl(uri)),
+			container,
+		});
 	}
 
 	/**

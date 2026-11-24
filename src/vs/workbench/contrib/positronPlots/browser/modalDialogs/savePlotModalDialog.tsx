@@ -51,7 +51,7 @@ export interface SavePlotOptions {
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
 const SAVE_PLOT_MODAL_DIALOG_HEIGHT = 600;
-const BASE_DPI = 100; // matplotlib default DPI, used to show an intrinsic size in inches as pixels
+export const BASE_DPI = 100; // matplotlib default DPI, used to show an intrinsic size in inches as pixels
 
 /**
  * Show the save plot modal dialog for dynamic plots.

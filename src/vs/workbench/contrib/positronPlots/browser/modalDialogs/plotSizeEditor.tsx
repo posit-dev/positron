@@ -73,7 +73,7 @@ const typedSize = (widthText: string, heightText: string): IPlotSize | undefined
 };
 
 /** Scales a size down to fit within a maximum, keeping its shape. */
-const fitWithin = (size: IPlotSize, max: IPlotSize): IPlotSize => {
+export const fitWithin = (size: IPlotSize, max: IPlotSize): IPlotSize => {
 	const scale = Math.min(1, max.width / size.width, max.height / size.height);
 	return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
 };

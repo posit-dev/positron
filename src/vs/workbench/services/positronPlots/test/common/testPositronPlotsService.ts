@@ -480,6 +480,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 		return Promise.resolve();
 	}
 
+	copyViewPlotAtCustomSize(container?: HTMLElement): void { }
+
+	copyEditorPlotAtCustomSize(plotId: string, container?: HTMLElement): void { }
+
 	/**
 	 * Selects a dark filter mode.
 	 * @deprecated Use setDarkFilterMode instead.

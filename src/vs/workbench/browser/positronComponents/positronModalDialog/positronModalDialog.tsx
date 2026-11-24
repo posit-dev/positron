@@ -30,6 +30,8 @@ export interface PositronModalDialogProps {
 	height: number;
 	/** When set, re-centers only when this value changes, not on width/height changes. */
 	centerKey?: number;
+	/** When true, the dialog handles Enter itself instead of clicking the default button. */
+	enterHandledByCaller?: boolean;
 	closeOnClickOutside?: boolean;
 	onCancel?: () => void;
 }
@@ -91,7 +93,8 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	useModalDialogKeyboard({
 		dialogBoxRef,
 		keyboardSource: props.renderer,
-		onCancel: props.onCancel
+		onCancel: props.onCancel,
+		enterHandledByCaller: props.enterHandledByCaller
 	});
 
 	// Set up the resize event handler.
