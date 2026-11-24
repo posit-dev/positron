@@ -76,6 +76,13 @@
 	touch-action: none;
 }
 
+/* Grows the hit area to 24 x 24 px (WCAG 2.5.8) while the glyph stays 16 px. */
+.plot-size-editor .plot-size-handle::before {
+	content: '';
+	position: absolute;
+	inset: -8px 0 0 -8px;
+}
+
 .plot-size-editor .plot-size-handle:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 1px;

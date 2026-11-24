@@ -7,10 +7,11 @@
 import './plotSizeEditor.css';
 
 // React.
-import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { status } from '../../../../../base/browser/ui/aria/aria.js';
 import { ProgressBar } from '../../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
@@ -105,6 +106,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const dragRef = useRef<{ x: number; y: number; start: IPlotSize; moved: boolean } | undefined>(undefined);
 	const pairRef = useRef<HTMLDivElement>(null);
+	const handleHintId = useId();
 	// An arrow-key resize of the handle that has not committed yet.
 	const keyResizeRef = useRef<IPlotSize | undefined>(undefined);
 
@@ -287,6 +289,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		if (size) {
 			setLiveSize(undefined);
 			commit(size, 'drag');
+			status(localize('positron.plotSizeEditor.sizeAnnouncement', "{0} x {1}", size.width, size.height));
 		}
 	};
 
@@ -382,6 +385,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 			>
 				{props.previewUri && <img alt={props.previewAlt} className='plot-size-preview' src={props.previewUri} />}
 				<button
+					aria-describedby={handleHintId}
 					aria-label={localize('positron.plotSizeEditor.resizePlot', "Resize plot")}
 					className='plot-size-handle'
 					type='button'
@@ -395,6 +399,9 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 				>
 					<span aria-hidden='true' className='codicon codicon-gripper' />
 				</button>
+				<span hidden id={handleHintId}>
+					{localize('positron.plotSizeEditor.resizeHint', "Use the arrow keys to resize")}
+				</span>
 			</div>
 			{scaled && <div className='plot-size-scaled-note'>
 				{localize('positron.plotSizeEditor.scaledNote', "Preview scaled to fit. The copy is {0} x {1} px.", lastCommitted.width, lastCommitted.height)}

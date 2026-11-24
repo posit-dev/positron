@@ -10,6 +10,12 @@ import { mainWindow } from '../../../../../base/browser/window.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { PlotPreviewStatus, PlotSizeEditor, PlotSizeEditorProps } from '../../browser/modalDialogs/plotSizeEditor.js';
 
+const { ariaStatus } = vi.hoisted(() => ({ ariaStatus: vi.fn<(msg: string) => void>() }));
+vi.mock('../../../../../base/browser/ui/aria/aria.js', async importOriginal => ({
+	...await importOriginal<typeof import('../../../../../base/browser/ui/aria/aria.js')>(),
+	status: ariaStatus,
+}));
+
 describe('PlotSizeEditor', () => {
 	const rtl = setupRTLRenderer();
 
@@ -209,6 +215,22 @@ describe('PlotSizeEditor', () => {
 
 		advance(300);
 		expect(onCommit).toHaveBeenCalledTimes(2);
+	});
+
+	it('describes how to resize with the keyboard on the handle', () => {
+		renderEditor();
+		expect(handle()).toHaveAccessibleDescription('Use the arrow keys to resize');
+	});
+
+	it('announces the new size when a handle arrow-key resize commits', async () => {
+		const { user } = renderEditor();
+
+		handle().focus();
+		await user.keyboard('{ArrowRight}');
+		expect(ariaStatus).not.toHaveBeenCalled();
+
+		advance(300);
+		expect(ariaStatus).toHaveBeenCalledExactlyOnceWith('410 x 200');
 	});
 
 	it('pointer drag commits once on release, as drag', async () => {
