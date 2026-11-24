@@ -9,16 +9,23 @@ import { PlotClientInstance } from '../../../../services/languageRuntime/common/
 import { IOneTimeRender, IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PlotPreviewStatus } from './plotSizeEditor.js';
 
-interface IPendingPreview {
+export interface IPendingPreview {
 	size: IPlotSize;
 	render: IOneTimeRender;
+}
+
+export interface IPlotPreview {
+	preview?: IRenderedPlot;
+	status: PlotPreviewStatus;
+	pending?: IPendingPreview;
+	request: (size: IPlotSize) => void;
 }
 
 /**
  * Draws the plot at requested sizes for the size dialog's preview. Only the latest
  * request is kept: a new request cancels the one before it.
  */
-export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: number) {
+export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: number): IPlotPreview {
 	const [preview, setPreview] = useState<IRenderedPlot | undefined>();
 	const [status, setStatus] = useState<PlotPreviewStatus>('idle');
 	const [pending, setPending] = useState<IPendingPreview | undefined>();
@@ -56,8 +63,17 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 		if (closedRef.current) {
 			return;
 		}
-		const current = pendingRef.current?.size ?? previewRef.current?.size;
-		if (current && current.width === size.width && current.height === size.height) {
+		const same = (a?: IPlotSize) => !!a && a.width === size.width && a.height === size.height;
+		if (same(pendingRef.current?.size)) {
+			return;
+		}
+		if (same(previewRef.current?.size)) {
+			// The wanted size is already shown: drop any other pending draw.
+			if (pendingRef.current) {
+				cancelPending();
+				setPending(undefined);
+				setStatus('idle');
+			}
 			return;
 		}
 		cancelPending();

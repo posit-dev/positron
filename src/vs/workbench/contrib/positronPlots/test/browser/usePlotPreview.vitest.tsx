@@ -13,9 +13,8 @@ import { usePlotPreview } from '../../browser/modalDialogs/usePlotPreview.js';
 class FakeRender implements IOneTimeRender {
 	readonly result = new DeferredPromise<IRenderedPlot>();
 	readonly startedDeferred = new DeferredPromise<void>();
-	readonly cancel = vi.fn(() => {
-		void this.result.error(new Error('cancelled'));
-	});
+	// Does not reject: lets tests deliver a result after cancel to prove it is ignored.
+	readonly cancel = vi.fn();
 	get promise() { return this.result.p; }
 	get started() { return this.startedDeferred.p; }
 }
@@ -72,6 +71,23 @@ describe('usePlotPreview', () => {
 		});
 		expect(result.current.preview?.uri).toBe('u300');
 		expect(result.current.status).toBe('idle');
+	});
+
+	it('cancels a pending draw when the shown size is requested again', async () => {
+		const { result } = renderHook(() => usePlotPreview(client, 1));
+		act(() => result.current.request({ width: 200, height: 100 }));
+		await act(async () => {
+			renders[0].startedDeferred.complete();
+			renders[0].result.complete(plot(200, 100));
+		});
+		act(() => result.current.request({ width: 300, height: 100 }));
+		act(() => result.current.request({ width: 200, height: 100 }));
+		expect(renders).toHaveLength(2);
+		expect(renders[1].cancel).toHaveBeenCalledOnce();
+		expect(result.current.status).toBe('idle');
+		expect(result.current.pending).toBeUndefined();
+		await act(async () => { renders[1].result.complete(plot(300, 100)); });
+		expect(result.current.preview?.uri).toBe('u200');
 	});
 
 	it('does not redraw the same size', async () => {
