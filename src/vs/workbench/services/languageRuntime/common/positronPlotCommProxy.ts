@@ -7,7 +7,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
 import { IntrinsicSize, PositronPlotComm, ShowEvent, UpdateEvent } from './positronPlotComm.js';
-import { DeferredRender, PositronPlotRenderQueue } from './positronPlotRenderQueue.js';
+import { DeferredRender, IOneTimeRender, PositronPlotRenderQueue, RenderRequest } from './positronPlotRenderQueue.js';
 
 
 export class PositronPlotCommProxy extends Disposable {
@@ -183,5 +183,14 @@ export class PositronPlotCommProxy extends Disposable {
 
 		// The session render queue will handle scheduling and rendering
 		this._sessionRenderQueue.queue(request, this._comm);
+	}
+
+	/**
+	 * Renders the plot once without replacing or being replaced by other renders.
+	 *
+	 * @param request The render request to perform
+	 */
+	public renderOnce(request: RenderRequest): IOneTimeRender {
+		return this._sessionRenderQueue.queueOneTimeRender(request, this._comm);
 	}
 }

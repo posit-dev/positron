@@ -13,7 +13,7 @@ import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { PlotSizingPolicyAuto } from '../../positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../positronPlots/common/sizingPolicyIntrinsic.js';
-import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
+import { DeferredRender, IOneTimeRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 /**
  * Convert a PlotResult with settings to an IRenderedPlot.
@@ -404,6 +404,21 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			size: newSizingPolicy instanceof PlotSizingPolicyCustom ? newSizingPolicy.size : undefined
 		};
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
+	}
+
+	/**
+	 * Renders the plot once at an exact size. Does not touch the plot's render state or fire events.
+	 *
+	 * @param size The size in pixels (fractions are floored)
+	 * @param pixelRatio The device pixel ratio
+	 * @param format The image format
+	 */
+	public renderOnce(size: IPlotSize, pixelRatio: number, format = PlotRenderFormat.Png): IOneTimeRender {
+		return this._commProxy.renderOnce({
+			size: { width: Math.floor(size.width), height: Math.floor(size.height) },
+			pixel_ratio: pixelRatio,
+			format,
+		});
 	}
 
 	public async renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {

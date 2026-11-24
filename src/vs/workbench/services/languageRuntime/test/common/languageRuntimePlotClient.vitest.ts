@@ -15,7 +15,7 @@ import { PlotSizingPolicyAuto } from '../../../positronPlots/common/sizingPolicy
 import { PlotSizingPolicyFill } from '../../../positronPlots/common/sizingPolicyFill.js';
 import { PlotSizingPolicyIntrinsic } from '../../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
-import { DeferredRender, IRenderedPlot } from '../../common/positronPlotRenderQueue.js';
+import { DeferredRender, IOneTimeRender, IRenderedPlot, RenderRequest } from '../../common/positronPlotRenderQueue.js';
 
 describe('Positron - PlotClientInstance', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -24,6 +24,7 @@ describe('Positron - PlotClientInstance', () => {
 	let showPlotEmitter: Emitter<ShowEvent>;
 	let closeEmitter: Emitter<void>;
 	let renderSpy: ReturnType<typeof vi.fn<(request: DeferredRender) => void>>;
+	let renderOnceSpy: ReturnType<typeof vi.fn<(request: RenderRequest) => IOneTimeRender>>;
 	let getIntrinsicSize: ReturnType<typeof vi.fn<() => Promise<IntrinsicSize | undefined>>>;
 
 	/** Build a pre-render whose data (and therefore URI) and settings are controllable. */
@@ -47,6 +48,7 @@ describe('Positron - PlotClientInstance', () => {
 			onDidSetIntrinsicSize: intrinsicSizeEmitter.event,
 			eventParentId: undefined,
 			render: renderSpy,
+			renderOnce: renderOnceSpy,
 			getIntrinsicSize,
 		});
 		const fullMetadata: IPositronPlotMetadata = {
@@ -65,7 +67,55 @@ describe('Positron - PlotClientInstance', () => {
 		showPlotEmitter = disposables.add(new Emitter<ShowEvent>());
 		closeEmitter = disposables.add(new Emitter<void>());
 		renderSpy = vi.fn<(request: DeferredRender) => void>();
+		renderOnceSpy = vi.fn((request: RenderRequest): IOneTimeRender => ({
+			promise: Promise.resolve({
+				uri: 'data:image/png;base64,ONCE', size: request.size ?? { width: 0, height: 0 },
+				pixel_ratio: request.pixel_ratio, format: request.format ?? PlotRenderFormat.Png, renderTimeMs: 0,
+			}),
+			started: Promise.resolve(),
+			cancel: () => { },
+		}));
 		getIntrinsicSize = vi.fn(() => Promise.resolve(undefined));
+	});
+
+	it('renderOnce does not change lastRender or fire events', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA') });
+		const before = client.lastRender;
+		const onComplete = vi.fn();
+		const onState = vi.fn();
+		disposables.add(client.onDidCompleteRender(onComplete));
+		disposables.add(client.onDidChangeState(onState));
+
+		await client.renderOnce({ width: 300, height: 200 }, 1).promise;
+
+		expect(client.lastRender).toBe(before);
+		expect(onComplete).not.toHaveBeenCalled();
+		expect(onState).not.toHaveBeenCalled();
+	});
+
+	it('renderOnce floors the size', () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA') });
+
+		client.renderOnce({ width: 640.7, height: 480.2 }, 2);
+
+		expect(renderOnceSpy).toHaveBeenCalledWith({
+			size: { width: 640, height: 480 }, pixel_ratio: 2, format: PlotRenderFormat.Png,
+		});
+	});
+
+	it('renderOnce does not cancel a pending render', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA') });
+		const pending = client.render({ width: 300, height: 50 }, 1);
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+
+		await client.renderOnce({ width: 640, height: 480 }, 1).promise;
+
+		const done: IRenderedPlot = {
+			uri: 'data:image/png;base64,DDDD', size: { width: 300, height: 50 },
+			pixel_ratio: 1, format: PlotRenderFormat.Png, renderTimeMs: 0,
+		};
+		renderSpy.mock.calls[0][0].complete(done);
+		await expect(pending).resolves.toEqual(done);
 	});
 
 	it('onDidShowPlot only fires a complete render when the pre-render URI changed', () => {
