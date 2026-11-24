@@ -397,6 +397,22 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
     test('all green => pass', () => {
         assert.strictEqual(probeEnvironmentReady(green).status, 'pass');
     });
+
+    test('the summary matches the status', () => {
+        const items = [
+            probeEnvironmentReady(green),
+            probeEnvironmentReady({ ...green, isRosetta: true }),
+            probeEnvironmentReady({ ...green, kernelReady: false }),
+        ];
+        assert.deepStrictEqual(
+            items.map((i) => [i.status, i.summary]),
+            [
+                ['pass', 'The Python environment is ready to use with Positron'],
+                ['warn', 'The Python environment may run slowly'],
+                ['fail', 'The Python environment is not ready to use with Positron'],
+            ],
+        );
+    });
 });
 
 import { assembleItems, HealthItem, HealthItemId } from '../../client/positron/environmentHealth';
@@ -496,7 +512,7 @@ suite('Python Environment Health - orchestration', () => {
             logError,
         );
         assert.strictEqual(result.items[1].status, 'fail');
-        assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+        assert.strictEqual(result.items[1].summary, 'A supported Python is not available');
         // The error goes to the log, not to the user. It is passed as the error
         // argument rather than interpolated, so the log keeps the stack.
         assert.notInclude(result.items[1].detail ?? '', 'boom');
@@ -514,9 +530,9 @@ suite('Python Environment Health - orchestration', () => {
         assert.deepStrictEqual(
             result.items.slice(1).map((i) => [i.id, i.summary]),
             [
-                ['pythonInstalled', 'A supported Python is installed'],
-                ['environmentReady', 'The environment is ready to use with Positron'],
-                ['dedicatedEnvironment', 'Dedicated Python environment'],
+                ['pythonInstalled', 'Supported Python version'],
+                ['environmentReady', 'Python environment compatibility'],
+                ['dedicatedEnvironment', 'Project environment'],
             ],
         );
     });
