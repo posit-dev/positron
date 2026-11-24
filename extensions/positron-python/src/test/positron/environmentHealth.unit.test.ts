@@ -532,7 +532,7 @@ suite('Python Environment Health - orchestration', () => {
             [
                 ['pythonInstalled', 'Supported Python version'],
                 ['environmentReady', 'Python environment compatibility'],
-                ['dedicatedEnvironment', 'Project environment'],
+                ['dedicatedEnvironment', 'Dedicated environment'],
             ],
         );
     });

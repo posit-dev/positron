@@ -106,10 +106,10 @@ export function itemSummary(id: HealthItemId, status: HealthItemStatus): string 
             skipped: vscode.l10n.t('Python environment compatibility'),
         },
         dedicatedEnvironment: {
-            pass: vscode.l10n.t('This folder uses a project environment'),
-            fail: vscode.l10n.t('No project environment is in use'),
-            warn: vscode.l10n.t('A project environment exists but is not in use'),
-            skipped: vscode.l10n.t('Project environment'),
+            pass: vscode.l10n.t('This folder uses a dedicated environment'),
+            fail: vscode.l10n.t('No dedicated environment is in use'),
+            warn: vscode.l10n.t('A dedicated environment exists but is not in use'),
+            skipped: vscode.l10n.t('Dedicated environment'),
         },
     };
     // A check with no warn text falls back to its name, which reads correctly next to any icon.
@@ -374,7 +374,7 @@ export function probeDedicatedEnvironment(deps: {
         }
         return healthItem(id, 'fail', {
             detail: vscode.l10n.t(
-                'This folder uses a shared Python installation, so packages installed here affect other projects. Create a project environment for this folder.',
+                'This folder uses a shared Python installation, so packages installed here affect other projects. Create a dedicated environment for this folder.',
             ),
             fix: deps.createEnvFix,
         });
@@ -390,7 +390,7 @@ export function probeDedicatedEnvironment(deps: {
     }
 
     return healthItem(id, 'fail', {
-        detail: vscode.l10n.t('No folder is open. Open a folder, then create a project environment in that folder.'),
+        detail: vscode.l10n.t('No folder is open. Open a folder, then create a dedicated environment in that folder.'),
         fix: deps.openFolderFix,
     });
 }
