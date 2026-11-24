@@ -19,7 +19,7 @@ import { IPositronPlotsService, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { MenuRegistry, registerAction2, MenuId, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
-import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
+import { PlotsActiveEditorCopyAction, PlotsActiveEditorCopyAtCustomSizeAction, PlotsCopyAtCustomSizeAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -78,6 +78,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsRefreshAction);
 		registerAction2(PlotsSaveAction);
 		registerAction2(PlotsCopyAction);
+		registerAction2(PlotsCopyAtCustomSizeAction);
 		registerAction2(PlotsNextAction);
 		registerAction2(PlotsPreviousAction);
 		registerAction2(PlotsClearAction);
@@ -85,9 +86,25 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsEditorAction);
 		registerAction2(PlotsGalleryInNewWindowAction);
 		registerAction2(PlotsActiveEditorCopyAction);
+		registerAction2(PlotsActiveEditorCopyAtCustomSizeAction);
+		this.registerEditorCopySubMenu();
 		registerAction2(PlotsActiveEditorSaveAction);
 		registerAction2(PlotsSizingPolicyAction);
 		this.registerEditorZoomSubMenu();
+	}
+
+	private registerEditorCopySubMenu(): void {
+		// Split button: the main click copies at once, the arrow opens the menu.
+		const copySubmenu: ISubmenuItem = {
+			title: localize2('positronPlots.copySubMenuTitle', 'Copy the plot'),
+			submenu: PlotsActiveEditorCopyAction.SUBMENU_ID,
+			isSplitButton: true,
+			when: PLOT_IS_ACTIVE_EDITOR,
+			group: 'navigation',
+			order: 2,
+			icon: Codicon.copy
+		};
+		MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, copySubmenu);
 	}
 
 	private registerEditorZoomSubMenu(): void {

@@ -311,6 +311,52 @@ export class PlotsCopyAction extends AbstractPlotsAction {
 	}
 }
 
+/**
+ * Opens the Copy Plot dialog to copy a plot at a size the user picks.
+ */
+export class PlotsCopyAtCustomSizeAction extends AbstractPlotsAction {
+	static ID = 'workbench.action.positronPlots.copyAtCustomSize';
+
+	constructor() {
+		super({
+			id: PlotsCopyAtCustomSizeAction.ID,
+			title: localize2('positronPlots.copyPlotAtCustomSize', 'Copy Plot at Custom Size'),
+			category,
+			f1: true,
+		});
+	}
+
+	// Static and HTML plots cannot be redrawn at a new size.
+	protected override plotActionFilter(plotClient: IPositronPlotClient): boolean {
+		return plotClient instanceof PlotClientInstance;
+	}
+
+	override executeQuickPick(selectedItem: IQuickPickItem, plotsService: IPositronPlotsService,
+		editorService: IEditorService, notificationService: INotificationService) {
+		if (selectedItem?.id) {
+			if (selectedItem.id === PlotActionTarget.VIEW) {
+				plotsService.copyViewPlotAtCustomSize();
+			} else {
+				plotsService.copyEditorPlotAtCustomSize(selectedItem.id);
+			}
+		}
+	}
+
+	override executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService,
+		editorService: IEditorService, notificationService: INotificationService) {
+		if (target === PlotActionTarget.VIEW) {
+			plotsService.copyViewPlotAtCustomSize();
+		} else if (target === PlotActionTarget.ACTIVE_EDITOR) {
+			const plotId = this.getActiveEditorPlotId(editorService);
+			if (plotId) {
+				plotsService.copyEditorPlotAtCustomSize(plotId);
+			} else {
+				notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+			}
+		}
+	}
+}
+
 export class PlotsNextAction extends Action2 {
 	static ID = 'workbench.action.positronPlots.next';
 
@@ -500,6 +546,7 @@ export class PlotsGalleryInNewWindowAction extends Action2 {
  */
 export class PlotsActiveEditorCopyAction extends Action2 {
 	static ID = 'workbench.action.positronPlots.copyActiveEditor';
+	static readonly SUBMENU_ID = MenuId.for('positronPlots.editorCopySubmenu');
 
 	constructor() {
 		super({
@@ -511,10 +558,10 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
-					id: MenuId.EditorActionsLeft,
+					id: PlotsActiveEditorCopyAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
-					order: 2,
+					order: 1,
 				}
 			],
 		});
@@ -528,6 +575,42 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 	async run(accessor: ServicesAccessor) {
 		const commandService = accessor.get(ICommandService);
 		commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.ACTIVE_EDITOR);
+	}
+}
+
+/**
+ * Action to open the Copy Plot dialog for the plot in the active editor.
+ * It is not invokable from the command palette.
+ */
+export class PlotsActiveEditorCopyAtCustomSizeAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.copyAtCustomSizeActiveEditor';
+
+	constructor() {
+		super({
+			id: PlotsActiveEditorCopyAtCustomSizeAction.ID,
+			title: localize2('positronPlots.editorCopyPlotAtCustomSize', 'Copy Plot at Custom Size...'),
+			category,
+			f1: false, // do not show in the command palette
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorCopyAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 2,
+				}
+			],
+		});
+	}
+
+	/**
+	 * Runs the action and opens the Copy Plot dialog for the plot in the active editor.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const commandService = accessor.get(ICommandService);
+		commandService.executeCommand(PlotsCopyAtCustomSizeAction.ID, PlotActionTarget.ACTIVE_EDITOR);
 	}
 }
 

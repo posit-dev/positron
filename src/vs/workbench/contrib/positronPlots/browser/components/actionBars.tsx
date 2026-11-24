@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -35,6 +35,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DEFAULT_ACTION_BAR_BUTTON_WIDTH, DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH, DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 import { openPlotOriginFile } from '../plotUtils.js';
+import { buildCopyPlotActions, copyPlotToClipboardLabel } from './copyPlotActions.js';
+import { getWindow } from '../../../../../base/browser/dom.js';
 
 
 // Constants.
@@ -45,7 +47,9 @@ const kPaddingRight = 8;
 const showPreviousPlot = localize('positronShowPreviousPlot', "Show Previous Plot");
 const showNextPlot = localize('positronShowNextPlot', "Show Next Plot");
 const savePlot = localize('positronSavePlot', "Save Plot");
-const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy Plot to Clipboard");
+const copyPlotToClipboard = copyPlotToClipboardLabel;
+const copyPlotMenuLabel = localize('positronCopyPlotMenu', "Select how to copy plot");
+const copyLabel = localize('positronCopyLabel', "Copy");
 const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
 const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear All Plots");
@@ -123,6 +127,7 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
+	const actionBarsRef = useRef<HTMLDivElement>(null);
 	const positronPlotsContext = usePositronPlotsContext();
 
 	// State
@@ -248,6 +253,28 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const copyPlotHandler = () => {
 		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
+
+	// Opens the Copy Plot dialog in the window that holds the toolbar.
+	const copyPlotAtCustomSizeHandler = () => {
+		const root = actionBarsRef.current;
+		const container = root
+			? services.workbenchLayoutService.getContainer(getWindow(root))
+			: undefined;
+		services.positronPlotsService.copyViewPlotAtCustomSize(container);
+	};
+
+	// The dialog redraws the plot, so only dynamic plots can use it.
+	const copyPlotActions = (): IAction[] => buildCopyPlotActions(
+		copyPlotHandler,
+		selectedPlot instanceof PlotClientInstance ? copyPlotAtCustomSizeHandler : undefined
+	);
+
+	// A function that converts the copy IAction[] to CustomContextMenuItem[] for the overflow menu.
+	const copyPlotOverflowEntries = () => copyPlotActions().map(action => new CustomContextMenuItem({
+		label: action.label,
+		disabled: !action.enabled || !hasPlots,
+		onSelected: () => action.run()
+	}));
 
 	const popoutPlotHandler = async () => {
 		await services.commandService.executeCommand(PlotsPopoutAction.ID);
@@ -697,8 +724,31 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		});
 	}
 
-	// Copy plot button.
-	if (enableCopyPlot) {
+	// Copy plot button. Dynamic plots get a split button with a menu; static and HTML plots keep
+	// the plain button because they cannot be redrawn at a new size.
+	if (enableCopyPlot && selectedPlot instanceof PlotClientInstance) {
+		leftActions.push({
+			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			separator: enableZoomPlot,
+			component: (
+				<ActionBarMenuButton
+					actions={copyPlotActions}
+					ariaLabel={copyPlotToClipboard}
+					disabled={!hasPlots}
+					dropdownAriaLabel={copyPlotMenuLabel}
+					dropdownIndicator='enabled-split'
+					dropdownTooltip={copyPlotMenuLabel}
+					icon={ThemeIcon.fromId('copy')}
+					tooltip={copyPlotToClipboard}
+				/>
+			),
+			overflowContextMenuSubmenu: {
+				icon: 'copy',
+				label: copyLabel,
+				entries: copyPlotOverflowEntries
+			}
+		});
+	} else if (enableCopyPlot) {
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: enableZoomPlot,
@@ -861,7 +911,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className='action-bars'>
+			<div ref={actionBarsRef} className='action-bars'>
 				<PositronDynamicActionBar
 					borderBottom={true}
 					borderTop={true}
