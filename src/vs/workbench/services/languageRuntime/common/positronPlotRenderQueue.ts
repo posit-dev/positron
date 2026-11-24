@@ -93,9 +93,24 @@ export interface RenderRequest {
  */
 export class DeferredPlotOperation {
 	private readonly deferred: DeferredPromise<PlotOperationResult>;
+	private readonly deferredStarted = new DeferredPromise<void>();
 
 	constructor(public readonly operationRequest: PlotOperationRequest) {
 		this.deferred = new DeferredPromise<PlotOperationResult>();
+	}
+
+	/**
+	 * Resolves when the queue starts processing the operation.
+	 */
+	get started(): Promise<void> {
+		return this.deferredStarted.p;
+	}
+
+	/**
+	 * Mark the operation as taken off the queue for processing.
+	 */
+	markStarted(): void {
+		this.deferredStarted.complete();
 	}
 
 	/**
@@ -178,6 +193,20 @@ export class DeferredRender {
 	}
 }
 
+/**
+ * A render that runs once and is not replaced by later renders of the same plot.
+ */
+export interface IOneTimeRender {
+	/** Settles with the rendered plot, or rejects if cancelled or the render fails. */
+	readonly promise: Promise<IRenderedPlot>;
+
+	/** Resolves when the queue starts processing the render. */
+	readonly started: Promise<void>;
+
+	/** Cancel the render. The promise rejects as cancelled even if the render already started. */
+	cancel(): void;
+}
+
 export class QueuedOperation {
 	constructor(
 		public readonly operation: DeferredPlotOperation,
@@ -210,6 +239,9 @@ export class PositronPlotRenderQueue extends Disposable {
 	 * register one listener per comm and can clean them up properly.
 	 */
 	private readonly _commCloseListeners = new Map<string, IDisposable>();
+
+	/** Operations queued by `queueOneTimeRender`, which newer renders must not replace. */
+	private readonly _oneTimeOperations = new WeakSet<DeferredPlotOperation>();
 
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
@@ -297,6 +329,63 @@ export class PositronPlotRenderQueue extends Disposable {
 	}
 
 	/**
+	 * Queue a render that later `queue()` renders for the same plot do not cancel.
+	 *
+	 * @param request The render request to queue
+	 * @param comm The comm to use for the render
+	 */
+	public queueOneTimeRender(request: RenderRequest, comm: PositronPlotComm): IOneTimeRender {
+		const deferredOperation = this.queueOperation({
+			type: OperationType.Render,
+			size: request.size,
+			pixel_ratio: request.pixel_ratio,
+			format: request.format
+		}, comm);
+		this._oneTimeOperations.add(deferredOperation);
+
+		const deferredResult = new DeferredPromise<IRenderedPlot>();
+		const bridgeResult = async () => {
+			try {
+				const result = await deferredOperation.promise;
+				if (typeof (result as IRenderedPlot | undefined)?.uri === 'string') {
+					deferredResult.complete(result as IRenderedPlot);
+				} else {
+					deferredResult.error(new Error('Invalid render result'));
+				}
+			} catch (err) {
+				deferredResult.error(err);
+			}
+		};
+		bridgeResult();
+
+		return {
+			promise: deferredResult.p,
+			started: deferredOperation.started,
+			cancel: () => {
+				this.cancelQueuedOperation(deferredOperation);
+				deferredResult.cancel();
+			}
+		};
+	}
+
+	/**
+	 * Remove and cancel a single operation that has not started yet.
+	 *
+	 * @param operation The operation to cancel
+	 * @returns `true` if the operation was removed; `false` if it already started or is not queued
+	 */
+	public cancelQueuedOperation(operation: DeferredPlotOperation): boolean {
+		const index = this._queue.findIndex(queued => queued.operation === operation);
+		if (index < 0) {
+			return false;
+		}
+		operation.cancel();
+		this._queue.splice(index, 1);
+		this.trace(`Cancelled queued ${operation.operationRequest.type} operation`);
+		return true;
+	}
+
+	/**
 	 * Queue an intrinsic size request.
 	 *
 	 * @param comm The comm to use for the operation
@@ -360,7 +449,8 @@ export class PositronPlotRenderQueue extends Disposable {
 
 			// Check if this is the same plot and operation type
 			if (queuedOperation.comm.clientId === comm.clientId &&
-				queuedOperation.operation.operationRequest.type === operationType) {
+				queuedOperation.operation.operationRequest.type === operationType &&
+				!this._oneTimeOperations.has(queuedOperation.operation)) {
 
 				// Cancel the operation
 				queuedOperation.operation.cancel();
@@ -397,6 +487,7 @@ export class PositronPlotRenderQueue extends Disposable {
 			this._isProcessing = false;
 			return;
 		}
+		queuedOperation.operation.markStarted();
 
 		this.trace(`Processing ${queuedOperation.operation.operationRequest.type} request: ` +
 			`${JSON.stringify(queuedOperation.operation.operationRequest)} ` +
@@ -490,6 +581,7 @@ export class PositronPlotRenderQueue extends Disposable {
 		const closeListener = comm.onDidClose(() => {
 			this.cancelOperationsForClosedComm(clientId);
 			// Clean up the listener from our map
+			closeListener.dispose();
 			this._commCloseListeners.delete(clientId);
 		});
 		this._commCloseListeners.set(clientId, closeListener);
