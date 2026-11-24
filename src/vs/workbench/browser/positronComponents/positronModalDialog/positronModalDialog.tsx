@@ -28,6 +28,8 @@ export interface PositronModalDialogProps {
 	title: string;
 	width: number;
 	height: number;
+	/** When set, re-centers only when this value changes, not on width/height changes. */
+	centerKey?: number;
 	closeOnClickOutside?: boolean;
 	onCancel?: () => void;
 }
@@ -67,7 +69,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Center the dialog box on mount or when dimensions change. useLayoutEffect ensures the
+	// Center the dialog box on mount, and when dimensions (or centerKey, if given) change. useLayoutEffect ensures the
 	// centered position is applied before the browser paints, avoiding a visible flash at 0,0.
 	useLayoutEffect(() => {
 		setDialogBoxState(prevDialogBoxState => {
@@ -81,7 +83,9 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			// Return the updated dialog box state.
 			return result;
 		});
-	}, [props.width, props.height]);
+		// With centerKey, only it triggers re-centering; the dependency list must differ by mode.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, props.centerKey === undefined ? [props.width, props.height] : [props.centerKey]);
 
 	// Escape, Enter and the Tab focus trap.
 	useModalDialogKeyboard({
