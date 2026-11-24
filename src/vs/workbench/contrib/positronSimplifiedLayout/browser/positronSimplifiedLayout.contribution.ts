@@ -14,8 +14,6 @@ import { positronFourPaneDsLayout } from '../../../services/positronLayout/brows
 import { positronTwoPaneLayout } from '../../../services/positronLayout/browser/layouts/positronTwoPaneLayout.js';
 import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../../services/positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 import './titleBarSessionPicker.js';
-import { PositronToolsContainerContribution } from './positronToolsContainer.js';
-import { RemoteExplorerHiddenContextContribution } from './remoteExplorerCommands.js';
 
 /**
  * Remembers that the starting layout was applied. The profile key covers what the profile
@@ -74,16 +72,4 @@ registerWorkbenchContribution2(
 	SimplifiedLayoutStartupContribution.ID,
 	SimplifiedLayoutStartupContribution,
 	WorkbenchPhase.AfterRestored
-);
-
-registerWorkbenchContribution2(
-	PositronToolsContainerContribution.ID,
-	PositronToolsContainerContribution,
-	WorkbenchPhase.BlockStartup
-);
-
-registerWorkbenchContribution2(
-	RemoteExplorerHiddenContextContribution.ID,
-	RemoteExplorerHiddenContextContribution,
-	WorkbenchPhase.BlockStartup
 );

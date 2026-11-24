@@ -46,21 +46,6 @@ export interface IPositronLayoutService {
 	readonly lastAppliedLayoutId: string | undefined;
 
 	/**
-	 * In the simplified layout, whether the window shows every view where it
-	 * normally lives. True after the Default layout is applied. False after a
-	 * task layout is applied: it hides the views its work does not need, and
-	 * the panel tools such as Problems and Output move into the Tools container.
-	 * Remembered per folder.
-	 */
-	readonly showsAllViews: boolean;
-
-	/**
-	 * Fires when {@link showsAllViews} changes, while a layout is being applied
-	 * and before it moves any views.
-	 */
-	readonly onDidChangeShowsAllViews: Event<boolean>;
-
-	/**
 	 * Set the layout for the editor.
 	 * @param layout Layout description to set.
 	 * @param layoutId The command id of the named layout, remembered as

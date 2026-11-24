@@ -32,7 +32,7 @@ import { IPaneCompositePartService } from '../../panecomposite/browser/panecompo
 import { PaneCompositeBar } from '../../../browser/parts/paneCompositeBar.js';
 import { CustomPositronLayoutDescription } from '../../positronLayout/common/positronCustomViews.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { SIMPLIFIED_LAYOUT_ENABLED_KEY, SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS } from '../../positronLayout/common/positronSimplifiedLayoutConfiguration.js';
+import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../positronLayout/common/positronSimplifiedLayoutConfiguration.js';
 
 // A list of views we don't want shown in the UI. This will be for situations where we reimplement
 // the logic that the view would show in our own custom views or other parts of the UI. The matching
@@ -119,9 +119,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		// --- Start Positron ---
 		this.positronSimplifiedLayout = configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true;
 		if (this.positronSimplifiedLayout) {
-			// A folder that never had a layout applied hides what every task layout hides.
+			// A folder that never had a layout applied hides nothing.
 			const layoutHidden = storageService.get(ViewDescriptorService.POSITRON_LAYOUT_HIDDEN_VIEW_CONTAINERS, StorageScope.WORKSPACE);
-			this.positronLayoutHiddenViewContainerIds = new Set(layoutHidden ? JSON.parse(layoutHidden) : SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS);
+			this.positronLayoutHiddenViewContainerIds = new Set(layoutHidden ? JSON.parse(layoutHidden) : []);
 			const shown: string[] = JSON.parse(storageService.get(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, StorageScope.PROFILE, '[]'));
 			for (const id of shown) {
 				this.positronUserShownViewContainerIds.add(id);
@@ -148,7 +148,24 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		this.migrateToViewsCustomizationsStorage();
 		this.viewContainersCustomLocations = new Map<string, ViewContainerLocation>(Object.entries(this.viewCustomizations.viewContainerLocations));
 		this.viewDescriptorsCustomLocations = new Map<string, string>(Object.entries(this.viewCustomizations.viewLocations));
+		// --- Start Positron ---
+		// Earlier builds of the simplified layout moved some views into a Tools container that
+		// no longer exists. A view saved in a container that is never registered never shows,
+		// so send those views back to where they normally live.
+		let movedOutOfTools = false;
+		for (const [viewId, containerId] of this.viewDescriptorsCustomLocations) {
+			if (containerId === 'workbench.view.positronTools') {
+				this.viewDescriptorsCustomLocations.delete(viewId);
+				movedOutOfTools = true;
+			}
+		}
+		// --- End Positron ---
 		this.viewContainerBadgeEnablementStates = new Map<string, boolean>(Object.entries(this.viewCustomizations.viewContainerBadgeEnablementStates));
+		// --- Start Positron ---
+		if (movedOutOfTools) {
+			this.saveViewCustomizations();
+		}
+		// --- End Positron ---
 
 		// Register all containers that were registered before this ctor
 		this.viewContainers.forEach(viewContainer => this.onDidRegisterViewContainer(viewContainer));

@@ -11,8 +11,7 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
 
 /**
  * Turns on the simplified UI from the 2026 UI revamp spike: task layouts that each show
- * only the views their work needs, the Tools container for the bottom panel views, Help and Viewer that only show when
- * they have content, and the VS Code title bar in place of the top action bar.
+ * only the views their work needs, Help and Viewer that only show when they have content, and the VS Code title bar in place of the top action bar.
  *
  * Read once at startup by each part of the UI it changes.
  */
@@ -24,21 +23,6 @@ export const SIMPLIFIED_LAYOUT_ENABLED_KEY = 'workbench.experimental.simplifiedL
 export function isSimplifiedLayoutEnabled(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true;
 }
-
-/**
- * View containers every task layout removes from the UI: the bottom panel's Problems,
- * Output, Debug Console, and Ports, and the activity bar's Run and Debug, Remote Explorer,
- * and Testing. The Default layout shows them.
- */
-export const SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS: ReadonlySet<string> = new Set([
-	'workbench.panel.markers',
-	'workbench.panel.output',
-	'workbench.panel.repl',
-	'~remote.forwardedPortsContainer',
-	'workbench.view.debug',
-	'workbench.view.remote',
-	'workbench.view.extension.test',
-]);
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	...workbenchConfigurationNodeBase,

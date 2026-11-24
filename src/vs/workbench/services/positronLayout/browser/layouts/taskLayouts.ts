@@ -9,8 +9,7 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
  * Which group a layout sits in, in the title bar's layout picker.
  *
  * - `task`: built for one kind of work, such as notebooks. In the simplified
- *   layout it hides the views that work does not need, and gathers the panel
- *   tools into the Tools container.
+ *   layout it hides the views that work does not need.
  * - `layout`: a general layout that shows every view where it normally lives.
  */
 export type TaskLayoutGroup = 'task' | 'layout';

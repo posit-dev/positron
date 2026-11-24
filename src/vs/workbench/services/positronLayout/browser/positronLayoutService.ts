@@ -13,7 +13,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { IWorkbenchLayoutService, Parts, SINGLE_WINDOW_PARTS } from '../../layout/browser/layoutService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { isSimplifiedLayoutEnabled, SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS } from '../common/positronSimplifiedLayoutConfiguration.js';
+import { isSimplifiedLayoutEnabled } from '../common/positronSimplifiedLayoutConfiguration.js';
 import { getTaskLayout } from './layouts/taskLayouts.js';
 import { IPaneCompositePartService } from '../../panecomposite/browser/panecomposite.js';
 
@@ -22,12 +22,6 @@ import { IPaneCompositePartService } from '../../panecomposite/browser/panecompo
  * workbench saves which location each view is in.
  */
 const CURRENT_LAYOUT_STORAGE_KEY = 'positron.layout.currentLayoutId';
-
-/**
- * Where {@link IPositronLayoutService.showsAllViews} is saved. Workspace scope, like the
- * containers the layout hides.
- */
-const SHOWS_ALL_VIEWS_STORAGE_KEY = 'positron.layout.showsAllViews';
 
 /**
  * Where {@link IPositronLayoutService.lastAppliedLayoutId} is saved. Workspace scope, like
@@ -49,11 +43,6 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 	readonly onDidChangeCurrentLayout = this._onDidChangeCurrentLayout.event;
 
 	private _currentLayoutId: string | undefined;
-
-	private readonly _onDidChangeShowsAllViews = this._register(new Emitter<boolean>());
-	readonly onDidChangeShowsAllViews = this._onDidChangeShowsAllViews.event;
-
-	private _showsAllViews: boolean;
 
 	private _lastAppliedLayoutId: string | undefined;
 
@@ -77,10 +66,13 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 	) {
 		super();
 
-		this._showsAllViews = this._storageService.getBoolean(SHOWS_ALL_VIEWS_STORAGE_KEY, StorageScope.WORKSPACE, false);
 		this._lastAppliedLayoutId = this._storageService.get(LAST_APPLIED_LAYOUT_STORAGE_KEY, StorageScope.WORKSPACE);
 
 		this._currentLayoutId = this._storageService.get(CURRENT_LAYOUT_STORAGE_KEY, StorageScope.PROFILE);
+
+		// Earlier builds also hid a fixed list of views in every task layout, and saved it
+		// with each folder. Hide only what the folder's layout hides now.
+		this._applyLayoutViews(this._lastAppliedLayoutId);
 
 		// When the user moves a view or shows or hides a part, the window may now match
 		// another named layout, or none.
@@ -92,10 +84,6 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 
 	get currentLayoutId(): string | undefined {
 		return this._currentLayoutId;
-	}
-
-	get showsAllViews(): boolean {
-		return this._showsAllViews;
 	}
 
 	get lastAppliedLayoutId(): string | undefined {
@@ -136,27 +124,7 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		if (!taskLayout || !isSimplifiedLayoutEnabled(this._configurationService)) {
 			return;
 		}
-		if (taskLayout.group === 'layout') {
-			// Show the containers first, so the tools have somewhere to go back to.
-			this._viewDescriptorService.setLayoutHiddenViewContainers([]);
-			this._setShowsAllViews(true);
-		} else {
-			// Move the tools into Tools first, so their old containers are empty when hidden.
-			this._setShowsAllViews(false);
-			this._viewDescriptorService.setLayoutHiddenViewContainers([
-				...SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS,
-				...taskLayout.hiddenViewContainers,
-			]);
-		}
-	}
-
-	private _setShowsAllViews(showsAllViews: boolean) {
-		if (showsAllViews === this._showsAllViews) {
-			return;
-		}
-		this._showsAllViews = showsAllViews;
-		this._storageService.store(SHOWS_ALL_VIEWS_STORAGE_KEY, showsAllViews, StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		this._onDidChangeShowsAllViews.fire(showsAllViews);
+		this._viewDescriptorService.setLayoutHiddenViewContainers(taskLayout.group === 'layout' ? [] : taskLayout.hiddenViewContainers);
 	}
 
 	private _matchCurrentLayout() {
