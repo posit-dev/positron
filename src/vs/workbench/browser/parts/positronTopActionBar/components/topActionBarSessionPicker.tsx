@@ -19,7 +19,7 @@ import { IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { getSessionDisplayName, runtimeStateToRuntimeStatus } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
+import { getRuntimeStatus, getSessionDisplayName } from '../../../../contrib/positronConsole/common/sessionDisplayUtils.js';
 import { RuntimeStatusIcon } from '../../../../contrib/positronConsole/browser/components/runtimeStatus.js';
 import { RuntimeIcon } from '../../../../contrib/positronConsole/browser/components/runtimeIcon.js';
 import { ActionBarButtonIcon, ActionBarButtonLabel } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -63,7 +63,7 @@ export const TopActionBarSessionPicker = () => {
 	const labelText = displayInfo
 		? getSessionDisplayName({ notebookUri: displayInfo.notebookUri, sessionName: displayInfo.sessionName })
 		: startSession;
-	const runtimeStatus = displayInfo ? runtimeStateToRuntimeStatus[displayInfo.sessionState] : undefined;
+	const runtimeStatus = displayInfo ? getRuntimeStatus(displayInfo.sessionState) : undefined;
 
 	return (
 		<ActionBarCommandButton

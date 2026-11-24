@@ -128,16 +128,15 @@ npm run pwb -- --positron-build=path/to/positron-workbench-linux-x64-branch.tar.
 Workbench runs a separate flavor of Positron, the `vscode-reh-web-pwb-linux-<arch>`
 build, which has to be built on Linux. It also needs Workbench's license key
 swapped in, or Workbench rejects it and every session exits at startup. CI does
-both: the `build-compile-linux.yml` workflow swaps the key in and compiles the
-core, and `build-workbench-linux.yml` packages the build. So the easy way to get
+both in `build-workbench.yml` of `posit-dev/positron-builds`. So the easy way to get
 a build of a branch is to let CI make it. Either:
 
 - put `@:workbench` in a PR's description, and every push builds it, along with
   running that lane's e2e tests, or
-- start the full-suite workflow on the branch with only the Workbench lane on:
+- start the Full Suite in `posit-dev/positron-builds` on your commit with only the Workbench lanes on:
 
   ```bash
-  gh workflow run test-full-suite.yml --ref <branch> -f run_e2e_linux=false -f run_e2e_windows=false -f run_e2e_browser=false -f run_ext_host_tests=false -f run_e2e_workbench=true
+  gh workflow run test-full-suite.yml --repo posit-dev/positron-builds --ref main -f positron_ref=<full SHA> -f run_e2e=false -f run_e2e_web=false -f run_e2e_windows=false -f run_ext_host=false
   ```
 
 Then pass that run's ID or URL once its build job has finished. The Workbench e2e

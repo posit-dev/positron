@@ -3,7 +3,7 @@ description: >
   Install just enough for `playwright test --list` so pr-tags-parse.sh can
   count each lane's tests (to pick a shard count) and
   derive-test-change-tags.mjs can discover e2e test tags. Shared by the
-  pr-tags job (test-pull-request.yml) and the comment job
+  tags job (test-pr.yml in posit-dev/positron-builds) and the comment job
   (pr-e2e-comment.yml) so their derivation environments can't drift.
   Costs about a minute on a bare runner.
 

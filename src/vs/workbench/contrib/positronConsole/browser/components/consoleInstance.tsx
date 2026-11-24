@@ -15,6 +15,7 @@ import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ConsoleInstanceItems } from './consoleInstanceItems.js';
 import { SubmittingOverlay } from './submittingOverlay.js';
+import { isWheelScrollUp } from './consoleWheel.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -742,8 +743,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			return;
 		}
 
-		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
-		if (e.deltaY < 0 && !props.positronConsoleInstance.scrollLocked) {
+		// Scrolling up immediately engages scroll lock, if the console is scrollable.
+		if (!props.positronConsoleInstance.scrollLocked && isWheelScrollUp(e, isMacintosh)) {
 			props.positronConsoleInstance.scrollLocked = scrollable();
 			return;
 		}
