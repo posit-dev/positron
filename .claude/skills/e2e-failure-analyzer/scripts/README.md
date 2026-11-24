@@ -14,8 +14,8 @@ root (same local secrets file the e2e Playwright suite uses; see
 is present the script warns on stderr and returns `{}` with exit code 0 -- treat
 an empty response as "API unreachable," not "no failures."
 
-The key lives in 1Password at `op://Positron/E2E_dashboard_api_key/credential`
-(the same secret CI reads). To set it up locally, copy it into `.env.e2e` as
+The key lives in 1Password in the first `password` field of
+`CONNECT_API_KEY - e2e-test-insights` (`op read "op://Positron/vj4m6mljkplpec24joxrc2x2d4/tsc6gr5mwhtnmpvyeolldohle4"`). To set it up locally, copy it into `.env.e2e` as
 `E2E_INSIGHTS_API_KEY=<key>`, or export it in your shell. Without 1Password
 access, ask the Positron QA team.
 

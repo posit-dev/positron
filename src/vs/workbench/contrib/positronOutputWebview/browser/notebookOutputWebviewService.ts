@@ -45,6 +45,8 @@ export interface IPositronNotebookOutputWebviewService {
 	 * @param output The message containing the contents to be rendered in the webview.
 	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
 	 *  select the required notebook preload scripts for the webview.
+	 * @param fillViewport Set when the webview has a fixed size, like the Plots pane, so outputs
+	 *  that can size to their container fill it. Leave unset when the webview sizes to its content.
 	 * @returns A promise that resolves to the new webview, or undefined if the
 	 *   output does not have a suitable renderer.
 	 */
@@ -54,6 +56,7 @@ export interface IPositronNotebookOutputWebviewService {
 			runtime: ILanguageRuntimeSession;
 			output: ILanguageRuntimeMessageOutput;
 			viewType?: string;
+			fillViewport?: boolean;
 		}
 	): Promise<INotebookOutputWebview | undefined>;
 
@@ -69,6 +72,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 * @param opts.displayMessage The message that triggered the plotting.
 	 * @param opts.viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
 	 *  select the required notebook preload scripts for the webview.
+	 * @param opts.fillViewport See {@link createNotebookOutputWebview}.
 	 */
 	createMultiMessageWebview(opts:
 		{
@@ -76,6 +80,7 @@ export interface IPositronNotebookOutputWebviewService {
 			preReqMessages: ILanguageRuntimeMessageWebOutput[];
 			displayMessage: ILanguageRuntimeMessageWebOutput;
 			viewType?: string;
+			fillViewport?: boolean;
 		}): Promise<INotebookOutputWebview | undefined>;
 
 	/**

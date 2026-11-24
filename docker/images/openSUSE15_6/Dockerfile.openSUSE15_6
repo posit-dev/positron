@@ -82,15 +82,15 @@ RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-li
 # Verify Node.js
 RUN node -v && npm -v
 
-# Configure node-gyp to use GCC 12 for C++20 support.
+# Configure node-gyp to use GCC 13 for C++20 support.
 # CC/CXX cover tools that read them, but node-gyp's make targets fall back to a
 # bare "g++" when the env is not inherited by the spawned subprocess (as happens
-# for the positron/remote native rebuild). Point the default gcc/g++ at GCC 12 so
+# for the positron/remote native rebuild). Point the default gcc/g++ at GCC 13 so
 # even bare invocations get C++20 support.
-ENV CC=gcc-12
-ENV CXX=g++-12
-RUN ln -sf /usr/bin/gcc-12 /usr/bin/gcc && \
-    ln -sf /usr/bin/g++-12 /usr/bin/g++
+ENV CC=gcc-13
+ENV CXX=g++-13
+RUN ln -sf /usr/bin/gcc-13 /usr/bin/gcc && \
+    ln -sf /usr/bin/g++-13 /usr/bin/g++
 
 # Sanity check: fail the build here if bare g++ cannot compile C++20.
 RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
@@ -136,27 +136,27 @@ RUN rig system make-links && \
     rig default 4.6.1 && \
     rig system add-pak
 
-# Configure R to use GCC 12 (Arrow needs modern C++ compiler with C++20 support)
-RUN echo 'CC=gcc-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CXX=g++-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CXX11=g++-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CXX14=g++-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CXX17=g++-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CXX20=g++-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+# Configure R to use GCC 13 (Arrow needs modern C++ compiler with C++20 support)
+RUN echo 'CC=gcc-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX11=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX14=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX17=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'CXX20=g++-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'FC=gfortran-12' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
+    echo 'FC=gfortran-13' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
     echo 'CXXFLAGS=-fPIC' >> /opt/R/4.6.1/lib/R/etc/Makeconf && \
-    echo 'CC=gcc-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'CXX=g++-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'CXX11=g++-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'CXX14=g++-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'CXX17=g++-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'CXX20=g++-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CC=gcc-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX11=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX14=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX17=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX20=g++-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
-    echo 'FC=gfortran-12' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'FC=gfortran-13' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
     echo 'CXXFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf
 

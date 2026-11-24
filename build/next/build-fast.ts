@@ -169,7 +169,12 @@ export function createBuildFastPrerequisites(fullBuild: boolean, changedPaths: r
 	const apiProposalsChanged = changedPaths.some(filePath => filePath.startsWith('src/vscode-dts/') || filePath === API_PROPOSALS_OUTPUT);
 	const extensionPointsOutputChanged = changedPaths.includes(EXTENSION_POINTS_OUTPUT);
 	const tasks = fullBuild
-		? ['copy-codicons', 'compile-api-proposal-names', 'compile-extension-point-names']
+		// --- Start Positron ---
+		// Do not run copy-codicons. Positron maintains a custom codicon.ttf in the repo that
+		// includes Positron-specific icons. Copying from the npm package would overwrite these.
+		// ? ['copy-codicons', 'compile-api-proposal-names', 'compile-extension-point-names']
+		? ['compile-api-proposal-names', 'compile-extension-point-names']
+		// --- End Positron ---
 		: [
 			...(apiProposalsChanged ? ['compile-api-proposal-names'] : []),
 			...(extensionPointsOutputChanged ? ['compile-extension-point-names'] : []),
@@ -409,7 +414,11 @@ async function runAllFull(repoRoot: string, clientOnly: boolean): Promise<void> 
 	await runCommand(repoRoot, npmCommand(), [
 		'run',
 		'gulp',
-		'copy-codicons',
+		// --- Start Positron ---
+		// copy-codicons removed: Positron maintains a custom codicon.ttf in the repo with
+		// Positron-specific icons; copying from npm would overwrite them.
+		// 'copy-codicons',
+		// --- End Positron ---
 		'compile-api-proposal-names',
 		'compile-extension-point-names',
 	], 'prerequisites');

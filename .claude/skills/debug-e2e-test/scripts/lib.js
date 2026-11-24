@@ -95,8 +95,8 @@ export function isUsableInsightsApiKey(value) {
 export const MISSING_API_KEY_HELP = [
 	'No e2e-test-insights API key found. This skill reads CI test history, so it cannot run without one.',
 	'Set it up once:',
-	'  1. Copy the key from 1Password: op://Positron/E2E_dashboard_api_key/credential',
-	'     (CLI: op read "op://Positron/E2E_dashboard_api_key/credential")',
+	'  1. Copy the key from 1Password: the first "password" field of "CONNECT_API_KEY - e2e-test-insights"',
+	'     (CLI: op read "op://Positron/vj4m6mljkplpec24joxrc2x2d4/tsc6gr5mwhtnmpvyeolldohle4")',
 	'  2. Add it to .env.e2e in the repo root (copy .env.e2e.example if you have no .env.e2e yet):',
 	'       E2E_INSIGHTS_API_KEY=<the key>',
 	'     or export E2E_INSIGHTS_API_KEY=<the key> in your shell.',

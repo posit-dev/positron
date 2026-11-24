@@ -21,6 +21,7 @@ import { KallichoreInstances } from './KallichoreInstances.js';
 import { DefinitionTerminalEnvironment, getModuleInitScript, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
+import { describeServerOutput, findTerminalPathOverride, terminalEnvSetting } from './serverOutput.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
@@ -270,6 +271,12 @@ export class KCApi implements PositronSupervisorApi {
 	private _logStreamer: LogStreamer | undefined;
 
 	/**
+	 * The wrapper script output files of the servers that this window
+	 * started. `removeOutputFiles()` removes them at quit.
+	 */
+	private readonly _outFiles: string[] = [];
+
+	/**
 	 * An array of disposables that need to be cleaned up when the API is disposed.
 	 */
 	private _disposables: vscode.Disposable[] = [];
@@ -486,6 +493,21 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Describes the captured output of the supervisor process, formatted for
+	 * appending to a startup error or log message. If the wrapper script
+	 * captured no output and a terminal setting changes PATH, the description
+	 * names that setting and its PATH value.
+	 *
+	 * @param outFile The path of the wrapper script's output file.
+	 */
+	private async describeSupervisorOutput(outFile: string): Promise<string> {
+		const platform = os.platform();
+		const env = vscode.workspace.getConfiguration()
+			.get<Record<string, string | null>>(terminalEnvSetting(platform));
+		return describeServerOutput(outFile, findTerminalPathOverride(platform, env));
+	}
+
+	/**
 	 * Provides a human-readable description of a terminal exit reason, for use
 	 * in logging and error messages.
 	 *
@@ -584,7 +606,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Get the path to the Kallichore server binary. This will throw an
 		// error if the server binary cannot be found.
-		const shellPath = this.getKallichorePath();
+		const shellPath = await this.getKallichorePath();
 
 		// Create a server session ID (8 characters)
 		const sessionId = `${createUniqueId()}-${process.pid}`;
@@ -738,16 +760,16 @@ export class KCApi implements PositronSupervisorApi {
 			// Mark the terminal as exited
 			exited = true;
 
-			// Read the contents of the output file and log it
-			const contents = fs.readFileSync(outFile, 'utf8');
+			// Log the exit. The startup error that follows includes the
+			// output that the server process captured, so it is not logged here.
 			if (this._terminal.exitStatus && this._terminal.exitStatus.code) {
 				this.log(`Supervisor terminal closed (` +
 					this.describeExitReason(this._terminal.exitStatus.reason) +
-					`) with exit code ${this._terminal.exitStatus.code}; output:\n${contents}`);
+					`) with exit code ${this._terminal.exitStatus.code}`);
 			} else {
 				this.log(`Supervisor terminal closed unexpectedly (` +
 					this.describeExitReason(this._terminal.exitStatus?.reason) +
-					`); output:\n${contents}`);
+					`)`);
 			}
 
 			// Display a notification that directs users to open the log to get more information
@@ -785,14 +807,8 @@ export class KCApi implements PositronSupervisorApi {
 		// Ensure this listener is disposed when the API is disposed
 		this._disposables.push(closeListener);
 
-		// Ensure the output file is cleaned up when the API is disposed
-		this._disposables.push(new vscode.Disposable(() => {
-			try {
-				fs.unlinkSync(outFile);
-			} catch (err) {
-				this.log(`Error cleaning up output file ${outFile}: ${err}`);
-			}
-		}));
+		// Remove the output file at quit
+		this._outFiles.push(outFile);
 
 		// Wait for the terminal to start and get the PID
 		let processId = await withTimeout(this._terminal.processId,
@@ -803,24 +819,6 @@ export class KCApi implements PositronSupervisorApi {
 		// start the timer for server startup
 		this.log(`Kallichore terminal started in ${Date.now() - startTime}ms with PID ${processId}`);
 		const supervisorStartTime = Date.now();
-
-		// Reads any captured stdout/stderr from the server process, formatted for
-		// appending to a startup error message. This gives us "server exited
-		// during startup, here is its captured output" diagnostics that make
-		// startup failures debuggable.
-		const readServerOutput = (): string => {
-			try {
-				if (fs.existsSync(outFile)) {
-					const contents = fs.readFileSync(outFile, 'utf8');
-					if (contents) {
-						return `; output:\n\n${contents}`;
-					}
-				}
-			} catch (err) {
-				this.log(`Error reading supervisor output file ${outFile}: ${err}`);
-			}
-			return '';
-		};
 
 		// Wait for the supervisor to connect to the handshake socket and report
 		// its connection details. Race the handshake payload against
@@ -835,10 +833,11 @@ export class KCApi implements PositronSupervisorApi {
 		// Rejects if the supervisor process exits before it reports in. The
 		// `exited` flag is also set by the terminal close listener above.
 		let rejectOnExit!: (err: Error) => void;
+		let exitError: Error | undefined;
 		const processExited = new Promise<never>((_, reject) => {
 			rejectOnExit = reject;
 		});
-		const exitPoller = setInterval(() => {
+		const exitPoller = setInterval(async () => {
 			if (!exited && processId) {
 				try {
 					process.kill(processId, 0);
@@ -849,9 +848,10 @@ export class KCApi implements PositronSupervisorApi {
 			}
 			if (exited) {
 				clearInterval(exitPoller);
-				rejectOnExit(new Error(
+				exitError = new Error(
 					`The supervisor process exited unexpectedly during startup` +
-					readServerOutput()));
+					await this.describeSupervisorOutput(outFile));
+				rejectOnExit(exitError);
 			}
 		}, 100);
 		exitPoller.unref?.();
@@ -865,7 +865,7 @@ export class KCApi implements PositronSupervisorApi {
 			// A process-exit rejection already includes the captured output; a
 			// handshake timeout does not, so append it here for diagnosability.
 			const base = err instanceof Error ? err.message : String(err);
-			const message = base.includes('output:') ? base : base + readServerOutput();
+			const message = err === exitError ? base : base + await this.describeSupervisorOutput(outFile);
 			this.log(message);
 			throw new Error(message);
 		} finally {
@@ -941,7 +941,8 @@ export class KCApi implements PositronSupervisorApi {
 
 				// Has the terminal exited? if it has, there's no point in continuing to retry.
 				if (exited) {
-					throw new Error(`The supervisor process exited before the server was ready.`);
+					throw new Error(`The supervisor process exited before the server was ready` +
+						await this.describeSupervisorOutput(outFile));
 				}
 
 				// ECONNREFUSED (for TCP) and ENOENT (for sockets) are normal
@@ -961,21 +962,13 @@ export class KCApi implements PositronSupervisorApi {
 					} else {
 						// Give up; it shouldn't take this long to start
 						let message = `Kallichore server did not start after ${Date.now() - startTime}ms`;
-						this.log(message);
 
 						// The error that we're about to throw will show up in
-						// the Console. If there's any content in the log
-						// files, append it to the error message so that the
-						// user can see it without clicking over to the logs.
-						if (fs.existsSync(outFile)) {
-							// Note that we don't need to append this content
-							// to the logs since the output file is already
-							// being watched by the log streamer.
-							const contents = fs.readFileSync(outFile, 'utf8');
-							if (contents) {
-								message += `; output:\n\n${contents}`;
-							}
-						}
+						// the Console. Append any output that the server
+						// process captured so that the user can see it
+						// without clicking over to the logs.
+						message += await this.describeSupervisorOutput(outFile);
+						this.log(message);
 						throw new Error(message);
 					}
 				} else if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
@@ -1978,6 +1971,25 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Removes the wrapper script output files of the servers that this window
+	 * started. `dispose()` is synchronous and cannot wait for file removal,
+	 * so call this before `dispose()` at quit.
+	 */
+	async removeOutputFiles(): Promise<void> {
+		const outFiles = this._outFiles.splice(0);
+		await Promise.all(outFiles.map(async outFile => {
+			try {
+				await fs.promises.unlink(outFile);
+			} catch (err) {
+				// A wrapper script that did not start creates no output file
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+					this.log(`Error cleaning up output file ${outFile}: ${err}`);
+				}
+			}
+		}));
+	}
+
+	/**
 	 * Clean up the Kallichore server and all sessions. Note that this doesn't
 	 * actually remove the sessions from the server; it just disconnects them
 	 * from the API.
@@ -2003,7 +2015,7 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns A path to the Kallichore server binary.
 	 * @throws An error if the server binary cannot be found.
 	 */
-	getKallichorePath(): string {
+	async getKallichorePath(): Promise<string> {
 
 		// Get the name of the server binary for the current platform
 		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
@@ -2015,8 +2027,10 @@ export class KCApi implements PositronSupervisorApi {
 		const positronParent = path.dirname(path.dirname(path.dirname(this._context.extensionPath)));
 		const devDebugBinary = path.join(positronParent, 'kallichore', 'target', 'debug', serverBin);
 		const devReleaseBinary = path.join(positronParent, 'kallichore', 'target', 'release', serverBin);
-		const debugModified = fs.statSync(devDebugBinary, { throwIfNoEntry: false })?.mtime;
-		const releaseModified = fs.statSync(devReleaseBinary, { throwIfNoEntry: false })?.mtime;
+		const modifiedTime = async (file: string) =>
+			(await fs.promises.stat(file).catch(() => undefined))?.mtime;
+		const debugModified = await modifiedTime(devDebugBinary);
+		const releaseModified = await modifiedTime(devReleaseBinary);
 
 		if (debugModified) {
 			devBinary = (releaseModified && releaseModified > debugModified) ? devReleaseBinary : devDebugBinary;
@@ -2032,8 +2046,11 @@ export class KCApi implements PositronSupervisorApi {
 		// development and release builds.
 		const embeddedBinary = path.join(
 			this._context.extensionPath, 'resources', 'kallichore', serverBin);
-		if (fs.existsSync(embeddedBinary)) {
+		try {
+			await fs.promises.access(embeddedBinary);
 			return embeddedBinary;
+		} catch {
+			// Not found; fall through to the error below
 		}
 
 		throw new Error(`Kallichore server not found (expected at ${embeddedBinary})`);

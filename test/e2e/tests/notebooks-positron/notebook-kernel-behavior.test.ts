@@ -180,11 +180,12 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR, tags.PYTHON, tags.ARK] }, async function ({ app, sessions, runCommand }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR, tags.PYTHON, tags.ARK] }, async function ({ app, sessions, runCommand, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
-		// clear any sessions left by prior tests (e.g. a terminated notebook
-		// console) so the Untitled-1.ipynb tab lookup is unambiguous
+		// clear any editors and sessions left by prior tests (e.g. a terminated
+		// notebook console) so the Untitled-1.ipynb tab lookup is unambiguous
+		await hotKeys.closeAllEditors();
 		await sessions.deleteAll();
 
 		// start standalone sessions that should survive the notebook closing

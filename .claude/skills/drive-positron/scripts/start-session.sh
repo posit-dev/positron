@@ -3,8 +3,10 @@
 # ready for input. The console's Quick Launch control opens a menu, not a quick
 # pick, and its references change between snapshots, so this goes through the
 # Command Palette instead: Interpreter: Start New Console Session, then the
-# runtime picker row that names the language (and --name, when several
-# interpreters of that language are installed).
+# runtime picker row that names the language (and --name). When several rows
+# match and no --name was given, the first in picker order starts (the
+# Suggested one leads), and "picked" and "others" name it and the rest; with
+# --name, several matches fail and "shown" lists them.
 #
 # A fresh window has often started a session already: Python when the
 # workspace has a venv, R when it has .R files. When a session of the language
@@ -22,17 +24,15 @@
 #   --session NAME   the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --language LANG  python or r
 #   --name TEXT      words the picker row must also hold, each a whole word,
-#                    such as a version or "uv"; needed only when several
-#                    interpreters match. It is typed into the picker's filter
-#                    first, so a row below the ones on screen is found; the
-#                    filter takes words in the order the row shows them, and
-#                    when it leaves no match the unfiltered rows on screen
-#                    are tried. When no row matches, or several do, the
-#                    error says to pass --name and its "shown" lists the
-#                    interpreters of the language in the picker (with several,
-#                    the ones that match), the rows below the screen too, to
-#                    choose --name from; "more" is set when the list had rows
-#                    it could not read
+#                    such as a version or "uv", to start one that is not
+#                    first. It is typed into the picker's filter first, so a
+#                    row below the ones on screen is found; the filter takes
+#                    words in the order the row shows them, and when it
+#                    leaves no match the unfiltered rows are tried. When
+#                    --name matches no row, the error's "shown" lists the
+#                    interpreters of the language in the picker to choose
+#                    --name from; "more" is set when the list had rows it
+#                    could not read
 #   --timeout SECS   how long to wait for the console to be ready (default 60),
 #                    and, first, for a session that is still starting; a
 #                    value that is not a positive number is a usage error

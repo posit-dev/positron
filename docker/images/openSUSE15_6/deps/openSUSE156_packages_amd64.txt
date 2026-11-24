@@ -14,9 +14,9 @@ fribidi-devel
 gcc
 gcc-c++
 gcc-fortran
-gcc12
-gcc12-c++
-gcc12-fortran
+gcc13
+gcc13-c++
+gcc13-fortran
 gdal-devel
 geos-devel
 giflib-devel

@@ -4,6 +4,8 @@
 #
 
 import base64
+import gc
+import inspect
 import io
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -25,6 +27,7 @@ from ..utils import (
     json_rpc_request,
     json_rpc_response,
     percent_difference,
+    run_with_metadata,
 )
 from .conftest import active_backend
 
@@ -477,8 +480,8 @@ def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: Plots
     assert plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == []
 
-    # A new plot was created
-    assert len(plots_service._plots) == 2  # noqa: SLF001
+    # A new plot was created, and the closed one was unregistered
+    assert len(plots_service._plots) == 1  # noqa: SLF001
     new_plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
     assert not new_plot_comm._closed  # noqa: SLF001
 
@@ -496,8 +499,44 @@ def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: Plots
     assert plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == []
 
-    # No new plots were created
+    # No new plots were created, and the closed one was unregistered
+    assert not plots_service._plots  # noqa: SLF001
+
+
+def test_mpl_frontend_close_unregisters_plot(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Closing a plot from the frontend drops it from the plots service, freeing its figure."""
+    shell.run_cell("import weakref; fig_ref = weakref.ref(plt.figure())").raise_error()
+    plot_comm = _plot_comm(plots_service, 0)
+    plot_comm.messages.clear()
+    _do_close(plot_comm)
+
+    assert not plots_service._plots  # noqa: SLF001
+    # The comm references the plot; ipykernel drops closed comms, so drop ours too.
+    del plot_comm
+    gc.collect()
+    assert shell.user_ns["fig_ref"]() is None
+
+
+def test_mpl_frontend_close_then_show_held_figure(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """A closed plot that is re-opened through a held figure is registered again."""
+    shell.run_cell("fig = plt.figure()").raise_error()
+    plot_comm = _plot_comm(plots_service, 0)
+    plot_comm.messages.clear()
+    _do_close(plot_comm)
+
+    shell.run_cell("fig.show()").raise_error()
+
+    assert not plot_comm._closed  # noqa: SLF001
     assert len(plots_service._plots) == 1  # noqa: SLF001
+
+    # Shutdown closes the re-opened plot.
+    plots_service.shutdown()
+    assert plot_comm._closed  # noqa: SLF001
+    assert not plots_service._plots  # noqa: SLF001
 
 
 def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -538,6 +577,126 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
     assert plot_comms[0].messages == []
     assert len(plot_comms[1].messages) == 1
     _verify_show_notification(plot_comms[1].messages[0])
+
+
+def _plot_comm(plots_service: PlotsService, index: int) -> DummyComm:
+    return cast("DummyComm", plots_service._plots[index]._comm.comm)  # noqa: SLF001
+
+
+def _event_methods(plot_comm: DummyComm) -> list[str]:
+    return [
+        message["data"]["method"]
+        for message in plot_comm.messages
+        if message["msg_type"] == "comm_msg"
+    ]
+
+
+def _total_show_events(plots_service: PlotsService) -> int:
+    return sum(
+        _event_methods(_plot_comm(plots_service, i)).count("show")
+        for i in range(len(plots_service._plots))  # noqa: SLF001
+    )
+
+
+_PLOT_AND_SHOW = "plt.figure(); plt.plot([1, 2]); plt.show()"
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        pytest.param([f"for _ in range(10):\n    {_PLOT_AND_SHOW}"], id="one_cell"),
+        pytest.param([_PLOT_AND_SHOW] * 10, id="across_cells"),
+    ],
+)
+def test_mpl_pyplot_show_sends_one_show_per_figure(
+    shell: PositronShell, plots_service: PlotsService, cells: list[str]
+) -> None:
+    """
+    `plt.show()` doesn't re-show earlier figures, so the cost of each call stays constant.
+
+    See https://github.com/posit-dev/positron/issues/14207.
+    """
+    for cell in cells:
+        shell.run_cell(cell).raise_error()
+
+    assert len(plots_service._plots) == 10  # noqa: SLF001
+    assert _total_show_events(plots_service) == 10
+
+
+def test_mpl_pyplot_show_skips_inactive_figures(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """`plt.show()` shows only the active figure; the others are already in the Plots pane."""
+    plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
+
+    # Neither figure was shown before, but only the active figure (2) is shown.
+    shell.run_cell("plt.show()").raise_error()
+    assert [_event_methods(comm) for comm in plot_comms] == [[], ["show"]]
+    plot_comms[1].messages.clear()
+
+    # Activating figure 1 makes `plt.show()` select it again.
+    shell.run_cell("plt.figure(1); plt.show()").raise_error()
+    assert [_event_methods(comm) for comm in plot_comms] == [["show"], []]
+
+
+def test_mpl_pyplot_show_updates_edited_inactive_figure(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """An edited figure that isn't active gets its update event but no show from `plt.show()`."""
+    shell.run_cell("fig1 = plt.figure(); fig2 = plt.figure(); plt.show()").raise_error()
+    plot_comms = [_plot_comm(plots_service, i) for i in range(2)]
+    for comm in plot_comms:
+        comm.messages.clear()
+        _do_render(comm)
+
+    shell.run_cell("fig1.gca().plot([1, 2]); plt.show()").raise_error()
+
+    assert [_event_methods(comm) for comm in plot_comms] == [["update"], ["show"]]
+
+
+def test_mpl_pyplot_show_updates_edited_inactive_figure_ioff(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Outside interactive mode, `plt.show()` sends the update for an edited inactive figure."""
+    with plt.ioff():
+        shell.run_cell("fig1 = plt.figure(); fig2 = plt.figure(); plt.show()").raise_error()
+        plot_comms = [_plot_comm(plots_service, i) for i in range(2)]
+        for comm in plot_comms:
+            comm.messages.clear()
+            _do_render(comm)
+
+        # Nothing redraws the edited figure until `plt.show()`.
+        shell.run_cell("fig1.gca().plot([1, 2])").raise_error()
+        assert [_event_methods(comm) for comm in plot_comms] == [[], []]
+
+        shell.run_cell("plt.show()").raise_error()
+        assert [_event_methods(comm) for comm in plot_comms] == [["update"], ["show"]]
+
+
+def test_mpl_pyplot_show_warns_for_non_gui_figure(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A non-GUI figure left open across a backend switch makes `plt.show()` warn, not raise.
+
+    This matches matplotlib's default `plt.show()`, and the Positron figure is still shown.
+    """
+    # On Linux, matplotlib only raises for a non-GUI figure when a display is available.
+    monkeypatch.setenv("DISPLAY", ":0")
+    plt.switch_backend("agg")
+    plt.figure()
+    plt.switch_backend(Backend.CONSOLE.full_name)
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    with pytest.warns(UserWarning, match="non-interactive") as record:
+        shell.run_cell("plt.show()").raise_error()
+
+    # The warning points at the user's `plt.show()` call, like matplotlib's default. It must not
+    # point at a Positron file: the kernel logs those warnings instead of showing them.
+    warning_file = Path(record[0].filename)
+    for module in (PositronIPyKernel, plt):
+        assert not warning_file.is_relative_to(Path(inspect.getfile(module)).parent)
+    assert _event_methods(plot_comm) == ["show"]
 
 
 def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -718,3 +877,303 @@ from plotnine.data import mtcars
     _verify_comm_open_message(plot_comm.messages[0])
     _verify_show_notification(plot_comm.messages[1])
     assert not plot_comm._closed  # noqa: SLF001
+
+
+#
+# Detaching figures when the source file changes.
+# See https://github.com/posit-dev/positron/issues/7591.
+#
+
+FILE_A = "file:///project/a.py"
+FILE_B = "file:///project/b.py"
+
+
+def _run_from(code: str, uri: str | None) -> None:
+    """Run a cell as if sent from the editor `uri`, or typed in the console if None."""
+    positron = {"code_location": {"uri": uri}} if uri else {}
+    run_with_metadata(code, positron)
+
+
+def _plot_figures(plots_service: PlotsService) -> list[Any]:
+    """The matplotlib figure behind each plot, in creation order."""
+    return [cast("Any", plot._render).__self__.figure for plot in plots_service._plots]  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    ("first_uri", "second_uri", "expect_new_figure"),
+    [
+        pytest.param(FILE_A, FILE_B, True, id="different-file"),
+        pytest.param(FILE_A, FILE_A, False, id="same-file"),
+        pytest.param(FILE_A, None, False, id="console-after-file"),
+        pytest.param(None, FILE_A, False, id="file-after-console"),
+        pytest.param(None, None, False, id="console-twice"),
+    ],
+)
+def test_mpl_source_change_detaches_figures(
+    first_uri: str | None,
+    second_uri: str | None,
+    *,
+    expect_new_figure: bool,
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    _run_from("plt.plot([1, 2])", first_uri)
+    _run_from("plt.plot([3, 4])", second_uri)
+
+    figures = _plot_figures(plots_service)
+    assert len(figures) == (2 if expect_new_figure else 1)
+    # The latest figure is the active one, and an earlier plot's comm stays open.
+    assert plt.gcf() is figures[-1]
+    assert not any(plot._comm.comm._closed for plot in plots_service._plots)  # noqa: SLF001
+
+
+def test_mpl_console_cell_keeps_remembered_file(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    """A console cell between two runs of the same file doesn't count as a file change."""
+    _run_from("plt.plot([1, 2])", FILE_A)
+    _run_from("plt.title('typed in the console')", None)
+    _run_from("plt.plot([3, 4])", FILE_A)
+
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+
+
+def test_mpl_console_cell_between_files_keeps_file_change(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    """Code from a file after a console plot draws on it, but a second file starts anew."""
+    _run_from("plt.plot([1, 2])", None)
+    _run_from("plt.title('from a file')", FILE_A)
+    _run_from("plt.plot([3, 4])", FILE_B)
+
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+
+def test_mpl_run_file_twice_starts_new_figure(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """A whole-file run is a new program, even when it's the same file as the last run."""
+    script = tmp_path / "script.py"
+    script.write_text("import matplotlib.pyplot as plt\nplt.plot([1, 2])\n")
+    uri = script.as_uri()
+
+    _run_from(f"%run -- {script}", uri)
+    _run_from(f"%run -- {script}", uri)
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+    # Running a selection from the same file afterwards keeps the last run's figure.
+    _run_from("plt.title('from a selection')", uri)
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+
+def test_mpl_run_after_another_line_starts_new_figure(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """A `%run` counts as a whole-file run on any line of the cell."""
+    script = tmp_path / "script.py"
+    script.write_text("import matplotlib.pyplot as plt\nplt.plot([1, 2])\n")
+
+    _run_from("plt.plot([1, 2])", None)
+    _run_from(f"# rerun the script\n%run -- {script}", None)
+
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param('text = """\n%run example.py\n"""', id="string"),
+        pytest.param("%%writefile {tmp}/x.py\n%run example.py\n", id="writefile-body"),
+        pytest.param("x = 1  # %run example.py", id="comment"),
+    ],
+)
+def test_mpl_run_text_does_not_detach(
+    code: str,
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """Text that mentions `%run` without running it doesn't detach figures."""
+    _run_from("plt.plot([1, 2])", FILE_A)
+    _run_from(code.format(tmp=tmp_path), None)
+    _run_from("plt.plot([3, 4])", FILE_A)
+
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+
+
+def test_mpl_run_detection_does_not_rerun_user_transformers(shell: PositronShell) -> None:
+    """Detecting `%run` doesn't run the user's input transformers a second time."""
+    calls: list[list[str]] = []
+
+    def transformer(lines: list[str]) -> list[str]:
+        calls.append(lines)
+        return lines
+
+    shell.input_transformers_post.append(transformer)
+    try:
+        shell.run_cell("x = 1").raise_error()
+    finally:
+        shell.input_transformers_post.remove(transformer)
+
+    assert len(calls) == 1
+
+
+def test_mpl_selection_after_console_run_starts_new_figure(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """A selection from a file after a `%run` typed in the console doesn't reuse the run's figure."""
+    script = tmp_path / "script.py"
+    script.write_text("import matplotlib.pyplot as plt\nplt.plot([1, 2])\n")
+
+    _run_from("plt.plot([1, 2])", FILE_A)
+    _run_from(f"%run -- {script}", None)
+    _run_from("plt.plot([3, 4])", FILE_A)
+
+    assert len(plots_service._plots) == 3  # noqa: SLF001
+
+
+_INSTALL_BACKEND = (
+    "from positron.matplotlib_backend import console\nconsole.install(get_ipython())\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("next_uri", "expect_new_figure"),
+    [
+        pytest.param(FILE_A, False, id="same-file"),
+        pytest.param(FILE_B, True, id="different-file"),
+    ],
+)
+def test_mpl_backend_activated_by_file_cell_remembers_file(
+    next_uri: str,
+    *,
+    expect_new_figure: bool,
+    shell: PositronShell,
+    plots_service: PlotsService,
+) -> None:
+    """
+    The cell that activates the backend counts as the remembered file.
+
+    The backend's hooks are installed partway through that cell (when it first makes a
+    figure), after the cell's pre-run hooks have already fired.
+    """
+    from positron.matplotlib_backend import console
+
+    _run_from("x = 1", FILE_B)
+    console.uninstall(shell)
+
+    # Install the hooks mid-cell, as making the first figure does, then plot in the same cell.
+    _run_from(_INSTALL_BACKEND + "plt.plot([1, 2])", FILE_A)
+    _run_from("plt.plot([3, 4])", next_uri)
+
+    assert len(plots_service._plots) == (2 if expect_new_figure else 1)  # noqa: SLF001
+
+
+def test_mpl_backend_activated_by_console_run_starts_new_figure_for_file(
+    shell: PositronShell,
+    plots_service: PlotsService,
+    tmp_path: Path,
+) -> None:
+    """A file selection doesn't draw on the figure of a console `%run` that activated the backend."""
+    from positron.matplotlib_backend import console
+
+    script = tmp_path / "script.py"
+    script.write_text("import matplotlib.pyplot as plt\nplt.plot([1, 2])\n")
+    console.uninstall(shell)
+
+    _run_from(_INSTALL_BACKEND + f"%run -- {script}", None)
+    _run_from("plt.plot([3, 4])", FILE_A)
+
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+
+def test_mpl_detached_figure_updates_through_held_reference(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """Editing a detached figure through a held reference still updates its plot."""
+    _run_from("fig, ax = plt.subplots(); ax.plot([1, 2])", FILE_A)
+    plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
+    plot_comm.messages.clear()
+    _do_render(plot_comm)
+
+    # Running file B detaches the figure; the cell then edits it through `ax`.
+    _run_from("ax.set_title('edited')", FILE_B)
+
+    assert plt.get_fignums() == []
+    assert shell.user_ns["fig"] is _plot_figures(plots_service)[0]
+    assert len(plot_comm.messages) == 1
+    _verify_update_notification(plot_comm.messages[0])
+
+
+def test_mpl_detached_seaborn_figure_updates_through_held_reference(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Seaborn figures are detached after every cell, but held-reference edits still show."""
+    monkeypatch.setattr(
+        "positron.matplotlib_backend.console._detect_plotting_library", lambda: "seaborn"
+    )
+    shell.run_cell("fig, ax = plt.subplots()").raise_error()
+    plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
+    plot_comm.messages.clear()
+    _do_render(plot_comm)
+
+    shell.run_cell("ax.set_title('edited')").raise_error()
+
+    assert len(plot_comm.messages) == 1
+    _verify_update_notification(plot_comm.messages[0])
+
+
+def test_mpl_unchanged_detached_figure_sends_no_update(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    _run_from("fig, ax = plt.subplots(); ax.plot([1, 2])", FILE_A)
+    plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
+    plot_comm.messages.clear()
+    _do_render(plot_comm)
+
+    _run_from("x = 1", FILE_B)
+
+    assert plot_comm.messages == []
+
+
+def test_mpl_closed_figure_not_redrawn_after_cell(
+    shell: PositronShell,
+    plots_service: PlotsService,  # noqa: ARG001
+) -> None:
+    """A figure closed with `plt.close` isn't redrawn, even if it was left stale."""
+    shell.run_cell(
+        "import io\n"
+        "fig, ax = plt.subplots()\n"
+        "ax.plot([1, 2])\n"
+        "fig.savefig(io.BytesIO())\n"
+        "ax.set_title('edited')\n"
+        "plt.close(fig)"
+    ).raise_error()
+
+    assert shell.user_ns["fig"].stale
+
+
+def test_mpl_detached_figure_closed_by_frontend_stays_closed(
+    shell: PositronShell,  # noqa: ARG001
+    plots_service: PlotsService,
+) -> None:
+    """A plot the user removed from history isn't reopened by an edit to its figure."""
+    _run_from("fig, ax = plt.subplots(); ax.plot([1, 2])", FILE_A)
+    plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
+    plot_comm.messages.clear()
+    _do_render(plot_comm)
+    _run_from("x = 1", FILE_B)
+    _do_close(plot_comm)
+
+    _run_from("ax.set_title('edited')", FILE_B)
+
+    assert plot_comm.messages == []

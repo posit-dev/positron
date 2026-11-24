@@ -38,7 +38,8 @@ export class StartupFolders {
 	/** Quits Positron and launches it again in the folder. */
 	async launch(folder: string): Promise<void> {
 		await test.step(`Launch in ${path.basename(folder)}`, async () => {
-			await this.app.restart({ workspaceOrFolder: folder });
+			// A real quit: the default kill can lose state the test just changed.
+			await this.app.restart({ workspaceOrFolder: folder, saveState: true });
 		});
 	}
 

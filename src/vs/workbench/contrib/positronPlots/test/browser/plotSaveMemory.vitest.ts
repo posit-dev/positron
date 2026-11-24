@@ -57,6 +57,22 @@ describe('PlotSaveMemory', () => {
 		expect((await memory.get(fallback)).format).toBe(PlotRenderFormat.Svg);
 	});
 
+	it('has no resolution before anything is saved', async () => {
+		expect((await memoryFor('ws1').get(fallback)).resolution).toBeUndefined();
+	});
+
+	it('returns the last saved resolution', async () => {
+		await memoryFor('ws1').remember(figures, PlotRenderFormat.Png, 3);
+		expect((await memoryFor('ws1').get(fallback)).resolution).toBe(3);
+	});
+
+	it('keeps the previous resolution when a save has none', async () => {
+		const memory = memoryFor('ws1');
+		await memory.remember(figures, PlotRenderFormat.Png, 3);
+		await memory.remember(figures, PlotRenderFormat.Svg);
+		expect(await memory.get(fallback)).toMatchObject({ format: PlotRenderFormat.Svg, resolution: 3 });
+	});
+
 	it('falls back when the saved folder no longer exists', async () => {
 		const memory = memoryFor('ws1');
 		await memory.remember(figures, PlotRenderFormat.Png);

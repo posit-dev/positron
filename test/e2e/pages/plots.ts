@@ -22,6 +22,10 @@ const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
+// The Plots pane shows the locator prompt in its plot info header.
+const LOCATOR_PROMPT = '.plots-container .plot-info-header .plot-locator-prompt';
+const LOCATOR_FINISH_BUTTON = '.plots-container .plot-info-header .plot-locator-finish';
+const LOCATOR_POINT = '.plots-container .plot-instance .plot-locator-point';
 const PLOTS_SECTION = '.part.auxiliarybar [aria-label="Plots Section"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -156,6 +160,60 @@ export class Plots {
 		if (await clearPlotsButton.isVisible() && await clearPlotsButton.isEnabled()) {
 			await clearPlotsButton.click();
 		}
+	}
+
+	async expectLocatorActive(active: boolean) {
+		await test.step(`Expect plot locator prompt to be ${active ? 'visible' : 'hidden'}`, async () => {
+			const banner = this.code.driver.currentPage.locator(LOCATOR_PROMPT);
+			if (active) {
+				await expect(banner).toBeVisible();
+			} else {
+				await expect(banner).toBeHidden();
+			}
+		});
+	}
+
+	/**
+	 * Waits until the plot in locator mode has the focus. After a click, the plot gets the focus
+	 * back only when the next locator request starts, so this also waits for that request.
+	 */
+	async expectLocatorFocused() {
+		await test.step('Expect the plot in locator mode to have focus', async () => {
+			await expect(this.code.driver.currentPage.locator('.plot-instance.locator-active')).toBeFocused();
+		});
+	}
+
+	async clickPlotAt(xFraction: number, yFraction: number) {
+		await test.step(`Click current plot at (${xFraction}, ${yFraction})`, async () => {
+			const plot = this.code.driver.currentPage.locator(CURRENT_PLOT);
+			await expect(plot).toBeVisible();
+			// The plot takes clicks, and shows a crosshair, only once the image the kernel sent
+			// for the request has loaded
+			await expect(plot).toHaveCSS('cursor', 'crosshair');
+			const box = await plot.boundingBox();
+			if (!box) {
+				fail('Current plot has no bounding box');
+			}
+			await this.code.driver.currentPage.mouse.click(
+				box.x + box.width * xFraction,
+				box.y + box.height * yFraction
+			);
+		});
+	}
+
+	/**
+	 * Waits until the plot shows this number of markers for the points chosen with locator().
+	 */
+	async expectLocatorMarkers(count: number) {
+		await test.step(`Expect ${count} plot locator markers`, async () => {
+			await expect(this.code.driver.currentPage.locator(LOCATOR_POINT)).toHaveCount(count);
+		});
+	}
+
+	async finishLocator() {
+		await test.step('Click Finish in the plot locator prompt', async () => {
+			await this.code.driver.currentPage.locator(LOCATOR_FINISH_BUTTON).click();
+		});
 	}
 
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {

@@ -108,7 +108,7 @@ Positron has three test categories:
 
 ### Where CI runs
 
-The unit, extension host, and e2e lanes do not run in this repo. `test-pr-dispatch.yml` and `test-merge-dispatch.yml` start them in the private repo `posit-dev/positron-builds` and report the result here. The old lane workflows in `.github/workflows/` (for example `test-pull-request.yml` and the `test-e2e-*.yml` files) are disabled and stay only as references. See [Running Tests in Github Actions](test/e2e/README.md#running-tests-in-github-actions) for the lanes and the manual run command.
+The unit, extension host, and e2e lanes do not run in this repo. `test-pr-dispatch.yml` and `test-merge-dispatch.yml` start them in the private repo `posit-dev/positron-builds` and report the result here. See [Running Tests in Github Actions](test/e2e/README.md#running-tests-in-github-actions) for the lanes and the manual run command.
 
 ### Triaging an e2e test that is failing or flaking
 
@@ -147,6 +147,7 @@ failure, and any bug that is not a test failure.
   - Formatting: `node scripts/format.mts <file> [file2] ...`
   - ESLint: `npx eslint --fix <file> [file2] ...`
 - When registering user-facing configuration, follow the **[guidance on settings](.claude/rules/configuration.md)**. Setting keys, titles, and display names omit redundant terms ("Positron", "Setting", etc.); `localize()` IDs keep the `positron.` prefix.
+- When building or reviewing UI, follow the **[accessibility guidance](.claude/rules/accessibility.md)**. It aims for WCAG 2.2 AA, with keyboard and screen reader support first.
 - When adding AI-related functionality (anything that calls a model, suggests completions, or surfaces AI actions), gate it on the `ai.enabled` main switch -- see **[AI feature gating](.claude/rules/ai-gating.md)**.
 
 ## General

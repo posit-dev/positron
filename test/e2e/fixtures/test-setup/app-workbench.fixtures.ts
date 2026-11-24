@@ -210,6 +210,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 async function provisionUserSettings(serverDir: string, owner: string, settingsOverrides?: object): Promise<void> {
 	const userDataDir = `${serverDir}User/`;
 	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${userDataDir}`, 'Create user settings directory');
+	// The settings page object edits this file, which is the one the server reads.
+	process.env.PLAYWRIGHT_CONTAINER_USER_SETTINGS = `${CONTAINER_NAME}:${userDataDir}settings.json`;
 	await copyUserSettingsToContainer(
 		CONTAINER_NAME,
 		userDataDir,

@@ -139,9 +139,10 @@ Rows in the Already on main group show what became of the finding: its issue
 number, Fixed later, or Won't fix.
 
 Runs from before main was replayed have no trusted origin. Their origins
-were checked by hand and are set in `origin-overrides.json`, keyed by
-`<run>#<finding>`, with a reason for each. An entry there wins over the
-report's own origin.
+were checked by hand and are set in `finding-overrides.json`, keyed by
+`<run>#<finding>`, with a reason (`why`) for each. An entry there wins over the
+report's own origin. An entry can also set `outcome` for a finding the checks
+get wrong; its `why` shows as the evidence, and no model check runs for it.
 
 `node .github/actions/pr-exploratory-test/outcomes-page.mjs rows.jsonl > outcomes.html`
 turns those rows into the PR outcomes page: how many findings developers fixed, and how many

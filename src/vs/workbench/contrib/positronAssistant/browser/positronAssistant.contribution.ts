@@ -33,6 +33,7 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { CreateAIDiagnosticReportAction } from './aiDiagnostics.js';
 import { PositAssistantErrorActionHandlerContribution } from './positAssistantErrorActionHandler.js';
 import './errorActionHandlerService.js';
+import './positronEditReviewService.js';
 // Importing this module also registers the `ai.enabled` main switch for Positron's AI features.
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 import { CONFIGURE_PROVIDERS_ACTION_ID, CONFIGURE_PROVIDERS_COMMAND } from '../common/positronAssistantCommands.js';
@@ -44,6 +45,9 @@ import './inlineCompletionsMigration.js';
 
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
+
+// Register the `positronAssistant.getAiSettingKeys` command.
+import './aiSettingKeysCommand.js';
 
 // Register the commit message generation feature.
 registerCommitMessageGeneration();

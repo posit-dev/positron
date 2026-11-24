@@ -46,7 +46,15 @@ suite('PythonTestController', () => {
         sandbox.restore();
     });
 
-    function createController(options?: { unittestEnabled?: boolean; interpreter?: any; workspaceService?: any }): any {
+    // --- Start Positron ---
+    // function createController(options?: { unittestEnabled?: boolean; interpreter?: any; workspaceService?: any }): any {
+    function createController(options?: {
+        unittestEnabled?: boolean;
+        interpreter?: any;
+        workspaceService?: any;
+        configSettings?: any;
+    }): any {
+        // --- End Positron ---
         const unittestEnabled = options?.unittestEnabled ?? false;
         const interpreter =
             options?.interpreter ??
@@ -57,7 +65,15 @@ suite('PythonTestController', () => {
                 sysPrefix: '/usr',
             } as any);
 
-        const workspaceService = options?.workspaceService ?? ({ workspaceFolders: [] } as unknown as any);
+        // --- Start Positron ---
+        // const workspaceService = options?.workspaceService ?? ({ workspaceFolders: [] } as unknown as any);
+        const workspaceService = {
+            workspaceFolders: [],
+            onDidChangeConfiguration: new vscode.EventEmitter<vscode.ConfigurationChangeEvent>().event,
+            onDidChangeWorkspaceFolders: new vscode.EventEmitter<vscode.WorkspaceFoldersChangeEvent>().event,
+            ...options?.workspaceService,
+        };
+        // --- End Positron ---
         const configSettings = {
             getSettings: sandbox.stub().returns({
                 testing: {
@@ -83,7 +99,10 @@ suite('PythonTestController', () => {
 
         return new PythonTestController(
             workspaceService,
-            configSettings,
+            // --- Start Positron ---
+            // configSettings,
+            options?.configSettings ?? configSettings,
+            // --- End Positron ---
             pytest,
             unittest,
             disposables,
@@ -431,4 +450,79 @@ suite('PythonTestController', () => {
             assert.strictEqual(pending.size, 0);
         });
     });
+
+    // --- Start Positron ---
+    suite('run profiles are gated on a test framework being enabled', () => {
+        const folderA = { uri: vscode.Uri.file('/workspace/a'), name: 'a', index: 0 } as vscode.WorkspaceFolder;
+        const folderB = { uri: vscode.Uri.file('/workspace/b'), name: 'b', index: 1 } as vscode.WorkspaceFolder;
+
+        function setupController(enabledFolders: vscode.WorkspaceFolder[]) {
+            const testController = createStubTestController();
+            const profileDisposables: sinon.SinonStub[] = [];
+            (testController.createRunProfile as sinon.SinonStub).callsFake(() => {
+                const dispose = sandbox.stub();
+                profileDisposables.push(dispose);
+                return { dispose };
+            });
+            sandbox.stub(vscode.tests, 'createTestController').returns(testController);
+
+            const enabled = new Set(enabledFolders.map((f) => f.uri.toString()));
+            const onDidChangeConfiguration = new vscode.EventEmitter<vscode.ConfigurationChangeEvent>();
+            const workspaceService = {
+                workspaceFolders: [folderA, folderB],
+                onDidChangeConfiguration: onDidChangeConfiguration.event,
+            };
+            const configSettings = {
+                getSettings: (uri: vscode.Uri) => ({
+                    testing: { pytestEnabled: enabled.has(uri.toString()), unittestEnabled: false },
+                }),
+            };
+            const controller = createController({ workspaceService, configSettings });
+
+            const profileKinds = () =>
+                (testController.createRunProfile as sinon.SinonStub).getCalls().map((call) => call.args[1]);
+            const changeConfig = (folders: vscode.WorkspaceFolder[]) => {
+                enabled.clear();
+                folders.forEach((f) => enabled.add(f.uri.toString()));
+                onDidChangeConfiguration.fire({ affectsConfiguration: (s: string) => s === 'python.testing' });
+            };
+            return { controller, profileKinds, profileDisposables, changeConfig };
+        }
+
+        test('registers no profiles when no folder has a test framework enabled', () => {
+            const { profileKinds } = setupController([]);
+
+            assert.deepStrictEqual(profileKinds(), []);
+        });
+
+        test('registers Run, Debug, and Coverage profiles when any folder has a test framework enabled', () => {
+            const { profileKinds } = setupController([folderB]);
+
+            assert.deepStrictEqual(profileKinds(), [
+                vscode.TestRunProfileKind.Run,
+                vscode.TestRunProfileKind.Debug,
+                vscode.TestRunProfileKind.Coverage,
+            ]);
+        });
+
+        test('adds and removes profiles as test framework settings change', () => {
+            const { profileKinds, profileDisposables, changeConfig } = setupController([]);
+
+            changeConfig([folderA]);
+            assert.strictEqual(profileKinds().length, 3);
+
+            changeConfig([folderA, folderB]);
+            assert.strictEqual(profileKinds().length, 3, 'already registered profiles are not duplicated');
+
+            changeConfig([]);
+            assert.deepStrictEqual(
+                profileDisposables.map((d) => d.calledOnce),
+                [true, true, true],
+            );
+
+            changeConfig([folderB]);
+            assert.strictEqual(profileKinds().length, 6);
+        });
+    });
+    // --- End Positron ---
 });

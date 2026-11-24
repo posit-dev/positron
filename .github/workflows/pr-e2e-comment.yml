@@ -22,7 +22,7 @@ jobs:
 
       # Install just enough for `playwright test --list`, so the comment shows
       # the e2e test-change tags and each lane's test count. Shared with the
-      # pr-tags job in test-pull-request.yml so the two environments match.
+      # tags job of test-pr.yml in posit-dev/positron-builds so the two environments match.
       - name: Set up e2e tag listing
         uses: ./.github/actions/e2e-tag-listing-setup
 
