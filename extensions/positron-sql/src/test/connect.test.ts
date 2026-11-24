@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-import { connectIn, normalizeConnect } from '../connect';
+import { cellsWithNewConnect, connectIn, ggsqlConnectOf, normalizeConnect } from '../connect';
 
 suite('connectIn', () => {
 
@@ -18,6 +18,32 @@ suite('connectIn', () => {
 		assert.strictEqual(connectIn('--@connect: duckdb://a.db'), undefined);
 		assert.strictEqual(connectIn('SELECT \'-- @connect: duckdb://a.db\';'), undefined);
 		assert.strictEqual(connectIn('-- @connect:   '), undefined);
+	});
+});
+
+suite('ggsqlConnectOf', () => {
+
+	test('reads the database Positron gives a Quarto cell, and whether it runs in ggsql at all', () => {
+		assert.deepStrictEqual([
+			ggsqlConnectOf({ ggsqlConnect: 'duckdb://a.db' }),
+			// runs in ggsql, names no database
+			ggsqlConnectOf({ ggsqlConnect: '' }),
+			// does not run in ggsql: no key, or a key Positron cleared
+			ggsqlConnectOf({}),
+			ggsqlConnectOf({ ggsqlConnect: undefined }),
+		], ['duckdb://a.db', '', undefined, undefined]);
+	});
+});
+
+suite('cellsWithNewConnect', () => {
+
+	test('names the hidden notebook\'s cells whose metadata changed, and nothing else', () => {
+		const change = (document: string, metadata?: object) => ({ cell: { document }, metadata });
+		assert.deepStrictEqual([
+			cellsWithNewConnect({ notebook: { notebookType: 'quarto-cells' }, cellChanges: [change('a', { ggsqlConnect: 'duckdb://a.db' }), change('b'), change('c', {})] }),
+			// a change to some other notebook says nothing about Quarto cells
+			cellsWithNewConnect({ notebook: { notebookType: 'jupyter-notebook' }, cellChanges: [change('a', {})] }),
+		], [['a', 'c'], []]);
 	});
 });
 

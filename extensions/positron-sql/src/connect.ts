@@ -33,7 +33,8 @@ const QUARTO_CELLS_NOTEBOOK = 'quarto-cells';
 /**
  * The cell metadata key under which Positron gives a Quarto cell that runs in ggsql the `@connect`
  * URI it runs against, or an empty string when it names none; absent from any other cell.
- * Positron's `QUARTO_CELL_GGSQL_CONNECT_KEY`.
+ * Must match `QUARTO_CELL_GGSQL_CONNECT_KEY` in Positron's `quartoVirtualNotebookTypes.ts`, which
+ * a test there checks.
  */
 const GGSQL_CONNECT_KEY = 'ggsqlConnect';
 
@@ -85,19 +86,25 @@ export function normalizeConnect(uri: string, baseDirectory: string | undefined,
 	return `${scheme.toLowerCase()}://${comparable}`;
 }
 
-/** The hidden notebook a Quarto cell belongs to, if the document is one. */
-function quartoNotebookOf(document: vscode.TextDocument): vscode.NotebookDocument | undefined {
+/** The hidden notebook cell a document is, if it is a code cell of a Quarto document. */
+function quartoCellOf(document: vscode.TextDocument): vscode.NotebookCell | undefined {
 	if (document.uri.scheme !== CELL_SCHEME) {
 		return undefined;
 	}
-	return vscode.workspace.notebookDocuments.find(notebook =>
-		notebook.notebookType === QUARTO_CELLS_NOTEBOOK
-		&& notebook.getCells().some(cell => cell.document === document));
+	for (const notebook of vscode.workspace.notebookDocuments) {
+		if (notebook.notebookType === QUARTO_CELLS_NOTEBOOK) {
+			const cell = notebook.getCells().find(candidate => candidate.document === document);
+			if (cell) {
+				return cell;
+			}
+		}
+	}
+	return undefined;
 }
 
-/** The hidden notebook cell a document is, if it is a code cell of a Quarto document. */
-function quartoCellOf(document: vscode.TextDocument): vscode.NotebookCell | undefined {
-	return quartoNotebookOf(document)?.getCells().find(cell => cell.document === document);
+/** The hidden notebook a Quarto cell belongs to, if the document is one. */
+function quartoNotebookOf(document: vscode.TextDocument): vscode.NotebookDocument | undefined {
+	return quartoCellOf(document)?.notebook;
 }
 
 /** Whether a document is a code cell of a Quarto document. */
@@ -124,23 +131,40 @@ export function isQuartoCopy(document: vscode.TextDocument): boolean {
  * in a document that does not render with knitr, as Positron decides it.
  */
 export function isGgsqlCell(document: vscode.TextDocument): boolean {
-	return typeof quartoCellOf(document)?.metadata[GGSQL_CONNECT_KEY] === 'string';
+	const cell = quartoCellOf(document);
+	return cell !== undefined && ggsqlConnectOf(cell.metadata) !== undefined;
 }
 
 /** The `@connect` URI a ggsql document, or Quarto cell, runs against, if it says. */
 export function declaredConnect(document: vscode.TextDocument): string | undefined {
-	if (!isQuartoCell(document)) {
+	const cell = quartoCellOf(document);
+	if (!cell) {
 		return connectIn(document.getText());
 	}
-	const uri = quartoCellOf(document)?.metadata[GGSQL_CONNECT_KEY];
-	return typeof uri === 'string' && uri ? uri : undefined;
+	return ggsqlConnectOf(cell.metadata) || undefined;
+}
+
+/**
+ * What a Quarto cell's metadata says of its database: the `@connect` URI it runs against, an
+ * empty string for a cell that runs in ggsql but names none, or undefined for a cell that does not
+ * run in ggsql.
+ */
+export function ggsqlConnectOf(metadata: { readonly [key: string]: unknown }): string | undefined {
+	const value = metadata[GGSQL_CONNECT_KEY];
+	return typeof value === 'string' ? value : undefined;
+}
+
+/** The parts of a notebook change {@link cellsWithNewConnect} reads. */
+interface INotebookChange<T> {
+	readonly notebook: { readonly notebookType: string };
+	readonly cellChanges: readonly { readonly cell: { readonly document: T }; readonly metadata?: unknown }[];
 }
 
 /**
  * The Quarto cells whose database a change to a hidden notebook moved, whichever cell's text
  * moved it: Positron works the databases out again for the whole document.
  */
-export function cellsWithNewConnect(event: vscode.NotebookDocumentChangeEvent): vscode.TextDocument[] {
+export function cellsWithNewConnect<T>(event: INotebookChange<T>): T[] {
 	if (event.notebook.notebookType !== QUARTO_CELLS_NOTEBOOK) {
 		return [];
 	}

@@ -23,8 +23,9 @@ export interface IQuartoConsoleCode {
  * live console session. Code that preparing changed, such as a statement given
  * its cell's `@connect` line, is pinned to that session, since the preamble was
  * decided for it. Any other code keeps the session it was asked to run in, if
- * any, and is otherwise left for the console service to route. An exited session
- * is never the one prepared for, so code is never pinned to it.
+ * any, and is otherwise left for the console service to route. Unless the
+ * caller names it, an exited session is never the one prepared for, so code
+ * is never pinned to it.
  *
  * @param documentUri The Quarto document.
  * @param lineNumber A line of the cell the code comes from (1-based), or

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { INotificationService, IPromptChoice } from '../../../../../platform/notification/common/notification.js';
+import { INotificationHandle, INotificationService, IPromptChoice } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { explainUnrunnableCell, hostOwnedCellLanguages } from '../../browser/quartoHostCellLanguages.js';
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
@@ -66,7 +66,10 @@ describe('explainUnrunnableCell', () => {
 		explainUnrunnableCell('sql', knitr, {
 			runtimeStartupService: createTestRuntimeStartupService(['r', 'ggsql']),
 			notificationService: stubInterface<INotificationService>({
-				prompt: (_severity: unknown, _message: string, promptChoices: IPromptChoice[]) => { choices.push(...promptChoices); return undefined!; },
+				prompt: (_severity: unknown, _message: string, promptChoices: IPromptChoice[]) => {
+					choices.push(...promptChoices);
+					return stubInterface<INotificationHandle>({});
+				},
 			}),
 			commandService: stubInterface<ICommandService>({
 				executeCommand: async (id: string) => { executed.push(id); return undefined; },

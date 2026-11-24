@@ -49,9 +49,9 @@ describe('prepareQuartoConsoleCode', () => {
 			await run('exited', false),
 			// no console session yet: the console service starts one
 			await run('none', true),
-			// a session the caller asked for is kept, and prepared for
-			await run('exited', true, 'asked'),
-			await run('live', false, 'asked'),
+			// a session the caller asked for is kept, and prepared for, whatever the console session's state
+			await run('none', true, 'asked'),
+			await run('none', false, 'asked'),
 		]).toEqual([
 			{ preparedFor: 'console-1', pinned: 'console-1', prepended: true },
 			{ preparedFor: 'console-1', pinned: undefined, prepended: false },

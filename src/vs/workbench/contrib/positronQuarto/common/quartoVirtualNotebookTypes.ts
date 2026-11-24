@@ -43,7 +43,9 @@ export const QUARTO_CELLS_SCHEME = 'quarto-cells';
  * ggsql runs against (see `ggsqlCellConnects`), as the `@connect` URI, or an
  * empty string when it names none. Absent from a cell that does not run in
  * ggsql. positron-sql reads it for the tables such a cell completes from, so
- * that it need not decide the cell's database itself.
+ * that it need not decide the cell's database itself; its copy of the key is
+ * `GGSQL_CONNECT_KEY` in `extensions/positron-sql/src/connect.ts`, kept equal
+ * by `quartoGgsqlConnectKey.vitest.ts`.
  */
 export const QUARTO_CELL_GGSQL_CONNECT_KEY = 'ggsqlConnect';
 
