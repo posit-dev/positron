@@ -236,11 +236,25 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 			role: 'menuitemcheckbox',
 			checked: shown,
 			label: localize('positron.layoutMenu.panel', "Bottom Panel"),
-			run: () => this._layoutService.setPartHidden(shown, Parts.PANEL_PART),
+			run: () => this._setPanelShown(!shown),
 			keepOpen: true,
 		});
 		append(item, $('span.positron-layout-menu-switch', { 'aria-hidden': 'true' }));
 		return item;
+	}
+
+	/**
+	 * Shows or hides the bottom panel. The panel reopens maximized when it was maximized
+	 * as it closed, which happens when no editor is open, and then it covers the whole
+	 * editor area. The switch always opens it at its normal height instead, as in the
+	 * Default layout.
+	 * @param shown Whether to show the panel.
+	 */
+	private _setPanelShown(shown: boolean): void {
+		this._layoutService.setPartHidden(!shown, Parts.PANEL_PART);
+		if (shown && this._layoutService.isPanelMaximized()) {
+			this._layoutService.toggleMaximizedPanel();
+		}
 	}
 
 	private _item(options: {
