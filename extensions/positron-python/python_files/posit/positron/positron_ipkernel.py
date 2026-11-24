@@ -481,27 +481,22 @@ class PositronShell(ZMQInteractiveShell):
 
     def _enable_tk_eventloop(self) -> None:
         """
-        Enable the tk event loop the first time tkinter is imported.
+        Run `%gui tk` once tkinter is imported, so tk windows process events between cells.
 
-        Tk windows need their events processed between cells, e.g. to close after
-        `root.destroy()`. The plain Python REPL does this via `PyOS_InputHook`, which a
-        kernel never calls, so enable the equivalent of `%gui tk`. Only done once per
-        session, so the user can turn it off with `%gui`, and never over another gui
-        event loop. See https://github.com/posit-dev/positron/issues/11457.
+        Done once per session so the user can turn it off with `%gui`, and never over
+        another gui event loop. See https://github.com/posit-dev/positron/issues/11457.
         """
-        if self._tk_eventloop_enabled or self.active_eventloop is not None:
-            return
-        if "tkinter" not in sys.modules:
-            return
-        # Tk on Linux needs an X display; without one the tk event loop fails to start.
-        if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        if (
+            self._tk_eventloop_enabled
+            or self.active_eventloop is not None
+            or "tkinter" not in sys.modules
+            # Tk on Linux needs an X display; without one the tk event loop fails to start.
+            or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY"))
+        ):
             return
 
         self._tk_eventloop_enabled = True
-        try:
-            self.enable_gui("tk")
-        except Exception:
-            logger.exception("Error enabling the tk event loop")
+        self.enable_gui("tk")
 
     def _get_editor_path(self) -> str | None:
         """
