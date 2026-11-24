@@ -7,7 +7,7 @@
 import './plotSizeEditor.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -23,6 +23,11 @@ export type PlotPreviewStatus = 'idle' | 'waiting' | 'drawing' | 'unavailable';
 
 /** What made a size change: typing in the size boxes, or the drag handle. */
 export type PlotSizeCommitSource = 'typed' | 'drag';
+
+export interface PlotSizeEditorHandle {
+	/** Commits a typed size or handle key resize still waiting on its timer. */
+	commitPending: () => void;
+}
 
 export interface PlotSizeEditorProps {
 	/** The starting size, which also counts as the first committed size. */
@@ -40,6 +45,7 @@ export interface PlotSizeEditorProps {
 	onValidityChange: (valid: boolean) => void;
 	/** Called with the size the frame is drawn at, on mount and whenever it changes, including during a drag. */
 	onFrameSizeChange?: (size: IPlotSize) => void;
+	ref?: React.Ref<PlotSizeEditorHandle>;
 }
 
 const KEY_STEP = 10;
@@ -283,6 +289,20 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 			commit(size, 'drag');
 		}
 	};
+
+	// A host action such as Copy may not take focus, so it commits through this, not on blur.
+	useImperativeHandle(props.ref, () => ({
+		commitPending: () => {
+			if (dragRef.current) {
+				return;
+			}
+			if (keyResizeRef.current) {
+				flushKeyResize();
+			} else {
+				commitTypedNow();
+			}
+		},
+	}));
 
 	const handleKeyDownHandler = (e: React.KeyboardEvent) => {
 		if (e.key === 'Enter' || e.key === ' ') {

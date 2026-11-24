@@ -17,7 +17,7 @@ import { PlotClientInstance } from '../../../../services/languageRuntime/common/
 import { IOneTimeRender } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { intrinsicSizeInPixels } from './aspectRatioLock.js';
-import { fitWithin, PlotPreviewStatus, PlotSizeCommitSource, PlotSizeEditor } from './plotSizeEditor.js';
+import { fitWithin, PlotPreviewStatus, PlotSizeCommitSource, PlotSizeEditor, PlotSizeEditorHandle } from './plotSizeEditor.js';
 import { maxDragSize } from './plotSizeLimits.js';
 import { BASE_DPI } from './savePlotModalDialog.js';
 import { usePlotPreview } from './usePlotPreview.js';
@@ -86,6 +86,7 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 	const copyingRef = useRef(false);
 	const copyRenderRef = useRef<IOneTimeRender | undefined>(undefined);
 	const mountedRef = useRef(true);
+	const editorRef = useRef<PlotSizeEditorHandle>(null);
 
 	const preview = usePlotPreview(plotClient, pixelRatio);
 	const status: PlotPreviewStatus = preview.status === 'unavailable' ? 'unavailable' : (copyStatus ?? preview.status);
@@ -106,7 +107,10 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 			setFrameSize(fitWithin(size, maxDrag));
 			setCenterKey(key => key + 1);
 		}
-		preview.request(size);
+		// A commit made by Copy itself is drawn by Copy, not as a preview too.
+		if (!copyingRef.current) {
+			preview.request(size);
+		}
 	};
 
 	/** Draws the plot at the committed size, reusing a preview or a pending preview draw of that size. */
@@ -141,6 +145,8 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 		}
 		copyingRef.current = true;
 		setCopying(true);
+		// The Copy button keeps focus in a size box, so commit what was typed there.
+		editorRef.current?.commitPending();
 		try {
 			const uri = await drawForCopy(sizeRef.current);
 			await options.onCopy(uri);
@@ -149,6 +155,7 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 			if (mountedRef.current) {
 				const message = error instanceof Error ? error.message : String(error);
 				renderer.services.notificationService.error(localize('positron.copyPlotModalDialog.copyError', "Error copying plot: {0}", message));
+				preview.request(sizeRef.current);
 			}
 		} finally {
 			copyingRef.current = false;
@@ -203,6 +210,7 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 		>
 			<ContentArea>
 				<PlotSizeEditor
+					ref={editorRef}
 					initialSize={initialSize}
 					keepRatio={options.keepRatio}
 					maxDragSize={maxDrag}

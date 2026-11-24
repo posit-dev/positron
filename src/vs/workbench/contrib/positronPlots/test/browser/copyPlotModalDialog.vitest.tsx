@@ -129,6 +129,22 @@ describe('Copy Plot dialog', () => {
 		expect(renderOnce).toHaveBeenCalledOnce();
 	});
 
+	it('copy right after typing copies the typed size', async () => {
+		const { renderOnce, onCopy, user } = await open();
+		await user.clear(widthInput());
+		await user.type(widthInput(), '500');
+		await user.clear(heightInput());
+		await user.type(heightInput(), '400');
+
+		// Clicking Copy does not take focus from the size box, so no blur commits the size.
+		await user.click(copyButton()!);
+
+		expect(renderOnce).toHaveBeenCalledOnce();
+		expect(renderOnce).toHaveBeenCalledWith({ width: 500, height: 400 }, getCopyPixelRatio(mainWindow));
+		await act(async () => renders[0].result.complete(rendered({ width: 500, height: 400 }, 'typed')));
+		await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('typed'));
+	});
+
 	it('copy draws at the chosen size when no preview matches', async () => {
 		const { renderOnce, onCopy, user } = await open();
 
