@@ -3,17 +3,35 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { Sequencer } from '../../../../base/common/async.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IPositronPreviewService } from './positronPreviewSevice.js';
 import { POSITRON_VIEWER_AUTO_REFRESH, POSITRON_VIEWER_CAN_AUTO_REFRESH, POSITRON_VIEWER_TOGGLE_AUTO_REFRESH } from './positronPreviewActions.js';
 
-/** The integrated browser's setting for reloading local files that change. */
+/**
+ * The setting for reloading local files that change, shared by the Viewer and
+ * the integrated browser. Registered here so web builds see it too.
+ */
 const AUTO_RELOAD_SETTING = 'workbench.browser.autoReloadOnFileChange';
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	...workbenchConfigurationNodeBase,
+	properties: {
+		[AUTO_RELOAD_SETTING]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize('positron.viewer.autoReloadOnFileChange', "Controls whether the Viewer and the Integrated Browser automatically reload by default when showing local files that change on disk."),
+		}
+	}
+});
 
 /**
  * Reloads the Viewer when a local file that its content loaded through the
