@@ -95,16 +95,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 
 	private registerEditorCopySubMenu(): void {
 		// Split button: the main click copies at once, the arrow opens the menu.
-		const copySubmenu: ISubmenuItem = {
-			title: localize2('positronPlots.copySubMenuTitle', 'Copy the plot'),
-			submenu: PlotsActiveEditorCopyAction.SUBMENU_ID,
-			isSplitButton: true,
-			when: PLOT_IS_ACTIVE_EDITOR,
-			group: 'navigation',
-			order: 2,
-			icon: Codicon.copy
-		};
-		MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, copySubmenu);
+		MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, PlotsActiveEditorCopyAction.SUBMENU_ITEM);
 	}
 
 	private registerEditorZoomSubMenu(): void {

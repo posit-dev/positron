@@ -8,7 +8,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -20,6 +20,10 @@ import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+
+/** True when the plot editor shows a plot the kernel can redraw at a new size. */
+export const POSITRON_PLOTS_EDITOR_DYNAMIC_PLOT = new RawContextKey<boolean>('positronPlotsEditorDynamicPlot', false);
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -50,6 +54,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
 	private _plotClient: IPositronPlotClient | undefined;
 	private _zoomContextKey: IContextKey<string>;
+	private _dynamicPlotContextKey: IContextKey<boolean>;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -103,6 +108,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		this._container = DOM.$('.positron-plots-editor-container');
 		this._container.onclick = () => this.takeFocus();
 		this._zoomContextKey = this._contextKeyService.createKey('positronPlotsEditorZoomLevel', '');
+		this._dynamicPlotContextKey = POSITRON_PLOTS_EDITOR_DYNAMIC_PLOT.bindTo(this._contextKeyService);
 	}
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
@@ -143,6 +149,8 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		}
 
 		await super.setInput(input, options, context, token);
+
+		this._dynamicPlotContextKey.set(this._plotClient instanceof PlotClientInstance);
 
 		input.setName(this._plotClient.metadata.name ?? this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 

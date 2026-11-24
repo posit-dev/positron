@@ -7,13 +7,13 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import * as nls from '../../../../nls.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
-import { Action2, IAction2Options, MenuId } from '../../../../platform/actions/common/actions.js';
+import { Action2, IAction2Options, ISubmenuItem, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import { DYNAMIC_PLOT_IS_ACTIVE_EDITOR, PLOT_IS_ACTIVE_EDITOR, STATIC_PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { PositronPlotsGalleryEditorInput } from '../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
@@ -559,13 +559,31 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			menu: [
 				{
 					id: PlotsActiveEditorCopyAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 1,
+				},
+				// Static plots cannot be redrawn, so they keep a plain Copy button.
+				{
+					id: MenuId.EditorActionsLeft,
+					when: STATIC_PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 2,
 				}
 			],
 		});
 	}
+
+	/** The split Copy button in the editor tab, shown only for dynamic plots. */
+	static readonly SUBMENU_ITEM: ISubmenuItem = {
+		title: localize2('positronPlots.copySubMenuTitle', 'Copy the plot'),
+		submenu: PlotsActiveEditorCopyAction.SUBMENU_ID,
+		isSplitButton: true,
+		when: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
+		group: 'navigation',
+		order: 2,
+		icon: Codicon.copy
+	};
 
 	/**
 	 * Runs the action and copies the plot from the active editor to the clipboard.
@@ -591,11 +609,11 @@ export class PlotsActiveEditorCopyAtCustomSizeAction extends Action2 {
 			title: localize2('positronPlots.editorCopyPlotAtCustomSize', 'Copy Plot at Custom Size...'),
 			category,
 			f1: false, // do not show in the command palette
-			precondition: PLOT_IS_ACTIVE_EDITOR,
+			precondition: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
 					id: PlotsActiveEditorCopyAction.SUBMENU_ID,
-					when: PLOT_IS_ACTIVE_EDITOR,
+					when: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}

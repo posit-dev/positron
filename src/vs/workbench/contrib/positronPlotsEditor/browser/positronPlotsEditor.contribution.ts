@@ -13,7 +13,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { EditorExtensions } from '../../../common/editor.js';
-import { PositronPlotsEditor } from './positronPlotsEditor.js';
+import { POSITRON_PLOTS_EDITOR_DYNAMIC_PLOT, PositronPlotsEditor } from './positronPlotsEditor.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
@@ -76,3 +76,5 @@ registerWorkbenchContribution2(
 );
 
 export const PLOT_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', PositronPlotsEditorInput.EditorID);
+export const DYNAMIC_PLOT_IS_ACTIVE_EDITOR = ContextKeyExpr.and(PLOT_IS_ACTIVE_EDITOR, POSITRON_PLOTS_EDITOR_DYNAMIC_PLOT);
+export const STATIC_PLOT_IS_ACTIVE_EDITOR = ContextKeyExpr.and(PLOT_IS_ACTIVE_EDITOR, POSITRON_PLOTS_EDITOR_DYNAMIC_PLOT.negate());
