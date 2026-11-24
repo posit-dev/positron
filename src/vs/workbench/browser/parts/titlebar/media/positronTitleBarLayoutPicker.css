@@ -153,13 +153,10 @@
 	padding: 2px;
 }
 
-.positron-layout-popover-picture .picture-side,
-.positron-layout-popover-picture .picture-aux {
-	background-color: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
-	border: 1px solid var(--vscode-widget-border, transparent);
+.positron-layout-popover-picture .picture-region {
 	display: flex;
 	flex-direction: column;
-	justify-content: flex-end;
+	gap: 1px;
 }
 
 .positron-layout-popover-picture .picture-side {
@@ -183,18 +180,26 @@
 }
 
 .positron-layout-popover-picture .picture-panel {
-	border: 1px solid var(--vscode-widget-border, transparent);
 	height: 35%;
 }
 
-/* The console, colored so the pictures show where it goes. */
-.positron-layout-popover-picture .picture-panel.console,
-.positron-layout-popover-picture .picture-aux-console {
+/* A view's block: gray, or colored when the layout shows the view. */
+.positron-layout-popover-picture .picture-block {
+	background-color: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
+	border: 1px solid var(--vscode-widget-border, transparent);
+	flex-basis: 0;
+	min-height: 2px;
+}
+
+.positron-layout-popover-picture .picture-block.shows {
 	background-color: color-mix(in srgb, var(--vscode-focusBorder) 30%, transparent);
 }
 
-.positron-layout-popover-picture .picture-aux-console {
-	height: 40%;
+/* Where a pointed-at pill's view lives. */
+.positron-layout-popover-picture .picture-block.highlight,
+.positron-layout-popover-picture .picture-region.highlight {
+	background-color: color-mix(in srgb, var(--vscode-focusBorder) 70%, transparent);
+	outline: 1px solid var(--vscode-focusBorder);
 }
 
 /* Views, grouped by the part of the window they live in. */
@@ -250,6 +255,11 @@
 
 .positron-layout-popover button.positron-layout-popover-pill:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.positron-layout-popover button.positron-layout-popover-pill.preview {
+	border-color: var(--vscode-focusBorder);
+	border-style: dashed;
 }
 
 .positron-layout-popover button.positron-layout-popover-pill.shown {

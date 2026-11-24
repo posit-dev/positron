@@ -26,9 +26,6 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 /** The Session container, whose views each get their own pill. */
 const SESSION_VIEW_CONTAINER_ID = 'workbench.panel.positronSession';
 
-/** The console's view and container, which share an id. Layout pictures color it. */
-const CONSOLE_ID = 'workbench.panel.positronConsole';
-
 /** A part of the window the popover lists views for. */
 type ViewPart = Parts.SIDEBAR_PART | Parts.PANEL_PART | Parts.AUXILIARYBAR_PART;
 
@@ -50,6 +47,29 @@ interface ViewPill {
 	readonly toggle: () => void;
 }
 
+/** One block in a layout's picture: a view, or a view container that fills its part. */
+interface PictureBlock {
+	/** The ids of the views and containers the block stands for. */
+	readonly ids: readonly string[];
+	/** Whether the layout shows the block's view, which colors it. */
+	readonly shows: boolean;
+	/** How much room the block takes in its part. Collapsed views take a sliver. */
+	readonly weight: number;
+}
+
+/** A part of a layout's picture: its blocks, and the other containers tabbed behind them. */
+interface PicturePart {
+	readonly blocks: readonly PictureBlock[];
+	/** Containers in the part that are not open, so the whole part stands for them. */
+	readonly tabIds: readonly string[];
+}
+
+/** An element in a picture that lights up when the user points at one of its views. */
+interface PictureTarget {
+	readonly element: HTMLElement;
+	readonly ids: readonly string[];
+}
+
 /**
  * What the popover asks of the title bar button that opens it.
  */
@@ -63,7 +83,8 @@ export interface ILayoutPopoverHost {
 /**
  * The layout button's popover. It answers what is on the screen and how to change it.
  * At the top, a card for each layout, with a small picture of it, switches the whole
- * layout. Below, every view is a pill, grouped by the part of the window it lives in,
+ * layout. Pointing at a card marks the pills of the views it shows, and pointing at a
+ * pill lights up where its view lives in the current layout's picture. Below, every view is a pill, grouped by the part of the window it lives in,
  * hidden ones included. Clicking a pill shows or hides that view, so a user can find a
  * feature without it taking up the screen until they want it.
  */
@@ -80,6 +101,18 @@ export class PositronLayoutPopover extends Disposable {
 
 	/** The pills and the panel switch as last drawn, in order. */
 	private _groupControls: HTMLElement[] = [];
+
+	/** The pills as last drawn, by the id of their view or container. */
+	private _pillsById = new Map<string, HTMLElement>();
+
+	/** The parts of each card's picture that light up, by layout id. */
+	private readonly _pictureTargets = new Map<string, PictureTarget[]>();
+
+	/** The views and containers each layout shows, by layout id. */
+	private readonly _shownByLayout = new Map<string, Set<string>>();
+
+	/** The layout whose picture shows where a pointed-at pill lives. */
+	private _activeLayoutId: string | undefined;
 
 	/** The listeners of the cards and pills, cleared each time they are drawn again. */
 	private readonly _itemDisposables = this._register(new DisposableStore());
@@ -177,6 +210,9 @@ export class PositronLayoutPopover extends Disposable {
 			? localize('positron.layoutPopover.modifiedNote', "Modified. Click its card to reset.")
 			: '';
 
+		this._activeLayoutId = currentId ?? modifiedId;
+		this._pictureTargets.clear();
+		this._shownByLayout.clear();
 		const layouts = getTaskLayouts().filter(layout => this._contextKeyService.contextMatchesRules(layout.precondition));
 		this._cardElements = layouts.map(layout => this._card(layout, layout.id === currentId, layout.id === modifiedId));
 		reset(this._cards, ...this._cardElements);
@@ -199,7 +235,7 @@ export class PositronLayoutPopover extends Disposable {
 			: layout.description ?? layout.name;
 
 		const descriptor = getMatchableLayouts().find(matchable => matchable.id === layout.id)?.layoutDescriptor;
-		card.appendChild(descriptor ? this._picture(descriptor) : $('.positron-layout-popover-picture'));
+		card.appendChild(descriptor ? this._picture(layout.id, descriptor) : $('.positron-layout-popover-picture'));
 		const label = append(card, $('span.positron-layout-popover-card-label', undefined, layout.name));
 		if (modified) {
 			append(label, $('span.codicon.codicon-discard', { 'aria-hidden': 'true' }));
@@ -209,41 +245,134 @@ export class PositronLayoutPopover extends Disposable {
 			this._host.close();
 			this._commandService.executeCommand(layout.id);
 		}));
+		// Pointing at a card marks the pills of the views that layout shows.
+		const preview = () => this._previewLayout(layout.id);
+		const clear = () => this._previewLayout(undefined);
+		this._itemDisposables.add(addDisposableListener(card, EventType.MOUSE_ENTER, preview));
+		this._itemDisposables.add(addDisposableListener(card, EventType.FOCUS, preview));
+		this._itemDisposables.add(addDisposableListener(card, EventType.MOUSE_LEAVE, clear));
+		this._itemDisposables.add(addDisposableListener(card, EventType.BLUR, clear));
 		return card;
 	}
 
 	/**
-	 * A small picture of a layout: the side bars and bottom panel it shows, with the
-	 * console colored, since where the console goes is what tells layouts apart.
+	 * What a layout puts in one part of the window, for its picture.
+	 * @param layout The layout's description.
+	 * @param part The part.
+	 * @param location Where the part's view containers live.
+	 * @returns The part's blocks, or undefined when the layout hides the part.
+	 */
+	private _picturePart(layout: CustomPositronLayoutDescription, part: ViewPart, location: ViewContainerLocation): PicturePart | undefined {
+		const description = layout[part];
+		if (!description || description.hidden) {
+			return undefined;
+		}
+		const containers = description.viewContainers ?? [];
+		const opened = containers.find(container => container.opened) ?? containers[0];
+		const tabIds = containers.filter(container => container !== opened).map(container => container.id);
+
+		// A part that names no container shows whatever was open there, which is its
+		// default container unless the user picked another.
+		const openedId = opened?.id ?? this._viewDescriptorService.getDefaultViewContainer(location)?.id;
+		if (opened?.views?.length) {
+			return {
+				tabIds,
+				blocks: opened.views.map(view => ({
+					ids: [view.id],
+					shows: !view.collapsed,
+					weight: view.collapsed ? 0.3 : 1,
+				})),
+			};
+		}
+		return { tabIds, blocks: [{ ids: openedId ? [openedId] : [], shows: !!openedId, weight: 1 }] };
+	}
+
+	/**
+	 * A small picture of a layout. Each side bar and the bottom panel is drawn as blocks,
+	 * one for each view the layout places there, and the views the layout shows are
+	 * colored. Pointing at a pill lights up where its view lives in the current layout's
+	 * picture.
+	 * @param layoutId The layout's command id.
 	 * @param layout The layout's description.
 	 */
-	private _picture(layout: CustomPositronLayoutDescription): HTMLElement {
-		const shows = (part: ViewPart) => layout[part] !== undefined && !layout[part].hidden;
-		const consoleIn = (part: ViewPart) => shows(part) && (layout[part].viewContainers ?? []).some(container =>
-			container.id === CONSOLE_ID || (container.views ?? []).some(view => view.id === CONSOLE_ID));
+	private _picture(layoutId: string, layout: CustomPositronLayoutDescription): HTMLElement {
+		const targets: PictureTarget[] = [];
+		const shown = new Set<string>();
+
+		const drawPart = (parent: HTMLElement, className: string, part: PicturePart) => {
+			const region = append(parent, $(`.picture-region.${className}`));
+			targets.push({ element: region, ids: part.tabIds });
+			for (const block of part.blocks) {
+				const element = append(region, $('.picture-block'));
+				element.classList.toggle('shows', block.shows);
+				element.style.flexGrow = String(block.weight);
+				targets.push({ element, ids: block.ids });
+				if (block.shows) {
+					block.ids.forEach(id => shown.add(id));
+				}
+			}
+		};
 
 		const picture = $('.positron-layout-popover-picture', { 'aria-hidden': 'true' });
-		if (shows(Parts.SIDEBAR_PART)) {
-			append(picture, $('.picture-side'));
+		const side = this._picturePart(layout, Parts.SIDEBAR_PART, ViewContainerLocation.Sidebar);
+		if (side) {
+			drawPart(picture, 'picture-side', side);
 		}
 		const center = append(picture, $('.picture-center'));
 		append(center, $('.picture-editor'));
-		if (shows(Parts.PANEL_PART)) {
-			append(center, $(`.picture-panel${consoleIn(Parts.PANEL_PART) ? '.console' : ''}`));
+		const panel = this._picturePart(layout, Parts.PANEL_PART, ViewContainerLocation.Panel);
+		if (panel) {
+			drawPart(center, 'picture-panel', panel);
 		}
-		if (shows(Parts.AUXILIARYBAR_PART)) {
-			const aux = append(picture, $('.picture-aux'));
-			if (consoleIn(Parts.AUXILIARYBAR_PART)) {
-				append(aux, $('.picture-aux-console'));
+		const aux = this._picturePart(layout, Parts.AUXILIARYBAR_PART, ViewContainerLocation.AuxiliaryBar);
+		if (aux) {
+			drawPart(picture, 'picture-aux', aux);
+		}
+
+		this._pictureTargets.set(layoutId, targets);
+		this._shownByLayout.set(layoutId, shown);
+		return picture;
+	}
+
+	/**
+	 * Lights up where a view lives in the current layout's picture. Nothing lights up when
+	 * that layout does not place the view.
+	 * @param id The id of the pointed-at pill's view or container, or undefined to clear.
+	 */
+	private _highlightView(id: string | undefined): void {
+		for (const targets of this._pictureTargets.values()) {
+			for (const target of targets) {
+				target.element.classList.remove('highlight');
 			}
 		}
-		return picture;
+		const targets = this._activeLayoutId ? this._pictureTargets.get(this._activeLayoutId) : undefined;
+		if (!id || !targets) {
+			return;
+		}
+		// A view's own block wins over the part it is tabbed behind.
+		const own = targets.filter(target => target.element.classList.contains('picture-block') && target.ids.includes(id));
+		const matches = own.length ? own : targets.filter(target => target.ids.includes(id));
+		for (const target of matches) {
+			target.element.classList.add('highlight');
+		}
+	}
+
+	/**
+	 * Marks the pills of the views a layout shows.
+	 * @param layoutId The pointed-at layout, or undefined to clear.
+	 */
+	private _previewLayout(layoutId: string | undefined): void {
+		const shown = layoutId ? this._shownByLayout.get(layoutId) : undefined;
+		for (const [id, pill] of this._pillsById) {
+			pill.classList.toggle('preview', !!shown?.has(id));
+		}
 	}
 
 	private _drawGroups(): void {
 		const query = this._search.value.trim().toLowerCase();
 		const groups: HTMLElement[] = [];
 		this._groupControls = [];
+		this._pillsById = new Map();
 
 		for (const group of VIEW_GROUPS) {
 			const pills = this._pills(group.location);
@@ -354,6 +483,14 @@ export class PositronLayoutPopover extends Disposable {
 
 		// The popover stays open, so the user sees the view come and go.
 		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => pill.toggle()));
+		// Pointing at a pill lights up where its view lives in the current layout.
+		const highlight = () => this._highlightView(pill.id);
+		const clear = () => this._highlightView(undefined);
+		this._itemDisposables.add(addDisposableListener(button, EventType.MOUSE_ENTER, highlight));
+		this._itemDisposables.add(addDisposableListener(button, EventType.FOCUS, highlight));
+		this._itemDisposables.add(addDisposableListener(button, EventType.MOUSE_LEAVE, clear));
+		this._itemDisposables.add(addDisposableListener(button, EventType.BLUR, clear));
+		this._pillsById.set(pill.id, button);
 		return button;
 	}
 
