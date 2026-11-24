@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { ResourceMap } from '../../../../base/common/map.js';
+import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
 import { Action } from '../../../../base/common/actions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -92,6 +92,13 @@ export interface IQuartoKernelManager {
 	getKernelState(documentUri: URI): QuartoKernelState;
 
 	/**
+	 * Whether a session ran for the document and has since ended, by shutdown
+	 * or on its own, while the document stayed open. Cleared when a new kernel
+	 * starts for the document or the document is closed.
+	 */
+	hasEndedSession(documentUri: URI): boolean;
+
+	/**
 	 * Shutdown kernel for a document.
 	 */
 	shutdownKernelForDocument(documentUri: URI): Promise<void>;
@@ -151,6 +158,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _documentKernels = new ResourceMap<DocumentKernelInfo>();
+
+	/** Open documents whose session ran and has ended. See hasEndedSession. */
+	private readonly _documentsWithEndedSession = new ResourceSet();
 
 	/** Persisted runtime selections keyed by document URI string. */
 	private readonly _kernelBindings = new Map<string, string>();
@@ -284,6 +294,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			if (!stillOpen) {
 				this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${documentUri.toString()}`);
 				await this.shutdownKernelForDocument(documentUri);
+				this._documentsWithEndedSession.delete(documentUri);
 			}
 		}, 100);
 		this._pendingCleanupTimeouts.add(handle);
@@ -677,6 +688,10 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		return existingSession;
 	}
 
+	hasEndedSession(documentUri: URI): boolean {
+		return this._documentsWithEndedSession.has(documentUri);
+	}
+
 	getKernelState(documentUri: URI): QuartoKernelState {
 		// First check our tracked sessions
 		const tracked = this._documentKernels.get(documentUri);
@@ -745,6 +760,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			// _setKernelState must run before _documentKernels.delete so that the state change
 			// event fires.
 			info.disposables.dispose();
+			if (info.session) {
+				this._documentsWithEndedSession.add(documentUri);
+			}
 			this._setKernelState(documentUri, QuartoKernelState.None);
 			this._documentKernels.delete(documentUri);
 		}
@@ -1082,6 +1100,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		info.disposables.add(session.onDidEndSession(() => {
 			this._logService.debug(`[QuartoKernelManager] Session ended for ${documentUri.toString()}`);
 			info.session = undefined;
+			this._documentsWithEndedSession.add(documentUri);
 			this._setKernelState(documentUri, QuartoKernelState.None);
 		}));
 	}
@@ -1267,6 +1286,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		if (info) {
 			info.state = newState;
+		}
+		if (newState === QuartoKernelState.Starting) {
+			this._documentsWithEndedSession.delete(documentUri);
 		}
 
 		this._logService.trace(`[QuartoKernelManager] State change for ${documentUri.toString()}: ${oldState} -> ${newState}`);

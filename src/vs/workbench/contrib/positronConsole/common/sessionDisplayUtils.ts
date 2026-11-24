@@ -170,7 +170,9 @@ export function getSessionIconClasses(
 export const enum RuntimeStatus {
 	Active = 'Active',
 	Disconnected = 'Disconnected',
-	Idle = 'Idle'
+	Idle = 'Idle',
+	/** No session has started yet, e.g. for a notebook in a preview tab. */
+	NotStarted = 'NotStarted',
 }
 
 /**
@@ -191,3 +193,11 @@ export const runtimeStateToRuntimeStatus: Record<RuntimeState, RuntimeStatus> = 
 	[RuntimeState.Exited]: RuntimeStatus.Disconnected,
 	[RuntimeState.Offline]: RuntimeStatus.Disconnected,
 };
+
+/**
+ * Gets the display status for a session's runtime state, where an undefined
+ * state means no session has started.
+ */
+export function getRuntimeStatus(state: RuntimeState | undefined): RuntimeStatus {
+	return state === undefined ? RuntimeStatus.NotStarted : runtimeStateToRuntimeStatus[state];
+}

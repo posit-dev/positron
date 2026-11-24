@@ -57,6 +57,7 @@ describe('Help search lifecycle', () => {
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r', languageName: 'R' }),
 			getRuntimeState: () => state,
 			onDidChangeRuntimeState: stateEvents.event,
+			onDidEndSession: Event.None,
 		});
 		ctx.instantiationService.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			foregroundSession: session,

@@ -182,6 +182,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         }
 
                         const observer = onFinished ? { onFinished } : undefined;
+                        // Attribute the run to the editor's own URI rather than the
+                        // scratch file's, so that it matches the code location sent
+                        // when running selections from the same untitled buffer.
                         // Not awaited: the run proceeds asynchronously and the
                         // observer reports completion. If the call rejects (e.g.
                         // no session can be started), clean up here; onFinished
@@ -197,7 +200,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                                 undefined,
                                 observer,
                                 undefined,
-                                fileUri,
+                                document.uri,
                             ),
                         ).catch(() => onFinished?.());
                     } else {

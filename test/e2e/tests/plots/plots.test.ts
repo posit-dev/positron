@@ -95,7 +95,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test('Python - Verify basic plot functionality - Static Plot', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
 		}, async function ({ app, logger }, testInfo) {
-			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in test-e2e-macos-run.yml');
+			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in the macOS lane');
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
 			await app.workbench.plots.waitForCurrentStaticPlot();
@@ -120,7 +120,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
-			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in test-e2e-macos-run.yml');
+			test.skip(isMacIntel, 'Graphviz is not installed on Intel macOS runners; see Setup Graphviz in the macOS lane');
 			const plots = app.workbench.plots;
 
 			// default plot pane state for action bar

@@ -15,7 +15,9 @@
 # and fails when the key does not hold the value. The app takes the change
 # through its file watcher, a moment later, with no reload; this does not
 # check that it did: read the setting's effect, or the Settings editor.
-# Refuses a window with a .code-workspace open, whose settings live in that file.
+# Refuses a window with a .code-workspace open, whose settings live in that file,
+# and a folder that is not on this machine (a remote window's vscode-remote://).
+# "file" is a file path, with a lower-case drive on Windows (c:\Users\...).
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"key":"editor.fontSize","value":16,"scope":"user","file":"/tmp/.../User/settings.json"}

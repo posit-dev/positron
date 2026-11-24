@@ -33,7 +33,10 @@ const TRUST_DIALOG = '[role="dialog"]:has(h2:has-text("Do you trust this workspa
 const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 
 // Welcome/landing page elements
-const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
+// Assistant renders the title as an h1 since posit-dev/assistant#3232; the
+// bundled release still renders a .text-4xl div. Drop that alternative once
+// the bundled Assistant includes #3232.
+const WELCOME_TITLE = 'h1:has-text("Posit Assistant"), .text-4xl:has-text("Posit Assistant")';
 // How long the greeting must stay on screen before startNewConversation trusts
 // that a persisted conversation is not about to be restored over it.
 const NEW_CONVERSATION_SETTLE_MS = 1000;

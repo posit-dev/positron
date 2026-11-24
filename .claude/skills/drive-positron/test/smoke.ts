@@ -32,7 +32,7 @@ import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { playwrightCli } from '../scripts/dp-lib.ts';
+import { playwrightCli, samePath } from '../scripts/dp-lib.ts';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
@@ -331,6 +331,8 @@ const cases: Case[] = [
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
+	{ name: 'ui read Extensions names the sidebar title it can read', before: showInstalledExtensions, run: ['ui.sh', 'read', 'Extensions'], fail: true, check: o => includes(o.json!.views, 'Extensions: Installed') },
+	{ name: 'palette-run Show Explorer (after Extensions)', run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
 	{ name: 'de-read cars.csv', quick: true, wait: 1000, run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '3'], check: o => (JSON.stringify(o.json!.columns) !== '["model","speed","dist"]' && `columns ${JSON.stringify(o.json!.columns)}`) || (o.json!.rows?.[1]?.model !== 'bravo' && `row 2 ${JSON.stringify(o.json!.rows?.[1])}`) || includes(o.json!.status, '5 rows') },
 	{ name: 'de-read wrong title', run: ['de-read.sh', '--title', 'Data: other'], fail: true },
@@ -518,12 +520,12 @@ const cases: Case[] = [
 	{ name: 'shot --list', run: ['shot.sh', '--list'], check: o => (o.json!.windows?.length !== 1 && `${o.json!.windows?.length} windows`) || (!o.json!.windows?.[0]?.attached && 'not attached') },
 	{ name: 'window select missing', run: ['window.sh', 'select', '9'], fail: true },
 	{ name: 'window select 0 is a usage error', run: ['window.sh', 'select', '0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'select N must be the window number shot.sh --list shows: a whole number from 1') },
-	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (o.json!.folder !== ws && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
+	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (!samePath(String(o.json!.folder), ws) && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
 	// Sessions that did not reconnect raise a dialog after the reload, now and then: answer it.
 	{ name: 'notifications after the reload', quick: true, run: () => found.reloadDialog ? ['notifications.sh', '--click', found.reloadDialog] : ['notifications.sh'] },
 	{ name: 'palette-run after the reload', run: ['palette-run.sh', '--dry-run', 'View: Show Explorer'] },
 	{ name: 'window open-folder missing', run: ['window.sh', 'open-folder', join(root, 'no-such-folder')], fail: true },
-	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (o.json!.folder !== join(ws, 'sub') && `folder ${o.json!.folder}`) || (o.json!.was?.folder !== ws && `was ${JSON.stringify(o.json!.was)}`) },
+	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (!samePath(String(o.json!.folder), join(ws, 'sub')) && `folder ${o.json!.folder}`) || (!samePath(String(o.json!.was?.folder), ws) && `was ${JSON.stringify(o.json!.was)}`) },
 ];
 
 // What each section needs from the ones before it, built on a fresh launch.
@@ -562,6 +564,12 @@ function showFilmstrip(): string | undefined {
 	const o = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'resize', 'secondary', '600']);
 	found.secondaryWidth = String(o.json?.before ?? 600);
 	return o.json?.ok ? undefined : `panel.sh resize secondary 600: ${o.json?.error ?? o.stderr}`;
+}
+
+/** A case's `before`: shows the installed extensions, a container with one view, so the sidebar is titled "Extensions: Installed" and has no pane header. */
+function showInstalledExtensions(): string | undefined {
+	const o = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Extensions: Show Installed Extensions']);
+	return o.json?.ok ? undefined : `palette-run.sh Extensions: Show Installed Extensions: ${o.json?.error ?? o.stderr}`;
 }
 
 // ---- Running ---------------------------------------------------------------------

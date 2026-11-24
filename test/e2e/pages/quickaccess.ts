@@ -147,9 +147,12 @@ export class QuickAccess {
 					throw new Error(`Unsupported QuickAccessKind: ${kind}`);
 			}
 
-			// Await for quick input widget opened
+			// Typing is inside the retry: a quick input that lost focus closes before it is typed into.
 			try {
 				await this.quickInput.waitForQuickInputOpened({ timeout: 3000 });
+				if (value) {
+					await this.quickInput.type(value, { timeout: 3000 });
+				}
 			} catch (err) {
 				await this.code.driver.currentPage.keyboard.press('Escape');
 				throw err;
@@ -158,11 +161,6 @@ export class QuickAccess {
 			timeout: 15000,
 			intervals: [1000]
 		});
-
-		// Type value if any
-		if (value) {
-			await this.quickInput.type(value);
-		}
 	}
 
 

@@ -364,8 +364,8 @@ assert_fails "container_platform refuses an unknown arch" wb_container_platform 
 
 # --- wb_parse_build_source ----------------------------------------------------
 
-assert_eq "build source: a bare run ID means posit-dev/positron" \
-	"$(printf 'run\tposit-dev/positron\t36598746699')" "$(wb_parse_build_source 36598746699)"
+assert_eq "build source: a bare run ID means posit-dev/positron-builds" \
+	"$(printf 'run\tposit-dev/positron-builds\t36598746699')" "$(wb_parse_build_source 36598746699)"
 assert_eq "build source: a run URL" \
 	"$(printf 'run\tposit-dev/positron\t36598746699')" \
 	"$(wb_parse_build_source https://github.com/posit-dev/positron/actions/runs/36598746699)"
