@@ -43,80 +43,241 @@
 	margin-left: 78px;
 }
 
-/* The layout picker's menu. Colored like the workbench's other menus. */
-.positron-layout-menu {
+/* The layout popover. Colored like the workbench's menus. */
+.positron-layout-popover {
 	background-color: var(--vscode-menu-background);
 	border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, transparent));
-	border-radius: var(--vscode-cornerRadius-large, 6px);
-	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	border-radius: var(--vscode-cornerRadius-large, 8px);
+	box-shadow: 0 4px 16px var(--vscode-widget-shadow);
 	color: var(--vscode-menu-foreground);
-	font-size: 13px;
-	min-width: 260px;
-	padding: 4px 0;
-	user-select: none;
+	display: flex;
+	flex-direction: column;
+	font-size: 12px;
+	gap: 8px;
+	padding: 12px;
+	width: 520px;
 }
 
-.positron-layout-menu-heading {
+.positron-layout-popover button {
+	background: none;
+	border: none;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+}
+
+.positron-layout-popover button:focus-visible,
+.positron-layout-popover input:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.positron-layout-popover-header {
+	align-items: baseline;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+.positron-layout-popover-heading {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.positron-layout-popover-note {
 	color: var(--vscode-descriptionForeground);
 	font-size: 11px;
-	padding: 6px 12px 2px 12px;
 }
 
-.positron-layout-menu-separator {
+.positron-layout-popover-divider {
 	border-top: 1px solid var(--vscode-menu-separatorBackground, var(--vscode-widget-border));
 	margin: 4px 0;
 }
 
-.positron-layout-menu-item {
-	align-items: center;
-	border-radius: var(--vscode-cornerRadius-medium, 4px);
-	cursor: pointer;
-	display: flex;
+/* Layout cards, each with a small picture of its layout. */
+.positron-layout-popover-cards {
+	display: grid;
 	gap: 8px;
-	margin: 0 4px;
-	outline: none;
-	padding: 4px 8px;
+	grid-template-columns: repeat(5, 1fr);
 }
 
-.positron-layout-menu-item:focus {
-	background-color: var(--vscode-menu-selectionBackground);
-	color: var(--vscode-menu-selectionForeground);
+.positron-layout-popover button.positron-layout-popover-card {
+	align-items: stretch;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-input-border));
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 4px 4px 3px 4px;
 }
 
-.positron-layout-menu-icon {
-	flex: none;
-	font-size: 14px;
-	width: 16px;
+.positron-layout-popover button.positron-layout-popover-card:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.positron-layout-menu-text {
+.positron-layout-popover button.positron-layout-popover-card.current,
+.positron-layout-popover button.positron-layout-popover-card.modified {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
+.positron-layout-popover button.positron-layout-popover-card.current {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.positron-layout-popover-card-label {
+	align-items: center;
+	display: flex;
+	gap: 3px;
+	justify-content: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.positron-layout-popover-card-label .codicon {
+	font-size: 11px;
+}
+
+.positron-layout-popover-picture {
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border, var(--vscode-input-border));
+	border-left: 3px solid var(--vscode-activityBar-background);
+	border-radius: 3px;
+	display: flex;
+	gap: 2px;
+	height: 40px;
+	overflow: hidden;
+	padding: 2px;
+}
+
+.positron-layout-popover-picture .picture-side,
+.positron-layout-popover-picture .picture-aux {
+	background-color: var(--vscode-sideBar-background, var(--vscode-editorWidget-background));
+	border: 1px solid var(--vscode-widget-border, transparent);
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+}
+
+.positron-layout-popover-picture .picture-side {
+	width: 22%;
+}
+
+.positron-layout-popover-picture .picture-aux {
+	width: 32%;
+}
+
+.positron-layout-popover-picture .picture-center {
 	display: flex;
 	flex: 1;
 	flex-direction: column;
-	min-width: 0;
+	gap: 2px;
 }
 
-.positron-layout-menu-description {
+.positron-layout-popover-picture .picture-editor {
+	border: 1px solid var(--vscode-widget-border, transparent);
+	flex: 1;
+}
+
+.positron-layout-popover-picture .picture-panel {
+	border: 1px solid var(--vscode-widget-border, transparent);
+	height: 35%;
+}
+
+/* The console, colored so the pictures show where it goes. */
+.positron-layout-popover-picture .picture-panel.console,
+.positron-layout-popover-picture .picture-aux-console {
+	background-color: color-mix(in srgb, var(--vscode-focusBorder) 30%, transparent);
+}
+
+.positron-layout-popover-picture .picture-aux-console {
+	height: 40%;
+}
+
+/* Views, grouped by the part of the window they live in. */
+.positron-layout-popover-search {
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
+	border-radius: var(--vscode-cornerRadius-medium, 4px);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	padding: 4px 8px;
+}
+
+.positron-layout-popover-groups {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	max-height: 360px;
+	overflow-y: auto;
+}
+
+.positron-layout-popover-group-header {
+	align-items: center;
+	display: flex;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.positron-layout-popover-group-name {
+	flex: 1;
+	font-weight: 600;
+}
+
+.positron-layout-popover-count,
+.positron-layout-popover-empty {
 	color: var(--vscode-descriptionForeground);
-	font-size: 12px;
+	font-size: 11px;
 }
 
-.positron-layout-menu-item:focus .positron-layout-menu-description {
-	color: inherit;
-	opacity: 0.8;
+.positron-layout-popover-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
 }
 
-/* An on/off switch, drawn from the item's checked state. */
-.positron-layout-menu-switch {
+.positron-layout-popover button.positron-layout-popover-pill {
+	align-items: center;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-input-border));
+	border-radius: 999px;
+	display: flex;
+	gap: 5px;
+	padding: 2px 9px;
+}
+
+.positron-layout-popover button.positron-layout-popover-pill:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.positron-layout-popover button.positron-layout-popover-pill.shown {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	border-color: var(--vscode-focusBorder);
+}
+
+.positron-layout-popover-pill .codicon {
+	font-size: 13px;
+}
+
+.positron-layout-popover-pill-keybinding {
+	color: var(--vscode-descriptionForeground);
+	font-size: 10px;
+}
+
+/* An on/off switch, drawn from its checked state. */
+.positron-layout-popover button.positron-layout-popover-switch {
 	background-color: var(--vscode-input-border, var(--vscode-widget-border));
 	border-radius: 7px;
 	flex: none;
 	height: 14px;
+	padding: 0;
 	position: relative;
 	width: 26px;
 }
 
-.positron-layout-menu-switch::after {
+.positron-layout-popover button.positron-layout-popover-switch::after {
 	background-color: var(--vscode-menu-background);
 	border-radius: 50%;
 	content: '';
@@ -128,10 +289,19 @@
 	width: 10px;
 }
 
-.positron-layout-menu-item[aria-checked="true"] .positron-layout-menu-switch {
+.positron-layout-popover button.positron-layout-popover-switch[aria-checked="true"] {
 	background-color: var(--vscode-button-background);
 }
 
-.positron-layout-menu-item[aria-checked="true"] .positron-layout-menu-switch::after {
+.positron-layout-popover button.positron-layout-popover-switch[aria-checked="true"]::after {
 	left: 14px;
+}
+
+.positron-layout-popover button.positron-layout-popover-link {
+	align-items: center;
+	align-self: flex-start;
+	color: var(--vscode-textLink-foreground);
+	display: flex;
+	gap: 6px;
+	padding: 2px 0;
 }
