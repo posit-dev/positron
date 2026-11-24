@@ -86,15 +86,21 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const pane = visible(page.locator(s.view.pane)).filter({ has: heading });
 			if (await pane.count() === 1) { return { loc: pane, name }; }
 			// A container with one view has no pane header: match the part's title or selected tab.
+			const parts = [s.part.sidebar, s.part.secondary, s.part.panel];
 			const tabName = new RegExp('^\\s*' + esc + '(\\s*\\(.*\\))?\\s*$', 'i');
 			const labelled = page.locator('[role=tab][aria-selected=true]').filter({ has: page.locator(s.workbench.tabLabel, { hasText: new RegExp('^\\s*' + esc + '\\s*$', 'i') }) });
-			for (const part of [s.part.sidebar, s.part.secondary, s.part.panel]) {
+			for (const part of parts) {
 				const p = visible(page.locator(part)).filter({ has: page.getByRole('heading', { name, exact: true, level: 2 }) });
 				if (await p.count() === 1) { return { loc: p, name }; }
 				const t = visible(page.locator(part)).filter({ has: page.getByRole('tab', { name: tabName, selected: true }).or(labelled) });
 				if (await t.count() === 1) { return { loc: t, name }; }
 			}
-			const views = await visible(page.locator(s.view.paneHeader)).getByRole('heading').allTextContents();
+			// List the part titles matched above too: a container showing one view titles
+			// its part "Container: View" ("Extensions: Installed") and has no pane header.
+			const views = [
+				...await visible(visible(page.locator(parts.join(', '))).getByRole('heading', { level: 2 })).allTextContents(),
+				...await visible(page.locator(s.view.paneHeader)).getByRole('heading').allTextContents(),
+			];
 			return { error: `no view titled "${name}" on screen`, views: [...new Set(views.map(v => v.trim()).filter(Boolean))] };
 		},
 		/** The innermost iframe drawn over loc, found by position since it often lives outside the view's DOM. */

@@ -24,7 +24,8 @@ See also the Positron E2E Test Guide in test/e2e/README.md for other setup
 help, including required environment variables.
 
 If you run into trouble, it may be helpful to look at the Github workflows to
-see how they prepare fresh environments for running tests; for example in
-.github/workflows/test-e2e-ubuntu.yml.
+see how they prepare fresh environments for running tests; for example
+`.github/workflows/test-e2e-ubuntu.yml` in the private repo `posit-dev/positron-builds`,
+where the test lanes run.
 
 
