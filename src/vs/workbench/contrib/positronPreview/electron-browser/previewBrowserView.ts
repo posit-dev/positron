@@ -16,6 +16,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../browserView/common/browserView.js';
 import { BrowserElementSelectionMode, IBrowserViewLoadError, IBrowserViewService, IElementData, ipcBrowserViewChannelName } from '../../../../platform/browserView/common/browserView.js';
@@ -109,6 +110,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		@ILogService private readonly _logService: ILogService,
 		@ILifecycleService lifecycleService: ILifecycleService,
 		@IMainProcessService mainProcessService: IMainProcessService,
+		@IOpenerService private readonly _openerService: IOpenerService,
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
@@ -253,6 +255,8 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 			}
 		}));
 		this._modelStore.add(model.onDidSelectElement(e => this._onDidSelectElement.fire(e)));
+		// The page has no tabs, so a page it opens goes to the user's browser.
+		this._modelStore.add(model.onDidRequestOpenExternal(url => this._openerService.open(url, { openExternal: true })));
 		this._modelStore.add(model.onDidChangeZoom(() => {
 			this.layout();
 			this._onDidChangeZoom.fire();

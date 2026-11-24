@@ -3,10 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Start Positron ---
-// import { screen, WebContentsView, webContents } from 'electron';
-import { screen, shell, WebContentsView, webContents } from 'electron';
-// --- End Positron ---
+import { screen, WebContentsView, webContents } from 'electron';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
@@ -125,6 +122,11 @@ export class BrowserView extends Disposable {
 	private readonly _onDidChangeAudiences = this._register(new Emitter<IBrowserViewAudience[]>());
 	readonly onDidChangeAudiences: Event<IBrowserViewAudience[]> = this._onDidChangeAudiences.event;
 
+	// --- Start Positron ---
+	private readonly _onDidRequestOpenExternal = this._register(new Emitter<string>());
+	readonly onDidRequestOpenExternal: Event<string> = this._onDidRequestOpenExternal.event;
+	// --- End Positron ---
+
 	constructor(
 		public readonly id: string,
 		public readonly host: IBrowserViewHost,
@@ -188,14 +190,16 @@ export class BrowserView extends Disposable {
 		this._ownerWindow.win?.contentView.addChildView(this._view);
 
 		this._view.webContents.setWindowOpenHandler((details) => {
-			// --- Start Positron ---
-			// An unlisted view, such as the Viewer's, has no tabs to open a page
-			// in, so open a link the user followed in their browser, as the
-			// Viewer's webview does.
-			// if (this.presentation === BrowserViewPresentation.Unlisted) {
-			// 	return { action: 'deny' };
-			// }
-			// --- End Positron ---
+			if (this.presentation === BrowserViewPresentation.Unlisted) {
+				// --- Start Positron ---
+				// An unlisted view has no tabs to open a page in, so ask its
+				// owner to open the page elsewhere, but only after a user gesture.
+				if (this.consumePopupPermission(NewPageLocation.NewWindow) && /^https?:/i.test(details.url)) {
+					this._onDidRequestOpenExternal.fire(details.url);
+				}
+				// --- End Positron ---
+				return { action: 'deny' };
+			}
 			const location = (() => {
 				switch (details.disposition) {
 					case 'background-tab': return NewPageLocation.Background;
@@ -204,15 +208,6 @@ export class BrowserView extends Disposable {
 					default: return undefined;
 				}
 			})();
-
-			// --- Start Positron ---
-			if (this.presentation === BrowserViewPresentation.Unlisted) {
-				if (location && this.consumePopupPermission(location) && /^https?:/i.test(details.url)) {
-					void shell.openExternal(details.url);
-				}
-				return { action: 'deny' };
-			}
-			// --- End Positron ---
 
 			if (!location || !this.consumePopupPermission(location)) {
 				// Eventually we may want to surface this. For now, just silently block it.

@@ -447,6 +447,10 @@ export interface IBrowserViewModel extends IDisposable {
 	readonly onDidChangeDevice: Event<IBrowserDeviceProfile | undefined>;
 	readonly onDidChangeRemoteStatus: Event<boolean>;
 	readonly onDidRequestPermission: Event<IBrowserViewPermissionRequestEvent>;
+	// --- Start Positron ---
+	/** Fires with the address of a page the user asked to open outside the view. */
+	readonly onDidRequestOpenExternal: Event<string>;
+	// --- End Positron ---
 
 	layout(bounds: IBrowserViewBounds): Promise<void>;
 	setVisible(visible: boolean): Promise<void>;
@@ -504,6 +508,9 @@ export function createBrowserViewEventEmitters(store: DisposableStore): BrowserV
 		onDidRemoveElementComment: store.add(new Emitter<BrowserViewEventData['onDidRemoveElementComment']>()),
 		onDidRequestPermission: store.add(new Emitter<BrowserViewEventData['onDidRequestPermission']>()),
 		onDidSelectElement: store.add(new Emitter<BrowserViewEventData['onDidSelectElement']>()),
+		// --- Start Positron ---
+		onDidRequestOpenExternal: store.add(new Emitter<BrowserViewEventData['onDidRequestOpenExternal']>()),
+		// --- End Positron ---
 	};
 }
 
@@ -554,6 +561,9 @@ export class BrowserViewModel extends Disposable implements IBrowserViewModel {
 	get onDidChangeAreaSelectionActive() { return this._remoteEvents.onDidChangeAreaSelectionActive.event; }
 	get onDidChangeRemoteStatus() { return this._remoteEvents.onDidChangeRemoteStatus.event; }
 	get onDidRequestPermission() { return this._remoteEvents.onDidRequestPermission.event; }
+	// --- Start Positron ---
+	get onDidRequestOpenExternal() { return this._remoteEvents.onDidRequestOpenExternal.event; }
+	// --- End Positron ---
 
 	private readonly _onDidChangeDevice = this._register(new Emitter<IBrowserDeviceProfile | undefined>());
 	readonly onDidChangeDevice: Event<IBrowserDeviceProfile | undefined> = this._onDidChangeDevice.event;

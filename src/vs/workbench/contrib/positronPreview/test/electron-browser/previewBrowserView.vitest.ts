@@ -23,6 +23,7 @@ import { ILifecycleService, WillShutdownEvent } from '../../../../services/lifec
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { IStorageService, InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 
 const { hostVisibility } = vi.hoisted(() => ({ hostVisibility: [] as boolean[] }));
 
@@ -46,6 +47,7 @@ describe('PreviewBrowserView', () => {
 	const mainCalls: string[] = [];
 	let views: DeferredPromise<IBrowserViewModel>[];
 	let created: string[];
+	const openUrl = vi.fn(async () => true);
 
 	const ctx = createLightTestContainer()
 		.stub(IBrowserViewWorkbenchService, {
@@ -57,6 +59,7 @@ describe('PreviewBrowserView', () => {
 			}
 		})
 		.stub(ILifecycleService, { onWillShutdown: willShutdown.event })
+		.stub(IOpenerService, { open: openUrl })
 		.stub(IMainProcessService, {
 			getChannel: () => stubInterface<IChannel>({ call: async <T>(command: string, arg?: unknown) => { mainCalls.push(`${command} ${JSON.stringify(arg)}`); return undefined as T; } }),
 		})
@@ -80,6 +83,7 @@ describe('PreviewBrowserView', () => {
 		const willDispose = ctx.disposables.add(new Emitter<void>());
 		const selectElement = ctx.disposables.add(new Emitter<IElementData>());
 		const zoom = ctx.disposables.add(new Emitter<void>());
+		const openExternal = ctx.disposables.add(new Emitter<string>());
 		const calls: string[] = [];
 		let selection: IBrowserElementSelectionState = { active: false, options: {} };
 		const model = stubInterface<IBrowserViewModel>({
@@ -93,6 +97,7 @@ describe('PreviewBrowserView', () => {
 			onWillDispose: willDispose.event,
 			onDidSelectElement: selectElement.event,
 			onDidChangeZoom: zoom.event,
+			onDidRequestOpenExternal: openExternal.event,
 			zoomFactor: 1,
 			setDevice: async device => { calls.push(`device ${JSON.stringify(device)}`); },
 			zoomIn: async () => { calls.push('zoomIn'); },
@@ -107,7 +112,7 @@ describe('PreviewBrowserView', () => {
 			layout: async bounds => { calls.push(`layout ${JSON.stringify(bounds)}`); },
 			dispose: () => { calls.push('dispose'); willDispose.fire(); },
 		});
-		return { model, calls, navigate, loading, willDispose, selectElement };
+		return { model, calls, navigate, loading, willDispose, selectElement, openExternal };
 	}
 
 	/** Creates a surface showing `url`. Its view is created by completing `views[0]`. */
@@ -222,6 +227,16 @@ describe('PreviewBrowserView', () => {
 		loading.fire({ loading: false });
 
 		expect({ navigated, loaded }).toEqual({ navigated: ['http://localhost:8000/', 'http://localhost:8000/two'], loaded: ['App', 'App'] });
+	});
+
+	it('opens a page the user asks to open from the view in their browser', async () => {
+		const { model, openExternal } = createModel();
+		createSurface();
+		await views[0].complete(model);
+
+		openExternal.fire('https://example.com/');
+
+		expect(openUrl).toHaveBeenCalledWith('https://example.com/', { openExternal: true });
 	});
 
 	it('disposes itself when its view goes away', async () => {
