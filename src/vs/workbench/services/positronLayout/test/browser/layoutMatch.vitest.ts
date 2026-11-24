@@ -78,6 +78,15 @@ describe('findMatchingLayout', () => {
 		expect(findMatchingLayout(layouts, panelHidden, 'stacked')).toBeUndefined();
 	});
 
+	it('does not switch to another layout the user did not pick', () => {
+		// The user picked stacked, then moved the console to the right.
+		expect(findMatchingLayout(layouts, sideBySideWindow, undefined, 'stacked')).toBeUndefined();
+	});
+
+	it('goes back to the picked layout when the window matches it again', () => {
+		expect(findMatchingLayout(layouts, stackedWindow, undefined, 'stacked')).toBe('stacked');
+	});
+
 	it('does not match a container the layout names when its views moved out', () => {
 		// The console's container is still in the panel, but its view is in the session.
 		const consoleMoved = windowState([SIDEBAR, PANEL, AUX], { console: PANEL, session: AUX }, { consoleView: 'session', variables: 'session' });

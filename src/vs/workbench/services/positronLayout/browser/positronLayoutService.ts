@@ -163,7 +163,7 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		if (this._applyingLayout) {
 			return;
 		}
-		this._setCurrentLayoutId(findMatchingLayout(getMatchableLayouts(), this._layoutState, this._currentLayoutId));
+		this._setCurrentLayoutId(findMatchingLayout(getMatchableLayouts(), this._layoutState, this._currentLayoutId, this._lastAppliedLayoutId));
 	}
 
 	/**

@@ -68,14 +68,21 @@ export function layoutMatches(layout: CustomPositronLayoutDescription, state: La
  * @param state What the window looks like now.
  * @param currentLayoutId The layout the window was last in. It wins when it still matches,
  * because two layouts can have the same shape.
+ * @param pickedLayoutId The task layout the user picked last, if any. Once the user has
+ * picked one, changes they make to the window customize it rather than switch to another
+ * layout, so only that layout and the current one can match.
  * @returns The id of the matching layout, or undefined when none match.
  */
 export function findMatchingLayout(
 	layouts: readonly MatchableLayout[],
 	state: LayoutState,
 	currentLayoutId: string | undefined,
+	pickedLayoutId?: string,
 ): string | undefined {
-	const matches = layouts.filter(layout => layoutMatches(layout.layoutDescriptor, state));
+	const candidates = pickedLayoutId
+		? layouts.filter(layout => layout.id === pickedLayoutId || layout.id === currentLayoutId)
+		: layouts;
+	const matches = candidates.filter(layout => layoutMatches(layout.layoutDescriptor, state));
 	return matches.find(layout => layout.id === currentLayoutId)?.id ?? matches[0]?.id;
 }
 
