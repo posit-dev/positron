@@ -6,7 +6,7 @@
 import { $, addDisposableListener, append, EventType, getActiveElement, isHTMLElement, isHTMLInputElement, reset } from '../../../../base/browser/dom.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
-import { KeyCode } from '../../../../base/common/keyCodes.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -14,7 +14,7 @@ import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
+import { IViewDescriptor, IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../common/views.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IPaneCompositePartService } from '../../../services/panecomposite/browser/panecomposite.js';
 import { IPositronLayoutService } from '../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
@@ -45,6 +45,23 @@ interface ViewPill {
 	readonly commandId: string;
 	readonly shown: boolean;
 	readonly toggle: () => void;
+	/** The view container the pill is, or holds its view. */
+	readonly container: ViewContainer;
+	/** For a view in the Session container, the view. It moves on its own. */
+	readonly sessionView?: IViewDescriptor;
+	/** Whether the pill can be dragged to move its view. */
+	readonly movable: boolean;
+}
+
+/** A group of pills as last drawn, which a dragged pill can be dropped into. */
+interface DropGroup {
+	readonly part: ViewPart;
+	readonly location: ViewContainerLocation;
+	readonly section: HTMLElement;
+	/** Where the pills are, or undefined when the group has none. */
+	readonly list: HTMLElement | undefined;
+	readonly pills: readonly ViewPill[];
+	readonly elements: readonly HTMLElement[];
 }
 
 /** One block in a layout's picture: a view, or a view container that fills its part. */
@@ -122,6 +139,15 @@ export class PositronLayoutPopover extends Disposable {
 	/** The pointed-at pill, kept so its light survives the popover being drawn again. */
 	private _highlightedPill: { id: string; part: ViewPart } | undefined;
 
+	/** The groups of pills as last drawn, by part. */
+	private readonly _dropGroups = new Map<ViewPart, DropGroup>();
+
+	/** The pill being dragged, and the part it is grouped under. */
+	private _drag: { pill: ViewPill; part: ViewPart } | undefined;
+
+	/** Marks where a dragged pill will land. */
+	private readonly _dropMarker = $('.positron-layout-popover-drop-marker', { 'aria-hidden': 'true' });
+
 	/** The listeners of the cards and pills, cleared each time they are drawn again. */
 	private readonly _itemDisposables = this._register(new DisposableStore());
 
@@ -157,7 +183,7 @@ export class PositronLayoutPopover extends Disposable {
 
 		const viewsHeader = append(this._element, $('.positron-layout-popover-header'));
 		append(viewsHeader, $('span.positron-layout-popover-heading', undefined, localize('positron.layoutPopover.views', "Views")));
-		append(viewsHeader, $('span.positron-layout-popover-note', undefined, localize('positron.layoutPopover.viewsHint', "Click a view to show or hide it.")));
+		append(viewsHeader, $('span.positron-layout-popover-note', undefined, localize('positron.layoutPopover.viewsHint', "Click a view to show or hide it. Drag it to move it.")));
 		this._search = append(this._element, $('input.positron-layout-popover-search', { type: 'search' })) as HTMLInputElement;
 		this._search.placeholder = localize('positron.layoutPopover.searchPlaceholder', "Search views");
 		this._search.setAttribute('aria-label', localize('positron.layoutPopover.searchAriaLabel', "Search views"));
@@ -398,6 +424,18 @@ export class PositronLayoutPopover extends Disposable {
 	}
 
 	/**
+	 * Lights up a whole part of the current layout's picture, while a pill is dragged over
+	 * its group.
+	 * @param part The part, or undefined to clear.
+	 */
+	private _highlightPart(part: ViewPart | undefined): void {
+		const targets = this._activeLayoutId ? this._pictureTargets.get(this._activeLayoutId) : undefined;
+		for (const target of targets ?? []) {
+			target.element.classList.toggle('highlight', !!part && target.part === part);
+		}
+	}
+
+	/**
 	 * Marks the pills of the views a layout shows.
 	 * @param layoutId The pointed-at layout, or undefined to clear.
 	 */
@@ -414,6 +452,7 @@ export class PositronLayoutPopover extends Disposable {
 		const groups: HTMLElement[] = [];
 		this._groupControls = [];
 		this._pillsById = new Map();
+		this._dropGroups.clear();
 
 		for (const group of VIEW_GROUPS) {
 			const pills = this._pills(group.location);
@@ -441,17 +480,23 @@ export class PositronLayoutPopover extends Disposable {
 				this._groupControls.push(panelSwitch);
 			}
 
+			let list: HTMLElement | undefined;
+			const elements: HTMLElement[] = [];
 			if (matching.length) {
-				const list = append(section, $('.positron-layout-popover-pills'));
+				list = append(section, $('.positron-layout-popover-pills'));
 				for (const pill of matching) {
 					const button = this._pill(pill, group.part);
 					list.appendChild(button);
+					elements.push(button);
 					this._groupControls.push(button);
 				}
 			} else {
 				append(section, $('.positron-layout-popover-empty', undefined, localize(
 					'positron.layoutPopover.empty', "No views here in this layout.")));
 			}
+			const dropGroup: DropGroup = { part: group.part, location: group.location, section, list, pills: matching, elements };
+			this._dropGroups.set(group.part, dropGroup);
+			this._listenForDrops(dropGroup);
 			groups.push(section);
 		}
 
@@ -487,6 +532,9 @@ export class PositronLayoutPopover extends Disposable {
 						commandId: view.openCommandActionDescriptor?.id ?? `${view.id}.focus`,
 						shown,
 						toggle: () => shown ? this._viewsService.closeView(view.id) : this._viewsService.openView(view.id, false),
+						container,
+						sessionView: view,
+						movable: view.canMoveView !== false && this._viewDescriptorService.canMoveViews(),
 					});
 				}
 				continue;
@@ -502,6 +550,8 @@ export class PositronLayoutPopover extends Disposable {
 				toggle: () => shown
 					? this._layoutService.setPartHidden(true, group.part)
 					: this._paneCompositeService.openPaneComposite(container.id, location, false),
+				container,
+				movable: this._viewDescriptorService.canMoveViews(),
 			});
 		}
 		return pills;
@@ -537,7 +587,155 @@ export class PositronLayoutPopover extends Disposable {
 		this._itemDisposables.add(addDisposableListener(button, EventType.MOUSE_LEAVE, clear));
 		this._itemDisposables.add(addDisposableListener(button, EventType.BLUR, clear));
 		this._pillsById.set(pill.id, button);
+
+		// Dragging a pill into another group, or to another spot, moves its view.
+		if (pill.movable) {
+			button.draggable = true;
+			this._itemDisposables.add(addDisposableListener(button, EventType.DRAG_START, (e: DragEvent) => {
+				this._drag = { pill, part };
+				e.dataTransfer?.setData('text/plain', pill.name);
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = 'move';
+				}
+				button.classList.add('dragging');
+			}));
+			this._itemDisposables.add(addDisposableListener(button, EventType.DRAG_END, () => {
+				button.classList.remove('dragging');
+				this._endDrag();
+			}));
+		}
 		return button;
+	}
+
+	//#endregion
+
+	//#region Dragging
+
+	/**
+	 * Lets a group take dropped pills. While a pill is over it, the group and its part of the
+	 * current layout's picture light up, and a marker shows where the pill will land.
+	 * @param group The group.
+	 */
+	private _listenForDrops(group: DropGroup): void {
+		const over = (e: DragEvent) => {
+			if (!this._drag) {
+				return;
+			}
+			e.preventDefault();
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = 'move';
+			}
+			for (const other of this._dropGroups.values()) {
+				other.section.classList.toggle('drop-target', other === group);
+			}
+			this._highlightPart(group.part);
+			const index = this._dropIndex(group, e);
+			const before = group.elements[index];
+			if (before) {
+				before.before(this._dropMarker);
+			} else {
+				(group.list ?? group.section).appendChild(this._dropMarker);
+			}
+		};
+		this._itemDisposables.add(addDisposableListener(group.section, EventType.DRAG_OVER, over));
+		this._itemDisposables.add(addDisposableListener(group.section, EventType.DROP, (e: DragEvent) => {
+			if (!this._drag) {
+				return;
+			}
+			e.preventDefault();
+			const index = this._dropIndex(group, e);
+			const drag = this._drag;
+			this._endDrag();
+			this._move(drag.pill, drag.part, group, index);
+		}));
+	}
+
+	/**
+	 * Where in a group a dragged pill would land: before the first pill the pointer is
+	 * above, or left of the middle of on the same row, or else at the end.
+	 * @param group The group under the pointer.
+	 * @param e The drag event.
+	 */
+	private _dropIndex(group: DropGroup, e: DragEvent): number {
+		const index = group.elements.findIndex(element => {
+			const box = element.getBoundingClientRect();
+			return e.clientY < box.top || (e.clientY <= box.bottom && e.clientX < box.left + box.width / 2);
+		});
+		return index === -1 ? group.elements.length : index;
+	}
+
+	private _endDrag(): void {
+		this._drag = undefined;
+		this._dropMarker.remove();
+		for (const group of this._dropGroups.values()) {
+			group.section.classList.remove('drop-target');
+		}
+		this._highlightPart(undefined);
+	}
+
+	/**
+	 * Moves a pill's view to where it was dropped.
+	 *
+	 * - A view from the Session container dropped among the other Session pills moves to
+	 *   that spot in Session. Dropped anywhere else, it becomes its own tab in that part,
+	 *   at the end.
+	 * - A view container moves to the part it was dropped in, at that spot. The workbench
+	 *   cannot reorder containers within a part, so a drop in its own group does nothing.
+	 * @param pill The dragged pill.
+	 * @param from The part the pill was grouped under.
+	 * @param target The group it was dropped in.
+	 * @param index Where in the group it was dropped.
+	 */
+	private _move(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
+		const reason = 'positronLayoutPopover';
+		if (pill.sessionView) {
+			const sessionIndexes = target.pills.flatMap((candidate, i) => candidate.sessionView ? [i] : []);
+			const first = sessionIndexes[0];
+			const last = sessionIndexes[sessionIndexes.length - 1];
+			if (target.part === from && first !== undefined && index >= first && index <= last + 1) {
+				// Moving down, the view lands after the pill it is moved to, so aim one earlier.
+				const fromIndex = target.pills.indexOf(pill);
+				const to = target.pills[fromIndex < index ? index - 1 : index];
+				if (to && to !== pill && to.sessionView) {
+					this._viewDescriptorService.getViewContainerModel(pill.container).move(pill.id, to.id);
+				}
+				return;
+			}
+			this._viewDescriptorService.moveViewToLocation(pill.sessionView, target.location, reason);
+			return;
+		}
+
+		if (target.part === from) {
+			return;
+		}
+		// The position counts containers, and the Session views share one.
+		const containersBefore = new Set(target.pills.slice(0, index).map(candidate => candidate.container.id));
+		this._viewDescriptorService.moveViewContainerToLocation(pill.container, target.location, containersBefore.size, reason);
+	}
+
+	/**
+	 * Moves the focused pill to the group above or below, for keyboard users.
+	 * @param pillElement The focused pill.
+	 * @param direction -1 for the group above, 1 for the group below.
+	 * @returns Whether the pill could move.
+	 */
+	private _moveToNeighborGroup(pillElement: HTMLElement, direction: -1 | 1): boolean {
+		for (const group of this._dropGroups.values()) {
+			const index = group.elements.indexOf(pillElement);
+			const pill = group.pills[index];
+			if (index === -1 || !pill?.movable) {
+				continue;
+			}
+			const groupIndex = VIEW_GROUPS.findIndex(candidate => candidate.part === group.part);
+			const neighbor = VIEW_GROUPS[groupIndex + direction];
+			const target = neighbor ? this._dropGroups.get(neighbor.part) : undefined;
+			if (!target) {
+				return false;
+			}
+			this._move(pill, group.part, target, target.pills.length);
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -575,6 +773,15 @@ export class PositronLayoutPopover extends Disposable {
 		const active = getActiveElement();
 		const index = isHTMLElement(active) ? focusables.indexOf(active) : -1;
 		const inSearch = isHTMLInputElement(active);
+
+		// Alt+Up and Alt+Down move the focused pill to the group above or below.
+		if (!inSearch && isHTMLElement(active) && (event.equals(KeyMod.Alt | KeyCode.UpArrow) || event.equals(KeyMod.Alt | KeyCode.DownArrow))) {
+			if (this._moveToNeighborGroup(active, event.equals(KeyMod.Alt | KeyCode.UpArrow) ? -1 : 1)) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+			return;
+		}
 
 		let next: number | undefined;
 		if (event.equals(KeyCode.DownArrow) || (!inSearch && event.equals(KeyCode.RightArrow))) {

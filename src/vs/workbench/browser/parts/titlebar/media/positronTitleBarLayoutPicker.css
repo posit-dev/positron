@@ -316,3 +316,29 @@
 	gap: 6px;
 	padding: 2px 0;
 }
+
+/* Dragging a pill to move its view. */
+.positron-layout-popover button.positron-layout-popover-pill.dragging {
+	opacity: 0.4;
+}
+
+.positron-layout-popover-group {
+	border: 1px solid transparent;
+	border-radius: var(--vscode-cornerRadius-medium, 6px);
+	margin: -4px;
+	padding: 4px;
+}
+
+.positron-layout-popover-group.drop-target {
+	background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+	border-color: var(--vscode-focusBorder);
+	border-style: dashed;
+}
+
+.positron-layout-popover-drop-marker {
+	align-self: stretch;
+	background-color: var(--vscode-focusBorder);
+	border-radius: 2px;
+	min-height: 20px;
+	width: 3px;
+}
