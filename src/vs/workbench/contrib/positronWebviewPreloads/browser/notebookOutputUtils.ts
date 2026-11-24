@@ -304,14 +304,12 @@ function webviewMessageCode(convertShiftWheel: typeof shiftWheelToHorizontal) {
 		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
 		}
-		const now = Date.now();
-		const gapSincePrev = now - lastEventAt;
-		lastEventAt = now;
-		// Checked after the timestamp so the gesture-gap logic still sees
-		// shift events that arrive in the middle of a momentum tail.
 		if (isShiftWheelToHorizontal(event)) {
 			return;
 		}
+		const now = Date.now();
+		const gapSincePrev = now - lastEventAt;
+		lastEventAt = now;
 		const consumer = findVerticalWheelConsumer(event);
 		if (consumer) {
 			lastConsumer = consumer;
