@@ -313,6 +313,10 @@ export class ActivitybarPart extends Part {
 	moveComposite(id: string, toId: string, before: boolean): void {
 		this.compositeBar.value?.moveComposite(id, toId, before);
 	}
+
+	resetCompositeOrder(): void {
+		this.compositeBar.value?.resetCompositeOrder();
+	}
 	// --- End Positron ---
 
 	getVisiblePaneCompositeIds(): string[] {

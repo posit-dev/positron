@@ -513,6 +513,32 @@ export class PaneCompositeBar extends Disposable {
 	moveComposite(id: string, toId: string, before: boolean): void {
 		this.compositeBar.move(id, toId, before);
 	}
+
+	/**
+	 * Puts the tabs or activity bar items back in the order their view containers ask
+	 * for, undoing any reordering by the user. Items stay pinned or unpinned as they were.
+	 */
+	resetCompositeOrder(): void {
+		const items = this.compositeBar.getCompositeBarItems();
+		const pinned = new Map(items.map(item => [item.id, item.pinned]));
+		const rank = (order: number | undefined) => order ?? Number.MAX_VALUE;
+		const sorted = items
+			.map((item, index) => ({ id: item.id, order: rank(item.order), index }))
+			.sort((a, b) => a.order - b.order || a.index - b.index)
+			.map(item => item.id);
+		sorted.forEach((id, index) => {
+			const current = this.compositeBar.getCompositeBarItems()[index];
+			if (current.id !== id) {
+				this.compositeBar.move(id, current.id, true);
+			}
+		});
+		// Moving an item pins it.
+		for (const item of this.compositeBar.getCompositeBarItems()) {
+			if (item.pinned && pinned.get(item.id) === false) {
+				this.compositeBar.unpin(item.id);
+			}
+		}
+	}
 	// --- End Positron ---
 
 	getPinnedPaneCompositeIds(): string[] {

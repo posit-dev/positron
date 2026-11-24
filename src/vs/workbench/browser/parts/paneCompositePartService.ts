@@ -80,6 +80,10 @@ export class PaneCompositePartService extends Disposable implements IPaneComposi
 	movePaneComposite(id: string, toId: string, before: boolean, viewContainerLocation: ViewContainerLocation): void {
 		this.getPartByLocation(viewContainerLocation).movePaneComposite?.(id, toId, before);
 	}
+
+	resetPaneCompositeOrder(viewContainerLocation: ViewContainerLocation): void {
+		this.getPartByLocation(viewContainerLocation).resetPaneCompositeOrder?.();
+	}
 	// --- End Positron ---
 
 	getVisiblePaneCompositeIds(viewContainerLocation: ViewContainerLocation): string[] {

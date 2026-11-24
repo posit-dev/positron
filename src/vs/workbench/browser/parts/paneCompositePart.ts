@@ -105,6 +105,11 @@ export interface IPaneCompositePart extends IView {
 	 * @param before Whether to put it before that container, rather than after.
 	 */
 	movePaneComposite?(id: string, toId: string, before: boolean): void;
+
+	/**
+	 * Puts the tabs or activity bar items back in their built-in order.
+	 */
+	resetPaneCompositeOrder?(): void;
 	// --- End Positron ---
 
 	/**
@@ -590,6 +595,10 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 	// --- Start Positron ---
 	movePaneComposite(id: string, toId: string, before: boolean): void {
 		this.paneCompositeBar.value?.moveComposite(id, toId, before);
+	}
+
+	resetPaneCompositeOrder(): void {
+		this.paneCompositeBar.value?.resetCompositeOrder();
 	}
 	// --- End Positron ---
 

@@ -321,6 +321,14 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			this.activityBarPart.moveComposite(id, toId, before);
 		}
 	}
+
+	override resetPaneCompositeOrder(): void {
+		if (this.shouldShowCompositeBar()) {
+			super.resetPaneCompositeOrder();
+		} else {
+			this.activityBarPart.resetCompositeOrder();
+		}
+	}
 	// --- End Positron ---
 
 	override getVisiblePaneCompositeIds(): string[] {

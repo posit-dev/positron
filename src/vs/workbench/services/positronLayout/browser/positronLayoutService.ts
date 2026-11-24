@@ -15,6 +15,7 @@ import { IWorkbenchLayoutService, Parts, SINGLE_WINDOW_PARTS } from '../../layou
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isSimplifiedLayoutEnabled, SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS } from '../common/positronSimplifiedLayoutConfiguration.js';
 import { getTaskLayout } from './layouts/taskLayouts.js';
+import { IPaneCompositePartService } from '../../panecomposite/browser/panecomposite.js';
 
 /**
  * Where the current layout's id is saved. Profile scope, because that is where the
@@ -72,6 +73,7 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPaneCompositePartService private readonly _paneCompositeService: IPaneCompositePartService,
 	) {
 		super();
 
@@ -109,6 +111,10 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 			// This is needed so that the changing of the contents of the parts doesn't
 			// break the currently open view container that is set by the layoutService.
 			this._workbenchLayoutService.enterCustomLayout(layout);
+			// A layout also undoes any reordering of the activity bar and tabs.
+			for (const location of PART_FOR_LOCATION.keys()) {
+				this._paneCompositeService.resetPaneCompositeOrder?.(location);
+			}
 		} finally {
 			this._applyingLayout = false;
 		}

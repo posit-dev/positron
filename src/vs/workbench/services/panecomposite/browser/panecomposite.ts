@@ -61,6 +61,12 @@ export interface IPaneCompositePartService {
 	 * @param viewContainerLocation Where both view containers are.
 	 */
 	movePaneComposite?(id: string, toId: string, before: boolean, viewContainerLocation: ViewContainerLocation): void;
+
+	/**
+	 * Puts the tabs or activity bar items in one place back in their built-in order.
+	 * @param viewContainerLocation The place to reset.
+	 */
+	resetPaneCompositeOrder?(viewContainerLocation: ViewContainerLocation): void;
 	// --- End Positron ---
 
 	/**
