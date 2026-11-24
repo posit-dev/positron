@@ -99,6 +99,8 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const dragRef = useRef<{ x: number; y: number; start: IPlotSize; moved: boolean } | undefined>(undefined);
 	const pairRef = useRef<HTMLDivElement>(null);
+	// An arrow-key resize of the handle that has not committed yet.
+	const keyResizeRef = useRef<IPlotSize | undefined>(undefined);
 
 	useEffect(() => {
 		onCommitRef.current = props.onCommit;
@@ -118,6 +120,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const clearTimer = () => {
 		clearTimeout(timerRef.current);
 		timerRef.current = undefined;
+		keyResizeRef.current = undefined;
 	};
 
 	const commit = (size: IPlotSize, source: PlotSizeCommitSource) => {
@@ -272,7 +275,20 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		setBoxes(lastCommittedRef.current);
 	};
 
+	// Commits a pending arrow-key resize at once, so a host acting next sees the new size.
+	const flushKeyResize = () => {
+		const size = keyResizeRef.current;
+		if (size) {
+			setLiveSize(undefined);
+			commit(size, 'drag');
+		}
+	};
+
 	const handleKeyDownHandler = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			flushKeyResize();
+			return;
+		}
 		const step = e.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
 		const deltas: Record<string, [number, number]> = {
 			ArrowLeft: [-step, 0],
@@ -290,10 +306,8 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		setLiveSize(size);
 		setBoxes(size);
 		clearTimer();
-		timerRef.current = setTimeout(() => {
-			setLiveSize(undefined);
-			commit(size, 'drag');
-		}, TYPED_SIZE_DELAY_MS);
+		keyResizeRef.current = size;
+		timerRef.current = setTimeout(flushKeyResize, TYPED_SIZE_DELAY_MS);
 	};
 
 	let statusNote = '';
@@ -351,6 +365,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 					aria-label={localize('positron.plotSizeEditor.resizePlot', "Resize plot")}
 					className='plot-size-handle'
 					type='button'
+					onBlur={flushKeyResize}
 					onKeyDown={handleKeyDownHandler}
 					onLostPointerCapture={pointerCancelHandler}
 					onPointerCancel={pointerCancelHandler}

@@ -180,6 +180,18 @@ describe('Copy Plot dialog', () => {
 		expect(copyButton()).toBeInTheDocument();
 	});
 
+	it('Enter on the handle right after an arrow-key resize copies the new size', async () => {
+		const { renderOnce, onCopy, user } = await open();
+		screen.getByRole('button', { name: 'Resize plot' }).focus();
+		await user.keyboard('{ArrowRight}{Enter}');
+
+		await vi.waitFor(() => expect(renderOnce).toHaveBeenCalledWith({ width: 710, height: 500 }, 1));
+		await act(async () => renders[0].result.complete(rendered({ width: 710, height: 500 }, 'resized')));
+
+		await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('resized'));
+		expect(renderOnce).toHaveBeenCalledOnce();
+	});
+
 	it('Enter outside the size boxes copies', async () => {
 		const { onCopy, user } = await open();
 		copyButton()!.focus();

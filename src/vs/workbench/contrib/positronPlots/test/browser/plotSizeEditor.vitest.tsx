@@ -195,6 +195,22 @@ describe('PlotSizeEditor', () => {
 		expect(onCommit).toHaveBeenCalledWith({ width: 410, height: 250 }, 'drag');
 	});
 
+	it('commits a handle arrow-key resize at once when the handle loses focus or gets Enter', async () => {
+		const { user, onCommit } = renderEditor();
+
+		handle().focus();
+		await user.keyboard('{ArrowRight}');
+		await user.tab();
+		expect(onCommit).toHaveBeenCalledExactlyOnceWith({ width: 410, height: 200 }, 'drag');
+
+		handle().focus();
+		await user.keyboard('{ArrowRight}{Enter}');
+		expect(onCommit).toHaveBeenLastCalledWith({ width: 420, height: 200 }, 'drag');
+
+		advance(300);
+		expect(onCommit).toHaveBeenCalledTimes(2);
+	});
+
 	it('pointer drag commits once on release, as drag', async () => {
 		const { user, onCommit } = renderEditor();
 		const frame = screen.getByTestId('plot-size-frame');

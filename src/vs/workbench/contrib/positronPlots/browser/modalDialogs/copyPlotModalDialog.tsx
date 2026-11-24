@@ -162,6 +162,8 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 	const copyHandlerRef = useRef(copyHandler);
 	copyHandlerRef.current = copyHandler;
 	useEffect(() => {
+		const targetWindow = DOM.getWindow(renderer.container);
+		let timer: number | undefined;
 		const disposable = renderer.onKeyDown(e => {
 			if (e.key !== 'Enter') {
 				return;
@@ -170,10 +172,18 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 				return;
 			}
 			e.preventDefault();
+			if (DOM.isHTMLElement(e.target) && e.target.closest('.plot-size-handle')) {
+				// Let the handle commit a pending arrow-key resize first, then copy that size.
+				timer = targetWindow.setTimeout(() => void copyHandlerRef.current());
+				return;
+			}
 			e.stopPropagation();
 			void copyHandlerRef.current();
 		});
-		return () => disposable.dispose();
+		return () => {
+			disposable.dispose();
+			targetWindow.clearTimeout(timer);
+		};
 	}, [renderer]);
 
 	const frameSizeChangeHandler = useCallback((size: IPlotSize) => setFrameSize(size), []);
