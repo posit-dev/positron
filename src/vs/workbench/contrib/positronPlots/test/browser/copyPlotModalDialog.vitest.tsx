@@ -9,6 +9,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -102,6 +103,17 @@ describe('Copy Plot dialog', () => {
 		expect(heightInput()).toHaveValue(480);
 	});
 
+	it.each([
+		['a last render below the minimum', { lastRenderSize: { width: 50, height: 400 } }],
+		['a last render of zero', { lastRenderSize: { width: 0, height: 0 } }],
+		['an intrinsic size above the maximum', { lastRenderSize: undefined, intrinsicSize: { width: 200, height: 4, unit: PlotUnit.Inches, source: 'Matplotlib' } }],
+	])('opens at 640 x 480 for %s', async (_name, options) => {
+		await open(options);
+		expect(widthInput()).toHaveValue(640);
+		expect(heightInput()).toHaveValue(480);
+		expect(copyButton()).toBeEnabled();
+	});
+
 	it('copy uses the preview when it matches', async () => {
 		const { renderOnce, onCopy, user } = await open();
 		await user.clear(widthInput());
@@ -165,6 +177,17 @@ describe('Copy Plot dialog', () => {
 		await vi.waitFor(() => expect(notifyError).toHaveBeenCalled());
 		expect(onCopy).not.toHaveBeenCalled();
 		expect(copyButton()).toBeEnabled();
+	});
+
+	it('a draw cancelled because the plot closed shows no error', async () => {
+		const { onCopy, user } = await open();
+
+		await user.click(copyButton()!);
+		await act(async () => renders[0].result.error(new CancellationError()));
+
+		await vi.waitFor(() => expect(copyButton()).toBeEnabled());
+		expect(notifyError).not.toHaveBeenCalled();
+		expect(onCopy).not.toHaveBeenCalled();
 	});
 
 	it('copy is disabled for an invalid size', async () => {

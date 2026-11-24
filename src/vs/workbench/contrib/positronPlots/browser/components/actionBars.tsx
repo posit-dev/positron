@@ -47,9 +47,8 @@ const kPaddingRight = 8;
 const showPreviousPlot = localize('positronShowPreviousPlot', "Show Previous Plot");
 const showNextPlot = localize('positronShowNextPlot', "Show Next Plot");
 const savePlot = localize('positronSavePlot', "Save Plot");
-const copyPlotToClipboard = copyPlotToClipboardLabel;
-const copyPlotMenuLabel = localize('positronCopyPlotMenu', "Select how to copy plot");
-const copyLabel = localize('positronCopyLabel', "Copy");
+const copyPlotMenuLabel = localize('positron.copyPlotMenu', "Select how to copy plot");
+const copyLabel = localize('positron.copyLabel', "Copy");
 const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
 const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear All Plots");
@@ -733,13 +732,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			component: (
 				<ActionBarMenuButton
 					actions={copyPlotActions}
-					ariaLabel={copyPlotToClipboard}
+					ariaLabel={copyPlotToClipboardLabel}
 					disabled={!hasPlots}
 					dropdownAriaLabel={copyPlotMenuLabel}
 					dropdownIndicator='enabled-split'
 					dropdownTooltip={copyPlotMenuLabel}
 					icon={ThemeIcon.fromId('copy')}
-					tooltip={copyPlotToClipboard}
+					tooltip={copyPlotToClipboardLabel}
 				/>
 			),
 			overflowContextMenuSubmenu: {
@@ -754,16 +753,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			separator: enableZoomPlot,
 			component: (
 				<ActionBarButton
-					ariaLabel={copyPlotToClipboard}
+					ariaLabel={copyPlotToClipboardLabel}
 					disabled={!hasPlots}
 					icon={ThemeIcon.fromId('copy')}
-					tooltip={copyPlotToClipboard}
+					tooltip={copyPlotToClipboardLabel}
 					onPressed={copyPlotHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				icon: 'copy',
-				label: copyPlotToClipboard,
+				label: copyPlotToClipboardLabel,
 				disabled: !hasPlots,
 				onSelected: copyPlotHandler
 			}

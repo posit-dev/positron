@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
+import { isCancellationError } from '../../../../../base/common/errors.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
@@ -18,7 +19,7 @@ import { IOneTimeRender } from '../../../../services/languageRuntime/common/posi
 import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { intrinsicSizeInPixels } from './aspectRatioLock.js';
 import { fitWithin, PlotPreviewStatus, PlotSizeCommitSource, PlotSizeEditor, PlotSizeEditorHandle } from './plotSizeEditor.js';
-import { maxDragSize } from './plotSizeLimits.js';
+import { MAX_PLOT_SIZE, MIN_PLOT_SIZE, maxDragSize } from './plotSizeLimits.js';
 import { BASE_DPI } from './savePlotModalDialog.js';
 import { usePlotPreview } from './usePlotPreview.js';
 
@@ -58,16 +59,18 @@ interface CopyPlotModalDialogProps {
 	renderer: PositronModalReactRenderer;
 }
 
+const withinLimits = (value: number) => value >= MIN_PLOT_SIZE && value <= MAX_PLOT_SIZE;
+
 const sameSize = (a: IPlotSize | undefined, b: IPlotSize) => !!a && a.width === b.width && a.height === b.height;
 
 const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) => {
 	const { plotClient } = options;
 
 	const [initialSize] = useState<IPlotSize>(() => {
-		if (plotClient.lastRender?.size) {
-			return plotClient.lastRender.size;
-		}
-		return plotClient.intrinsicSize ? intrinsicSizeInPixels(plotClient.intrinsicSize, BASE_DPI) : FALLBACK_SIZE;
+		const size = plotClient.lastRender?.size
+			?? (plotClient.intrinsicSize ? intrinsicSizeInPixels(plotClient.intrinsicSize, BASE_DPI) : undefined);
+		// A size outside the limits would open the dialog with an error, so start from the fallback.
+		return size && withinLimits(size.width) && withinLimits(size.height) ? size : FALLBACK_SIZE;
 	});
 	const [pixelRatio] = useState(() => getCopyPixelRatio(DOM.getWindow(renderer.container)));
 	const [maxDrag] = useState(() => maxDragSize({
@@ -152,7 +155,8 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 			await options.onCopy(uri);
 			renderer.dispose();
 		} catch (error) {
-			if (mountedRef.current) {
+			// A cancelled draw means the plot closed; the dialog already shows it as unavailable.
+			if (mountedRef.current && !isCancellationError(error)) {
 				const message = error instanceof Error ? error.message : String(error);
 				renderer.services.notificationService.error(localize('positron.copyPlotModalDialog.copyError', "Error copying plot: {0}", message));
 				preview.request(sizeRef.current);
