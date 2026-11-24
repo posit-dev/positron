@@ -67,6 +67,59 @@ test.describe('Packages Pane', {
 		});
 	});
 
+	test.describe('Python - Update and uninstall multiple packages', { tag: [tags.PYTHON] }, () => {
+		test.beforeAll(async function ({ openFolder }) {
+			await openFolder('test-files/workspaces/packages-pane-python');
+		});
+
+		test('Python - Update and uninstall multiple selected packages', async function ({ app, python: _python }) {
+			const { packages, toasts } = app.workbench;
+
+			// colorama and colorlog are small pure-Python wheels with no dependencies here, and
+			// their names share a prefix, so one filter keeps both rows on screen to multi-select.
+			// Each is pinned to an old release, so both show as outdated. Pick names the package
+			// metadata already spells in canonical form: a name like `tomli_w` is never matched
+			// against the package manager's outdated list, so its row never offers an update.
+			const oldVersions = { 'colorama': '0.4.4', 'colorlog': '6.7.0' };
+			const names = Object.keys(oldVersions);
+
+			await test.step('Install old versions of both packages', async () => {
+				await packages.verifyPackagesList();
+				for (const [name, version] of Object.entries(oldVersions)) {
+					await packages.installPackage(name, { version });
+				}
+				await packages.searchPackages('color');
+				for (const [name, version] of Object.entries(oldVersions)) {
+					await packages.expectPackageVersion(name, version);
+				}
+				// Update skips a package until the runtime has reported it as outdated.
+				for (const name of names) {
+					await packages.expectUpdateAvailable(name);
+				}
+			});
+
+			await test.step('Update both from one multi-selection', async () => {
+				await packages.selectPackages(names);
+				await packages.updateSelectedPackages('colorama');
+				for (const [name, version] of Object.entries(oldVersions)) {
+					await packages.expectPackageVersionChanged(name, version);
+				}
+			});
+
+			// The update refreshes the list and re-versions both rows. Uninstalling without
+			// selecting again proves the selection followed the packages through the refresh.
+			await test.step('Uninstall both from the same selection', async () => {
+				await packages.expectPackagesSelected(names);
+				await packages.uninstallSelectedPackages('colorama');
+				for (const name of names) {
+					await packages.expectPackageNotInList(name);
+				}
+			});
+
+			await toasts.closeAll();
+		});
+	});
+
 	test('R - Install, search, and uninstall package', {
 		tag: [tags.WIN, tags.ARK]
 	},

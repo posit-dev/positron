@@ -17,7 +17,14 @@ export const PACKAGES_ENABLED_LEGACY_KEY = 'positron.packages.enable';
 // Context keys for the packages view
 export const POSITRON_PACKAGES_HAS_ACTIVE_SESSION = new RawContextKey<boolean>('positronPackages.hasActiveSession', false);
 export const POSITRON_PACKAGES_IS_BUSY = new RawContextKey<boolean>('positronPackages.isBusy', false);
+// The selected package name when exactly one package is selected, else ''.
 export const POSITRON_PACKAGES_SELECTED_PACKAGE = new RawContextKey<string>('positronPackages.selectedPackage', '');
+// The number of selected packages.
+export const POSITRON_PACKAGES_SELECTION_COUNT = new RawContextKey<number>('positronPackages.selectionCount', 0);
+// Whether any selected package is outdated with a known latest version.
+export const POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE = new RawContextKey<boolean>('positronPackages.selectionHasUpdatable', false);
+// Whether any selected package has an environment copy that can be uninstalled.
+export const POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE = new RawContextKey<boolean>('positronPackages.selectionHasUninstallable', false);
 // Whether only Positron's bundle provides the selected package, so there is
 // no environment copy to update or uninstall.
 export const POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY = new RawContextKey<boolean>('positronPackages.selectedPackageBundledOnly', false);
@@ -38,5 +45,33 @@ export const PACKAGES_CAN_RUN_ACTION = ContextKeyExpr.and(
 );
 export const PACKAGES_HAS_SELECTION = ContextKeyExpr.and(
 	PACKAGES_CAN_RUN_ACTION,
-	POSITRON_PACKAGES_SELECTED_PACKAGE.notEqualsTo('')
+	POSITRON_PACKAGES_SELECTION_COUNT.isEqualTo(0).negate()
+);
+// With one package selected, an action is available unless only Positron's bundle provides it.
+// With several, it is available when at least one of them can be acted on; the rest are skipped.
+export const PACKAGES_CAN_UPDATE_SELECTION = ContextKeyExpr.and(
+	PACKAGES_CAN_RUN_ACTION,
+	ContextKeyExpr.or(
+		ContextKeyExpr.and(
+			POSITRON_PACKAGES_SELECTION_COUNT.isEqualTo(1),
+			POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.negate()
+		),
+		ContextKeyExpr.and(
+			ContextKeyExpr.greaterEquals(POSITRON_PACKAGES_SELECTION_COUNT.key, 2),
+			POSITRON_PACKAGES_SELECTION_HAS_UPDATABLE
+		)
+	)
+);
+export const PACKAGES_CAN_UNINSTALL_SELECTION = ContextKeyExpr.and(
+	PACKAGES_CAN_RUN_ACTION,
+	ContextKeyExpr.or(
+		ContextKeyExpr.and(
+			POSITRON_PACKAGES_SELECTION_COUNT.isEqualTo(1),
+			POSITRON_PACKAGES_SELECTED_PACKAGE_BUNDLED_ONLY.negate()
+		),
+		ContextKeyExpr.and(
+			ContextKeyExpr.greaterEquals(POSITRON_PACKAGES_SELECTION_COUNT.key, 2),
+			POSITRON_PACKAGES_SELECTION_HAS_UNINSTALLABLE
+		)
+	)
 );
