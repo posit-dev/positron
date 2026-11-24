@@ -17,16 +17,13 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { IPositronLayoutService } from '../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
 import { getTaskLayout, getTaskLayouts, TaskLayout } from '../../../services/positronLayout/browser/layouts/taskLayouts.js';
 
-/** A part the menu's switches show and hide. */
-type SwitchPart = Parts.SIDEBAR_PART | Parts.AUXILIARYBAR_PART | Parts.PANEL_PART;
-
 /**
  * The one place in the simplified layout's title bar to change the layout. A button on
  * the left names the layout the window is in, or "Custom" when the user has moved
  * things so it matches none. Its menu leads with the task layouts, so the first
- * question is what the user is working on. Below them, switches show and hide the side
- * bars and the bottom panel, the Default layout shows every view, and VS Code's full
- * layout options are one click further.
+ * question is what the user is working on. Below them, a switch shows and hides the
+ * bottom panel, the Default layout shows every view, and VS Code's full layout options
+ * are one click further.
  */
 export class PositronTitleBarLayoutPicker extends Disposable {
 	private readonly _button: HTMLButtonElement;
@@ -109,7 +106,7 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 
 		const disposables = new DisposableStore();
 		disposables.add(addDisposableListener(menu, EventType.KEY_DOWN, e => this._onKeyDown(new StandardKeyboardEvent(e))));
-		// Keep the switches in step when a part is shown or hidden some other way, and
+		// Keep the switch in step when the panel is shown or hidden some other way, and
 		// offer Reset as soon as the window stops matching its layout.
 		disposables.add(this._layoutService.onDidChangePartVisibility(() => this._fillMenu(menu)));
 		disposables.add(this._positronLayoutService.onDidChangeCurrentLayout(() => this._fillMenu(menu)));
@@ -156,16 +153,14 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 			taskSection.appendChild(this._layoutItem(layout, layout.id === currentId));
 		}
 
-		// Switches for the side bars and the bottom panel.
+		// A switch for the bottom panel.
 		const showSection = this._section(localize('positron.layoutMenu.show', "Show"));
-		showSection.appendChild(this._switchItem(Parts.SIDEBAR_PART, localize('positron.layoutMenu.files', "Files")));
-		showSection.appendChild(this._switchItem(Parts.AUXILIARYBAR_PART, localize('positron.layoutMenu.session', "Session")));
-		showSection.appendChild(this._switchItem(Parts.PANEL_PART, localize('positron.layoutMenu.panel', "Bottom Panel")));
+		showSection.appendChild(this._panelSwitchItem());
 
 		// The general layouts, and VS Code's full set of layout options.
 		const moreSection = this._section();
 		// Offer to undo the user's changes once the window matches no layout. It goes in the
-		// last group, so the switches above do not move under the mouse when it appears.
+		// last group, so the switch above does not move under the mouse when it appears.
 		const lastApplied = this._positronLayoutService.lastAppliedLayoutId;
 		const lastLayout = lastApplied ? getTaskLayout(lastApplied) : undefined;
 		if (!currentId && lastLayout) {
@@ -231,19 +226,17 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 	}
 
 	/**
-	 * A switch that shows or hides a part. The menu stays open, so several can be
-	 * changed in a row.
-	 * @param part The part.
-	 * @param label The part's name.
+	 * A switch that shows or hides the bottom panel. The menu stays open, so the user
+	 * sees the switch change.
 	 */
-	private _switchItem(part: SwitchPart, label: string): HTMLElement {
-		const shown = this._layoutService.isVisible(part);
+	private _panelSwitchItem(): HTMLElement {
+		const shown = this._layoutService.isVisible(Parts.PANEL_PART);
 		const item = this._item({
-			id: part,
+			id: Parts.PANEL_PART,
 			role: 'menuitemcheckbox',
 			checked: shown,
-			label,
-			run: () => this._layoutService.setPartHidden(shown, part),
+			label: localize('positron.layoutMenu.panel', "Bottom Panel"),
+			run: () => this._layoutService.setPartHidden(shown, Parts.PANEL_PART),
 			keepOpen: true,
 		});
 		append(item, $('span.positron-layout-menu-switch', { 'aria-hidden': 'true' }));
