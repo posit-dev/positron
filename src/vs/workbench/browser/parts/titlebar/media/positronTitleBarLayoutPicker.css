@@ -257,9 +257,10 @@
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+/* A pointed-at layout's views, outlined outside the pill so a showing pill keeps its border. */
 .positron-layout-popover button.positron-layout-popover-pill.preview {
-	border-color: var(--vscode-focusBorder);
-	border-style: dashed;
+	outline: 1.5px dashed var(--vscode-charts-orange, #d18616);
+	outline-offset: 2px;
 }
 
 .positron-layout-popover button.positron-layout-popover-pill.shown {

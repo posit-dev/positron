@@ -68,6 +68,8 @@ interface PicturePart {
 interface PictureTarget {
 	readonly element: HTMLElement;
 	readonly ids: readonly string[];
+	/** For a whole part of the picture, which part it is. */
+	readonly part?: ViewPart;
 }
 
 /**
@@ -113,6 +115,12 @@ export class PositronLayoutPopover extends Disposable {
 
 	/** The layout whose picture shows where a pointed-at pill lives. */
 	private _activeLayoutId: string | undefined;
+
+	/** The pointed-at layout, kept so its marks survive the popover being drawn again. */
+	private _previewedLayoutId: string | undefined;
+
+	/** The pointed-at pill, kept so its light survives the popover being drawn again. */
+	private _highlightedPill: { id: string; part: ViewPart } | undefined;
 
 	/** The listeners of the cards and pills, cleared each time they are drawn again. */
 	private readonly _itemDisposables = this._register(new DisposableStore());
@@ -188,13 +196,39 @@ export class PositronLayoutPopover extends Disposable {
 
 	//#region Drawing
 
+	/**
+	 * Everything the popover shows, as a string, so it is drawn again only when something
+	 * changed. Drawing replaces the card or pill under the pointer, which would flicker.
+	 */
+	private _stateKey(): string {
+		return JSON.stringify([
+			this._positronLayoutService.currentLayoutId,
+			this._positronLayoutService.lastAppliedLayoutId,
+			this._layoutService.isVisible(Parts.PANEL_PART),
+			this._search.value,
+			getTaskLayouts().filter(layout => this._contextKeyService.contextMatchesRules(layout.precondition)).map(layout => layout.id),
+			VIEW_GROUPS.map(group => this._pills(group.location).map(pill => [pill.id, pill.shown, pill.name])),
+		]);
+	}
+
+	/** The state the popover was last drawn for. */
+	private _drawnStateKey: string | undefined;
+
 	private _draw(): void {
+		const stateKey = this._stateKey();
+		if (stateKey === this._drawnStateKey) {
+			return;
+		}
+		this._drawnStateKey = stateKey;
+
 		const active = getActiveElement();
 		const focusedId = isHTMLElement(active) && this._element.contains(active) ? active.dataset.id : undefined;
 		this._itemDisposables.clear();
 
 		this._drawCards();
 		this._drawGroups();
+		this._previewLayout(this._previewedLayoutId);
+		this._highlightView(this._highlightedPill?.id, this._highlightedPill?.part);
 
 		if (focusedId) {
 			this._focusables().find(element => element.dataset.id === focusedId)?.focus();
@@ -245,8 +279,9 @@ export class PositronLayoutPopover extends Disposable {
 			this._host.close();
 			this._commandService.executeCommand(layout.id);
 		}));
-		// Pointing at a card marks the pills of the views that layout shows.
-		const preview = () => this._previewLayout(layout.id);
+		// Pointing at another layout's card marks the pills of the views it would show.
+		// The selected layout's views are already the ones colored, so it marks nothing.
+		const preview = () => this._previewLayout(current || modified ? undefined : layout.id);
 		const clear = () => this._previewLayout(undefined);
 		this._itemDisposables.add(addDisposableListener(card, EventType.MOUSE_ENTER, preview));
 		this._itemDisposables.add(addDisposableListener(card, EventType.FOCUS, preview));
@@ -299,9 +334,9 @@ export class PositronLayoutPopover extends Disposable {
 		const targets: PictureTarget[] = [];
 		const shown = new Set<string>();
 
-		const drawPart = (parent: HTMLElement, className: string, part: PicturePart) => {
+		const drawPart = (parent: HTMLElement, className: string, viewPart: ViewPart, part: PicturePart) => {
 			const region = append(parent, $(`.picture-region.${className}`));
-			targets.push({ element: region, ids: part.tabIds });
+			targets.push({ element: region, ids: part.tabIds, part: viewPart });
 			for (const block of part.blocks) {
 				const element = append(region, $('.picture-block'));
 				element.classList.toggle('shows', block.shows);
@@ -316,17 +351,17 @@ export class PositronLayoutPopover extends Disposable {
 		const picture = $('.positron-layout-popover-picture', { 'aria-hidden': 'true' });
 		const side = this._picturePart(layout, Parts.SIDEBAR_PART, ViewContainerLocation.Sidebar);
 		if (side) {
-			drawPart(picture, 'picture-side', side);
+			drawPart(picture, 'picture-side', Parts.SIDEBAR_PART, side);
 		}
 		const center = append(picture, $('.picture-center'));
 		append(center, $('.picture-editor'));
 		const panel = this._picturePart(layout, Parts.PANEL_PART, ViewContainerLocation.Panel);
 		if (panel) {
-			drawPart(center, 'picture-panel', panel);
+			drawPart(center, 'picture-panel', Parts.PANEL_PART, panel);
 		}
 		const aux = this._picturePart(layout, Parts.AUXILIARYBAR_PART, ViewContainerLocation.AuxiliaryBar);
 		if (aux) {
-			drawPart(picture, 'picture-aux', aux);
+			drawPart(picture, 'picture-aux', Parts.AUXILIARYBAR_PART, aux);
 		}
 
 		this._pictureTargets.set(layoutId, targets);
@@ -335,11 +370,14 @@ export class PositronLayoutPopover extends Disposable {
 	}
 
 	/**
-	 * Lights up where a view lives in the current layout's picture. Nothing lights up when
-	 * that layout does not place the view.
+	 * Lights up where a view lives in the current layout's picture: its own block when the
+	 * layout places it, or else the part of the window its pill is grouped under. Nothing
+	 * lights up when the picture does not have that part.
 	 * @param id The id of the pointed-at pill's view or container, or undefined to clear.
+	 * @param part The part of the window the pill is grouped under.
 	 */
-	private _highlightView(id: string | undefined): void {
+	private _highlightView(id: string | undefined, part?: ViewPart): void {
+		this._highlightedPill = id && part ? { id, part } : undefined;
 		for (const targets of this._pictureTargets.values()) {
 			for (const target of targets) {
 				target.element.classList.remove('highlight');
@@ -350,8 +388,10 @@ export class PositronLayoutPopover extends Disposable {
 			return;
 		}
 		// A view's own block wins over the part it is tabbed behind.
-		const own = targets.filter(target => target.element.classList.contains('picture-block') && target.ids.includes(id));
-		const matches = own.length ? own : targets.filter(target => target.ids.includes(id));
+		const own = targets.filter(target => !target.part && target.ids.includes(id));
+		const tabbed = targets.filter(target => target.part && target.ids.includes(id));
+		const group = targets.filter(target => target.part === part);
+		const matches = own.length ? own : tabbed.length ? tabbed : group;
 		for (const target of matches) {
 			target.element.classList.add('highlight');
 		}
@@ -362,6 +402,7 @@ export class PositronLayoutPopover extends Disposable {
 	 * @param layoutId The pointed-at layout, or undefined to clear.
 	 */
 	private _previewLayout(layoutId: string | undefined): void {
+		this._previewedLayoutId = layoutId;
 		const shown = layoutId ? this._shownByLayout.get(layoutId) : undefined;
 		for (const [id, pill] of this._pillsById) {
 			pill.classList.toggle('preview', !!shown?.has(id));
@@ -403,7 +444,7 @@ export class PositronLayoutPopover extends Disposable {
 			if (matching.length) {
 				const list = append(section, $('.positron-layout-popover-pills'));
 				for (const pill of matching) {
-					const button = this._pill(pill);
+					const button = this._pill(pill, group.part);
 					list.appendChild(button);
 					this._groupControls.push(button);
 				}
@@ -466,7 +507,12 @@ export class PositronLayoutPopover extends Disposable {
 		return pills;
 	}
 
-	private _pill(pill: ViewPill): HTMLElement {
+	/**
+	 * A pill that shows or hides a view.
+	 * @param pill The view.
+	 * @param part The part of the window the pill is grouped under.
+	 */
+	private _pill(pill: ViewPill, part: ViewPart): HTMLElement {
 		const button = $('button.positron-layout-popover-pill');
 		button.dataset.id = pill.id;
 		button.classList.toggle('shown', pill.shown);
@@ -484,7 +530,7 @@ export class PositronLayoutPopover extends Disposable {
 		// The popover stays open, so the user sees the view come and go.
 		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => pill.toggle()));
 		// Pointing at a pill lights up where its view lives in the current layout.
-		const highlight = () => this._highlightView(pill.id);
+		const highlight = () => this._highlightView(pill.id, part);
 		const clear = () => this._highlightView(undefined);
 		this._itemDisposables.add(addDisposableListener(button, EventType.MOUSE_ENTER, highlight));
 		this._itemDisposables.add(addDisposableListener(button, EventType.FOCUS, highlight));
