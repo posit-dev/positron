@@ -176,6 +176,12 @@ export class Clipboard {
 		return clipboardImageBuffer ? Buffer.from(clipboardImageBuffer) : null;
 	}
 
+	/** Reads the width and height of the PNG on the clipboard from its header, or null if there is none. */
+	async getClipboardImageSize(): Promise<{ width: number; height: number } | null> {
+		const png = await this.getClipboardImage();
+		return png ? { width: png.readUInt32BE(16), height: png.readUInt32BE(20) } : null;
+	}
+
 	async clearClipboard(): Promise<void> {
 		// Grant permissions to modify the clipboard (Chromium-only)
 		await this.tryGrantClipboardPermission('clipboard-write');

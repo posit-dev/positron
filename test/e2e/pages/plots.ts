@@ -18,6 +18,7 @@ const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-dynamic-action-b
 const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button';
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save Plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy Plot to Clipboard"]';
+const COPY_PLOT_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select how to copy plot"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
@@ -51,6 +52,7 @@ export class Plots {
 	originFileButton: Locator;
 	savePlotModal: Locator;
 	overwriteModal: Locator;
+	copyPlotModal: Locator;
 
 	constructor(private code: Code, private contextMenu: ContextMenu) {
 		this.plotButton = this.code.driver.currentPage.locator(PLOT_BUTTON);
@@ -67,6 +69,7 @@ export class Plots {
 		this.originFileButton = this.code.driver.currentPage.locator(ORIGIN_FILE_BUTTON);
 		this.savePlotModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
 		this.overwriteModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
+		this.copyPlotModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'Copy Plot' });
 	}
 
 	async clickSessionNameButton() {
@@ -246,6 +249,35 @@ export class Plots {
 
 		// wait for clipboard to be populated
 		await this.code.wait(500);
+	}
+
+	/** Copies the current plot at a custom size using the Copy Plot at Custom Size dialog. */
+	async copyCurrentPlotAtCustomSize({ width, height }: { width: number; height: number }) {
+		await test.step(`Copy current plot at ${width} x ${height}`, async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.code.driver.currentPage.locator(COPY_PLOT_DROPDOWN_BUTTON),
+				menuItemLabel: 'Copy Plot at Custom Size...'
+			});
+			await expect(this.copyPlotModal).toBeVisible();
+			// The aspect ratio lock is on by default and would change the other box.
+			await this.copyPlotModal.getByRole('checkbox', { name: 'Maintain aspect ratio' }).uncheck();
+			const preview = this.copyPlotModal.getByAltText('Plot preview');
+			const previewBefore = await preview.getAttribute('src');
+			await this.copyPlotModal.getByLabel('Width').fill(String(width));
+			await this.copyPlotModal.getByLabel('Height').fill(String(height));
+			// Copy right after typing can copy the previous size, so wait for the new preview.
+			await expect(preview).not.toHaveAttribute('src', previewBefore!);
+			await this.copyPlotModal.getByRole('button', { name: 'Copy', exact: true }).click();
+			await expect(this.copyPlotModal).not.toBeVisible();
+		});
+	}
+
+	async getCurrentPlotSrc(): Promise<string | null> {
+		return this.currentPlot.getAttribute('src');
+	}
+
+	async getDevicePixelRatio(): Promise<number> {
+		return this.code.driver.currentPage.evaluate(() => window.devicePixelRatio);
 	}
 
 	async savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
