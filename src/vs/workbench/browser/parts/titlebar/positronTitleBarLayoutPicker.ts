@@ -21,9 +21,9 @@ import { getTaskLayout, getTaskLayouts, TaskLayout } from '../../../services/pos
  * The one place in the simplified layout's title bar to change the layout. A button on
  * the left names the layout the window is in, or "Custom" when the user has moved
  * things so it matches none. Its menu leads with the task layouts, so the first
- * question is what the user is working on. Below them, a switch shows and hides the
- * bottom panel, the Default layout shows every view, and VS Code's full layout options
- * are one click further.
+ * question is what the user is working on, with the Default layout, which shows every
+ * view, last. Below them, a switch shows and hides the bottom panel, and VS Code's full
+ * layout options are one click further.
  */
 export class PositronTitleBarLayoutPicker extends Disposable {
 	private readonly _button: HTMLButtonElement;
@@ -61,12 +61,26 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 		return getTaskLayouts().filter(layout => this._contextKeyService.contextMatchesRules(layout.precondition));
 	}
 
+	/**
+	 * The layout the user picked last, when they have since changed the window so it no
+	 * longer matches. Picking it again puts it back.
+	 */
+	private _modifiedLayout(): TaskLayout | undefined {
+		const lastApplied = this._positronLayoutService.lastAppliedLayoutId;
+		return !this._positronLayoutService.currentLayoutId && lastApplied ? getTaskLayout(lastApplied) : undefined;
+	}
+
 	private _render(): void {
 		const current = getTaskLayouts().find(layout => layout.id === this._positronLayoutService.currentLayoutId);
-		const name = current?.name ?? localize('positron.titleBarLayoutPicker.custom', "Custom");
+		const modified = this._modifiedLayout();
+		const name = current
+			? current.name
+			: modified
+				? localize('positron.titleBarLayoutPicker.modified', "{0} (Modified)", modified.name)
+				: localize('positron.titleBarLayoutPicker.custom', "Custom");
 		reset(
 			this._button,
-			$(`span.codicon.codicon-${current?.codicon ?? 'layout'}`, { 'aria-hidden': 'true' }),
+			$(`span.codicon.codicon-${(current ?? modified)?.codicon ?? 'layout'}`, { 'aria-hidden': 'true' }),
 			$('span.positron-title-bar-layout-picker-label', undefined, name),
 			$('span.codicon.codicon-chevron-down', { 'aria-hidden': 'true' }),
 		);
@@ -107,7 +121,7 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 		const disposables = new DisposableStore();
 		disposables.add(addDisposableListener(menu, EventType.KEY_DOWN, e => this._onKeyDown(new StandardKeyboardEvent(e))));
 		// Keep the switch in step when the panel is shown or hidden some other way, and
-		// offer Reset as soon as the window stops matching its layout.
+		// mark the layout as modified as soon as the window stops matching it.
 		disposables.add(this._layoutService.onDidChangePartVisibility(() => this._fillMenu(menu)));
 		disposables.add(this._positronLayoutService.onDidChangeCurrentLayout(() => this._fillMenu(menu)));
 		// Close on a click anywhere else, or when the window loses focus. A click on the
@@ -127,8 +141,8 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 			}
 		}));
 
-		// Start on the layout the window is in, or on the first item.
-		const current = this._items.find(item => item.getAttribute('role') === 'menuitemradio' && item.getAttribute('aria-checked') === 'true');
+		// Start on the layout the window is in or was modified from, or on the first item.
+		const current = this._items.find(item => item.dataset.state !== undefined);
 		(current ?? this._items[0])?.focus();
 		return disposables;
 	}
@@ -145,36 +159,26 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 		this._items = [];
 
 		const currentId = this._positronLayoutService.currentLayoutId;
+		const modifiedId = this._modifiedLayout()?.id;
 		const layouts = this._availableLayouts();
+		const layoutItem = (layout: TaskLayout) => this._layoutItem(
+			layout,
+			layout.id === currentId ? 'current' : layout.id === modifiedId ? 'modified' : undefined,
+		);
 
 		// What the user is working on.
 		const taskSection = this._section(localize('positron.layoutMenu.tasks', "What are you working on?"));
-		for (const layout of layouts.filter(layout => layout.group === 'task')) {
-			taskSection.appendChild(this._layoutItem(layout, layout.id === currentId));
+		// The task layouts, then Default, which shows every view.
+		for (const layout of layouts) {
+			taskSection.appendChild(layoutItem(layout));
 		}
 
 		// A switch for the bottom panel.
 		const showSection = this._section(localize('positron.layoutMenu.show', "Show"));
 		showSection.appendChild(this._panelSwitchItem());
 
-		// The general layouts, and VS Code's full set of layout options.
+		// VS Code's full set of layout options.
 		const moreSection = this._section();
-		// Offer to undo the user's changes once the window matches no layout. It goes in the
-		// last group, so the switch above does not move under the mouse when it appears.
-		const lastApplied = this._positronLayoutService.lastAppliedLayoutId;
-		const lastLayout = lastApplied ? getTaskLayout(lastApplied) : undefined;
-		if (!currentId && lastLayout) {
-			moreSection.appendChild(this._item({
-				id: 'reset',
-				role: 'menuitem',
-				icon: 'discard',
-				label: localize('positron.layoutMenu.reset', "Reset to {0}", lastLayout.name),
-				run: () => this._commandService.executeCommand(lastLayout.id),
-			}));
-		}
-		for (const layout of layouts.filter(layout => layout.group === 'layout')) {
-			moreSection.appendChild(this._layoutItem(layout, layout.id === currentId));
-		}
 		moreSection.appendChild(this._item({
 			id: 'customize',
 			role: 'menuitem',
@@ -209,20 +213,28 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 	}
 
 	/**
-	 * An item that applies a layout, with its description under its name.
+	 * An item that applies a layout, with its description under its name. The layout the
+	 * window is in has a check mark. The layout the user has changed the window from says
+	 * so instead of its description, since picking it puts it back.
 	 * @param layout The layout.
-	 * @param checked Whether the window is in this layout.
+	 * @param state Whether the window is in this layout or was changed from it.
 	 */
-	private _layoutItem(layout: TaskLayout, checked: boolean): HTMLElement {
-		return this._item({
+	private _layoutItem(layout: TaskLayout, state: 'current' | 'modified' | undefined): HTMLElement {
+		const item = this._item({
 			id: layout.id,
 			role: 'menuitemradio',
-			checked,
-			icon: checked ? 'check' : undefined,
+			checked: state === 'current',
+			icon: state === 'current' ? 'check' : state === 'modified' ? 'discard' : undefined,
 			label: layout.name,
-			description: layout.description,
+			description: state === 'modified'
+				? localize('positron.layoutMenu.modified', "Modified. Click to reset.")
+				: layout.description,
 			run: () => this._commandService.executeCommand(layout.id),
 		});
+		if (state) {
+			item.dataset.state = state;
+		}
+		return item;
 	}
 
 	/**
