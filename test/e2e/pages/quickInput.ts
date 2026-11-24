@@ -138,7 +138,7 @@ export class QuickInput {
 		await this.code.driver.currentPage.keyboard.press('Backspace');
 		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
-			.fill(value);
+			.fill(value, { timeout: options?.timeout });
 	}
 
 	async waitForQuickInputElementText(): Promise<string> {
