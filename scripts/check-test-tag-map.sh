@@ -12,7 +12,7 @@
 #      so this can't be pinned on "the current PR" the way tag validity can.
 #   3. Tag validity: every tag the map uses is a real tag declared in
 #      test-tags.ts. This check IS run by CI (`--tags-only`, in
-#      test-pull-request.yml) since it's static and doesn't need PR scoping --
+#      test-pr.yml of posit-dev/positron-builds) since it's static and doesn't need PR scoping --
 #      a typo'd or deleted tag is a genuine error the moment it's introduced.
 # Usage: scripts/check-test-tag-map.sh [--warn-only] [--tags-only] [--json]
 #   --warn-only: report failures but exit 0 (used for local/manual runs).

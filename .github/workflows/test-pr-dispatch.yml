@@ -3,14 +3,14 @@ name: "Test: PR (dispatch)"
 # Positron's tests run in the private repo posit-dev/positron-builds. This job
 # dispatches that repo's test-pr.yml for the PR, waits for it, and reports its
 # conclusion as this PR's `required-tests` check. Secrets never reach PR code
-# here: the only secret used is the bot app key, in this job, and the tests run
-# in the other repo against the PR's merge commit with no credentials.
+# here: the only secret used is the bot app key, in this job. The tests run in
+# the other repo against the PR's merge commit, with that repo's test credentials.
 #
 # pull_request_target, not pull_request: the workflow always comes from main and
 # never runs PR code, so a PR cannot edit this file to point the bot key at
 # something else. Fork PRs fail with a message instead of skipping, because a
 # skipped required check would count as passing. A maintainer tests a fork PR
-# through the trusted Full Suite lane in positron-builds and merges with an admin override.
+# through the Full Suite lane in positron-builds and merges with an admin override.
 
 on:
   pull_request_target:
@@ -41,7 +41,7 @@ jobs:
         if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
         shell: bash
         run: |
-          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-full-suite-trusted.yml) and merges with an admin override."
+          echo "::error::This PR comes from a fork, so it is not tested automatically. A maintainer runs it through positron-builds (test-full-suite.yml) and merges with an admin override."
           echo "Tests do not run for PRs from forks, so there are no test statuses." >> "$GITHUB_STEP_SUMMARY"
           exit 1
 

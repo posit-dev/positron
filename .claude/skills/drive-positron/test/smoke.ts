@@ -331,6 +331,8 @@ const cases: Case[] = [
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
+	{ name: 'ui read Extensions names the sidebar title it can read', before: showInstalledExtensions, run: ['ui.sh', 'read', 'Extensions'], fail: true, check: o => includes(o.json!.views, 'Extensions: Installed') },
+	{ name: 'palette-run Show Explorer (after Extensions)', run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
 	{ name: 'de-read cars.csv', quick: true, wait: 1000, run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '3'], check: o => (JSON.stringify(o.json!.columns) !== '["model","speed","dist"]' && `columns ${JSON.stringify(o.json!.columns)}`) || (o.json!.rows?.[1]?.model !== 'bravo' && `row 2 ${JSON.stringify(o.json!.rows?.[1])}`) || includes(o.json!.status, '5 rows') },
 	{ name: 'de-read wrong title', run: ['de-read.sh', '--title', 'Data: other'], fail: true },
@@ -562,6 +564,12 @@ function showFilmstrip(): string | undefined {
 	const o = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'resize', 'secondary', '600']);
 	found.secondaryWidth = String(o.json?.before ?? 600);
 	return o.json?.ok ? undefined : `panel.sh resize secondary 600: ${o.json?.error ?? o.stderr}`;
+}
+
+/** A case's `before`: shows the installed extensions, a container with one view, so the sidebar is titled "Extensions: Installed" and has no pane header. */
+function showInstalledExtensions(): string | undefined {
+	const o = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Extensions: Show Installed Extensions']);
+	return o.json?.ok ? undefined : `palette-run.sh Extensions: Show Installed Extensions: ${o.json?.error ?? o.stderr}`;
 }
 
 // ---- Running ---------------------------------------------------------------------
