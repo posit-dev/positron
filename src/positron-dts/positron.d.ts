@@ -3749,7 +3749,11 @@ declare module 'positron' {
 		 *  contribute attribution details about the code's origin. These fields
 		 *  are merged into `attribution.metadata` on the resulting
 		 *  `CodeExecutionEvent`. Positron retains sole authority over
-		 *  `attribution.source`; callers cannot set it.
+		 *  `attribution.source`; callers cannot set it. An AI agent running
+		 *  code sets `agentName` to its display name, and Positron credits
+		 *  plots the code creates to it. It may also set `revealCommand` to a
+		 *  `{ command: string; arguments?: any[] }` that reveals where it ran
+		 *  the code, which Positron runs when the user clicks the credit.
 		 * @param preserveActiveTab Whether to avoid switching the active tab when
 		 *  revealing the Console and Plots. If another tab is showing where the
 		 *  Console or Plots live, it stays showing, and the foreground session
