@@ -502,6 +502,19 @@ export class PaneCompositeBar extends Disposable {
 		}
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Moves a view container's tab or activity bar item next to another one in the same
+	 * place, as dragging it there would.
+	 * @param id The view container to move.
+	 * @param toId The view container to move it next to.
+	 * @param before Whether to put it before that container, rather than after.
+	 */
+	moveComposite(id: string, toId: string, before: boolean): void {
+		this.compositeBar.move(id, toId, before);
+	}
+	// --- End Positron ---
+
 	getPinnedPaneCompositeIds(): string[] {
 		const pinnedCompositeIds = this.compositeBar.getPinnedComposites().map(v => v.id);
 		return this.getViewContainers()

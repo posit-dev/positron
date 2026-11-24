@@ -95,6 +95,18 @@ export interface IPaneCompositePart extends IView {
 	 */
 	getPinnedPaneCompositeIds(): string[];
 
+	// --- Start Positron ---
+	// The layout popover reorders tabs and activity bar items.
+	/**
+	 * Moves a view container's tab or activity bar item next to another one in the same
+	 * place, as dragging it there would.
+	 * @param id The view container to move.
+	 * @param toId The view container to move it next to.
+	 * @param before Whether to put it before that container, rather than after.
+	 */
+	movePaneComposite?(id: string, toId: string, before: boolean): void;
+	// --- End Positron ---
+
 	/**
 	 * Returns id of visible view containers following the visual order.
 	 */
@@ -574,6 +586,12 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 	getPinnedPaneCompositeIds(): string[] {
 		return this.paneCompositeBar.value?.getPinnedPaneCompositeIds() ?? [];
 	}
+
+	// --- Start Positron ---
+	movePaneComposite(id: string, toId: string, before: boolean): void {
+		this.paneCompositeBar.value?.moveComposite(id, toId, before);
+	}
+	// --- End Positron ---
 
 	getVisiblePaneCompositeIds(): string[] {
 		return this.paneCompositeBar.value?.getVisiblePaneCompositeIds() ?? [];

@@ -22,6 +22,8 @@ import { getMatchableLayouts } from '../../../services/positronLayout/browser/la
 import { getTaskLayout, getTaskLayouts, TaskLayout } from '../../../services/positronLayout/browser/layouts/taskLayouts.js';
 import { CustomPositronLayoutDescription } from '../../../services/positronLayout/common/positronCustomViews.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { ViewPane } from '../views/viewPane.js';
+import { ViewPaneContainer } from '../views/viewPaneContainer.js';
 
 /** The Session container, whose views each get their own pill. */
 const SESSION_VIEW_CONTAINER_ID = 'workbench.panel.positronSession';
@@ -230,7 +232,10 @@ export class PositronLayoutPopover extends Disposable {
 		return JSON.stringify([
 			this._positronLayoutService.currentLayoutId,
 			this._positronLayoutService.lastAppliedLayoutId,
-			this._layoutService.isVisible(Parts.PANEL_PART),
+			VIEW_GROUPS.map(group => [
+				this._layoutService.isVisible(group.part),
+				this._paneCompositeService.getActivePaneComposite(group.location)?.getId(),
+			]),
 			this._search.value,
 			getTaskLayouts().filter(layout => this._contextKeyService.contextMatchesRules(layout.precondition)).map(layout => layout.id),
 			VIEW_GROUPS.map(group => this._pills(group.location).map(pill => [pill.id, pill.shown, pill.name])),
@@ -295,7 +300,15 @@ export class PositronLayoutPopover extends Disposable {
 			: layout.description ?? layout.name;
 
 		const descriptor = getMatchableLayouts().find(matchable => matchable.id === layout.id)?.layoutDescriptor;
-		card.appendChild(descriptor ? this._picture(layout.id, descriptor) : $('.positron-layout-popover-picture'));
+		// The selected layout's picture shows the window as it is, so changes the user made
+		// by hand show up in it. The others show what picking them would give.
+		if (current || modified) {
+			card.appendChild(this._picture(layout.id, (part, location) => this._windowPart(part, location)));
+		} else if (descriptor) {
+			card.appendChild(this._picture(layout.id, (part, location) => this._picturePart(descriptor, part, location)));
+		} else {
+			card.appendChild($('.positron-layout-popover-picture'));
+		}
 		const label = append(card, $('span.positron-layout-popover-card-label', undefined, layout.name));
 		if (modified) {
 			append(label, $('span.codicon.codicon-discard', { 'aria-hidden': 'true' }));
@@ -349,14 +362,42 @@ export class PositronLayoutPopover extends Disposable {
 	}
 
 	/**
+	 * What the window shows in one part right now, for the selected layout's picture: the
+	 * open tab, with the other tabs behind it, and the Session container's views one by one.
+	 * @param part The part.
+	 * @param location Where the part's view containers live.
+	 * @returns The part's blocks, or undefined when the part is hidden.
+	 */
+	private _windowPart(part: ViewPart, location: ViewContainerLocation): PicturePart | undefined {
+		if (!this._layoutService.isVisible(part)) {
+			return undefined;
+		}
+		const activeId = this._paneCompositeService.getActivePaneComposite(location)?.getId();
+		const tabIds = this._paneCompositeService.getVisiblePaneCompositeIds(location).filter(id => id !== activeId);
+		const active = activeId ? this._viewDescriptorService.getViewContainerById(activeId) : null;
+		if (active?.id === SESSION_VIEW_CONTAINER_ID) {
+			const model = this._viewDescriptorService.getViewContainerModel(active);
+			return {
+				tabIds,
+				blocks: model.activeViewDescriptors.map(view => ({
+					ids: [view.id],
+					shows: this._viewsService.isViewVisible(view.id),
+					weight: model.isCollapsed(view.id) ? 0.3 : 1,
+				})),
+			};
+		}
+		return { tabIds, blocks: [{ ids: activeId ? [activeId] : [], shows: !!activeId, weight: 1 }] };
+	}
+
+	/**
 	 * A small picture of a layout. Each side bar and the bottom panel is drawn as blocks,
 	 * one for each view the layout places there, and the views the layout shows are
 	 * colored. Pointing at a pill lights up where its view lives in the current layout's
 	 * picture.
 	 * @param layoutId The layout's command id.
-	 * @param layout The layout's description.
+	 * @param partOf What the picture shows in each part.
 	 */
-	private _picture(layoutId: string, layout: CustomPositronLayoutDescription): HTMLElement {
+	private _picture(layoutId: string, partOf: (part: ViewPart, location: ViewContainerLocation) => PicturePart | undefined): HTMLElement {
 		const targets: PictureTarget[] = [];
 		const shown = new Set<string>();
 
@@ -375,17 +416,17 @@ export class PositronLayoutPopover extends Disposable {
 		};
 
 		const picture = $('.positron-layout-popover-picture', { 'aria-hidden': 'true' });
-		const side = this._picturePart(layout, Parts.SIDEBAR_PART, ViewContainerLocation.Sidebar);
+		const side = partOf(Parts.SIDEBAR_PART, ViewContainerLocation.Sidebar);
 		if (side) {
 			drawPart(picture, 'picture-side', Parts.SIDEBAR_PART, side);
 		}
 		const center = append(picture, $('.picture-center'));
 		append(center, $('.picture-editor'));
-		const panel = this._picturePart(layout, Parts.PANEL_PART, ViewContainerLocation.Panel);
+		const panel = partOf(Parts.PANEL_PART, ViewContainerLocation.Panel);
 		if (panel) {
 			drawPart(center, 'picture-panel', Parts.PANEL_PART, panel);
 		}
-		const aux = this._picturePart(layout, Parts.AUXILIARYBAR_PART, ViewContainerLocation.AuxiliaryBar);
+		const aux = partOf(Parts.AUXILIARYBAR_PART, ViewContainerLocation.AuxiliaryBar);
 		if (aux) {
 			drawPart(picture, 'picture-aux', Parts.AUXILIARYBAR_PART, aux);
 		}
@@ -679,14 +720,20 @@ export class PositronLayoutPopover extends Disposable {
 	 * - A view from the Session container dropped among the other Session pills moves to
 	 *   that spot in Session. Dropped anywhere else, it becomes its own tab in that part,
 	 *   at the end.
-	 * - A view container moves to the part it was dropped in, at that spot. The workbench
-	 *   cannot reorder containers within a part, so a drop in its own group does nothing.
+	 * - A view container moves to the part it was dropped in, at that spot. Dropped in its
+	 *   own group, it moves to that spot among the part's tabs or activity bar items.
 	 * @param pill The dragged pill.
 	 * @param from The part the pill was grouped under.
 	 * @param target The group it was dropped in.
 	 * @param index Where in the group it was dropped.
 	 */
 	private _move(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
+		this._moveView(pill, from, target, index);
+		// Reordering raises no event the popover listens to, so draw it again either way.
+		this._refresh.schedule();
+	}
+
+	private _moveView(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
 		const reason = 'positronLayoutPopover';
 		if (pill.sessionView) {
 			const sessionIndexes = target.pills.flatMap((candidate, i) => candidate.sessionView ? [i] : []);
@@ -697,7 +744,7 @@ export class PositronLayoutPopover extends Disposable {
 				const fromIndex = target.pills.indexOf(pill);
 				const to = target.pills[fromIndex < index ? index - 1 : index];
 				if (to && to !== pill && to.sessionView) {
-					this._viewDescriptorService.getViewContainerModel(pill.container).move(pill.id, to.id);
+					this._moveSessionView(pill, to);
 				}
 				return;
 			}
@@ -706,11 +753,36 @@ export class PositronLayoutPopover extends Disposable {
 		}
 
 		if (target.part === from) {
+			// Put it before the container of the pill it was dropped before, or after the
+			// last other container when dropped at the end.
+			const after = target.pills.slice(index).find(candidate => candidate.container !== pill.container);
+			const before = [...target.pills.slice(0, index)].reverse().find(candidate => candidate.container !== pill.container);
+			const neighbor = after ?? before;
+			if (neighbor) {
+				this._paneCompositeService.movePaneComposite?.(pill.container.id, neighbor.container.id, neighbor === after, target.location);
+			}
 			return;
 		}
 		// The position counts containers, and the Session views share one.
 		const containersBefore = new Set(target.pills.slice(0, index).map(candidate => candidate.container.id));
 		this._viewDescriptorService.moveViewContainerToLocation(pill.container, target.location, containersBefore.size, reason);
+	}
+
+	/**
+	 * Moves a Session view to another view's spot in Session. When Session is open, its
+	 * panes move on screen too, as dragging a pane's header would.
+	 * @param pill The view to move.
+	 * @param to The view whose spot it takes.
+	 */
+	private _moveSessionView(pill: ViewPill, to: ViewPill): void {
+		const container = this._viewsService.getActiveViewPaneContainerWithId(pill.container.id);
+		const fromPane = container?.getView(pill.id);
+		const toPane = container?.getView(to.id);
+		if (container instanceof ViewPaneContainer && fromPane instanceof ViewPane && toPane instanceof ViewPane) {
+			container.movePane(fromPane, toPane);
+		} else {
+			this._viewDescriptorService.getViewContainerModel(pill.container).move(pill.id, to.id);
+		}
 	}
 
 	/**

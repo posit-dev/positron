@@ -313,6 +313,16 @@ export class SidebarPart extends AbstractPaneCompositePart {
 		return this.shouldShowCompositeBar() ? super.getPinnedPaneCompositeIds() : this.activityBarPart.getPinnedPaneCompositeIds();
 	}
 
+	// --- Start Positron ---
+	override movePaneComposite(id: string, toId: string, before: boolean): void {
+		if (this.shouldShowCompositeBar()) {
+			super.movePaneComposite(id, toId, before);
+		} else {
+			this.activityBarPart.moveComposite(id, toId, before);
+		}
+	}
+	// --- End Positron ---
+
 	override getVisiblePaneCompositeIds(): string[] {
 		return this.shouldShowCompositeBar() ? super.getVisiblePaneCompositeIds() : this.activityBarPart.getVisiblePaneCompositeIds();
 	}

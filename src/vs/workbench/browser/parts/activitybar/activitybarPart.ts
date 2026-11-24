@@ -309,6 +309,12 @@ export class ActivitybarPart extends Part {
 		return this.compositeBar.value?.getPinnedPaneCompositeIds() ?? [];
 	}
 
+	// --- Start Positron ---
+	moveComposite(id: string, toId: string, before: boolean): void {
+		this.compositeBar.value?.moveComposite(id, toId, before);
+	}
+	// --- End Positron ---
+
 	getVisiblePaneCompositeIds(): string[] {
 		return this.compositeBar.value?.getVisiblePaneCompositeIds() ?? [];
 	}

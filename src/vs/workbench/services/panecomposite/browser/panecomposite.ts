@@ -49,6 +49,20 @@ export interface IPaneCompositePartService {
 	 */
 	getPinnedPaneCompositeIds(viewContainerLocation: ViewContainerLocation): string[];
 
+	// --- Start Positron ---
+	// The layout popover reorders tabs and activity bar items. Optional, so the other
+	// implementations of this service need no change.
+	/**
+	 * Moves a view container's tab or activity bar item next to another one in the same
+	 * place, as dragging it there would.
+	 * @param id The view container to move.
+	 * @param toId The view container to move it next to.
+	 * @param before Whether to put it before that container, rather than after.
+	 * @param viewContainerLocation Where both view containers are.
+	 */
+	movePaneComposite?(id: string, toId: string, before: boolean, viewContainerLocation: ViewContainerLocation): void;
+	// --- End Positron ---
+
 	/**
 	 * Returns id of visible view containers following the visual order.
 	 */
