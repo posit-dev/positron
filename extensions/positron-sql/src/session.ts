@@ -353,8 +353,10 @@ export class SqlSession implements vscode.Disposable {
 				// user does not have to open it by hand before the file works.
 				void this._openConnectionFor(document);
 				// Changing a buffer's language closes and reopens it under the same editor, which
-				// does not change the active editor, so the item is not otherwise told.
+				// does not change the active editor, so the item and the context key are not
+				// otherwise told.
 				this._updateStatusBar();
+				this._updateActiveContext();
 			}),
 			vscode.workspace.onDidChangeTextDocument(event => {
 				// A file saved from an untitled buffer opens empty and receives the buffer's text
@@ -703,9 +705,19 @@ export class SqlSession implements vscode.Disposable {
 		}
 	}
 
+	/**
+	 * Sets {@link ACTIVE_EDITOR_IS_SQL_KEY}. A notebook cell does not count: the Console-focused
+	 * bindings have no notebook guard, and a cell is not a file to run to or from a line of.
+	 */
+	private _updateActiveContext(): void {
+		const editor = activeSqlEditor();
+		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY,
+			editor !== undefined && editor.document.uri.scheme !== 'vscode-notebook-cell');
+	}
+
 	/** Remembers the SQL document now in front of the user, if it is one; see {@link _recentlyActive}. */
 	private _noteActive(): void {
-		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY, activeSqlEditor() !== undefined);
+		this._updateActiveContext();
 		const active = activeSqlDocument()?.uri.toString();
 		if (active && this._recentlyActive.at(-1) !== active) {
 			this._recentlyActive = [...this._recentlyActive.filter(uri => uri !== active), active].slice(-2);

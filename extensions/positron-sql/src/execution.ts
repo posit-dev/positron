@@ -268,9 +268,10 @@ export class StatementRunner {
 		// sent its last statement, so it lands behind all of them in the console's queue rather
 		// than between them.
 		//
-		// While it waits it is held here rather than in the console's queue, where an interrupt or
-		// a restart would have cleared it. So a run held behind one that was interrupted, or whose
-		// session exited, is dropped too, as the console would have dropped it.
+		// While it waits it is held here rather than in the console's queue, which an interrupt
+		// clears. So a run held behind one that was interrupted is dropped too, as the console
+		// would have dropped it; and so is one held behind a session that exited, since whatever
+		// state it was written against went with the session.
 		const id = sessionId;
 		const sent = (this._sending.get(id) ?? Promise.resolve<SendEnd>('sent')).then((before): Promise<SendEnd> | SendEnd => {
 			if (before === 'stopped') {
