@@ -13,6 +13,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IViewDescriptor, IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../common/views.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
@@ -91,6 +92,20 @@ interface PictureTarget {
 	readonly part?: ViewPart;
 }
 
+/** Which part of the window is shown, and which tab it has open, before an action. */
+interface PartState {
+	readonly part: ViewPart;
+	readonly location: ViewContainerLocation;
+	readonly visible: boolean;
+	readonly activeId: string | undefined;
+}
+
+/** The last change the user made from the popover, and how to take it back. */
+interface LastAction {
+	readonly message: string;
+	readonly undo: () => void;
+}
+
 /**
  * What the popover asks of the title bar button that opens it.
  */
@@ -115,7 +130,14 @@ export class PositronLayoutPopover extends Disposable {
 	private readonly _modifiedNote: HTMLElement;
 	private readonly _search: HTMLInputElement;
 	private readonly _groups: HTMLElement;
+	private readonly _status: HTMLElement;
 	private readonly _customize: HTMLElement;
+
+	/** The Undo button for the last change, when there is one. */
+	private _undoButton: HTMLElement | undefined;
+
+	/** The Undo button's listener, replaced with each change. */
+	private readonly _statusDisposables = this._register(new DisposableStore());
 
 	/** The cards as last drawn, in order. */
 	private _cardElements: HTMLElement[] = [];
@@ -161,6 +183,7 @@ export class PositronLayoutPopover extends Disposable {
 		private readonly _host: ILayoutPopoverHost,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IPaneCompositePartService private readonly _paneCompositeService: IPaneCompositePartService,
 		@IPositronLayoutService private readonly _positronLayoutService: IPositronLayoutService,
@@ -191,6 +214,8 @@ export class PositronLayoutPopover extends Disposable {
 		this._search.setAttribute('aria-label', localize('positron.layoutPopover.searchAriaLabel', "Search views"));
 		this._register(addDisposableListener(this._search, EventType.INPUT, () => this._draw()));
 		this._groups = append(this._element, $('.positron-layout-popover-groups'));
+		// Says what the last click or drag did, with a way to take it back.
+		this._status = append(this._element, $('.positron-layout-popover-status.empty', { role: 'status', 'aria-live': 'polite' }));
 
 		append(this._element, $('.positron-layout-popover-divider'));
 
@@ -512,8 +537,8 @@ export class PositronLayoutPopover extends Disposable {
 			append(header, $('span.positron-layout-popover-group-name', undefined, name));
 			if (pills.length) {
 				append(header, $('span.positron-layout-popover-count', undefined, localize(
-					'positron.layoutPopover.count', "{0} of {1} showing",
-					pills.filter(pill => pill.shown).length, pills.length)));
+					'positron.layoutPopover.count', "{0} visible",
+					pills.filter(pill => pill.shown).length)));
 			}
 			if (group.part === Parts.PANEL_PART) {
 				const panelSwitch = this._panelSwitch();
@@ -617,9 +642,33 @@ export class PositronLayoutPopover extends Disposable {
 		if (keybinding) {
 			append(button, $('span.positron-layout-popover-pill-keybinding', undefined, keybinding));
 		}
+		append(button, $(`span.positron-layout-popover-pill-state.codicon.codicon-${pill.shown ? 'eye' : 'eye-closed'}`, { 'aria-hidden': 'true' }));
+
+		// Say what a click does, and that the pill can be dragged.
+		const action = pill.shown
+			? localize('positron.layoutPopover.pillHide', "Hide {0}", pill.name)
+			: localize('positron.layoutPopover.pillShow', "Show {0}", pill.name);
+		this._itemDisposables.add(this._hoverService.setupDelayedHover(button, () => {
+			const content = $('.positron-layout-popover-hover');
+			append(content, $('div', undefined, action));
+			if (pill.movable) {
+				append(content, $('div.positron-layout-popover-hover-hint', undefined, localize(
+					'positron.layoutPopover.pillDragHint', "Drag to move it to another part of the window")));
+			}
+			return { content, persistence: { hideOnKeyDown: true } };
+		}, { groupId: 'positron-layout-popover-pills' }));
 
 		// The popover stays open, so the user sees the view come and go.
-		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => pill.toggle()));
+		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => {
+			const message = pill.shown
+				? localize('positron.layoutPopover.hid', "Hid {0}.", pill.name)
+				: localize('positron.layoutPopover.showed', "Showed {0}.", pill.name);
+			// Closing or opening a Session view also collapses or expands its pane.
+			const reverse = pill.sessionView
+				? () => pill.shown ? this._viewsService.openView(pill.id, false) : this._viewsService.closeView(pill.id)
+				: () => { };
+			this._record(message, () => pill.toggle(), reverse);
+		}));
 		// Pointing at a pill lights up where its view lives in the current layout.
 		const highlight = () => this._highlightView(pill.id, part);
 		const clear = () => this._highlightView(undefined);
@@ -728,6 +777,14 @@ export class PositronLayoutPopover extends Disposable {
 	 * @param index Where in the group it was dropped.
 	 */
 	private _move(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
+		const message = target.part === from
+			? localize('positron.layoutPopover.reordered', "Moved {0}.", pill.name)
+			: localize('positron.layoutPopover.moved', "Moved {0} to {1}.", pill.name,
+				VIEW_GROUPS.find(group => group.part === target.part)!.name());
+		this._record(message, () => this._moveAndShow(pill, from, target, index), this._undoMove(pill));
+	}
+
+	private _moveAndShow(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
 		const targetHidden = !this._layoutService.isVisible(target.part);
 		this._moveView(pill, from, target, index);
 		// A view dropped into a hidden part would vanish, so open the part on that view.
@@ -785,14 +842,76 @@ export class PositronLayoutPopover extends Disposable {
 	 * @param to The view whose spot it takes.
 	 */
 	private _moveSessionView(pill: ViewPill, to: ViewPill): void {
-		const container = this._viewsService.getActiveViewPaneContainerWithId(pill.container.id);
-		const fromPane = container?.getView(pill.id);
-		const toPane = container?.getView(to.id);
+		this._moveViewInContainer(pill.container, pill.id, to.id);
+	}
+
+	private _moveViewInContainer(viewContainer: ViewContainer, id: string, toId: string): void {
+		const container = this._viewsService.getActiveViewPaneContainerWithId(viewContainer.id);
+		const fromPane = container?.getView(id);
+		const toPane = container?.getView(toId);
 		if (container instanceof ViewPaneContainer && fromPane instanceof ViewPane && toPane instanceof ViewPane) {
 			container.movePane(fromPane, toPane);
 		} else {
-			this._viewDescriptorService.getViewContainerModel(pill.container).move(pill.id, to.id);
+			this._viewDescriptorService.getViewContainerModel(viewContainer).move(id, toId);
 		}
+	}
+
+	/**
+	 * Notes where a pill's view is now, before it moves.
+	 * @param pill The pill about to move.
+	 * @returns What puts the view back there.
+	 */
+	private _undoMove(pill: ViewPill): () => void {
+		const reason = 'positronLayoutPopover';
+		if (pill.sessionView) {
+			const view = pill.sessionView;
+			const session = pill.container;
+			const order = this._viewDescriptorService.getViewContainerModel(session).activeViewDescriptors.map(descriptor => descriptor.id);
+			return () => {
+				if (this._viewDescriptorService.getViewContainerByViewId(view.id)?.id !== session.id) {
+					this._viewDescriptorService.moveViewsToContainer([view], session, undefined, reason);
+				}
+				this._restoreOrder(order,
+					() => this._viewDescriptorService.getViewContainerModel(session).activeViewDescriptors.map(descriptor => descriptor.id),
+					(id, toId) => this._moveViewInContainer(session, id, toId));
+				// Moving it back expands it, so collapse it again if it was.
+				if (!pill.shown && this._viewsService.isViewVisible(view.id)) {
+					this._viewsService.closeView(view.id);
+				}
+			};
+		}
+		const container = pill.container;
+		const location = this._viewDescriptorService.getViewContainerLocation(container);
+		if (location === null) {
+			return () => { };
+		}
+		const order = this._paneCompositeService.getVisiblePaneCompositeIds(location);
+		return () => {
+			if (this._viewDescriptorService.getViewContainerLocation(container) !== location) {
+				this._viewDescriptorService.moveViewContainerToLocation(container, location, order.indexOf(container.id), reason);
+			}
+			this._restoreOrder(order,
+				() => this._paneCompositeService.getVisiblePaneCompositeIds(location),
+				(id, toId) => this._paneCompositeService.movePaneComposite?.(id, toId, true, location));
+		};
+	}
+
+	/**
+	 * Puts a list of views or containers back in an earlier order, one move at a time.
+	 * Items that came or went since are left where they are.
+	 * @param order The earlier order.
+	 * @param current Reads the order now.
+	 * @param moveBefore Moves an item in front of another.
+	 */
+	private _restoreOrder(order: readonly string[], current: () => string[], moveBefore: (id: string, toId: string) => void): void {
+		const now = new Set(current());
+		const wanted = order.filter(id => now.has(id));
+		wanted.forEach((id, index) => {
+			const at = current().filter(candidate => wanted.includes(candidate))[index];
+			if (at && at !== id) {
+				moveBefore(id, at);
+			}
+		});
 	}
 
 	/**
@@ -831,10 +950,15 @@ export class PositronLayoutPopover extends Disposable {
 		button.setAttribute('aria-checked', String(shown));
 		button.setAttribute('aria-label', localize('positron.layoutPopover.panelSwitch', "Show Bottom Panel"));
 		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => {
-			this._layoutService.setPartHidden(shown, Parts.PANEL_PART);
-			if (!shown) {
-				this._unmaximizePanel();
-			}
+			const message = shown
+				? localize('positron.layoutPopover.hidPanel', "Hid the bottom panel.")
+				: localize('positron.layoutPopover.showedPanel', "Showed the bottom panel.");
+			this._record(message, () => {
+				this._layoutService.setPartHidden(shown, Parts.PANEL_PART);
+				if (!shown) {
+					this._unmaximizePanel();
+				}
+			}, () => { });
 		}));
 		return button;
 	}
@@ -851,11 +975,95 @@ export class PositronLayoutPopover extends Disposable {
 
 	//#endregion
 
+	//#region Undo
+
+	/**
+	 * Makes a change to the window and says what it did, with an Undo button.
+	 * @param message What the change did, as a sentence.
+	 * @param run Makes the change.
+	 * @param reverse Takes back what the change did beyond showing, hiding, or switching
+	 * the tabs of parts, which Undo puts back on its own.
+	 */
+	private _record(message: string, run: () => void, reverse: () => void): void {
+		const parts = this._partStates();
+		run();
+		this._showLastAction({
+			message,
+			undo: () => {
+				reverse();
+				this._restoreParts(parts);
+			},
+		});
+	}
+
+	/** Which parts are shown, and which tab each has open. */
+	private _partStates(): PartState[] {
+		return VIEW_GROUPS.map(group => ({
+			part: group.part,
+			location: group.location,
+			visible: this._layoutService.isVisible(group.part),
+			activeId: this._paneCompositeService.getActivePaneComposite(group.location)?.getId(),
+		}));
+	}
+
+	/**
+	 * Shows and hides parts, and opens their tabs, as they were.
+	 * @param states The parts as they were.
+	 */
+	private _restoreParts(states: readonly PartState[]): void {
+		for (const state of states) {
+			if (!state.visible) {
+				if (this._layoutService.isVisible(state.part)) {
+					this._layoutService.setPartHidden(true, state.part);
+				}
+				continue;
+			}
+			const container = state.activeId ? this._viewDescriptorService.getViewContainerById(state.activeId) : null;
+			const stillThere = container && this._viewDescriptorService.getViewContainerLocation(container) === state.location;
+			if (stillThere && this._paneCompositeService.getActivePaneComposite(state.location)?.getId() !== state.activeId) {
+				this._paneCompositeService.openPaneComposite(state.activeId, state.location, false);
+			} else if (!this._layoutService.isVisible(state.part)) {
+				this._layoutService.setPartHidden(false, state.part);
+			}
+		}
+		this._unmaximizePanel();
+	}
+
+	/**
+	 * Says what the last change did, or clears the line when there is none.
+	 * @param action The change, or undefined to clear.
+	 */
+	private _showLastAction(action: LastAction | undefined): void {
+		const hadFocus = this._undoButton !== undefined && getActiveElement() === this._undoButton;
+		this._undoButton = undefined;
+		this._statusDisposables.clear();
+		if (!action) {
+			reset(this._status);
+		} else {
+			const undo = $('button.positron-layout-popover-link.positron-layout-popover-undo', undefined, localize('positron.layoutPopover.undo', "Undo"));
+			this._undoButton = undo;
+			undo.dataset.id = 'undo';
+			this._statusDisposables.add(addDisposableListener(undo, EventType.CLICK, () => {
+				this._showLastAction(undefined);
+				action.undo();
+				this._refresh.schedule();
+			}));
+			reset(this._status, $('span.positron-layout-popover-status-message', undefined, action.message), undo);
+		}
+		this._status.classList.toggle('empty', !action);
+		if (hadFocus) {
+			this._search.focus();
+		}
+		this._host.layout();
+	}
+
+	//#endregion
+
 	//#region Keyboard
 
-	/** The cards, the search box, the pills, the switch, and the link, in order. */
+	/** The cards, the search box, the pills, the switch, Undo, and the link, in order. */
 	private _focusables(): HTMLElement[] {
-		return [...this._cardElements, this._search, ...this._groupControls, this._customize];
+		return [...this._cardElements, this._search, ...this._groupControls, ...(this._undoButton ? [this._undoButton] : []), this._customize];
 	}
 
 	private _onKeyDown(event: StandardKeyboardEvent): void {

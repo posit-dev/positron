@@ -342,3 +342,39 @@
 	min-height: 20px;
 	width: 3px;
 }
+
+/* The eye at the end of a pill says whether its view is on screen. */
+.positron-layout-popover-pill .positron-layout-popover-pill-state {
+	color: var(--vscode-descriptionForeground);
+	margin-left: 2px;
+}
+
+.positron-layout-popover button.positron-layout-popover-pill.shown .positron-layout-popover-pill-state {
+	color: var(--vscode-foreground);
+}
+
+/* A pill's hover: what a click does, then how to move it. */
+.positron-layout-popover-hover-hint {
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+/* What the last click or drag did, with Undo. */
+.positron-layout-popover-status {
+	align-items: center;
+	display: flex;
+	font-size: 12px;
+	gap: 8px;
+}
+
+.positron-layout-popover-status.empty {
+	display: none;
+}
+
+.positron-layout-popover-status-message {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-layout-popover button.positron-layout-popover-undo {
+	align-self: center;
+}
