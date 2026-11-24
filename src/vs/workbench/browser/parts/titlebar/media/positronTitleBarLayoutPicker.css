@@ -232,7 +232,6 @@
 	font-weight: 600;
 }
 
-.positron-layout-popover-count,
 .positron-layout-popover-empty {
 	color: var(--vscode-descriptionForeground);
 	font-size: 11px;
@@ -343,20 +342,16 @@
 	width: 3px;
 }
 
-/* The eye at the end of a pill says whether its view is on screen. */
-.positron-layout-popover-pill .positron-layout-popover-pill-state {
-	color: var(--vscode-descriptionForeground);
-	margin-left: 2px;
+/* A pill's hover: what a click does, then how to move it, on one line. */
+.monaco-hover .positron-layout-popover-hover {
+	align-items: baseline;
+	display: flex;
+	gap: 8px;
+	white-space: nowrap;
 }
 
-.positron-layout-popover button.positron-layout-popover-pill.shown .positron-layout-popover-pill-state {
-	color: var(--vscode-foreground);
-}
-
-/* A pill's hover: what a click does, then how to move it. */
-.positron-layout-popover-hover-hint {
+.monaco-hover .positron-layout-popover-hover-hint {
 	color: var(--vscode-descriptionForeground);
-	margin-top: 2px;
 }
 
 /* What the last click or drag did, with Undo. */

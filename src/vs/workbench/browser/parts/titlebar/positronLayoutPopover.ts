@@ -5,6 +5,8 @@
 
 import { $, addDisposableListener, append, EventType, getActiveElement, isHTMLElement, isHTMLInputElement, reset } from '../../../../base/browser/dom.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
+import { HoverStyle } from '../../../../base/browser/ui/hover/hover.js';
+import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -535,11 +537,6 @@ export class PositronLayoutPopover extends Disposable {
 			const header = append(section, $('.positron-layout-popover-group-header'));
 			append(header, $(`span.codicon.codicon-${group.icon}`, { 'aria-hidden': 'true' }));
 			append(header, $('span.positron-layout-popover-group-name', undefined, name));
-			if (pills.length) {
-				append(header, $('span.positron-layout-popover-count', undefined, localize(
-					'positron.layoutPopover.count', "{0} visible",
-					pills.filter(pill => pill.shown).length)));
-			}
 			if (group.part === Parts.PANEL_PART) {
 				const panelSwitch = this._panelSwitch();
 				header.appendChild(panelSwitch);
@@ -642,7 +639,6 @@ export class PositronLayoutPopover extends Disposable {
 		if (keybinding) {
 			append(button, $('span.positron-layout-popover-pill-keybinding', undefined, keybinding));
 		}
-		append(button, $(`span.positron-layout-popover-pill-state.codicon.codicon-${pill.shown ? 'eye' : 'eye-closed'}`, { 'aria-hidden': 'true' }));
 
 		// Say what a click does, and that the pill can be dragged.
 		const action = pill.shown
@@ -650,12 +646,18 @@ export class PositronLayoutPopover extends Disposable {
 			: localize('positron.layoutPopover.pillShow', "Show {0}", pill.name);
 		this._itemDisposables.add(this._hoverService.setupDelayedHover(button, () => {
 			const content = $('.positron-layout-popover-hover');
-			append(content, $('div', undefined, action));
+			append(content, $('span.positron-layout-popover-hover-action', undefined, action));
 			if (pill.movable) {
-				append(content, $('div.positron-layout-popover-hover-hint', undefined, localize(
-					'positron.layoutPopover.pillDragHint', "Drag to move it to another part of the window")));
+				append(content, $('span.positron-layout-popover-hover-hint', undefined, localize(
+					'positron.layoutPopover.pillDragHint', "Drag to move it")));
 			}
-			return { content, persistence: { hideOnKeyDown: true } };
+			return {
+				content,
+				style: HoverStyle.Pointer,
+				position: { hoverPosition: HoverPosition.ABOVE },
+				appearance: { compact: true },
+				persistence: { hideOnKeyDown: true },
+			};
 		}, { groupId: 'positron-layout-popover-pills' }));
 
 		// The popover stays open, so the user sees the view come and go.
