@@ -728,7 +728,17 @@ export class PositronLayoutPopover extends Disposable {
 	 * @param index Where in the group it was dropped.
 	 */
 	private _move(pill: ViewPill, from: ViewPart, target: DropGroup, index: number): void {
+		const targetHidden = !this._layoutService.isVisible(target.part);
 		this._moveView(pill, from, target, index);
+		// A view dropped into a hidden part would vanish, so open the part on that view.
+		if (target.part !== from && targetHidden) {
+			if (pill.sessionView) {
+				this._viewsService.openView(pill.id, false);
+			} else {
+				this._paneCompositeService.openPaneComposite(pill.container.id, target.location, false);
+			}
+			this._unmaximizePanel();
+		}
 		// Reordering raises no event the popover listens to, so draw it again either way.
 		this._refresh.schedule();
 	}
@@ -822,13 +832,21 @@ export class PositronLayoutPopover extends Disposable {
 		button.setAttribute('aria-label', localize('positron.layoutPopover.panelSwitch', "Show Bottom Panel"));
 		this._itemDisposables.add(addDisposableListener(button, EventType.CLICK, () => {
 			this._layoutService.setPartHidden(shown, Parts.PANEL_PART);
-			// The panel reopens maximized when it was maximized as it closed, which happens
-			// when no editor is open. Open it at its normal height instead.
-			if (!shown && this._layoutService.isPanelMaximized()) {
-				this._layoutService.toggleMaximizedPanel();
+			if (!shown) {
+				this._unmaximizePanel();
 			}
 		}));
 		return button;
+	}
+
+	/**
+	 * The panel reopens maximized when it was maximized as it closed, which happens when no
+	 * editor is open. Puts it back at its normal height.
+	 */
+	private _unmaximizePanel(): void {
+		if (this._layoutService.isVisible(Parts.PANEL_PART) && this._layoutService.isPanelMaximized()) {
+			this._layoutService.toggleMaximizedPanel();
+		}
 	}
 
 	//#endregion
