@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { INotificationService, IPromptChoice } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { explainUnrunnableCell, hostOwnedCellLanguages } from '../../browser/quartoHostCellLanguages.js';
 import { createTestRuntimeStartupService } from './quartoTestRuntimeStartupService.js';
@@ -57,5 +57,23 @@ describe('explainUnrunnableCell', () => {
 		expect(said.map(s => s.split(' ').slice(0, 3).join(' '))).toEqual([
 			'prompt: This SQL', 'prompt: Install the',
 		]);
+	});
+
+	it('offers to preview a knitr document whose SQL cell does not run', async () => {
+		const choices: IPromptChoice[] = [];
+		const executed: string[] = [];
+		const knitr = { primaryLanguage: 'r', knitrEngine: undefined, cells: [{ language: 'r' }] };
+		explainUnrunnableCell('sql', knitr, {
+			runtimeStartupService: createTestRuntimeStartupService(['r', 'ggsql']),
+			notificationService: stubInterface<INotificationService>({
+				prompt: (_severity: unknown, _message: string, promptChoices: IPromptChoice[]) => { choices.push(...promptChoices); return undefined!; },
+			}),
+			commandService: stubInterface<ICommandService>({
+				executeCommand: async (id: string) => { executed.push(id); return undefined; },
+			}),
+		});
+
+		await Promise.all(choices.map(choice => choice.run()));
+		expect({ labels: choices.map(choice => choice.label), executed }).toEqual({ labels: ['Preview'], executed: ['quarto.preview'] });
 	});
 });
