@@ -1,0 +1,80 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.plot-size-editor {
+	display: flex;
+	flex-direction: column;
+	row-gap: 10px;
+}
+
+.plot-size-editor .plot-size-inputs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	column-gap: 24px;
+	row-gap: 8px;
+}
+
+.plot-size-editor .plot-size-pair {
+	display: flex;
+	align-items: flex-start;
+	column-gap: 16px;
+}
+
+.plot-size-editor .plot-size-pair .labeled-text-input {
+	width: auto;
+}
+
+.plot-size-editor .plot-size-pair .labeled-text-input input {
+	width: 100px;
+}
+
+.plot-size-editor .plot-size-progress {
+	display: flex;
+	height: 4px;
+}
+
+.plot-size-editor .plot-size-status:empty {
+	display: none;
+}
+
+.plot-size-editor .plot-size-frame {
+	position: relative;
+	box-sizing: content-box;
+	border: 1px solid var(--vscode-positronModalDialog-contrastBackground);
+}
+
+.plot-size-editor .plot-size-preview {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.plot-size-editor .plot-size-handle {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: var(--vscode-positronModalDialog-background);
+	color: var(--vscode-positronModalDialog-foreground);
+	cursor: nwse-resize;
+	/* Keep touch drags from scrolling the page. */
+	touch-action: none;
+}
+
+.plot-size-editor .plot-size-handle:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.plot-size-editor .plot-size-scaled-note {
+	color: var(--vscode-descriptionForeground);
+}
