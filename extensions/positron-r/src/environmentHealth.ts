@@ -210,7 +210,7 @@ export function probeDiscovery(deps: { binaryCount: number; discoveryFailed?: bo
 	}
 	if (deps.binaryCount === 0) {
 		return healthItem(id, 'fail', {
-			detail: vscode.l10n.t('Install R.'),
+			detail: vscode.l10n.t('Install R or update your settings to find an existing R.'),
 			fix: diagnosticsFix(),
 			learnMoreUrl: R_INSTALL_DOCS,
 		});
