@@ -18,8 +18,8 @@ import { EnvironmentHealthLanguage } from '../../browser/positronWelcomePage/env
 import { EnvironmentHealthSnapshot, IEnvironmentHealthService } from '../../browser/positronWelcomePage/environmentHealthService.js';
 import { IAgentSetupState, WelcomeAgentSetup } from '../../browser/positronWelcomePage/welcomeAgentSetup.js';
 
-const SIMPLIFIED = 'workbench.action.positronSimplifiedLayout';
-const STACKED = 'workbench.action.positronFourPaneDataScienceLayout';
+const DATA_ANALYSIS = 'workbench.action.positronTwoPaneDataScienceLayout';
+const DEFAULT_LAYOUT = 'workbench.action.positronFourPaneDataScienceLayout';
 const SETUP_DONE_STORAGE_KEY = 'positron.welcome.getStarted.done';
 
 /** Python passes every check; R has one warning. */
@@ -58,7 +58,7 @@ describe('GetStartedCard', () => {
 		.withReactServices()
 		.stub(ICommandService, { executeCommand })
 		.stub(ITelemetryService, { publicLog2 })
-		.stub(IPositronLayoutService, { currentLayoutId: SIMPLIFIED, onDidChangeCurrentLayout: Event.None })
+		.stub(IPositronLayoutService, { currentLayoutId: DATA_ANALYSIS, onDidChangeCurrentLayout: Event.None })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -108,13 +108,13 @@ describe('GetStartedCard', () => {
 		render(false);
 		await user.click(screen.getByRole('button', { name: 'Next' }));
 
-		expect(screen.getByRole('radio', { name: /^Simplified/ })).toBeChecked();
-		await user.click(screen.getByRole('radio', { name: /^Stacked/ }));
+		expect(screen.getByRole('radio', { name: /^Data Analysis/ })).toBeChecked();
+		await user.click(screen.getByRole('radio', { name: /^Default/ }));
 		expect(executeCommand).not.toHaveBeenCalled();
 
 		await user.click(screen.getByRole('button', { name: 'Finish' }));
 
-		expect(executeCommand).toHaveBeenCalledWith(STACKED);
+		expect(executeCommand).toHaveBeenCalledWith(DEFAULT_LAYOUT);
 		expect(screen.getByRole('region', { name: 'Setup summary' })).toBeInTheDocument();
 	});
 
@@ -136,7 +136,7 @@ describe('GetStartedCard', () => {
 
 		expect(screen.getByText('Python ready')).toBeInTheDocument();
 		expect(screen.getByText('R: 1 fix left')).toBeInTheDocument();
-		expect(screen.getByText('Layout: Simplified')).toBeInTheDocument();
+		expect(screen.getByText('Layout: Data Analysis')).toBeInTheDocument();
 		expect(screen.queryByText('Assistant: not set up')).not.toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Review setup' }));

@@ -11,7 +11,7 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 import { registerMatchableLayout } from './layoutMatch.js';
-import { registerTaskLayout } from './taskLayouts.js';
+import { registerTaskLayout, TaskLayoutGroup } from './taskLayouts.js';
 
 
 export type PositronLayoutInfo = {
@@ -40,10 +40,11 @@ export type PositronLayoutInfo = {
 	 */
 	agentCompatible?: boolean;
 	/**
-	 * When set, the layout is built for one kind of work and the title bar's
-	 * layout picker lists it under this short name, in this order.
+	 * When set, the title bar's layout picker lists the layout under this short
+	 * name, in this group and order. A task layout can also name view
+	 * containers it hides.
 	 */
-	taskLayout?: { name: string; order: number };
+	taskLayout?: { name: string; group: TaskLayoutGroup; order: number; hiddenViewContainers?: readonly string[] };
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -73,7 +74,9 @@ export abstract class PositronLayoutAction extends Action2 {
 				id: layoutInfo.id,
 				name: layoutInfo.taskLayout.name,
 				codicon: layoutInfo.codicon,
+				group: layoutInfo.taskLayout.group,
 				order: layoutInfo.taskLayout.order,
+				hiddenViewContainers: layoutInfo.taskLayout.hiddenViewContainers ?? [],
 				precondition: layoutInfo.precondition,
 			});
 		}

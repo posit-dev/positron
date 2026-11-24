@@ -86,9 +86,16 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 	private readonly logger: Lazy<ILogger>;
 	private readonly isSessionsWindow: boolean;
 	// --- Start Positron ---
-	// View containers left out of the UI while the simplified layout setting is on.
-	private readonly positronHiddenViewContainerIds: Set<string>;
-	// The hidden containers the user showed again, remembered per profile.
+	// Whether the simplified layout setting is on. Read once: it takes effect after a reload.
+	private readonly positronSimplifiedLayout: boolean;
+	// View containers left out of the UI right now: the ones the current layout hides, less the
+	// ones the user chose to show.
+	private readonly positronHiddenViewContainerIds = new Set<string>();
+	// The view containers the current layout hides, remembered per folder.
+	private positronLayoutHiddenViewContainerIds = new Set<string>();
+	private static readonly POSITRON_LAYOUT_HIDDEN_VIEW_CONTAINERS = 'positron.layout.hiddenViewContainers';
+	// The view containers the user chose to show in every layout, remembered per profile.
+	private readonly positronUserShownViewContainerIds = new Set<string>();
 	private static readonly POSITRON_SHOWN_VIEW_CONTAINERS = 'positron.simplifiedLayout.shownViewContainers';
 	private readonly _onDidChangeHiddenViewContainers = this._register(new Emitter<void>());
 	readonly onDidChangeHiddenViewContainers = this._onDidChangeHiddenViewContainers.event;
@@ -110,12 +117,17 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		super();
 
 		// --- Start Positron ---
-		// Read once: the simplified layout setting takes effect after a reload.
-		this.positronHiddenViewContainerIds = new Set();
-		if (configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true) {
+		this.positronSimplifiedLayout = configurationService.getValue<boolean>(SIMPLIFIED_LAYOUT_ENABLED_KEY) === true;
+		if (this.positronSimplifiedLayout) {
+			// A folder that never had a layout applied hides what every task layout hides.
+			const layoutHidden = storageService.get(ViewDescriptorService.POSITRON_LAYOUT_HIDDEN_VIEW_CONTAINERS, StorageScope.WORKSPACE);
+			this.positronLayoutHiddenViewContainerIds = new Set(layoutHidden ? JSON.parse(layoutHidden) : SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS);
 			const shown: string[] = JSON.parse(storageService.get(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, StorageScope.PROFILE, '[]'));
-			for (const id of SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS) {
-				if (!shown.includes(id)) {
+			for (const id of shown) {
+				this.positronUserShownViewContainerIds.add(id);
+			}
+			for (const id of this.positronLayoutHiddenViewContainerIds) {
+				if (!this.positronUserShownViewContainerIds.has(id)) {
 					this.positronHiddenViewContainerIds.add(id);
 				}
 			}
@@ -375,36 +387,73 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 		return this.positronHiddenViewContainerIds.has(id);
 	}
 
-	setViewContainerHidden(id: string, hidden: boolean): void {
-		if (!SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS.has(id) || hidden === this.positronHiddenViewContainerIds.has(id)) {
+	setLayoutHiddenViewContainers(ids: readonly string[]): void {
+		if (!this.positronSimplifiedLayout) {
 			return;
 		}
-		const viewContainer = this.viewContainersRegistry.get(id);
+		this.positronLayoutHiddenViewContainerIds = new Set(ids);
+		this.storageService.store(ViewDescriptorService.POSITRON_LAYOUT_HIDDEN_VIEW_CONTAINERS, JSON.stringify(ids), StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		this.positronUpdateHiddenViewContainers();
+	}
 
-		// Tell everyone the container is going away while it is still enabled,
-		// and that it arrived once it is.
-		if (hidden) {
-			if (viewContainer && this.isViewContainerEnabled(viewContainer)) {
-				const location = this.getViewContainerLocation(viewContainer);
-				this.positronHiddenViewContainerIds.add(id);
-				this.onDidDeregisterViewContainer(viewContainer);
-				this._onDidChangeViewContainers.fire({ added: [], removed: [{ container: viewContainer, location }] });
-			} else {
-				this.positronHiddenViewContainerIds.add(id);
-			}
+	isViewContainerShownByUser(id: string): boolean {
+		return this.positronUserShownViewContainerIds.has(id);
+	}
+
+	setViewContainerShownByUser(id: string, shown: boolean): void {
+		if (!this.positronSimplifiedLayout || shown === this.positronUserShownViewContainerIds.has(id)) {
+			return;
+		}
+		if (shown) {
+			this.positronUserShownViewContainerIds.add(id);
 		} else {
+			this.positronUserShownViewContainerIds.delete(id);
+		}
+		if (this.positronUserShownViewContainerIds.size) {
+			this.storageService.store(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, JSON.stringify([...this.positronUserShownViewContainerIds]), StorageScope.PROFILE, StorageTarget.USER);
+		} else {
+			this.storageService.remove(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, StorageScope.PROFILE);
+		}
+		this.positronUpdateHiddenViewContainers();
+	}
+
+	/**
+	 * Hides the containers the layout hides and the user has not shown, and shows the rest
+	 * again, telling everyone which containers came and went.
+	 */
+	private positronUpdateHiddenViewContainers(): void {
+		const next = new Set([...this.positronLayoutHiddenViewContainerIds].filter(id => !this.positronUserShownViewContainerIds.has(id)));
+		const added: { container: ViewContainer; location: ViewContainerLocation }[] = [];
+		const removed: { container: ViewContainer; location: ViewContainerLocation }[] = [];
+
+		// Tell everyone a container is going away while it is still enabled, and that it
+		// arrived once it is.
+		for (const id of next) {
+			if (this.positronHiddenViewContainerIds.has(id)) {
+				continue;
+			}
+			const viewContainer = this.viewContainersRegistry.get(id);
+			const wasEnabled = viewContainer !== undefined && this.isViewContainerEnabled(viewContainer);
+			this.positronHiddenViewContainerIds.add(id);
+			if (viewContainer && wasEnabled) {
+				this.onDidDeregisterViewContainer(viewContainer);
+				removed.push({ container: viewContainer, location: this.getViewContainerLocation(viewContainer) });
+			}
+		}
+		for (const id of [...this.positronHiddenViewContainerIds]) {
+			if (next.has(id)) {
+				continue;
+			}
 			this.positronHiddenViewContainerIds.delete(id);
+			const viewContainer = this.viewContainersRegistry.get(id);
 			if (viewContainer && this.isViewContainerEnabled(viewContainer)) {
 				this.onDidRegisterViewContainer(viewContainer);
-				this._onDidChangeViewContainers.fire({ added: [{ container: viewContainer, location: this.getViewContainerLocation(viewContainer) }], removed: [] });
+				added.push({ container: viewContainer, location: this.getViewContainerLocation(viewContainer) });
 			}
 		}
 
-		const shown = [...SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS].filter(containerId => !this.positronHiddenViewContainerIds.has(containerId));
-		if (shown.length) {
-			this.storageService.store(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, JSON.stringify(shown), StorageScope.PROFILE, StorageTarget.USER);
-		} else {
-			this.storageService.remove(ViewDescriptorService.POSITRON_SHOWN_VIEW_CONTAINERS, StorageScope.PROFILE);
+		if (added.length || removed.length) {
+			this._onDidChangeViewContainers.fire({ added, removed });
 		}
 		this._onDidChangeHiddenViewContainers.fire();
 	}

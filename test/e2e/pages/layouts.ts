@@ -19,10 +19,10 @@ const VIEW_TABS_LABEL = /active view switcher/i;
 // Known layouts in Positron.
 const positronLayoutPresets = {
 	stacked: 'workbench.action.positronFourPaneDataScienceLayout',
-	side_by_side: 'workbench.action.positronTwoPaneDataScienceLayout',
+	data_analysis: 'workbench.action.positronTwoPaneDataScienceLayout',
 	notebook: 'workbench.action.positronNotebookLayout',
+	app_development: 'workbench.action.positronAppDevelopmentLayout',
 	assistant: 'workbench.action.positronAssistantLayout',
-	agent: 'workbench.action.positronAgentLayout',
 	dockedHelp: 'workbench.action.positronHelpPaneDocked',
 	fullSizedAuxBar: 'workbench.action.fullSizedAuxiliaryBar',
 	fullSizedSidebar: 'workbench.action.fullSizedSidebar',

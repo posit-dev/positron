@@ -15,9 +15,9 @@ test.use({
 // (see #13933) and the same focus race hits the other browser configs.
 test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 
-	test.describe('Stacked Layout', () => {
+	test.describe('Default Layout', () => {
 
-		test('Verify Stacked Layout displays Console, Terminal, and Auxiliary Sections in correct order', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
+		test('Verify Default Layout displays Console, Terminal, and Auxiliary Sections in correct order', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
 			const layouts = app.workbench.layouts;
 
 			await app.code.driver.currentPage.setViewportSize({ width: 1400, height: 1000 });
@@ -60,45 +60,40 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 		});
 	});
 
-	test.describe('Side-by-side Layout', () => {
+	test.describe('Data Analysis Layout', () => {
 
-		test('Verify Side-by-Side Layout collapses Sidebar and Panel while arranging Console, Variables, and Plots', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
+		test('Verify Data Analysis Layout hides the Panel and stacks Console, Variables, Plots, and Terminal on the right', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.WORKBENCH, tags.JUPYTER] }, async function ({ app }) {
 
 			const layouts = app.workbench.layouts;
 
-			// Enter layout with help pane docked in session panel
-			await layouts.enterLayout('side_by_side');
+			await layouts.enterLayout('data_analysis');
 
-			// ------ Panel and Sidebar -------
-			// Both should be collapsed.
+			// ------ Panel -------
 			await expect(layouts.panelContent).not.toBeVisible();
-			await expect(layouts.sidebar).not.toBeVisible();
 
 			// ------ Auxiliary Bar -------
 			await expect(layouts.auxBar).toBeVisible();
-
-			// First view should be the session view, second should be terminal
 			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
-			await expect(layouts.auxBarViewsTab.nth(1)).toHaveText('Terminal');
 
 			const consoleSection = layouts.auxBar.getByLabel(/console section/i);
 			const variablesSection = layouts.auxBar.getByLabel(/variables section/i);
 			const plotsSection = layouts.auxBar.getByLabel(/plots section/i);
-			await expect(consoleSection).toBeVisible();
-			await expect(variablesSection).toBeVisible();
-			await expect(plotsSection).toBeVisible();
+			const terminalSection = layouts.auxBar.getByLabel(/terminal section/i);
 
-			// Only the console section should be expanded
+			// The console and variables start open; plots and the terminal start collapsed
 			await expect(consoleSection).toHaveAttribute('aria-expanded', 'true');
-			await expect(variablesSection).toHaveAttribute('aria-expanded', 'false');
+			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
 			await expect(plotsSection).toHaveAttribute('aria-expanded', 'false');
+			await expect(terminalSection).toHaveAttribute('aria-expanded', 'false');
 
-			// Should be in vertical order of console, variables, plots
+			// Should be in vertical order of console, variables, plots, terminal
 			const consoleY = await layouts.boundingBoxProperty(consoleSection, 'y');
 			const variablesY = await layouts.boundingBoxProperty(variablesSection, 'y');
 			const plotsY = await layouts.boundingBoxProperty(plotsSection, 'y');
+			const terminalY = await layouts.boundingBoxProperty(terminalSection, 'y');
 			expect(consoleY).toBeLessThan(variablesY);
 			expect(variablesY).toBeLessThan(plotsY);
+			expect(plotsY).toBeLessThan(terminalY);
 		});
 	});
 
@@ -169,37 +164,17 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 			await expect(layouts.panelContent).not.toBeVisible();
 
 			// ------ Auxiliary Bar -------
-			// The console starts open; the terminal, variables, and plots sit below it, collapsed
+			// The console and terminal start collapsed; variables and plots start open
 			await expect(layouts.auxBar).toBeVisible();
 			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
-			await expect(layouts.auxBar.getByLabel(/console section/i)).toHaveAttribute('aria-expanded', 'true');
+			await expect(layouts.auxBar.getByLabel(/console section/i)).toHaveAttribute('aria-expanded', 'false');
 			await expect(layouts.auxBar.getByLabel(/terminal section/i)).toHaveAttribute('aria-expanded', 'false');
-			await expect(layouts.auxBar.getByLabel(/variables section/i)).toHaveAttribute('aria-expanded', 'false');
-			await expect(layouts.auxBar.getByLabel(/plots section/i)).toHaveAttribute('aria-expanded', 'false');
-		});
-
-		// Intentionally untagged for every browser-based project (no @:web, @:cross-browser,
-		// @:workbench, or @:jupyter). This fails deterministically on web (chromium), where
-		// the Assistant layout loses the focus race opening the webview-backed Posit Assistant
-		// view; #13989 attempted a fix but did not resolve it. Runs on desktop
-		// (electron/windows/macOS, via inherited @:win) only, pending a real fix (#13933).
-		test('Verify Assistant Layout opens the Posit Assistant view when enabled', async function ({ app, settings }) {
-			const layouts = app.workbench.layouts;
-
-			// Enable Posit Assistant so the layout targets its view container
-			await settings.set({ 'assistant.enabled': true });
-
-			// Enter assistant layout
-			await layouts.enterLayout('assistant');
-
-			// ------ Sidebar -------
-			// Should open and focus the Posit Assistant view
-			await expect(layouts.sidebar).toBeVisible();
-			await app.workbench.positAssistant.expectViewOpen();
+			await expect(layouts.auxBar.getByLabel(/variables section/i)).toHaveAttribute('aria-expanded', 'true');
+			await expect(layouts.auxBar.getByLabel(/plots section/i)).toHaveAttribute('aria-expanded', 'true');
 		});
 	});
 
-	test.describe('Agent Layout', { tag: [tags.ASSISTANT] }, () => {
+	test.describe('Assistant Layout with Posit Assistant', { tag: [tags.ASSISTANT] }, () => {
 
 		test.afterEach('Reset Layout', async function ({ app }) {
 			// Close the Posit Assistant editor tab(s) with the mouse BEFORE any
@@ -224,11 +199,10 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 		// which defaults to true and registers from the extension manifest at scan
 		// time. Setting it explicitly mid-test makes the extension activate right
 		// then, and that activation steals focus from the open quick input.
-		test('Verify Agent Layout hides Sidebar and Panel and opens Posit Assistant in the editor area', async function ({ app }) {
+		test('Verify Assistant Layout hides Sidebar and Panel and opens Posit Assistant in the editor area', async function ({ app }) {
 			const layouts = app.workbench.layouts;
 
-			// Enter agent layout
-			await layouts.enterLayout('agent');
+			await layouts.enterLayout('assistant');
 
 			// ------ Panel and Sidebar -------
 			// Both should be collapsed
@@ -236,17 +210,16 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 			await expect(layouts.sidebar).not.toBeVisible();
 
 			// ------ Auxiliary Bar -------
-			// First view should be the session view, second should be terminal
 			await expect(layouts.auxBar).toBeVisible();
 			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
-			await expect(layouts.auxBarViewsTab.nth(1)).toHaveText('Terminal');
 
-			// Console starts collapsed (it pops open on first code run);
-			// Variables and Plots start expanded
+			// Console starts collapsed (it pops open on first code run), and so does
+			// the terminal; Variables and Plots start expanded
 			const consoleSection = layouts.auxBar.getByLabel(/console section/i);
 			const variablesSection = layouts.auxBar.getByLabel(/variables section/i);
 			const plotsSection = layouts.auxBar.getByLabel(/plots section/i);
 			await expect(consoleSection).toHaveAttribute('aria-expanded', 'false');
+			await expect(layouts.auxBar.getByLabel(/terminal section/i)).toHaveAttribute('aria-expanded', 'false');
 			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
 			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
 

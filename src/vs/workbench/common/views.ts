@@ -661,12 +661,22 @@ export interface IViewDescriptorService {
 	// --- Start Positron ---
 	loadCustomViewDescriptor(customViewDescriptor: CustomPositronLayoutDescription): void;
 	// dumpViewCustomizations(): CustomViewDescriptor;
-	/** Fires when a container the simplified layout hides is shown or hidden again. */
+	/** Fires when a view container is hidden or shown again. */
 	readonly onDidChangeHiddenViewContainers: Event<void>;
-	/** Whether the simplified layout hides this container. */
+	/** Whether the simplified layout hides this view container. */
 	isViewContainerHidden(id: string): boolean;
-	/** Shows or hides a container the simplified layout hides. Remembered per profile. */
-	setViewContainerHidden(id: string, hidden: boolean): void;
+	/**
+	 * Sets the view containers the current layout hides, when the simplified
+	 * layout is on. Remembered per folder.
+	 */
+	setLayoutHiddenViewContainers(ids: readonly string[]): void;
+	/** Whether the user chose to show this view container in every layout. */
+	isViewContainerShownByUser(id: string): boolean;
+	/**
+	 * Shows a view container in every layout, even one that hides it, or goes
+	 * back to letting the layout decide. Remembered per profile.
+	 */
+	setViewContainerShownByUser(id: string, shown: boolean): void;
 	// --- End Positron ---
 
 	canMoveViews(): boolean;

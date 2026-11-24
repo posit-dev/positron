@@ -9,35 +9,35 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { LayoutCardList } from '../../browser/positronWelcomePage/components/layoutCards.js';
 
-const SIMPLIFIED = 'workbench.action.positronSimplifiedLayout';
-const STACKED = 'workbench.action.positronFourPaneDataScienceLayout';
+const DATA_ANALYSIS = 'workbench.action.positronTwoPaneDataScienceLayout';
+const DEFAULT = 'workbench.action.positronFourPaneDataScienceLayout';
 
 describe('LayoutCardList', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('shows a card for each layout, with the picked one checked', () => {
-		rtl.render(<LayoutCardList currentLayoutId={undefined} labelledBy='title' selectedLayoutId={STACKED} onSelect={vi.fn()} />);
+		rtl.render(<LayoutCardList currentLayoutId={undefined} labelledBy='title' selectedLayoutId={DEFAULT} onSelect={vi.fn()} />);
 
 		expect(screen.getAllByRole('radio')).toHaveLength(4);
-		expect(screen.getByRole('radio', { name: /^Stacked/ })).toBeChecked();
-		expect(screen.getByRole('radio', { name: /^Simplified/ })).not.toBeChecked();
+		expect(screen.getByRole('radio', { name: /^Default/ })).toBeChecked();
+		expect(screen.getByRole('radio', { name: /^Data Analysis/ })).not.toBeChecked();
 		expect(screen.queryByText('Current')).not.toBeInTheDocument();
 	});
 
 	it('marks the layout the window is in as current', () => {
-		rtl.render(<LayoutCardList currentLayoutId={SIMPLIFIED} labelledBy='title' selectedLayoutId={STACKED} onSelect={vi.fn()} />);
+		rtl.render(<LayoutCardList currentLayoutId={DATA_ANALYSIS} labelledBy='title' selectedLayoutId={DEFAULT} onSelect={vi.fn()} />);
 
-		expect(screen.getByRole('radio', { name: /^Simplified\s*Current/ })).toBeInTheDocument();
+		expect(screen.getByRole('radio', { name: /^Data Analysis\s*Current/ })).toBeInTheDocument();
 	});
 
 	it('reports the picked layout without applying it', async () => {
 		const user = userEvent.setup();
 		const onSelect = vi.fn();
-		rtl.render(<LayoutCardList currentLayoutId={undefined} labelledBy='title' selectedLayoutId={SIMPLIFIED} onSelect={onSelect} />);
+		rtl.render(<LayoutCardList currentLayoutId={undefined} labelledBy='title' selectedLayoutId={DATA_ANALYSIS} onSelect={onSelect} />);
 
-		await user.click(screen.getByRole('radio', { name: /^Stacked/ }));
+		await user.click(screen.getByRole('radio', { name: /^Default/ }));
 
-		expect(onSelect).toHaveBeenCalledWith(STACKED);
+		expect(onSelect).toHaveBeenCalledWith(DEFAULT);
 	});
 });

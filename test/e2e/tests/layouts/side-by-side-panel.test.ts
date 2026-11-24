@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Side-by-Side Layout Panel', {
+test.describe('Data Analysis Layout Panel', {
 	tag: [tags.LAYOUTS]
 }, () => {
 
@@ -20,7 +20,7 @@ test.describe('Side-by-Side Layout Panel', {
 	}, async function ({ app, hotKeys, openFile }) {
 		const layouts = app.workbench.layouts;
 
-		await layouts.enterLayout('side_by_side');
+		await layouts.enterLayout('data_analysis');
 		await layouts.expectBottomPanelToBeVisible(false);
 
 		// Reload with no editors open
@@ -37,7 +37,7 @@ test.describe('Side-by-Side Layout Panel', {
 		const layouts = app.workbench.layouts;
 
 		await openFile('README.md');
-		await layouts.enterLayout('side_by_side');
+		await layouts.enterLayout('data_analysis');
 		await layouts.expectBottomPanelToBeVisible(false);
 
 		await hotKeys.closeAllEditors();

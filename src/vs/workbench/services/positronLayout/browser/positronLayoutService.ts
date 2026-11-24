@@ -12,12 +12,21 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { IWorkbenchLayoutService, Parts, SINGLE_WINDOW_PARTS } from '../../layout/browser/layoutService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { isSimplifiedLayoutEnabled, SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS } from '../common/positronSimplifiedLayoutConfiguration.js';
+import { getTaskLayout } from './layouts/taskLayouts.js';
 
 /**
  * Where the current layout's id is saved. Profile scope, because that is where the
  * workbench saves which location each view is in.
  */
 const CURRENT_LAYOUT_STORAGE_KEY = 'positron.layout.currentLayoutId';
+
+/**
+ * Where {@link IPositronLayoutService.showsAllViews} is saved. Workspace scope, like the
+ * containers the layout hides.
+ */
+const SHOWS_ALL_VIEWS_STORAGE_KEY = 'positron.layout.showsAllViews';
 
 const PART_FOR_LOCATION = new Map<ViewContainerLocation, KnownPositronLayoutParts>([
 	[ViewContainerLocation.Sidebar, Parts.SIDEBAR_PART],
@@ -34,6 +43,11 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 
 	private _currentLayoutId: string | undefined;
 
+	private readonly _onDidChangeShowsAllViews = this._register(new Emitter<boolean>());
+	readonly onDidChangeShowsAllViews = this._onDidChangeShowsAllViews.event;
+
+	private _showsAllViews: boolean;
+
 	/**
 	 * True while setLayout runs. Applying a layout moves views and shows and hides
 	 * parts one at a time, and the window only matches the layout once all of them
@@ -49,8 +63,11 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		@IWorkbenchLayoutService private readonly _workbenchLayoutService: IWorkbenchLayoutService,
 		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
+
+		this._showsAllViews = this._storageService.getBoolean(SHOWS_ALL_VIEWS_STORAGE_KEY, StorageScope.WORKSPACE, false);
 
 		this._currentLayoutId = this._storageService.get(CURRENT_LAYOUT_STORAGE_KEY, StorageScope.PROFILE);
 
@@ -66,9 +83,14 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 		return this._currentLayoutId;
 	}
 
+	get showsAllViews(): boolean {
+		return this._showsAllViews;
+	}
+
 	setLayout(layout: CustomPositronLayoutDescription, layoutId?: string) {
 		this._applyingLayout = true;
 		try {
+			this._applyLayoutViews(layoutId);
 			this._viewDescriptorService.loadCustomViewDescriptor(layout);
 			// Run the layout service action after the view descriptor has been loaded.
 			// This is needed so that the changing of the contents of the parts doesn't
@@ -78,6 +100,40 @@ class PositronLayoutService extends Disposable implements IPositronLayoutService
 			this._applyingLayout = false;
 		}
 		this._setCurrentLayoutId(layoutId);
+	}
+
+	/**
+	 * In the simplified layout, hides the view containers a task layout does not need, or
+	 * shows every one again for the Default layout. Runs before the layout moves any views,
+	 * so the views it places are in the containers they will end up in.
+	 * @param layoutId The command id of the layout being applied.
+	 */
+	private _applyLayoutViews(layoutId: string | undefined) {
+		const taskLayout = layoutId ? getTaskLayout(layoutId) : undefined;
+		if (!taskLayout || !isSimplifiedLayoutEnabled(this._configurationService)) {
+			return;
+		}
+		if (taskLayout.group === 'layout') {
+			// Show the containers first, so the tools have somewhere to go back to.
+			this._viewDescriptorService.setLayoutHiddenViewContainers([]);
+			this._setShowsAllViews(true);
+		} else {
+			// Move the tools into Tools first, so their old containers are empty when hidden.
+			this._setShowsAllViews(false);
+			this._viewDescriptorService.setLayoutHiddenViewContainers([
+				...SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS,
+				...taskLayout.hiddenViewContainers,
+			]);
+		}
+	}
+
+	private _setShowsAllViews(showsAllViews: boolean) {
+		if (showsAllViews === this._showsAllViews) {
+			return;
+		}
+		this._showsAllViews = showsAllViews;
+		this._storageService.store(SHOWS_ALL_VIEWS_STORAGE_KEY, showsAllViews, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		this._onDidChangeShowsAllViews.fire(showsAllViews);
 	}
 
 	private _matchCurrentLayout() {

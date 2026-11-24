@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,14 +10,23 @@ import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 
+/**
+ * Positron's standard layout: files on the left, the console and terminal under
+ * the editor, and variables and plots on the right. In the simplified layout it
+ * is the one layout that shows every view where it normally lives, as Positron
+ * does with the simplified layout off.
+ *
+ * Its command id still says four pane, from when it was the Stacked layout, so
+ * existing keybindings keep working.
+ */
 export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
-	label: localize2('choseLayout.stacked', 'Stacked Layout'),
-	taskLayout: { name: localize('positron.taskLayout.stacked', "Stacked"), order: 5 },
+	label: localize2('choseLayout.default', 'Default Layout'),
+	taskLayout: { name: localize('positron.taskLayout.default', "Default"), group: 'layout', order: 0 },
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
-	agentDescription: 'Switch the workbench to the four-pane stacked data-science layout (explorer, editor, console + terminal, variables + plots).',
+	agentDescription: 'Switch the workbench to the default four-pane layout (explorer, editor, console + terminal, variables + plots).',
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '15%',

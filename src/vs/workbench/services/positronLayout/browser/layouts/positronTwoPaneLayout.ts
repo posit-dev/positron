@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,27 +8,52 @@ import { registerAction2 } from '../../../../../platform/actions/common/actions.
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
+import { LayoutViewContainers } from './layoutViewContainers.js';
 
-
+/**
+ * The layout for working in scripts and Quarto documents: files on the left,
+ * the editor in the middle, and the console, variables, plots, and terminal
+ * stacked on the right. New windows start in it.
+ *
+ * Its command id still says two pane, from when it was the Side by Side layout,
+ * so existing keybindings keep working.
+ */
 export const positronTwoPaneLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronTwoPaneDataScienceLayout',
 	codicon: 'positron-two-pane-ds-layout',
-	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
-	taskLayout: { name: localize('positron.taskLayout.sideBySide', "Side by Side"), order: 4 },
+	label: localize2('choseLayout.dataAnalysis', 'Data Analysis Layout'),
+	taskLayout: {
+		name: localize('positron.taskLayout.dataAnalysis', "Data Analysis"),
+		group: 'task',
+		order: 0,
+		hiddenViewContainers: [
+			...LayoutViewContainers.gitHub,
+			...LayoutViewContainers.publisher,
+		],
+	},
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
-	agentDescription: 'Switch the workbench to the side-by-side data-science layout (editor plus a wide session panel with variables and plots).',
+	agentDescription: 'Switch the workbench to the data analysis layout (files, editor, and a wide session panel with the console, variables, plots, and terminal).',
 	layoutDescriptor: {
+		[Parts.SIDEBAR_PART]: {
+			size: '15%',
+			hidden: false,
+			hideIfBelowMinSize: true,
+			viewContainers: [
+				{
+					id: 'workbench.view.explorer',
+					opened: true,
+				},
+			]
+		},
 		[Parts.PANEL_PART]: {
 			hidden: true,
-			alignment: 'center'
-		},
-		[Parts.SIDEBAR_PART]: {
-			hidden: true
+			closeWhenHidden: true,
+			alignment: 'center',
 		},
 		[Parts.AUXILIARYBAR_PART]: {
-			hidden: false,
 			size: '40%',
+			hidden: false,
 			viewContainers: [
 				{
 					id: 'workbench.panel.positronSession',
@@ -39,17 +64,17 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 						},
 						{
 							id: 'workbench.panel.positronVariables',
-							collapsed: true,
 						},
 						{
 							id: 'workbench.panel.positronPlots',
 							collapsed: true,
 						},
+						{
+							id: 'terminal',
+							collapsed: true,
+						},
 					]
 				},
-				{
-					id: 'terminal',
-				}
 			]
 		},
 	},

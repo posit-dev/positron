@@ -5,7 +5,7 @@
 
 import './media/positronTitleBarLayoutPicker.css';
 import { $, addDisposableListener, append, EventType, reset } from '../../../../base/browser/dom.js';
-import { toAction } from '../../../../base/common/actions.js';
+import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -17,7 +17,7 @@ import { getTaskLayouts, TaskLayout } from '../../../services/positronLayout/bro
 /**
  * A dropdown on the left of the title bar, shown in the simplified layout. It
  * names the layout the window is in, or "Custom" when it matches none, and
- * switches between the task layouts.
+ * switches layouts. It lists the task layouts, then the general ones.
  */
 export class PositronTitleBarLayoutPicker extends Disposable {
 	private readonly _button: HTMLButtonElement;
@@ -62,12 +62,24 @@ export class PositronTitleBarLayoutPicker extends Disposable {
 		const currentId = this._positronLayoutService.currentLayoutId;
 		this._contextMenuService.showContextMenu({
 			getAnchor: () => this._button,
-			getActions: () => this._availableLayouts().map(layout => toAction({
-				id: layout.id,
-				label: layout.name,
-				checked: layout.id === currentId,
-				run: () => this._commandService.executeCommand(layout.id),
-			})),
+			getActions: () => {
+				// Task layouts first, then the general layouts after a separator.
+				const actions: IAction[] = [];
+				let previous: TaskLayout | undefined;
+				for (const layout of this._availableLayouts()) {
+					if (previous && previous.group !== layout.group) {
+						actions.push(new Separator());
+					}
+					actions.push(toAction({
+						id: layout.id,
+						label: layout.name,
+						checked: layout.id === currentId,
+						run: () => this._commandService.executeCommand(layout.id),
+					}));
+					previous = layout;
+				}
+				return actions;
+			},
 			onHide: () => this._button.focus(),
 		});
 	}

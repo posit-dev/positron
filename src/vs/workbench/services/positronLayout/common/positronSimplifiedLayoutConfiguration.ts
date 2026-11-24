@@ -10,8 +10,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 
 /**
- * Turns on the simplified UI from the 2026 UI revamp spike: the Simplified layout preset,
- * the hidden bottom panel views and activity bar items, Help and Viewer that only show when
+ * Turns on the simplified UI from the 2026 UI revamp spike: task layouts that each show
+ * only the views their work needs, the Tools container for the bottom panel views, Help and Viewer that only show when
  * they have content, and the VS Code title bar in place of the top action bar.
  *
  * Read once at startup by each part of the UI it changes.
@@ -26,9 +26,9 @@ export function isSimplifiedLayoutEnabled(configurationService: IConfigurationSe
 }
 
 /**
- * View containers the simplified layout removes from the UI: the bottom panel's Problems,
+ * View containers every task layout removes from the UI: the bottom panel's Problems,
  * Output, Debug Console, and Ports, and the activity bar's Run and Debug, Remote Explorer,
- * and Testing.
+ * and Testing. The Default layout shows them.
  */
 export const SIMPLIFIED_LAYOUT_HIDDEN_VIEW_CONTAINER_IDS: ReadonlySet<string> = new Set([
 	'workbench.panel.markers',
@@ -52,7 +52,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			tags: ['experimental'],
 			markdownDescription: localize(
 				'positron.workbench.experimental.simplifiedLayout',
-				"Use the simplified layout: no bottom panel, the console, terminal, variables, and plots stacked in the secondary side bar, fewer views, and a single title bar. Takes effect after a reload."
+				"Use the simplified layout: task layouts that each show only the views their work needs, the console, terminal, variables, and plots stacked in the secondary side bar, and a single title bar. Takes effect after a reload."
 			),
 		},
 	},

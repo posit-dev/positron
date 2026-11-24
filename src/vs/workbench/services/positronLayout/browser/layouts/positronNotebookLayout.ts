@@ -10,13 +10,24 @@ import { ServicesAccessor } from '../../../../../platform/instantiation/common/i
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
+import { LayoutViewContainers } from './layoutViewContainers.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',
 	codicon: 'positron-notebook-layout',
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
-	taskLayout: { name: localize('positron.taskLayout.notebook', "Notebook"), order: 1 },
+	taskLayout: {
+		name: localize('positron.taskLayout.notebook', "Notebook"),
+		group: 'task',
+		order: 1,
+		hiddenViewContainers: [
+			...LayoutViewContainers.sourceControl,
+			...LayoutViewContainers.gitHub,
+			...LayoutViewContainers.assistant,
+			...LayoutViewContainers.publisher,
+		],
+	},
 	precondition: ContextKeyExpr.true(),
 	agentCompatible: true,
 	agentDescription: 'Switch the workbench to the notebook layout (optimised for working with a single notebook, with the console collapsed).',

@@ -9,7 +9,7 @@ import './layoutCards.css';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
-import { positronSimplifiedLayout } from '../../../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
+import { positronAppDevelopmentLayout } from '../../../../../services/positronLayout/browser/layouts/positronAppDevelopmentLayout.js';
 import { positronFourPaneDsLayout } from '../../../../../services/positronLayout/browser/layouts/positronFourPaneDsLayout.js';
 import { positronTwoPaneLayout } from '../../../../../services/positronLayout/browser/layouts/positronTwoPaneLayout.js';
 import { positronNotebookLayout } from '../../../../../services/positronLayout/browser/layouts/positronNotebookLayout.js';
@@ -54,43 +54,19 @@ export function getLayoutCards(): LayoutCard[] {
 	const terminal = localize('positron.welcome.layout.terminal', "Terminal");
 	const variables = localize('positron.welcome.layout.variables', "Variables");
 	const plots = localize('positron.welcome.layout.plots', "Plots");
+	const viewer = localize('positron.welcome.layout.viewer', "Viewer");
 
 	return [
 		{
-			commandId: positronSimplifiedLayout.id,
-			name: localize('positron.welcome.layout.simplifiedName', "Simplified"),
-			description: localize('positron.welcome.layout.simplifiedDescription', "Your files, the editor, and one column with the console, terminal, variables, and plots."),
+			commandId: positronTwoPaneLayout.id,
+			name: localize('positron.welcome.layout.dataAnalysisName', "Data Analysis"),
+			description: localize('positron.welcome.layout.dataAnalysisDescription', "Your files, the editor, and one column with the console, variables, plots, and terminal."),
 			columns: '1fr 3fr 2fr',
 			areas: '"files editor session"',
 			regions: [
 				{ area: 'files', labels: [files] },
 				{ area: 'editor', labels: [editor], isEditor: true },
-				{ area: 'session', labels: [consoleLabel, terminal, variables, plots] },
-			],
-		},
-		{
-			commandId: positronFourPaneDsLayout.id,
-			name: localize('positron.welcome.layout.stackedName', "Stacked"),
-			description: localize('positron.welcome.layout.stackedDescription', "The console under the editor, with variables and plots on the right."),
-			columns: '1fr 3fr 2fr',
-			rows: '3fr 2fr',
-			areas: '"files editor session" "files console session"',
-			regions: [
-				{ area: 'files', labels: [files] },
-				{ area: 'editor', labels: [editor], isEditor: true },
-				{ area: 'console', labels: [consoleLabel] },
-				{ area: 'session', labels: [variables, plots] },
-			],
-		},
-		{
-			commandId: positronTwoPaneLayout.id,
-			name: localize('positron.welcome.layout.sideBySideName', "Side by Side"),
-			description: localize('positron.welcome.layout.sideBySideDescription', "The editor on the left, and the console, variables, and plots on the right."),
-			columns: '3fr 2fr',
-			areas: '"editor session"',
-			regions: [
-				{ area: 'editor', labels: [editor], isEditor: true },
-				{ area: 'session', labels: [consoleLabel, variables, plots] },
+				{ area: 'session', labels: [consoleLabel, variables, plots, terminal] },
 			],
 		},
 		{
@@ -103,6 +79,32 @@ export function getLayoutCards(): LayoutCard[] {
 				{ area: 'files', labels: [files] },
 				{ area: 'editor', labels: [notebook], isEditor: true },
 				{ area: 'variables', labels: [variables] },
+			],
+		},
+		{
+			commandId: positronAppDevelopmentLayout.id,
+			name: localize('positron.welcome.layout.appDevelopmentName', "App Development"),
+			description: localize('positron.welcome.layout.appDevelopmentDescription', "Your files, the editor, and a wide Viewer for the running app."),
+			columns: '1fr 2.5fr 2.5fr',
+			areas: '"files editor viewer"',
+			regions: [
+				{ area: 'files', labels: [files] },
+				{ area: 'editor', labels: [editor], isEditor: true },
+				{ area: 'viewer', labels: [viewer] },
+			],
+		},
+		{
+			commandId: positronFourPaneDsLayout.id,
+			name: localize('positron.welcome.layout.defaultName', "Default"),
+			description: localize('positron.welcome.layout.defaultDescription', "The console under the editor, with variables and plots on the right, and every view shown."),
+			columns: '1fr 3fr 2fr',
+			rows: '3fr 2fr',
+			areas: '"files editor session" "files console session"',
+			regions: [
+				{ area: 'files', labels: [files] },
+				{ area: 'editor', labels: [editor], isEditor: true },
+				{ area: 'console', labels: [consoleLabel] },
+				{ area: 'session', labels: [variables, plots] },
 			],
 		},
 	];

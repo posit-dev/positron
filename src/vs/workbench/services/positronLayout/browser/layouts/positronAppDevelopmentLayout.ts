@@ -7,27 +7,38 @@ import { localize, localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
-import { SIMPLIFIED_LAYOUT_ENABLED_KEY } from '../../common/positronSimplifiedLayoutConfiguration.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
+import { LayoutViewContainers } from './layoutViewContainers.js';
 
 /**
- * The layout for the simplified UI spike. There is no bottom panel: the console, terminal,
- * variables, and plots are stacked in the Session container in the secondary side bar. Only
- * the console starts expanded; the plots view expands itself when a plot is drawn.
+ * The layout for building apps, such as Shiny or Streamlit apps. The running
+ * app is the output to watch, so the Viewer gets a wide tab on the right, with
+ * the console and terminal for server logs in the Session tab next to it.
+ * Source Control and Posit Publisher stay, since publishing is the last step.
  *
- * Applying it also moves every container and view it does not list back to its default
- * place, so picking it again undoes anything the user has moved.
+ * The Viewer only shows once an app or other content is in it, so the layout
+ * opens on the Session tab, and running an app switches to the Viewer.
  */
-export const positronSimplifiedLayout: PositronLayoutInfo = {
-	id: 'workbench.action.positronSimplifiedLayout',
-	codicon: 'positron-two-pane-ds-layout',
-	label: localize2('choseLayout.simplified', 'Simplified Layout'),
-	taskLayout: { name: localize('positron.taskLayout.simplified', "Simplified"), order: 0 },
-	precondition: ContextKeyExpr.equals(`config.${SIMPLIFIED_LAYOUT_ENABLED_KEY}`, true),
+export const positronAppDevelopmentLayout: PositronLayoutInfo = {
+	id: 'workbench.action.positronAppDevelopmentLayout',
+	codicon: 'browser',
+	label: localize2('choseLayout.appDevelopment', 'App Development Layout'),
+	taskLayout: {
+		name: localize('positron.taskLayout.appDevelopment', "App Development"),
+		group: 'task',
+		order: 2,
+		hiddenViewContainers: [
+			...LayoutViewContainers.dataConnections,
+		],
+	},
+	precondition: ContextKeyExpr.true(),
+	agentCompatible: true,
+	agentDescription: 'Switch the workbench to the app development layout (files, editor, and a wide Viewer for the running app, with the console and terminal next to it).',
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '15%',
 			hidden: false,
+			hideIfBelowMinSize: true,
 			viewContainers: [
 				{
 					id: 'workbench.view.explorer',
@@ -41,9 +52,12 @@ export const positronSimplifiedLayout: PositronLayoutInfo = {
 			alignment: 'center',
 		},
 		[Parts.AUXILIARYBAR_PART]: {
-			size: '40%',
+			size: '45%',
 			hidden: false,
 			viewContainers: [
+				{
+					id: 'workbench.panel.positronPreview',
+				},
 				{
 					id: 'workbench.panel.positronSession',
 					opened: true,
@@ -53,7 +67,6 @@ export const positronSimplifiedLayout: PositronLayoutInfo = {
 						},
 						{
 							id: 'terminal',
-							collapsed: true,
 						},
 						{
 							id: 'workbench.panel.positronVariables',
@@ -70,8 +83,9 @@ export const positronSimplifiedLayout: PositronLayoutInfo = {
 	},
 };
 
+
 registerAction2(class extends PositronLayoutAction {
 	constructor() {
-		super(positronSimplifiedLayout);
+		super(positronAppDevelopmentLayout);
 	}
 });

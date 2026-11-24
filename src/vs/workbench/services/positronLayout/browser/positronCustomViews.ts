@@ -9,8 +9,7 @@ import { positronFourPaneDsLayout } from './layouts/positronFourPaneDsLayout.js'
 import { positronTwoPaneLayout } from './layouts/positronTwoPaneLayout.js';
 import { positronNotebookLayout } from './layouts/positronNotebookLayout.js';
 import { positronAssistantLayout } from './layouts/positronAssistantLayout.js';
-import { positronAgentLayout } from './layouts/positronAgentLayout.js';
-import { positronSimplifiedLayout } from './layouts/positronSimplifiedLayout.js';
+import { positronAppDevelopmentLayout } from './layouts/positronAppDevelopmentLayout.js';
 import { PositronLayoutInfo } from './layouts/layoutAction.js';
 
 // Imports needed to register the layout service and non-primary layouts. (Otherwise the scripts
@@ -26,12 +25,11 @@ type LayoutPick = IQuickPickItem & {
 };
 
 export const positronCustomLayoutOptions: LayoutPick[] = [
-	positronSimplifiedLayout,
-	positronFourPaneDsLayout,
 	positronTwoPaneLayout,
 	positronNotebookLayout,
+	positronAppDevelopmentLayout,
 	positronAssistantLayout,
-	positronAgentLayout
+	positronFourPaneDsLayout,
 ].map(function positronLayoutInfoToQuickPick(layoutInfo: PositronLayoutInfo): LayoutPick {
 	return {
 		id: layoutInfo.id,

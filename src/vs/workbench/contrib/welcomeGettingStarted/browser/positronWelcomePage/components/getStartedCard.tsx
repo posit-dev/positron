@@ -17,7 +17,7 @@ import { usePositronReactServicesContext } from '../../../../../../base/browser/
 import { StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
 import type { GettingStartedActionClassification, GettingStartedActionEvent } from '../../gettingStarted.js';
 import { IPositronLayoutService } from '../../../../../services/positronLayout/browser/interfaces/positronLayoutService.js';
-import { positronSimplifiedLayout } from '../../../../../services/positronLayout/browser/layouts/positronSimplifiedLayout.js';
+import { positronTwoPaneLayout } from '../../../../../services/positronLayout/browser/layouts/positronTwoPaneLayout.js';
 import { EnvironmentHealthLanguage } from '../environmentHealth.js';
 import { IEnvironmentHealthEntry, IEnvironmentHealthService } from '../environmentHealthService.js';
 import { IAgentSetupState, WelcomeAgentSetup } from '../welcomeAgentSetup.js';
@@ -105,8 +105,8 @@ export const GetStartedCard = (props: GetStartedCardProps) => {
 	};
 
 	// The layout picked in the last step: the user's pick, else the layout the
-	// window is in, else Simplified.
-	const layoutToApply = selectedLayoutId ?? currentLayoutId ?? positronSimplifiedLayout.id;
+	// window is in, else Data Analysis.
+	const layoutToApply = selectedLayoutId ?? currentLayoutId ?? positronTwoPaneLayout.id;
 
 	const finish = () => {
 		log('welcomeGetStartedFinish', layoutToApply);
