@@ -17,21 +17,14 @@ import { DropdownWithPrimaryActionViewItem } from '../../../../../platform/actio
 import { MenuItemAction } from '../../../../../platform/actions/common/actions.js';
 import { BrowserViewCommandId } from '../../../../../platform/browserView/common/browserView.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-// --- Start Positron ---
-// The setting is registered by the Positron Viewer so web builds see it too.
-// import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../../platform/configuration/common/configurationRegistry.js';
-// --- End Positron ---
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../../platform/configuration/common/configurationRegistry.js';
 import { FileChangeType, IFileService } from '../../../../../platform/files/common/files.js';
 import { createDecorator, IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../../platform/instantiation/common/extensions.js';
-// --- Start Positron ---
-// import { Registry } from '../../../../../platform/registry/common/platform.js';
-// --- End Positron ---
+import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../common/contributions.js';
-// --- Start Positron ---
-// import { workbenchConfigurationNodeBase } from '../../../../common/configuration.js';
-// --- End Positron ---
+import { workbenchConfigurationNodeBase } from '../../../../common/configuration.js';
 import { IBrowserViewModel, IBrowserViewWorkbenchService } from '../../common/browserView.js';
 import { BrowserEditorInput } from '../../common/browserEditorInput.js';
 import { BrowserEditor, BrowserEditorContribution } from '../browserEditor.js';
@@ -330,19 +323,16 @@ registerSingleton(IBrowserAutoReloadService, BrowserAutoReloadService, Instantia
 registerWorkbenchContribution2(BrowserAutoReloadWorkbenchContribution.ID, BrowserAutoReloadWorkbenchContribution, WorkbenchPhase.AfterRestored);
 BrowserEditor.registerContribution(BrowserEditorAutoReloadContribution);
 
-// --- Start Positron ---
-// The Positron Viewer registers this setting so web builds see it too.
-// Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
-// 	...workbenchConfigurationNodeBase,
-// 	properties: {
-// 		[BrowserAutoReloadOnFileChangeSettingId]: {
-// 			type: 'boolean',
-// 			default: true,
-// 			markdownDescription: localize(
-// 				{ comment: ['This is the description for a setting.'], key: 'browser.autoReloadOnFileChange' },
-// 				'Controls whether the Integrated Browser automatically reloads by default when displaying local `file://` resources that change on disk.'
-// 			),
-// 		}
-// 	}
-// });
-// --- End Positron ---
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	...workbenchConfigurationNodeBase,
+	properties: {
+		[BrowserAutoReloadOnFileChangeSettingId]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				{ comment: ['This is the description for a setting.'], key: 'browser.autoReloadOnFileChange' },
+				'Controls whether the Integrated Browser automatically reloads by default when displaying local `file://` resources that change on disk.'
+			),
+		}
+	}
+});

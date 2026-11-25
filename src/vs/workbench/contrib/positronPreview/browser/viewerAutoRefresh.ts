@@ -5,6 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { Sequencer } from '../../../../base/common/async.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -18,20 +19,23 @@ import { POSITRON_VIEWER_AUTO_REFRESH, POSITRON_VIEWER_CAN_AUTO_REFRESH, POSITRO
 
 /**
  * The setting for reloading local files that change, shared by the Viewer and
- * the integrated browser. Registered here so web builds see it too.
+ * the integrated browser. The integrated browser registers it on desktop; web
+ * builds don't load the integrated browser, so the Viewer registers it there.
  */
 const AUTO_RELOAD_SETTING = 'workbench.browser.autoReloadOnFileChange';
 
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
-	...workbenchConfigurationNodeBase,
-	properties: {
-		[AUTO_RELOAD_SETTING]: {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize('positron.viewer.autoReloadOnFileChange', "Controls whether the Viewer and the Integrated Browser automatically reload by default when showing local files that change on disk."),
+if (isWeb) {
+	Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+		...workbenchConfigurationNodeBase,
+		properties: {
+			[AUTO_RELOAD_SETTING]: {
+				type: 'boolean',
+				default: true,
+				markdownDescription: localize('positron.viewer.autoReloadOnFileChange', "Controls whether the Viewer automatically reloads by default when showing local files that change on disk."),
+			}
 		}
-	}
-});
+	});
+}
 
 /**
  * Reloads the Viewer when a local file that its content loaded through the
