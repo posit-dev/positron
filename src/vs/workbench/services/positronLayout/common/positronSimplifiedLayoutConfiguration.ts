@@ -15,7 +15,7 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
  *
  * Read once at startup by each part of the UI it changes.
  */
-export const SIMPLIFIED_LAYOUT_ENABLED_KEY = 'workbench.experimental.simplifiedLayout';
+export const SIMPLIFIED_LAYOUT_ENABLED_KEY = 'workbench.experimental.uiRevamp';
 
 /**
  * Whether the simplified layout setting is on.
@@ -35,8 +35,8 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			tags: ['experimental'],
 			markdownDescription: localize(
-				'positron.workbench.experimental.simplifiedLayout',
-				"Use the simplified layout: task layouts that each show only the views their work needs, the console, terminal, variables, and plots stacked in the secondary side bar, and a single title bar. Takes effect after a reload."
+				'positron.workbench.experimental.uiRevamp',
+				"Use the UI revamp: task layouts that each show only the views their work needs, the console, terminal, variables, and plots stacked in the secondary side bar, and a single title bar. Takes effect after a reload."
 			),
 		},
 	},
