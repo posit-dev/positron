@@ -306,7 +306,7 @@ kill_app
 fi
 
 # --- Start Positron ---
-# Colorize tests disabled — see https://github.com/posit-dev/positron/issues/7349
+# Colorize tests disabled: each upstream merge makes the golden files stale
 # if should_run_suite colorize; then
 # echo
 # echo "### Colorize tests"

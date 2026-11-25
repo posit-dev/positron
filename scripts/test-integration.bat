@@ -181,7 +181,7 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_api_workspace
 
 :: --- Start Positron ---
-:: Colorize tests disabled -- see https://github.com/posit-dev/positron/issues/7349
+:: Colorize tests disabled: each upstream merge makes the golden files stale
 :: (mirrors test-integration.sh)
 goto skip_colorize
 :: --- End Positron ---
