@@ -440,7 +440,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// variables only: a restored session's `initial_env` already holds
 		// what the script set last time, so starting from it would drop
 		// unchanged variables and add to PATH twice.
-		const definitionBaseEnv = { ...process.env, ...this._kernelSpec?.env };
 		if (this.definitionEnvResolver) {
 			this._definitionEnv = await this.definitionEnvResolver(this._kernelSpec?.env);
 		}
@@ -448,7 +447,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		for (const [name, value] of Object.entries(this._definitionEnv)) {
 			// Add only what the script added to the start or end of a
 			// variable (as with PATH), so other extensions' changes are kept.
-			const mutation = getTerminalMutation(value, definitionBaseEnv[name]);
+			// process.env finds `Path` for `PATH` on Windows; a spread copy does not.
+			const mutation = getTerminalMutation(value, this._kernelSpec?.env?.[name] ?? process.env[name]);
 			const action = {
 				replace: VarActionType.Replace,
 				prepend: VarActionType.Prepend,
