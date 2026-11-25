@@ -136,6 +136,7 @@ export enum PlatformTags {
 	WORKBENCH_SNOWFLAKE = '@:workbench-snowflake',
 	WORKBENCH_DATABRICKS = '@:workbench-databricks',
 	WORKBENCH_AZURE = '@:workbench-azure',
+	WORKBENCH_AWS = '@:workbench-aws',
 	REMOTE_SSH = '@:remote-ssh',
 	REMOTE_WSL = '@:remote-wsl',
 }

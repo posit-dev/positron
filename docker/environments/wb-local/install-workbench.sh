@@ -41,9 +41,9 @@ done
 # Validate credential type if provided
 if [ -n "${CREDENTIALS}" ]; then
     case "${CREDENTIALS}" in
-        databricks|snowflake|azure) ;;
+        databricks|snowflake|azure|aws) ;;
         *)
-            echo "Invalid --credentials value: '${CREDENTIALS}' (expected: databricks, snowflake, or azure)"
+            echo "Invalid --credentials value: '${CREDENTIALS}' (expected: databricks, snowflake, azure, or aws)"
             exit 1
             ;;
     esac
@@ -682,7 +682,7 @@ if ! TAG=${POSITRON_TAG} ARCH_SUFFIX=${ARCH_SUFFIX} GITHUB_TOKEN=${GITHUB_TOKEN}
     log_error "Failed to download/install Positron"
 fi
 
-# Configure data sources (one credential type: databricks, snowflake, or azure)
+# Configure data sources (one credential type: databricks, snowflake, azure, or aws)
 CREDENTIALS_OK=false
 if [ -n "${CREDENTIALS}" ]; then
     echo "Configuring data source: ${CREDENTIALS}..."

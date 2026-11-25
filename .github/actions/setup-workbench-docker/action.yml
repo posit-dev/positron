@@ -11,7 +11,7 @@ inputs:
     required: false
     default: 'ci'
   credentials:
-    description: 'Optional managed credential to provision: "snowflake", "databricks", or empty for none'
+    description: 'Optional managed credential to provision: "snowflake", "databricks", "azure", "aws", or empty for none'
     required: false
     default: ''
   wb-password:

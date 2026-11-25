@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configure a single credential type for Workbench.
-# Usage: configure-datasources.sh <databricks|snowflake|azure>
+# Usage: configure-datasources.sh <databricks|snowflake|azure|aws>
 # The credential type can also be supplied via the CREDENTIALS env var.
 
 CREDENTIALS="${1:-${CREDENTIALS:-}}"
@@ -57,9 +57,10 @@ EOF
         echo "  Updated /etc/rstudio/rserver.conf with Snowflake feature flag"
         ;;
 
-    azure)
+    # AWS managed credentials need OpenID sign-in; the e2e fixture assigns the role later.
+    azure|aws)
         if [ -z "${AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_}" ]; then
-            echo "❌ ERROR: AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_ not set - cannot configure Azure"
+            echo "❌ ERROR: AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_ not set - cannot configure OpenID sign-in"
             exit 1
         fi
 
@@ -91,7 +92,7 @@ EOF
         ;;
 
     *)
-        echo "❌ ERROR: Unknown credential type '${CREDENTIALS}' (expected: databricks, snowflake, or azure)"
+        echo "❌ ERROR: Unknown credential type '${CREDENTIALS}' (expected: databricks, snowflake, azure, or aws)"
         exit 1
         ;;
 esac

@@ -9,6 +9,8 @@ import { QuickInput } from '../quickInput.js';
 import { completeDatabricksOktaSignIn } from '../../utils/databricksOAuth.js';
 import { completeOktaSignIn, readPositronServiceAccountCredentials } from '../../utils/oktaSignIn.js';
 
+export const AWS_MANAGED_ROLE_NAME = 'positron-redshift-dev-test-access';
+
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
 	get launchButton() { return this.code.driver.currentPage.getByRole('button', { name: 'Launch' }); }
@@ -44,7 +46,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws'): Promise<boolean> {
 		const existingProject = this.projectRow(folderToOpen).first();
 
 		try {
@@ -63,7 +65,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
+	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws'): Promise<void> {
 		await this.newSessionButton.click();
 		await this.positronProButton.click();
 
@@ -78,7 +80,7 @@ export class DashboardPage {
 		// Azure JIT-provisioned users (rstudio-ide-test) don't have test-files in their
 		// home directory at launch time. The fixture handles copying the workspace into the JIT
 		// user's home and calling openWorkspaceFolder() once Positron is up.
-		if (managedCredentials === 'azure') {
+		if (managedCredentials === 'azure' || managedCredentials === 'aws') {
 			return;
 		}
 
@@ -91,7 +93,8 @@ export class DashboardPage {
 	 * the JIT user's workspace has been copied into place.
 	 */
 	async openWorkspaceFolder(folderToOpen: string): Promise<void> {
-		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
+		// The environment health card has its own "Open Folder" button.
+		await this.code.driver.currentPage.getByRole('region', { name: 'Welcome' }).getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 
 		// The Open Folder picker can open in one of two states depending on the Workbench
@@ -137,7 +140,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if the project was created (and launched) fresh, false if an existing project was relaunched
 	 */
-	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
+	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws'): Promise<boolean> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
 		let newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
@@ -172,16 +175,15 @@ export class DashboardPage {
 	 * Sets up managed credentials if credentials aren't already configured
 	 * Note: Called from createNewProject when the New Session dialog is already open
 	 * @param context BrowserContext for handling OAuth flows in new tabs
-	 * @param managedCredentials Credential to set up: 'snowflake' sets up only Snowflake, 'databricks'
-	 *                           sets up only Databricks. If undefined, no credentials are configured.
+	 * @param managedCredentials Credential to set up: 'snowflake', 'databricks', or 'aws'. If undefined,
+	 *                           no credentials are configured.
 	 */
-	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
+	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws'): Promise<void> {
 		if (managedCredentials === undefined) {
 			return;
 		}
 
 		const page = this.code.driver.currentPage;
-
 		// Wait for Session Credentials section to appear
 		const credentialsSection = page.getByText('Session Credentials');
 		try {
@@ -196,16 +198,18 @@ export class DashboardPage {
 			await this.setupSnowflakeOAuth(context);
 		} else if (managedCredentials === 'databricks') {
 			await this.setupDatabricksOAuth(context);
+		} else if (managedCredentials === 'aws') {
+			await this.selectAwsRole();
 		}
 	}
 
 	// Workbench 2026.11 daily 185 renamed Disabled/Enabled to Select/Selected.
-	private credentialWidget(provider: 'Databricks' | 'Snowflake', states: string[]) {
+	private credentialWidget(provider: 'Databricks' | 'Snowflake' | 'AWS', states: string[]) {
 		const selector = states.map(state => `[aria-label="${provider} Credential Selection - ${state}"]`).join(', ');
 		return this.code.driver.currentPage.locator(selector);
 	}
 
-	private async ensureCredentialSelected(provider: 'Databricks' | 'Snowflake'): Promise<void> {
+	private async ensureCredentialSelected(provider: 'Databricks' | 'Snowflake' | 'AWS'): Promise<void> {
 		const selectedWidget = this.credentialWidget(provider, ['Enabled', 'Selected']);
 		const selectableWidget = this.credentialWidget(provider, ['Disabled', 'Select']);
 
@@ -221,6 +225,13 @@ export class DashboardPage {
 			}
 			await expect(selectedWidget).toBeVisible({ timeout: 2000 });
 		}).toPass({ timeout: 30000 });
+	}
+
+	// No sign-in step: Workbench lists the roles already assigned to the user.
+	private async selectAwsRole(): Promise<void> {
+		await this.ensureCredentialSelected('AWS');
+		await expect(this.credentialWidget('AWS', ['Enabled', 'Selected'])).toContainText(AWS_MANAGED_ROLE_NAME);
+		this.code.logger.log(`AWS role ${AWS_MANAGED_ROLE_NAME} selected`);
 	}
 
 	/**

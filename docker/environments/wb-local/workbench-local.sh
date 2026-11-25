@@ -890,7 +890,7 @@ wb_custom_build() {
 		printf "%s%s" "$(cat "$WB_BUILD_MARKER")" "${c:+, commit $c}"' 2>/dev/null || true
 }
 
-# The configured managed-credential type (databricks/snowflake/azure), recorded
+# The configured managed-credential type (databricks/snowflake/azure/aws), recorded
 # at install time. Empty if the stack was installed without --credentials.
 wb_credentials_type() {
 	docker exec test bash -c 'if [ -f /var/lib/wb-local-credentials ]; then cat /var/lib/wb-local-credentials; fi' 2>/dev/null || true
@@ -975,7 +975,7 @@ USAGE
                              runs as an emulated amd64 container (slow, but correct).
   npm run pwb -- --credentials=<type>
                              Install with a managed data source: databricks, snowflake,
-                             or azure (set the provider's vars in .env first).
+                             azure, or aws (set the provider's vars in .env first).
   npm run pwb -- --positron-build=<run|file>
                              Swap in a Positron Workbench build in place of the official
                              one: a GitHub Actions run ID (posit-dev/positron-builds) or run URL
