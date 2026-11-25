@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $, addDisposableListener, append, EventType, getActiveElement, isHTMLElement, isHTMLInputElement, reset } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, append, EventType, getActiveElement, isHTMLElement, reset } from '../../../../base/browser/dom.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { HoverStyle } from '../../../../base/browser/ui/hover/hover.js';
 import { HoverPosition } from '../../../../base/browser/ui/hover/hoverWidget.js';
@@ -130,7 +130,6 @@ export class PositronLayoutPopover extends Disposable {
 	private readonly _element: HTMLElement;
 	private readonly _cards: HTMLElement;
 	private readonly _modifiedNote: HTMLElement;
-	private readonly _search: HTMLInputElement;
 	private readonly _groups: HTMLElement;
 	private readonly _status: HTMLElement;
 	private readonly _customize: HTMLElement;
@@ -211,10 +210,6 @@ export class PositronLayoutPopover extends Disposable {
 		const viewsHeader = append(this._element, $('.positron-layout-popover-header'));
 		append(viewsHeader, $('span.positron-layout-popover-heading', undefined, localize('positron.layoutPopover.views', "Views")));
 		append(viewsHeader, $('span.positron-layout-popover-note', undefined, localize('positron.layoutPopover.viewsHint', "Click a view to show or hide it. Drag it to move it.")));
-		this._search = append(this._element, $('input.positron-layout-popover-search', { type: 'search' })) as HTMLInputElement;
-		this._search.placeholder = localize('positron.layoutPopover.searchPlaceholder', "Search views");
-		this._search.setAttribute('aria-label', localize('positron.layoutPopover.searchAriaLabel', "Search views"));
-		this._register(addDisposableListener(this._search, EventType.INPUT, () => this._draw()));
 		this._groups = append(this._element, $('.positron-layout-popover-groups'));
 		// Says what the last click or drag did, with a way to take it back.
 		this._status = append(this._element, $('.positron-layout-popover-status.empty', { role: 'status', 'aria-live': 'polite' }));
@@ -263,7 +258,6 @@ export class PositronLayoutPopover extends Disposable {
 				this._layoutService.isVisible(group.part),
 				this._paneCompositeService.getActivePaneComposite(group.location)?.getId(),
 			]),
-			this._search.value,
 			getTaskLayouts().filter(layout => this._contextKeyService.contextMatchesRules(layout.precondition)).map(layout => layout.id),
 			VIEW_GROUPS.map(group => this._pills(group.location).map(pill => [pill.id, pill.shown, pill.name])),
 		]);
@@ -465,8 +459,9 @@ export class PositronLayoutPopover extends Disposable {
 
 	/**
 	 * Lights up where a view lives in the current layout's picture: its own block when the
-	 * layout places it, or else the part of the window its pill is grouped under. Nothing
-	 * lights up when the picture does not have that part.
+	 * layout places it. A view tabbed behind another, or one with no block, outlines the
+	 * part of the window it is in instead, so the views drawn there do not look lit too.
+	 * Nothing lights up when the picture does not have that part.
 	 * @param id The id of the pointed-at pill's view or container, or undefined to clear.
 	 * @param part The part of the window the pill is grouped under.
 	 */
@@ -474,7 +469,7 @@ export class PositronLayoutPopover extends Disposable {
 		this._highlightedPill = id && part ? { id, part } : undefined;
 		for (const targets of this._pictureTargets.values()) {
 			for (const target of targets) {
-				target.element.classList.remove('highlight');
+				target.element.classList.remove('highlight', 'highlight-outline');
 			}
 		}
 		const targets = this._activeLayoutId ? this._pictureTargets.get(this._activeLayoutId) : undefined;
@@ -487,7 +482,7 @@ export class PositronLayoutPopover extends Disposable {
 		const group = targets.filter(target => target.part === part);
 		const matches = own.length ? own : tabbed.length ? tabbed : group;
 		for (const target of matches) {
-			target.element.classList.add('highlight');
+			target.element.classList.add(own.length ? 'highlight' : 'highlight-outline');
 		}
 	}
 
@@ -516,7 +511,6 @@ export class PositronLayoutPopover extends Disposable {
 	}
 
 	private _drawGroups(): void {
-		const query = this._search.value.trim().toLowerCase();
 		const groups: HTMLElement[] = [];
 		this._groupControls = [];
 		this._pillsById = new Map();
@@ -524,12 +518,6 @@ export class PositronLayoutPopover extends Disposable {
 
 		for (const group of VIEW_GROUPS) {
 			const pills = this._pills(group.location);
-			const matching = query ? pills.filter(pill => pill.name.toLowerCase().includes(query)) : pills;
-			// While searching, a part with no match is left out. The bottom panel always
-			// stays, for its switch.
-			if (query && !matching.length) {
-				continue;
-			}
 
 			const section = $('.positron-layout-popover-group', { role: 'group' });
 			const name = group.name();
@@ -545,9 +533,9 @@ export class PositronLayoutPopover extends Disposable {
 
 			let list: HTMLElement | undefined;
 			const elements: HTMLElement[] = [];
-			if (matching.length) {
+			if (pills.length) {
 				list = append(section, $('.positron-layout-popover-pills'));
-				for (const pill of matching) {
+				for (const pill of pills) {
 					const button = this._pill(pill, group.part);
 					list.appendChild(button);
 					elements.push(button);
@@ -557,15 +545,10 @@ export class PositronLayoutPopover extends Disposable {
 				append(section, $('.positron-layout-popover-empty', undefined, localize(
 					'positron.layoutPopover.empty', "No views here in this layout.")));
 			}
-			const dropGroup: DropGroup = { part: group.part, location: group.location, section, list, pills: matching, elements };
+			const dropGroup: DropGroup = { part: group.part, location: group.location, section, list, pills, elements };
 			this._dropGroups.set(group.part, dropGroup);
 			this._listenForDrops(dropGroup);
 			groups.push(section);
-		}
-
-		if (!groups.length) {
-			groups.push($('.positron-layout-popover-empty', undefined, localize(
-				'positron.layoutPopover.noMatch', "No views match \"{0}\".", this._search.value.trim())));
 		}
 		reset(this._groups, ...groups);
 	}
@@ -1054,7 +1037,7 @@ export class PositronLayoutPopover extends Disposable {
 		}
 		this._status.classList.toggle('empty', !action);
 		if (hadFocus) {
-			this._search.focus();
+			this._customize.focus();
 		}
 		this._host.layout();
 	}
@@ -1063,19 +1046,18 @@ export class PositronLayoutPopover extends Disposable {
 
 	//#region Keyboard
 
-	/** The cards, the search box, the pills, the switch, Undo, and the link, in order. */
+	/** The cards, the pills, the switch, Undo, and the link, in order. */
 	private _focusables(): HTMLElement[] {
-		return [...this._cardElements, this._search, ...this._groupControls, ...(this._undoButton ? [this._undoButton] : []), this._customize];
+		return [...this._cardElements, ...this._groupControls, ...(this._undoButton ? [this._undoButton] : []), this._customize];
 	}
 
 	private _onKeyDown(event: StandardKeyboardEvent): void {
 		const focusables = this._focusables();
 		const active = getActiveElement();
 		const index = isHTMLElement(active) ? focusables.indexOf(active) : -1;
-		const inSearch = isHTMLInputElement(active);
 
 		// Alt+Up and Alt+Down move the focused pill to the group above or below.
-		if (!inSearch && isHTMLElement(active) && (event.equals(KeyMod.Alt | KeyCode.UpArrow) || event.equals(KeyMod.Alt | KeyCode.DownArrow))) {
+		if (isHTMLElement(active) && (event.equals(KeyMod.Alt | KeyCode.UpArrow) || event.equals(KeyMod.Alt | KeyCode.DownArrow))) {
 			if (this._moveToNeighborGroup(active, event.equals(KeyMod.Alt | KeyCode.UpArrow) ? -1 : 1)) {
 				event.preventDefault();
 				event.stopPropagation();
@@ -1084,13 +1066,13 @@ export class PositronLayoutPopover extends Disposable {
 		}
 
 		let next: number | undefined;
-		if (event.equals(KeyCode.DownArrow) || (!inSearch && event.equals(KeyCode.RightArrow))) {
+		if (event.equals(KeyCode.DownArrow) || event.equals(KeyCode.RightArrow)) {
 			next = Math.min(index + 1, focusables.length - 1);
-		} else if (event.equals(KeyCode.UpArrow) || (!inSearch && event.equals(KeyCode.LeftArrow))) {
+		} else if (event.equals(KeyCode.UpArrow) || event.equals(KeyCode.LeftArrow)) {
 			next = Math.max(index - 1, 0);
-		} else if (!inSearch && event.equals(KeyCode.Home)) {
+		} else if (event.equals(KeyCode.Home)) {
 			next = 0;
-		} else if (!inSearch && event.equals(KeyCode.End)) {
+		} else if (event.equals(KeyCode.End)) {
 			next = focusables.length - 1;
 		} else if (event.equals(KeyCode.Escape)) {
 			this._host.close();

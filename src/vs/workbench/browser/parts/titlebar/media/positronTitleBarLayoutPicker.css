@@ -202,16 +202,13 @@
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-/* Views, grouped by the part of the window they live in. */
-.positron-layout-popover-search {
-	background-color: var(--vscode-input-background);
-	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border));
-	border-radius: var(--vscode-cornerRadius-medium, 4px);
-	color: var(--vscode-input-foreground);
-	font: inherit;
-	padding: 4px 8px;
+/* A pointed-at view tabbed behind the open one: outline its part, with no fill. */
+.positron-layout-popover-picture .picture-region.highlight-outline {
+	outline: 1.5px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
 }
 
+/* Views, grouped by the part of the window they live in. */
 .positron-layout-popover-groups {
 	display: flex;
 	flex-direction: column;
