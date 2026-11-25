@@ -10,6 +10,7 @@ import { raceCancellationError } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { localize } from '../../../../nls.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -557,12 +558,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/** Expands a node in the tree by calling its getChildren method. */
 	async $nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]> {
-		const nodeMap = this._nodes.get(connectionHandle);
-		if (!nodeMap) {
-			throw new Error(`Connection handle ${connectionHandle} not found`);
-		}
-		const node = nodeMap.get(nodeHandle);
-		if (!node || !node.getChildren) {
+		const node = this._getNode(connectionHandle, nodeHandle);
+		if (!node.getChildren) {
 			throw new Error(`Node handle ${nodeHandle} does not support getChildren`);
 		}
 
@@ -581,12 +578,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	 * this connection. Drivers may return nothing, in which case there is nothing to relate.
 	 */
 	async $nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined> {
-		const nodeMap = this._nodes.get(connectionHandle);
-		if (!nodeMap) {
-			throw new Error(`Connection handle ${connectionHandle} not found`);
-		}
-		const node = nodeMap.get(nodeHandle);
-		if (!node || !node.preview) {
+		const node = this._getNode(connectionHandle, nodeHandle);
+		if (!node.preview) {
 			throw new Error(`Node handle ${nodeHandle} does not support preview`);
 		}
 		const datasetId = await node.preview();
@@ -595,12 +588,8 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 
 	/** Gets a node's details, for the details editor. */
 	async $nodeGetDetails(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
-		const nodeMap = this._nodes.get(connectionHandle);
-		if (!nodeMap) {
-			throw new Error(`Connection handle ${connectionHandle} not found`);
-		}
-		const node = nodeMap.get(nodeHandle);
-		if (!node || !node.getDetails) {
+		const node = this._getNode(connectionHandle, nodeHandle);
+		if (!node.getDetails) {
 			throw new Error(`Node handle ${nodeHandle} does not support getDetails`);
 		}
 		return detailsToDTO(await node.getDetails());
@@ -634,6 +623,18 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			supportedLanguageIds: driver.supportedLanguageIds,
 			validatesParameters: typeof driver.validateParameters === 'function',
 		};
+	}
+
+	private _getNode(connectionHandle: number, nodeHandle: number): positron.DataConnectionNode {
+		const nodeMap = this._nodes.get(connectionHandle);
+		if (!nodeMap) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		const node = nodeMap.get(nodeHandle);
+		if (!node) {
+			throw new Error(localize('positron.dataConnections.staleNodeHandle', "Node handle {0} is no longer valid. Refresh the connection.", nodeHandle));
+		}
+		return node;
 	}
 
 	/**
