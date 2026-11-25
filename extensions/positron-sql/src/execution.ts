@@ -190,10 +190,46 @@ export type ExecutionOutcome =
 	| { readonly kind: 'no-runtime' }
 	/** A ggsql session was asked for and did not start. */
 	| { readonly kind: 'not-started'; readonly reason: string }
-	/** The new session did not move to the file's database; it is still where it started. */
-	| { readonly kind: 'connect-failed' }
+	/**
+	 * The new session did not move to the file's database; it is still where it started.
+	 *
+	 * `lock` is set when the reason was DuckDB refusing the file's lock, which is the one failure
+	 * worth explaining beyond ggsql's own error: see {@link duckdbLockConflict}.
+	 */
+	| { readonly kind: 'connect-failed'; readonly lock?: DuckDBLockConflict }
 	/** The new session exited before it connected. */
 	| { readonly kind: 'exited' };
+
+/**
+ * How ggsql opened a DuckDB file it could not lock: read-only (another session has the file open
+ * read-write) or read-write (another session has it open at all).
+ */
+export type DuckDBLockConflict = 'read-only' | 'read-write';
+
+/**
+ * Matches the error DuckDB raises when another process holds the file's lock. On Windows that is a
+ * sharing violation rather than a lock error. The same pattern as the DuckDB driver's, which
+ * explains the conflict from the Data Connections pane's side.
+ */
+const DUCKDB_LOCK_CONFLICT = /could not set lock|conflicting lock|file is already open in/i;
+
+/**
+ * Whether a failed `@connect` line failed on DuckDB's file lock, and if so how ggsql tried to open
+ * the file.
+ *
+ * DuckDB lets several processes open a file only when every one of them opens it read-only. The
+ * line says which way ggsql tried: the DuckDB driver adds `access_mode=read_only` for a read-only
+ * connection, when the installed ggsql honors it.
+ *
+ * @param error ggsql's error from the line, if it raised one.
+ * @param connectCode The `@connect` line that failed.
+ */
+export function duckdbLockConflict(error: string | undefined, connectCode: string): DuckDBLockConflict | undefined {
+	if (!error || !DUCKDB_LOCK_CONFLICT.test(error)) {
+		return undefined;
+	}
+	return /[?&]access_mode=read_only\b/i.test(connectCode) ? 'read-only' : 'read-write';
+}
 
 /**
  * The ggsql console session on a database, or undefined if none is.
@@ -364,15 +400,18 @@ export class StatementRunner {
 		}
 
 		this._log.info(`Connecting ggsql session ${sessionId} to ${connection.name}.`);
-		switch (await this._connect(sessionId, connectCode)) {
+		const connected = await this._connect(sessionId, connectCode);
+		switch (connected.kind) {
 			case 'connected':
 				return { kind: 'connected', sessionId };
 			case 'exited':
 				this._log.warn(`ggsql session ${sessionId} exited before it connected to ${connection.name}.`);
 				return { kind: 'exited' };
-			case 'failed':
+			case 'failed': {
 				this._log.warn(`ggsql session ${sessionId} did not connect to ${connection.name}.`);
-				return { kind: 'connect-failed' };
+				const lock = duckdbLockConflict(connected.error, connectCode);
+				return lock ? { kind: 'connect-failed', lock } : { kind: 'connect-failed' };
+			}
 		}
 	}
 
@@ -388,30 +427,30 @@ export class StatementRunner {
 	 * and can land on either side of it, and until it lands the session does not read as on the
 	 * database, so the next run would start another one.
 	 */
-	private async _connect(sessionId: string, connectCode: string): Promise<'connected' | 'failed' | 'exited'> {
+	private async _connect(sessionId: string, connectCode: string): Promise<ConnectResult> {
 		const store: vscode.Disposable[] = [];
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		try {
-			return await new Promise(resolve => {
+			return await new Promise<ConnectResult>(resolve => {
 				store.push(this._api.onDidChangeSessionConnectionCode(e => {
 					// The startup connection can arrive after this is listening, and is not the
 					// answer being waited for.
 					if (e.sessionId === sessionId && e.code === connectCode) {
-						resolve('connected');
+						resolve({ kind: 'connected' });
 					}
 				}));
-				store.push(this._api.onDidEndSession(sessionId, () => resolve('exited')));
+				store.push(this._api.onDidEndSession(sessionId, () => resolve({ kind: 'exited' })));
 				// Not attributed to the file: the line is Positron's doing, not a statement the
 				// user ran from it.
 				this._api.executeCode(connectCode, sessionId).then(() => {
 					timer = setTimeout(() => {
 						this._log.warn(`Connecting ggsql session ${sessionId} finished, but Positron did`
 							+ ` not report it on the database within ${this._reportTimeoutMs} ms.`);
-						resolve('failed');
+						resolve({ kind: 'failed' });
 					}, this._reportTimeoutMs);
 				}, error => {
 					this._log.warn(`Connecting ggsql session ${sessionId} failed: ${errorMessage(error)}`);
-					resolve('failed');
+					resolve({ kind: 'failed', error: errorMessage(error) });
 				});
 			});
 		} finally {
@@ -434,6 +473,12 @@ type SendEnd = 'sent' | 'failed' | 'stopped';
 function isInterrupted(error: unknown): boolean {
 	return (error as { readonly name?: unknown } | null | undefined)?.name === 'Interrupted';
 }
+
+/** How {@link StatementRunner._connect} went, with ggsql's error when the line raised one. */
+type ConnectResult =
+	| { readonly kind: 'connected' }
+	| { readonly kind: 'exited' }
+	| { readonly kind: 'failed'; readonly error?: string };
 
 /** What {@link StatementRunner._startOn} settled on, or why it did not. */
 type StartOutcome =
