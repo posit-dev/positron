@@ -217,7 +217,7 @@ export class RuntimeConnectionHandle extends Disposable implements IDataConnecti
 	private _getNodePath(nodeHandle: number): ObjectSchema[] {
 		const path = this._nodePaths.get(nodeHandle);
 		if (!path) {
-			throw new Error(localize('positron.runtimeConnection.unknownNode', "Unknown node handle {0}.", nodeHandle));
+			throw new Error(localize('positron.runtimeConnection.unknownNode', "Node handle {0} is no longer valid. Refresh the connection.", nodeHandle));
 		}
 		return path;
 	}
