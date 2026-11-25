@@ -98,7 +98,8 @@ let last: { session: string; explained: boolean } | null = null;
  * in the page becomes a plain failure (lib.failure: a Playwright timeout as one
  * sentence, with no ANSI codes or call log). A failure goes through
  * lib.explain, which names a modal dialog that is open, since a dialog is the
- * usual reason a helper's keys and clicks went nowhere.
+ * usual reason a helper's keys and clicks went nowhere. The aria-hidden marks
+ * lib.unstack set come off before it returns, so no later call reads by them.
  */
 export function inPage<A>(session: string, fn: PageFn<A>, args: A): Json {
 	const r = runInPage(session, fn, args);
@@ -125,7 +126,9 @@ function runInPage<A>(session: string, fn: PageFn<A>, args: A): Json {
 	const code = `async page => { const lib = ${libSource}; let r;
 		try { r = await (${fn.toString()})(page, ${JSON.stringify(args)}, lib); }
 		catch (e) { r = await lib.failure(e); }
-		return JSON.stringify(await lib.explain(r)); }`;
+		r = await lib.explain(r);
+		await lib.restack().catch(() => {});
+		return JSON.stringify(r); }`;
 	// The code, with lib and the selectors in it, runs past Windows' 32K command
 	// line (ENAMETOOLONG), so there it goes through a file.
 	const file = process.platform === 'win32' ? join(tmpdir(), `dp-run-code-${process.pid}.js`) : '';

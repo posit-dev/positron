@@ -82,7 +82,9 @@
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --in VIEW       look only in that view (as for read). A VIEW not on screen
 #                   fails with "views", the titles that are: a container with
-#                   one view is titled "Container: View" ("Extensions: Installed")
+#                   one view is titled "Container: View" ("Extensions: Installed").
+#                   Its error names the call that shows the view: a click on
+#                   its tab when one is on screen, not selected, else Open View
 #   --nth N         which of several matches, 1 = first
 #   --right         click: a right-click, for a context menu (then choose from
 #                   it with: ui.sh choose ... or read menu)

@@ -42,6 +42,7 @@ export const css = {
 		panel: '.part.panel',
 		editor: '.part.editor',
 		statusbar: '.part.statusbar',
+		activitybar: '.part.activitybar', // its tabs (Extensions, Search) show the side bar's containers
 	},
 	workbench: {
 		root: '.monaco-workbench', // the element to give focus to when taking it out of a webview; no role
@@ -278,6 +279,7 @@ export const names = {
 		newWindow: 'New Window', // no category: "File: New Window" is not a title
 		showNotifications: 'Notifications: Show Notifications', // the center: it keeps the toasts that hid themselves
 		selectSession: 'Interpreter: Select Session', // its picker lists every session: console, notebook and Quarto
+		openView: 'View: Open View', // a quick pick of every view and container by name, closed ones too
 		similarCommands: 'similar commands', // the heading over the palette's guesses when no command matches; Enter there runs one
 	},
 	views: {

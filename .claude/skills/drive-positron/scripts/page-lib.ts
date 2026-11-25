@@ -54,14 +54,20 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		/**
 		 * Hides the per-session instances stacked at z-index -1 under the active one
 		 * (Variables, Console), which are not aria-hidden and would otherwise all be read.
+		 * The marks last only for the call: inPage takes them off (lib.restack) when its
+		 * page function returns, since an instance marked now may be the active one next.
 		 */
-		unstack: () => page.evaluate(stacked => {
-			document.querySelectorAll('[data-dp-stacked]').forEach(e => { e.removeAttribute('aria-hidden'); e.removeAttribute('data-dp-stacked'); });
-			for (const e of document.querySelectorAll<HTMLElement>(stacked)) {
-				const onTop = [...(e.parentElement?.children ?? [])].some(x => x !== e && x.classList[0] === e.classList[0] && (x as HTMLElement).style.zIndex !== '-1');
-				if (onTop && !e.hasAttribute('aria-hidden')) { e.setAttribute('aria-hidden', 'true'); e.setAttribute('data-dp-stacked', ''); }
-			}
-		}, s.view.stacked),
+		unstack: async () => {
+			await lib.restack();
+			await page.evaluate(stacked => {
+				for (const e of document.querySelectorAll<HTMLElement>(stacked)) {
+					const onTop = [...(e.parentElement?.children ?? [])].some(x => x !== e && x.classList[0] === e.classList[0] && (x as HTMLElement).style.zIndex !== '-1');
+					if (onTop && !e.hasAttribute('aria-hidden')) { e.setAttribute('aria-hidden', 'true'); e.setAttribute('data-dp-stacked', ''); }
+				}
+			}, s.view.stacked);
+		},
+		/** Takes off the marks lib.unstack left, so the page reads as Positron drew it. */
+		restack: () => page.evaluate(() => document.querySelectorAll('[data-dp-stacked]').forEach(e => { e.removeAttribute('aria-hidden'); e.removeAttribute('data-dp-stacked'); })),
 		/** A view by heading, a part, or an overlay (dialog, quickpick, menu, notifications); empty means the page. */
 		scope: async (name: string) => {
 			await lib.unstack();
@@ -101,7 +107,17 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				...await visible(visible(page.locator(parts.join(', '))).getByRole('heading', { level: 2 })).allTextContents(),
 				...await visible(page.locator(s.view.paneHeader)).getByRole('heading').allTextContents(),
 			];
-			return { error: `no view titled "${name}" on screen`, views: [...new Set(views.map(v => v.trim()).filter(Boolean))] };
+			// Say what shows it: a tab of that name on screen, not selected (the Viewer beside
+			// Session in the secondary side bar, Extensions in the activity bar), or else Open View.
+			const tabs: [string, string][] = [['sidebar', s.part.sidebar], ['secondary', s.part.secondary], ['panel', s.part.panel], ['', s.part.activitybar]];
+			let show = `if it is in a closed container, palette-run.sh '${ui.names.palette.openView}' then ui.sh pick "${name}" shows it`;
+			for (const [key, part] of tabs) {
+				if (await visible(page.locator(part).getByRole('tab', { name: tabName, selected: false })).count() === 1) {
+					show = `its tab is on screen, not selected: ui.sh click tab "${name}"${key ? ` --in ${key}` : ''} shows it`;
+					break;
+				}
+			}
+			return { error: `no view titled "${name}" on screen; ${show}`, views: [...new Set(views.map(v => v.trim()).filter(Boolean))] };
 		},
 		/** The innermost iframe drawn over loc, found by position since it often lives outside the view's DOM. */
 		frameIn: async (loc: ReturnType<typeof page.locator>) => {
