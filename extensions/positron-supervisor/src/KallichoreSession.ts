@@ -1329,8 +1329,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			throw new Error(`Failed to aquire connection info for session ${this.metadata.sessionId}: ${summarizeError(err)}`);
 		}
 
-		// Keep the kernel's files in a private (0700) directory
-		const kerneldir = fs.mkdtempSync(path.join(os.tmpdir(), 'kernel-'));
+		// Keep the kernel's files where only the current user can read them:
+		// mkdtemp creates the directory with mode 0700 on POSIX, and on Windows
+		// the per-user temp folder's ACLs apply. Restarts reuse the directory.
+		const kerneldir = this._kernelLogFile ?
+			path.dirname(this._kernelLogFile) :
+			await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kernel-'));
 
 		// Ensure we have a log file
 		if (!this._kernelLogFile) {
@@ -1343,7 +1347,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Write the connection file to disk
 		const connectionFile = path.join(kerneldir, 'connection.json');
-		fs.writeFileSync(connectionFile, JSON.stringify(connectionInfo), { mode: 0o600 });
+		await fs.promises.writeFile(connectionFile, JSON.stringify(connectionInfo), { mode: 0o600 });
 		const session: JupyterSession = {
 			state: {
 				sessionId: this.metadata.sessionId,
