@@ -64,7 +64,7 @@
             "%configuration.logLevel.debug.description%",
             "%configuration.logLevel.trace.description%"
           ],
-          "default": "debug",
+          "default": "info",
           "description": "%configuration.logLevel.description%"
         },
         "kernelSupervisor.shutdownTimeout": {

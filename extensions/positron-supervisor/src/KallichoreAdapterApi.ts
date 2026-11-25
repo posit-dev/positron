@@ -630,11 +630,12 @@ export class KCApi implements PositronSupervisorApi {
 		const showTerminal = config.get<boolean>('showTerminal', false);
 		const startupTimeout = config.get<number>('startupTimeout', 10) * 1000;
 
-		// Create a temporary file with a random name to use for logs
-		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);
+		// Keep the server's logs in a private (0700) directory
+		const logDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kallichore-'));
+		const logFile = path.join(logDir, 'server.log');
 
 		// Create a second file to capture the server's stdout and stderr
-		const outFile = path.join(os.tmpdir(), `kallichore-${sessionId}.out.log`);
+		const outFile = path.join(logDir, 'server.out.log');
 
 		// Determine the path to the wrapper script.
 		const wrapperName = os.platform() === 'win32' ? 'supervisor-wrapper.bat' : 'supervisor-wrapper.sh';
