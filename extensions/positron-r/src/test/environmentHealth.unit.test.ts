@@ -24,7 +24,7 @@ import {
 	RInstallationRankable,
 	selectTargetInstallation,
 } from '../environmentHealth';
-import { friendlyReason, ReasonRejected } from '../r-installation';
+import { ReasonRejected } from '../r-installation';
 
 suite('environment health: libR path resolution', () => {
 	// Mirrors harp::find_r_shared_library_folder. Windows arm64 is deliberately
@@ -195,7 +195,7 @@ suite('environment health: probeRInstalled', () => {
 		assert.strictEqual(item.status, 'fail');
 		// The enum token is a developer string; the report gets the sentence.
 		assert.ok(!item.detail?.includes('nonOrthogonal'));
-		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.nonOrthogonal)));
+		assert.ok(item.detail?.includes('is not the current one'));
 	});
 
 	test('fails when the only install is below the minimum version', () => {
@@ -221,8 +221,8 @@ suite('environment health: probeRInstalled', () => {
 			})],
 		});
 		assert.strictEqual(item.status, 'fail');
-		assert.ok(!item.detail?.includes('below the minimum'));
-		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.invalid)));
+		assert.ok(!item.detail?.includes('is version'));
+		assert.ok(item.detail?.includes('The installation is incomplete or damaged.'));
 	});
 
 	test('offers no fix but does link to the discovery docs', () => {
@@ -238,13 +238,28 @@ suite('environment health: probeEnvironmentReady', () => {
 		assert.strictEqual(probeEnvironmentReady(READY_OK).status, 'pass');
 	});
 
+	test('the summary matches the status', () => {
+		const items = [
+			probeEnvironmentReady(READY_OK),
+			probeEnvironmentReady({ ...READY_OK, archMismatch: true }),
+			probeEnvironmentReady({ ...READY_OK, arkFound: false }),
+		];
+		assert.deepStrictEqual(
+			items.map((i) => [i.status, i.summary]),
+			[
+				['pass', 'The R installation is ready to use with Positron'],
+				['warn', 'The R installation may not work reliably with Positron'],
+				['fail', 'The R installation is not ready to use with Positron'],
+			]);
+	});
+
 	test('fails when the installation is not usable, reporting the reason in prose', () => {
 		const item = probeEnvironmentReady({
 			...READY_OK, usable: false, rejectedReason: ReasonRejected.nonOrthogonal,
 		});
 		assert.strictEqual(item.status, 'fail');
 		assert.ok(!item.detail?.includes('nonOrthogonal'));
-		assert.ok(item.detail?.includes(friendlyReason(ReasonRejected.nonOrthogonal)));
+		assert.ok(item.detail?.includes('is not the current one'));
 	});
 
 	test('fails on an unsupported version', () => {
@@ -341,7 +356,7 @@ suite('environment health: target selection', () => {
 		const item = probeNoUsableTarget();
 		assert.strictEqual(item.id, 'environmentReady');
 		assert.strictEqual(item.status, 'fail');
-		assert.strictEqual(item.summary, 'The R installation is ready to use with Positron');
+		assert.strictEqual(item.summary, 'The R installation is not ready to use with Positron');
 		assert.ok(!item.detail?.includes('Health check failed'));
 		assert.strictEqual(item.fix?.commandId, 'positron.startupDiagnostics.show');
 	});
@@ -377,8 +392,8 @@ suite('environment health: assembleItems cascade', () => {
 		assert.deepStrictEqual(
 			result.items.slice(1).map((i) => [i.id, i.summary]),
 			[
-				['rInstalled', 'A supported R is installed'],
-				['environmentReady', 'The R installation is ready to use with Positron'],
+				['rInstalled', 'Supported R version'],
+				['environmentReady', 'R installation compatibility'],
 			]);
 	});
 
@@ -404,9 +419,7 @@ suite('environment health: assembleItems cascade', () => {
 			logError,
 		);
 		assert.strictEqual(result.items[2].status, 'fail');
-		// The summary stays the check's own claim.
-		assert.strictEqual(result.items[2].summary,
-			'The R installation is ready to use with Positron');
+		assert.strictEqual(result.items[2].summary, 'The R installation is not ready to use with Positron');
 		// The error goes to the log, not to the user, and reaches the logger intact
 		// rather than flattened into the message.
 		assert.ok(!result.items[2].detail?.includes('kaboom'));

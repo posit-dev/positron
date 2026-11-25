@@ -11,7 +11,8 @@ import * as semver from 'semver';
 import * as vscode from 'vscode';
 import { getArkKernelPath, normalizeWindowsArch, sniffMachOBinaryArchitecture, sniffWindowsBinaryArchitecture } from './kernel';
 import { discoverRInstallations } from './provider';
-import { friendlyReason, ReasonRejected, RInstallation } from './r-installation';
+import { MINIMUM_R_VERSION } from './constants';
+import { ReasonRejected, RInstallation } from './r-installation';
 import { compareRInstallations } from './startup-choice';
 
 /** Architecture vocabulary used by the ark binary sniffers. */
@@ -117,22 +118,78 @@ export function logErrorTo(channel: Pick<vscode.LogOutputChannel, 'warn'>): LogE
 	};
 }
 
+/** Row titles for one check, one per status. `warn` is only set for checks that can warn. */
+interface ItemSummaries {
+	pass: string;
+	fail: string;
+	warn?: string;
+	skipped: string;
+}
+
 /**
- * The claim a check makes, phrased so it reads the same whatever the outcome is:
- * the UI uses it as the row title and shows `status` separately. Callers that
- * never ran the probe (a skipped item, a probe that threw) still need the text,
- * so it lives here rather than inside each probe.
+ * The row title for a check, matching its status: what passed, what is
+ * wrong, or (for a skipped item) just the check's name. The detail line under
+ * a warn or fail row says why and what to do. Callers that never ran the probe
+ * (a skipped item, a probe that threw) still need the text, so it lives here
+ * rather than inside each probe.
  */
-export function itemSummary(id: HealthItemId): string {
-	// Record<HealthItemId, string> requires an entry per id, so adding a check
-	// without a summary is a compile error. Built per call because
+export function itemSummary(id: HealthItemId, status: HealthItemStatus): string {
+	// Record<HealthItemId, ...> requires an entry per id, so adding a check
+	// without summaries is a compile error. Built per call because
 	// vscode.l10n.t needs the activated l10n bundle.
-	const summaries: Record<HealthItemId, string> = {
-		discovery: vscode.l10n.t('Positron can discover R installations'),
-		rInstalled: vscode.l10n.t('A supported R is installed'),
-		environmentReady: vscode.l10n.t('The R installation is ready to use with Positron'),
+	const summaries: Record<HealthItemId, ItemSummaries> = {
+		discovery: {
+			pass: vscode.l10n.t('R is installed on this machine'),
+			fail: vscode.l10n.t('Positron cannot find R on this machine'),
+			skipped: vscode.l10n.t('R installation discovery'),
+		},
+		rInstalled: {
+			pass: vscode.l10n.t('A supported R is available'),
+			fail: vscode.l10n.t('A supported R is not available'),
+			skipped: vscode.l10n.t('Supported R version'),
+		},
+		environmentReady: {
+			pass: vscode.l10n.t('The R installation is ready to use with Positron'),
+			fail: vscode.l10n.t('The R installation is not ready to use with Positron'),
+			warn: vscode.l10n.t('The R installation may not work reliably with Positron'),
+			skipped: vscode.l10n.t('R installation compatibility'),
+		},
 	};
-	return summaries[id];
+	// A check with no warn text falls back to its name, which reads correctly
+	// next to any icon.
+	return summaries[id][status] ?? summaries[id].skipped;
+}
+
+/**
+ * Builds a health item whose title comes from its status, so the two can
+ * never disagree. Every item in this file is built through here.
+ */
+function healthItem(
+	id: HealthItemId,
+	status: HealthItemStatus,
+	rest?: Omit<HealthItem, 'id' | 'status' | 'summary'>
+): HealthItem {
+	return { id, status, summary: itemSummary(id, status), ...rest };
+}
+
+/**
+ * Why an R installation was rejected, as a localized sentence for the report.
+ * friendlyReason() in r-installation.ts is the log wording and is not
+ * localized. A reason without a sentence here falls back to a generic one.
+ */
+function rejectionSentence(reason: ReasonRejected | null): string {
+	switch (reason) {
+		case ReasonRejected.invalid:
+			return vscode.l10n.t('The installation is incomplete or damaged.');
+		case ReasonRejected.unsupported:
+			return vscode.l10n.t('Positron needs R {0} or later.', MINIMUM_R_VERSION);
+		case ReasonRejected.nonOrthogonal:
+			return vscode.l10n.t('This R shares a framework folder with other versions and is not the current one.');
+		case ReasonRejected.excluded:
+			return vscode.l10n.t('Your settings exclude this location.');
+		default:
+			return vscode.l10n.t('Positron cannot tell why.');
+	}
 }
 
 function diagnosticsFix(): HealthItemFix {
@@ -144,33 +201,29 @@ function diagnosticsFix(): HealthItemFix {
 
 export function probeDiscovery(deps: { binaryCount: number; discoveryFailed?: boolean }): HealthItem {
 	const id = 'discovery';
-	const summary = itemSummary(id);
 	if (deps.discoveryFailed) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t('R discovery could not complete.'),
 			fix: diagnosticsFix(),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	if (deps.binaryCount === 0) {
-		return {
-			id, status: 'fail', summary,
-			detail: vscode.l10n.t('No R installations were found on this machine.'),
+		return healthItem(id, 'fail', {
+			detail: vscode.l10n.t('Install R or update your settings to find an existing R.'),
 			fix: diagnosticsFix(),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
-	return { id, status: 'pass', summary };
+	return healthItem(id, 'pass');
 }
 
 export function probeRInstalled(deps: { installations: RInstallationLike[] }): HealthItem {
 	const id = 'rInstalled';
-	const summary = itemSummary(id);
 	// `usable` implies `supported`: RInstallation only sets it inside the
 	// supported branch (r-installation.ts:323).
 	if (deps.installations.some((i) => i.usable)) {
-		return { id, status: 'pass', summary };
+		return healthItem(id, 'pass');
 	}
 
 	// Version first: an old R is always ALSO marked unusable, so the generic
@@ -180,31 +233,28 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
 	const unsupported = deps.installations.find(
 		(i) => i.reasonRejected === ReasonRejected.unsupported);
 	if (unsupported) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t(
-				'The R installation at {0} is version {1}, below the minimum supported version.',
-				unsupported.binpath, unsupported.version),
+				'The R at {0} is version {1}. Positron needs R {2} or later.',
+				unsupported.binpath, unsupported.version, MINIMUM_R_VERSION),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	const rejected = deps.installations.find((i) => !i.usable);
 	if (rejected) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t(
-				'The R installation at {0} is unusable: {1}.',
-				rejected.binpath, friendlyReason(rejected.reasonRejected)),
+				'Positron cannot use the R at {0}. {1}',
+				rejected.binpath, rejectionSentence(rejected.reasonRejected)),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	// Unreachable via getEnvironmentHealth: the same array feeds probeDiscovery,
 	// so an empty list fails there first. Kept for direct callers.
-	return {
-		id, status: 'fail', summary,
-		detail: vscode.l10n.t('There is no R installation to evaluate.'),
+	return healthItem(id, 'fail', {
+		detail: vscode.l10n.t('No R installation is available to check.'),
 		learnMoreUrl: R_INSTALL_DOCS,
-	};
+	});
 }
 
 /**
@@ -213,14 +263,11 @@ export function probeRInstalled(deps: { installations: RInstallationLike[] }): H
  * yielded one.
  */
 export function probeNoUsableTarget(): HealthItem {
-	return {
-		id: 'environmentReady',
-		status: 'fail',
-		summary: itemSummary('environmentReady'),
-		detail: vscode.l10n.t('Positron could not resolve an R installation to use.'),
+	return healthItem('environmentReady', 'fail', {
+		detail: vscode.l10n.t('Positron cannot choose an R installation to use.'),
 		fix: diagnosticsFix(),
 		learnMoreUrl: R_INSTALL_DOCS,
-	};
+	});
 }
 
 /** Structural subset of RInstallation needed to rank fallback candidates. */
@@ -270,55 +317,49 @@ export function probeEnvironmentReady(deps: {
 	arkArch?: ArkArch;
 }): HealthItem {
 	const id = 'environmentReady';
-	const summary = itemSummary(id);
 
 	if (!deps.usable) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t(
-				'This R installation is unusable: {0}.', friendlyReason(deps.rejectedReason)),
+				'Positron cannot use this R installation. {0}', rejectionSentence(deps.rejectedReason)),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	if (!deps.versionSupported) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t(
-				'This R installation is version {0}, below the minimum supported version.',
-				deps.version),
+				'This R installation is version {0}. Positron needs R {1} or later.',
+				deps.version, MINIMUM_R_VERSION),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	// Ark precedes libR because resolving the libR path needs ark's architecture.
 	if (!deps.arkFound) {
-		return {
-			id, status: 'fail', summary,
-			detail: vscode.l10n.t('The R kernel (ark) could not be located in this installation of Positron.'),
+		return healthItem(id, 'fail', {
+			detail: vscode.l10n.t('Positron cannot find its R kernel (ark), so R sessions cannot start.'),
 			fix: diagnosticsFix(),
-		};
+		});
 	}
 	// Arch precedes libR: resolveLibRPath picks the Windows layout from ark's
 	// architecture, so a mismatched ark resolves a path R never uses. Reporting
 	// --enable-R-shlib there would name the wrong cause.
 	if (deps.archMismatch) {
-		return {
-			id, status: 'warn', summary,
+		return healthItem(id, 'warn', {
 			detail: vscode.l10n.t(
-				'This R is built for {0} but the R kernel is built for {1}. Sessions may fail to start or run slowly.',
+				'This R is built for {0}, but the Positron R kernel is built for {1}. R sessions may not start or may run slowly. Install an R built for {1}.',
 				deps.rArch ?? 'unknown', deps.arkArch ?? 'unknown'),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
 	if (!deps.libRExists) {
-		return {
-			id, status: 'fail', summary,
+		return healthItem(id, 'fail', {
 			detail: vscode.l10n.t(
-				"R's shared library was not found at {0}. If this is a custom build of R, ensure it is compiled with --enable-R-shlib.",
+				'Positron cannot find the R shared library at {0}. If you built R yourself, rebuild R with the --enable-R-shlib option.',
 				deps.libRPath),
 			learnMoreUrl: R_INSTALL_DOCS,
-		};
+		});
 	}
-	return { id, status: 'pass', summary };
+	return healthItem(id, 'pass');
 }
 
 export interface REnvironmentHealthResult {
@@ -331,7 +372,7 @@ export interface REnvironmentHealthResult {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-	return { id, status: 'skipped', summary: itemSummary(id) };
+	return healthItem(id, 'skipped');
 }
 
 async function runItem(
@@ -344,10 +385,7 @@ async function runItem(
 	} catch (ex) {
 		// No curated action to offer for an unexpected probe failure, so this item carries no fix.
 		logError(`Environment health check '${id}' failed`, ex);
-		return {
-			id, status: 'fail', summary: itemSummary(id),
-			detail: vscode.l10n.t('This check could not be completed.'),
-		};
+		return healthItem(id, 'fail', { detail: vscode.l10n.t('This check could not be completed.') });
 	}
 }
 

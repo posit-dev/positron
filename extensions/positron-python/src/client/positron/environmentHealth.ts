@@ -71,22 +71,61 @@ export interface EnvironmentHealthResult {
     interpreterPath?: string;
 }
 
+/** Row titles for one check, one per status. `warn` is only set for checks that can warn. */
+interface ItemSummaries {
+    pass: string;
+    fail: string;
+    warn?: string;
+    skipped: string;
+}
+
 /**
- * The claim a check makes, phrased so it reads the same whatever the outcome is: 'pass' means it
- * holds, 'fail' means it does not, 'skipped' means it was never evaluated. Callers that never run
- * the probe (a skipped item, a probe that threw) still need the text, so it lives here rather than
- * inside each probe.
+ * The row title for a check, matching its status: what passed, what is wrong, or (for a skipped
+ * item) just the check's name. The detail line under a warn or fail row says why and what to do.
+ * Callers that never run the probe (a skipped item, a probe that threw) still need the text, so it
+ * lives here rather than inside each probe.
  */
-export function itemSummary(id: HealthItemId): string {
-    // Record<HealthItemId, string> requires an entry per id, so adding a check without a summary
-    // is a compile error. Built per call because vscode.l10n.t needs the activated l10n bundle.
-    const summaries: Record<HealthItemId, string> = {
-        discovery: vscode.l10n.t('Positron can discover Python environments'),
-        pythonInstalled: vscode.l10n.t('A supported Python is installed'),
-        environmentReady: vscode.l10n.t('The environment is ready to use with Positron'),
-        dedicatedEnvironment: vscode.l10n.t('A dedicated Python environment is available'),
+export function itemSummary(id: HealthItemId, status: HealthItemStatus): string {
+    // Record<HealthItemId, ...> requires an entry per id, so adding a check without summaries is a
+    // compile error. Built per call because vscode.l10n.t needs the activated l10n bundle.
+    const summaries: Record<HealthItemId, ItemSummaries> = {
+        discovery: {
+            pass: vscode.l10n.t('Python environment discovery is working'),
+            fail: vscode.l10n.t('Python environment discovery is not working'),
+            skipped: vscode.l10n.t('Python environment discovery'),
+        },
+        pythonInstalled: {
+            pass: vscode.l10n.t('A supported Python is available'),
+            fail: vscode.l10n.t('A supported Python is not available'),
+            skipped: vscode.l10n.t('Supported Python version'),
+        },
+        environmentReady: {
+            pass: vscode.l10n.t('The Python environment is ready to use with Positron'),
+            fail: vscode.l10n.t('The Python environment is not ready to use with Positron'),
+            warn: vscode.l10n.t('The Python environment may run slowly'),
+            skipped: vscode.l10n.t('Python environment compatibility'),
+        },
+        dedicatedEnvironment: {
+            pass: vscode.l10n.t('This folder uses a dedicated environment'),
+            fail: vscode.l10n.t('No dedicated environment is in use'),
+            warn: vscode.l10n.t('A dedicated environment exists but is not in use'),
+            skipped: vscode.l10n.t('Dedicated environment'),
+        },
     };
-    return summaries[id];
+    // A check with no warn text falls back to its name, which reads correctly next to any icon.
+    return summaries[id][status] ?? summaries[id].skipped;
+}
+
+/**
+ * Builds a health item whose title comes from its status, so the two can never disagree. Every
+ * item in this file is built through here.
+ */
+function healthItem(
+    id: HealthItemId,
+    status: HealthItemStatus,
+    rest?: Omit<HealthItem, 'id' | 'status' | 'summary'>,
+): HealthItem {
+    return { id, status, summary: itemSummary(id, status), ...rest };
 }
 
 /**
@@ -119,17 +158,13 @@ export function readDiscoveryFailure(
 }
 
 export function probeDiscovery(deps: { discoveryFailed: boolean }): HealthItem {
-    const summary = itemSummary('discovery');
     if (deps.discoveryFailed) {
-        return {
-            id: 'discovery',
-            status: 'fail',
-            summary,
+        return healthItem('discovery', 'fail', {
             detail: vscode.l10n.t('Python environment discovery could not start.'),
             fix: diagnosticsFix(),
-        };
+        });
     }
-    return { id: 'discovery', status: 'pass', summary };
+    return healthItem('discovery', 'pass');
 }
 
 export const DISCOVERY_WAIT_MS = 10_000;
@@ -164,11 +199,10 @@ export async function probePythonInstalled(deps: {
     allowUvPythonInstall: boolean;
     waitMs: number;
 }): Promise<HealthItem> {
-    const summary = itemSummary('pythonInstalled');
     const hasSupported = () => deps.getInterpreters().some((i) => isVersionSupported(i.version));
 
     if (hasSupported()) {
-        return { id: 'pythonInstalled', status: 'pass', summary };
+        return healthItem('pythonInstalled', 'pass');
     }
 
     // No supported interpreter is known yet. If a discovery pass is in flight, join it
@@ -178,19 +212,14 @@ export async function probePythonInstalled(deps: {
     if (deps.refreshPromise) {
         finished = await discoveryFinishedWithin(deps.refreshPromise, deps.waitMs);
         if (hasSupported()) {
-            return { id: 'pythonInstalled', status: 'pass', summary };
+            return healthItem('pythonInstalled', 'pass');
         }
     }
 
     if (!finished) {
-        return {
-            id: 'pythonInstalled',
-            status: 'fail',
-            summary,
-            detail: vscode.l10n.t(
-                'Python discovery had not finished. Re-run the check; it will likely resolve once discovery completes.',
-            ),
-        };
+        return healthItem('pythonInstalled', 'fail', {
+            detail: vscode.l10n.t('Positron is still searching for Python environments. Run the checks again.'),
+        });
     }
 
     // The discovery probe (item 1) samples the locator once, before this bounded wait. A locator
@@ -199,37 +228,33 @@ export async function probePythonInstalled(deps: {
     // locator is broken, not that Python is missing. Point at diagnostics rather than offer an
     // install-Python fix that would not resolve a broken locator.
     if (deps.discoveryFailed()) {
-        return {
-            id: 'pythonInstalled',
-            status: 'fail',
-            summary,
-            detail: vscode.l10n.t('A supported Python could not be confirmed because environment discovery failed.'),
+        return healthItem('pythonInstalled', 'fail', {
+            detail: vscode.l10n.t(
+                'Positron cannot check for a supported Python because Python environment discovery failed.',
+            ),
             fix: diagnosticsFix(),
-        };
+        });
     }
 
     if (!deps.allowUvPythonInstall) {
-        return {
-            id: 'pythonInstalled',
-            status: 'fail',
-            summary,
+        return healthItem('pythonInstalled', 'fail', {
             detail: vscode.l10n.t(
-                'No supported Python ({0}) was found, and automatic installation is disabled by the python.allowUvPythonInstall setting. Ask your administrator to provision a supported Python.',
+                'Positron cannot find a supported Python ({0}) on this machine, and the python.allowUvPythonInstall setting turns off automatic installation. Ask your administrator to install a supported Python.',
                 SUPPORTED_PYTHON_VERSION_RANGE,
             ),
-        };
+        });
     }
 
-    return {
-        id: 'pythonInstalled',
-        status: 'fail',
-        summary,
-        detail: vscode.l10n.t('No supported Python ({0}) was found on this machine.', SUPPORTED_PYTHON_VERSION_RANGE),
+    return healthItem('pythonInstalled', 'fail', {
+        detail: vscode.l10n.t(
+            'Positron cannot find a supported Python ({0}) on this machine. Run "Install Python" to install one.',
+            SUPPORTED_PYTHON_VERSION_RANGE,
+        ),
         fix: {
             commandId: 'python.installPythonViaUv',
             label: vscode.l10n.t('Install Python'),
         },
-    };
+    });
 }
 
 export async function resolveWouldBeUsedInterpreter(deps: {
@@ -342,47 +367,37 @@ export function probeDedicatedEnvironment(deps: {
     openFolderFix: HealthItemFix;
 }): HealthItem {
     const id = 'dedicatedEnvironment';
-    const summary = itemSummary(id);
 
     if (deps.workspaceOpen) {
         if (deps.interpreterDedicated) {
-            return { id, status: 'pass', summary };
+            return healthItem(id, 'pass');
         }
-        return {
-            id,
-            status: 'fail',
-            summary,
+        return healthItem(id, 'fail', {
             detail: vscode.l10n.t(
-                'This workspace would use a global, system, or base environment. Create a dedicated environment to isolate its packages.',
+                'This folder uses a shared Python installation, so packages installed here affect other projects. Create a dedicated environment for this folder.',
             ),
             fix: deps.createEnvFix,
-        };
+        });
     }
 
     if (deps.anyDedicatedDiscovered) {
-        return {
-            id,
-            status: 'warn',
-            summary,
+        return healthItem(id, 'warn', {
             detail: vscode.l10n.t(
-                'A dedicated environment exists but no folder is open. Open a folder to use it; full green means an open folder using a dedicated environment.',
+                'No folder is open. Open a folder, then select an existing environment or create a new one.',
             ),
             fix: deps.openFolderFix,
-        };
+        });
     }
 
-    return {
-        id,
-        status: 'fail',
-        summary,
-        detail: vscode.l10n.t(
-            'No dedicated Python environment was found and no folder is open. Open a folder to get started; you can create a dedicated environment in it.',
-        ),
+    return healthItem(id, 'fail', {
+        detail: vscode.l10n.t('No folder is open. Open a folder, then create a dedicated environment in that folder.'),
         fix: deps.openFolderFix,
-    };
+    });
 }
 
 export function probeEnvironmentReady(deps: {
+    // With no folder open, recreateFix is an Open Folder button, so the detail asks for a folder.
+    workspaceOpen: boolean;
     resolvesAndRuns: boolean;
     versionSupported: boolean;
     kernelReady: boolean;
@@ -393,52 +408,49 @@ export function probeEnvironmentReady(deps: {
     installNativePythonFix?: HealthItemFix;
 }): HealthItem {
     const id = 'environmentReady';
-    const summary = itemSummary(id);
 
     if (!deps.resolvesAndRuns) {
-        return {
-            id,
-            status: 'fail',
-            summary,
-            detail: vscode.l10n.t(
-                "This environment's interpreter could not be run (it may be stale or missing). Recreating it will not carry over installed packages.",
-            ),
+        return healthItem(id, 'fail', {
+            detail: deps.workspaceOpen
+                ? vscode.l10n.t(
+                      'Positron could not run the Python interpreter in this environment. The environment may be out of date or deleted. Create a new Python environment to replace this one. Installed packages do not carry over.',
+                  )
+                : vscode.l10n.t(
+                      'Positron could not run the Python interpreter it tried to use. Open a folder, then create a dedicated environment in that folder.',
+                  ),
             fix: deps.recreateFix,
-        };
+        });
     }
     if (!deps.versionSupported) {
-        return {
-            id,
-            status: 'fail',
-            summary,
-            detail: vscode.l10n.t(
-                "This environment's Python version is not supported (needs {0}).",
-                SUPPORTED_PYTHON_VERSION_RANGE,
-            ),
+        return healthItem(id, 'fail', {
+            detail: deps.workspaceOpen
+                ? vscode.l10n.t(
+                      'This environment uses an unsupported Python version. Positron supports Python {0}. Create a new environment with a supported Python version.',
+                      SUPPORTED_PYTHON_VERSION_RANGE,
+                  )
+                : vscode.l10n.t(
+                      'Positron does not support the Python version it tried to use. Open a folder, then create a dedicated environment in that folder.',
+                  ),
             fix: deps.recreateFix,
-        };
+        });
     }
     if (!deps.kernelReady) {
-        return {
-            id,
-            status: 'fail',
-            summary,
-            detail: vscode.l10n.t('The Jupyter kernel (ipykernel) is not usable for this environment.'),
+        return healthItem(id, 'fail', {
+            detail: vscode.l10n.t(
+                'The ipykernel package in this environment is missing or does not work. Positron needs ipykernel to run Python. Run "Install ipykernel" to fix the problem.',
+            ),
             fix: deps.installIpykernelFix,
-        };
+        });
     }
     if (deps.isRosetta) {
-        return {
-            id,
-            status: 'warn',
-            summary,
+        return healthItem(id, 'warn', {
             detail: vscode.l10n.t(
-                'This x64 Python runs under Rosetta on Apple silicon. Install a native (arm64) Python and recreate the environment on it for best performance.',
+                'This Python is built for Intel (x64) and runs slower on Apple silicon. Install a native (arm64) Python, then create a new environment that uses the native Python.',
             ),
             fix: deps.installNativePythonFix,
-        };
+        });
     }
-    return { id, status: 'pass', summary };
+    return healthItem(id, 'pass');
 }
 
 interface ItemProducers {
@@ -449,7 +461,7 @@ interface ItemProducers {
 }
 
 function skipped(id: HealthItemId): HealthItem {
-    return { id, status: 'skipped', summary: itemSummary(id) };
+    return healthItem(id, 'skipped');
 }
 
 async function runItem(
@@ -462,12 +474,7 @@ async function runItem(
     } catch (ex) {
         // No curated action to offer for an unexpected probe failure, so this item carries no fix.
         logError(`Environment health check '${id}' failed`, ex);
-        return {
-            id,
-            status: 'fail',
-            summary: itemSummary(id),
-            detail: vscode.l10n.t('This check could not be completed.'),
-        };
+        return healthItem(id, 'fail', { detail: vscode.l10n.t('This check could not be completed.') });
     }
 }
 
@@ -676,6 +683,7 @@ async function evaluateReady(
         : buildOpenFolderFix();
 
     return probeEnvironmentReady({
+        workspaceOpen: ctx.workspaceUri !== undefined,
         resolvesAndRuns,
         versionSupported,
         kernelReady,

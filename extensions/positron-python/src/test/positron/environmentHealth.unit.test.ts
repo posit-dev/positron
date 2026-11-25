@@ -348,6 +348,7 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
     const installIpykernelFix = { commandId: 'python.installIpykernel', label: 'k', args: ['/py'] };
     const installNativePythonFix = { commandId: 'python.installPythonViaUv', label: 'n' };
     const green = {
+        workspaceOpen: true,
         resolvesAndRuns: true,
         versionSupported: true,
         kernelReady: true,
@@ -368,6 +369,16 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
         const item = probeEnvironmentReady({ ...green, versionSupported: false });
         assert.strictEqual(item.status, 'fail');
         assert.strictEqual(item.fix, recreateFix);
+    });
+
+    test('with no folder open, the recreate details ask for a folder', () => {
+        const items = [
+            probeEnvironmentReady({ ...green, workspaceOpen: false, resolvesAndRuns: false }),
+            probeEnvironmentReady({ ...green, workspaceOpen: false, versionSupported: false }),
+        ];
+        for (const item of items) {
+            assert.include(item.detail ?? '', 'Open a folder, then create a dedicated environment in that folder.');
+        }
     });
 
     test('kernel not ready fails with install-ipykernel fix', () => {
@@ -396,6 +407,22 @@ suite('Python Environment Health - environmentReady (item 3)', () => {
 
     test('all green => pass', () => {
         assert.strictEqual(probeEnvironmentReady(green).status, 'pass');
+    });
+
+    test('the summary matches the status', () => {
+        const items = [
+            probeEnvironmentReady(green),
+            probeEnvironmentReady({ ...green, isRosetta: true }),
+            probeEnvironmentReady({ ...green, kernelReady: false }),
+        ];
+        assert.deepStrictEqual(
+            items.map((i) => [i.status, i.summary]),
+            [
+                ['pass', 'The Python environment is ready to use with Positron'],
+                ['warn', 'The Python environment may run slowly'],
+                ['fail', 'The Python environment is not ready to use with Positron'],
+            ],
+        );
     });
 });
 
@@ -496,7 +523,7 @@ suite('Python Environment Health - orchestration', () => {
             logError,
         );
         assert.strictEqual(result.items[1].status, 'fail');
-        assert.strictEqual(result.items[1].summary, 'A supported Python is installed');
+        assert.strictEqual(result.items[1].summary, 'A supported Python is not available');
         // The error goes to the log, not to the user. It is passed as the error
         // argument rather than interpolated, so the log keeps the stack.
         assert.notInclude(result.items[1].detail ?? '', 'boom');
@@ -514,9 +541,9 @@ suite('Python Environment Health - orchestration', () => {
         assert.deepStrictEqual(
             result.items.slice(1).map((i) => [i.id, i.summary]),
             [
-                ['pythonInstalled', 'A supported Python is installed'],
-                ['environmentReady', 'The environment is ready to use with Positron'],
-                ['dedicatedEnvironment', 'A dedicated Python environment is available'],
+                ['pythonInstalled', 'Supported Python version'],
+                ['environmentReady', 'Python environment compatibility'],
+                ['dedicatedEnvironment', 'Dedicated environment'],
             ],
         );
     });
