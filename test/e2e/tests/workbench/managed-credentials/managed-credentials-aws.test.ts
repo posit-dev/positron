@@ -8,7 +8,9 @@ import { AWS_MANAGED_ROLE_NAME } from '../../../pages/workbench/dashboard.page';
 
 test.use({
 	suiteId: __filename,
-	managedCredentials: 'aws'
+	managedCredentials: 'aws',
+	// The role has no Bedrock access, and the error toast of the Bedrock provider covers the Save button.
+	extraSettings: { 'positron.assistant.provider.amazonBedrock.enable': false },
 });
 
 // The private serverless workgroup the Redshift suite uses (tests/data-connections/redshift.test.ts).
@@ -19,9 +21,12 @@ const table = 'flights';
 test.describe('Managed Credentials - AWS', {
 	tag: [tags.WORKBENCH_AWS]
 }, () => {
-	test('R - Verify AWS_ROLE_ARN environment variable is set', { tag: [tags.ARK] }, async function ({ app, r }) {
-		await app.workbench.console.executeCode('R', 'Sys.getenv("AWS_ROLE_ARN")');
-		await app.workbench.console.waitForConsoleContents(`role/${AWS_MANAGED_ROLE_NAME}"`);
+	// Checked in a terminal, not a console: interpreter discovery can outlast the first session of this user.
+	test('Verify AWS_ROLE_ARN environment variable is set', async function ({ app }) {
+		const { terminal } = app.workbench;
+		await terminal.createTerminal();
+		await terminal.runCommandInTerminal('echo "arn=$AWS_ROLE_ARN"');
+		await terminal.waitForTerminalText(new RegExp(`arn=arn:aws:iam::\\d+:role/${AWS_MANAGED_ROLE_NAME}`));
 	});
 
 	test.describe('Data Connections', { tag: [tags.CONNECTIONS] }, () => {
@@ -59,6 +64,8 @@ test.describe('Managed Credentials - AWS', {
 				'Connection Name': connectionName,
 				'Host': host,
 			});
+			// Start-up toasts (the provider settings migration) cover the Save button.
+			await app.workbench.toasts.closeAll();
 			await dataConnections.save();
 			await dataConnections.expectConnectionInTree(connectionName);
 			addedConnection = connectionName;

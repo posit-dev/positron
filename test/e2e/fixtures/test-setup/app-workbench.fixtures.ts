@@ -63,6 +63,10 @@ export async function WorkbenchApp(
 			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
 		}
 
+		if (signsInWithOpenId) {
+			await resetOpenIdUserSettings(dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings }));
+		}
+
 		// Get the browser context for OAuth flows
 		const context = app.code.driver.currentPage.context();
 		const newProjectCreated = await app.positWorkbench.dashboard.openSession('test-files', context, managedCredentials);
@@ -129,6 +133,18 @@ export async function WorkbenchApp(
 			await app.positWorkbench.dashboard.quitSession('test-files');
 		} catch (error) {
 			console.warn('Failed to quit workbench session:', error);
+		}
+
+		if (managedCredentials === 'aws') {
+			// The Azure suites share this user, and a session with the role starts Bedrock in Posit Assistant.
+			try {
+				await runDockerCommand(
+					`docker exec ${CONTAINER_NAME} sudo rstudio-server unset-aws-role-arns ${OPENID_USER}`,
+					'Remove the AWS role from the OpenID user'
+				);
+			} catch (error) {
+				console.error('Failed to remove the AWS role; later suites in this container start with AWS credentials:', error);
+			}
 		}
 
 		// Put the catalog back for the other suites sharing this container.
@@ -217,6 +233,24 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
 
 	return { workspacePath: WORKBENCH_WORKSPACE_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
+}
+
+// Positron migrates provider settings to providers.json once, so a relaunch must not start on the previous suite's.
+async function resetOpenIdUserSettings(settingsOverrides?: object): Promise<void> {
+	const home = `/home/${OPENID_USER}`;
+	const result = await runDockerCommand(
+		`docker exec ${CONTAINER_NAME} bash -c "test -d ${home} && echo exists || echo missing"`,
+		'Check for the OpenID user home directory'
+	);
+	// PAM creates the home directory at the first session launch; creating it here would break that.
+	if (result.stdout.trim() !== 'exists') {
+		return;
+	}
+	await runDockerCommand(
+		`docker exec ${CONTAINER_NAME} rm -f ${home}/.posit/ai/providers.json`,
+		'Remove the provider file of the previous suite'
+	);
+	await provisionUserSettings(`${home}/.positron-server/`, OPENID_USER, settingsOverrides);
 }
 
 /**
