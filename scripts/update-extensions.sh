@@ -31,21 +31,12 @@ VSIX_DIR="./vsix-cache"
 PROCESS_ALL=false
 ALLOW_DOWNGRADE=false
 
-# SemVer 2.0 precedence as a jq sort key, shared by the latest-version selector
-# and the downgrade guard. This is the shared contract with compareSemver in
-# src/vs/platform/extensionManagement/common/positronBootstrapExtensionVersions.ts;
-# keep the two in step.
-#
-# Build metadata is dropped before the core is parsed, or "3+linux" reads as 0
-# and silently lowers the version. A release sorts above any prerelease of the
-# same core (the 1 vs 0 rank), which matters because p3m serves versions such
-# as debugpy's 2024.11.0-dev with "pre_release": false: they survive the stable
-# filter, and without this a -dev build could outrank its own release. Within a
-# prerelease, numeric identifiers sort below alphanumeric ones ([0,n] vs [1,s])
-# and a shorter set sorts lower, which jq's array ordering gives us directly.
-# The core is padded to a fixed width so 1.2 and 1.2.0 compare equal.
+# SemVer 2.0 precedence as a jq sort key, for the downgrade guard. Keep in step
+# with compareSemver in
+# src/vs/platform/extensionManagement/common/positronBootstrapExtensionVersions.ts.
+# Build metadata is dropped first, or "3+linux" reads as 0. The core is padded
+# so 1.2 and 1.2.0 compare equal.
 JQ_SEMVER_KEY='
-	def is_release_version: (split("+")[0] | test("-") | not);
 	def semver_key:
 		(split("+")[0] | split("-")) as $parts
 		| ((($parts[0] | split(".") | map(tonumber? // 0)) + [0,0,0,0])[0:4]) as $core
@@ -71,7 +62,7 @@ show_help() {
 
 	OPTIONS:
 		--all                 Process all bootstrap extensions from product.json (same as providing no extension IDs)
-		--version <ver>       Use specific version instead of latest
+		--version <ver>       Use specific version instead of the one the gallery check picks
 		--vsix-dir <path>     Directory to cache VSIX files (default: ./vsix-cache)
 		--allow-downgrade     Permit lowering a pinned version (refused by default)
 		--help                Show this help message
@@ -85,7 +76,7 @@ show_help() {
 
 	DESCRIPTION:
 	This script automates the process of updating extension versions in product.json:
-		1. Fetches the latest version info from Posit Public Package Manager
+		1. Asks scripts/check-bootstrap-extension-versions.ts for the version to pin (unless --version is given)
 		2. Downloads the VSIX file (only if needed)
 		3. Calculates the SHA256 hash
 EOF
@@ -122,65 +113,47 @@ split_extension_id() {
 	NAME="${BASH_REMATCH[2]}"
 }
 
-# Get latest version from Posit Public Package Manager and detect platform-specific extensions
-get_extension_info() {
-	local publisher="$1"
-	local name="$2"
+# Run the gallery check once, from the checkout that holds product.json. It
+# applies the engine and platform filters that Positron itself installs with.
+resolve_gallery_versions() {
+	local check_script
+	check_script="$(dirname "$PRODUCT_JSON")/scripts/check-bootstrap-extension-versions.ts"
+	if ! GALLERY_VERSIONS=$(node "$check_script" --json); then
+		echo -e "${RED}Error: $check_script could not run. Pass --version to skip it.${NC}" >&2
+		exit 1
+	fi
+}
+
+# Set EXTENSION_VERSION to the version the gallery check picked.
+get_gallery_version() {
+	local extension_id="$1" pinned="$2"
+	local result decision
+	result=$(echo "$GALLERY_VERSIONS" | jq -c --arg id "$extension_id" \
+		'[.results[] | select((.id | ascii_downcase) == ($id | ascii_downcase))][0] // empty')
+	if [[ -z "$result" ]]; then
+		return 1
+	fi
+
+	decision=$(echo "$result" | jq -r '.decision')
+	if [[ "$decision" == "hold" ]]; then
+		echo -e "${YELLOW}Held back at $pinned: $(echo "$result" | jq -r '"\(.latest): \(.reason // "")"')${NC}"
+		EXTENSION_VERSION="$pinned"
+	else
+		EXTENSION_VERSION=$(echo "$result" | jq -r '.latest')
+	fi
+}
+
+# Find the target platform of a version. The gallery check does not report it.
+get_target_platform() {
+	local publisher="$1" name="$2" version="$3"
 	local url="https://p3m.dev/__api__/repos/openvsx/packages/${publisher}.${name}"
 	local response
 
 	if ! response=$(curl -s -f "$url" 2>/dev/null); then
-		echo -e "${RED}Error: Failed to fetch extension metadata from Posit Public Package Manager${NC}" >&2
-		exit 1
+		return 0
 	fi
-
-	EXTENSION_VERSION=""
-	EXTENSION_TARGET_PLATFORM=""
-
-	if command -v jq >/dev/null 2>&1; then
-		# Pick the highest *stable* release by semver. Open VSX marks prerelease
-		# builds with "pre_release": true (e.g. pyrefly's 1.1.900x dev builds),
-		# and those must not be bootstrapped as if they were releases. The flag
-		# alone is not enough: p3m serves debugpy's 2024.11.0-dev with
-		# "pre_release": false, and semver only ranks that below 2024.11.0, not
-		# below an older genuine release -- so a mislabelled dev build could
-		# outrank the newest stable version. Require both the flag and a version
-		# string with no prerelease suffix, and fall back to all versions only
-		# when that leaves nothing.
-		# Select a single entry so version and target_platform stay consistent.
-		#
-		# Order by semver, not publish date: a publisher can ship a backport
-		# after a newer release (Meta published pyrefly 1.2.1 two days after
-		# 1.3.1), and sorting by published_at then picks it and silently
-		# downgrades the pin. published_at only breaks exact ties. (P3M does not
-		# guarantee versions are returned in sorted order, so some explicit
-		# ordering is required.)
-		#
-		# Entries without a usable version string are dropped up front. Both
-		# is_release_version and semver_key call split(), which errors on null,
-		# so one malformed entry would otherwise abort the whole run under
-		# `set -e` without naming the extension.
-		local selected
-		selected=$(echo "$response" | jq -c "$JQ_SEMVER_KEY"'
-			(.versions | map(select((.version | type) == "string" and (.version | length) > 0))) as $usable
-			| ($usable | map(select(.pre_release != true and (.version | is_release_version)))) as $stable
-			| (if ($stable | length) > 0 then $stable else $usable end)
-			| sort_by((.version | semver_key), .published_at) | reverse | .[0] // {}')
-		EXTENSION_VERSION=$(echo "$selected" | jq -r '.version // empty')
-		EXTENSION_TARGET_PLATFORM=$(echo "$selected" | jq -r '.target_platform // empty')
-
-	else
-		# Fallback parsing without jq
-		EXTENSION_VERSION=$(echo "$response" | grep -o '"version":"[^\"]*"' | head -1 | cut -d'"' -f4)
-		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"target_platform":"[^\"]*"' | head -1 | cut -d'"' -f4)
-	fi
-
-	# Report failure rather than falling through with an empty version, which
-	# downstream would feed to jq (an error) or treat as a real version.
-	if [[ -z "$EXTENSION_VERSION" ]]; then
-		echo -e "${RED}Error: Could not determine latest version${NC}" >&2
-		return 1
-	fi
+	# The versions array is not guaranteed to be sorted.
+	echo "$response" | jq -r --arg ver "$version" '.versions[] | select(.version == $ver) | .target_platform // empty' | head -1
 }
 
 # Download VSIX file
@@ -335,8 +308,7 @@ get_pinned_version() {
 	find_extension_entry "$@" | jq -r '.version // empty'
 }
 
-# True when $1 is a strictly lower version than $2, using the same precedence
-# as the latest-version selector so the guard cannot disagree with it.
+# True when $1 is a strictly lower version than $2.
 is_version_lower() {
 	jq -e -n --arg a "$1" --arg b "$2" "$JQ_SEMVER_KEY"'
 		($a | semver_key) < ($b | semver_key)
@@ -388,42 +360,26 @@ process_extension() {
 	# Split extension ID
 	split_extension_id "$extension_id"
 
-	# Get extension info (version and platform)
+	local pinned
+	pinned=$(get_pinned_version "$PRODUCT_JSON" "$PUBLISHER" "$NAME")
+
 	if [[ -n "$SPECIFIC_VERSION" ]]; then
 		VERSION="$SPECIFIC_VERSION"
 		echo "Using specified version: $VERSION"
-		# For specific versions, we need to determine platform by trying the API
-		# Try to get platform info for the specific version
-		local version_url="https://p3m.dev/__api__/repos/openvsx/packages/${PUBLISHER}.${NAME}"
-		local version_response
-		if version_response=$(curl -s -f "$version_url" 2>/dev/null); then
-			if command -v jq >/dev/null 2>&1; then
-				# Find the matching version (versions array is not guaranteed to be sorted)
-				TARGET_PLATFORM=$(echo "$version_response" | jq -r --arg ver "$VERSION" '.versions[] | select(.version == $ver) | .target_platform // empty' | head -1)
-			else
-				TARGET_PLATFORM=$(echo "$version_response" | grep -o '"target_platform":"[^"]*"' | head -1 | cut -d'"' -f4)
-			fi
-		else
-			TARGET_PLATFORM=""
-		fi
 	else
-		# Skip this extension rather than aborting under `set -e`, so one bad
-		# API response does not cost the run every other pending bump.
-		if ! get_extension_info "$PUBLISHER" "$NAME"; then
-			echo -e "${YELLOW}Skipping $extension_id: could not resolve a latest version${NC}" >&2
+		# Skip this extension rather than aborting, so one extension the gallery
+		# check could not query does not cost the run every other pending bump.
+		if ! get_gallery_version "$extension_id" "$pinned"; then
+			echo -e "${YELLOW}Skipping $extension_id: the gallery check has no result for it${NC}" >&2
 			return 0
 		fi
 		VERSION="$EXTENSION_VERSION"
-		TARGET_PLATFORM="$EXTENSION_TARGET_PLATFORM"
-		echo "Latest version: $VERSION"
+		echo "Gallery version: $VERSION"
 	fi
+	TARGET_PLATFORM=$(get_target_platform "$PUBLISHER" "$NAME" "$VERSION")
 
-	# Never walk a pin backwards on our own. A publisher can ship a backport
-	# after a newer release and p3m serves both, so a resolution that is stale
-	# by semver would otherwise open a downgrade PR unnoticed. Applies to
-	# --version too, so a typo cannot quietly roll a bootstrap extension back.
-	local pinned
-	pinned=$(get_pinned_version "$PRODUCT_JSON" "$PUBLISHER" "$NAME")
+	# Never walk a pin backwards on our own, so a --version typo cannot quietly
+	# roll a bootstrap extension back.
 	if [[ "$ALLOW_DOWNGRADE" != true && -n "$pinned" ]] && is_version_lower "$VERSION" "$pinned"; then
 		local refusal="Refusing to downgrade $extension_id: pinned $pinned is newer than resolved $VERSION"
 		echo -e "${YELLOW}${refusal}${NC}" >&2
@@ -553,6 +509,10 @@ main() {
 	if [[ ${#EXTENSION_IDS[@]} -eq 0 ]]; then
 		echo -e "${YELLOW}No extensions found to process.${NC}"
 		return
+	fi
+
+	if [[ -z "$SPECIFIC_VERSION" ]]; then
+		resolve_gallery_versions
 	fi
 
 	for extension_id in "${EXTENSION_IDS[@]}"; do
