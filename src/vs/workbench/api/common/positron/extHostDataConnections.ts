@@ -10,6 +10,7 @@ import { raceCancellationError } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { localize } from '../../../../nls.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -631,7 +632,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 		const node = nodeMap.get(nodeHandle);
 		if (!node) {
-			throw new Error(`Node handle ${nodeHandle} is no longer valid. Refresh the connection.`);
+			throw new Error(localize('positron.dataConnections.staleNodeHandle', "Node handle {0} is no longer valid. Refresh the connection.", nodeHandle));
 		}
 		return node;
 	}
