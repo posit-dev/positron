@@ -102,12 +102,7 @@ test.describe('Remote SSH', {
 
 			await sshWorkbench.editor.pressPlay();
 
-			const viewerFrame = viewer.getViewerFrame();
-			const loginLocator = app.web
-				? viewerFrame.frameLocator('iframe').getByText('Hello, World!')
-				: viewerFrame.getByText('Hello, World!');
-
-			await expect(loginLocator).toBeVisible({ timeout: 60000 });
+			await viewer.expectContentVisible(content => content.getByText('Hello, World!'));
 		});
 
 		await test.step(`Clennup`, async () => {

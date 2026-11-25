@@ -49,21 +49,13 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
 		await app.workbench.editorActionBar.clickButton('Preview');
-		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
-
-		// verify preview displays
-		await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
+		await app.workbench.viewer.expectContentVisible(content => content.locator('h1', { hasText: 'Diamond sizes' }), { useIframe: true });
 	});
 
 	test('Quarto Shiny App renders correctly', async ({ app, openFile }) => {
 		await openFile(join('workspaces', 'quarto_shiny', 'mini-app.qmd'));
 		await app.workbench.editorActionBar.clickButton('Preview');
-		await app.code.driver.currentPage
-			.frameLocator('iframe[name]')
-			.frameLocator('#active-frame')
-			.frameLocator('iframe')
-			.getByRole('heading', { name: 'Old Faithful' })
-			.waitFor({ state: 'visible', timeout: 30000 });
+		await app.workbench.viewer.expectContentVisible(content => content.getByRole('heading', { name: 'Old Faithful' }), { useIframe: true });
 	});
 });
 

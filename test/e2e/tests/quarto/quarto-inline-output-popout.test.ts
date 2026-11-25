@@ -192,17 +192,8 @@ test.describe('Quarto - Inline Output: Popout', {
 		await viewer.expectViewerPanelVisible();
 
 		// Verify DataFrame content in viewer
-		const previewIframe = viewer.getViewerFrame().frameLocator('#preview-iframe');
-		await expect(async () => {
-			const body = previewIframe.locator('body');
-			await expect(body).toBeAttached({ timeout: 2000 });
-			const text = await body.textContent({ timeout: 2000 });
-			expect(text).toContain('Alice');
-		}).toPass({ timeout: 30000 });
-
-		const body = previewIframe.locator('body');
-		const bodyText = await body.textContent();
-		expect(bodyText).not.toContain('Cannot GET');
+		await viewer.expectContentVisible(content => content.getByText('Alice'), { useIframe: true, timeout: 30000 });
+		await viewer.expectContentNotVisible(content => content.getByText('Cannot GET'));
 
 		await toasts.expectToastWithTitleNotToAppear('Failed to open');
 	});

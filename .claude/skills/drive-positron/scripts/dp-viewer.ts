@@ -27,8 +27,7 @@ const viewer: PageFn<Args> = async (page, a, lib) => {
 	// The page: the innermost frame drawn inside the view.
 	const findFrame = () => lib.frameIn(pane);
 	const url = async () => pane.getByRole('textbox', { name: n.url }).inputValue({ timeout: 1000 }).catch(() => null);
-	// URL content and HTML content name reload and clear differently: either will do.
-	const toolbar: Record<string, string[]> = { reload: [n.reload, n.reloadContent], back: [n.back], forward: [n.forward], clear: [n.clear, n.clearContent], interrupt: [n.interrupt] };
+	const toolbar: Record<string, string[]> = { reload: [n.reload], back: [n.back], forward: [n.forward], clear: [n.clear], interrupt: [n.interrupt] };
 	const pageTree = async (f: Awaited<ReturnType<typeof findFrame>>) => f ? (await f.locator('body').ariaSnapshot({ timeout: 3000 }).catch(() => '')).trim() : '';
 
 	switch (a.cmd) {

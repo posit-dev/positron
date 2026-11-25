@@ -15,6 +15,7 @@
     "onCommand:positronProxy.startHelpProxyServer",
     "onCommand:positronProxy.setHelpProxyServerStyles",
     "onCommand:positronProxy.startHtmlProxyServer",
+    "onCommand:positronProxy.startHtmlStringServer",
     "onCommand:positronProxy.startHttpProxyServer",
     "onStartupFinished"
   ],

@@ -61,7 +61,7 @@ test.describe('Editor Action Bar: Document Files', {
 
 	test('HTML Document - Verify `open viewer`, `split editor`, `open in new window` behavior', { tag: [tags.HTML] }, async function ({ app, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
-		await verifyOpenViewerRendersHtml(app, 'Oil, Gas, and Other Regulated');
+		await verifyOpenViewerRendersHtml('Oil, Gas, and Other Regulated');
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
@@ -89,9 +89,9 @@ async function verifyOpenInNewWindow(app: Application, text: string) {
 	await editorActionBar.verifyOpenInNewWindow(app.web, text, false);
 }
 
-async function verifyOpenViewerRendersHtml(app: Application, title: string) {
+async function verifyOpenViewerRendersHtml(title: string) {
 	await editorActionBar.clickButton('Open in Viewer');
-	await editorActionBar.verifyOpenViewerRendersHtml(app.web, title);
+	await editorActionBar.verifyOpenViewerRendersHtml(title);
 }
 
 async function bindPlatformHotkey(page: Page, key: string) {

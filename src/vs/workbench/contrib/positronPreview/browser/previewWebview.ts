@@ -5,7 +5,8 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { PreviewOverlayWebview } from './previewOverlayWebview.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IPreviewSurface } from './previewSurface.js';
 
 /**
  * This class represents a Positron preview webview as actually loaded into the
@@ -15,7 +16,7 @@ import { PreviewOverlayWebview } from './previewOverlayWebview.js';
  * See `ExtHostPreviewPanel` for the class that represents the webview in the
  * extension host and tracks most of the state below.
  */
-export class PreviewWebview extends Disposable {
+export class PreviewWebview<S extends IPreviewSurface = IPreviewSurface> extends Disposable {
 
 	private _disposed = false;
 
@@ -36,21 +37,21 @@ export class PreviewWebview extends Disposable {
 	 * @param viewType The view type of the preview
 	 * @param previewId A unique ID for the preview
 	 * @param name The preview's name
-	 * @param webview The underlying webview instance that hosts the preview's content
+	 * @param surface The webview or browser that shows the preview's content
 	 */
 	constructor(
 		readonly viewType: string,
 		readonly previewId: string,
 		readonly name: string,
-		readonly webview: PreviewOverlayWebview
+		readonly surface: S
 	) {
 		super();
 
 		this.onDidChangeActiveState = this._onDidChangeActiveState.event;
 		this.onDidChangeVisibleState = this._onDidChangeVisibleState.event;
 
-		// Ensure that the webview is disposed when the preview is disposed.
-		this._register(this.webview);
+		// Ensure that the surface is disposed when the preview is disposed.
+		this._register(this.surface);
 	}
 
 	/**
@@ -76,6 +77,13 @@ export class PreviewWebview extends Disposable {
 	 * Fires when the user asks to stop the process that serves the preview.
 	 */
 	readonly onDidRequestStop: Event<void> = this._onDidRequestStop.event;
+
+	/**
+	 * The address of the content, for previews that have one.
+	 */
+	get address(): URI | undefined {
+		return undefined;
+	}
 
 	isDisposed(): boolean {
 		return this._disposed;
