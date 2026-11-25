@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join, resolve } from '../../../../base/common/path.js';
+import { dirname, join, resolve } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
 import product from '../../../product/common/product.js';
 import { OPTIONS, parseArgs } from '../../node/argv.js';
@@ -120,5 +120,28 @@ describe('NativeEnvironmentService path overrides', () => {
 			appSharedDataHome: URI.file(join(portableDir, 'shared-data')).fsPath,
 			policyFile: URI.file(join(portableDir, 'policy.json')).fsPath,
 		});
+	});
+});
+
+describe('NativeEnvironmentService logsHome', () => {
+	const portableDir = resolve('/tmp/positron-portable');
+	const stateDir = resolve('/tmp/xdg-state');
+
+	/** The logs folder without its per-launch timestamp. */
+	function logsParent(service: NativeEnvironmentService): string {
+		return dirname(service.logsHome.fsPath);
+	}
+
+	test('puts a portable install\'s logs inside the portable folder, even with XDG_STATE_HOME set', () => {
+		vi.stubEnv('POSITRON_PORTABLE', portableDir);
+		vi.stubEnv('XDG_STATE_HOME', stateDir);
+
+		expect(logsParent(createEnvironmentService())).toBe(URI.file(join(portableDir, 'user-data', 'logs')).fsPath);
+	});
+
+	test('keeps logs under XDG_STATE_HOME when not portable', () => {
+		vi.stubEnv('XDG_STATE_HOME', stateDir);
+
+		expect(logsParent(createEnvironmentService())).toBe(URI.file(join(stateDir, product.applicationName, 'logs')).fsPath);
 	});
 });

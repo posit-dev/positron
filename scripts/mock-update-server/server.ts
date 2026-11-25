@@ -120,8 +120,8 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
 	//
 	//   darwin   mac/arm64        + /releases.json
 	//   linux    deb|rpm/x86_64   + /releases.json
-	//   win32    win/x86_64       + /<target>-releases.json   (target is 'user', 'system', or
-	//                                                          undefined in a source build)
+	//   win32    win/x86_64       + /<target>-releases.json   (installer builds, target is 'user' or 'system')
+	//   win32    win/x86_64       + /releases.json            (zip installs and source builds, no target)
 	//
 	// Snap has no HTTP feed -- it updates through the snap store -- so there is nothing to mock.
 	const feed = /^\/positron\/[^/]+\/(.+?)\/(?:[^/]+-)?releases\.json$/.exec(pathname);

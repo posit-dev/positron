@@ -12,8 +12,8 @@ It is **not** part of the shipped product -- it is a local Node server.
 
 | Path | What asks for it | Response |
 | --- | --- | --- |
-| `/positron/<channel>/<platform>/releases.json` | the update check on macOS and Linux | the advertised version as an `IUpdate` document |
-| `/positron/<channel>/<platform>/<target>-releases.json` | the update check on Windows, where the file is prefixed with `product.json`'s `target` | same |
+| `/positron/<channel>/<platform>/releases.json` | the update check on macOS and Linux, and on Windows for a zip install or a source build | the advertised version as an `IUpdate` document |
+| `/positron/<channel>/<platform>/<target>-releases.json` | the update check on a Windows installer build, where the file is prefixed with `product.json`'s `target` | same |
 | `/positron/<channel>/release-notes/release-<version>.md` | the release notes button in the update tooltip | placeholder markdown |
 | `/publish/<version>[/<commit>]` | you, to change what the feed advertises while Positron runs | plain-text confirmation |
 
@@ -24,7 +24,7 @@ resolves:
 | --- | --- | --- |
 | macOS | `mac/arm64`, `mac/x64` | `releases.json` |
 | Linux | `deb/x86_64`, `deb/arm64`, `rpm/...` (`packageType`) | `releases.json` |
-| Windows | `win/x86_64`, `win/arm64` | `user-releases.json`, `system-releases.json`, or `undefined-releases.json` in a source build, where `target` is unset |
+| Windows | `win/x86_64`, `win/arm64` | `user-releases.json` or `system-releases.json` for an installer build, or `releases.json` for a zip install or a source build, where `target` is unset |
 
 Snap is absent on purpose: it has no HTTP feed and updates through the snap
 store. The `url` in the response gets a plausible per-platform download name
@@ -109,7 +109,7 @@ there the flow above needs two dailies to publish while Positron is running.
 state `Idle` or `Ready`; from `Ready` it replaces the pending update) skips the
 wait: give it the URL of a feed document that advertises
 an *older*, still-hosted build (`releases.json` on macOS, `<target>-releases.json`
-on Windows), and the update service downloads and stages that build as the
+on a Windows installer build), and the update service downloads and stages that build as the
 pending update. The channel feed is left alone, so the pending
 update's next re-check (or **Restart to Update**) sees the real latest release as
 newer and runs the overwrite flow end to end.
@@ -128,8 +128,7 @@ npm run mock-update-server -- --port 9000 --version 2026.09.0-1   # the "older" 
 ```
 
 then enter `http://localhost:9000/positron/releases/mac/arm64/releases.json`, or
-on Windows `http://localhost:9000/positron/releases/win/x86_64/undefined-releases.json`
-(`undefined` is `product.json`'s `target`, which a source build leaves unset).
+on Windows `http://localhost:9000/positron/releases/win/x86_64/releases.json`.
 
 ## Limits
 

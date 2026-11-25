@@ -306,14 +306,16 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 	// --- Start Positron ---
 	// Positron builds the update feed URL from the release channel rather than quality+commit.
+	// An installer build reads its own `<target>-releases.json`. A zip install has no `target` in
+	// product.json (only the installer's copy gets one), so it reads `releases.json`, the feed
+	// published next to the zip.
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
 		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
-		const prefix = this.productService.target;
 		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		const url = `${baseUrl}/${prefix}-releases.json`;
+		const feedFile = this.getUpdateType() === UpdateType.Setup ? `${this.productService.target}-releases.json` : 'releases.json';
 
-		return url;
+		return `${baseUrl}/${feedFile}`;
 	}
 	// --- End Positron ---
 
@@ -529,9 +531,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	// --- Start Positron ---
 	protected override updateAvailable(update: IUpdate): void {
 		// Notify about updates for now. Do not download or install them.
+		// A zip install always just notifies: its feed advertises the next zip, which is not an
+		// installer, so the download link is the only way to update it.
 		// Dev update testing simulates the staging, so it runs whether or not auto-update is on:
 		// there is nothing for a download page to install from a source build either.
-		if (!this.enableAutoUpdate && !this.devUpdateTesting) {
+		if ((!this.enableAutoUpdate || this.getUpdateType() === UpdateType.Archive) && !this.devUpdateTesting) {
 			this.setState(State.AvailableForDownload(update));
 			return;
 		}
