@@ -257,17 +257,28 @@ export class Packages {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
 
-		// Click "Install Package" from the overflow menu. The action is disabled while the
-		// pane is busy, which it is for a while after a previous install (the new package's
-		// detail view and the metadata refresh keep it so). triggerAndClick gives up on a
-		// disabled item after 10s, so retry it until the action is enabled.
+		// The "Install Package" action is disabled while the pane is busy, which it is for a
+		// while after a previous install (the new package's detail view and the metadata
+		// refresh keep it so). Wait for it to be enabled before clicking it. Retrying
+		// triggerAndClick instead is not safe: its fallback click waits on a disabled item
+		// past its own deadline, and when the item then enables, the click opens the quick
+		// input after the retry has already reopened the menu on top of it.
+		const installMenuItem = this.code.driver.currentPage.locator('.monaco-menu')
+			.getByRole('menuitem', { name: 'Install Package', exact: true });
 		await expect(async () => {
-			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.packagesViewMoreActionsButton,
-				menuItemLabel: 'Install Package',
-				exact: true
-			});
+			if (!await installMenuItem.isVisible()) {
+				await this.packagesViewMoreActionsButton.click();
+			}
+			await expect(installMenuItem).toBeEnabled({ timeout: 5_000 });
 		}).toPass({ timeout: 90_000 });
+
+		// The item is enabled now, so a single attempt selects it. triggerAndClick dismisses
+		// the menu left open above before reopening it.
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: this.packagesViewMoreActionsButton,
+			menuItemLabel: 'Install Package',
+			exact: true
+		});
 
 		// Wait for the quick input to appear
 		await this.quickInput.waitForQuickInputOpened();
