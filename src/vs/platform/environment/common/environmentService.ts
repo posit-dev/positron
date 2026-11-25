@@ -77,9 +77,8 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 		if (!this.args.logsPath) {
 			const key = toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '');
 			// --- Start PWB ---
-			// Change this.args.logsPath from userDataPath to XDG_STATE_HOME if available, otherwise use ~/.local/state for logs.
-			// A portable install keeps upstream's location under the user data dir, so that its logs
-			// stay inside the portable folder instead of landing in the user's profile.
+			// Change this.args.logsPath from userDataPath to XDG_STATE_HOME if available, otherwise use ~/.local/state for logs
+			// A portable install keeps upstream's user data location, so its logs stay in the portable folder.
 			const userStatePath = process.env['XDG_STATE_HOME'];
 			const productName = this.productService.applicationName;
 			if (getPositronEnv(env, 'PORTABLE')) {
