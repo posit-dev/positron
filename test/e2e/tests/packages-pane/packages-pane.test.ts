@@ -87,11 +87,13 @@ test.describe('Packages Pane', {
 				await packages.verifyPackagesList();
 				for (const [name, version] of Object.entries(oldVersions)) {
 					await packages.installPackage(name, { version });
-				}
-				await packages.searchPackages('color');
-				for (const [name, version] of Object.entries(oldVersions)) {
+					// Check each install before starting the next, so a refused install (for
+					// example, on an externally managed interpreter) fails here rather than as
+					// a timeout waiting on the next install's menu item.
+					await packages.searchPackages(name);
 					await packages.expectPackageVersion(name, version);
 				}
+				await packages.searchPackages('color');
 				// Update skips a package until the runtime has reported it as outdated.
 				for (const name of names) {
 					await packages.expectUpdateAvailable(name);
