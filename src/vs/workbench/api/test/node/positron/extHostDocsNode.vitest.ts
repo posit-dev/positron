@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'crypto';
-import { existsSync } from 'fs';
+import { existsSync, promises as fsPromises } from 'fs';
 // Type-only, with createServer dynamically imported below: the layer rule bans
 // http at module scope, and the source module honours it the same way.
 import type { IncomingMessage, Server, ServerResponse } from 'http';
@@ -16,6 +16,7 @@ import { Disposable, DisposableStore } from '../../../../../base/common/lifecycl
 import { join } from '../../../../../base/common/path.js';
 import { assertDefined } from '../../../../../base/common/types.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { zip } from '../../../../../base/node/zip.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { PositronDocsTriggers } from '../../../../../platform/positronDocs/common/positronDocsTriggers.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -23,7 +24,7 @@ import { AI_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/pos
 import { ExtHostConfigProvider, IExtHostConfiguration } from '../../../common/extHostConfiguration.js';
 import { IExtHostExtensionService } from '../../../common/extHostExtensionService.js';
 import { IExtHostInitDataService } from '../../../common/extHostInitDataService.js';
-import { deriveBundleRequest, NodeDocsHttpClient, NodeExtHostDocs } from '../../../node/positron/extHostDocsNode.js';
+import { deriveBundleRequest, NodeDocsArchive, NodeDocsHttpClient, NodeExtHostDocs } from '../../../node/positron/extHostDocsNode.js';
 
 // `quality` is spelled out in the default rather than filled in with `??`, so a
 // caller can pass `quality: undefined` to model a dev build.
@@ -471,5 +472,23 @@ describe('NodeDocsHttpClient', () => {
 
 		await expect(new NodeDocsHttpClient().get(`http://127.0.0.1:${port}/bundle.zip`))
 			.rejects.toThrow(/ECONNREFUSED/);
+	});
+});
+
+describe('NodeDocsArchive', () => {
+	it('extracts into a target path that is not normalized', async () => {
+		const root = cacheRoot('archive');
+		await fsPromises.mkdir(root, { recursive: true });
+		try {
+			const zipPath = join(root, 'bundle.zip');
+			await zip(zipPath, [{ path: 'updating.llms.md', contents: 'hello' }]);
+
+			// The same mismatch as 'C:\\...\\docs/.staging-<id>' on Windows.
+			await new NodeDocsArchive().extract(zipPath, `${root}/out/./staging`);
+
+			expect(await fsPromises.readFile(join(root, 'out', 'staging', 'updating.llms.md'), 'utf8')).toBe('hello');
+		} finally {
+			await fsPromises.rm(root, { recursive: true, force: true });
+		}
 	});
 });
