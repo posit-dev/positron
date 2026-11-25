@@ -96,6 +96,9 @@ const showsThumbnail = (o: Out, n: number) => o.json!.plot?.name !== o.json!.fil
 /** Says the editor area is hidden and names analysis.R open in it, the active tab. */
 const editorAreaHidden = (o: Out) => includes(o.json!.error, 'the editor area is hidden') || includes(o.json!.error, 'analysis.R (active)');
 
+/** Says one traceback in the console is collapsed. */
+const oneCollapsed = (o: Out) => includes(o.stderr, '1 traceback is collapsed');
+
 const cases: Case[] = [
 	// ---- Palette, sessions, consoles
 	{ name: 'palette-run dry run', quick: true, run: ['palette-run.sh', '--dry-run', 'Interpreter: Start New Console Session'], check: o => o.json?.chosen !== 'Interpreter: Start New Console Session' && 'wrong row chosen' },
@@ -140,7 +143,10 @@ const cases: Case[] = [
 	// An empty value is a usage error, not the flag left out (which reads the active console).
 	// A Python error's traceback is collapsed: console-read says so, and --expand shows its frames.
 	{ name: 'console-run python error', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'def smoke_boom():\n    raise ValueError("smoke-boom")\n\nsmoke_boom()'], check: o => includes(o.json!.output, 'smoke-boom') },
-	{ name: 'console-read traceback collapsed', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: o => includes(o.stderr, '1 traceback is collapsed') },
+	{ name: 'console-read traceback collapsed', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: oneCollapsed },
+	// A read marks the consoles stacked under the active one aria-hidden: the mark must not outlast it, or the console
+	// brought to the front next hides its Show Traceback from console-read.
+	{ name: 'console-read traceback collapsed after a read stacked it', before: stackErrorConsoleForARead, run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: oneCollapsed },
 	{ name: 'console-read --expand', run: () => ['console-read.sh', '--name', found.py, '--expand', '--tail', '6'], check: o => includes(o.stderr, 'expanded 1 traceback') || includes(o.text, 'raise ValueError("smoke-boom")') },
 	// Blank rows read as drawn: innerText doubled them at every block's edge.
 	{ name: 'console-run python blank rows', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'print("blank-a\\n\\n\\nblank-b")'], check: o => o.json!.output !== 'blank-a\n\n\nblank-b' && `output ${JSON.stringify(o.json!.output)}` },
@@ -331,6 +337,7 @@ const cases: Case[] = [
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
 	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
+	{ name: 'ui read Extensions with the Explorer shown names the tab click that shows it', run: ['ui.sh', 'read', 'Extensions'], fail: true, check: o => includes(o.json!.error, 'ui.sh click tab "Extensions" shows it') },
 	{ name: 'ui read Extensions names the sidebar title it can read', before: showInstalledExtensions, run: ['ui.sh', 'read', 'Extensions'], fail: true, check: o => includes(o.json!.views, 'Extensions: Installed') },
 	{ name: 'palette-run Show Explorer (after Extensions)', run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
@@ -570,6 +577,15 @@ function showFilmstrip(): string | undefined {
 function showInstalledExtensions(): string | undefined {
 	const o = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Extensions: Show Installed Extensions']);
 	return o.json?.ok ? undefined : `palette-run.sh Extensions: Show Installed Extensions: ${o.json?.error ?? o.stderr}`;
+}
+
+/** A case's `before`: puts the error console behind another, reads the Console view (which marks it stacked), then brings it back. */
+function stackErrorConsoleForARead(): string | undefined {
+	for (const args of [['panel.sh', 'console', found.first], ['ui.sh', 'read', 'Console'], ['panel.sh', 'console', found.py]]) {
+		const o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)]);
+		if (!o.json?.ok) { return `${args.join(' ')}: ${o.json?.error ?? o.stderr}`; }
+	}
+	return undefined;
 }
 
 // ---- Running ---------------------------------------------------------------------

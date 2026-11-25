@@ -62,8 +62,9 @@ says how a helper is built and checked.
    which helpers and inputs change, in one line.
 10. **Add a smoke case for every fix.** In `test/smoke.ts`, add a case in the helper's section that
     fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
-    bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
-    changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
+    bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A finder fix
+    that changes `scripts/` and adds no case is rejected. A smoke finding's case already fails
+    without the fix: add one only when it shows something that case does not. Write each case on one line, like the ones
     around it, and keep it as plain as they are:
     - `run` returns the command and does nothing else. State the case needs first (no sessions
       open, a file open) goes in `before`, using a smoke helper that exists (`closeAllSessions`)
