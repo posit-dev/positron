@@ -139,10 +139,10 @@ export function addedCases(diff: string): AddedCase[] | null {
 	return out;
 }
 
-/** Why a fix cannot be kept for want of a smoke case, or '' when it can. */
-export function caseGate(touched: string[], added: AddedCase[] | null, untestable: string | undefined): string {
+/** Why a fix cannot be kept for want of a smoke case, or '' when it can. A smoke finding's own case already fails without the fix. */
+export function caseGate(touched: string[], added: AddedCase[] | null, untestable: string | undefined, source: 'smoke' | 'finder'): string {
 	const helperChanged = touched.some(p => p.startsWith(`${SKILL_PREFIX}scripts/`));
-	return helperChanged && added !== null && !added.length && !untestable ? 'it changes a helper but adds no smoke case' : '';
+	return source === 'finder' && helperChanged && added !== null && !added.length && !untestable ? 'it changes a helper but adds no smoke case' : '';
 }
 
 /** The added cases that did not run, or ran and did not pass, after the fix. */

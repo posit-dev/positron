@@ -228,7 +228,7 @@ function main(): number {
 
 		git('add', '--', SKILL_PREFIX);
 		let added = touched.includes(SMOKE) ? addedCases(git('diff', '--cached', '-U0', '--no-color', pre, '--', SMOKE)) : [];
-		const gate = caseGate(touched, added, o.untestable);
+		const gate = caseGate(touched, added, o.untestable, f.source);
 		if (gate) {
 			discard(pre, false);
 			save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, rejected: gate }));
@@ -259,7 +259,7 @@ function main(): number {
 			revised = true;
 			git('add', '--', SKILL_PREFIX);
 			const added2 = touched.includes(SMOKE) ? addedCases(git('diff', '--cached', '-U0', '--no-color', pre, '--', SMOKE)) : [];
-			const gate2 = caseGate(touched, added2, o.untestable);
+			const gate2 = caseGate(touched, added2, o.untestable, f.source);
 			if (gate2) {
 				discard(pre, false);
 				save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, review: r1.notes, revised, rejected: gate2 }));

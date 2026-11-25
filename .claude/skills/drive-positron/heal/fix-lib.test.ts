@@ -119,15 +119,16 @@ test('addedCases: an escaped quote in the name is kept', () => {
 });
 
 const P = '.claude/skills/drive-positron/';
-test('caseGate: a helper change needs an added case or an untestable reason', () => {
-	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], undefined), 'it changes a helper but adds no smoke case');
-	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [{ name: 'a', helper: 'x.sh' }], undefined), '');
-	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], 'Linux-only keystroke; smoke runs on macOS too'), '');
-	assert.equal(caseGate([`${P}SKILL.md`], [], undefined), '');
+test('caseGate: a finder fix to a helper needs an added case or an untestable reason; a smoke finding has its case', () => {
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], undefined, 'finder'), 'it changes a helper but adds no smoke case');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [{ name: 'a', helper: 'x.sh' }], undefined, 'finder'), '');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], 'Linux-only keystroke; smoke runs on macOS too', 'finder'), '');
+	assert.equal(caseGate([`${P}SKILL.md`], [], undefined, 'finder'), '');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], undefined, 'smoke'), '');
 });
 
 test('caseGate: a smoke.ts edit that is not additions-only passes the gate (it is flagged as a check change instead)', () => {
-	assert.equal(caseGate([`${P}scripts/dp-lib.ts`, `${P}test/smoke.ts`], null, undefined), '');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`, `${P}test/smoke.ts`], null, undefined, 'finder'), '');
 });
 
 test('newCaseProblems: each added case must have run and passed', () => {

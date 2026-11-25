@@ -146,10 +146,7 @@ const cases: Case[] = [
 	{ name: 'console-read traceback collapsed', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: oneCollapsed },
 	// A read marks the consoles stacked under the active one aria-hidden: the mark must not outlast it, or the console
 	// brought to the front next hides its Show Traceback from console-read.
-	{ name: 'panel console by bare id stacks the error console', run: () => ['panel.sh', 'console', found.first] },
-	{ name: 'ui read Console with the error console stacked', run: ['ui.sh', 'read', 'Console'] },
-	{ name: 'panel console back to the error console', run: () => ['panel.sh', 'console', found.py] },
-	{ name: 'console-read traceback collapsed after a read stacked it', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: oneCollapsed },
+	{ name: 'console-read traceback collapsed after a read stacked it', before: stackErrorConsoleForARead, run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: oneCollapsed },
 	{ name: 'console-read --expand', run: () => ['console-read.sh', '--name', found.py, '--expand', '--tail', '6'], check: o => includes(o.stderr, 'expanded 1 traceback') || includes(o.text, 'raise ValueError("smoke-boom")') },
 	// Blank rows read as drawn: innerText doubled them at every block's edge.
 	{ name: 'console-run python blank rows', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'print("blank-a\\n\\n\\nblank-b")'], check: o => o.json!.output !== 'blank-a\n\n\nblank-b' && `output ${JSON.stringify(o.json!.output)}` },
@@ -580,6 +577,15 @@ function showFilmstrip(): string | undefined {
 function showInstalledExtensions(): string | undefined {
 	const o = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Extensions: Show Installed Extensions']);
 	return o.json?.ok ? undefined : `palette-run.sh Extensions: Show Installed Extensions: ${o.json?.error ?? o.stderr}`;
+}
+
+/** A case's `before`: puts the error console behind another, reads the Console view (which marks it stacked), then brings it back. */
+function stackErrorConsoleForARead(): string | undefined {
+	for (const args of [['panel.sh', 'console', found.first], ['ui.sh', 'read', 'Console'], ['panel.sh', 'console', found.py]]) {
+		const o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)]);
+		if (!o.json?.ok) { return `${args.join(' ')}: ${o.json?.error ?? o.stderr}`; }
+	}
+	return undefined;
 }
 
 // ---- Running ---------------------------------------------------------------------
