@@ -132,6 +132,20 @@ export class Viewer {
 		});
 	}
 
+	/** Expects the integrated browser's error in place of a page that failed to load. */
+	async expectLoadError(): Promise<void> {
+		await test.step('Expect the Viewer to show that the page failed to load', async () => {
+			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL).getByRole('alert')).toContainText('Failed to Load Page', { timeout: 30000 });
+		});
+	}
+
+	/** Clicks Reload in the error shown in place of a page that failed to load. */
+	async reloadAfterLoadError(): Promise<void> {
+		await test.step('Reload from the Viewer\'s load error', async () => {
+			await this.code.driver.currentPage.locator(VIEWER_PANEL).getByRole('alert').getByRole('button', { name: 'Reload', exact: true }).click();
+		});
+	}
+
 	async expectViewerPanelVisible(timeout = 10000): Promise<void> {
 		await test.step('Expect viewer panel visible', async () => {
 			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL)).toBeVisible({ timeout });

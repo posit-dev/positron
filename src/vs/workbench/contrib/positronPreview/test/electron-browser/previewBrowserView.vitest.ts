@@ -13,7 +13,7 @@ import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise, timeout } from '../../../../../base/common/async.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IBrowserElementSelectionState, IBrowserViewLoadingEvent, IBrowserViewNavigationEvent, IElementData } from '../../../../../platform/browserView/common/browserView.js';
+import { IBrowserElementSelectionState, IBrowserViewLoadingEvent, IBrowserViewNavigationEvent, IBrowserViewPermissionRequestEvent, IElementData } from '../../../../../platform/browserView/common/browserView.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IBrowserViewCDPService, IBrowserViewModel, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
@@ -24,6 +24,9 @@ import { IMainProcessService } from '../../../../../platform/ipc/common/mainProc
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
 import { IStorageService, InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IDialogService, IPromptResult } from '../../../../../platform/dialogs/common/dialogs.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { PermissionCategory, PermissionDecision } from '../../../../../platform/browserView/common/browserPermissions.js';
 
 const { hostVisibility } = vi.hoisted(() => ({ hostVisibility: [] as boolean[] }));
 
@@ -48,6 +51,14 @@ describe('PreviewBrowserView', () => {
 	let views: DeferredPromise<IBrowserViewModel>[];
 	let created: string[];
 	const openUrl = vi.fn(async () => true);
+	/** The button the user picks in a permission prompt, undefined to dismiss it, or 'unavailable' when it can't be shown. */
+	let permissionAnswer: PermissionDecision | 'unavailable' | undefined;
+	const prompt = vi.fn(async (): Promise<IPromptResult<PermissionDecision>> => {
+		if (permissionAnswer === 'unavailable') {
+			throw new Error('No dialogs here');
+		}
+		return { result: permissionAnswer };
+	});
 
 	const ctx = createLightTestContainer()
 		.stub(IBrowserViewWorkbenchService, {
@@ -60,6 +71,8 @@ describe('PreviewBrowserView', () => {
 		})
 		.stub(ILifecycleService, { onWillShutdown: willShutdown.event })
 		.stub(IOpenerService, { open: openUrl })
+		.stub(IDialogService, { prompt })
+		.stub(ILogService, new NullLogService())
 		.stub(IMainProcessService, {
 			getChannel: () => stubInterface<IChannel>({ call: async <T>(command: string, arg?: unknown) => { mainCalls.push(`${command} ${JSON.stringify(arg)}`); return undefined as T; } }),
 		})
@@ -84,6 +97,7 @@ describe('PreviewBrowserView', () => {
 		const selectElement = ctx.disposables.add(new Emitter<IElementData>());
 		const zoom = ctx.disposables.add(new Emitter<void>());
 		const openExternal = ctx.disposables.add(new Emitter<string>());
+		const requestPermission = ctx.disposables.add(new Emitter<IBrowserViewPermissionRequestEvent>());
 		const calls: string[] = [];
 		let selection: IBrowserElementSelectionState = { active: false, options: {} };
 		const model = stubInterface<IBrowserViewModel>({
@@ -98,6 +112,9 @@ describe('PreviewBrowserView', () => {
 			onDidSelectElement: selectElement.event,
 			onDidChangeZoom: zoom.event,
 			onDidRequestOpenExternal: openExternal.event,
+			onDidRequestPermission: requestPermission.event,
+			setPermissions: async (origin, grants) => { calls.push(`permissions ${origin} ${JSON.stringify(grants)}`); },
+			selectDevice: async (requestId, deviceId) => { calls.push(`device ${requestId} ${deviceId}`); },
 			zoomFactor: 1,
 			setDevice: async device => { calls.push(`device ${JSON.stringify(device)}`); },
 			zoomIn: async () => { calls.push('zoomIn'); },
@@ -112,7 +129,7 @@ describe('PreviewBrowserView', () => {
 			layout: async bounds => { calls.push(`layout ${JSON.stringify(bounds)}`); },
 			dispose: () => { calls.push('dispose'); willDispose.fire(); },
 		});
-		return { model, calls, navigate, loading, willDispose, selectElement, openExternal };
+		return { model, calls, navigate, loading, willDispose, selectElement, openExternal, requestPermission };
 	}
 
 	/** Creates a surface showing `url`. Its view is created by completing `views[0]`. */
@@ -237,6 +254,30 @@ describe('PreviewBrowserView', () => {
 		openExternal.fire('https://example.com/');
 
 		expect(openUrl).toHaveBeenCalledWith('https://example.com/', { openExternal: true });
+	});
+
+	it('asks the user about a page\'s permission requests, fails them when it can\'t ask, and turns down device choosers', async () => {
+		const { model, calls, requestPermission } = createModel();
+		createSurface();
+		await views[0].complete(model);
+
+		for (const answer of ['allow', undefined, 'unavailable'] as const) {
+			permissionAnswer = answer;
+			requestPermission.fire({ origin: 'http://localhost:8000', category: PermissionCategory.Clipboard });
+			await timeout(0);
+		}
+		requestPermission.fire({ origin: 'http://localhost:8000', category: PermissionCategory.Devices, device: { requestId: 'r1', deviceType: 'usb', devices: [] } });
+		await timeout(0);
+
+		expect({ prompts: prompt.mock.calls.length, calls }).toEqual({
+			prompts: 3,
+			calls: [
+				'permissions http://localhost:8000 [{"category":"clipboard","state":"allow"}]',
+				'permissions http://localhost:8000 [{"category":"clipboard","state":null}]',
+				'permissions http://localhost:8000 [{"category":"clipboard","state":null}]',
+				'device r1 null',
+			],
+		});
 	});
 
 	it('disposes itself when its view goes away', async () => {

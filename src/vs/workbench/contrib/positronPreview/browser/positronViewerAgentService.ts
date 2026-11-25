@@ -7,7 +7,7 @@ import { raceTimeout, timeout } from '../../../../base/common/async.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
 import { getMediaOrTextMime } from '../../../../base/common/mime.js';
-import { joinPath } from '../../../../base/common/resources.js';
+import { isEqualOrParent, joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -384,15 +384,19 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		if (!folder) {
 			throw new Error('Files can only be uploaded from the workspace, and no folder is open.');
 		}
+		// A link in the workspace can lead outside it, so files are checked
+		// where they really are, against where the folders really are.
+		const roots = await Promise.all(this._workspaceContextService.getWorkspace().folders.map(f => this.realpath(f.uri)));
 		const files: IViewerFile[] = [];
 		let total = 0;
 		for (const path of paths as string[]) {
 			const absolute = path.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(path);
-			const uri = absolute ? URI.file(path).with({ scheme: folder.uri.scheme, authority: folder.uri.authority }) : joinPath(folder.uri, path);
-			if (!this._workspaceContextService.isInsideWorkspace(uri)) {
+			const given = absolute ? URI.file(path).with({ scheme: folder.uri.scheme, authority: folder.uri.authority }) : joinPath(folder.uri, path);
+			const uri = this._workspaceContextService.isInsideWorkspace(given) ? await this.realpath(given) : given;
+			if (!roots.some(root => isEqualOrParent(uri, root))) {
 				throw new Error(`${JSON.stringify(path)} is outside the workspace. Agents can only upload files from the workspace.`);
 			}
-			if (isFileExcludedFromAI(this._configurationService, uri.path)) {
+			if (isFileExcludedFromAI(this._configurationService, given.path) || isFileExcludedFromAI(this._configurationService, uri.path)) {
 				throw new Error(`${JSON.stringify(path)} is excluded from AI features, so it can't be uploaded.`);
 			}
 			const content = await this._fileService.readFile(uri);
@@ -403,6 +407,14 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			files.push({ name: content.name, type: getMediaOrTextMime(content.name) ?? 'application/octet-stream', data: encodeBase64(content.value) });
 		}
 		return files;
+	}
+
+	/**
+	 * Resolves links in a path. A file system that can't resolve them has
+	 * none to follow.
+	 */
+	private async realpath(uri: URI): Promise<URI> {
+		return await this._fileService.realpath(uri) ?? uri;
 	}
 
 	/**

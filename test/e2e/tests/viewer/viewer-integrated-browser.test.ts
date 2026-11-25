@@ -123,21 +123,73 @@ test.describe('Viewer: Integrated Browser', { tag: [tags.VIEWER] }, () => {
 		// The editor shows the page in a browser of its own, beside the Viewer's.
 		await expect.poll(() => app.code.driver.getAllWindows().filter(page => page.url() === url).length).toBe(2);
 	});
+
+	// Output a notebook renderer draws has no address, so it stays in a
+	// webview, in the same Viewer as pages in the integrated browser.
+	test('Python - Verify renderer output stays in a webview and Back returns to it from a page', { tag: [tags.PYTHON] }, async function ({ app, python }) {
+		const { console, viewer } = app.workbench;
+
+		await console.executeCode('Python', pythonGreatTablesScript);
+		await viewer.expectContentVisible(content => content.getByRole('cell', { name: 'apricot' }), { useIframe: false });
+		expect(await viewer.usesIntegratedBrowser()).toBe(false);
+
+		await console.executeCode('Python', pythonServerScript);
+		await viewer.expectContentVisible(content => content.getByRole('heading', { name: 'Page One' }));
+		expect(await viewer.usesIntegratedBrowser()).toBe(true);
+
+		await viewer.navigateBack();
+		await viewer.expectContentVisible(content => content.getByRole('cell', { name: 'apricot' }), { useIframe: false });
+		expect(await viewer.usesIntegratedBrowser()).toBe(false);
+	});
+
+	// An app the Viewer is pointed at before it's up shows why it failed, and
+	// Reload tries again.
+	test('Python - Verify a page that fails to load shows an error and loads on Reload', { tag: [tags.PYTHON] }, async function ({ app, python }) {
+		const { console, viewer } = app.workbench;
+
+		await console.executeCode('Python', pythonUnservedScript);
+		await viewer.expectLoadError();
+
+		await console.executeCode('Python', pythonServeOnPortScript);
+		await viewer.reloadAfterLoadError();
+		await viewer.expectContentVisible(content => content.getByRole('heading', { name: 'Page One' }));
+	});
 });
 
 // A single word so a double-click selects the whole token.
 const COPY_PROBE = 'PositronCopyProbeToken';
 
+// Write two small pages to a folder. The first can mark itself and links to
+// the second.
+const pageFilesScript = `_dir = tempfile.mkdtemp()
+open(os.path.join(_dir, "index.html"), "w").write('''<title>Page One</title><h1>Page One</h1><p><span>${COPY_PROBE}</span></p><button onclick='document.body.append("Marked")'>Mark</button><a href="page2.html">Page two</a>''')
+open(os.path.join(_dir, "page2.html"), "w").write("<title>Page Two</title><h1>Page Two</h1>")`;
+
 // Serve two small pages from a local web server, as an app is, and open the
 // first in the Viewer. Kept free of indented blocks so the file stays
 // tab-indented for hygiene.
 const pythonServerScript = `import http.server, socketserver, threading, webbrowser, tempfile, os, functools
-_dir = tempfile.mkdtemp()
-open(os.path.join(_dir, "index.html"), "w").write('''<title>Page One</title><h1>Page One</h1><p><span>${COPY_PROBE}</span></p><button onclick='document.body.append("Marked")'>Mark</button><a href="page2.html">Page two</a>''')
-open(os.path.join(_dir, "page2.html"), "w").write("<title>Page Two</title><h1>Page Two</h1>")
+${pageFilesScript}
 _srv = socketserver.TCPServer(("127.0.0.1", 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=_dir))
 threading.Thread(target=_srv.serve_forever, daemon=True).start()
 webbrowser.open(f"http://127.0.0.1:{_srv.server_address[1]}/index.html")`;
+
+// Open a free port in the Viewer before anything serves it.
+const pythonUnservedScript = `import socket, webbrowser
+_s = socket.socket()
+_s.bind(("127.0.0.1", 0))
+_port = _s.getsockname()[1]
+_s.close()
+webbrowser.open(f"http://127.0.0.1:{_port}/index.html")`;
+
+// Then serve the pages on that port.
+const pythonServeOnPortScript = `import http.server, socketserver, threading, tempfile, os, functools
+${pageFilesScript}
+_srv = socketserver.TCPServer(("127.0.0.1", _port), functools.partial(http.server.SimpleHTTPRequestHandler, directory=_dir))
+threading.Thread(target=_srv.serve_forever, daemon=True).start()`;
+
+const pythonGreatTablesScript = `from great_tables import GT, exibble
+GT(exibble)`;
 
 const rReactableScript = `library(reactable)
 mtcars |> reactable::reactable()`;

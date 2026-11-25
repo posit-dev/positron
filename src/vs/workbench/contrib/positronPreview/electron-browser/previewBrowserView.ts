@@ -14,6 +14,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
@@ -25,6 +26,7 @@ import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';
 import { ViewerFindWidget } from './viewerFindWidget.js';
+import { answerPermissionRequest } from './viewerPermissions.js';
 import { focusWebContentsViewContainer, WebContentsViewHost } from '../../browserView/electron-browser/webContentsViewHost.js';
 import { IViewerActOutcome, IViewerBridge } from '../common/positronViewerAgent.js';
 import { IPreviewCaptureOptions, IPreviewSurface, ViewerBridgeResult, ViewerInputStep } from '../browser/previewSurface.js';
@@ -106,6 +108,7 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 
 	constructor(
 		@IBrowserViewWorkbenchService private readonly _browserViewWorkbenchService: IBrowserViewWorkbenchService,
+		@IDialogService private readonly _dialogService: IDialogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@ILifecycleService lifecycleService: ILifecycleService,
@@ -257,6 +260,8 @@ export class PreviewBrowserView extends Disposable implements IPreviewSurface {
 		this._modelStore.add(model.onDidSelectElement(e => this._onDidSelectElement.fire(e)));
 		// The page has no tabs, so a page it opens goes to the user's browser.
 		this._modelStore.add(model.onDidRequestOpenExternal(url => this._openerService.open(url, { openExternal: true })));
+		this._modelStore.add(model.onDidRequestPermission(request => answerPermissionRequest(this._dialogService, model, request)
+			.catch(error => this._logService.error('[Viewer] Failed to answer a permission request', error))));
 		this._modelStore.add(model.onDidChangeZoom(() => {
 			this.layout();
 			this._onDidChangeZoom.fire();

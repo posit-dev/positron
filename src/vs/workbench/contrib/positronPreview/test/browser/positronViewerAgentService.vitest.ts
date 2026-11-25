@@ -169,7 +169,11 @@ describe('PositronViewerAgentService', () => {
 			getWorkspace: () => ({ id: 'ws', folders: [{ uri: URI.file('/ws'), name: 'ws', index: 0, toResource: (path: string) => URI.file(`/ws/${path}`) }] }),
 			isInsideWorkspace: (uri: URI) => uri.path.startsWith('/ws/'),
 		})
-		.stub(IFileService, { readFile: async (uri: URI) => ({ name: uri.path.split('/').pop()!, value: VSBuffer.fromString('a,b\n1,2\n') }) })
+		.stub(IFileService, {
+			readFile: async (uri: URI) => ({ name: uri.path.split('/').pop()!, value: VSBuffer.fromString('a,b\n1,2\n') }),
+			// A link in the workspace that leads outside it.
+			realpath: async (uri: URI) => uri.path === '/ws/link.csv' ? uri.with({ path: '/secret.csv' }) : uri,
+		})
 		.build();
 
 	beforeEach(() => {
@@ -576,10 +580,12 @@ describe('PositronViewerAgentService', () => {
 
 		await service.viewerAct({ kind: 'upload', ref: 'e1', paths: ['data/faithful.csv'] });
 		const outside = await service.viewerAct({ kind: 'upload', ref: 'e1', paths: ['/etc/passwd'] }).catch((e: Error) => e.message);
+		const link = await service.viewerAct({ kind: 'upload', ref: 'e1', paths: ['link.csv'] }).catch((e: Error) => e.message);
 
-		expect({ sent: webview.actions, outside }).toEqual({
+		expect({ sent: webview.actions, outside, link }).toEqual({
 			sent: [{ kind: 'upload', ref: 'e1', paths: undefined, files: [{ name: 'faithful.csv', type: 'text/csv', data: 'YSxiCjEsMgo=' }] }],
 			outside: '"/etc/passwd" is outside the workspace. Agents can only upload files from the workspace.',
+			link: '"link.csv" is outside the workspace. Agents can only upload files from the workspace.',
 		});
 	});
 

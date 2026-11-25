@@ -22,6 +22,5 @@
 	"assistant.experimentalFeatures": true,
 	"shiny.previewType": "internal",
 	"terminal.integrated.gpuAcceleration": "off",
-	"console.showNotebookConsoleActions": true,
-	"viewer.useIntegratedBrowser": false
+	"console.showNotebookConsoleActions": true
 }
