@@ -15,6 +15,7 @@ import { PlotSizingPolicyAuto } from '../../positronPlots/common/sizingPolicyAut
 import { PlotSizingPolicyIntrinsic } from '../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IAgentAttribution } from '../../positronConsole/common/positronConsoleCodeExecution.js';
 /**
  * Convert a PlotResult with settings to an IRenderedPlot.
  */
@@ -108,6 +109,9 @@ export interface IPositronPlotMetadata {
 
 	/** The origin (source file location) of the plot, if known. */
 	origin?: PlotOrigin;
+
+	/** The AI agent that ran the code that created the plot, if any. */
+	agent?: IAgentAttribution;
 }
 
 /**

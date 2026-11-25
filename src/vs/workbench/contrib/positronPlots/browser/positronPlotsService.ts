@@ -20,6 +20,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { openViewPreservingActiveTab } from '../../../services/views/browser/positronViews.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { getAgentAttribution, IAgentAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicySquare } from '../../../services/positronPlots/common/sizingPolicySquare.js';
@@ -229,6 +230,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The IDs of each session's recent executions, oldest first. */
 	private readonly _recentExecutionIds = new Map<string, string[]>();
 
+	/** The AI agents that ran recent executions, keyed by execution ID, oldest first. */
+	private readonly _recentAgentExecutions = new Map<string, IAgentAttribution>();
+
 	/**
 	 * A map of plot id to the runtime message (and its session) that produced a
 	 * plot surfaced in the Plots pane from a console or notebook console. A
@@ -329,6 +333,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const selectedPlot = this._plots.find((plot) => plot.id === id);
 			if (selectedPlot instanceof PlotClientInstance) {
 				this.setSelectedSizingPolicy(selectedPlot.sizingPolicy);
+			}
+		}));
+
+		// Remember which AI agent ran each recent execution, so its plots can
+		// be attributed to it.
+		this._register(this._positronConsoleService.onDidExecuteCode((event) => {
+			const agent = getAgentAttribution(event.attribution);
+			if (!agent) {
+				return;
+			}
+			this._recentAgentExecutions.set(event.executionId, agent);
+			if (this._recentAgentExecutions.size > MaxRecentExecutions) {
+				this._recentAgentExecutions.delete(this._recentAgentExecutions.keys().next().value!);
 			}
 		}));
 
@@ -1244,6 +1261,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (plot && origin) {
 			plot.metadata.origin = origin;
 		}
+		if (plot) {
+			plot.metadata.agent = this._recentAgentExecutions.get(message.parent_id);
+		}
 
 		return plot;
 	}
@@ -1754,6 +1774,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
+		if (executionId) {
+			plotClient.metadata.agent = this._recentAgentExecutions.get(executionId);
+		}
+
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {
@@ -1997,6 +2021,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			metadata.name = backendMetadata.name;
 			metadata.execution_id = backendMetadata.execution_id;
 			metadata.origin = backendMetadata.origin;
+			metadata.agent ??= this._recentAgentExecutions.get(backendMetadata.execution_id);
 			// Only update code if we don't already have it from recent executions
 			if (!metadata.code) {
 				metadata.code = backendMetadata.code;
@@ -2009,6 +2034,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				plotClient.metadata.name = backendMetadata.name;
 				plotClient.metadata.execution_id = backendMetadata.execution_id;
 				plotClient.metadata.origin = backendMetadata.origin;
+				plotClient.metadata.agent = metadata.agent;
 				if (!plotClient.metadata.code) {
 					plotClient.metadata.code = backendMetadata.code;
 				}

@@ -249,6 +249,48 @@ line of text, and Quarto inline output is not in the tree at all.
 - A screenshot is taken with `shot.sh`, which logs it; pass `--hires` to a raw
   `screenshot` only for detail finer than a CSS pixel.
 
+## Posit Assistant
+
+The keychain is mocked, so a Posit Assistant sign-in from your own profile does
+not carry over, and one made during a run is lost when the run stops. To drive
+the Assistant without a model, use its scripted mock model, which needs no
+sign-in. Only Assistant builds newer than the one `product.json` bundles have it
+in Positron, so load a checkout of the assistant repo, with `assistant.devMode`
+on in the seed:
+
+```bash
+mkdir -p /tmp/seed/User && echo '{ "assistant.devMode": true }' > /tmp/seed/User/settings.json
+(cd <assistant repo>/packages/positron && npm run compile)
+.claude/skills/drive-positron/scripts/launch.sh --source-user-data-dir /tmp/seed -- \
+	--folder-uri file:///private/tmp/ws \
+	--extensionDevelopmentPath=<assistant repo>/packages/positron
+```
+
+The model picker then lists "Mock model" under "Development mock", selected
+when no other model is signed in. Type commands into the chat (`help` lists
+them all):
+
+- `say <text>`: replies with exactly the text.
+- `tool <name> <json>`: makes one real call to tool `<name>` with the JSON
+  object as its input, then replies with the result. The tool's approval prompt
+  still shows. To run code: `tool executeCode {"language": "r", "code":
+  "plot(1:10)", "description": "Plot", "capturePlot": true}`. A wrong input
+  comes back as the tool's validation error, naming what it expects.
+
+With no "Development mock" in the picker, the Assistant is too old for the mock;
+sign in by hand instead, once per run.
+
+- The chat input is a plain textbox ("Message Posit Assistant") in a webview
+  frame, so `fill` works on it, unlike a Monaco chat input. Its refs carry a
+  frame prefix (`f2e63`) that changes after a reload; keep the prefix when
+  extracting a ref.
+- `window.sh reload` picks up a recompiled extension.
+- The Assistant stores conversations and settings in `~/.posit/assistant`,
+  outside the disposable profile. Conversations are kept per workspace folder,
+  so a run on one of your own projects adds to its real history; prefer a
+  scratch folder. Do not change Assistant settings in the UI (the sandbox
+  toggle, the approval mode) unless the task needs it, and set them back after.
+
 ## What the harness changes
 
 A finding that depends on one of these is about the harness, not the product:
