@@ -20,7 +20,24 @@ import { linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
 import { MAX_PLOT_SIZE, MIN_PLOT_SIZE, parsePlotDimension, PlotSizeError, resizeFromDrag, TYPED_SIZE_DELAY_MS } from './plotSizeLimits.js';
 
 /** The state of the preview drawing, as shown under the size boxes. */
-export type PlotPreviewStatus = 'idle' | 'waiting' | 'drawing' | 'unavailable';
+export type PlotPreviewStatus = 'idle' | 'waiting' | 'drawing' | 'failed' | 'unavailable';
+
+/** How long a wait or draw runs before its note or progress bar shows, so a quick draw does not flash them. */
+export const BUSY_SHOW_DELAY_MS = 400;
+
+/** True once `active` has stayed true for `delayMs`; false as soon as it turns false. */
+function useDelayedFlag(active: boolean, delayMs: number): boolean {
+	const [shown, setShown] = useState(false);
+	useEffect(() => {
+		if (!active) {
+			setShown(false);
+			return;
+		}
+		const timer = setTimeout(() => setShown(true), delayMs);
+		return () => clearTimeout(timer);
+	}, [active, delayMs]);
+	return active && shown;
+}
 
 /** What made a size change: typing in the size boxes, or the drag handle. */
 export type PlotSizeCommitSource = 'typed' | 'drag';
@@ -36,16 +53,19 @@ export interface PlotSizeEditorProps {
 	/** Whether "Maintain aspect ratio" starts checked. */
 	keepRatio: boolean;
 	onKeepRatioChange: (keepRatio: boolean) => void;
-	/** The largest size a drag can reach; larger committed sizes are shown scaled down. */
+	/** The largest size a drag can reach. */
 	maxDragSize: IPlotSize;
 	previewUri?: string;
 	previewAlt: string;
 	status: PlotPreviewStatus;
+	/** Whether the last draw failed. The frame keeps showing that until a draw succeeds, even while redrawing. */
+	drawFailed?: boolean;
 	/** Called when the user settles on a new size: after typing stops, on Enter, or on drag release. */
 	onCommit: (size: IPlotSize, source: PlotSizeCommitSource) => void;
+	/** Called with whether the boxes hold a size that can be copied: valid, and not the size that just failed to draw. */
 	onValidityChange: (valid: boolean) => void;
-	/** Called with the size the frame is drawn at, on mount and whenever it changes, including during a drag. */
-	onFrameSizeChange?: (size: IPlotSize) => void;
+	/** Called with the preview area's size on mount and when the handle changes it, including during a drag. */
+	onAreaSizeChange?: (size: IPlotSize) => void;
 	ref?: React.Ref<PlotSizeEditorHandle>;
 }
 
@@ -53,6 +73,9 @@ const KEY_STEP = 10;
 const KEY_STEP_LARGE = 50;
 
 const NO_KEY_LIMIT: IPlotSize = { width: MAX_PLOT_SIZE, height: MAX_PLOT_SIZE };
+
+// Matches the frame's border in plotSizeEditor.css.
+const FRAME_BORDER = 1;
 
 const sameSize = (a: IPlotSize, b: IPlotSize) => a.width === b.width && a.height === b.height;
 
@@ -85,6 +108,15 @@ export const fitWithin = (size: IPlotSize, max: IPlotSize): IPlotSize => {
 	return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
 };
 
+/** The smallest box a typed size is fitted into, so a small opening size still leaves room. */
+const MIN_TYPED_AREA: IPlotSize = { width: 600, height: 400 };
+
+/** The box a typed size is fitted into: the area, at least MIN_TYPED_AREA, within the window. */
+const typedAreaFor = (area: IPlotSize, max: IPlotSize): IPlotSize => ({
+	width: Math.min(max.width, Math.max(MIN_TYPED_AREA.width, area.width)),
+	height: Math.min(max.height, Math.max(MIN_TYPED_AREA.height, area.height)),
+});
+
 /**
  * Width and height boxes, a "Maintain aspect ratio" checkbox, and a preview frame with a drag
  * handle. It only reports sizes through onCommit; the caller draws the preview.
@@ -99,12 +131,19 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const [lastCommitted, setLastCommitted] = useState<IPlotSize>(props.initialSize);
 	// The real size during a drag or a handle key resize, before it commits.
 	const [liveSize, setLiveSize] = useState<IPlotSize | undefined>(undefined);
+	// The space the preview takes: the committed size, scaled down to fit typedAreaRef or the window.
+	const [areaSize, setAreaSize] = useState<IPlotSize>(() => fitWithin(props.initialSize, props.maxDragSize));
+	// Set at open and by each drag; typing never changes it, so typed sizes cannot grow the dialog.
+	const typedAreaRef = useRef<IPlotSize | undefined>(undefined);
+	typedAreaRef.current ??= typedAreaFor(fitWithin(props.initialSize, props.maxDragSize), props.maxDragSize);
+	// Hides the handle's tip from a press until the pointer leaves, so it does not flicker during a drag.
+	const [tipHidden, setTipHidden] = useState(false);
 
 	// Refs, so timer and pointer callbacks see the latest values.
 	const lastCommittedRef = useRef(props.initialSize);
 	const onCommitRef = useRef(props.onCommit);
 	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	const dragRef = useRef<{ x: number; y: number; start: IPlotSize; moved: boolean } | undefined>(undefined);
+	const dragRef = useRef<{ x: number; y: number; start: IPlotSize; moved: boolean; last?: IPlotSize } | undefined>(undefined);
 	const pairRef = useRef<HTMLDivElement>(null);
 	const handleHintId = useId();
 	// An arrow-key resize of the handle that has not committed yet.
@@ -120,10 +159,6 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const height = parsePlotDimension(heightText);
 	const valid = !width.error && !height.error;
 
-	const { onValidityChange } = props;
-	useEffect(() => {
-		onValidityChange(valid);
-	}, [valid, onValidityChange]);
 
 	const clearTimer = () => {
 		clearTimeout(timerRef.current);
@@ -138,6 +173,13 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		}
 		lastCommittedRef.current = size;
 		setLastCommitted(size);
+		if (source === 'drag') {
+			const area = fitWithin(size, props.maxDragSize);
+			typedAreaRef.current = typedAreaFor(area, props.maxDragSize);
+			setAreaSize(area);
+		} else {
+			setAreaSize(fitWithin(size, typedAreaRef.current!));
+		}
 		onCommitRef.current(size, source);
 	};
 
@@ -207,6 +249,13 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const currentSize = typedSize(widthText, heightText);
 	const currentRatio = currentSize ? ratioOf(currentSize.width, currentSize.height) : undefined;
 
+	// A size that just failed to draw would fail again on Copy; typing another size allows it.
+	const failedHere = props.status === 'failed' && !!currentSize && sameSize(currentSize, lastCommitted);
+	const { onValidityChange } = props;
+	useEffect(() => {
+		onValidityChange(valid && !failedHere);
+	}, [valid, failedHere, onValidityChange]);
+
 	const keepRatioChangedHandler = (checked: boolean) => {
 		setLockedRatio(checked ? currentRatio : undefined);
 		props.onKeepRatioChange(checked);
@@ -214,18 +263,19 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 
 	// The frame.
 
-	// The frame shows the real size, scaled down to fit maxDragSize.
+	// During a drag or key resize the area follows the live size; otherwise the committed size is scaled to fit it.
 	const shownSize = liveSize ?? lastCommitted;
-	const frameSize = fitWithin(shownSize, props.maxDragSize);
+	const shownArea = liveSize ? fitWithin(liveSize, props.maxDragSize) : areaSize;
+	const frameSize = fitWithin(shownSize, shownArea);
 	const scaled = !liveSize && !sameSize(frameSize, lastCommitted);
 
-	const onFrameSizeChangeRef = useRef(props.onFrameSizeChange);
+	const onAreaSizeChangeRef = useRef(props.onAreaSizeChange);
 	useEffect(() => {
-		onFrameSizeChangeRef.current = props.onFrameSizeChange;
-	}, [props.onFrameSizeChange]);
+		onAreaSizeChangeRef.current = props.onAreaSizeChange;
+	}, [props.onAreaSizeChange]);
 	useEffect(() => {
-		onFrameSizeChangeRef.current?.({ width: frameSize.width, height: frameSize.height });
-	}, [frameSize.width, frameSize.height]);
+		onAreaSizeChangeRef.current?.({ width: shownArea.width, height: shownArea.height });
+	}, [shownArea.width, shownArea.height]);
 
 	// Dragging.
 
@@ -234,6 +284,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 			return;
 		}
 		e.currentTarget.setPointerCapture(e.pointerId);
+		setTipHidden(true);
 		clearTimer();
 		// A drag starts from the frame as drawn, so a scaled size clamps to maxDragSize once it moves.
 		dragRef.current = { x: e.clientX, y: e.clientY, start: frameSize, moved: false };
@@ -253,6 +304,7 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		}
 		dragRef.current.moved = true;
 		const size = dragSize(e);
+		dragRef.current.last = size;
 		setLiveSize(size);
 		setBoxes(size);
 	};
@@ -274,13 +326,15 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		commit(size, 'drag');
 	};
 
+	// A drag that ends without a release (a lost capture) keeps the size last shown, as a release would.
 	const pointerCancelHandler = () => {
-		if (!dragRef.current) {
-			return;
-		}
+		const last = dragRef.current?.last;
 		dragRef.current = undefined;
 		setLiveSize(undefined);
-		setBoxes(lastCommittedRef.current);
+		if (last) {
+			setBoxes(last);
+			commit(last, 'drag');
+		}
 	};
 
 	// Commits a pending arrow-key resize at once, so a host acting next sees the new size.
@@ -333,9 +387,15 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 		timerRef.current = setTimeout(flushKeyResize, TYPED_SIZE_DELAY_MS);
 	};
 
+	const showWaiting = useDelayedFlag(props.status === 'waiting', BUSY_SHOW_DELAY_MS);
+	const showDrawing = useDelayedFlag(props.status === 'drawing', BUSY_SHOW_DELAY_MS);
+	const failedNote = localize('positron.plotSizeEditor.failed', "The plot could not be drawn at this size");
+	const showFailed = props.status === 'failed' || !!props.drawFailed;
 	let statusNote = '';
-	if (props.status === 'waiting') {
+	if (showWaiting) {
 		statusNote = localize('positron.plotSizeEditor.waiting', "Waiting for the console to finish");
+	} else if (props.status === 'failed') {
+		statusNote = failedNote;
 	} else if (props.status === 'unavailable') {
 		statusNote = localize('positron.plotSizeEditor.unavailable', "This plot is no longer available");
 	}
@@ -374,37 +434,50 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 			</div>
 			<div className='plot-size-activity'>
 				<div className='plot-size-progress'>
-					{props.status === 'drawing' && <ProgressBar />}
+					{showDrawing && <ProgressBar />}
 				</div>
-				<div className='plot-size-status' role='status'>{statusNote}</div>
+				{/* A failure shows in the frame; the live region still announces it. */}
+				<div className={'plot-size-status' + (props.status === 'failed' ? ' plot-size-status-offscreen' : '')} role='status'>{statusNote}</div>
 			</div>
 			<div
-				className='plot-size-frame'
-				data-testid='plot-size-frame'
-				style={{ width: frameSize.width, height: frameSize.height }}
+				className='plot-size-area'
+				style={{ width: shownArea.width + 2 * FRAME_BORDER, height: shownArea.height + 2 * FRAME_BORDER }}
 			>
-				{props.previewUri && <img alt={props.previewAlt} className='plot-size-preview' src={props.previewUri} />}
-				<button
-					aria-describedby={handleHintId}
-					aria-label={localize('positron.plotSizeEditor.resizePlot', "Resize plot")}
-					className='plot-size-handle'
-					type='button'
-					onBlur={flushKeyResize}
-					onKeyDown={handleKeyDownHandler}
-					onLostPointerCapture={pointerCancelHandler}
-					onPointerCancel={pointerCancelHandler}
-					onPointerDown={pointerDownHandler}
-					onPointerMove={pointerMoveHandler}
-					onPointerUp={pointerUpHandler}
+				<div
+					className='plot-size-frame'
+					data-testid='plot-size-frame'
+					style={{ width: frameSize.width, height: frameSize.height }}
 				>
-					<span aria-hidden='true' className='codicon codicon-gripper' />
-				</button>
-				<span hidden id={handleHintId}>
-					{localize('positron.plotSizeEditor.resizeHint', "Use the arrow keys to resize")}
-				</span>
+					{props.previewUri && !showFailed && <img alt={props.previewAlt} className='plot-size-preview' src={props.previewUri} />}
+					{showFailed && <div aria-hidden='true' className='plot-size-failed'>{failedNote}</div>}
+					<button
+						aria-describedby={handleHintId}
+						aria-label={localize('positron.plotSizeEditor.resizePlot', "Resize plot")}
+						className='plot-size-handle'
+						type='button'
+						onBlur={flushKeyResize}
+						onKeyDown={handleKeyDownHandler}
+						onLostPointerCapture={pointerCancelHandler}
+						onPointerCancel={pointerCancelHandler}
+						onPointerDown={pointerDownHandler}
+						onPointerLeave={() => setTipHidden(false)}
+						onPointerMove={pointerMoveHandler}
+						onPointerUp={pointerUpHandler}
+					>
+						<svg aria-hidden='true' fill='none' height='12' stroke='currentColor' strokeLinecap='round' strokeWidth='1.2' viewBox='0 0 12 12' width='12'>
+							<path d='M11 3 3 11M11 7 7 11' />
+						</svg>
+					</button>
+					{/* Shown on hover and keyboard focus; also the handle's accessible description. */}
+					<span className={'plot-size-handle-tip' + (tipHidden ? ' plot-size-handle-tip-hidden' : '')}>
+						<span className='plot-size-handle-tip-text' id={handleHintId}>
+							{localize('positron.plotSizeEditor.resizeHint', "Drag or use the arrow keys to resize")}
+						</span>
+					</span>
+				</div>
 			</div>
 			{scaled && <div className='plot-size-scaled-note'>
-				{localize('positron.plotSizeEditor.scaledNote', "Preview scaled to fit. The copy is {0} x {1} px.", lastCommitted.width, lastCommitted.height)}
+				{localize('positron.plotSizeEditor.scaledNote', "Preview scaled down to fit. The plot will be copied at {0} x {1}.", lastCommitted.width, lastCommitted.height)}
 			</div>}
 		</div>
 	);

@@ -40,31 +40,31 @@ describe('PositronModalDialog centering', () => {
 		});
 	});
 
-	const dialog = (width: number, centerKey?: number) => (
-		<PositronModalDialog centerKey={centerKey} height={200} renderer={renderer} title='Test' width={width} />
+	const dialog = (width: number, keepPosition?: boolean) => (
+		<PositronModalDialog height={200} keepPosition={keepPosition} renderer={renderer} title='Test' width={width} />
 	);
 
 	// The dialog box is the only child of the role=dialog backdrop.
 	const boxLeft = () => (screen.getByRole('dialog').firstElementChild as HTMLElement).style.left;
 
-	it('recenters on a width change without centerKey', () => {
+	it('recenters on a width change by default', () => {
 		const { rerender } = render(dialog(400));
 		expect(boxLeft()).toBe('300px');
 		rerender(dialog(600));
 		expect(boxLeft()).toBe('200px');
 	});
 
-	it('keeps its position on a width change with centerKey', () => {
-		const { rerender } = render(dialog(400, 0));
+	it('centers on mount and keeps its position on a width change with keepPosition', () => {
+		const { rerender } = render(dialog(400, true));
 		expect(boxLeft()).toBe('300px');
-		rerender(dialog(600, 0));
+		rerender(dialog(600, true));
 		expect(boxLeft()).toBe('300px');
 	});
 
-	it('recenters when centerKey changes', () => {
-		const { rerender } = render(dialog(400, 0));
-		rerender(dialog(600, 0));
-		rerender(dialog(600, 1));
-		expect(boxLeft()).toBe('200px');
+	it('moves just enough to stay on screen when it grows past the edge with keepPosition', () => {
+		const { rerender } = render(dialog(400, true));
+		rerender(dialog(800, true));
+		// 1000 container - 800 width - 40 gutter.
+		expect(boxLeft()).toBe('160px');
 	});
 });

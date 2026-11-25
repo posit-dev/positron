@@ -42,6 +42,8 @@ import { getWindow } from '../../../../../base/browser/dom.js';
 // Constants.
 const kPaddingLeft = 14;
 const kPaddingRight = 8;
+// The split Copy button (24 px action, 16 px arrow, 1 px margins). A narrower slot clips its edges.
+const kCopySplitButtonWidth = 44;
 
 // Localized strings.
 const showPreviousPlot = localize('positronShowPreviousPlot', "Show Previous Plot");
@@ -727,7 +729,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// the plain button because they cannot be redrawn at a new size.
 	if (enableCopyPlot && selectedPlot instanceof PlotClientInstance) {
 		leftActions.push({
-			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
+			fixedWidth: kCopySplitButtonWidth,
 			separator: enableZoomPlot,
 			component: (
 				<ActionBarMenuButton

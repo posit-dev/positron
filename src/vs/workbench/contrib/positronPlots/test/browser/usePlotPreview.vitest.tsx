@@ -123,7 +123,7 @@ describe('usePlotPreview', () => {
 		expect(renders[0].cancel).toHaveBeenCalled();
 	});
 
-	it('goes back to idle and keeps the preview when a render fails', async () => {
+	it('reports a failed render and clears it on the next request', async () => {
 		const { result } = renderHook(() => usePlotPreview(client, 1));
 		act(() => result.current.request({ width: 200, height: 100 }));
 		await act(async () => {
@@ -135,7 +135,17 @@ describe('usePlotPreview', () => {
 			renders[1].startedDeferred.complete();
 			void renders[1].result.error(new Error('boom'));
 		});
-		expect(result.current.status).toBe('idle');
+		expect(result.current.status).toBe('failed');
+		expect(result.current.failed).toBe(true);
 		expect(result.current.preview?.uri).toBe('u200');
+
+		// A redraw at another size keeps the failure until it succeeds.
+		act(() => result.current.request({ width: 400, height: 100 }));
+		expect(result.current.status).toBe('waiting');
+		expect(result.current.failed).toBe(true);
+
+		act(() => result.current.request({ width: 200, height: 100 }));
+		expect(result.current.status).toBe('idle');
+		expect(result.current.failed).toBe(false);
 	});
 });

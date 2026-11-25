@@ -20,6 +20,10 @@ import { useModalDialogKeyboard } from './useModalDialogKeyboard.js';
  */
 const kGutter = 40;
 
+/** Keeps an edge where it is unless the box would run past the container, then pulls it back inside the gutter. */
+const stayOnScreen = (position: number, size: number, containerSize: number) =>
+	position + size <= containerSize ? position : Math.max(containerSize - size - kGutter, kGutter);
+
 /**
  * PositronModalDialogProps interface.
  */
@@ -28,8 +32,8 @@ export interface PositronModalDialogProps {
 	title: string;
 	width: number;
 	height: number;
-	/** When set, re-centers only when this value changes, not on width/height changes. */
-	centerKey?: number;
+	/** When true, centers only on mount; a size change keeps the position, moved just enough to stay on screen. */
+	keepPosition?: boolean;
 	/** When true, the dialog handles Enter itself instead of clicking the default button. */
 	enterHandledByCaller?: boolean;
 	closeOnClickOutside?: boolean;
@@ -71,23 +75,27 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 	// State hooks.
 	const [dialogBoxState, setDialogBoxState] = useState(kInitialDialogBoxState);
 
-	// Center the dialog box on mount, and when dimensions (or centerKey, if given) change. useLayoutEffect ensures the
-	// centered position is applied before the browser paints, avoiding a visible flash at 0,0.
+	// Center the dialog box on mount and when its dimensions change (with keepPosition, on mount only).
+	// useLayoutEffect ensures the position is applied before the browser paints, avoiding a visible flash at 0,0.
 	useLayoutEffect(() => {
+		const { clientWidth, clientHeight } = dialogContainerRef.current;
 		setDialogBoxState(prevDialogBoxState => {
-			// Update the dialog box state, centering the dialog box.
-			const result: DialogBoxState = {
+			if (props.keepPosition && prevDialogBoxState !== kInitialDialogBoxState) {
+				return {
+					...prevDialogBoxState,
+					left: stayOnScreen(prevDialogBoxState.left, props.width, clientWidth),
+					top: stayOnScreen(prevDialogBoxState.top, props.height, clientHeight),
+				};
+			}
+			return {
 				...prevDialogBoxState,
-				left: Math.max(dialogContainerRef.current.clientWidth / 2 - props.width / 2, kGutter),
-				top: Math.max(dialogContainerRef.current.clientHeight / 2 - props.height / 2, kGutter),
+				left: Math.max(clientWidth / 2 - props.width / 2, kGutter),
+				top: Math.max(clientHeight / 2 - props.height / 2, kGutter),
 			};
-
-			// Return the updated dialog box state.
-			return result;
 		});
-		// With centerKey, only it triggers re-centering; the dependency list must differ by mode.
+		// keepPosition is fixed for the dialog's lifetime.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, props.centerKey === undefined ? [props.width, props.height] : [props.centerKey]);
+	}, [props.width, props.height]);
 
 	// Escape, Enter and the Tab focus trap.
 	useModalDialogKeyboard({
@@ -109,12 +117,8 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 				// Update the dialog box state, making sure that it remains on screen.
 				const result: DialogBoxState = {
 					...prevDialogBoxState,
-					left: prevDialogBoxState.left + props.width <= dialogContainerRef.current.clientWidth ?
-						prevDialogBoxState.left :
-						Math.max(dialogContainerRef.current.clientWidth - props.width - kGutter, kGutter),
-					top: prevDialogBoxState.top + props.height <= dialogContainerRef.current.clientHeight ?
-						prevDialogBoxState.top :
-						Math.max(dialogContainerRef.current.clientHeight - props.height - kGutter, kGutter)
+					left: stayOnScreen(prevDialogBoxState.left, props.width, dialogContainerRef.current.clientWidth),
+					top: stayOnScreen(prevDialogBoxState.top, props.height, dialogContainerRef.current.clientHeight)
 				};
 
 				// Return the updated dialog box state.

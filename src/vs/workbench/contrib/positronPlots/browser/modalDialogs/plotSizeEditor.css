@@ -46,6 +46,35 @@
 	margin-top: 4px;
 }
 
+/* Hidden from view but still announced. */
+.plot-size-editor .plot-size-status-offscreen {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.plot-size-editor .plot-size-failed {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 24px 4px 8px;
+	overflow: hidden;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* A plot smaller than the area sits at its top left, next to the size boxes and status. */
+.plot-size-editor .plot-size-area {
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+}
+
 .plot-size-editor .plot-size-frame {
 	position: relative;
 	box-sizing: content-box;
@@ -56,6 +85,8 @@
 	display: block;
 	width: 100%;
 	height: 100%;
+	/* A preview of another shape keeps its own shape until the new one is drawn. */
+	object-fit: contain;
 }
 
 .plot-size-editor .plot-size-handle {
@@ -70,7 +101,7 @@
 	justify-content: center;
 	border: none;
 	background: var(--vscode-positronModalDialog-background);
-	color: var(--vscode-positronModalDialog-foreground);
+	color: var(--vscode-descriptionForeground);
 	cursor: nwse-resize;
 	/* Keep touch drags from scrolling the page. */
 	touch-action: none;
@@ -83,9 +114,60 @@
 	inset: -8px 0 0 -8px;
 }
 
+/* The workbench outlines every focused button; skip it after a mouse drag. */
+.plot-size-editor .plot-size-handle:focus:not(:focus-visible) {
+	outline: none;
+}
+
 .plot-size-editor .plot-size-handle:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 1px;
+}
+
+.plot-size-editor .plot-size-handle:hover {
+	color: var(--vscode-positronModalDialog-foreground);
+}
+
+/*
+ * A strip under the frame, which always has room below it. The tip sits at its right, under the
+ * handle; under a frame narrower than the tip, "safe" starts it at the frame's left instead.
+ */
+.plot-size-editor .plot-size-handle-tip {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	right: 0;
+	z-index: 1;
+	display: flex;
+	justify-content: safe flex-end;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.12s;
+}
+
+.plot-size-editor .plot-size-handle-tip-text {
+	padding: 4px 8px;
+	white-space: nowrap;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
+	background: var(--vscode-editorHoverWidget-background);
+	color: var(--vscode-editorHoverWidget-foreground);
+}
+
+.plot-size-editor .plot-size-handle:hover + .plot-size-handle-tip,
+.plot-size-editor .plot-size-handle:focus-visible + .plot-size-handle-tip {
+	opacity: 1;
+}
+
+/* Out of the way while dragging. */
+.plot-size-editor .plot-size-handle + .plot-size-handle-tip.plot-size-handle-tip-hidden {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.plot-size-editor .plot-size-handle-tip {
+		transition: none;
+	}
 }
 
 .plot-size-editor .plot-size-scaled-note {

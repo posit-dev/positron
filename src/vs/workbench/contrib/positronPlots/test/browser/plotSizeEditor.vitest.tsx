@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { readFileSync } from 'fs';
-import { act, configure, getConfig, screen } from '@testing-library/react';
+import { act, configure, fireEvent, getConfig, screen } from '@testing-library/react';
 import { userEvent, UserEvent } from '@testing-library/user-event';
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { PlotPreviewStatus, PlotSizeEditor, PlotSizeEditorProps } from '../../browser/modalDialogs/plotSizeEditor.js';
+import { BUSY_SHOW_DELAY_MS, PlotPreviewStatus, PlotSizeEditor, PlotSizeEditorProps } from '../../browser/modalDialogs/plotSizeEditor.js';
 
 const { ariaStatus } = vi.hoisted(() => ({ ariaStatus: vi.fn<(msg: string) => void>() }));
 vi.mock('../../../../../base/browser/ui/aria/aria.js', async importOriginal => ({
@@ -45,7 +45,7 @@ describe('PlotSizeEditor', () => {
 		const onCommit = vi.fn();
 		const onValidityChange = vi.fn();
 		const onKeepRatioChange = vi.fn();
-		const onFrameSizeChange = vi.fn();
+		const onAreaSizeChange = vi.fn();
 		const props: PlotSizeEditorProps = {
 			initialSize: { width: 400, height: 200 },
 			keepRatio: false,
@@ -55,14 +55,14 @@ describe('PlotSizeEditor', () => {
 			status: 'idle',
 			onCommit,
 			onValidityChange,
-			onFrameSizeChange,
+			onAreaSizeChange,
 			...overrides,
 		};
 		const result = rtl.render(<PlotSizeEditor {...props} />);
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		const rerender = (next: Partial<PlotSizeEditorProps>) =>
 			result.rerender(<PlotSizeEditor {...props} {...next} />);
-		return { user, onCommit, onValidityChange, onKeepRatioChange, onFrameSizeChange, rerender };
+		return { user, onCommit, onValidityChange, onKeepRatioChange, onAreaSizeChange, rerender };
 	}
 
 	const widthBox = () => screen.getByRole('spinbutton', { name: 'Width' });
@@ -219,7 +219,7 @@ describe('PlotSizeEditor', () => {
 
 	it('describes how to resize with the keyboard on the handle', () => {
 		renderEditor();
-		expect(handle()).toHaveAccessibleDescription('Use the arrow keys to resize');
+		expect(handle()).toHaveAccessibleDescription('Drag or use the arrow keys to resize');
 	});
 
 	it('announces the new size when a handle arrow-key resize commits', async () => {
@@ -255,28 +255,50 @@ describe('PlotSizeEditor', () => {
 		expect(onCommit).toHaveBeenCalledWith({ width: 500, height: 240 }, 'drag');
 	});
 
-	it('the frame shows the last committed size, not the typed one', async () => {
-		const { user } = renderEditor();
-		const frame = screen.getByTestId('plot-size-frame');
+	it('a drag that loses the pointer keeps the size last shown', async () => {
+		const { user, onCommit } = renderEditor();
+		await user.pointer([
+			{ keys: '[MouseLeft>]', target: handle(), coords: { clientX: 500, clientY: 300 } },
+			{ target: handle(), coords: { clientX: 600, clientY: 340 } },
+		]);
+		fireEvent.lostPointerCapture(handle());
 
-		await retype(user, widthBox(), '640');
-		expect(frame).toHaveStyle({ width: '400px', height: '200px' });
-
-		await user.keyboard('{Enter}');
-		expect(frame).toHaveStyle({ width: '640px', height: '200px' });
+		expect(widthBox()).toHaveValue(500);
+		expect(onCommit).toHaveBeenCalledExactlyOnceWith({ width: 500, height: 240 }, 'drag');
 	});
 
-	it('shows the scaled note when the size exceeds maxDragSize', async () => {
-		const { user } = renderEditor();
+	it('fits a typed size into the opening area, at least 600 x 400, scaling it down if needed', async () => {
+		const { user, onAreaSizeChange } = renderEditor();
 		const frame = screen.getByTestId('plot-size-frame');
-
-		expect(screen.queryByText(/Preview scaled to fit/)).not.toBeInTheDocument();
 
 		await retype(user, widthBox(), '2200');
 		await user.keyboard('{Enter}');
+		expect(frame).toHaveStyle({ width: '600px', height: '55px' });
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 600, height: 55 });
+		expect(screen.getByText('Preview scaled down to fit. The plot will be copied at 2200 x 200.')).toBeInTheDocument();
 
-		expect(screen.getByText('Preview scaled to fit. The copy is 2200 x 200 px.')).toBeInTheDocument();
-		expect(frame).toHaveStyle({ width: '1100px', height: '100px' });
+		await retype(user, widthBox(), '200');
+		await retype(user, heightBox(), '100');
+		await user.keyboard('{Enter}');
+		expect(frame).toHaveStyle({ width: '200px', height: '100px' });
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 200, height: 100 });
+		expect(screen.queryByText(/Preview scaled down to fit/)).not.toBeInTheDocument();
+	});
+
+	it('fits a typed size into the area the last drag set', async () => {
+		const { user } = renderEditor();
+		const frame = screen.getByTestId('plot-size-frame');
+		await user.pointer([
+			{ keys: '[MouseLeft>]', target: handle(), coords: { clientX: 500, clientY: 300 } },
+			{ target: handle(), coords: { clientX: 1000, clientY: 600 } },
+			{ keys: '[/MouseLeft]', target: handle(), coords: { clientX: 1000, clientY: 600 } },
+		]);
+		expect(frame).toHaveStyle({ width: '900px', height: '500px' });
+
+		await retype(user, widthBox(), '2200');
+		await retype(user, heightBox(), '200');
+		await user.keyboard('{Enter}');
+		expect(frame).toHaveStyle({ width: '900px', height: '82px' });
 	});
 
 	it('shows the preview image, or an empty frame without one', () => {
@@ -289,6 +311,7 @@ describe('PlotSizeEditor', () => {
 
 	it('shows the waiting and unavailable notes', () => {
 		const { rerender } = renderEditor({ status: 'waiting' });
+		advance(BUSY_SHOW_DELAY_MS);
 		// Each size box has its own status region for errors, so find the note by its text.
 		expect(screen.getByText('Waiting for the console to finish')).toHaveAttribute('role', 'status');
 
@@ -297,12 +320,50 @@ describe('PlotSizeEditor', () => {
 		expect(screen.queryByText('Waiting for the console to finish')).not.toBeInTheDocument();
 	});
 
+	it('shows a note and hides the old preview when the draw fails', () => {
+		renderEditor({ previewUri: 'data:image/png;base64,AA==', status: 'failed' });
+		// Shown in the frame and announced by the (offscreen) status region.
+		expect(screen.getByTestId('plot-size-frame')).toHaveTextContent('The plot could not be drawn at this size');
+		expect(screen.getByText('The plot could not be drawn at this size', { selector: '[role=status]' })).toBeInTheDocument();
+		expect(screen.queryByRole('img')).not.toBeInTheDocument();
+	});
+
+	it('reports the size that failed to draw as not copyable until another size is typed', async () => {
+		const { user, onValidityChange, rerender } = renderEditor();
+		expect(onValidityChange).toHaveBeenLastCalledWith(true);
+
+		rerender({ status: 'failed' });
+		expect(onValidityChange).toHaveBeenLastCalledWith(false);
+
+		await retype(user, widthBox(), '640');
+		expect(onValidityChange).toHaveBeenLastCalledWith(true);
+	});
+
+	it('keeps the failure note, not the old preview, while redrawing after a failure', () => {
+		renderEditor({ drawFailed: true, previewUri: 'data:image/png;base64,AA==', status: 'drawing' });
+		expect(screen.getByTestId('plot-size-frame')).toHaveTextContent('The plot could not be drawn at this size');
+		expect(screen.queryByRole('img')).not.toBeInTheDocument();
+	});
+
 	it('shows the progress bar while drawing', () => {
 		const { rerender } = renderEditor();
 		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 
 		rerender({ status: 'drawing' });
+		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+		advance(BUSY_SHOW_DELAY_MS);
 		expect(screen.getByRole('progressbar')).toBeInTheDocument();
+	});
+
+	it('does not flash the progress bar or waiting note for a quick draw', () => {
+		const { rerender } = renderEditor({ status: 'waiting' });
+		advance(BUSY_SHOW_DELAY_MS - 1);
+		rerender({ status: 'drawing' as PlotPreviewStatus });
+		advance(BUSY_SHOW_DELAY_MS - 1);
+		expect(screen.queryByText('Waiting for the console to finish')).not.toBeInTheDocument();
+		rerender({ status: 'idle' as PlotPreviewStatus });
+		advance(BUSY_SHOW_DELAY_MS);
+		expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 	});
 
 	it('the checkbox change calls onKeepRatioChange', async () => {
@@ -358,24 +419,26 @@ describe('PlotSizeEditor', () => {
 		advance(300);
 
 		expect(onCommit).toHaveBeenCalledWith({ width: 2210, height: 200 }, 'drag');
-		expect(screen.getByText('Preview scaled to fit. The copy is 2210 x 200 px.')).toBeInTheDocument();
+		expect(screen.getByText('Preview scaled down to fit. The plot will be copied at 2210 x 200.')).toBeInTheDocument();
 	});
 
-	it('reports the frame size on mount, during a drag, and scaled after a large commit', async () => {
-		const { user, onFrameSizeChange } = renderEditor();
-		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 400, height: 200 });
+	it('reports the area size on mount, during a drag, and after a typed size', async () => {
+		const { user, onAreaSizeChange } = renderEditor();
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 400, height: 200 });
 
 		await user.pointer([
 			{ keys: '[MouseLeft>]', target: handle(), coords: { clientX: 500, clientY: 300 } },
 			{ target: handle(), coords: { clientX: 550, clientY: 320 } },
 		]);
-		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 450, height: 220 });
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 450, height: 220 });
 		await user.pointer({ keys: '[/MouseLeft]', target: handle(), coords: { clientX: 550, clientY: 320 } });
+
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 450, height: 220 });
 
 		await retype(user, widthBox(), '2200');
 		await retype(user, heightBox(), '200');
 		await user.keyboard('{Enter}');
-		expect(onFrameSizeChange).toHaveBeenLastCalledWith({ width: 1100, height: 100 });
+		expect(onAreaSizeChange).toHaveBeenLastCalledWith({ width: 600, height: 55 });
 	});
 
 	it('keeps the status live region rendered and shown while idle', () => {

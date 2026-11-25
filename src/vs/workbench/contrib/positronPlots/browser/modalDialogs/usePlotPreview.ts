@@ -17,6 +17,8 @@ export interface IPendingPreview {
 export interface IPlotPreview {
 	preview?: IRenderedPlot;
 	status: PlotPreviewStatus;
+	/** Whether the last draw failed; stays set while the next one runs, until one succeeds. */
+	failed: boolean;
 	pending?: IPendingPreview;
 	request: (size: IPlotSize) => void;
 }
@@ -29,6 +31,7 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 	const [preview, setPreview] = useState<IRenderedPlot | undefined>();
 	const [status, setStatus] = useState<PlotPreviewStatus>('idle');
 	const [pending, setPending] = useState<IPendingPreview | undefined>();
+	const [failed, setFailed] = useState(false);
 
 	// Refs mirror the state so request() and the async work see current values.
 	const previewRef = useRef<IRenderedPlot | undefined>(undefined);
@@ -68,12 +71,13 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 			return;
 		}
 		if (same(previewRef.current?.size)) {
-			// The wanted size is already shown: drop any other pending draw.
+			// The wanted size is already shown: drop any other pending draw or failure.
 			if (pendingRef.current) {
 				cancelPending();
 				setPending(undefined);
-				setStatus('idle');
 			}
+			setStatus('idle');
+			setFailed(false);
 			return;
 		}
 		cancelPending();
@@ -98,16 +102,18 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 				setPreview(result);
 				setPendingBoth(undefined);
 				setStatus('idle');
+				setFailed(false);
 			} catch {
-				// Cancelled (replaced or closed) renders are ignored. A failed render keeps the last preview.
+				// Cancelled (replaced or closed) renders are ignored.
 				if (pendingRef.current === entry) {
 					setPendingBoth(undefined);
-					setStatus('idle');
+					setStatus('failed');
+					setFailed(true);
 				}
 			}
 		};
 		void run();
 	}, [plotClient, pixelRatio, cancelPending]);
 
-	return { preview, status, pending, request };
+	return { preview, status, failed, pending, request };
 }
