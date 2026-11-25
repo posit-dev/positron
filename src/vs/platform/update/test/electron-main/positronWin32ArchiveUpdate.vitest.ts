@@ -68,8 +68,6 @@ describe('Win32UpdateService for a zip install', () => {
 		}
 	}
 
-	const request = vi.fn();
-
 	function createService(target: string | undefined): TestWin32UpdateService {
 		return new TestWin32UpdateService(
 			stubInterface<ILifecycleMainService>({
@@ -80,7 +78,7 @@ describe('Win32UpdateService for a zip install', () => {
 			stubInterface<IConfigurationService>({}),
 			stubInterface<ITelemetryService>({}),
 			stubInterface<IEnvironmentMainService>({ isBuilt: true }),
-			stubInterface<IRequestService>({ request }),
+			stubInterface<IRequestService>({}),
 			new NullLogService(),
 			stubInterface<IFileService>({}),
 			stubInterface<INativeHostMainService>({}),
@@ -115,8 +113,12 @@ describe('Win32UpdateService for a zip install', () => {
 
 		service.reportUpdate();
 
-		expect(service.state.type).toBe(StateType.AvailableForDownload);
-		expect(request).not.toHaveBeenCalled();
+		// The feed carries no `productVersion`, and the workbench shows no notification without one.
+		const state = service.state;
+		expect({
+			type: state.type,
+			productVersion: state.type === StateType.AvailableForDownload ? state.update.productVersion : undefined,
+		}).toEqual({ type: StateType.AvailableForDownload, productVersion: '2026.12.0-1' });
 
 		service.dispose();
 	});

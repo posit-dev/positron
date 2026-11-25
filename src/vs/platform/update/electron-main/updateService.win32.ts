@@ -536,7 +536,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// Dev update testing simulates the staging, so it runs whether or not auto-update is on:
 		// there is nothing for a download page to install from a source build either.
 		if ((!this.enableAutoUpdate || this.getUpdateType() === UpdateType.Archive) && !this.devUpdateTesting) {
-			this.setState(State.AvailableForDownload(update));
+			this.setState(State.AvailableForDownload(this.withProductVersion(update)));
 			return;
 		}
 
@@ -551,6 +551,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	 */
 	override async _stageUpdateFromFeed(feedUrl: string): Promise<void> {
 		this.logService.info('update#_stageUpdateFromFeed - staging the update advertised by', feedUrl);
+
+		// A zip install has no installer to stage: the feed's download would be another zip.
+		if (this.getUpdateType() === UpdateType.Archive && !this.devUpdateTesting) {
+			this.logService.warn('update#_stageUpdateFromFeed - ignored, a zip install cannot stage an update');
+			return;
+		}
 
 		// Allowed from Ready as well, replacing the pending update: the regular check runs 30
 		// seconds after launch, so by the time a tester reaches the command something is usually
