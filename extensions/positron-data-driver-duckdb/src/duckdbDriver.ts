@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { DuckDBDataExplorerRpcHandler } from 'positron-data-explorer-duckdb';
 import { escapeDoubleQuoted } from './codeEscaping.js';
 import { DuckDBConnection } from './duckdbConnection.js';
+import { ggsqlHonorsAccessMode } from './ggsqlAccessMode.js';
 import { checkDatabaseFile, IDatabaseFileSignature, IDatabasePathEnvironment, resolveDatabasePath } from './databasePath.js';
 
 /**
@@ -96,15 +97,26 @@ function isReadOnly(params: positron.DataConnectionParameterValues): boolean {
 }
 
 /**
+ * The installed ggsql extension's version, or undefined when it is not installed. Read each time
+ * connection code is generated, so installing or updating ggsql takes effect without a reload.
+ */
+function installedGgsqlVersion(): string | undefined {
+	const version = vscode.extensions.getExtension('ggsql.ggsql')?.packageJSON?.version;
+	return typeof version === 'string' ? version : undefined;
+}
+
+/**
  * Creates the DuckDB DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
  * @param logger Optional diagnostic log sink passed through to each connection it creates.
+ * @param ggsqlVersion Reads the installed ggsql version; replaced in tests.
  */
 export function createDuckDBDriver(
 	context: vscode.ExtensionContext,
 	dataExplorerHandler: DuckDBDataExplorerRpcHandler,
-	logger?: positron.DataConnectionLogger
+	logger?: positron.DataConnectionLogger,
+	ggsqlVersion: () => string | undefined = installedGgsqlVersion,
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'duckdb.svg');
@@ -242,13 +254,17 @@ export function createDuckDBDriver(
 				case 'ggsql': {
 					// ggsql connects via an `@connect` directive comment rather than executable code.
 					// Forward slashes keep the path portion a valid URI on Windows, where the resolved
-					// path uses backslashes.
+					// path uses backslashes. ggsql passes `access_mode` from the query string to DuckDB, so
+					// a read-only connection shares the file with other read-only connections, such as
+					// the Data Connections pane's -- but only from ggsql 0.5.3 on; see
+					// ggsqlHonorsAccessMode. ggsql never percent-decodes the URI, so it is not encoded.
 					const uriPath = resolveDatabasePath(databasePath, databasePathEnvironment()).replace(/\\/g, '/');
+					const accessMode = readOnly && ggsqlHonorsAccessMode(ggsqlVersion()) ? '?access_mode=read_only' : '';
 					return [
 						{
 							id: 'ggsql',
 							label: 'ggsql',
-							code: `-- @connect: duckdb://${uriPath}`,
+							code: `-- @connect: duckdb://${uriPath}${accessMode}`,
 						},
 					];
 				}
