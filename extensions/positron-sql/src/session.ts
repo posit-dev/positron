@@ -17,7 +17,7 @@ import { SqlLog } from './log';
 import { ConnectionRef, DataConnectionsApi, EMPTY_SCHEMA, SchemaReader, schemaOfProfile, SqlSchema } from './schema';
 import { SchemaIndex } from './schemaIndex';
 import { ConnectionSelection, Donor, EffectiveSelection, resolveSelection } from './selection';
-import { SqlStatementRangeProvider, statementAt } from './statementRange';
+import { selectionQueries, SqlStatementRangeProvider, statementAt, statementsFromLine, statementsToLine } from './statementRange';
 import { AUTOMATIC, ConnectionStatusBar, describeSelection, DialectInUse, explainDataConnectionsOff, pickConnection } from './statusBar';
 
 /** The configuration section every setting this extension reads lives under. */
@@ -43,6 +43,26 @@ const SELECT_CONNECTION_COMMAND = 'sql.selectDataConnection';
  * The statement runs in a ggsql console instead; see `execution.ts`.
  */
 const RUN_STATEMENT_COMMAND = 'sql.runStatement';
+
+/**
+ * The SQL counterparts of the Console's other run commands, on the same keys in a SQL editor:
+ * Execute Code Without Advancing, and Execute Code From Beginning To Current Line and From Current
+ * Line To End. They take those keys over for the same reason {@link RUN_STATEMENT_COMMAND} takes
+ * cmd/ctrl+enter.
+ */
+const RUN_STATEMENT_WITHOUT_ADVANCING_COMMAND = 'sql.runStatementWithoutAdvancing';
+const RUN_TO_CURRENT_LINE_COMMAND = 'sql.runToCurrentLine';
+const RUN_FROM_CURRENT_LINE_COMMAND = 'sql.runFromCurrentLine';
+
+/**
+ * Context key: whether the active editor is a SQL file, wherever focus is.
+ *
+ * Run To/From Current Line also answer their keys from the Console, as the Console's own commands
+ * do for R and Python, so the user can scroll back through results and run again without clicking
+ * back into the file. Neither `editorLangId` (the Console input's, `ggsql`) nor `resourceLangId`
+ * (set only inside the editor area) says what file is active while the Console has focus.
+ */
+const ACTIVE_EDITOR_IS_SQL_KEY = 'sql.activeEditorIsSql';
 
 /** Set when the user asks not to be offered ggsql again; see the `no-runtime` case of a run. */
 const HIDE_GGSQL_INSTALL_KEY = 'sql.hideGgsqlInstallPrompt';
@@ -303,7 +323,14 @@ export class SqlSession implements vscode.Disposable {
 				return this.refreshSchema(true);
 			}),
 			vscode.commands.registerCommand(SELECT_CONNECTION_COMMAND, () => this._selectConnection()),
-			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND, () => this._runStatement()),
+			vscode.commands.registerCommand(RUN_STATEMENT_COMMAND,
+				() => this._runStatement(editor => this._statementToRun(editor, true))),
+			vscode.commands.registerCommand(RUN_STATEMENT_WITHOUT_ADVANCING_COMMAND,
+				() => this._runStatement(editor => this._statementToRun(editor, false))),
+			vscode.commands.registerCommand(RUN_TO_CURRENT_LINE_COMMAND,
+				() => this._runStatement(editor => this._statementsByLine(editor, 'to'))),
+			vscode.commands.registerCommand(RUN_FROM_CURRENT_LINE_COMMAND,
+				() => this._runStatement(editor => this._statementsByLine(editor, 'from'))),
 
 			// The item speaks for the file in front of the user, so it changes with the editor.
 			vscode.window.onDidChangeActiveTextEditor(() => {
@@ -326,8 +353,10 @@ export class SqlSession implements vscode.Disposable {
 				// user does not have to open it by hand before the file works.
 				void this._openConnectionFor(document);
 				// Changing a buffer's language closes and reopens it under the same editor, which
-				// does not change the active editor, so the item is not otherwise told.
+				// does not change the active editor, so the item and the context key are not
+				// otherwise told.
 				this._updateStatusBar();
+				this._updateActiveContext();
 			}),
 			vscode.workspace.onDidChangeTextDocument(event => {
 				// A file saved from an untitled buffer opens empty and receives the buffer's text
@@ -443,6 +472,7 @@ export class SqlSession implements vscode.Disposable {
 			disposable.dispose();
 		}
 		this._links?.dispose();
+		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY, false);
 	}
 
 	/**
@@ -675,8 +705,19 @@ export class SqlSession implements vscode.Disposable {
 		}
 	}
 
+	/**
+	 * Sets {@link ACTIVE_EDITOR_IS_SQL_KEY}. A notebook cell does not count: the Console-focused
+	 * bindings have no notebook guard, and a cell is not a file to run to or from a line of.
+	 */
+	private _updateActiveContext(): void {
+		const editor = activeSqlEditor();
+		void vscode.commands.executeCommand('setContext', ACTIVE_EDITOR_IS_SQL_KEY,
+			editor !== undefined && editor.document.uri.scheme !== 'vscode-notebook-cell');
+	}
+
 	/** Remembers the SQL document now in front of the user, if it is one; see {@link _recentlyActive}. */
 	private _noteActive(): void {
+		this._updateActiveContext();
 		const active = activeSqlDocument()?.uri.toString();
 		if (active && this._recentlyActive.at(-1) !== active) {
 			this._recentlyActive = [...this._recentlyActive.filter(uri => uri !== active), active].slice(-2);
@@ -690,14 +731,16 @@ export class SqlSession implements vscode.Disposable {
 	 * run, making sure the file has said what to run it against, moving the cursor on afterwards,
 	 * and saying what happened when nothing did.
 	 */
-	private async _runStatement(): Promise<void> {
+	private async _runStatement(
+		pick: (editor: vscode.TextEditor) => StatementToRun | undefined,
+	): Promise<void> {
 		const editor = activeSqlEditor();
 		if (!editor || this._running) {
 			// The keybinding is scoped to SQL editors, but the command is still reachable by hand.
 			return;
 		}
 
-		const target = this._statementToRun(editor);
+		const target = pick(editor);
 		if (!target) {
 			// An empty file, or a cursor past the last statement. Nothing to run and nothing to
 			// explain: the user can see there is no statement there.
@@ -717,7 +760,7 @@ export class SqlSession implements vscode.Disposable {
 					return;
 				}
 				connection = chosen;
-				outcome = await this._runner.run(editor.document, connection, target.query);
+				outcome = await this._runner.run(editor.document, connection, target.queries);
 			} catch (error) {
 				// Not one of the outcomes below: an API call failing outright, such as Data
 				// Connections being switched off mid-run. Said here rather than left to surface as
@@ -840,14 +883,18 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
-	 * What cmd+enter runs: the selection if there is one, otherwise the statement at the cursor.
+	 * What cmd+enter (or, without advancing, alt+enter) runs: the selection if there is one,
+	 * otherwise the statement at the cursor.
 	 *
 	 * A selection wins for the same reason it does everywhere else in Positron -- the user has
 	 * said exactly what they mean, including when what they mean is half a statement.
 	 */
-	private _statementToRun(editor: vscode.TextEditor): StatementToRun | undefined {
+	private _statementToRun(editor: vscode.TextEditor, advance: boolean): StatementToRun | undefined {
 		if (!editor.selection.isEmpty) {
-			return { query: editor.document.getText(editor.selection), advance: false };
+			const selected = editor.document.getText(editor.selection);
+			const analyzer = this._require();
+			const statements = analyzer?.statements(selected, this._dialectFor(editor.document)) ?? [];
+			return { queries: selectionQueries(selected, statements), advance: false };
 		}
 
 		const analyzer = this._require();
@@ -860,12 +907,35 @@ export class SqlSession implements vscode.Disposable {
 		if (!statement) {
 			return undefined;
 		}
-		return {
-			query: text.slice(statement.start, statement.end),
-			advance: true,
-			statements,
-			statement,
-		};
+		const queries = [text.slice(statement.start, statement.end)];
+		return advance ? { queries, advance, statements, statement } : { queries, advance };
+	}
+
+	/**
+	 * What running to or from the cursor's line runs: every statement on that side of it,
+	 * whatever is selected, as with the Console's commands. Each runs whole; see
+	 * {@link statementsToLine}.
+	 */
+	private _statementsByLine(editor: vscode.TextEditor, side: 'to' | 'from'): StatementToRun | undefined {
+		const analyzer = this._require();
+		if (!analyzer) {
+			return undefined;
+		}
+		const document = editor.document;
+		const text = document.getText();
+		const statements = analyzer.statements(text, this._dialectFor(document));
+		const line = document.lineAt(editor.selection.active.line).range;
+		const chosen = side === 'to'
+			? statementsToLine(statements, document.offsetAt(line.end))
+			: statementsFromLine(statements, document.offsetAt(line.start));
+		if (chosen.length === 0) {
+			// As the Console's own commands say, rather than a key press that does nothing.
+			void vscode.window.showInformationMessage(side === 'to'
+				? vscode.l10n.t("No SQL statements found up to the current line.")
+				: vscode.l10n.t("No SQL statements found from the current line."));
+			return undefined;
+		}
+		return { queries: chosen.map(statement => text.slice(statement.start, statement.end)), advance: false };
 	}
 
 	/**
@@ -1143,16 +1213,17 @@ function activeSqlEditor(): vscode.TextEditor | undefined {
 }
 
 /**
- * What one cmd+enter runs, and whether the cursor should move on afterwards.
+ * What one run command runs (one statement, or several in order), and whether the cursor should
+ * move on afterwards.
  *
  * The statements around it travel with it so that advancing does not have to parse the document a
  * second time -- and so that it advances by the same reading of it, which matters for a document
  * the user is still editing.
  */
 type StatementToRun =
-	| { readonly query: string; readonly advance: false }
+	| { readonly queries: readonly string[]; readonly advance: false }
 	| {
-		readonly query: string;
+		readonly queries: readonly string[];
 		readonly advance: true;
 		readonly statements: readonly StatementSpan[];
 		readonly statement: StatementSpan;

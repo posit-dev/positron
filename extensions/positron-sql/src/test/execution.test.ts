@@ -52,7 +52,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('gg', SHOP);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -65,7 +65,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.addSession('gg', MEMORY);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed, started: api.started },
@@ -81,8 +81,8 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		const run = runner(api);
 
-		await run.run(await document(), CONNECTION, 'SELECT 1');
-		await run.run(await document(), CONNECTION, 'SELECT 2');
+		await run.run(await document(), CONNECTION, ['SELECT 1']);
+		await run.run(await document(), CONNECTION, ['SELECT 2']);
 
 		assert.deepStrictEqual(
 			{ started: api.started, executed: api.executed },
@@ -90,11 +90,149 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('several statements run one at a time, in order', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2', 'SELECT 3']);
+		await turns();
+
+		assert.deepStrictEqual(
+			{ outcome, executed: api.executed },
+			{
+				outcome: { kind: 'executed', sessionId: 'gg' },
+				executed: [['gg', 'SELECT 1'], ['gg', 'SELECT 2'], ['gg', 'SELECT 3']],
+			},
+		);
+	});
+
+	test('the next statement waits for the one before it to finish', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.statementsSettle = false;
+
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await turns();
+
+		// The run itself does not wait: a long first statement does not hold up the command.
+		assert.deepStrictEqual(
+			{ outcome, executed: api.executed },
+			{ outcome: { kind: 'executed', sessionId: 'gg' }, executed: [['gg', 'SELECT 1']] },
+		);
+	});
+
+	test('a later run waits for an earlier one to send all its statements', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const finishFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2', 'SELECT 3']);
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+		// Not sent between the first run's statements while the first of them is still running.
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+
+		finishFirst();
+		await turns();
+		assert.deepStrictEqual(
+			api.executed,
+			[['gg', 'SELECT 1'], ['gg', 'SELECT 2'], ['gg', 'SELECT 3'], ['gg', 'SELECT 9']],
+		);
+	});
+
+	test('an interrupt drops the runs waiting behind the interrupted one', async () => {
+		// As an interrupt clears the console's queue of what is waiting to run there.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['DELETE FROM t']);
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+		stopFirst(INTERRUPTED);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+	});
+
+	test('a session that exits drops the runs waiting behind the one it was running', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['DELETE FROM t']);
+		await turns();
+		stopFirst(EXITED);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1']]);
+	});
+
+	test('the next run after an interrupt is sent', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		const stopFirst = api.holdStatement('SELECT 1');
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1', 'SELECT 2']);
+		await turns();
+		stopFirst(INTERRUPTED);
+		await turns();
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT 9']]);
+	});
+
+	test('a statement that fails does not drop the run waiting behind it', async () => {
+		// The user asked for that run separately; only the failing run's own statements depend on it.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.failingStatement = 'SELECT * FROM missing';
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT * FROM missing', 'SELECT 2']);
+		await run.run(await document(), CONNECTION, ['SELECT 9']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT * FROM missing'], ['gg', 'SELECT 9']]);
+	});
+
+	test('a single statement does not wait for the one before it to finish', async () => {
+		// The console queues it; only a run with more statements still to send holds the next back.
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.statementsSettle = false;
+		const run = runner(api);
+
+		await run.run(await document(), CONNECTION, ['SELECT 1']);
+		await run.run(await document(), CONNECTION, ['SELECT 2']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT 2']]);
+	});
+
+	test('a statement that fails stops the ones after it', async () => {
+		const api = new FakeApi();
+		api.addSession('gg', SHOP);
+		api.failingStatement = 'SELECT * FROM missing';
+
+		await runner(api).run(await document(), CONNECTION, ['SELECT 1', 'SELECT * FROM missing', 'SELECT 3']);
+		await turns();
+
+		assert.deepStrictEqual(api.executed, [['gg', 'SELECT 1'], ['gg', 'SELECT * FROM missing']]);
+	});
+
 	test('a notebook session on the database is passed over', async () => {
 		const api = new FakeApi();
 		api.addSession('nb', SHOP, positron.LanguageRuntimeSessionMode.Notebook);
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
 	});
@@ -103,7 +241,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -117,7 +255,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'new-1' });
 	});
@@ -128,8 +266,8 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'connect-reported-late';
 
-		await runner(api).run(await document(), CONNECTION, 'SELECT 1');
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 2');
+		await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 2']);
 
 		assert.deepStrictEqual({ outcome, started: api.started }, { outcome: { kind: 'executed', sessionId: 'new-1' }, started: 1 });
 	});
@@ -139,7 +277,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'unreported';
 
-		const outcome = await runner(api, 10).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api, 10).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, executed: api.executed },
@@ -153,7 +291,7 @@ suite('StatementRunner', () => {
 		api.startCode = undefined;
 		api.onConnect = 'fail';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'connect-failed' });
 	});
@@ -164,7 +302,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.onConnect = 'exit';
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'exited' });
 	});
@@ -175,7 +313,7 @@ suite('StatementRunner', () => {
 		api.addSession('gg', SHOP);
 		api.statementsSettle = false;
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'executed', sessionId: 'gg' });
 	});
@@ -184,7 +322,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.connectCode = { kind: 'unsupported' };
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(
 			{ outcome, started: api.started, executed: api.executed },
@@ -196,7 +334,7 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.runtime = undefined;
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'no-runtime' });
 	});
@@ -205,14 +343,25 @@ suite('StatementRunner', () => {
 		const api = new FakeApi();
 		api.startError = new Error('kernel died');
 
-		const outcome = await runner(api).run(await document(), CONNECTION, 'SELECT 1');
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
 
 		assert.deepStrictEqual(outcome, { kind: 'not-started', reason: 'kernel died' });
 	});
 });
 
+/** How the runtime API ends an execution the user interrupted. */
+const INTERRUPTED = { name: 'Interrupted', message: 'The user interrupted the code execution.' };
+
+/** How the runtime API ends an execution in a session that exited. */
+const EXITED = { name: 'Interrupted', message: 'The session exited unexpectedly.' };
+
 function runner(api: ExecutionApi, reportTimeoutMs?: number): StatementRunner {
 	return new StatementRunner(api, testLog().log, reportTimeoutMs);
+}
+
+/** Lets statements the runner sends without waiting go out. */
+function turns(): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 function document(): Thenable<vscode.TextDocument> {
@@ -252,6 +401,25 @@ class FakeApi implements ExecutionApi {
 
 	/** Whether the user's statements finish. */
 	public statementsSettle = true;
+
+	/** A statement that fails when it runs, as one with an error in it does. */
+	public failingStatement: string | undefined;
+
+	private readonly _held = new Map<string, Promise<void>>();
+
+	/**
+	 * Makes a statement run until the returned function is called, as a long query does. Called
+	 * with an error, the statement ends with it, as an interrupted one does.
+	 */
+	public holdStatement(code: string): (error?: unknown) => void {
+		let finish!: () => void;
+		let fail!: (error: unknown) => void;
+		this._held.set(code, new Promise<void>((resolve, reject) => {
+			finish = resolve;
+			fail = reject;
+		}));
+		return error => error === undefined ? finish() : fail(error);
+	}
 
 	public readonly executed: [string, string][] = [];
 	public started = 0;
@@ -311,6 +479,13 @@ class FakeApi implements ExecutionApi {
 	executeCode(code: string, sessionId: string): Thenable<unknown> {
 		this.executed.push([sessionId, code]);
 		if (!code.startsWith('-- @connect: ')) {
+			if (code === this.failingStatement) {
+				return Promise.reject(new Error('Catalog Error: no such table'));
+			}
+			const held = this._held.get(code);
+			if (held) {
+				return held;
+			}
 			return this.statementsSettle ? Promise.resolve() : new Promise(() => { });
 		}
 		switch (this.onConnect) {
