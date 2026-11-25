@@ -399,7 +399,7 @@ jobs:
         id: claude
         # No dependency install runs in this job; leave Claude time for larger edits.
         timeout-minutes: 30
-        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        uses: anthropics/claude-code-action@469588f42e6b1e94cd14ad09dccfeaec772ce0fd # v1.0.280
         env:
           ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
           ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
@@ -660,7 +660,7 @@ jobs:
       - name: Run Claude Code Action
         id: claude
         timeout-minutes: 40
-        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        uses: anthropics/claude-code-action@469588f42e6b1e94cd14ad09dccfeaec772ce0fd # v1.0.280
         env:
           ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
           ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
