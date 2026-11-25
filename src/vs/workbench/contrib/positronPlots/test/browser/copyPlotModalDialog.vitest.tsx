@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { act, screen } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { userEvent, UserEvent } from '@testing-library/user-event';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { mainWindow } from '../../../../../base/browser/window.js';
@@ -20,7 +20,7 @@ import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/co
 import { IOneTimeRender, IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
-import { getCopyPixelRatio, showCopyPlotModalDialog } from '../../browser/modalDialogs/copyPlotModalDialog.js';
+import { showCopyPlotModalDialog } from '../../browser/modalDialogs/copyPlotModalDialog.js';
 
 class FakeRender implements IOneTimeRender {
 	readonly result = new DeferredPromise<IRenderedPlot>();
@@ -71,19 +71,26 @@ describe('Copy Plot dialog', () => {
 		return { client, renderOnce };
 	}
 
-	async function open(options: { lastRenderSize?: IPlotSize; intrinsicSize?: IntrinsicSize; keepRatio?: boolean } = {}) {
+	async function open(options: { lastRenderSize?: IPlotSize; intrinsicSize?: IntrinsicSize; keepRatio?: boolean; resolution?: number } = {}) {
 		const { client, renderOnce } = createClient('lastRenderSize' in options ? options.lastRenderSize : { width: 700, height: 500 }, options.intrinsicSize);
 		const onCopy = vi.fn(async (_uri: string) => { });
 		const onKeepRatioChange = vi.fn();
-		showCopyPlotModalDialog({ plotClient: client, keepRatio: options.keepRatio ?? false, onKeepRatioChange, onCopy });
+		const onResolutionChange = vi.fn();
+		showCopyPlotModalDialog({ plotClient: client, keepRatio: options.keepRatio ?? false, onKeepRatioChange, resolution: options.resolution, onResolutionChange, onCopy });
 		// The modal renderer mounts the dialog asynchronously.
 		expect(await screen.findByRole('button', { name: 'Copy' })).toBeInTheDocument();
-		return { renderOnce, onCopy, onKeepRatioChange, user: userEvent.setup() };
+		return { renderOnce, onCopy, onKeepRatioChange, onResolutionChange, user: userEvent.setup() };
 	}
 
 	const copyButton = () => screen.queryByRole('button', { name: 'Copy' });
 	const widthInput = () => screen.getByRole('spinbutton', { name: 'Width' });
 	const heightInput = () => screen.getByRole('spinbutton', { name: 'Height' });
+	const resolutionButton = () => screen.getByRole('button', { name: 'Resolution' });
+
+	async function pickResolution(user: UserEvent, entry: string) {
+		await user.click(resolutionButton());
+		await user.click(await screen.findByRole('button', { name: entry }));
+	}
 
 	it('opens at the last render size', async () => {
 		await open();
@@ -103,6 +110,16 @@ describe('Copy Plot dialog', () => {
 		expect(heightInput()).toHaveValue(480);
 	});
 
+	it('does not draw on open when the last render is the opening size', async () => {
+		const { renderOnce } = await open();
+		expect(renderOnce).not.toHaveBeenCalled();
+	});
+
+	it('draws a preview on open when the opening size is not the last render size', async () => {
+		const { renderOnce } = await open({ lastRenderSize: undefined });
+		expect(renderOnce).toHaveBeenCalledWith({ width: 640, height: 480 }, 1);
+	});
+
 	it.each([
 		['a last render below the minimum', { lastRenderSize: { width: 50, height: 400 } }],
 		['a last render of zero', { lastRenderSize: { width: 0, height: 0 } }],
@@ -112,6 +129,65 @@ describe('Copy Plot dialog', () => {
 		expect(widthInput()).toHaveValue(640);
 		expect(heightInput()).toHaveValue(480);
 		expect(copyButton()).toBeEnabled();
+	});
+
+	describe('on a 2x screen', () => {
+		const original = Object.getOwnPropertyDescriptor(mainWindow, 'devicePixelRatio')!;
+		beforeEach(() => {
+			Object.defineProperty(mainWindow, 'devicePixelRatio', { configurable: true, value: 2 });
+		});
+		afterEach(() => {
+			Object.defineProperty(mainWindow, 'devicePixelRatio', original);
+		});
+
+		it('caps the size so the drawn copy stays within 10000 px', async () => {
+			const { user } = await open();
+			await user.clear(widthInput());
+			await user.type(widthInput(), '5001');
+			await user.keyboard('{Enter}');
+			expect(widthInput()).toHaveAccessibleDescription('Enter at most 5000 px.');
+			expect(copyButton()).toBeDisabled();
+		});
+
+		it('starts at 2x and copies at it', async () => {
+			const { renderOnce, onResolutionChange, user } = await open();
+			expect(resolutionButton()).toHaveTextContent('2x');
+			await user.click(copyButton()!);
+			expect(renderOnce).toHaveBeenCalledWith({ width: 700, height: 500 }, 2);
+			expect(onResolutionChange).not.toHaveBeenCalled();
+		});
+
+		it('picking 1x copies at 1x, raises the cap, and reports the pick', async () => {
+			const { renderOnce, onResolutionChange, user } = await open();
+			await pickResolution(user, '1x');
+			expect(onResolutionChange).toHaveBeenCalledWith(1);
+
+			await user.clear(widthInput());
+			await user.type(widthInput(), '5001');
+			await user.keyboard('{Enter}');
+			expect(widthInput()).not.toHaveAccessibleDescription();
+			expect(renderOnce).toHaveBeenLastCalledWith({ width: 5001, height: 500 }, 1);
+		});
+
+		it('redraws for copy when the preview was drawn at another resolution', async () => {
+			const { renderOnce, onCopy, user } = await open();
+			await user.clear(widthInput());
+			await user.type(widthInput(), '800{Enter}');
+			await act(async () => renders[0].result.complete({ ...rendered({ width: 800, height: 500 }, 'preview-2x'), pixel_ratio: 2 }));
+
+			await pickResolution(user, '1x');
+			await user.click(copyButton()!);
+
+			expect(renderOnce).toHaveBeenLastCalledWith({ width: 800, height: 500 }, 1);
+			await act(async () => renders[1].result.complete(rendered({ width: 800, height: 500 }, 'copy-1x')));
+			await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('copy-1x'));
+		});
+
+		it('opens at 640 x 480 for a last render above the cap', async () => {
+			await open({ lastRenderSize: { width: 6000, height: 4000 } });
+			expect(widthInput()).toHaveValue(640);
+			expect(heightInput()).toHaveValue(480);
+		});
 	});
 
 	it('copy uses the preview when it matches', async () => {
@@ -152,7 +228,7 @@ describe('Copy Plot dialog', () => {
 		await user.click(copyButton()!);
 
 		expect(renderOnce).toHaveBeenCalledOnce();
-		expect(renderOnce).toHaveBeenCalledWith({ width: 500, height: 400 }, getCopyPixelRatio(mainWindow));
+		expect(renderOnce).toHaveBeenCalledWith({ width: 500, height: 400 }, 1);
 		await act(async () => renders[0].result.complete(rendered({ width: 500, height: 400 }, 'typed')));
 		await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('typed'));
 	});
@@ -161,7 +237,7 @@ describe('Copy Plot dialog', () => {
 		const { renderOnce, onCopy, user } = await open();
 
 		await user.click(copyButton()!);
-		expect(renderOnce).toHaveBeenCalledWith({ width: 700, height: 500 }, getCopyPixelRatio(mainWindow));
+		expect(renderOnce).toHaveBeenCalledWith({ width: 700, height: 500 }, 1);
 		await act(async () => renders[0].result.complete(rendered({ width: 700, height: 500 }, 'drawn')));
 
 		await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('drawn'));
@@ -174,20 +250,46 @@ describe('Copy Plot dialog', () => {
 		await user.click(copyButton()!);
 		await act(async () => renders[0].result.error(new Error('kernel went away')));
 
-		await vi.waitFor(() => expect(notifyError).toHaveBeenCalled());
+		// The runtime's error (often a backtrace) stays out of the toast.
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('Error copying plot: The plot could not be drawn at 700 x 500.'));
 		expect(onCopy).not.toHaveBeenCalled();
 		expect(copyButton()).toBeEnabled();
+	});
+
+	it('a failed copy of an in-flight preview does not draw that size again', async () => {
+		const { renderOnce, user } = await open();
+		await user.clear(widthInput());
+		await user.type(widthInput(), '800');
+		await vi.waitFor(() => expect(renderOnce).toHaveBeenCalledOnce());
+
+		await user.click(copyButton()!);
+		await act(async () => renders[0].result.error(new Error('too big')));
+
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalled());
+		expect(renderOnce).toHaveBeenCalledOnce();
 	});
 
 	it('a draw cancelled because the plot closed shows no error', async () => {
 		const { onCopy, user } = await open();
 
 		await user.click(copyButton()!);
+		act(() => closeEmitter.fire());
 		await act(async () => renders[0].result.error(new CancellationError()));
 
-		await vi.waitFor(() => expect(copyButton()).toBeEnabled());
+		await vi.waitFor(() => expect(copyButton()).toBeDisabled());
 		expect(notifyError).not.toHaveBeenCalled();
 		expect(onCopy).not.toHaveBeenCalled();
+	});
+
+	it('a draw cancelled while the plot stays open, e.g. the console exited, shows an error', async () => {
+		const { onCopy, user } = await open();
+
+		await user.click(copyButton()!);
+		await act(async () => renders[0].result.error(new CancellationError()));
+
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('Error copying plot: The plot was not drawn because the draw was cancelled.'));
+		expect(onCopy).not.toHaveBeenCalled();
+		expect(copyButton()).toBeEnabled();
 	});
 
 	it('copy is disabled for an invalid size', async () => {
@@ -200,6 +302,15 @@ describe('Copy Plot dialog', () => {
 	it('copy is disabled when the plot is unavailable', async () => {
 		await open();
 		act(() => closeEmitter.fire());
+		expect(copyButton()).toBeDisabled();
+	});
+
+	it('starts at the remembered resolution and caps the size by it', async () => {
+		const { user } = await open({ resolution: 3 });
+		expect(resolutionButton()).toHaveTextContent('3x');
+		await user.clear(widthInput());
+		await user.type(widthInput(), '3334{Enter}');
+		expect(widthInput()).toHaveAccessibleDescription('Enter at most 3333 px.');
 		expect(copyButton()).toBeDisabled();
 	});
 
@@ -229,6 +340,16 @@ describe('Copy Plot dialog', () => {
 
 		await vi.waitFor(() => expect(onCopy).toHaveBeenCalledWith('resized'));
 		expect(renderOnce).toHaveBeenCalledOnce();
+	});
+
+	it('Enter on Cancel closes without copying', async () => {
+		const { renderOnce, onCopy, user } = await open();
+		screen.getByRole('button', { name: 'Cancel' }).focus();
+		await user.keyboard('{Enter}');
+
+		await vi.waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+		expect(renderOnce).not.toHaveBeenCalled();
+		expect(onCopy).not.toHaveBeenCalled();
 	});
 
 	it('Enter outside the size boxes copies', async () => {

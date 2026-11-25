@@ -5,7 +5,9 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 import { Emitter } from '../../../../../base/common/event.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IOneTimeRender, IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { usePlotPreview } from '../../browser/modalDialogs/usePlotPreview.js';
@@ -19,7 +21,7 @@ class FakeRender implements IOneTimeRender {
 	get started() { return this.startedDeferred.p; }
 }
 
-const plot = (width: number, height: number) => ({ size: { width, height }, pixel_ratio: 1, uri: `u${width}` }) as IRenderedPlot;
+const plot = (width: number, height: number): IRenderedPlot => ({ size: { width, height }, pixel_ratio: 1, uri: `u${width}`, renderTimeMs: 0 });
 
 describe('usePlotPreview', () => {
 	const closeEmitter = new Emitter<void>();
@@ -28,14 +30,14 @@ describe('usePlotPreview', () => {
 
 	beforeEach(() => {
 		renders = [];
-		client = {
+		client = stubInterface<PlotClientInstance>({
 			onDidClose: closeEmitter.event,
 			renderOnce: vi.fn(() => {
 				const r = new FakeRender();
 				renders.push(r);
 				return r;
 			}),
-		} as unknown as PlotClientInstance;
+		});
 	});
 
 	it('starts waiting then drawing then idle', async () => {
@@ -103,6 +105,20 @@ describe('usePlotPreview', () => {
 		expect(renders).toHaveLength(1);
 	});
 
+	it('redraws the shown size at a new pixel ratio', async () => {
+		const { result, rerender } = renderHook(({ ratio }) => usePlotPreview(client, ratio), { initialProps: { ratio: 1 } });
+		act(() => result.current.request({ width: 200, height: 100 }));
+		await act(async () => {
+			renders[0].startedDeferred.complete();
+			renders[0].result.complete(plot(200, 100));
+		});
+
+		rerender({ ratio: 2 });
+		act(() => result.current.request({ width: 200, height: 100 }));
+		expect(renders).toHaveLength(2);
+		expect(client.renderOnce).toHaveBeenLastCalledWith({ width: 200, height: 100 }, 2);
+	});
+
 	it('becomes unavailable when the plot closes', async () => {
 		const { result } = renderHook(() => usePlotPreview(client, 1));
 		act(() => result.current.request({ width: 200, height: 100 }));
@@ -121,6 +137,15 @@ describe('usePlotPreview', () => {
 		act(() => result.current.request({ width: 200, height: 100 }));
 		unmount();
 		expect(renders[0].cancel).toHaveBeenCalled();
+	});
+
+	it('does not report a cancelled render as a failure', async () => {
+		const { result } = renderHook(() => usePlotPreview(client, 1));
+		act(() => result.current.request({ width: 200, height: 100 }));
+		await act(async () => { void renders[0].result.error(new CancellationError()); });
+		expect(result.current.status).toBe('idle');
+		expect(result.current.failed).toBe(false);
+		expect(result.current.pending).toBeUndefined();
 	});
 
 	it('reports a failed render and clears it on the next request', async () => {

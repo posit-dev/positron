@@ -30,10 +30,12 @@ test.describe('Plots: Copy Plot at Custom Size', {
 
 		await plots.copyCurrentPlotAtCustomSize({ width: 500, height: 400 });
 
+		// The dialog starts at the smallest default resolution (1x, 2x, 3x) at least the screen's.
 		const ratio = await plots.getDevicePixelRatio();
+		const resolution = [1, 2, 3].find(r => r >= ratio) ?? 3;
 		await expect.poll(() => clipboard.getClipboardImageSize()).toEqual({
-			width: Math.round(500 * ratio),
-			height: Math.round(400 * ratio)
+			width: 500 * resolution,
+			height: 400 * resolution
 		});
 		expect(await plots.getCurrentPlotSrc()).toBe(srcBefore);
 	};

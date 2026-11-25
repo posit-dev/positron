@@ -320,7 +320,7 @@ export class PlotsCopyAtCustomSizeAction extends AbstractPlotsAction {
 	constructor() {
 		super({
 			id: PlotsCopyAtCustomSizeAction.ID,
-			title: localize2('positronPlots.copyPlotAtCustomSize', 'Copy Plot at Custom Size'),
+			title: localize2('positron.plots.copyPlotAtCustomSize', 'Copy Plot at Custom Size'),
 			category,
 			f1: true,
 		});
@@ -576,7 +576,7 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 
 	/** The split Copy button in the editor tab, shown only for dynamic plots. */
 	static readonly SUBMENU_ITEM: ISubmenuItem = {
-		title: localize2('positronPlots.copySubMenuTitle', 'Copy the plot'),
+		title: localize2('positron.plots.copySubMenuTitle', 'Copy the plot'),
 		submenu: PlotsActiveEditorCopyAction.SUBMENU_ID,
 		isSplitButton: true,
 		when: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
@@ -606,7 +606,7 @@ export class PlotsActiveEditorCopyAtCustomSizeAction extends Action2 {
 	constructor() {
 		super({
 			id: PlotsActiveEditorCopyAtCustomSizeAction.ID,
-			title: localize2('positronPlots.editorCopyPlotAtCustomSize', 'Copy Plot at Custom Size...'),
+			title: localize2('positron.plots.editorCopyPlotAtCustomSize', 'Copy Plot at Custom Size...'),
 			category,
 			f1: false, // do not show in the command palette
 			precondition: DYNAMIC_PLOT_IS_ACTIVE_EDITOR,
@@ -672,7 +672,7 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 /** Action to change the plot's sizing policy */
 export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 	static ID = 'workbench.action.positronPlots.sizingPolicy';
-	sizingPicker?: IQuickPick<IQuickPickItem, any>;
+	sizingPicker?: IQuickPick<IQuickPickItem>;
 
 	constructor() {
 		super({

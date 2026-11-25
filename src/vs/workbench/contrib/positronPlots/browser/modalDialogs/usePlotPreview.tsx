@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IOneTimeRender, IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
@@ -11,6 +12,7 @@ import { PlotPreviewStatus } from './plotSizeEditor.js';
 
 export interface IPendingPreview {
 	size: IPlotSize;
+	pixelRatio: number;
 	render: IOneTimeRender;
 }
 
@@ -66,11 +68,12 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 		if (closedRef.current) {
 			return;
 		}
-		const same = (a?: IPlotSize) => !!a && a.width === size.width && a.height === size.height;
-		if (same(pendingRef.current?.size)) {
+		const same = (a: IPlotSize | undefined, ratio: number | undefined) =>
+			!!a && a.width === size.width && a.height === size.height && ratio === pixelRatio;
+		if (same(pendingRef.current?.size, pendingRef.current?.pixelRatio)) {
 			return;
 		}
-		if (same(previewRef.current?.size)) {
+		if (same(previewRef.current?.size, previewRef.current?.pixel_ratio)) {
 			// The wanted size is already shown: drop any other pending draw or failure.
 			if (pendingRef.current) {
 				cancelPending();
@@ -83,7 +86,7 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 		cancelPending();
 
 		const render = plotClient.renderOnce(size, pixelRatio);
-		const entry: IPendingPreview = { size, render };
+		const entry: IPendingPreview = { size, pixelRatio, render };
 		setPendingBoth(entry);
 		setStatus('waiting');
 
@@ -103,12 +106,16 @@ export function usePlotPreview(plotClient: PlotClientInstance, pixelRatio: numbe
 				setPendingBoth(undefined);
 				setStatus('idle');
 				setFailed(false);
-			} catch {
-				// Cancelled (replaced or closed) renders are ignored.
+			} catch (error) {
+				// A replaced or closed render is ignored. Another cancel (e.g. the console exited) is not a size failure.
 				if (pendingRef.current === entry) {
 					setPendingBoth(undefined);
-					setStatus('failed');
-					setFailed(true);
+					if (isCancellationError(error)) {
+						setStatus('idle');
+					} else {
+						setStatus('failed');
+						setFailed(true);
+					}
 				}
 			}
 		};

@@ -21,10 +21,11 @@ export type PlotSizeError = 'empty' | 'tooSmall' | 'tooLarge';
 /**
  * Parses a typed plot dimension.
  * @param text The text in a size box.
+ * @param max The largest valid value.
  * @returns The value in whole pixels, or undefined for empty or non-numeric text. The error is
  * set when the text is not a valid size; an out of range value is still returned.
  */
-export function parsePlotDimension(text: string): { value?: number; error?: PlotSizeError } {
+export function parsePlotDimension(text: string, max = MAX_PLOT_SIZE): { value?: number; error?: PlotSizeError } {
 	const trimmed = text.trim();
 	const parsed = Number(trimmed);
 	if (trimmed === '' || !Number.isFinite(parsed)) {
@@ -34,7 +35,7 @@ export function parsePlotDimension(text: string): { value?: number; error?: Plot
 	if (value < MIN_PLOT_SIZE) {
 		return { value, error: 'tooSmall' };
 	}
-	if (value > MAX_PLOT_SIZE) {
+	if (value > max) {
 		return { value, error: 'tooLarge' };
 	}
 	return { value };
@@ -43,10 +44,11 @@ export function parsePlotDimension(text: string): { value?: number; error?: Plot
 /**
  * Gets the largest size a drag can reach, which leaves room for the dialog around the plot.
  * @param container The size of the window or element the dialog is in.
+ * @param max The largest plot size.
  * @returns The largest size, within the plot size limits.
  */
-export function maxDragSize(container: { width: number; height: number }): IPlotSize {
-	const clamp = (value: number) => Math.min(MAX_PLOT_SIZE, Math.max(MIN_PLOT_SIZE, value));
+export function maxDragSize(container: { width: number; height: number }, max = MAX_PLOT_SIZE): IPlotSize {
+	const clamp = (value: number) => Math.min(max, Math.max(MIN_PLOT_SIZE, value));
 	return { width: clamp(container.width - 100), height: clamp(container.height - 200) };
 }
 

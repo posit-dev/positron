@@ -100,6 +100,7 @@ const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
 /** Whether the Copy Plot dialog keeps the aspect ratio. */
 const CopyKeepAspectRatioStorageKey = 'positronPlots.copyKeepAspectRatio';
+const CopyResolutionStorageKey = 'positronPlots.copyResolution';
 
 /** The config key used to store the dark mode setting */
 const OldDarkFilterModeConfigKey = 'positron.plots.darkFilter';
@@ -1739,8 +1740,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plotClient: plot,
 			keepRatio: this._storageService.getBoolean(CopyKeepAspectRatioStorageKey, StorageScope.PROFILE, true),
 			onKeepRatioChange: keepRatio => this._storageService.store(CopyKeepAspectRatioStorageKey, keepRatio, StorageScope.PROFILE, StorageTarget.USER),
+			// Only a picked resolution is stored; the default follows the screen the dialog opens on.
+			resolution: this._storageService.getNumber(CopyResolutionStorageKey, StorageScope.PROFILE),
+			onResolutionChange: resolution => this._storageService.store(CopyResolutionStorageKey, resolution, StorageScope.PROFILE, StorageTarget.USER),
 			// writeImage requires base64, while SVG plot URIs are URL-encoded.
-			onCopy: uri => this._clipboardService.writeImage(toBase64ImageDataUrl(uri)),
+			onCopy: async uri => {
+				await this._clipboardService.writeImage(toBase64ImageDataUrl(uri));
+				this._notificationService.info(localize('positronPlots.plotCopied', 'Plot copied to clipboard.'));
+			},
 			container,
 		});
 	}

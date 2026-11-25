@@ -55,6 +55,16 @@ describe('PositronPlotsService - copy at custom size', () => {
 		expect(lastOptions().keepRatio).toBe(false);
 	});
 
+	it('remembers only a picked resolution', () => {
+		addDynamicPlot('p1');
+		plotsService.copyEditorPlotAtCustomSize('p1');
+		expect(lastOptions().resolution).toBeUndefined();
+
+		lastOptions().onResolutionChange(3);
+		plotsService.copyEditorPlotAtCustomSize('p1');
+		expect(lastOptions().resolution).toBe(3);
+	});
+
 	it('copies the drawn image to the clipboard as base64', async () => {
 		addDynamicPlot('p1');
 		plotsService.copyEditorPlotAtCustomSize('p1');
@@ -62,6 +72,7 @@ describe('PositronPlotsService - copy at custom size', () => {
 		await lastOptions().onCopy('data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E');
 
 		expect(writeImage).toHaveBeenCalledWith(`data:image/svg+xml;base64,${btoa('<svg></svg>')}`);
+		expect(notifyInfo).toHaveBeenCalledWith('Plot copied to clipboard.');
 	});
 
 	it('shows a message for a plot that cannot be redrawn', () => {

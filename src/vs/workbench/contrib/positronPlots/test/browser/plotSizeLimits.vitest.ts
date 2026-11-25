@@ -23,6 +23,11 @@ describe('plotSizeLimits', () => {
 			expect(parsePlotDimension('10000')).toEqual({ value: 10000 });
 		});
 
+		it('rejects sizes above a lower maximum', () => {
+			expect(parsePlotDimension('5000', 5000)).toEqual({ value: 5000 });
+			expect(parsePlotDimension('5001', 5000).error).toBe('tooLarge');
+		});
+
 		it('floors decimals to whole pixels', () => {
 			expect(parsePlotDimension(' 640.9 ')).toEqual({ value: 640 });
 		});
@@ -31,6 +36,10 @@ describe('plotSizeLimits', () => {
 	describe('maxDragSize', () => {
 		it('leaves a margin around the container', () => {
 			expect(maxDragSize({ width: 1200, height: 900 })).toEqual({ width: 1100, height: 700 });
+		});
+
+		it('is never above the maximum', () => {
+			expect(maxDragSize({ width: 20000, height: 20000 }, 5000)).toEqual({ width: 5000, height: 5000 });
 		});
 
 		it('is never below the minimum size', () => {
