@@ -24,18 +24,7 @@ import { arePointsForPlot, IPlotLocator, IPlotLocatorPoints, isLocatorForPlot } 
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showWindowLogActionId } from '../../../../services/log/common/logConstants.js';
-
-// Errors R raises when the plot area is too small for the plot's margins (#8049).
-// R reported these in English under every language tried (de, fr, ja, es).
-const PLOT_TOO_SMALL_ERRORS = [
-	'invalid graphics state',
-	'figure margins too large',
-	'figure region too large',
-	'plot region too large',
-];
-
-const isPlotTooSmallError = (message: string) =>
-	PLOT_TOO_SMALL_ERRORS.some(error => message.includes(error));
+import { JsonRpcErrorCode } from '../../../../services/languageRuntime/common/positronBaseComm.js';
 
 /**
  * A failed render: whether it failed because the plot area is too small.
@@ -222,7 +211,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			const policyName = policy.getName(props.plotClient);
 			services.logService.warn(`Error rendering plot to '${policyName}' size: ${e.message}${e.code !== undefined ? ` (${e.code})` : ''}`);
 			const renderError: RenderError = {
-				tooSmall: isPlotTooSmallError(String(e.message)),
+				tooSmall: e.code === JsonRpcErrorCode.PlotTooSmall,
 				customSize: policy instanceof PlotSizingPolicyCustom ? policyName : undefined,
 			};
 			setError(renderError);

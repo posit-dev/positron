@@ -4,16 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, type RefObject } from 'react';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { shiftWheelToHorizontal } from '../../../../../base/common/positronWheel.js';
 
 /**
  * Forwards wheel events from `sourceRef` to `targetRef` so that scrolling
  * works even when the cursor is over an overlay like an action bar.
  * Only prevents default if the scroll position actually changed, so that
  * parent scrolling kicks in at boundaries.
+ * @param sourceRef The element whose wheel events are forwarded.
+ * @param targetRef The scrollable element that receives them.
+ * @param isMac Whether the platform is macOS, which decides how shift + wheel is converted.
+ * Defaults to the current platform.
  */
 export function useWheelForwarding(
 	sourceRef: RefObject<HTMLElement | null>,
 	targetRef: RefObject<HTMLElement | null>,
+	isMac: boolean = isMacintosh,
 ) {
 	useEffect(() => {
 		const source = sourceRef.current;
@@ -25,8 +32,11 @@ export function useWheelForwarding(
 			if (scrollable) {
 				const prevTop = scrollable.scrollTop;
 				const prevLeft = scrollable.scrollLeft;
-				scrollable.scrollTop += e.deltaY;
-				scrollable.scrollLeft += e.deltaX;
+				// The source is outside the target, so the browser's own shift + wheel conversion
+				// would not reach the target.
+				const { deltaX, deltaY } = shiftWheelToHorizontal(e, isMac);
+				scrollable.scrollTop += deltaY;
+				scrollable.scrollLeft += deltaX;
 				if (scrollable.scrollTop !== prevTop || scrollable.scrollLeft !== prevLeft) {
 					e.preventDefault();
 				}
@@ -34,5 +44,5 @@ export function useWheelForwarding(
 		};
 		source.addEventListener('wheel', handleWheel, { passive: false });
 		return () => source.removeEventListener('wheel', handleWheel);
-	}, [sourceRef, targetRef]);
+	}, [sourceRef, targetRef, isMac]);
 }

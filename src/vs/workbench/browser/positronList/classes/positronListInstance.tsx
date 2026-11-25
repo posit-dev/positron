@@ -90,6 +90,12 @@ type PositronListItemOptions<TItem> = {
 
 	// The item row height.
 	readonly itemHeight: number;
+
+	// Returns a key that identifies an item across setEntries calls. When supplied, setEntries
+	// keeps the selection and the cursor on the same items by key instead of by row index, so a
+	// refresh that adds, removes, or reorders items does not move them onto different items. Keys
+	// must be unique within the list.
+	readonly getItemKey?: (item: TItem) => string;
 };
 
 /**
@@ -143,6 +149,9 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	// in this array.
 	private _entries: readonly ListEntry<TItem, TSection>[] = [];
 
+	// Identifies an item across setEntries calls, if the list was given a key function.
+	private readonly _getItemKey: ((item: TItem) => string) | undefined;
+
 	// The current item renderer.
 	private _itemRenderer: PositronListItemRenderer<TItem>;
 
@@ -190,6 +199,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 
 		// Store the item configuration. All lists have items.
 		this._itemRenderer = options.itemRenderer;
+		this._getItemKey = options.getItemKey;
 
 		// Store the section configuration. Not all lists have sections.
 		this._sectionRenderer = options.sectionRenderer;
@@ -206,9 +216,19 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	 * Replaces the entries rendered by the list. Item rows use the configured item height; section
 	 * rows use the configured section height, applied as sparse layout size overrides so the layout
 	 * stays fast even for very large lists.
+	 *
+	 * When the list has a getItemKey function, the selected items and the cursor item are found
+	 * again in the new entries by key, and the selection and cursor move with them. Selected items
+	 * that are gone are dropped from the selection, and a cursor item that is gone keeps its row
+	 * index (clamped to the new entries). Without getItemKey, the selection and cursor stay at
+	 * their row indexes.
 	 * @param entries The new entries.
 	 */
 	setEntries(entries: readonly ListEntry<TItem, TSection>[]): void {
+		// Capture what to carry over, by key, before the entries change.
+		const carriedSelectedKeys = this.getSelectedKeys();
+		const carriedCursorKey = this.getKeyAtRow(this.cursorRowIndex);
+
 		// Clear the size overrides registered for the previous entries' section rows.
 		this._rowLayoutManager.clearSizeOverrides();
 
@@ -238,6 +258,32 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		// which would render an empty viewport.
 		if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
 			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+		}
+
+		// Put the cursor and the selection back on the carried items that are still present, in one
+		// pass over the new entries. The row selection is replaced in one step, so subscribers
+		// never see an empty selection in between.
+		if (this._getItemKey && (carriedCursorKey !== undefined || carriedSelectedKeys.size > 0)) {
+			let cursorRowIndex: number | undefined;
+			const selectedRowIndexes: number[] = [];
+			for (let rowIndex = 0; rowIndex < entries.length; rowIndex++) {
+				const key = this.getKeyAtRow(rowIndex);
+				if (key === undefined) {
+					continue;
+				}
+				if (key === carriedCursorKey) {
+					cursorRowIndex = rowIndex;
+				}
+				if (carriedSelectedKeys.has(key)) {
+					selectedRowIndexes.push(rowIndex);
+				}
+			}
+			if (cursorRowIndex !== undefined) {
+				this.setCursorRow(cursorRowIndex);
+			}
+			if (carriedSelectedKeys.size > 0) {
+				this.selectRows(selectedRowIndexes);
+			}
 		}
 
 		// Keep the cursor within the new entries. When the entries shrink past the cursor, move it
@@ -316,6 +362,39 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Gets the key of the item at a row, or undefined when the list has no key function or the row
+	 * is not an item.
+	 * @param rowIndex The row index.
+	 */
+	private getKeyAtRow(rowIndex: number): string | undefined {
+		const entry = this._entries[rowIndex];
+		return this._getItemKey && entry?.kind === 'item' ? this._getItemKey(entry.item) : undefined;
+	}
+
+	/**
+	 * Gets the keys of the selected items. Empty when the list has no key function.
+	 */
+	private getSelectedKeys(): Set<string> {
+		const keys = new Set<string>();
+		if (!this._getItemKey) {
+			return keys;
+		}
+		for (let rowIndex = 0; rowIndex < this._entries.length; rowIndex++) {
+			if (this.rowSelectionState(rowIndex) !== RowSelectionState.None) {
+				const key = this.getKeyAtRow(rowIndex);
+				if (key !== undefined) {
+					keys.add(key);
+				}
+			}
+		}
+		return keys;
+	}
+
+	//#endregion Private Methods
 
 	//#region DataGridInstance Implementation
 
