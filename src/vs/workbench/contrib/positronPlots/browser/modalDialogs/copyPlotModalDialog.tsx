@@ -74,7 +74,6 @@ const errorMessage = (error: unknown): string => {
 	return typeof message === 'string' ? message : String(error);
 };
 
-
 const sameSize = (a: IPlotSize | undefined, b: IPlotSize) => !!a && a.width === b.width && a.height === b.height;
 
 const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) => {
@@ -167,8 +166,8 @@ const CopyPlotModalDialog = ({ options, renderer }: CopyPlotModalDialogProps) =>
 		}
 	};
 
-	/** Draws the plot at the committed size, reusing a preview or a pending preview draw of that size. */
 	const reusedPendingRef = useRef(false);
+	/** Draws the plot at the committed size, reusing a preview or a pending preview draw of that size. */
 	const drawForCopy = async (size: IPlotSize): Promise<string> => {
 		if (sameSize(preview.preview?.size, size) && preview.preview!.pixel_ratio === resolution) {
 			return preview.preview!.uri;

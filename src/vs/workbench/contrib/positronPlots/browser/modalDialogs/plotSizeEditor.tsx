@@ -81,7 +81,6 @@ export interface PlotSizeEditorProps {
 const KEY_STEP = 10;
 const KEY_STEP_LARGE = 50;
 
-
 // Matches the frame's border in plotSizeEditor.css.
 const FRAME_BORDER = 1;
 
@@ -172,7 +171,6 @@ export const PlotSizeEditor = (props: PlotSizeEditorProps) => {
 	const width = parsePlotDimension(widthText, maxSize);
 	const height = parsePlotDimension(heightText, maxSize);
 	const valid = !width.error && !height.error;
-
 
 	const clearTimer = () => {
 		clearTimeout(timerRef.current);
