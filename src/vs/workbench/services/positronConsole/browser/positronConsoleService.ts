@@ -587,29 +587,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				return;
 			}
 
-			/**
-			 * Reuse an instance for the same runtime if we have one. This needs to happen when
-			 * the extension host is disconnected and we have disconnected sessions that need to be
-			 * restored.
-			 *
-			 * NOTE: This logic for re-using a console instance has issues!
-			 * - If a user attempts to start a session for a specific console instance there is no
-			 * gaurantee the session will be attached to that console instance.
-			 * - If a user attempts to create a new console session while there is a console instance
-			 * whose session has exited, that console instance will be repurposed instead of creating
-			 * a new one. This is problematic because the user's intention was to creat a new console
-			 * instance with a new session.
-			 */
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(e.session.sessionId);
-
-			if (positronConsoleInstance) {
-				this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.sessionId);
-				positronConsoleInstance.attachRuntimeSession(e.session, attachMode);
-				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
-			} else {
-				// Create a new Positron console instance if we don't have a console instance we can reuse
-				this.startPositronConsoleInstance(e.session, attachMode, e.activate);
-			}
+			this.startPositronConsoleInstance(e.session, attachMode, e.activate);
 		}));
 
 		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.

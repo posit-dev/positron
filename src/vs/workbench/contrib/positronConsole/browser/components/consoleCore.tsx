@@ -19,6 +19,7 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { useExternalValue } from '../../../../../base/browser/useExternalValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
@@ -51,21 +52,10 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const [consoleWidth, setConsoleWidth] = useState(0);
 	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
 	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
-	const [startupPhase, setStartupPhase] = useState(services.languageRuntimeService.startupPhase);
-
-	// Main useEffect hook.
-	useEffect(() => {
-		// Re-read the current phase to close the race between the initial
-		// useState snapshot and the subscription below. If the phase changed
-		// between component construction and this effect, the update would
-		// otherwise be lost.
-		setStartupPhase(services.languageRuntimeService.startupPhase);
-
-		const disposables = services.languageRuntimeService.onDidChangeRuntimeStartupPhase(e => {
-			setStartupPhase(e);
-		});
-		return () => disposables.dispose();
-	}, [services.languageRuntimeService]);
+	const startupPhase = useExternalValue(
+		services.languageRuntimeService.onDidChangeRuntimeStartupPhase,
+		() => services.languageRuntimeService.startupPhase,
+	);
 
 	// Console Width Effect
 	useEffect(() => {

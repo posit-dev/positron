@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,6 +16,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { getRuntimeDisplayPath, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { useExternalValue } from '../../../../../base/browser/useExternalValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js';
 
@@ -44,8 +45,10 @@ export const StartupStatus = () => {
 	const progressRef = React.useRef<HTMLDivElement>(null);
 
 	// Component state.
-	const [startupPhase, setStartupPhase] =
-		useState(services.languageRuntimeService.startupPhase);
+	const startupPhase = useExternalValue(
+		services.languageRuntimeService.onDidChangeRuntimeStartupPhase,
+		() => services.languageRuntimeService.startupPhase,
+	);
 	const [runtimeStartupEvent, setRuntimeStartupEvent] =
 		useState<IRuntimeAutoStartEvent | undefined>(undefined);
 	const [latestRuntimePath, setLatestRuntimePath] = useState<string | undefined>(undefined);
@@ -86,13 +89,6 @@ export const StartupStatus = () => {
 					if (runtime.runtimePath) {
 						setLatestRuntimePath(getRuntimeDisplayPath(runtime));
 					}
-				}));
-
-		// When the startup phase changes, update the phase.
-		disposableStore.add(
-			services.languageRuntimeService.onDidChangeRuntimeStartupPhase(
-				phase => {
-					setStartupPhase(phase);
 				}));
 
 		// When we're notified that a runtime may auto-start in the workspace,
