@@ -67,7 +67,12 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			id: uuid(),
 			mime: vscodeMimeType,
 			data() {
-				return new TextEncoder().encode(this.text());
+				const text = this.text();
+				if (isBase64MimeType(vscodeMimeType)) {
+					// Jupyter outputs store binary data as base64, decode it to the raw bytes.
+					return Uint8Array.from(atob(text), c => c.charCodeAt(0));
+				}
+				return new TextEncoder().encode(text);
 			},
 			text() {
 				return typeof sourceJson === 'string' ? sourceJson : JSON.stringify(sourceJson);
@@ -83,6 +88,11 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 		const controller = new AbortController();
 		await renderer.renderOutputItem(outputItem, this.node, controller.signal);
 	}
+}
+
+/** Whether Jupyter outputs store data of this mime type as a base64 string, e.g. `image/png`. */
+function isBase64MimeType(mimeType: string): boolean {
+	return mimeType.startsWith('image/') && mimeType !== 'image/svg+xml';
 }
 
 /** Map from Jupyter to VSCode mime types, for types that differ. */

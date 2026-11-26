@@ -16,7 +16,9 @@ the backend is set by matplotlib.
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import functools
 import hashlib
 import inspect
 import io
@@ -127,8 +129,16 @@ def _detach_library_figures() -> None:
 
     Plain matplotlib figures are intentionally left in the registry to preserve Positron's
     cross-cell figure persistence (updating or re-showing a plot across cells).
+
+    Figures that were created while an ipywidgets Output was capturing, but not shown inside
+    it, are first shown in the Plots pane like any other figure.
     """
     try:
+        from matplotlib._pylab_helpers import Gcf
+
+        for manager in list(Gcf.get_all_fig_managers()):
+            if isinstance(manager, FigureManagerPositron) and manager._plot is None:  # noqa: SLF001
+                manager.show()
         _detach_figures(library_kinds=_DETACH_AFTER_CELL_KINDS)
     except Exception:
         logger.exception("Error detaching high-level library figures")
@@ -271,6 +281,7 @@ class FigureManagerPositron(FigureManagerBase):
     canvas: FigureCanvasPositron  # type: ignore
 
     def __init__(self, canvas: FigureCanvasPositron, num: int | str):
+        from ..patch.ipywidgets import is_capturing
         from ..positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
@@ -282,13 +293,20 @@ class FigureManagerPositron(FigureManagerBase):
         kind = _detect_plotting_library()
         self.plotting_library = kind
 
-        # Create the plot instance via the plots service.
-        self._plots_service = kernel.plots_service
+        # Create the plot instance via the plots service, which opens it in the Plots pane.
+        self._create_plot = functools.partial(
+            kernel.plots_service.create_plot,
+            canvas.render,
+            canvas.intrinsic_size,
+            kind,
+            num,
+            self._on_close,
+        )
+        # A figure created while an ipywidgets Output is capturing is only added to the Plots
+        # pane if it's not shown inside the Output; see `show` and `_detach_library_figures`.
         self._plot: Plot | None = None
-        if kind not in _NO_PLOT_KINDS:
-            self._plot = self._plots_service.create_plot(
-                canvas.render, canvas.intrinsic_size, kind, num, self._on_close
-            )
+        if kind not in _NO_PLOT_KINDS and not is_capturing():
+            self._plot = self._create_plot()
 
     def _on_close(self) -> None:
         """
@@ -310,8 +328,32 @@ class FigureManagerPositron(FigureManagerBase):
 
     def show(self) -> None:
         """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
-        if self._plot is not None:
+        from ..patch.ipywidgets import is_capturing
+
+        if self.plotting_library in _NO_PLOT_KINDS:
+            return
+        if is_capturing():
+            # Show the figure as a static image inside the Output, as in Jupyter.
+            self._show_static()
+        elif self._plot is None:
+            # Opening the plot triggers a render from the frontend.
+            self._plot = self._create_plot()
+        else:
             self._plot.show()
+
+    def _show_static(self) -> None:
+        """Display the figure as a static PNG and close it."""
+        from IPython.display import display
+
+        png = self.canvas.render(None, 1.0, "png")
+        display(
+            {
+                "image/png": base64.b64encode(png).decode("ascii"),
+                "text/plain": repr(self.canvas.figure),
+            },
+            raw=True,
+        )
+        plt.close(self.canvas.figure)
 
     @classmethod
     def pyplot_show(cls, *, block: bool | None = None) -> None:  # noqa: ARG003
@@ -320,10 +362,11 @@ class FigureManagerPositron(FigureManagerBase):
 
         Matplotlib's default shows every open figure. Positron keeps plain figures open
         across cells, so the N-th `plt.show()` would re-render and re-select all N earlier
-        figures in the Plots pane. Every figure is already in the Plots pane from when it was
-        created, so instead show only the active figure, so that `plt.figure(n); plt.show()`
-        still selects figure n. Other figures that were edited are drawn, which sends an
-        `update` (the frontend selects an updated plot too).
+        figures in the Plots pane. Every other figure is already in the Plots pane from when it
+        was created, so instead show only the active figure, so that `plt.figure(n); plt.show()`
+        still selects figure n. Figures created while an ipywidgets Output was capturing aren't
+        in the Plots pane yet, so they're shown too. Other figures that were edited are drawn,
+        which sends an `update` (the frontend selects an updated plot too).
 
         `block` is accepted for API compatibility and ignored: there's no GUI main loop.
         """
@@ -332,7 +375,11 @@ class FigureManagerPositron(FigureManagerBase):
 
         active = Gcf.get_active()
         for manager in Gcf.get_all_fig_managers():
-            if manager is active or not isinstance(manager, FigureManagerPositron):
+            if (
+                manager is active
+                or not isinstance(manager, FigureManagerPositron)
+                or manager._plot is None  # noqa: SLF001
+            ):
                 # A figure from a non-GUI backend (e.g. Agg) can outlive a switch to this
                 # backend. Warn like matplotlib's default `pyplot_show` instead of raising.
                 # Attribute the warning to the caller of `plt.show()`: the kernel sends

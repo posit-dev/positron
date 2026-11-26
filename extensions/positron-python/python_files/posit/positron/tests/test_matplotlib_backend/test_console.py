@@ -165,6 +165,96 @@ def test_mpl_create(shell: PositronShell, plots_service: PlotsService) -> None:
     assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
+def test_mpl_in_ipywidgets_output(shell: PositronShell, plots_service: PlotsService) -> None:
+    # A figure shown while an ipywidgets Output is capturing is shown as a static image inside
+    # the Output instead of creating a plot in the Plots pane.
+    pytest.importorskip("ipywidgets")
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+with out:
+    plt.plot([1, 2])
+    plt.show()
+"""
+    ).raise_error()
+
+    assert not plots_service._plots  # noqa: SLF001
+    assert not plt.get_fignums()
+    (output,) = shell.user_ns["out"].outputs
+    assert output["output_type"] == "display_data"
+    png = Image.open(io.BytesIO(base64.b64decode(output["data"]["image/png"])))
+    assert png.format == "PNG"
+
+
+def test_mpl_multiple_figures_in_ipywidgets_output(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # Every figure created while an ipywidgets Output is capturing is shown inside it, not only
+    # the active one, but figures from earlier cells are not.
+    pytest.importorskip("ipywidgets")
+    shell.run_cell("plt.figure(); plt.plot([1, 2])").raise_error()
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+with out:
+    plt.figure()
+    plt.plot([1, 2])
+    plt.figure()
+    plt.plot([2, 1])
+    plt.show()
+"""
+    ).raise_error()
+
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+    outputs = shell.user_ns["out"].outputs
+    assert [output["output_type"] for output in outputs] == ["display_data", "display_data"]
+
+
+def test_mpl_in_ipywidgets_output_not_shown(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # A figure created while an ipywidgets Output is capturing, but not shown inside it, is
+    # added to the Plots pane after the cell.
+    pytest.importorskip("ipywidgets")
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+with out:
+    plt.plot([1, 2])
+"""
+    ).raise_error()
+
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+    assert shell.user_ns["out"].outputs == ()
+
+
+def test_mpl_existing_figure_in_ipywidgets_output(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # A figure created before an ipywidgets Output is capturing, and shown inside it, is shown
+    # as a static image inside the Output.
+    pytest.importorskip("ipywidgets")
+    shell.run_cell("plt.plot([1, 2])").raise_error()
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+
+    shell.run_cell(
+        """\
+import ipywidgets as w
+out = w.Output()
+with out:
+    plt.show()
+"""
+    ).raise_error()
+
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+    (output,) = shell.user_ns["out"].outputs
+    assert output["output_type"] == "display_data"
+    assert "image/png" in output["data"]
+
+
 def test_mpl_get_intrinsic_size(shell: PositronShell, plots_service: PlotsService) -> None:
     # Create a plot with a given size.
     intrinsic_size = (6.0, 4.0)
