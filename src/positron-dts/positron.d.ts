@@ -4229,7 +4229,66 @@ declare module 'positron' {
 		ProcessCreation = 'processCreation',
 	}
 
+	/**
+	 * One change an extension contributes to terminal environments through its
+	 * {@link vscode.ExtensionContext.environmentVariableCollection}.
+	 */
+	export interface EnvironmentVariableContribution {
+		/** The ID of the extension that contributed it. */
+		readonly extensionId: string;
+
+		/** The name of the variable it changes. */
+		readonly variable: string;
+
+		/** Whether it replaces, appends to, or prepends to the variable. */
+		readonly type: vscode.EnvironmentVariableMutatorType;
+
+		/**
+		 * The value to replace, append, or prepend, as the extension gave it.
+		 * Terminals resolve variable references such as `${env:HOME}` in it
+		 * before applying it; this value is unresolved.
+		 */
+		readonly value: string;
+
+		/** When terminals apply it, with defaults filled in. */
+		readonly options: Required<vscode.EnvironmentVariableMutatorOptions>;
+
+		/** The workspace folder it is limited to, or `undefined` if it applies everywhere. */
+		readonly scope: vscode.EnvironmentVariableScope | undefined;
+
+		/** The extension's description of its collection for this scope, if any. */
+		readonly description: string | undefined;
+
+		/**
+		 * Whether the collection is persisted across window reloads. A persisted
+		 * collection is restored at startup, before its extension activates, so
+		 * it may be stale until the extension updates it.
+		 */
+		readonly persistent: boolean;
+
+		/**
+		 * Whether terminals apply it. False when terminals skip it: another
+		 * extension's `Replace` of the same variable in the same scope takes
+		 * precedence, or the variable is one that only a specific extension may
+		 * set (such as the Python activation variables).
+		 */
+		readonly applied: boolean;
+	}
+
 	namespace environment {
+		/**
+		 * Get every environment variable contribution extensions have made to
+		 * terminal environments, so the caller can decide which to apply.
+		 *
+		 * Applied contributions come first, in the order terminals apply them:
+		 * applying each one in turn to a base environment, for a given scope,
+		 * reproduces the variables a terminal created with that scope gets at
+		 * process creation. Skipped contributions follow.
+		 *
+		 * @returns The contributions from all extensions.
+		 */
+		export function getEnvironmentVariableContributions(): Thenable<EnvironmentVariableContribution[]>;
+
 		/**
 		 * Get the environment variable contributions for the current session.
 		 *
@@ -4240,6 +4299,206 @@ declare module 'positron' {
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
 		export function getEnvironmentContributions(filter?: EnvironmentContributionFilter): Thenable<Record<string, EnvironmentVariableAction[]>>;
+	}
+
+	/**
+	 * Options for creating an agent terminal.
+	 */
+	export interface AgentTerminalOptions {
+		/** The name shown in the terminal's tab. */
+		name: string;
+
+		/** The working directory to start the shell in. */
+		cwd?: string | vscode.Uri;
+
+		/**
+		 * Variables to add to the shell's environment. A `null` value removes
+		 * the variable. Unless `strictEnv` is set, extensions' environment
+		 * variable contributions apply too, as in other terminals. The user's
+		 * shell startup files always run.
+		 */
+		env?: { [key: string]: string | null | undefined };
+
+		/**
+		 * Whether `env` is the shell's whole environment. When true, the
+		 * terminal does not inherit Positron's environment, apply extensions'
+		 * environment variable contributions, or add the variables other
+		 * terminals get, such as `TERM_PROGRAM` and `LANG`.
+		 */
+		strictEnv?: boolean;
+
+		/** The shell to run. Defaults to the user's default terminal profile. */
+		shellPath?: string;
+
+		/** Arguments for `shellPath`. */
+		shellArgs?: string[] | string;
+
+		/**
+		 * Whether the user can type into the terminal. Defaults to false; the
+		 * user can still watch, scroll, and close it.
+		 */
+		allowUserInput?: boolean;
+	}
+
+	/**
+	 * A command run in an agent terminal.
+	 */
+	export interface AgentTerminalCommand {
+		/** The command's ID, unique within its terminal. */
+		readonly id: string;
+
+		/** The command line, as sent or as the shell reported it. */
+		readonly commandLine: string;
+
+		/** Whether the command is still running. */
+		readonly running: boolean;
+
+		/** The exit code the shell reported, once the command finished. */
+		readonly exitCode: number | undefined;
+
+		/** When the command started, in milliseconds since the epoch. */
+		readonly startTime: number;
+
+		/** When the command finished, in milliseconds since the epoch. */
+		readonly endTime: number | undefined;
+
+		/** How many lines of output the command has written so far, including dropped lines. */
+		readonly lineCount: number;
+
+		/**
+		 * How many of the oldest lines were dropped to bound memory. Output keeps
+		 * at least the newest 10,000 lines.
+		 */
+		readonly droppedLines: number;
+
+		/**
+		 * Whether some output is missing because the window reloaded while the
+		 * command ran. Output written during the reload isn't captured.
+		 */
+		readonly missingOutput: boolean;
+	}
+
+	/**
+	 * Part of a command's output.
+	 */
+	export interface AgentTerminalOutput {
+		/** The command, as of this read. */
+		readonly command: AgentTerminalCommand;
+
+		/** The line number of the first line returned, 0-based. */
+		readonly offset: number;
+
+		/**
+		 * The lines, with escape sequences removed. A carriage return starts a
+		 * line over, so a progress bar keeps only its last state. Lines longer
+		 * than 1,000 characters are cut and end with ` [truncated]`. While the
+		 * command runs, the last line may be unfinished.
+		 */
+		readonly lines: string[];
+
+		/** Where the next read starts, or `undefined` if these lines reach the end of the output so far. */
+		readonly nextOffset: number | undefined;
+	}
+
+	/**
+	 * The state of an agent terminal.
+	 */
+	export interface AgentTerminalStatus {
+		/** Whether the shell exited or the user closed the terminal. */
+		readonly exited: boolean;
+
+		/** The shell's exit code, if it exited and reported one. */
+		readonly exitCode: number | undefined;
+
+		/** The terminal's most recent commands (up to 50), oldest first. */
+		readonly commands: AgentTerminalCommand[];
+	}
+
+	/**
+	 * A terminal an agent runs commands in. It appears in the Terminal pane
+	 * with an agent icon. Commands run one at a time. Positron keeps their
+	 * output, so an extension can find the terminal again with
+	 * {@link agentTerminals.getAll} and read it after the extension host restarts
+	 * or the window reloads (when the user's terminals persist across reloads).
+	 */
+	export interface AgentTerminal {
+		/** The terminal's ID. */
+		readonly id: string;
+
+		/** The name shown in the terminal's tab. */
+		readonly name: string;
+
+		/**
+		 * Run a command line in the terminal's shell. Resolves when the command
+		 * finishes or after `waitMs`, whichever comes first; use
+		 * {@link waitForCommand} to wait on a command that is still running.
+		 *
+		 * @param commandLine The command line to run.
+		 * @param options.waitMs How long to wait for the command to finish, in milliseconds. Defaults to 30,000.
+		 * @param token Stops waiting; it doesn't stop the command (see {@link interrupt}).
+		 * @throws If another command is running, the terminal exited, or the shell didn't report the command starting.
+		 */
+		runCommand(commandLine: string, options?: { waitMs?: number }, token?: vscode.CancellationToken): Thenable<AgentTerminalCommand>;
+
+		/**
+		 * Wait for a command to finish. Resolves when it finishes or after
+		 * `waitMs`, whichever comes first.
+		 *
+		 * @param commandId The command's ID.
+		 * @param options.waitMs How long to wait, in milliseconds. Defaults to 30,000.
+		 * @param token Stops waiting.
+		 */
+		waitForCommand(commandId: string, options?: { waitMs?: number }, token?: vscode.CancellationToken): Thenable<AgentTerminalCommand>;
+
+		/**
+		 * Read part of a command's output.
+		 *
+		 * @param commandId The command's ID.
+		 * @param options.offset The line to start at, 0-based. Defaults to 0.
+		 * @param options.limit The most lines to return, up to 1,000. Defaults to 100.
+		 */
+		readOutput(commandId: string, options?: { offset?: number; limit?: number }): Thenable<AgentTerminalOutput>;
+
+		/** Get the terminal's state and recent commands. */
+		getStatus(): Thenable<AgentTerminalStatus>;
+
+		/** Send Ctrl+C to the terminal, interrupting the running command. */
+		interrupt(): Thenable<void>;
+
+		/**
+		 * Show the terminal in the Terminal pane.
+		 *
+		 * @param preserveFocus Whether to keep focus where it is.
+		 */
+		show(preserveFocus?: boolean): Thenable<void>;
+
+		/** Close the terminal, killing its shell, and discard its commands. */
+		dispose(): Thenable<void>;
+	}
+
+	/**
+	 * Terminals that agents run commands in, so that the commands get the
+	 * same environment as the user's terminals, outlive the extension host, and
+	 * stay visible to the user.
+	 */
+	namespace agentTerminals {
+		/**
+		 * Create an agent terminal and wait for its shell to start.
+		 *
+		 * The terminal needs shell integration to tell where each command starts
+		 * and ends, and fails to create without it.
+		 *
+		 * @throws If the shell exits while starting, or shell integration is
+		 *   turned off or doesn't start.
+		 */
+		export function create(options: AgentTerminalOptions): Thenable<AgentTerminal>;
+
+		/**
+		 * Get the agent terminals this extension created and hasn't disposed,
+		 * including ones created before the extension host restarted or the
+		 * window reloaded.
+		 */
+		export function getAll(): Thenable<AgentTerminal[]>;
 	}
 
 	/**

@@ -33,6 +33,7 @@ import { IPlotSize } from '../../../services/positronPlots/common/sizingPolicy.j
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
+import { IAgentTerminal, IAgentTerminalCommand, IAgentTerminalCreateOptions, IAgentTerminalOutput } from '../../../contrib/positronAgentTerminal/common/agentTerminalService.js';
 import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
@@ -469,9 +470,35 @@ export interface ExtHostDataExplorerShape {
 
 export interface MainThreadEnvironmentShape extends IDisposable {
 	$getEnvironmentContributions(filter?: EnvironmentContributionFilter): Promise<Record<string, EnvironmentVariableAction[]>>;
+	$getEnvironmentVariableContributions(): Promise<IEnvironmentVariableContributionDto[]>;
+}
+
+export interface IEnvironmentVariableContributionDto {
+	extensionId: string;
+	variable: string;
+	type: number;
+	value: string;
+	applyAtProcessCreation: boolean;
+	applyAtShellIntegration: boolean;
+	workspaceFolder: { uri: UriComponents; name: string; index: number } | undefined;
+	description: string | undefined;
+	persistent: boolean;
+	applied: boolean;
 }
 
 export interface ExtHostEnvironmentShape { }
+
+export interface MainThreadAgentTerminalShape extends IDisposable {
+	$createTerminal(extensionId: string, options: IAgentTerminalCreateOptions): Promise<IAgentTerminal>;
+	$getTerminals(extensionId: string): Promise<IAgentTerminal[]>;
+	$runCommand(extensionId: string, terminalId: string, commandLine: string, waitMs: number, token: CancellationToken): Promise<IAgentTerminalCommand>;
+	$waitForCommand(extensionId: string, terminalId: string, commandId: string, waitMs: number, token: CancellationToken): Promise<IAgentTerminalCommand>;
+	$getStatus(extensionId: string, terminalId: string): Promise<{ exited: boolean; exitCode: number | undefined; commands: IAgentTerminalCommand[] }>;
+	$readOutput(extensionId: string, terminalId: string, commandId: string, offset: number, limit: number): Promise<IAgentTerminalOutput>;
+	$interrupt(extensionId: string, terminalId: string): Promise<void>;
+	$show(extensionId: string, terminalId: string, preserveFocus: boolean): Promise<void>;
+	$disposeTerminal(extensionId: string, terminalId: string): Promise<void>;
+}
 
 export interface ISerializedAgentCommandArg {
 	name: string;
@@ -718,6 +745,7 @@ export const MainPositronContext = {
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
 	MainThreadEnvironment: createProxyIdentifier<MainThreadEnvironmentShape>('MainThreadEnvironment'),
+	MainThreadAgentTerminal: createProxyIdentifier<MainThreadAgentTerminalShape>('MainThreadAgentTerminal'),
 	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),

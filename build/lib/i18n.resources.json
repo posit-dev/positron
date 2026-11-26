@@ -215,6 +215,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronAgentTerminal",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronOutline",
 			"project": "vscode-workbench"
 		},

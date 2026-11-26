@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MainPositronContext, MainThreadEnvironmentShape } from '../../common/positron/extHost.positron.protocol.js';
+import { IEnvironmentVariableContributionDto, MainPositronContext, MainThreadEnvironmentShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { IEnvironmentVariableService } from '../../../contrib/terminal/common/environmentVariable.js';
+import { IEnvironmentVariableCollectionWithPersistence, IEnvironmentVariableService } from '../../../contrib/terminal/common/environmentVariable.js';
 import { EnvironmentContributionFilter } from '../../common/positron/extHostTypes.positron.js';
+import { EnvironmentVariableScope, IEnvironmentVariableMutator } from '../../../../platform/terminal/common/environmentVariable.js';
 
 interface IEnvironmentVariableAction {
 	/** The action to take */
@@ -60,6 +61,57 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 			result[extensionIdentifier] = actions;
 		}
 
+		return result;
+	}
+
+	async $getEnvironmentVariableContributions(): Promise<IEnvironmentVariableContributionDto[]> {
+		const folderIndex = (scope: EnvironmentVariableScope | undefined) => scope?.workspaceFolder?.index;
+		const keyOf = (extensionId: string, m: IEnvironmentVariableMutator) =>
+			`${extensionId}\0${m.variable}\0${folderIndex(m.scope) ?? ''}`;
+
+		// Every contribution, with its collection's details.
+		const all = new Map<string, IEnvironmentVariableContributionDto>();
+		const scopes = new Map<number | undefined, EnvironmentVariableScope | undefined>([[undefined, undefined]]);
+		for (const [extensionId, collection] of this._environmentService.collections) {
+			const descriptions = [...collection.descriptionMap?.values() ?? []];
+			for (const m of collection.map.values()) {
+				const folder = m.scope?.workspaceFolder;
+				scopes.set(folder?.index, m.scope);
+				all.set(keyOf(extensionId, m), {
+					extensionId,
+					variable: m.variable,
+					type: m.type,
+					value: m.value,
+					applyAtProcessCreation: m.options?.applyAtProcessCreation ?? true,
+					applyAtShellIntegration: m.options?.applyAtShellIntegration ?? false,
+					workspaceFolder: folder && { uri: folder.uri, name: folder.name, index: folder.index },
+					description: descriptions.find(d => folderIndex(d.scope) === folder?.index)?.description,
+					// The service stores collections with persistence; its interface doesn't say so.
+					persistent: (collection as Partial<IEnvironmentVariableCollectionWithPersistence>).persistent === true,
+					applied: false,
+				});
+			}
+		}
+
+		// The merged collection holds the contributions terminals apply, in order.
+		const result: IEnvironmentVariableContributionDto[] = [];
+		const merged = this._environmentService.mergedCollection;
+		for (const [index, scope] of scopes) {
+			for (const mutators of merged.getVariableMap(scope).values()) {
+				for (const m of mutators) {
+					const contribution = folderIndex(m.scope) === index ? all.get(keyOf(m.extensionIdentifier, m)) : undefined;
+					if (contribution && !contribution.applied) {
+						contribution.applied = true;
+						result.push(contribution);
+					}
+				}
+			}
+		}
+		for (const contribution of all.values()) {
+			if (!contribution.applied) {
+				result.push(contribution);
+			}
+		}
 		return result;
 	}
 

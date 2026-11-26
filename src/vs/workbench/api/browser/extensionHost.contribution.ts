@@ -117,6 +117,7 @@ import './positron/mainThreadConnections.js';
 import './positron/mainThreadDataConnections.js';
 import './positron/mainThreadDataExplorer.js';
 import './positron/mainThreadEnvironment.js';
+import './positron/mainThreadAgentTerminal.js';
 import './positron/mainThreadAiFeatures.js';
 import './positron/mainThreadEditReview.js';
 import './positron/mainThreadPlotsService.js';
