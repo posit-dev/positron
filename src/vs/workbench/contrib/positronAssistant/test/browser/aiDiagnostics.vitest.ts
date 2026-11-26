@@ -412,11 +412,13 @@ describe('describeFeatureToggle', () => {
 describe('describeChatViewState', () => {
 	it('reports a missing chat agent instead of plain Enabled', () => {
 		expect({
-			settingOff: describeChatViewState(false, false),
-			settingOffWithAgent: describeChatViewState(false, true),
-			noAgent: describeChatViewState(true, false),
-			withAgent: describeChatViewState(true, true),
+			aiOff: describeChatViewState(false, true, false),
+			settingOff: describeChatViewState(true, false, false),
+			settingOffWithAgent: describeChatViewState(true, false, true),
+			noAgent: describeChatViewState(true, true, false),
+			withAgent: describeChatViewState(true, true, true),
 		}).toEqual({
+			aiOff: 'Disabled by `ai.enabled`',
 			settingOff: 'Disabled',
 			settingOffWithAgent: 'Disabled',
 			noAgent: 'Enabled, but no chat agent is available',

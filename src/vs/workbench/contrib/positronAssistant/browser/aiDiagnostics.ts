@@ -545,12 +545,17 @@ export function featureState(presence: AIDiagnosticsExtensionPresence, value: un
  * Positron doesn't ship a chat agent, so with the setting on, chat needs an
  * extension that has registered a default chat agent. That's missing when no
  * chat extension is installed, and also when one is installed but hasn't
- * registered its agent (for example, Copilot Chat while signed out). Say so
- * rather than reporting plain "Enabled".
+ * registered its agent. Say so rather than reporting plain "Enabled". When
+ * `ai.enabled` is off there is no agent because of that switch, so name it
+ * instead of pointing the reader at a missing extension.
+ * @param aiEnabled Whether `ai.enabled` is anything but `false`.
  * @param settingAllowsChat Whether `chat.disableAIFeatures` is anything but `true`.
  * @param hasChatAgent Whether a default chat agent is registered for the chat view.
  */
-export function describeChatViewState(settingAllowsChat: boolean, hasChatAgent: boolean): string {
+export function describeChatViewState(aiEnabled: boolean, settingAllowsChat: boolean, hasChatAgent: boolean): string {
+	if (!aiEnabled) {
+		return 'Disabled by `ai.enabled`';
+	}
 	if (!settingAllowsChat) {
 		return describeFeatureToggle(false);
 	}
@@ -580,9 +585,10 @@ export function describeExtensionStatus(status: IActivationStatus | undefined): 
 
 /**
  * Creates an AI diagnostic report: itemizes non-default AI settings and gathers
- * trace/debug logs from Authentication, Posit Assistant, and Posit AI NES, then opens the report in an editor. Runs without
- * asking the user to reproduce: the Posit surfaces buffer their recent
- * trace/debug in memory and hand it over via a bridge command.
+ * trace/debug logs from Authentication, Posit Assistant, and Posit AI NES, then
+ * opens the report in an editor. Runs without asking the user to reproduce: the
+ * Posit surfaces buffer their recent trace/debug in memory and hand it over via
+ * a bridge command.
  */
 export class CreateAIDiagnosticReportAction extends Action2 {
 	static readonly ID = 'workbench.action.positronAssistant.createAIDiagnosticReport';
@@ -643,7 +649,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 		}, async progress => {
 			const { settings, enforced: enforcedSettings } = collectAISettings(configurationService);
 
-			// Canonical ids can differ in casing from ours (e.g. `GitHub.copilot-chat`).
+			// Canonical ids can differ in casing from the ids listed here, so compare lowercased.
 			const statuses = new Map(Object.entries(extensionService.getExtensionsStatus())
 				.map(([key, status]) => [key.toLowerCase(), status]));
 			const describe = (label: string, id: string): IAIDiagnosticsExtension =>
@@ -690,6 +696,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 			// so always show.
 			// NES's `enabled` is a per-language-type map; the `*` wildcard is the overall on/off.
 			const nesEnabled = configurationService.getValue<Record<string, boolean>>(NES_ENABLE_SETTING)?.['*'];
+			const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false;
 			const features: IAIDiagnosticsFeature[] = [
 				{ label: 'Posit Assistant', setting: 'assistant.enabled', state: featureState(assistantPresence, configurationService.getValue('assistant.enabled')) },
 				{ label: 'Posit AI NES', setting: NES_ENABLE_SETTING, state: featureState(presenceOf(NES_EXTENSION_ID).presence, nesEnabled) },
@@ -697,12 +704,12 @@ export class CreateAIDiagnosticReportAction extends Action2 {
 				{ label: 'Console Fix & Explain', setting: 'console.assistantActions.enabled', state: describeFeatureToggle(configurationService.getValue('console.assistantActions.enabled')) },
 				{ label: 'Git Suggestions', setting: GIT_SUGGESTIONS_ENABLED_KEY, state: describeFeatureToggle(configurationService.getValue(GIT_SUGGESTIONS_ENABLED_KEY)) },
 				// `chat.disableAIFeatures` is inverted: `true` hides the chat view.
-				{ label: 'Chat View', setting: ChatConfiguration.AIDisabled, state: describeChatViewState(configurationService.getValue(ChatConfiguration.AIDisabled) !== true, chatAgentService.getDefaultAgent(ChatAgentLocation.Chat) !== undefined) },
+				{ label: 'Chat View', setting: ChatConfiguration.AIDisabled, state: describeChatViewState(aiEnabled, configurationService.getValue(ChatConfiguration.AIDisabled) !== true, chatAgentService.getDefaultAgent(ChatAgentLocation.Chat) !== undefined) },
 			];
 
 			return generateAIDiagnosticsReport({
 				generatedAt: new Date().toISOString(),
-				aiEnabled: configurationService.getValue<boolean>(AI_ENABLED_KEY) !== false,
+				aiEnabled,
 				features,
 				application: productService.nameLong,
 				positronVersion: productService.positronVersion,
