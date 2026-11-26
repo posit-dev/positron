@@ -117,6 +117,16 @@
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
+		},
+		{
+			"name": "posit.file-navigator",
+			"version": "0.1.0",
+			"repo": "https://github.com/posit-dev/file-navigator-extension",
+			"type": "reh-web-pwb",
+			"sha256": "671e7cbfa5b37918fa5d5a60334745227e4d23fea519c9600711bb4544c0f308",
+			"metadata": {
+				"publisherDisplayName": "Posit PBC"
+			}
 		}
 	],
 	"bootstrapExtensions": [
