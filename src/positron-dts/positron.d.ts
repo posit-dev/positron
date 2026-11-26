@@ -4332,12 +4332,6 @@ declare module 'positron' {
 
 		/** Arguments for `shellPath`. */
 		shellArgs?: string[] | string;
-
-		/**
-		 * Whether the user can type into the terminal. Defaults to false; the
-		 * user can still watch, scroll, and close it.
-		 */
-		allowUserInput?: boolean;
 	}
 
 	/**

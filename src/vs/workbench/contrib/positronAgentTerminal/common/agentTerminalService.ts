@@ -25,8 +25,6 @@ export interface IAgentTerminalCreateOptions {
 	/** The shell to run, instead of the default profile's. */
 	shellPath?: string;
 	shellArgs?: string[] | string;
-	/** Whether the user can type into the terminal. Defaults to false. */
-	allowUserInput?: boolean;
 }
 
 export interface IAgentTerminal {

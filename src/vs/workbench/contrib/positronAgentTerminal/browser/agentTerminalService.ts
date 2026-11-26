@@ -50,7 +50,6 @@ interface ISavedAgentTerminal {
 	readonly id: string;
 	readonly ownerId: string;
 	readonly name: string;
-	readonly allowUserInput: boolean;
 	readonly nextCommandId: number;
 	readonly commands: ISavedAgentCommand[];
 }
@@ -155,7 +154,6 @@ class AgentTerminal extends Disposable implements IAgentTerminal {
 		readonly ownerId: string,
 		readonly name: string,
 		readonly instance: ITerminalInstance,
-		readonly allowUserInput: boolean,
 		adoption?: IAdoption,
 	) {
 		super();
@@ -182,16 +180,6 @@ class AgentTerminal extends Disposable implements IAgentTerminal {
 		} else if (adoption) {
 			this._reconcile();
 			adoption.dataAfterReplay.forEach(data => this._onData(data));
-		}
-	}
-
-	/** Keeps the user from typing into the terminal, unless they may. */
-	async applyInputPolicy(): Promise<void> {
-		if (!this.allowUserInput) {
-			const xterm = await this.instance.xtermReadyPromise;
-			if (xterm) {
-				xterm.raw.options.disableStdin = true;
-			}
 		}
 	}
 
@@ -331,7 +319,6 @@ class AgentTerminal extends Disposable implements IAgentTerminal {
 			id: this.id,
 			ownerId: this.ownerId,
 			name: this.name,
-			allowUserInput: this.allowUserInput,
 			nextCommandId: this._nextCommandId,
 			commands: this._commands.map(c => c.serialize()),
 		};
@@ -395,9 +382,8 @@ export class PositronAgentTerminalService extends Disposable implements IPositro
 			if (!record || instance.isDisposed || this._terminals.has(record.id)) {
 				return;
 			}
-			const terminal = new AgentTerminal(record.ownerId, record.name, instance, record.allowUserInput, { saved: record, replayed, dataAfterReplay });
+			const terminal = new AgentTerminal(record.ownerId, record.name, instance, { saved: record, replayed, dataAfterReplay });
 			this._terminals.set(terminal.id, terminal);
-			void terminal.applyInputPolicy();
 		});
 	}
 
@@ -430,7 +416,7 @@ export class PositronAgentTerminalService extends Disposable implements IPositro
 				args: options.shellArgs,
 			}
 		});
-		const terminal = new AgentTerminal(ownerId, options.name, instance, options.allowUserInput ?? false);
+		const terminal = new AgentTerminal(ownerId, options.name, instance);
 		try {
 			await this._waitForShellIntegration(instance);
 		} catch (e) {
@@ -439,7 +425,6 @@ export class PositronAgentTerminalService extends Disposable implements IPositro
 			throw e;
 		}
 
-		await terminal.applyInputPolicy();
 		this._terminals.set(terminal.id, terminal);
 		return terminal.toDto();
 	}

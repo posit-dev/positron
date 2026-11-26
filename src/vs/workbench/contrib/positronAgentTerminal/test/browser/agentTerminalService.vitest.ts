@@ -45,7 +45,7 @@ describe('PositronAgentTerminalService', () => {
 		const data = disposables.add(new Emitter<string>());
 		const exit = disposables.add(new Emitter<number | undefined>());
 		const replayComplete = disposables.add(new Emitter<void>());
-		const xterm = { raw: { options: { disableStdin: false }, modes: { bracketedPasteMode: options.bracketedPaste ?? false } } };
+		const xterm = { raw: { modes: { bracketedPasteMode: options.bracketedPaste ?? false } } };
 		const lastCommand = options.restored?.lastCommand;
 		const detection = stubInterface<ICommandDetectionCapability>({
 			commands: lastCommand ? [stubInterface<ITerminalCommand>(lastCommand)] : [],
@@ -122,9 +122,8 @@ describe('PositronAgentTerminalService', () => {
 	}
 
 	it('runs a command and reads its output', async () => {
-		const { service, xterm } = setup(() => `${C}line 1\r\nline 2\n${D(3)}$ `);
+		const { service } = setup(() => `${C}line 1\r\nline 2\n${D(3)}$ `);
 		const terminal = await service.createTerminal(OWNER, { name: 'Agent' });
-		expect(xterm.raw.options.disableStdin).toBe(true);
 
 		const command = await service.runCommand(OWNER, terminal.id, 'make', 1000, CancellationToken.None);
 		expect(command).toMatchObject({ commandLine: 'make', running: false, exitCode: 3, lineCount: 2 });
@@ -167,7 +166,7 @@ describe('PositronAgentTerminalService', () => {
 
 	it('returns a long-running command still running, and waits for it again', async () => {
 		const { service, data } = setup(() => `${C}serving\n`);
-		const terminal = await service.createTerminal(OWNER, { name: 'Agent', allowUserInput: true });
+		const terminal = await service.createTerminal(OWNER, { name: 'Agent' });
 
 		const command = await service.runCommand(OWNER, terminal.id, 'serve', 0, CancellationToken.None);
 		expect(command.running).toBe(true);
@@ -239,13 +238,12 @@ describe('PositronAgentTerminalService', () => {
 			{ id: serve.id, running: false, exitCode: 130, lineCount: 1, missingOutput: true },
 		]);
 		expect(second.service.readOutput(OWNER, terminal.id, ls.id, 0, 10).lines).toEqual(['a', 'b']);
-		expect(after.xterm.raw.options.disableStdin).toBe(true);
 	});
 
 	it('keeps following a command that runs through a window reload', async () => {
 		const before = fakeTerminal({ respond: () => `${C}one\n` });
 		const first = createService(before);
-		const terminal = await first.service.createTerminal(OWNER, { name: 'Agent', allowUserInput: true });
+		const terminal = await first.service.createTerminal(OWNER, { name: 'Agent' });
 		const serve = await first.service.runCommand(OWNER, terminal.id, 'serve', 0, CancellationToken.None);
 		await first.reload();
 
@@ -258,7 +256,6 @@ describe('PositronAgentTerminalService', () => {
 
 		expect(second.service.getCommands(OWNER, terminal.id)[0]).toMatchObject({ id: serve.id, running: false, exitCode: 0, missingOutput: true });
 		expect(second.service.readOutput(OWNER, terminal.id, serve.id, 0, 10).lines).toEqual(['one', 'two']);
-		expect(after.xterm.raw.options.disableStdin).toBe(false);
 	});
 
 	it('leaves alone terminals it did not save', async () => {
