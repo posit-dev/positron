@@ -147,6 +147,17 @@ suite('SqlSession', () => {
 		return session;
 	}
 
+	// The extension's own session, on by default, holds the commands every session here registers,
+	// and registering a command twice throws. So it is switched off for these tests.
+	suiteSetup(async () => {
+		await vscode.extensions.getExtension('positron.positron-sql')!.activate();
+		await vscode.workspace.getConfiguration('sql').update('enabled', false, vscode.ConfigurationTarget.Global);
+	});
+
+	suiteTeardown(async () => {
+		await vscode.workspace.getConfiguration('sql').update('enabled', undefined, vscode.ConfigurationTarget.Global);
+	});
+
 	teardown(async () => {
 		for (const session of sessions.splice(0)) {
 			session.dispose();
@@ -412,19 +423,20 @@ suite('SqlSession', () => {
 	test('sql.enabled switched off and on again tears the session down and starts another', async () => {
 		const sqlCommands = async () => (await vscode.commands.getCommands(true))
 			.filter(command => command === 'sql.refreshDatabaseSchema').length;
-		await vscode.extensions.getExtension('positron.positron-sql')!.activate();
 		const configuration = vscode.workspace.getConfiguration('sql');
 		try {
-			await configuration.update('enabled', true, vscode.ConfigurationTarget.Global);
+			// Cleared, so that the session starts under the default.
+			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
 			const on = await sqlCommands();
 			await configuration.update('enabled', false, vscode.ConfigurationTarget.Global);
 			const off = await sqlCommands();
-			await configuration.update('enabled', true, vscode.ConfigurationTarget.Global);
+			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
 			const again = await sqlCommands();
 
 			assert.deepStrictEqual({ on, off, again }, { on: 1, off: 0, again: 1 });
 		} finally {
-			await configuration.update('enabled', undefined, vscode.ConfigurationTarget.Global);
+			// Off again for the tests after this one; see suiteSetup.
+			await configuration.update('enabled', false, vscode.ConfigurationTarget.Global);
 		}
 	});
 
