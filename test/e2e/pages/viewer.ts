@@ -162,7 +162,7 @@ export class Viewer {
 	 * Wait for content to be visible in the viewer frame, with retry on failure.
 	 *
 	 * Dev servers (Flask, Dash, etc.) may report "running" before actually accepting
-	 * connections, causing ERR_CONNECTION_RESET. If content isn't visible, the onRetry
+	 * connections, causing ERR_CONNECTION_RESET. If content doesn't appear, the onRetry
 	 * callback is called to allow restarting the server before the next attempt.
 	 *
 	 * @param useIframe - Set to false for Positron output (great-tables, modelsummary) that renders directly.
@@ -175,24 +175,16 @@ export class Viewer {
 		const { timeout = 60000, onRetry, useIframe = undefined } = options ?? {};
 
 		await test.step('Expect content visible in viewer frame', async () => {
+			let retrying = false;
 			await expect(async () => {
-				const locator = getLocator(await this.getViewerContent(useIframe));
-
-
-				// Check if content is visible
-				let isVisible = false;
-				try {
-					isVisible = await locator.isVisible();
-				} catch {
-					// Frame might not be accessible after ERR_CONNECTION_RESET
-				}
-
-				// If content isn't visible, call onRetry to allow restarting the server
-				if (!isVisible && onRetry) {
+				if (retrying && onRetry) {
 					await onRetry();
 				}
+				retrying = true;
 
-				// Expect the content to be visible
+				// Look up the content after any restart: the integrated browser
+				// shows a restarted app in a new page.
+				const locator = getLocator(await this.getViewerContent(useIframe));
 				await expect(locator).toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout });
 		});
