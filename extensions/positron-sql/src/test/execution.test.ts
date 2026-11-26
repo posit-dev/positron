@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { ConnectCode, ExecutionApi, GGSQL_LANGUAGE_ID, sessionOn, StatementRunner } from '../execution';
+import { ConnectCode, duckdbLockConflict, ExecutionApi, GGSQL_LANGUAGE_ID, sessionOn, StatementRunner } from '../execution';
 import { ConnectionRef } from '../schema';
 import { sqlDocument, testLog, TEST_CONNECTION, TEST_DRIVER, TEST_PROFILE } from './support';
 
@@ -43,6 +43,30 @@ suite('sessionOn', () => {
 	test('a console whose database is unknown is not used', () => {
 		// Reconnected after a reload, say: it may be on the file's database, and it may not.
 		assert.strictEqual(sessionOn(SHOP, session('a'), [{ sessionId: 'a', code: undefined }]), undefined);
+	});
+});
+
+suite('duckdbLockConflict', () => {
+
+	const LOCK = 'IO Error: Could not set lock on file "/data/shop.duckdb": Conflicting lock is held in Positron (PID 4242).';
+
+	test('a read-write open that hit the lock', () => {
+		assert.strictEqual(duckdbLockConflict(LOCK, SHOP), 'read-write');
+	});
+
+	test('a read-only open that hit the lock', () => {
+		// Another session has the file open read-write.
+		assert.strictEqual(duckdbLockConflict(LOCK, `${SHOP}?access_mode=read_only`), 'read-only');
+	});
+
+	test('the Windows sharing violation counts as the lock', () => {
+		const error = 'IO Error: Cannot open file "C:\\data\\shop.duckdb": The process cannot access the file because it is being used by another process. File is already open in Positron';
+		assert.strictEqual(duckdbLockConflict(error, SHOP), 'read-write');
+	});
+
+	test('any other failure is not a lock conflict', () => {
+		assert.strictEqual(duckdbLockConflict('Catalog Error: Table with name shop does not exist!', SHOP), undefined);
+		assert.strictEqual(duckdbLockConflict(undefined, SHOP), undefined);
 	});
 });
 
@@ -249,6 +273,17 @@ suite('StatementRunner', () => {
 		);
 	});
 
+	test('a connect that fails on DuckDB\'s file lock says how ggsql tried to open the file', async () => {
+		// Explained beyond ggsql's own error, which names a process id rather than what to do.
+		const api = new FakeApi();
+		api.onConnect = 'fail';
+		api.connectError = 'IO Error: Could not set lock on file "/data/shop.duckdb": Conflicting lock is held in Positron (PID 4242).';
+
+		const outcome = await runner(api).run(await document(), CONNECTION, ['SELECT 1']);
+
+		assert.deepStrictEqual(outcome, { kind: 'connect-failed', lock: 'read-write' });
+	});
+
 	test('a connect that succeeds counts, even when Positron reports the move after it', async () => {
 		// The report travels apart from the line's result, so reading where the session is once
 		// the line finishes would find it still on its startup database.
@@ -396,6 +431,9 @@ class FakeApi implements ExecutionApi {
 	 */
 	public onConnect: 'connect' | 'connect-reported-late' | 'unreported' | 'fail' | 'exit' = 'connect';
 
+	/** ggsql's error for an `@connect` line that fails. */
+	public connectError = 'Catalog Error: Table with name shop does not exist!';
+
 	/** Where a new session starts, as far as Positron has heard by the time it is connected. */
 	public startCode: string | undefined = MEMORY;
 
@@ -504,7 +542,7 @@ class FakeApi implements ExecutionApi {
 			case 'unreported':
 				return Promise.resolve();
 			case 'fail':
-				return Promise.reject({ message: 'Could not set lock on file' });
+				return Promise.reject({ message: this.connectError });
 			case 'exit':
 				this._codes.delete(sessionId);
 				this._onDidChange.fire({ sessionId, code: undefined });

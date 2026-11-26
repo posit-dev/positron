@@ -300,12 +300,13 @@ suite('DuckDB Driver Tests', () => {
 
 	// The driver, created over the no-op Data Explorer host. Validation never previews, so the host
 	// only has to satisfy the parameter's type.
-	function createDriver(): positron.DataConnectionDriver {
+	/** @param ggsqlVersion The ggsql version the driver sees as installed. */
+	function createDriver(ggsqlVersion?: string): positron.DataConnectionDriver {
 		const extension = vscode.extensions.getExtension('positron.positron-data-driver-duckdb');
 		assert.ok(extension, 'the DuckDB driver extension should be present');
 		// The driver reads only the extension path, to load its icon.
 		const context = { extensionPath: extension.extensionPath } as vscode.ExtensionContext;
-		return createDuckDBDriver(context, dataExplorerHost as unknown as DuckDBDataExplorerRpcHandler);
+		return createDuckDBDriver(context, dataExplorerHost as unknown as DuckDBDataExplorerRpcHandler, undefined, () => ggsqlVersion);
 	}
 
 	test('validateParameters saves an existing database as a normalized absolute path', async () => {
@@ -338,5 +339,43 @@ suite('DuckDB Driver Tests', () => {
 		const validation = await createDriver().validateParameters!('file', { databasePath: dbPath });
 
 		assert.deepStrictEqual(validation, { errors: { databasePath: `'${dbPath}' is not a DuckDB database.` } });
+	});
+
+	// --- Generating ggsql connection code ---
+
+	// A read-only ggsql session shares the file with the Data Connections pane's read-only
+	// connection; a read-write one holds an exclusive lock that the pane's connection would block.
+	test('generateConnectionCode opens a read-only database read-only in ggsql', async () => {
+		const dbPath = path.join(tmpDir, 'shared.duckdb');
+
+		const variants = await createDriver('0.6.0').generateConnectionCode!('file', 'ggsql', { databasePath: dbPath, readOnly: true });
+
+		assert.deepStrictEqual(variants, [{
+			id: 'ggsql',
+			label: 'ggsql',
+			code: `-- @connect: duckdb://${dbPath.replace(/\\/g, '/')}?access_mode=read_only`,
+		}]);
+	});
+
+	// ggsql 0.5.2 reads the query string as part of the file name and would open an empty database,
+	// so it gets the plain path: read-write, which at worst fails on the lock with an error.
+	test('generateConnectionCode leaves access_mode off for ggsql 0.5.2', async () => {
+		const dbPath = path.join(tmpDir, 'shared.duckdb');
+
+		const variants = await createDriver('0.5.2').generateConnectionCode!('file', 'ggsql', { databasePath: dbPath, readOnly: true });
+
+		assert.strictEqual(variants[0].code, `-- @connect: duckdb://${dbPath.replace(/\\/g, '/')}`);
+	});
+
+	test('generateConnectionCode opens a read-write database read-write in ggsql', async () => {
+		const dbPath = path.join(tmpDir, 'shared.duckdb');
+
+		const variants = await createDriver('0.6.0').generateConnectionCode!('file', 'ggsql', { databasePath: dbPath, readOnly: false });
+
+		assert.deepStrictEqual(variants, [{
+			id: 'ggsql',
+			label: 'ggsql',
+			code: `-- @connect: duckdb://${dbPath.replace(/\\/g, '/')}`,
+		}]);
 	});
 });

@@ -10,7 +10,8 @@ import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer
 import { QUOTE_TRIGGERS, SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { defaultSchemaOf, dialectOfDriver } from './dialects';
-import { errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
+import { DuckDBLockConflict, errorMessage, ExecutionOutcome, GGSQL_EXTENSION_ID, positronExecutionApi, StatementRunner } from './execution';
+import { ggsqlHonorsAccessMode } from './ggsqlAccessMode';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -792,6 +793,46 @@ export class SqlSession implements vscode.Disposable {
 	}
 
 	/**
+	 * Explains a DuckDB file that ggsql could not open because another session holds its lock --
+	 * most often the Data Connections pane. DuckDB's own error names a process id, not what to do.
+	 *
+	 * DuckDB lets several sessions open a file only when every one of them opens it read-only, so
+	 * the way out depends on how ggsql tried to open it: read-only means the other session is the
+	 * one writing; read-write means either the connection is read-write or the installed ggsql is
+	 * too old to open it any other way (see {@link ggsqlHonorsAccessMode}).
+	 */
+	private _reportLockConflict(lock: DuckDBLockConflict, connection: ConnectionRef): void {
+		const why = vscode.l10n.t("DuckDB lets sessions share a database file only when all of them open it read-only.");
+		if (lock === 'read-only') {
+			void vscode.window.showWarningMessage(vscode.l10n.t(
+				"ggsql could not open {0} because another session, such as another ggsql console, has the file open read-write, so the statement was not run. {1} Close the file in that session, or open it read-only there.",
+				connection.name,
+				why,
+			));
+			return;
+		}
+
+		// No button to update ggsql: until a release newer than 0.5.2 is out there is nothing to
+		// update to, and disconnecting is what works today. Said whether or not the connection is
+		// read-only, since this ggsql opens it read-write either way.
+		const ggsqlVersion = vscode.extensions.getExtension(GGSQL_EXTENSION_ID)?.packageJSON?.version;
+		if (!ggsqlHonorsAccessMode(typeof ggsqlVersion === 'string' ? ggsqlVersion : undefined)) {
+			void vscode.window.showWarningMessage(vscode.l10n.t(
+				"ggsql could not open {0} because another session, such as the Data Connections pane, has the file open, so the statement was not run. {1} This version of ggsql always opens DuckDB files read-write, so disconnect {0} to run statements. A ggsql newer than 0.5.2 can share a Read Only connection.",
+				connection.name,
+				why,
+			));
+			return;
+		}
+
+		void vscode.window.showWarningMessage(vscode.l10n.t(
+			"ggsql could not open {0} because another session, such as the Data Connections pane, has the file open, so the statement was not run. {1} {0} is read-write: edit it to be Read Only, or disconnect it.",
+			connection.name,
+			why,
+		));
+	}
+
+	/**
 	 * Says why a statement was not run. Never awaited: a notification the user leaves alone must
 	 * not hold up the next run.
 	 */
@@ -864,6 +905,10 @@ export class SqlSession implements vscode.Disposable {
 				break;
 
 			case 'connect-failed':
+				if (outcome.lock) {
+					this._reportLockConflict(outcome.lock, connection);
+					break;
+				}
 				// The console shows ggsql's own error, which says far more about why than anything
 				// here could. This says only that the statement was not run, so that error is not
 				// mistaken for the statement's.
