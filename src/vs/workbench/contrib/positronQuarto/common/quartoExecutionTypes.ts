@@ -251,6 +251,23 @@ export interface IQuartoExecutionManager {
 	executeInlineCells(documentUri: URI, codeRanges: Range[], token?: CancellationToken, executionMetadata?: Record<string, unknown>[]): Promise<void>;
 
 	/**
+	 * Code from a Quarto cell, as the console should run it: for a cell that
+	 * runs in ggsql, without the cell's option lines at its top, which a cell
+	 * run strips but a selection or statement can include, and led by the
+	 * cell's `-- @connect:` line when the code needs it to reach the cell's
+	 * database; any other code as it is.
+	 *
+	 * @param documentUri The Quarto document.
+	 * @param lineNumber A line of the cell the code comes from (1-based), or
+	 *   undefined when the code is a whole cell's, without its option lines, as
+	 *   the Quarto extension runs a cell; the cell is then the first whose code
+	 *   it is.
+	 * @param code The selection, statement or cell about to run.
+	 * @param sessionId The session it will run in, if known.
+	 */
+	consoleCode(documentUri: URI, lineNumber: number | undefined, code: string, sessionId: string | undefined): Promise<string>;
+
+	/**
 	 * Cancel execution for a document.
 	 * @param documentUri URI of the document
 	 * @param cellId Optional specific cell ID to cancel. If not provided, cancels all.

@@ -45,6 +45,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
+import { prepareQuartoConsoleCode } from '../../positronQuarto/common/quartoConsoleCode.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
 import { IEditorCodeSubmissionService } from './editorCodeSubmission/editorCodeSubmissionService.js';
 
@@ -106,6 +108,8 @@ async function executeCodeInConsole(
 		languageId?: string;
 		mode?: RuntimeCodeExecutionMode;
 		errorBehavior?: RuntimeErrorBehavior;
+		/** The session to run in; any session of the language when undefined. */
+		sessionId?: string;
 	} = {}
 ): Promise<boolean> {
 	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
@@ -148,7 +152,7 @@ async function executeCodeInConsole(
 	// Ask the Positron console service to execute the code. Do not focus the console as
 	// this will rip focus away from the editor.
 	if (!await positronConsoleService.executeCode(
-		languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+		languageId, opts.sessionId /* undefined: run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
 		const languageName = languageService.getLanguageName(languageId);
 		notificationService.notify({
 			severity: Severity.Info,
@@ -425,6 +429,8 @@ export function registerPositronConsoleActions() {
 			const textFileService = accessor.get(ITextFileService);
 			const configurationService = accessor.get(IConfigurationService);
 			const editorCodeSubmissionService = accessor.get(IEditorCodeSubmissionService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const quartoExecutionManager = accessor.get(IQuartoExecutionManager);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -485,7 +491,6 @@ export function registerPositronConsoleActions() {
 				// Delegate to the Quarto execution manager for inline output
 				try {
 					logService.debug(`[ExecuteCode] Taking quarto inline output path`);
-					const quartoExecutionManager = accessor.get(IQuartoExecutionManager);
 					return await this.executeInQuartoInlineOutput(
 						model,
 						editor,
@@ -685,6 +690,15 @@ export function registerPositronConsoleActions() {
 				range: Range.fromPositions(position, position),
 			};
 
+			// A statement from a Quarto cell that runs in ggsql runs against the cell's
+			// database, which the statement itself does not name; see consoleCode.
+			let sessionId: string | undefined;
+			if (isQuartoDoc && opts.languageId) {
+				({ code, sessionId } = await prepareQuartoConsoleCode(
+					model.uri, position.lineNumber, code, opts.languageId, undefined,
+					{ quartoExecutionManager, runtimeSessionService }));
+			}
+
 			// Use the helper function to execute the code
 			await executeCodeInConsole(
 				code,
@@ -703,7 +717,8 @@ export function registerPositronConsoleActions() {
 					completenessVerified,
 					languageId: opts.languageId,
 					mode: opts.mode,
-					errorBehavior: opts.errorBehavior
+					errorBehavior: opts.errorBehavior,
+					sessionId,
 				});
 			return nextPosition;
 		}

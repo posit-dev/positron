@@ -19,9 +19,11 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
+import { NotebookCellsChangeType } from '../../../notebook/common/notebookCommon.js';
 import { NotebookProviderInfo } from '../../../notebook/common/notebookProvider.js';
 import { QUARTO_NATIVE_LANGUAGE_FEATURES_KEY } from '../../common/positronQuartoConfig.js';
 import {
+	QUARTO_CELL_GGSQL_CONNECT_KEY,
 	QUARTO_CELLS_SCHEME,
 	QUARTO_CELLS_VIEW_TYPE,
 	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
@@ -806,6 +808,66 @@ describe('QuartoVirtualNotebookService', () => {
 		// Read the way a passive consumer does, without asking for a sync first.
 		expect(service.getCells(source.uri).map(cell => [cell.codeStartLine, cell.codeEndLine]))
 			.toEqual([[6, 6], [10, 10]]);
+	});
+
+	it('gives each cell the database it runs against, and keeps it current as the document changes', async () => {
+		const service = createService();
+		const source = createSourceModel([
+			'```{sql}',                              // 1
+			'-- @connect: duckdb://a.db',            // 2
+			'SELECT 1',                              // 3
+			'```',                                   // 4
+			'',
+			'```{sql}',                              // 6
+			'--| eval: false',                       // 7
+			'-- @connect: duckdb://scratch.db',      // 8
+			'SELECT 2',                              // 9
+			'```',                                   // 10
+			'',
+			'```{sql}',                              // 12
+			'SELECT 3',                              // 13
+			'```',                                   // 14
+			'',
+			'```{python}',                           // 16
+			'x = 1',                                 // 17
+			'```',                                   // 18
+			'',
+		].join('\n'));
+		await service.whenReady(source.uri);
+		const notebook = notebooks.get(service.getNotebookUri(source.uri)!)!;
+		const connects = () => notebook.cells.map(cell => cell.metadata[QUARTO_CELL_GGSQL_CONNECT_KEY]);
+		const created = connects();
+		let metadataChanges = 0;
+		ctx.disposables.add(notebook.onDidChangeContent(event => {
+			metadataChanges += event.rawEvents.filter(raw => raw.kind === NotebookCellsChangeType.ChangeCellMetadata).length;
+		}));
+
+		// Typing that moves no database edits no metadata, so a keystroke is not a change to every cell.
+		source.applyEdits([{ range: { startLineNumber: 13, startColumn: 9, endLineNumber: 13, endColumn: 9 }, text: ' + 1' }]);
+		service.ensureSynchronized(source.uri);
+		const typing = metadataChanges;
+
+		// A new database in the first cell reaches the cell that inherits it, in place.
+		const handles = notebook.cells.map(cell => cell.handle);
+		source.applyEdits([{ range: { startLineNumber: 2, startColumn: 23, endLineNumber: 2, endColumn: 24 }, text: 'b' }]);
+		service.ensureSynchronized(source.uri);
+		const edited = connects();
+		const moved = metadataChanges - typing;
+		const sameCells = notebook.cells.every((cell, index) => cell.handle === handles[index]);
+
+		// An {r} cell makes it a knitr document, whose {sql} cells don't run in ggsql.
+		source.applyEdits([{ range: { startLineNumber: 19, startColumn: 1, endLineNumber: 19, endColumn: 1 }, text: '```{r}\ny <- 1\n```\n' }]);
+		service.ensureSynchronized(source.uri);
+
+		expect({ created, typing, edited, moved, sameCells, knitr: connects() }).toEqual({
+			created: ['duckdb://a.db', 'duckdb://scratch.db', 'duckdb://a.db', undefined],
+			typing: 0,
+			edited: ['duckdb://b.db', 'duckdb://scratch.db', 'duckdb://b.db', undefined],
+			// the first cell and the one inheriting from it
+			moved: 2,
+			sameCells: true,
+			knitr: [undefined, undefined, undefined, undefined, undefined],
+		});
 	});
 
 	it('disposes the notebook and its cell models when the source document closes', async () => {

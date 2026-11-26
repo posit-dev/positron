@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../../base/common/uri.js';
+import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { createLightTestContainer } from '../../../../../test/vitest/lightTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -31,7 +32,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
-import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ITerminalService } from '../../../terminal/browser/terminal.js';
@@ -74,6 +75,12 @@ describe('shouldSkipFirstCommandFinished', () => {
 		const model = stubInterface<IPromptInputModel>({ state: PromptInputState.Input, value: 'pending' });
 		expect(shouldSkipFirstCommandFinished(model)).toBe(true);
 	});
+});
+
+/** Session connection codes, as Positron records them; set per test. */
+const sessionConnectionCodes = new Map<string, string>();
+const connectionsService = stubInterface<IPositronConnectionsService>({
+	getSessionConnectionCode: (sessionId: string) => sessionConnectionCodes.get(sessionId),
 });
 
 describe('QuartoExecutionManager', () => {
@@ -141,7 +148,8 @@ describe('QuartoExecutionManager', () => {
 			stubInterface<IMissingPackagesPreflightService>({
 				confirmBeforeRun: () => Promise.resolve(true),
 			}),
-			createTestRuntimeStartupService(['python', 'r']),
+			createTestRuntimeStartupService(['python', 'r', 'ggsql']),
+			connectionsService,
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -379,14 +387,130 @@ describe('QuartoExecutionManager', () => {
 				range: { start: { line: 1, character: 0 }, end: { line: 2, character: 8 } },
 			}]);
 		});
+
+		it('leaves the session to the console service when the language\'s console session has exited', async () => {
+			const cell = rCell('location-console-exited', 2, 3);
+			const documentUri = URI.file('/location-console-exited.qmd');
+			useDocument([cell], ['```{r}', 'x <- 1', 'print(x)', '```'], 'python');
+			const exited = ctx.disposables.add(new TestLanguageRuntimeSession(createSessionMetadata('exited-r'), TestLanguageRuntimeMetadata));
+			exited.setRuntimeState(RuntimeState.Exited);
+			mockRuntimeSessionService.setConsoleSessionForLanguage('r', exited);
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
+
+			// No session starts in the mocks to end the run, so it is cancelled.
+			const cts = ctx.disposables.add(new CancellationTokenSource());
+			const promise = executionManager.executeCell(documentUri, cell, cts.token);
+			await mockConsoleService.waitForExecution();
+			cts.cancel();
+			await promise.catch(() => undefined);
+
+			// the session ID: none, so that the console service starts or picks a live one
+			expect(consoleSpy.mock.calls.map(call => call[1])).toEqual([undefined]);
+		});
 	});
 
-	describe('Session lifecycle', () => {
-		function inlineCell(id: string): QuartoCodeCell {
+	describe('connectPreamble', () => {
+		const lines = [
+			'```{sql}', '-- @connect: duckdb://a.db', 'SELECT 1;', 'SELECT 2;', '```',   // 1-5
+			'```{sql}', 'SELECT 3', '```',                                              // 6-8
+		];
+		function cell(id: string, index: number, start: number, end: number): QuartoCodeCell {
+			return { id, index, language: 'sql', startLine: start, endLine: end, codeStartLine: start + 1, codeEndLine: end - 1, label: undefined, options: '', contentHash: id };
+		}
+
+		it('names the cell\'s database ahead of code that does not, unless the session is already on it', async () => {
+			const documentUri = URI.file('/test-connect-preamble.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell('a', 0, 1, 5), cell('b', 1, 6, 8)], lines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return lines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+			sessionConnectionCodes.set('on-a', '-- @connect: duckdb://a.db');
+
+			expect([
+				await executionManager.connectPreamble(documentUri, 3, 'SELECT 1;', undefined),
+				await executionManager.connectPreamble(documentUri, 7, 'SELECT 3', 'fresh'),
+				await executionManager.connectPreamble(documentUri, 7, 'SELECT 3', 'on-a'),
+				await executionManager.connectPreamble(documentUri, 2, '-- @connect: duckdb://a.db\nSELECT 1;', undefined),
+			]).toEqual(['-- @connect: duckdb://a.db\n', '-- @connect: duckdb://a.db\n', '', '']);
+		});
+
+		it('gives the console a cell\'s code without its option lines, and with the @connect it needs', async () => {
+			const optionLines = [
+				'```{ggsql}', '#| label: q', '-- @connect: duckdb://a.db', 'SELECT 1;', '```',   // 1-5
+				'```{python}', '#| label: p', 'x = 1', '```',                                    // 6-9
+			];
+			const ggsql: QuartoCodeCell = { ...cell('a', 0, 1, 5), language: 'ggsql' };
+			const python: QuartoCodeCell = { ...cell('p', 1, 6, 9), language: 'python' };
+			const documentUri = URI.file('/test-console-code.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([ggsql, python], optionLines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return optionLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// the whole cell selected: the options go, and its own @connect stays first
+				await executionManager.consoleCode(documentUri, 2, '#| label: q\n-- @connect: duckdb://a.db\nSELECT 1;', undefined),
+				// a statement below the @connect: the cell's @connect goes ahead of it
+				await executionManager.consoleCode(documentUri, 4, 'SELECT 1;', undefined),
+				// a cell that doesn't run in ggsql is sent as it is
+				await executionManager.consoleCode(documentUri, 7, '#| label: p\nx = 1', undefined),
+			]).toEqual([
+				'-- @connect: duckdb://a.db\nSELECT 1;',
+				'-- @connect: duckdb://a.db\nSELECT 1;',
+				'#| label: p\nx = 1',
+			]);
+		});
+
+		it('finds a cell the Quarto extension runs by its code, to give it the @connect it inherits', async () => {
+			const documentUri = URI.file('/test-console-cell.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell('a', 0, 1, 5), cell('b', 1, 6, 8)], lines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return lines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// the second cell, which inherits the first one's database
+				await executionManager.consoleCode(documentUri, undefined, 'SELECT 3\n', undefined),
+				// code that is no cell's runs as it is
+				await executionManager.consoleCode(documentUri, undefined, 'SELECT 4', undefined),
+			]).toEqual([
+				'-- @connect: duckdb://a.db\nSELECT 3\n',
+				'SELECT 4',
+			]);
+		});
+
+		it('passes over an earlier cell with eval: false, which a render never runs', async () => {
+			const evalLines = [
+				'```{sql}', '-- @connect: duckdb://a.db', 'SELECT 1;', '```',                       // 1-4
+				'```{sql}', '--| eval: false  # draft only', '-- @connect: duckdb://scratch.db', 'SELECT 2;', '```', // 5-9
+				'```{sql}', 'SELECT 3', '```',                                                    // 10-12
+			];
+			const documentUri = URI.file('/test-connect-eval-false.qmd');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel(
+				[cell('a', 0, 1, 4), cell('s', 1, 5, 9), cell('b', 2, 10, 12)], evalLines));
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return evalLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			expect([
+				// a later cell inherits from the cell before the skipped one
+				await executionManager.connectPreamble(documentUri, 11, 'SELECT 3', undefined),
+				// the eval: false cell, run by hand, still runs against its own database
+				await executionManager.connectPreamble(documentUri, 8, 'SELECT 2;', undefined),
+			]).toEqual(['-- @connect: duckdb://a.db\n', '-- @connect: duckdb://scratch.db\n']);
+		});
+	});
+
+	describe('SQL cells', () => {
+		function sqlCell(id: string): QuartoCodeCell {
 			return {
 				id,
 				index: 0,
-				language: 'python',
+				language: 'sql',
 				startLine: 1,
 				endLine: 3,
 				codeStartLine: 2,
@@ -397,38 +521,89 @@ describe('QuartoExecutionManager', () => {
 			};
 		}
 
-		it('fails the running cell instead of hanging when its kernel exits', async () => {
-			const documentUri = URI.file('/test-kernel-exit.qmd');
-			const cell = inlineCell('kernel-exit');
+		it('runs a {sql} cell in the ggsql console, and finishes when ggsql goes idle', async () => {
+			const documentUri = URI.file('/test-sql-cell.qmd');
+			const cell = sqlCell('sql-cell');
+			mockDocumentModelService.setMockModel(new MockQuartoDocumentModel([cell], ['```{sql}', 'SELECT 1', '```']));
+			mockEditorService.getValueInRangeCallback = () => 'SELECT 1';
+			mockRuntimeSessionService.setConsoleSessionForLanguage('ggsql', mockSession);
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
 
 			const executionPromise = executionManager.executeCell(documentUri, cell);
-			await mockKernelManager.waitForExecution();
-
-			// Kernel dies mid-execution: the idle that would complete the cell
-			// never arrives, so the cell must fail rather than wait forever.
-			mockSession.setRuntimeState(RuntimeState.Exited);
-
+			const executionId = await mockConsoleService.waitForExecution();
+			mockSession.receiveStateMessage({ parent_id: executionId, state: RuntimeOnlineState.Idle });
 			await executionPromise;
-			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Error);
+
+			// Sent whole even if incomplete, so the runtime reports it rather than the
+			// console holding it for more input and the cell never finishing.
+			expect([consoleSpy.mock.calls[0][0], consoleSpy.mock.calls[0][5]]).toEqual(['ggsql', true]);
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Completed);
 		});
 
-		it('stops a run-all when the session ends mid-run', async () => {
-			const documentUri = URI.file('/test-session-ended.qmd');
-			const first = inlineCell('session-ended-1');
-			const second = { ...inlineCell('session-ended-2'), index: 1 };
+		it('leaves a {sql} cell to knitr in a document knitr renders, without failing it', async () => {
+			const documentUri = URI.file('/test-sql-knitr.qmd');
+			const cell = sqlCell('sql-knitr');
+			const model = new MockQuartoDocumentModel([cell], ['```{sql}', 'SELECT 1', '```'], 'r');
+			model.knitrEngine = true;
+			mockDocumentModelService.setMockModel(model);
+			mockEditorService.getValueInRangeCallback = () => 'SELECT 1';
+			const consoleSpy = vi.spyOn(mockConsoleService, 'executeCode');
 
-			const executionPromise = executionManager.executeCells(documentUri, [first, second]);
-			await mockKernelManager.waitForExecution();
+			await executionManager.executeCell(documentUri, cell);
 
-			// End the session while the first cell is running. The second cell
-			// must not run on a session that no longer holds the state.
-			mockSession.endSession();
-
-			await executionPromise;
-			expect(executionManager.getExecutionState(first.id)).toBe(CellExecutionState.Error);
-			expect(executionManager.getExecutionState(second.id)).toBe(CellExecutionState.Idle);
+			expect(consoleSpy).not.toHaveBeenCalled();
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Idle);
 		});
 	});
+
+	describe('Session lifecycle', () => {
+	function inlineCell(id: string): QuartoCodeCell {
+		return {
+			id,
+			index: 0,
+			language: 'python',
+			startLine: 1,
+			endLine: 3,
+			codeStartLine: 2,
+			codeEndLine: 2,
+			label: undefined,
+			options: '',
+			contentHash: id,
+		};
+	}
+
+	it('fails the running cell instead of hanging when its kernel exits', async () => {
+		const documentUri = URI.file('/test-kernel-exit.qmd');
+		const cell = inlineCell('kernel-exit');
+
+		const executionPromise = executionManager.executeCell(documentUri, cell);
+		await mockKernelManager.waitForExecution();
+
+		// Kernel dies mid-execution: the idle that would complete the cell
+		// never arrives, so the cell must fail rather than wait forever.
+		mockSession.setRuntimeState(RuntimeState.Exited);
+
+		await executionPromise;
+		expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Error);
+	});
+
+	it('stops a run-all when the session ends mid-run', async () => {
+		const documentUri = URI.file('/test-session-ended.qmd');
+		const first = inlineCell('session-ended-1');
+		const second = { ...inlineCell('session-ended-2'), index: 1 };
+
+		const executionPromise = executionManager.executeCells(documentUri, [first, second]);
+		await mockKernelManager.waitForExecution();
+
+		// End the session while the first cell is running. The second cell
+		// must not run on a session that no longer holds the state.
+		mockSession.endSession();
+
+		await executionPromise;
+		expect(executionManager.getExecutionState(first.id)).toBe(CellExecutionState.Error);
+		expect(executionManager.getExecutionState(second.id)).toBe(CellExecutionState.Idle);
+	});
+});
 
 	describe('Non-executable languages', () => {
 		it('skips diagram cells with no runtime during a multi-cell run (#15819)', async () => {
@@ -1828,6 +2003,7 @@ describe('QuartoExecutionManager', () => {
 					confirmBeforeRun: () => Promise.resolve(true),
 				}),
 				createTestRuntimeStartupService(['python', 'r']),
+				connectionsService,
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -1932,6 +2108,7 @@ describe('QuartoExecutionManager', () => {
 					confirmBeforeRun: () => Promise.resolve(true),
 				}),
 				createTestRuntimeStartupService(['python', 'r']),
+				connectionsService,
 			);
 			ctx.disposables.add(localExecutionManager);
 
@@ -2311,6 +2488,7 @@ class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];
 	readonly primaryLanguage: string;
+	knitrEngine: boolean | undefined = undefined;
 
 	get cells(): QuartoCodeCell[] {
 		return Array.from(this._cells.values());

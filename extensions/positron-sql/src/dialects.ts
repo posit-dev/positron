@@ -152,6 +152,19 @@ export function dialectOfDriver(driverId: string): string {
 	return DIALECTS.get(databaseOf(driverId)) ?? '';
 }
 
+/** Schemes a ggsql `@connect` URI uses for a database the table above lists under another name. */
+const SCHEME_DATABASES = new Map([['postgres', 'postgresql'], ['mssql', 'sqlserver']]);
+
+/**
+ * The dialect of the database a ggsql `@connect` URI names, for a URI no data connection matches,
+ * or `''` when the scheme does not say (`odbc://` reaches anything).
+ */
+export function dialectOfConnectUri(uri: string): string {
+	// `duckdb+postgres://` queries a DuckDB cache of the database, so DuckDB is what parses it.
+	const scheme = /^([a-z][a-z0-9]*)(\+[a-z0-9]+)?:\/\//i.exec(uri)?.[1].toLowerCase() ?? '';
+	return DIALECTS.get(SCHEME_DATABASES.get(scheme) ?? scheme) ?? '';
+}
+
 /** The database a driver id names, with Positron's prefixes taken off. */
 function databaseOf(driverId: string): string {
 	const withoutPrefix = driverId.startsWith(DRIVER_PREFIX)

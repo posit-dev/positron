@@ -19,7 +19,7 @@ import { ILogService, LogLevel } from '../../../../platform/log/common/log.js';
 import { IMarkerService } from '../../../../platform/markers/common/markers.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { CellEditType, CellKind, ICellDto2, NotebookData } from '../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, ICellDto2, ICellPartialMetadataEdit, NotebookData } from '../../notebook/common/notebookCommon.js';
 import { INotebookSerializer, INotebookService } from '../../notebook/common/notebookService.js';
 import {
 	QUARTO_NATIVE_LANGUAGE_FEATURES_KEY,
@@ -28,10 +28,12 @@ import {
 } from '../common/positronQuartoConfig.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import {
+	QUARTO_CELL_GGSQL_CONNECT_KEY,
 	QUARTO_CELLS_VIEW_TYPE,
 	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
 	quartoNotebookUri,
 } from '../common/quartoVirtualNotebookTypes.js';
+import { ggsqlCellConnects } from '../common/quartoLanguages.js';
 import { diffCellRuns, ICellRun, ICellSplice } from '../common/quartoCellDiff.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 
@@ -231,6 +233,9 @@ class QuartoVirtualNotebook extends Disposable {
 
 		const sourceCells = this._documentModel.cells;
 		const codes = sourceCells.map(cell => this._documentModel.getCellCode(cell));
+		// Any cell's text can change another's database, so this is worked out
+		// for the whole document on every sync.
+		const connects = ggsqlCellConnects(this._documentModel, codes);
 
 		// An unchanged count and language at every index means position alone
 		// identifies each cell, so any content difference is an edit rather than a
@@ -250,7 +255,7 @@ class QuartoVirtualNotebook extends Disposable {
 
 			const splice = diffCellRuns(this._cells.map(QuartoVirtualNotebook._runOf), runs);
 			if (splice.removeCount > 0 || splice.insertCount > 0) {
-				this._spliceCells(this._notebook, splice, sourceCells, codes);
+				this._spliceCells(this._notebook, splice, sourceCells, codes, connects);
 			}
 		}
 
@@ -269,6 +274,30 @@ class QuartoVirtualNotebook extends Disposable {
 				codeEndLine: sourceCell.codeEndLine,
 			};
 		});
+
+		this._syncConnects(this._notebook, connects);
+	}
+
+	/**
+	 * Bring each cell's database (QUARTO_CELL_GGSQL_CONNECT_KEY) in line with
+	 * `connects`, editing only the cells whose value changed, so that typing
+	 * in a cell does not send a metadata change for every cell on each key.
+	 */
+	private _syncConnects(notebook: NotebookTextModel, connects: readonly (string | undefined)[]): void {
+		const edits: ICellPartialMetadataEdit[] = [];
+		notebook.cells.forEach((cell, index) => {
+			const connect = connects[index];
+			if (cell.metadata[QUARTO_CELL_GGSQL_CONNECT_KEY] !== connect) {
+				edits.push({
+					editType: CellEditType.PartialMetadata,
+					index,
+					metadata: { [QUARTO_CELL_GGSQL_CONNECT_KEY]: connect ?? null },
+				});
+			}
+		});
+		if (edits.length > 0) {
+			notebook.applyEdits(edits, true, undefined, () => undefined, undefined, false);
+		}
 	}
 
 	/**
@@ -282,17 +311,21 @@ class QuartoVirtualNotebook extends Disposable {
 		notebook: NotebookTextModel,
 		splice: ICellSplice,
 		sourceCells: readonly QuartoCodeCell[],
-		codes: readonly string[]
+		codes: readonly string[],
+		connects: readonly (string | undefined)[]
 	): void {
 		const dtos: ICellDto2[] = [];
 		for (let index = splice.prefix; index < splice.prefix + splice.insertCount; index++) {
 			const sourceCell = sourceCells[index];
+			const connect = connects[index];
 			dtos.push({
 				source: codes[index],
 				language: sourceCell.language,
 				mime: undefined,
 				cellKind: CellKind.Code,
 				outputs: [],
+				// Born with its database, so it is never read without one.
+				metadata: connect === undefined ? {} : { [QUARTO_CELL_GGSQL_CONNECT_KEY]: connect },
 			});
 		}
 

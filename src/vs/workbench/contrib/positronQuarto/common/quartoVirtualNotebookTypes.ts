@@ -39,6 +39,17 @@ export const QUARTO_CELLS_VIEW_TYPE = 'quarto-cells';
 export const QUARTO_CELLS_SCHEME = 'quarto-cells';
 
 /**
+ * Cell metadata key of the hidden notebooks: the database a cell that runs in
+ * ggsql runs against (see `ggsqlCellConnects`), as the `@connect` URI, or an
+ * empty string when it names none. Absent from a cell that does not run in
+ * ggsql. positron-sql reads it for the tables such a cell completes from, so
+ * that it need not decide the cell's database itself; its copy of the key is
+ * `GGSQL_CONNECT_KEY` in `extensions/positron-sql/src/connect.ts`, kept equal
+ * by `quartoGgsqlConnectKey.vitest.ts`.
+ */
+export const QUARTO_CELL_GGSQL_CONNECT_KEY = 'ggsqlConnect';
+
+/**
  * The URI of the hidden notebook for a source document: the source URI under our
  * own scheme, since the extension host cannot hold a text document and a notebook
  * document at the same URI.

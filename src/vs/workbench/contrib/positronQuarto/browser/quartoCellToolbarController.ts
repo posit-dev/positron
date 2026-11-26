@@ -27,6 +27,9 @@ import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/
 import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { localize } from '../../../../nls.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { explainUnrunnableCell } from './quartoHostCellLanguages.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * Editor contribution that manages cell toolbars for Quarto documents.
@@ -54,6 +57,8 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super();
 
@@ -551,6 +556,14 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	private async _runCell(cell: QuartoCodeCell): Promise<void> {
 		const model = this._editor.getModel();
 		if (!model) {
+			return;
+		}
+		const explained = explainUnrunnableCell(cell.language, this._documentModelService.getModel(model), {
+			runtimeStartupService: this._runtimeStartupService,
+			notificationService: this._notificationService,
+			commandService: this._commandService,
+		});
+		if (explained) {
 			return;
 		}
 		await this._executionManager.executeCell(model.uri, cell);

@@ -3,7 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { extractExecutableCode, parseCellExecutionOptions } from './quartoExecutionOptions.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+
+/**
+ * The console session of a language that code can still run in, if there is
+ * one. An exited session is none: the console service starts or picks a live
+ * one in its place, unless the code is pinned to the exited one by its ID.
+ */
+export function liveConsoleSession(languageId: string, runtimeSessionService: IRuntimeSessionService): ILanguageRuntimeSession | undefined {
+	const session = runtimeSessionService.getConsoleSessionForLanguage(languageId);
+	return session && session.getRuntimeState() !== RuntimeState.Exited ? session : undefined;
+}
 
 /**
  * Shell languages that are executed via terminal.
@@ -33,4 +46,133 @@ export function hasRuntimeProvider(language: string, runtimeStartupService: IRun
  */
 export function isExecutableLanguage(language: string, runtimeStartupService: IRuntimeStartupService): boolean {
 	return isShellLanguage(language) || hasRuntimeProvider(language, runtimeStartupService);
+}
+
+/** The language ggsql registers its runtime under. */
+export const GGSQL_LANGUAGE = 'ggsql';
+
+/** What a cell needs to know about its document to decide which runtime runs it. */
+export interface ICellRuntimeContext {
+	readonly primaryLanguage: string | undefined;
+	/** The engine the frontmatter declares: knitr (true), another (false), or none. */
+	readonly knitrEngine: boolean | undefined;
+	readonly cells: readonly { readonly language: string }[];
+}
+
+/**
+ * Whether Quarto renders the document with knitr: the engine its frontmatter
+ * declares (`engine`, else a `knitr` or `jupyter` key) or, when it declares
+ * none, whether it has any `{r}` cell. This is how Quarto picks the engine,
+ * and how the Quarto extension's `isKnitrDocument` decides which cells it
+ * can run, so the two agree on `{sql}` cells.
+ */
+export function rendersWithKnitr(document: ICellRuntimeContext): boolean {
+	return document.knitrEngine
+		?? document.cells.some(cell => cell.language.toLowerCase() === 'r');
+}
+
+/**
+ * The language of the runtime that runs a cell, which is the cell's own
+ * language except for SQL.
+ *
+ * A `{sql}` cell runs in ggsql, as a `{ggsql}` cell does: ggsql is SQL with
+ * a visualization clause on the end, and the only SQL runtime there is. Not
+ * under knitr, though, which renders `{sql}` cells with DBI against the R
+ * connection the chunk names; running them in ggsql would query some other
+ * database than the one the document renders from.
+ */
+export function runtimeLanguageOf(cellLanguage: string, document: ICellRuntimeContext): string {
+	const language = cellLanguage.toLowerCase();
+	return language === 'sql' && !rendersWithKnitr(document) ? GGSQL_LANGUAGE : language;
+}
+
+/**
+ * Whether a cell can be run in its document: something runs its language, or
+ * it is the document's primary language, whose kernel the run starts even when
+ * no extension provides runtimes for it.
+ */
+export function isRunnableCell(
+	cellLanguage: string,
+	document: ICellRuntimeContext,
+	runtimeStartupService: IRuntimeStartupService,
+): boolean {
+	const language = runtimeLanguageOf(cellLanguage, document);
+	return isExecutableLanguage(language, runtimeStartupService)
+		|| language === document.primaryLanguage?.toLowerCase();
+}
+
+/** A ggsql connection directive, matched exactly as ggsql matches it. */
+const CONNECT_DIRECTIVE = /^\s*-- @connect:(.*)$/;
+
+/**
+ * Lines ggsql reads past among an execution's leading directives, as its
+ * `take_leading_meta` does: blank lines and exactly `-- @uncache`. Anything
+ * else, a cell option that wasn't stripped or a misspelled directive
+ * included, ends them.
+ */
+const LEADING_NOISE = /^\s*(-- @uncache\s*)?$/;
+
+/**
+ * The `-- @connect: <uri>` line a piece of ggsql starts with, in the form ggsql
+ * reports the connection back in, or undefined if it starts with none. Of
+ * several, the last: ggsql applies each in turn.
+ *
+ * Mirrors ggsql's own reading of an execution's leading directives.
+ *
+ * Reads `code` as ggsql would receive it: a cell's source must have its
+ * option lines stripped first (see `extractExecutableCode`).
+ */
+export function leadingConnectLine(code: string): string | undefined {
+	const uri = leadingConnectUri(code);
+	return uri ? connectLine(uri) : undefined;
+}
+
+/** The URI of {@link leadingConnectLine}. */
+function leadingConnectUri(code: string): string | undefined {
+	let uri: string | undefined;
+	for (const line of code.split(/\r?\n/)) {
+		const match = CONNECT_DIRECTIVE.exec(line)?.[1].trim();
+		if (match) {
+			uri = match;
+		} else if (!LEADING_NOISE.test(line)) {
+			break;
+		}
+	}
+	return uri;
+}
+
+/** The `-- @connect:` line for a URI, in the form ggsql reports the connection back in. */
+export function connectLine(uri: string): string {
+	return `-- @connect: ${uri}`;
+}
+
+/**
+ * The database each cell of a Quarto document runs against, for the cells that
+ * run in ggsql: the URI of its own leading `@connect` line, or else that of the
+ * nearest earlier ggsql-run cell that a render runs (not one with
+ * `eval: false`), since a document's cells share one session. An empty string
+ * for a ggsql-run cell that runs against no named database, and undefined for
+ * a cell that does not run in ggsql at all.
+ *
+ * The one place this is decided: a run reads it to send a cell's database
+ * ahead of it, and positron-sql reads it (from the hidden notebook's cell
+ * metadata) for the tables the cell completes from, so the two agree.
+ *
+ * @param cellCodes Each cell's code, option lines included, by index.
+ */
+export function ggsqlCellConnects(document: ICellRuntimeContext, cellCodes: readonly string[]): (string | undefined)[] {
+	let inherited = '';
+	return document.cells.map((cell, index) => {
+		if (runtimeLanguageOf(cell.language, document) !== GGSQL_LANGUAGE) {
+			return undefined;
+		}
+		const code = cellCodes[index] ?? '';
+		const own = leadingConnectUri(extractExecutableCode(code, cell.language));
+		// A cell a render skips connects nothing for the cells after it, though
+		// run by hand it still runs against its own database.
+		if (own && parseCellExecutionOptions(code, cell.language).options.eval) {
+			inherited = own;
+		}
+		return own ?? inherited;
+	});
 }
