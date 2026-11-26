@@ -1350,12 +1350,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// object)
 		const disp = this._register(plotClient);
 
-		// Remove the plot from our list when it is closed
+		// Remove the plot from our list when it is closed. removePlot and
+		// removeAllPlots take the plot out of the list before disposing it, so
+		// this only finds the plot when its comm closed on its own (e.g. the
+		// kernel closed it), and then nothing else has told subscribers.
 		plotClient.register({
 			dispose: () => {
 				const index = this._plots.indexOf(plotClient);
 				if (index >= 0) {
 					this._plots.splice(index, 1);
+					// Same order as removePlot: select a neighbour, then notify.
+					if (this._selectedPlotId === plotClient.id) {
+						this.selectFallbackPlot(index);
+					}
+					this._onDidRemovePlot.fire(plotClient.id);
 				}
 
 				// Clear the plot's metadata from storage
@@ -1522,20 +1530,49 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this.unregisterPlotClient(plot);
 		}
 
-		// If this plot was selected, select the first plot in the list
+		// If this plot was selected, select a neighbour
 		if (this._selectedPlotId === id) {
-			if (this._plots.length > 0) {
-				// There are still some plots; select the first one
-				this._onDidSelectPlot.fire(this._plots[0].id);
-			}
-			else {
-				// There are no plots; clear the selected plot ID
-				this._selectedPlotId = undefined;
-			}
+			this.selectFallbackPlot(index);
 		}
 
 		// Fire the event notifying subscribers
 		this._onDidRemovePlot.fire(id);
+	}
+
+	/**
+	 * Selects a neighbour of the selected plot after it was removed from
+	 * `index`: the plot that moved into its slot, as if the user had pressed
+	 * Next, or else the one before it, as if they had pressed Previous. Plots
+	 * that are about to close are skipped. Clears the selection if no plot is
+	 * left.
+	 */
+	private selectFallbackPlot(index: number): void {
+		const plot = this._plots.find((plot, i) => i >= index && !this.isClosing(plot))
+			?? this._plots.findLast((plot, i) => i < index && !this.isClosing(plot));
+		if (plot) {
+			this._onDidSelectPlot.fire(plot.id);
+		} else {
+			// Tell subscribers nothing is selected, as removeAllPlots does, then
+			// clear the ID that the select listener just set to ''.
+			this._onDidSelectPlot.fire('');
+			this._selectedPlotId = undefined;
+		}
+	}
+
+	/**
+	 * Whether a plot is about to close: it is backed by a comm and its
+	 * session is restarting or exiting. A session closes its plots' comms one
+	 * at a time as it shuts down, so selecting one of them would only move the
+	 * selection again when it closes.
+	 */
+	private isClosing(plot: IPositronPlotClient): boolean {
+		if (!(plot instanceof PlotClientInstance)) {
+			return false;
+		}
+		const state = this._runtimeSessionService.getSession(plot.metadata.session_id)?.getRuntimeState();
+		return state === RuntimeState.Restarting
+			|| state === RuntimeState.Exiting
+			|| state === RuntimeState.Exited;
 	}
 
 	removeEditorPlot(id: string): void {
@@ -1822,7 +1859,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param executionId The ID of the execution that produced the plot, if known.
 	 */
 	private registerNewPlotClient(client: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
-		this._plots.unshift(client);
+		this._plots.push(client);
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);

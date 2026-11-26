@@ -489,7 +489,8 @@ export class PositronPlotRenderQueue extends Disposable {
 		// Register a close listener for this comm
 		const closeListener = comm.onDidClose(() => {
 			this.cancelOperationsForClosedComm(clientId);
-			// Clean up the listener from our map
+			// Clean up the listener
+			closeListener.dispose();
 			this._commCloseListeners.delete(clientId);
 		});
 		this._commCloseListeners.set(clientId, closeListener);

@@ -31,11 +31,15 @@ describe('PlotsContainer locator prompt', () => {
 	const onDidChangeLocator = new Emitter<IPlotLocator | undefined>();
 	const resolveLocator = vi.fn<IPositronPlotsService['resolveLocator']>();
 	const selectPlot = vi.fn<IPositronPlotsService['selectPlot']>();
+	// The service's plot list. The pane copies it on each event, so plots are
+	// added here before onDidEmitPlot fires, as the real service does.
+	const plots: IPositronPlotClient[] = [];
+	beforeEach(() => { plots.length = 0; });
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronPlotsService, {
-			positronPlotInstances: [],
+			positronPlotInstances: plots,
 			selectedPlotId: undefined,
 			activeLocator: undefined,
 			onDidChangeLocator: onDidChangeLocator.event,
@@ -94,8 +98,10 @@ describe('PlotsContainer locator prompt', () => {
 		);
 		act(() => {
 			for (const other of others) {
+				plots.push(other);
 				onDidEmitPlot.fire(other);
 			}
+			plots.push(plot);
 			onDidEmitPlot.fire(plot);
 			onDidSelectPlot.fire(plot.id);
 		});

@@ -31,11 +31,15 @@ describe('PlotsContainer origin file button', () => {
 	const onDidEmitPlot = new Emitter<IPositronPlotClient>();
 	const onDidSelectPlot = new Emitter<string>();
 	const onDidUpdatePlotMetadata = new Emitter<string>();
+	// The service's plot list. The pane copies it on each event, so plots are
+	// added here before onDidEmitPlot fires, as the real service does.
+	const plots: IPositronPlotClient[] = [];
+	beforeEach(() => { plots.length = 0; });
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronPlotsService, {
-			positronPlotInstances: [],
+			positronPlotInstances: plots,
 			selectedPlotId: undefined,
 			activeLocator: undefined,
 			onDidChangeLocator: Event.None,
@@ -113,6 +117,7 @@ describe('PlotsContainer origin file button', () => {
 		renderContainer();
 
 		act(() => {
+			plots.push(plot);
 			onDidEmitPlot.fire(plot);
 			onDidSelectPlot.fire(plot.id);
 		});
@@ -128,6 +133,7 @@ describe('PlotsContainer origin file button', () => {
 
 		act(() => {
 			pending = () => deliverMetadata(plot);
+			plots.push(plot);
 			onDidEmitPlot.fire(plot);
 			onDidSelectPlot.fire(plot.id);
 		});
