@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { parse as parseYaml, YamlMapNode, YamlNode } from '../../../../base/common/yaml.js';
+import { escapeRegExpCharacters } from '../../../../base/common/strings.js';
+import { getHostedCellLanguage } from './quartoLanguages.js';
 
 /**
  * Execution options parsed from cell YAML comments.
@@ -46,6 +48,18 @@ export const DEFAULT_CELL_EXECUTION_OPTIONS: QuartoCellExecutionOptions = {
  *     #| error: false
  */
 const OPTION_LINE_REGEX = /^\s*#\|\s?(.*)$/;
+
+/**
+ * The regex that matches a cell's option lines. Cells in a hosted language
+ * write them with that language's comment characters, as knitr reads them
+ * (`//| eval: false` in an `{Rcpp}` cell); other cells use `#|`.
+ */
+function optionLineRegex(language: string | undefined): RegExp {
+	const optionComment = language ? getHostedCellLanguage(language)?.optionComment : undefined;
+	return optionComment
+		? new RegExp(`^\\s*${escapeRegExpCharacters(optionComment)}\\|\\s?(.*)$`)
+		: OPTION_LINE_REGEX;
+}
 
 /**
  * Result of parsing cell execution options.
@@ -111,19 +125,22 @@ const EXECUTION_OPTION_KEYS = new Set(['eval', 'error']);
  * ```
  *
  * Lines beginning with optional whitespace followed by `#|` are option lines.
- * These are parsed as YAML (after stripping the `#|` prefix).
+ * These are parsed as YAML (after stripping the `#|` prefix). Cells in a hosted
+ * language such as Rcpp use that language's comment characters instead (`//|`).
  *
  * @param code The full cell code (including any option lines)
+ * @param language The cell's fence language, which picks the option comment
  * @returns Parsed options and the number of option lines at the start
  */
-export function parseCellExecutionOptions(code: string): ParsedCellOptions {
+export function parseCellExecutionOptions(code: string, language?: string): ParsedCellOptions {
 	const lines = code.replace(/\r\n?/g, '\n').split('\n');
 	const optionLines: string[] = [];
 	let optionLineCount = 0;
+	const optionLineRegExp = optionLineRegex(language);
 
 	// Collect all leading option lines
 	for (const line of lines) {
-		const match = line.match(OPTION_LINE_REGEX);
+		const match = line.match(optionLineRegExp);
 		if (match) {
 			optionLines.push(match[1]);
 			optionLineCount++;

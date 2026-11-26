@@ -245,6 +245,24 @@ x <- 1
 			expect(model.primaryLanguage).toBe('julia');
 		});
 
+		it('takes the host language of an Rcpp cell, which runs in R', () => {
+			// No extension provides Rcpp runtimes, but Rcpp cells compile in R,
+			// so a document whose first cell is Rcpp gets an R kernel.
+			const content = [
+				'```{Rcpp}',
+				'int one() { return 1; }',
+				'```',
+				'',
+				'```{python}',
+				'x = 1',
+				'```',
+				'',
+			].join('\n');
+			const model = createModel(content);
+
+			expect(model.primaryLanguage).toBe('r');
+		});
+
 		it('handles document without frontmatter', () => {
 			const content = `\`\`\`{python}
 x = 1
