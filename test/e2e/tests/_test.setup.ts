@@ -681,7 +681,7 @@ export interface TestFixtures {
 
 export interface WorkerFixtures {
 	suiteId: string;
-	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
+	managedCredentials: 'snowflake' | 'databricks' | 'azure' | 'aws' | undefined;
 	useLegacyNotebookEditor: boolean;
 	enableDataConnections: boolean;
 	enableFoundryAssistant: boolean;

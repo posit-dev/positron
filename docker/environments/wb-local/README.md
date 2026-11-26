@@ -62,7 +62,7 @@ Two things behave differently than on macOS or Linux:
 | --- | --- |
 | `npm run pwb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
 | `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
-| `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
+| `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, `azure`, or `aws`. See [Managed credentials](#managed-credentials). |
 | `npm run pwb -- --workbench=<release\|daily\|URL> --positron=<release\|daily\|TAG>` | Skip the version pickers. Required when there is no TTY (agents, CI, piped runs). See [Non-interactive runs](#non-interactive-runs). |
 | `npm run pwb -- --positron-build=<run\|file>` | Swap a Positron Workbench build from a GitHub Actions run, or a local tarball, in place of the official one. See [Testing a Positron build](#testing-a-positron-build). |
 | `npm run pwb -- --vsix=<file>` | Install an extension `.vsix` for `user1`. Repeatable. |
@@ -261,6 +261,7 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
 | `databricks` | `/etc/rstudio/databricks.conf` + `databricks-enabled` | `DATABRICKS_URL_`, `DATABRICKS_CLIENT_ID_` |
 | `snowflake` | `/etc/rstudio/snowflake.conf` + `allow-refresh-snowflake-roles` | `SNOWFLAKE_ACCOUNT_`, `SNOWFLAKE_CLIENT_ID_`, `SNOWFLAKE_CLIENT_SECRET_` |
 | `azure` | OpenID auth in `rserver.conf` + `openid-client-secret` + JIT home dirs | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_` |
+| `aws` | The same OpenID sign-in as `azure`. See [AWS](#aws). | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_` |
 
 1. Put the values for your provider in `docker/environments/wb-local/.env` (templated in
    `.env.example`). They live in the team 1Password vault. Wrap each value in
@@ -273,6 +274,18 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
    npm run pwb -- --credentials=snowflake
    ```
    The install fails fast if the chosen provider's variables are unset.
+
+### AWS
+
+Workbench gives a session AWS credentials only when the user signs in through OpenID Connect, so `aws` writes the same configuration as `azure`. Sign in as the Entra test account, not as `user1`.
+
+The install does not assign an AWS role, because Workbench registers the test account only at its first sign-in. The e2e fixture assigns the role after that sign-in. To assign the role by hand, sign in one time, then run:
+
+```bash
+docker exec test sudo rstudio-server set-aws-role-arns rstudio-ide-test <role ARN>
+```
+
+The Redshift workgroup that the e2e test connects to is private. The machine that runs the container must be on the Tailscale network.
 
 ## Access
 

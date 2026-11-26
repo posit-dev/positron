@@ -15,7 +15,7 @@ export interface AppFixtureOptions {
 	logsPath: string;
 	logger: MultiLogger;
 	workerInfo: playwright.WorkerInfo;
-	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
+	managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws';
 	/**
 	 * When true, suites opt into the legacy (VS Code) notebook editor. The local
 	 * (Electron/managed) apps apply this via the host `settingsFile` in `beforeApp`,

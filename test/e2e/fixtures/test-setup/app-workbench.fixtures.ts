@@ -3,17 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
 import { Application, createApp } from '../../infra';
 import { provisionTestFiles } from '../../infra/test-runner';
 import { AppFixtureOptions } from './app.fixtures';
+import { AWS_MANAGED_ROLE_NAME } from '../../pages/workbench/dashboard.page';
 import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, enablePositAIProviderInContainer, restorePositAIProviderInContainer, RunResult } from './docker-utils';
 
 export { RunResult };
 
 const CONTAINER_NAME = 'test';
+const OPENID_USER = 'rstudio-ide-test';
+const AWS_MANAGED_ROLE_ARN = `arn:aws:iam::749683154838:role/${AWS_MANAGED_ROLE_NAME}`;
 
 /**
  * Workbench Positron session (Docker on port 8787)
@@ -33,18 +37,35 @@ export async function WorkbenchApp(
 	}
 
 	const app = createApp({ ...options, workspacePath });
+	// AWS managed credentials need OpenID sign-in, so that shard shares the Azure identity.
+	const signsInWithOpenId = managedCredentials === 'azure' || managedCredentials === 'aws';
 
 	const start = async () => {
 		await app.connectToExternalServer();
 
 		// Workbench: Login to Posit Workbench. The Azure shard signs in via OIDC against the
 		// rstudio-ide-test service account in Azure AD; everything else uses local user1 creds.
-		if (managedCredentials === 'azure') {
+		if (signsInWithOpenId) {
 			await app.positWorkbench.auth.signInWithAzure();
 		} else {
 			await app.positWorkbench.auth.signIn();
 		}
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+
+		if (managedCredentials === 'aws') {
+			// The role can only be assigned once the first sign-in has registered the user.
+			await runDockerCommand(
+				`docker exec ${CONTAINER_NAME} sudo rstudio-server set-aws-role-arns ${OPENID_USER} ${AWS_MANAGED_ROLE_ARN}`,
+				'Assign the AWS role to the OpenID user'
+			);
+			// The dashboard loaded before the assignment and does not list the role until reloaded.
+			await app.code.driver.currentPage.reload();
+			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+		}
+
+		if (signsInWithOpenId) {
+			await resetOpenIdUserSettings(dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings }));
+		}
 
 		// Get the browser context for OAuth flows
 		const context = app.code.driver.currentPage.context();
@@ -53,7 +74,18 @@ export async function WorkbenchApp(
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 
-		if (managedCredentials === 'azure') {
+		if (managedCredentials === 'aws') {
+			// The Redshift driver fails if it connects before Workbench writes the token.
+			await expect.poll(async () => {
+				const result = await runDockerCommand(
+					`docker exec ${CONTAINER_NAME} bash -c "sudo test -s /tmp/${OPENID_USER}/posit-workbench/id_token && echo ready || echo missing"`,
+					'Check for the AWS web identity token'
+				);
+				return result.stdout.trim();
+			}, { timeout: 30000 }).toBe('ready');
+		}
+
+		if (signsInWithOpenId) {
 			// The Azure session runs as the JIT user rstudio-ide-test, which reads
 			// settings from its own home dir (created by PAM on session launch), not
 			// user1's. Provision the same settings there so the workspace opens trusted
@@ -83,7 +115,7 @@ export async function WorkbenchApp(
 		// well past the 90s gate. These credential/assistant tests don't use a
 		// Python/R runtime session, so skip the session-readiness gate for this
 		// shard rather than block the fixture on a signal we never consume.
-		if (managedCredentials !== 'azure') {
+		if (!signsInWithOpenId) {
 			// Give startup messaging a chance to appear before asserting it's gone,
 			// so we don't pass instantly when this check runs ahead of the UI.
 			await app.code.driver.currentPage.waitForTimeout(5000);
@@ -101,6 +133,18 @@ export async function WorkbenchApp(
 			await app.positWorkbench.dashboard.quitSession('test-files');
 		} catch (error) {
 			console.warn('Failed to quit workbench session:', error);
+		}
+
+		if (managedCredentials === 'aws') {
+			// The Azure suites share this user, and a session with the role starts Bedrock in Posit Assistant.
+			try {
+				await runDockerCommand(
+					`docker exec ${CONTAINER_NAME} sudo rstudio-server unset-aws-role-arns ${OPENID_USER}`,
+					'Remove the AWS role from the OpenID user'
+				);
+			} catch (error) {
+				console.error('Failed to remove the AWS role; later suites in this container start with AWS credentials:', error);
+			}
 		}
 
 		// Put the catalog back for the other suites sharing this container.
@@ -136,7 +180,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean, extraSettings?: Record<string, unknown>): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure' | 'aws', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean, extraSettings?: Record<string, unknown>): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
@@ -191,6 +235,24 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	return { workspacePath: WORKBENCH_WORKSPACE_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
 }
 
+// Positron migrates provider settings to providers.json once, so a relaunch must not start on the previous suite's.
+async function resetOpenIdUserSettings(settingsOverrides?: object): Promise<void> {
+	const home = `/home/${OPENID_USER}`;
+	const result = await runDockerCommand(
+		`docker exec ${CONTAINER_NAME} bash -c "test -d ${home} && echo exists || echo missing"`,
+		'Check for the OpenID user home directory'
+	);
+	// PAM creates the home directory at the first session launch; creating it here would break that.
+	if (result.stdout.trim() !== 'exists') {
+		return;
+	}
+	await runDockerCommand(
+		`docker exec ${CONTAINER_NAME} rm -f ${home}/.posit/ai/providers.json`,
+		'Remove the provider file of the previous suite'
+	);
+	await provisionUserSettings(`${home}/.positron-server/`, OPENID_USER, settingsOverrides);
+}
+
 /**
  * Provision a user's Positron server settings directory: write the merged
  * settings (base fixtures + Docker overrides) and keybindings, then fix
@@ -219,7 +281,9 @@ async function provisionUserSettings(serverDir: string, owner: string, settingsO
 		settingsOverrides
 	);
 	await copyKeyBindingsToContainer(CONTAINER_NAME, userDataDir);
-	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown -R ${owner} ${serverDir}`, 'Set ownership of server directory');
-	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${userDataDir}`, 'Set permissions of settings directory');
+	// Not recursive: a running session creates and deletes files here, which fails a recursive walk.
+	const written = `${serverDir} ${userDataDir} ${userDataDir}settings.json ${userDataDir}keybindings.json`;
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown ${owner} ${written}`, 'Set ownership of the settings files');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod 755 ${written}`, 'Set permissions of the settings files');
 }
 

@@ -296,7 +296,7 @@ union_csv_tags() {
 #
 # Deliberately does NOT touch @:workbench-stable (a different axis -- the last
 # stable Workbench release, still on Ubuntu, not an OS lane) or the
-# @:workbench-{snowflake,databricks,azure} credential tags (test tags consumed by
+# @:workbench-{snowflake,databricks,azure,aws} credential tags (test tags consumed by
 # the Ubuntu lane's shard matrix, not lane selectors).
 collapse_workbench_all_tags() {
 	local csv="$1"
