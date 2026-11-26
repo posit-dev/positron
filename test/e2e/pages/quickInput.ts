@@ -8,6 +8,9 @@ import { Code } from '../infra/code';
 
 const QUICK_INPUT_LIST = '.quick-input-widget .quick-input-list';
 
+/** Thrown by selectQuickInputElementContaining when `requirePreferred` finds only deprioritized rows. */
+export class OnlyDeprioritizedRowsError extends Error { }
+
 export class QuickInput {
 	private static QUICK_INPUT = '.quick-input-widget';
 	static readonly QUICK_INPUT_INPUT = `${QuickInput.QUICK_INPUT} .quick-input-box input`;
@@ -216,7 +219,7 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string | string[],
-		{ timeout, force = true, deprioritize, ignoreCase = false }: { timeout?: number; force?: boolean; deprioritize?: (string | RegExp)[]; ignoreCase?: boolean } = {},
+		{ timeout, force = true, deprioritize, ignoreCase = false, requirePreferred = false }: { timeout?: number; force?: boolean; deprioritize?: (string | RegExp)[]; ignoreCase?: boolean; requirePreferred?: boolean } = {},
 	): Promise<string> {
 		// A row matches when its aria-label contains every given substring.
 		const attributes = (Array.isArray(text) ? text : [text])
@@ -230,18 +233,23 @@ export class QuickInput {
 		// showing "Python 3.10.12"), prefer the first row whose aria-label contains
 		// none of the deprioritized source markers. Falls back to the first match
 		// when every match is deprioritized (e.g. a platform where only the base
-		// interpreter is installed).
+		// interpreter is installed), unless `requirePreferred` is set.
 		let target = matches.first();
 		if (deprioritize?.length) {
 			await expect(target).toBeVisible({ timeout });
 			const count = await matches.count();
+			let preferredFound = false;
 			for (let i = 0; i < count; i++) {
 				const row = matches.nth(i);
 				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
 				if (!deprioritize.some(source => typeof source === 'string' ? ariaLabel.includes(source) : source.test(ariaLabel))) {
 					target = row;
+					preferredFound = true;
 					break;
 				}
+			}
+			if (requirePreferred && !preferredFound) {
+				throw new OnlyDeprioritizedRowsError(`Every row matching ${JSON.stringify(text)} is a deprioritized source`);
 			}
 		}
 

@@ -5,7 +5,7 @@
 
 import test, { expect, Locator, Page } from '@playwright/test';
 import { Code, QuickAccess, Console, ContextMenu, Modals } from '../infra';
-import { QuickInput } from './quickInput';
+import { OnlyDeprioritizedRowsError, QuickInput } from './quickInput';
 import { STARTUP_MESSAGING_SELECTOR, STARTUP_MESSAGING_TIMEOUT } from './utils/startupMessaging.js';
 
 // Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
@@ -60,6 +60,8 @@ export class Sessions {
 
 	// Session management and UI elements
 	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
+	private readonly pythonVersionsWithEnvironment = new Set<string>();
+	private rescannedForPythonEnvironment = false;
 	get sessions() { return this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/); }
 	get sessionTabs() { return this.page.getByTestId(/console-tab/); }
 	get currentSessionTab() { return this.page.locator('.tab-button--active'); }
@@ -533,6 +535,8 @@ export class Sessions {
 			// Don't try to start a new runtime if one is currently starting up
 			await this.expectAllSessionsToBeReady();
 
+			let rescannedThisStart = false;
+
 			// Retry the quick pick interaction to handle race conditions where the
 			// picker may not open or populate correctly on the first attempt.
 			await expect(async () => {
@@ -578,12 +582,25 @@ export class Sessions {
 					const rowText = sourced?.source
 						? [`${language} ${sourced.version}`, sourced.source]
 						: `${language} ${version}`;
+					// After a reload the picker can show a cached list that lacks the
+					// environments (#16455). Do not settle for a base install before a rescan.
+					const versionKey = version ?? '';
+					const requirePreferred = language === 'Python' && !sourced?.source && !options.disambiguator && !rescannedThisStart
+						&& (this.pythonVersionsWithEnvironment.has(versionKey) || !this.rescannedForPythonEnvironment);
 					await this.quickinput.selectQuickInputElementContaining(rowText, {
 						timeout: 2000,
 						ignoreCase: !!sourced?.source,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						requirePreferred,
 					});
+					if (requirePreferred) {
+						this.pythonVersionsWithEnvironment.add(versionKey);
+					}
 				} catch (e) {
+					if (e instanceof OnlyDeprioritizedRowsError) {
+						rescannedThisStart = true;
+						this.rescannedForPythonEnvironment = true;
+					}
 					// The interpreter can be missing from the quick pick on the first attempt:
 					// on remote hosts registration can lag the discovery-complete signal, and
 					// after a reload the startup service may serve the cached runtime list when
