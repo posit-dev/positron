@@ -357,6 +357,41 @@ function pathToModule(p: string): string {
     return parts.concat(mod).join('.');
 }
 
+/** Find a Python header's suite colon, ignoring annotations, strings, and comments. */
+function scanScopeHeader(line: string, state: { bracketDepth: number; quote?: string }): boolean {
+    let escaped = false;
+    for (let index = 0; index < line.length; index++) {
+        const character = line[index];
+        if (state.quote) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === '\\') {
+                escaped = true;
+            } else if (line.startsWith(state.quote, index)) {
+                index += state.quote.length - 1;
+                state.quote = undefined;
+            }
+        } else if (character === '\'' || character === '"') {
+            const tripleQuote = character.repeat(3);
+            state.quote = line.startsWith(tripleQuote, index) ? tripleQuote : character;
+            index += state.quote.length - 1;
+        } else if (character === '#') {
+            break;
+        } else if (character === '(' || character === '[' || character === '{') {
+            state.bracketDepth++;
+        } else if (character === ')' || character === ']' || character === '}') {
+            state.bracketDepth--;
+        } else if (character === ':' && state.bracketDepth === 0) {
+            return true;
+        }
+    }
+    // Only triple-quoted strings and escaped line continuations span header lines.
+    if (state.quote?.length === 1 && !escaped) {
+        state.quote = undefined;
+    }
+    return false;
+}
+
 /**
  * Get an ASGI application object's name from a document, prompting the user if necessary.
  *
@@ -366,7 +401,46 @@ function pathToModule(p: string): string {
  */
 async function getAppName(document: vscode.TextDocument, className: string): Promise<string | undefined> {
     const text = document.getText();
-    let appName = text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
+    // Inspect assignments in source order, including module-level blocks. This is
+    // a line-based heuristic, not a Python parser.
+    const annotatedAssignment = new RegExp(
+        String.raw`^(?<name>[a-zA-Z_][a-zA-Z0-9_]*)[ \t]*:[ \t]*${className}[ \t]*=[ \t]*[^#=\s][^\r\n#]*`,
+    );
+    const directConstruction = new RegExp(String.raw`^(?<name>[a-zA-Z_][a-zA-Z0-9_]*)[ \t]*=[ \t]*${className}\(`);
+    let appName: string | undefined;
+    let localScopeIndent: number | undefined;
+    let inLocalScopeHeader = false;
+    let headerState: { bracketDepth: number; quote?: string } = { bracketDepth: 0 };
+    for (const line of text.split(/\r?\n/)) {
+        const statement = line.trimStart();
+        if (inLocalScopeHeader) {
+            inLocalScopeHeader = !scanScopeHeader(statement, headerState);
+            continue;
+        }
+        if (!statement || statement.startsWith('#')) {
+            continue;
+        }
+        const indent = line.length - statement.length;
+        if (localScopeIndent !== undefined && indent <= localScopeIndent) {
+            localScopeIndent = undefined;
+        }
+        if (
+            localScopeIndent === undefined &&
+            /^(?:async[ \t]+def|def|class)[ \t]+[a-zA-Z_][a-zA-Z0-9_]*/.test(statement)
+        ) {
+            localScopeIndent = indent;
+            headerState = { bracketDepth: 0 };
+            inLocalScopeHeader = !scanScopeHeader(statement, headerState);
+            continue;
+        }
+        if (localScopeIndent !== undefined) {
+            continue;
+        }
+        appName = annotatedAssignment.exec(statement)?.groups?.name ?? directConstruction.exec(statement)?.groups?.name;
+        if (appName) {
+            break;
+        }
+    }
     if (!appName) {
         appName = await vscode.window.showInputBox({
             prompt: vscode.l10n.t(
