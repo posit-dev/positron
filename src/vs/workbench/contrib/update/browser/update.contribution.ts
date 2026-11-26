@@ -363,7 +363,7 @@ if (isMacintosh || isWindows) {
 			const feedUrl = await quickInputService.input({
 				prompt: localize('stagePendingUpdatePrompt', "URL of a releases.json document advertising the build to stage as the pending update"),
 				placeHolder: isWindows
-					? `${productService.updateUrl}/dailies/win/x86_64/${productService.target}-releases.json`
+					? `${productService.updateUrl}/dailies/win/x86_64/${productService.target ? `${productService.target}-` : ''}releases.json`
 					: `${productService.updateUrl}/dailies/mac/arm64/releases.json`,
 				validateInput: async value => {
 					try {
