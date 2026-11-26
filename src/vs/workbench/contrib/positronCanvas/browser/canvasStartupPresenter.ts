@@ -92,7 +92,7 @@ function renderCurtainCard(
 		const spinner = document.createElement('div');
 		spinner.className = 'positron-canvas-startup-spinner';
 		spinner.setAttribute('role', 'progressbar');
-		spinner.setAttribute('aria-label', localize('positron.canvas.loadingLabel', "Loading Canvas"));
+		spinner.setAttribute('aria-label', localize('positron.canvas.loadingLabel', "Loading Braid"));
 		card.appendChild(spinner);
 	}
 
@@ -185,7 +185,7 @@ class CanvasStartupCurtain extends Disposable {
 				return;
 			}
 			this.logService.error('[canvas] Standalone startup failed.', error);
-			this.showFailure(localize('positron.canvas.startupFailure', "Canvas could not be loaded. Try again, open Positron, or quit."));
+			this.showFailure(localize('positron.canvas.startupFailure', "Braid could not be loaded. Try again, open Positron, or quit."));
 		} finally {
 			this.running = false;
 		}
@@ -202,8 +202,8 @@ class CanvasStartupCurtain extends Disposable {
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
 		renderCurtainCard(this.element, {
-			brandText: localize('positron.canvas.loadingBrand', "Canvas"),
-			messageText: localize('positron.canvas.loadingMessage', "Loading Canvas..."),
+			brandText: localize('positron.canvas.loadingBrand', "Braid"),
+			messageText: localize('positron.canvas.loadingMessage', "Loading Braid..."),
 			spinner: true,
 			actions: [
 				{ label: localize('positron.canvas.openPositron', "Open Positron"), run: () => void this.openPositron() },
@@ -223,7 +223,7 @@ class CanvasStartupCurtain extends Disposable {
 		const actions = new DisposableStore();
 		this.actionDisposables.value = actions;
 		const { firstButton } = renderCurtainCard(this.element, {
-			brandText: localize('positron.canvas.failureBrand', "Canvas could not start"),
+			brandText: localize('positron.canvas.failureBrand', "Braid could not start"),
 			brandId,
 			messageText: detail,
 			spinner: false,

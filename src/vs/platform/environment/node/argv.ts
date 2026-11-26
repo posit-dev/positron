@@ -189,7 +189,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'skip-release-notes': { type: 'boolean' },
 	'skip-welcome': { type: 'boolean' },
 	// --- Start Positron ---
-	'canvas': { type: 'boolean', cat: 'o', description: localize('canvas', "Open Canvas as the only window instead of the full Positron interface.") },
+	'canvas': { type: 'boolean', cat: 'o', description: localize('canvas', "Open Braid as the only window instead of the full Positron interface.") },
 	// --- End Positron ---
 	'disable-telemetry': { type: 'boolean' },
 	'telemetry-level': { type: 'string' },
