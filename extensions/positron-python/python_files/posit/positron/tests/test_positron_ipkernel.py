@@ -8,9 +8,11 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import sys
+import types
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from ipykernel.compiler import get_tmp_directory
@@ -713,3 +715,37 @@ class TestEditorDunderFile:
             shell.run_cell("pass").raise_error()
 
         assert shell.user_ns["__file__"] == "user_value"
+
+
+@pytest.mark.parametrize(
+    ("tkinter_imported", "active_eventloop", "already_enabled", "expected"),
+    [
+        (True, None, False, True),
+        (False, None, False, False),
+        (True, "qt", False, False),
+        (True, None, True, False),
+    ],
+)
+def test_enable_tk_eventloop(
+    shell: PositronShell,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    tkinter_imported: bool,
+    active_eventloop: str | None,
+    already_enabled: bool,
+    expected: bool,
+) -> None:
+    """The tk event loop is enabled once tkinter is imported, unless another loop is active."""
+    if tkinter_imported:
+        monkeypatch.setitem(sys.modules, "tkinter", types.ModuleType("tkinter"))
+    else:
+        monkeypatch.delitem(sys.modules, "tkinter", raising=False)
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.setattr(shell, "active_eventloop", active_eventloop)
+    monkeypatch.setattr(shell, "_tk_eventloop_enabled", already_enabled)
+    enable_gui = Mock()
+    monkeypatch.setattr(shell, "enable_gui", enable_gui)
+
+    shell.run_cell("pass").raise_error()
+
+    assert enable_gui.call_args_list == ([call("tk")] if expected else [])

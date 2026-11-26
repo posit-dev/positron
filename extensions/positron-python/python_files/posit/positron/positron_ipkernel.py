@@ -285,6 +285,7 @@ class PositronShell(ZMQInteractiveShell):
         parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
         self._editor_path_added = None
+        self._tk_eventloop_enabled = False
         super().__init__(*args, **kwargs)
 
     def init_events(self) -> None:
@@ -475,6 +476,27 @@ class PositronShell(ZMQInteractiveShell):
             self.kernel.variables_service.poll_variables()
         except Exception:
             logger.exception("Error polling variables")
+
+        self._enable_tk_eventloop()
+
+    def _enable_tk_eventloop(self) -> None:
+        """
+        Run `%gui tk` once tkinter is imported, so tk windows process events between cells.
+
+        Done once per session so the user can turn it off with `%gui`, and never over
+        another gui event loop. See https://github.com/posit-dev/positron/issues/11457.
+        """
+        if (
+            self._tk_eventloop_enabled
+            or self.active_eventloop is not None
+            or "tkinter" not in sys.modules
+            # Tk on Linux needs an X display; without one the tk event loop fails to start.
+            or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY"))
+        ):
+            return
+
+        self._tk_eventloop_enabled = True
+        self.enable_gui("tk")
 
     def _get_editor_path(self) -> str | None:
         """
