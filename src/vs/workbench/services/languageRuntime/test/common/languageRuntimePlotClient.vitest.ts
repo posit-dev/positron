@@ -83,6 +83,42 @@ describe('Positron - PlotClientInstance', () => {
 		expect(completed.map(p => p.uri)).toEqual(['data:image/png;base64,BBBB']);
 	});
 
+	it('serves a render at the intrinsic size from a pre-render at the intrinsic size', async () => {
+		const intrinsic: PlotResult = {
+			data: 'AAAA', mime_type: 'image/png', settings: { pixel_ratio: 1, format: PlotRenderFormat.Png },
+		};
+		const client = createPlotClient({ pre_render: intrinsic });
+
+		const rendered = await client.render(undefined, 1);
+
+		expect(rendered.uri).toBe('data:image/png;base64,AAAA');
+		expect(renderSpy).not.toHaveBeenCalled();
+	});
+
+	it('renders again at the view\'s size after a show event pre-rendered at another size', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA', { width: 100, height: 100 }) });
+		// The view asks for the size the plot was pre-rendered at.
+		await client.render({ width: 100, height: 100 }, 1);
+
+		// The runtime pre-rendered the shown plot at a size this view didn't ask for, e.g.
+		// because the plot has its own sizing policy.
+		showPlotEmitter.fire({ pre_render: preRender('BBBB', { width: 200, height: 200 }) });
+
+		await vi.waitFor(() => expect(renderSpy).toHaveBeenCalledTimes(1));
+		expect(renderSpy.mock.calls[0][0].renderRequest.size).toEqual({ width: 100, height: 100 });
+	});
+
+	it('does not render again after a show event pre-rendered at the view\'s size', async () => {
+		const client = createPlotClient({ pre_render: preRender('AAAA', { width: 100, height: 100 }) });
+		await client.render({ width: 100, height: 100 }, 1);
+
+		showPlotEmitter.fire({ pre_render: preRender('BBBB', { width: 100, height: 100 }) });
+		await timeout(0);
+
+		expect(renderSpy).not.toHaveBeenCalled();
+		expect(client.lastRender?.uri).toBe('data:image/png;base64,BBBB');
+	});
+
 	it('onDidRenderUpdate queues a full re-render when pre-render settings differ', async () => {
 		// _lastRender is the pre-render at 100x100; no render is in flight.
 		createPlotClient({ pre_render: preRender('AAAA', { width: 100, height: 100 }) });

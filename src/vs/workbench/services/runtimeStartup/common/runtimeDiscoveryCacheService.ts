@@ -99,8 +99,13 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * v7: Python's picker rows lead with the tool or environment name and carry a
  * `rowOrder`. Older entries show the version as the label and have no
  * `rowOrder`, so they would sort above freshly discovered rows.
+ *
+ * v8: Python's runtimes subscribe to plot render settings (`uiSubscriptions`).
+ * A session started from an older entry never gets the settings, so its plots
+ * can't be shown while code runs. Changing the `uiSubscriptions` an extension
+ * gives its runtimes means bumping this version.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 7;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 8;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema

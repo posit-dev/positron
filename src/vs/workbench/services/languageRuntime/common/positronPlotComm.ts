@@ -154,9 +154,10 @@ export interface PlotRange {
  */
 export interface PlotRenderSettings {
 	/**
-	 * Plot size to render the plot to
+	 * Plot size to render the plot to. If not provided, the plot is rendered
+	 * at its intrinsic size.
 	 */
-	size: PlotSize;
+	size?: PlotSize;
 
 	/**
 	 * The pixel ratio of the display device

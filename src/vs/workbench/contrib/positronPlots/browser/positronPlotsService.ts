@@ -52,7 +52,7 @@ import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
-import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
+import { PlotResult, PlotRenderSettings as PlotRenderCommSettings } from '../../../services/languageRuntime/common/positronPlotComm.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { plotOriginFromCodeLocation } from './plotUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -715,6 +715,37 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Gets the sizing policy a new plot from a language starts with.
+	 *
+	 * @param languageId The language of the runtime that made the plot.
+	 */
+	private getDefaultSizingPolicyForLanguage(languageId: string | undefined): IPositronPlotSizingPolicy {
+		const policy = this.getDefaultSizingPolicy();
+		// Python plots know their own size (e.g. a matplotlib figsize), so Auto means Intrinsic.
+		if (languageId === 'python' && policy.id === PlotSizingPolicyAuto.ID) {
+			return this._intrinsicSizingPolicy;
+		}
+		return policy;
+	}
+
+	/**
+	 * Gets the settings a runtime should pre-render its new plots at, so that the
+	 * pre-render matches the render a new plot's view asks for.
+	 *
+	 * @param languageId The language of the runtime.
+	 */
+	private getRenderSettingsForNewPlots(languageId: string): PlotRenderCommSettings {
+		const settings = this.getPlotsRenderSettings();
+		// Omit the size for plots drawn at their intrinsic size. Only Python's kernel
+		// accepts settings without a size; Ark still requires one.
+		if (languageId === 'python' &&
+			this.getDefaultSizingPolicyForLanguage(languageId) instanceof PlotSizingPolicyIntrinsic) {
+			return { pixel_ratio: settings.pixel_ratio, format: settings.format };
+		}
+		return settings;
+	}
+
+	/**
 	 * Gets the cached plot thumbnail URI for a given plot ID.
 	 * @param plotId The plot ID to get the thumbnail URI for.
 	 * @returns The thumbnail URI for the plot, or undefined if not found.
@@ -1221,14 +1252,24 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// extension-side middleware in the future, see
 		// https://github.com/posit-dev/positron/issues/4997.
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
+			const languageId = session.runtimeMetadata.languageId;
 			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
-				// Send initial settings immediately
-				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
+				const send = () => uiClient.didChangePlotsRenderSettings(
+					this.getRenderSettingsForNewPlots(languageId));
 
-				// Forward future settings updates
-				return this.onDidChangePlotsRenderSettings(settings => {
-					uiClient.didChangePlotsRenderSettings(settings);
-				});
+				// Send initial settings immediately
+				send();
+
+				// Forward future settings updates, including a new default sizing
+				// policy, which changes whether new plots have a size of their own.
+				const disposables = new DisposableStore();
+				disposables.add(this.onDidChangePlotsRenderSettings(send));
+				disposables.add(this._configurationService.onDidChangeConfiguration(evt => {
+					if (evt.affectsConfiguration(DefaultSizingPolicyConfigKey)) {
+						send();
+					}
+				}));
+				return disposables;
 			}));
 		}
 	}
@@ -2093,12 +2134,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
 		// Get the default sizing policy from configuration
-		let defaultSizingPolicy = this.getDefaultSizingPolicy();
-
-		// for Python plots, use intrinsic sizing policy as default if configured policy is auto
-		if (metadata.language === 'python' && defaultSizingPolicy.id === 'auto') {
-			defaultSizingPolicy = this._intrinsicSizingPolicy;
-		}
+		const defaultSizingPolicy = this.getDefaultSizingPolicyForLanguage(metadata.language);
 
 		// Use existing sizing policy if specified, otherwise use the default
 		const sizingPolicy = findStoredSizingPolicy(metadata.sizing_policy, this._sizingPolicies) ?? defaultSizingPolicy;

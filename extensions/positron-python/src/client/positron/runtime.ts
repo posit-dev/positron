@@ -352,6 +352,9 @@ export async function createPythonRuntimeMetadata(
             .toString('base64'),
         startupBehavior,
         sessionLocation,
+        // The kernel pre-renders plots at these settings, so a plot can be shown while
+        // code is still running.
+        uiSubscriptions: [positron.UiRuntimeNotifications.DidChangePlotsRenderSettings],
         extraRuntimeData,
         cacheable,
     };

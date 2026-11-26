@@ -11,7 +11,7 @@ import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '.
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
-import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, UiRuntimeNotifications, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../../services/positronConsole/common/codeLocation.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -22,7 +22,8 @@ import { PositronPlotCommProxy } from '../../../../services/languageRuntime/comm
 import { IntrinsicSize, PlotRenderFormat, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { UiClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '../../../../common/views.js';
@@ -321,6 +322,55 @@ describe('Positron - Plots Service', () => {
 
 	it('selection: expect error removing plot when no plot selected', () => {
 		expect(() => plotsService.removeSelectedPlot()).toThrow('No plot is selected');
+	});
+
+	describe('render settings sent to runtimes', () => {
+		const paneSettings = { size: { width: 400, height: 300 }, pixel_ratio: 2, format: PlotRenderFormat.Png };
+
+		async function startSubscribedSession(languageId: string, defaultSizingPolicy: string) {
+			const configurationService = ctx.instantiationService.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration('plots.defaultSizingPolicy', defaultSizingPolicy);
+			plotsService.setPlotsRenderSettings(structuredClone(paneSettings));
+
+			const sent = vi.spyOn(UiClientInstance.prototype, 'didChangePlotsRenderSettings');
+			const metadata = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+			const runtime = {
+				...metadata,
+				runtimeId: `${metadata.runtimeId}-${languageId}`,
+				languageId,
+				uiSubscriptions: [UiRuntimeNotifications.DidChangePlotsRenderSettings],
+			};
+			ctx.disposables.add(ctx.instantiationService.get(ILanguageRuntimeService).registerRuntime(runtime));
+			await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, { runtime });
+			await vi.waitFor(() => expect(sent).toHaveBeenCalled());
+			return { sent, configurationService };
+		}
+
+		it.each([
+			// Python plots default to their intrinsic size, so there's no size to pre-render at.
+			{ languageId: 'python', policy: 'auto', size: undefined },
+			{ languageId: 'python', policy: 'intrinsic', size: undefined },
+			{ languageId: 'python', policy: 'fill', size: paneSettings.size },
+			{ languageId: 'r', policy: 'auto', size: paneSettings.size },
+			// Ark requires a size.
+			{ languageId: 'r', policy: 'intrinsic', size: paneSettings.size },
+		])('sends $languageId with default sizing $policy the size $size', async ({ languageId, policy, size }) => {
+			const { sent } = await startSubscribedSession(languageId, policy);
+
+			expect(sent).toHaveBeenLastCalledWith(
+				size ? { ...paneSettings, size } : { pixel_ratio: paneSettings.pixel_ratio, format: paneSettings.format });
+		});
+
+		it('sends the settings again when the default sizing policy changes', async () => {
+			const { sent, configurationService } = await startSubscribedSession('python', 'auto');
+
+			await configurationService.setUserConfiguration('plots.defaultSizingPolicy', 'fill');
+			configurationService.onDidChangeConfigurationEmitter.fire(stubInterface<IConfigurationChangeEvent>({
+				affectsConfiguration: (key: string) => key === 'plots.defaultSizingPolicy',
+			}));
+
+			expect(sent).toHaveBeenLastCalledWith(paneSettings);
+		});
 	});
 
 	describe('default open target', () => {

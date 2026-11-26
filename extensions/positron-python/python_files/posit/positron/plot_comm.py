@@ -170,8 +170,9 @@ class PlotRenderSettings(BaseModel):
     The settings used to render the plot
     """
 
-    size: PlotSize = Field(
-        description="Plot size to render the plot to",
+    size: Optional[PlotSize] = Field(
+        default=None,
+        description="Plot size to render the plot to. If not provided, the plot is rendered at its intrinsic size.",
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(

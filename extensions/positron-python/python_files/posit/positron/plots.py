@@ -243,15 +243,9 @@ class Plot:
             return
 
         data = base64.b64encode(rendered).decode()
-
-        # Track render settings for future pre-renders
-        settings = None
-        if size is not None:
-            settings = PlotRenderSettings(
-                size=size, pixel_ratio=pixel_ratio, format=PlotRenderFormat(format_)
-            )
-            self._plots_service.update_render_settings(settings)
-
+        settings = PlotRenderSettings(
+            size=size, pixel_ratio=pixel_ratio, format=PlotRenderFormat(format_)
+        )
         result = PlotResult(data=data, mime_type=MIME_TYPE[format_], settings=settings).dict()
         self._comm.send_result(data=result)
 
@@ -307,9 +301,9 @@ class PlotsService:
 
         self._plots: list[Plot] = []
 
-        # Track the most recent render settings for pre-rendering.
-        # Initially None until we receive actual render settings from the frontend.
-        # Pre-renders will use the plot's intrinsic size when this is None.
+        # The settings to pre-render new and changed plots at, sent by the frontend's
+        # `did_change_plots_render_settings` notification. None until the first one
+        # arrives, and plots aren't pre-rendered until then.
         self._current_render_settings: PlotRenderSettings | None = None
 
     def update_render_settings(self, settings: PlotRenderSettings) -> None:
@@ -354,14 +348,9 @@ class PlotsService:
         # Build data to send with comm_open
         open_data: dict = {}
 
-        # Generate a pre-render only when we already know the frontend's render
-        # settings (size, pixel ratio, format) from a previous render in this
-        # session. For the first plot of a session we have no settings yet, so a
-        # pre-render would be at the wrong (intrinsic) size: the frontend would
-        # display it and then immediately re-render at the actual pane size,
-        # causing a visible flash and a wasted render. Skipping it here keeps the
-        # behavior consistent with `_generate_pre_render`, which is used by the
-        # show/update events and already returns None when settings are unknown.
+        # Pre-render so the frontend can show the plot without asking for a render, which
+        # waits until the kernel is idle. Skip it until the frontend has sent render
+        # settings: an image at a guessed size would be shown and then replaced.
         render_settings = self._current_render_settings
         if render_settings is not None:
             try:
