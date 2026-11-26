@@ -48,19 +48,24 @@ export interface IAgentTerminalCommand {
 	/** When it started, in milliseconds since the epoch. */
 	readonly startTime: number;
 	readonly endTime: number | undefined;
-	/** How many lines of output it has, including dropped lines. */
+	/** How many lines of its output the terminal holds. */
 	readonly lineCount: number;
-	/** How many of the oldest lines were dropped to bound memory. */
-	readonly droppedLines: number;
-	/** Whether output is missing because the window reloaded while the command ran. */
-	readonly missingOutput: boolean;
+	/** Whether its first lines scrolled out of the terminal's scrollback. */
+	readonly outputTrimmed: boolean;
+}
+
+export interface IAgentTerminalStatus {
+	readonly exited: boolean;
+	readonly exitCode: number | undefined;
+	/** Its recent commands, oldest first. */
+	readonly commands: IAgentTerminalCommand[];
 }
 
 export interface IAgentTerminalOutput {
 	readonly command: IAgentTerminalCommand;
 	/** The line number of the first line returned, 0-based. */
 	readonly offset: number;
-	/** Lines with escape sequences removed and long lines cut. */
+	/** Lines as the terminal shows them, with long lines cut. */
 	readonly lines: string[];
 	/** Where the next read starts, or undefined if these lines reach the end of the output so far. */
 	readonly nextOffset: number | undefined;
@@ -69,9 +74,9 @@ export interface IAgentTerminalOutput {
 /**
  * Owns terminals that agents run commands in. Each terminal appears in the
  * Terminal pane with an agent icon. Commands run one at a time, and their
- * output is kept here, so a caller can read it again after the extension host
- * restarts. Terminals and their commands also survive a window reload, as long
- * as the terminal's shell does.
+ * output is read from the terminal's buffer, so a caller can read it again
+ * after the extension host restarts. Terminals and their commands also survive
+ * a window reload, as long as the terminal's shell does.
  */
 export interface IPositronAgentTerminalService {
 	readonly _serviceBrand: undefined;
@@ -84,8 +89,11 @@ export interface IPositronAgentTerminalService {
 	 */
 	createTerminal(ownerId: string, options: IAgentTerminalCreateOptions): Promise<IAgentTerminal>;
 
-	/** The terminals `ownerId` created and hasn't disposed. */
-	getTerminals(ownerId: string): IAgentTerminal[];
+	/**
+	 * The terminals `ownerId` created and hasn't disposed. Waits for terminals
+	 * that outlived a window reload to be taken back.
+	 */
+	getTerminals(ownerId: string): Promise<IAgentTerminal[]>;
 
 	/**
 	 * Runs a command line. Resolves when it finishes or after `waitMs`,
@@ -98,8 +106,8 @@ export interface IPositronAgentTerminalService {
 	/** Resolves when a command finishes or after `waitMs`, whichever is first. */
 	waitForCommand(ownerId: string, terminalId: string, commandId: string, waitMs: number, token: CancellationToken): Promise<IAgentTerminalCommand>;
 
-	/** The terminal's recent commands, oldest first. */
-	getCommands(ownerId: string, terminalId: string): IAgentTerminalCommand[];
+	/** Whether the terminal exited, and its recent commands. */
+	getStatus(ownerId: string, terminalId: string): IAgentTerminalStatus;
 
 	/** Reads up to `limit` lines of a command's output, starting at line `offset`. */
 	readOutput(ownerId: string, terminalId: string, commandId: string, offset: number, limit: number): IAgentTerminalOutput;

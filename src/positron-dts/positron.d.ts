@@ -4230,64 +4230,39 @@ declare module 'positron' {
 	}
 
 	/**
-	 * One change an extension contributes to terminal environments through its
-	 * {@link vscode.ExtensionContext.environmentVariableCollection}.
+	 * Options for {@link environment.resolveEnvironmentContributions}.
 	 */
-	export interface EnvironmentVariableContribution {
-		/** The ID of the extension that contributed it. */
-		readonly extensionId: string;
-
-		/** The name of the variable it changes. */
-		readonly variable: string;
-
-		/** Whether it replaces, appends to, or prepends to the variable. */
-		readonly type: vscode.EnvironmentVariableMutatorType;
+	export interface ResolveEnvironmentContributionsOptions {
+		/** The environment to apply the contributions to. */
+		baseEnv: { [key: string]: string | undefined };
 
 		/**
-		 * The value to replace, append, or prepend, as the extension gave it.
-		 * Terminals resolve variable references such as `${env:HOME}` in it
-		 * before applying it; this value is unresolved.
+		 * The workspace folder whose scoped contributions apply too. When
+		 * omitted, or not a folder open in the workspace, only contributions
+		 * that apply everywhere are used.
 		 */
-		readonly value: string;
+		workspaceFolder?: vscode.Uri;
 
-		/** When terminals apply it, with defaults filled in. */
-		readonly options: Required<vscode.EnvironmentVariableMutatorOptions>;
-
-		/** The workspace folder it is limited to, or `undefined` if it applies everywhere. */
-		readonly scope: vscode.EnvironmentVariableScope | undefined;
-
-		/** The extension's description of its collection for this scope, if any. */
-		readonly description: string | undefined;
-
-		/**
-		 * Whether the collection is persisted across window reloads. A persisted
-		 * collection is restored at startup, before its extension activates, so
-		 * it may be stale until the extension updates it.
-		 */
-		readonly persistent: boolean;
-
-		/**
-		 * Whether terminals apply it. False when terminals skip it: another
-		 * extension's `Replace` of the same variable in the same scope takes
-		 * precedence, or the variable is one that only a specific extension may
-		 * set (such as the Python activation variables).
-		 */
-		readonly applied: boolean;
+		/** The IDs of extensions whose contributions are left out. */
+		excludeExtensions?: readonly string[];
 	}
 
 	namespace environment {
 		/**
-		 * Get every environment variable contribution extensions have made to
-		 * terminal environments, so the caller can decide which to apply.
+		 * Apply the environment variable changes extensions contribute to
+		 * terminals to an environment, as terminals apply them: in the same
+		 * order and precedence, for the workspace folder, with references such
+		 * as `${env:HOME}` resolved against `baseEnv`. A reference that can't be
+		 * resolved is left as it is.
 		 *
-		 * Applied contributions come first, in the order terminals apply them:
-		 * applying each one in turn to a base environment, for a given scope,
-		 * reproduces the variables a terminal created with that scope gets at
-		 * process creation. Skipped contributions follow.
+		 * The environment is for processes without shell integration, so
+		 * contributions terminals apply through shell integration are applied
+		 * directly. What terminals get from settings, such as
+		 * `terminal.integrated.env.*`, isn't added.
 		 *
-		 * @returns The contributions from all extensions.
+		 * @returns `baseEnv` with the contributions applied.
 		 */
-		export function getEnvironmentVariableContributions(): Thenable<EnvironmentVariableContribution[]>;
+		export function resolveEnvironmentContributions(options: ResolveEnvironmentContributionsOptions): Thenable<{ [key: string]: string }>;
 
 		/**
 		 * Get the environment variable contributions for the current session.
@@ -4316,6 +4291,12 @@ declare module 'positron' {
 		 * the variable. Unless `strictEnv` is set, extensions' environment
 		 * variable contributions apply too, as in other terminals. The user's
 		 * shell startup files always run.
+		 *
+		 * The shell also gets variables that keep tools from waiting for input,
+		 * which `env` can override or remove: `AI_AGENT` (the extension's ID,
+		 * with characters other than letters, digits, `_`, and `-` replaced by
+		 * `_`), `GIT_PAGER=cat`, `GIT_EDITOR=:`, `GIT_MERGE_AUTOEDIT=no`, and
+		 * `DEBIAN_FRONTEND=noninteractive`. In zsh, `!` history expansion is off.
 		 */
 		env?: { [key: string]: string | null | undefined };
 
@@ -4356,20 +4337,16 @@ declare module 'positron' {
 		/** When the command finished, in milliseconds since the epoch. */
 		readonly endTime: number | undefined;
 
-		/** How many lines of output the command has written so far, including dropped lines. */
+		/** How many lines of the command's output the terminal holds. */
 		readonly lineCount: number;
 
 		/**
-		 * How many of the oldest lines were dropped to bound memory. Output keeps
-		 * at least the newest 10,000 lines.
+		 * Whether the command's first lines scrolled out of the terminal's
+		 * scrollback (the `terminal.integrated.scrollback` setting). The output
+		 * then starts at the oldest line the terminal holds, and line numbers
+		 * shift as more lines scroll out.
 		 */
-		readonly droppedLines: number;
-
-		/**
-		 * Whether some output is missing because the window reloaded while the
-		 * command ran. Output written during the reload isn't captured.
-		 */
-		readonly missingOutput: boolean;
+		readonly outputTrimmed: boolean;
 	}
 
 	/**
@@ -4383,10 +4360,10 @@ declare module 'positron' {
 		readonly offset: number;
 
 		/**
-		 * The lines, with escape sequences removed. A carriage return starts a
-		 * line over, so a progress bar keeps only its last state. Lines longer
-		 * than 1,000 characters are cut and end with ` [truncated]`. While the
-		 * command runs, the last line may be unfinished.
+		 * The lines as the terminal shows them, so a progress bar keeps only its
+		 * last state. Lines longer than 1,000 characters are cut and end with
+		 * ` [truncated]`. While the command runs, the last line may be
+		 * unfinished.
 		 */
 		readonly lines: string[];
 
@@ -4410,8 +4387,8 @@ declare module 'positron' {
 
 	/**
 	 * A terminal an agent runs commands in. It appears in the Terminal pane
-	 * with an agent icon. Commands run one at a time. Positron keeps their
-	 * output, so an extension can find the terminal again with
+	 * with an agent icon. Commands run one at a time. Their output is read from
+	 * the terminal's scrollback, so an extension can find the terminal again with
 	 * {@link agentTerminals.getAll} and read it after the extension host restarts
 	 * or the window reloads (when the user's terminals persist across reloads).
 	 */
@@ -4426,6 +4403,7 @@ declare module 'positron' {
 		 * Run a command line in the terminal's shell. Resolves when the command
 		 * finishes or after `waitMs`, whichever comes first; use
 		 * {@link waitForCommand} to wait on a command that is still running.
+		 * Text the user left at the prompt is cleared first.
 		 *
 		 * @param commandLine The command line to run.
 		 * @param options.waitMs How long to wait for the command to finish, in milliseconds. Defaults to 30,000.

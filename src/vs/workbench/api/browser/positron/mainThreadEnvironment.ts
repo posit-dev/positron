@@ -3,12 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IEnvironmentVariableContributionDto, MainPositronContext, MainThreadEnvironmentShape } from '../../common/positron/extHost.positron.protocol.js';
+import { MainPositronContext, MainThreadEnvironmentShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { IEnvironmentVariableCollectionWithPersistence, IEnvironmentVariableService } from '../../../contrib/terminal/common/environmentVariable.js';
+import { IEnvironmentVariableService } from '../../../contrib/terminal/common/environmentVariable.js';
 import { EnvironmentContributionFilter } from '../../common/positron/extHostTypes.positron.js';
-import { EnvironmentVariableScope, IEnvironmentVariableMutator } from '../../../../platform/terminal/common/environmentVariable.js';
+import { IProcessEnvironment } from '../../../../base/common/platform.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { IEnvironmentVariableCollection } from '../../../../platform/terminal/common/environmentVariable.js';
+import { MergedEnvironmentVariableCollection } from '../../../../platform/terminal/common/environmentVariableCollection.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
+import { createVariableResolver } from '../../../contrib/terminal/common/terminalEnvironment.js';
 
 interface IEnvironmentVariableAction {
 	/** The action to take */
@@ -27,7 +35,9 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 	private readonly _disposables = new DisposableStore();
 	constructor(
 		extHostContext: IExtHostContext,
-		@IEnvironmentVariableService private readonly _environmentService: IEnvironmentVariableService
+		@IEnvironmentVariableService private readonly _environmentService: IEnvironmentVariableService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
 	) {
 	}
 
@@ -64,55 +74,33 @@ export class MainThreadEnvironment implements MainThreadEnvironmentShape {
 		return result;
 	}
 
-	async $getEnvironmentVariableContributions(): Promise<IEnvironmentVariableContributionDto[]> {
-		const folderIndex = (scope: EnvironmentVariableScope | undefined) => scope?.workspaceFolder?.index;
-		const keyOf = (extensionId: string, m: IEnvironmentVariableMutator) =>
-			`${extensionId}\0${m.variable}\0${folderIndex(m.scope) ?? ''}`;
-
-		// Every contribution, with its collection's details.
-		const all = new Map<string, IEnvironmentVariableContributionDto>();
-		const scopes = new Map<number | undefined, EnvironmentVariableScope | undefined>([[undefined, undefined]]);
+	async $resolveEnvironmentContributions(baseEnv: IProcessEnvironment, workspaceFolderUri: UriComponents | undefined, excludeExtensions: readonly string[]): Promise<IProcessEnvironment> {
+		const uri = workspaceFolderUri && URI.revive(workspaceFolderUri);
+		// Only a folder open in the workspace scopes contributions; otherwise only global ones apply.
+		const workspaceFolder = uri && this._workspaceContextService.getWorkspace().folders.find(f => isEqual(f.uri, uri));
+		const excluded = new Set(excludeExtensions.map(id => ExtensionIdentifier.toKey(id)));
+		const collections = new Map<string, IEnvironmentVariableCollection>();
 		for (const [extensionId, collection] of this._environmentService.collections) {
-			const descriptions = [...collection.descriptionMap?.values() ?? []];
-			for (const m of collection.map.values()) {
-				const folder = m.scope?.workspaceFolder;
-				scopes.set(folder?.index, m.scope);
-				all.set(keyOf(extensionId, m), {
-					extensionId,
-					variable: m.variable,
-					type: m.type,
-					value: m.value,
-					applyAtProcessCreation: m.options?.applyAtProcessCreation ?? true,
-					applyAtShellIntegration: m.options?.applyAtShellIntegration ?? false,
-					workspaceFolder: folder && { uri: folder.uri, name: folder.name, index: folder.index },
-					description: descriptions.find(d => folderIndex(d.scope) === folder?.index)?.description,
-					// The service stores collections with persistence; its interface doesn't say so.
-					persistent: (collection as Partial<IEnvironmentVariableCollectionWithPersistence>).persistent === true,
-					applied: false,
-				});
+			if (excluded.has(ExtensionIdentifier.toKey(extensionId))) {
+				continue;
 			}
+			// The environment is for processes without shell integration, so contributions
+			// terminals apply through it are applied directly.
+			const map = new Map([...collection.map].map(([key, m]) => [key, { ...m, options: { applyAtProcessCreation: true, applyAtShellIntegration: false } }]));
+			collections.set(extensionId, { map });
 		}
 
-		// The merged collection holds the contributions terminals apply, in order.
-		const result: IEnvironmentVariableContributionDto[] = [];
-		const merged = this._environmentService.mergedCollection;
-		for (const [index, scope] of scopes) {
-			for (const mutators of merged.getVariableMap(scope).values()) {
-				for (const m of mutators) {
-					const contribution = folderIndex(m.scope) === index ? all.get(keyOf(m.extensionIdentifier, m)) : undefined;
-					if (contribution && !contribution.applied) {
-						contribution.applied = true;
-						result.push(contribution);
-					}
-				}
+		const env = { ...baseEnv };
+		const resolver = createVariableResolver(workspaceFolder, { ...baseEnv }, this._configurationResolverService);
+		await new MergedEnvironmentVariableCollection(collections).applyToProcessEnvironment(env, { workspaceFolder }, resolver && (async value => {
+			try {
+				return await resolver(value);
+			} catch {
+				// Leave a reference that can't be resolved, such as `${workspaceFolder}` without a folder.
+				return value;
 			}
-		}
-		for (const contribution of all.values()) {
-			if (!contribution.applied) {
-				result.push(contribution);
-			}
-		}
-		return result;
+		}));
+		return env;
 	}
 
 	dispose(): void {

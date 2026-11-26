@@ -5,64 +5,87 @@
 
 import { URI } from '../../../../../base/common/uri.js';
 import { EnvironmentVariableMutatorType, IEnvironmentVariableMutator } from '../../../../../platform/terminal/common/environmentVariable.js';
-import { MergedEnvironmentVariableCollection } from '../../../../../platform/terminal/common/environmentVariableCollection.js';
+import { IWorkspace, IWorkspaceContextService, IWorkspaceFolder } from '../../../../../platform/workspace/common/workspace.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEnvironmentVariableCollectionWithPersistence, IEnvironmentVariableService } from '../../../../contrib/terminal/common/environmentVariable.js';
+import { AbstractVariableResolverService } from '../../../../services/configurationResolver/common/variableResolver.js';
 import { MainThreadEnvironment } from '../../../browser/positron/mainThreadEnvironment.js';
 
-const folder = { uri: URI.file('/project'), name: 'project', index: 0 };
+const folder = stubInterface<IWorkspaceFolder>({ uri: URI.file('/project'), name: 'project', index: 0 });
+
+/** Resolves variables as the workbench does, for a workspace with `folder` open. */
+class TestConfigurationResolverService extends AbstractVariableResolverService {
+	constructor() {
+		super({
+			getFolderUri: () => folder.uri,
+			getWorkspaceFolderCount: () => 1,
+			getConfigurationValue: () => undefined,
+			getAppRoot: () => undefined,
+			getExecPath: () => undefined,
+			getFilePath: () => undefined,
+			getSelectedText: () => undefined,
+			getLineNumber: () => undefined,
+			getColumnNumber: () => undefined,
+			getExtension: async () => undefined,
+		});
+	}
+}
 
 function mutator(variable: string, type: EnvironmentVariableMutatorType, value: string, extra: Partial<IEnvironmentVariableMutator> = {}): [string, IEnvironmentVariableMutator] {
 	const key = extra.scope ? `${variable}:::${extra.scope.workspaceFolder!.uri.toString()}` : variable;
 	return [key, { variable, type, value, ...extra }];
 }
 
-function contributions(collections: Map<string, IEnvironmentVariableCollectionWithPersistence>) {
-	const service = stubInterface<IEnvironmentVariableService>({
-		collections,
-		mergedCollection: new MergedEnvironmentVariableCollection(collections),
-	});
-	return new MainThreadEnvironment(undefined!, service).$getEnvironmentVariableContributions();
+const collections = new Map<string, IEnvironmentVariableCollectionWithPersistence>([
+	['ext.a', {
+		persistent: true,
+		map: new Map([
+			mutator('PATH', EnvironmentVariableMutatorType.Prepend, '/a/bin:'),
+			mutator('FOO', EnvironmentVariableMutatorType.Replace, 'a', { options: { applyAtProcessCreation: false, applyAtShellIntegration: true } }),
+			mutator('HOME_BIN', EnvironmentVariableMutatorType.Replace, '${env:HOME}/bin'),
+			mutator('PROJECT', EnvironmentVariableMutatorType.Replace, '${workspaceFolder}'),
+		]),
+	}],
+	['ext.b', {
+		persistent: false,
+		map: new Map([
+			mutator('PATH', EnvironmentVariableMutatorType.Prepend, '/b/bin:'),
+			mutator('FOO', EnvironmentVariableMutatorType.Replace, 'b'),
+			mutator('BAR', EnvironmentVariableMutatorType.Append, ':x', { scope: { workspaceFolder: folder } }),
+		]),
+	}],
+]);
+
+function resolve(workspaceFolder?: URI, excludeExtensions: string[] = []) {
+	const mainThread = new MainThreadEnvironment(
+		undefined!,
+		stubInterface<IEnvironmentVariableService>({ collections }),
+		stubInterface<IWorkspaceContextService>({ getWorkspace: () => stubInterface<IWorkspace>({ folders: [folder] }) }),
+		new TestConfigurationResolverService(),
+	);
+	return mainThread.$resolveEnvironmentContributions({ PATH: '/usr/bin', HOME: '/home/me', BAR: 'bar' }, workspaceFolder, excludeExtensions);
 }
 
-describe('MainThreadEnvironment.$getEnvironmentVariableContributions', () => {
-	it('reports every contribution with its details, applied ones first in application order', async () => {
-		const collections = new Map<string, IEnvironmentVariableCollectionWithPersistence>([
-			['ext.a', {
-				persistent: true,
-				map: new Map([
-					mutator('PATH', EnvironmentVariableMutatorType.Prepend, '/a/bin:'),
-					mutator('FOO', EnvironmentVariableMutatorType.Replace, 'a', { options: { applyAtProcessCreation: false, applyAtShellIntegration: true } }),
-				]),
-				descriptionMap: new Map([['', { description: 'Adds A' }]]),
-			}],
-			['ext.b', {
-				persistent: false,
-				map: new Map([
-					mutator('PATH', EnvironmentVariableMutatorType.Prepend, '/b/bin:'),
-					mutator('FOO', EnvironmentVariableMutatorType.Replace, 'b'),
-					mutator('BAR', EnvironmentVariableMutatorType.Append, ':x', { scope: { workspaceFolder: folder } }),
-				]),
-			}],
-		]);
-
-		const result = await contributions(collections);
-		expect(result.map(c => ({ ext: c.extensionId, variable: c.variable, value: c.value, applied: c.applied }))).toEqual([
-			{ ext: 'ext.b', variable: 'PATH', value: '/b/bin:', applied: true },
-			{ ext: 'ext.a', variable: 'PATH', value: '/a/bin:', applied: true },
-			{ ext: 'ext.a', variable: 'FOO', value: 'a', applied: true },
-			{ ext: 'ext.b', variable: 'BAR', value: ':x', applied: true },
-			// ext.a's Replace of FOO takes precedence.
-			{ ext: 'ext.b', variable: 'FOO', value: 'b', applied: false },
-		]);
-		expect(result[2]).toMatchObject({
-			type: EnvironmentVariableMutatorType.Replace,
-			applyAtProcessCreation: false,
-			applyAtShellIntegration: true,
-			workspaceFolder: undefined,
-			description: 'Adds A',
-			persistent: true,
+describe('MainThreadEnvironment.$resolveEnvironmentContributions', () => {
+	it('applies contributions as terminals do, including shell integration ones, for the workspace folder', async () => {
+		expect(await resolve(folder.uri)).toEqual({
+			PATH: '/a/bin:/b/bin:/usr/bin',
+			HOME: '/home/me',
+			// ext.a's Replace takes precedence, and applies without shell integration.
+			FOO: 'a',
+			BAR: 'bar:x',
+			HOME_BIN: '/home/me/bin',
+			PROJECT: '/project',
 		});
-		expect(result[3]).toMatchObject({ workspaceFolder: folder, description: undefined, persistent: false, applyAtProcessCreation: true });
+	});
+
+	it('applies only global contributions without an open workspace folder', async () => {
+		for (const workspaceFolder of [undefined, URI.file('/elsewhere')]) {
+			expect(await resolve(workspaceFolder)).toMatchObject({ BAR: 'bar', PROJECT: '${workspaceFolder}' });
+		}
+	});
+
+	it('leaves out excluded extensions', async () => {
+		expect(await resolve(folder.uri, ['EXT.A'])).toEqual({ PATH: '/b/bin:/usr/bin', HOME: '/home/me', FOO: 'b', BAR: 'bar:x' });
 	});
 });

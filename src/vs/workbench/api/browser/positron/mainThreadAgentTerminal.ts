@@ -6,7 +6,7 @@
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { IAgentTerminal, IAgentTerminalCommand, IAgentTerminalCreateOptions, IAgentTerminalOutput, IPositronAgentTerminalService } from '../../../contrib/positronAgentTerminal/common/agentTerminalService.js';
+import { IAgentTerminal, IAgentTerminalCommand, IAgentTerminalCreateOptions, IAgentTerminalOutput, IAgentTerminalStatus, IPositronAgentTerminalService } from '../../../contrib/positronAgentTerminal/common/agentTerminalService.js';
 import { MainPositronContext, MainThreadAgentTerminalShape } from '../../common/positron/extHost.positron.protocol.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAgentTerminal)
@@ -22,7 +22,7 @@ export class MainThreadAgentTerminal implements MainThreadAgentTerminalShape {
 		return this._agentTerminalService.createTerminal(extensionId, { ...options, cwd });
 	}
 
-	async $getTerminals(extensionId: string): Promise<IAgentTerminal[]> {
+	$getTerminals(extensionId: string): Promise<IAgentTerminal[]> {
 		return this._agentTerminalService.getTerminals(extensionId);
 	}
 
@@ -34,10 +34,8 @@ export class MainThreadAgentTerminal implements MainThreadAgentTerminalShape {
 		return this._agentTerminalService.waitForCommand(extensionId, terminalId, commandId, waitMs, token);
 	}
 
-	async $getStatus(extensionId: string, terminalId: string): Promise<{ exited: boolean; exitCode: number | undefined; commands: IAgentTerminalCommand[] }> {
-		const commands = this._agentTerminalService.getCommands(extensionId, terminalId);
-		const terminal = this._agentTerminalService.getTerminals(extensionId).find(t => t.id === terminalId);
-		return { exited: terminal?.exited ?? true, exitCode: terminal?.exitCode, commands };
+	async $getStatus(extensionId: string, terminalId: string): Promise<IAgentTerminalStatus> {
+		return this._agentTerminalService.getStatus(extensionId, terminalId);
 	}
 
 	async $readOutput(extensionId: string, terminalId: string, commandId: string, offset: number, limit: number): Promise<IAgentTerminalOutput> {

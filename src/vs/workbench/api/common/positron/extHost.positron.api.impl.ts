@@ -107,7 +107,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
 	const extHostAgentTerminals = new ExtHostAgentTerminals(rpcProtocol);
-	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol, extHostWorkspace));
+	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const extHostLifecycle = rpcProtocol.set(ExtHostPositronContext.ExtHostLifecycle, new ExtHostLifecycle());
 	const extHostFileTransfer = rpcProtocol.set(ExtHostPositronContext.ExtHostFileTransfer, new ExtHostFileTransfer());
@@ -468,8 +468,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostEnvironment.getEnvironmentContributions(filter);
 			},
 
-			getEnvironmentVariableContributions(): Thenable<positron.EnvironmentVariableContribution[]> {
-				return extHostEnvironment.getEnvironmentVariableContributions();
+			resolveEnvironmentContributions(options: positron.ResolveEnvironmentContributionsOptions): Thenable<{ [key: string]: string }> {
+				return extHostEnvironment.resolveEnvironmentContributions(options);
 			}
 		};
 

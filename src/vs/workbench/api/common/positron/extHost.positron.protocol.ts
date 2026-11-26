@@ -9,6 +9,7 @@ import { IHostedLanguageContribution, ILanguageRuntimeInfo, ILanguageRuntimeMeta
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, ExtHostQuickOpenShape, ITextEditorAddData, IEditorPropertiesChangeData } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
+import { IProcessEnvironment } from '../../../../base/common/platform.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { IPackageRepositoryRequest, IPackageRepositoryResponse } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
@@ -33,7 +34,7 @@ import { IPlotSize } from '../../../services/positronPlots/common/sizingPolicy.j
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
-import { IAgentTerminal, IAgentTerminalCommand, IAgentTerminalCreateOptions, IAgentTerminalOutput } from '../../../contrib/positronAgentTerminal/common/agentTerminalService.js';
+import { IAgentTerminal, IAgentTerminalCommand, IAgentTerminalCreateOptions, IAgentTerminalOutput, IAgentTerminalStatus } from '../../../contrib/positronAgentTerminal/common/agentTerminalService.js';
 import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
@@ -470,20 +471,7 @@ export interface ExtHostDataExplorerShape {
 
 export interface MainThreadEnvironmentShape extends IDisposable {
 	$getEnvironmentContributions(filter?: EnvironmentContributionFilter): Promise<Record<string, EnvironmentVariableAction[]>>;
-	$getEnvironmentVariableContributions(): Promise<IEnvironmentVariableContributionDto[]>;
-}
-
-export interface IEnvironmentVariableContributionDto {
-	extensionId: string;
-	variable: string;
-	type: number;
-	value: string;
-	applyAtProcessCreation: boolean;
-	applyAtShellIntegration: boolean;
-	workspaceFolder: { uri: UriComponents; name: string; index: number } | undefined;
-	description: string | undefined;
-	persistent: boolean;
-	applied: boolean;
+	$resolveEnvironmentContributions(baseEnv: IProcessEnvironment, workspaceFolder: UriComponents | undefined, excludeExtensions: readonly string[]): Promise<IProcessEnvironment>;
 }
 
 export interface ExtHostEnvironmentShape { }
@@ -493,7 +481,7 @@ export interface MainThreadAgentTerminalShape extends IDisposable {
 	$getTerminals(extensionId: string): Promise<IAgentTerminal[]>;
 	$runCommand(extensionId: string, terminalId: string, commandLine: string, waitMs: number, token: CancellationToken): Promise<IAgentTerminalCommand>;
 	$waitForCommand(extensionId: string, terminalId: string, commandId: string, waitMs: number, token: CancellationToken): Promise<IAgentTerminalCommand>;
-	$getStatus(extensionId: string, terminalId: string): Promise<{ exited: boolean; exitCode: number | undefined; commands: IAgentTerminalCommand[] }>;
+	$getStatus(extensionId: string, terminalId: string): Promise<IAgentTerminalStatus>;
 	$readOutput(extensionId: string, terminalId: string, commandId: string, offset: number, limit: number): Promise<IAgentTerminalOutput>;
 	$interrupt(extensionId: string, terminalId: string): Promise<void>;
 	$show(extensionId: string, terminalId: string, preserveFocus: boolean): Promise<void>;
