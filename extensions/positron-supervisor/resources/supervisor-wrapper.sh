@@ -41,6 +41,7 @@ shift
 # Create the output file before anything else can fail. Positron reads a
 # missing output file as a sign that this script did not start at all.
 : >> "$output_file"
+chmod 600 "$output_file"
 
 # Get the user's default shell. We run the program in a login shell to allow for
 # startup and environment variable customization in e.g. .bash_profile

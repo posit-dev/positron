@@ -64,7 +64,7 @@
             "%configuration.logLevel.debug.description%",
             "%configuration.logLevel.trace.description%"
           ],
-          "default": "debug",
+          "default": "info",
           "description": "%configuration.logLevel.description%"
         },
         "kernelSupervisor.shutdownTimeout": {
@@ -225,7 +225,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.77"
+      "kallichore": "0.1.78"
     }
   },
   "extensionDependencies": [

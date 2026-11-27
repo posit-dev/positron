@@ -272,7 +272,8 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * The wrapper script output files of the servers that this window
-	 * started. `removeOutputFiles()` removes them at quit.
+	 * started. `removeOutputFiles()` removes them, and their log
+	 * directories, at quit.
 	 */
 	private readonly _outFiles: string[] = [];
 
@@ -630,11 +631,14 @@ export class KCApi implements PositronSupervisorApi {
 		const showTerminal = config.get<boolean>('showTerminal', false);
 		const startupTimeout = config.get<number>('startupTimeout', 10) * 1000;
 
-		// Create a temporary file with a random name to use for logs
-		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);
+		// Keep the server's logs where only the current user can read them:
+		// mkdtemp creates the directory with mode 0700 on POSIX, and on Windows
+		// the per-user temp folder's ACLs apply.
+		const logDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kallichore-'));
+		const logFile = path.join(logDir, 'server.log');
 
 		// Create a second file to capture the server's stdout and stderr
-		const outFile = path.join(os.tmpdir(), `kallichore-${sessionId}.out.log`);
+		const outFile = path.join(logDir, 'server.out.log');
 
 		// Determine the path to the wrapper script.
 		const wrapperName = os.platform() === 'win32' ? 'supervisor-wrapper.bat' : 'supervisor-wrapper.sh';
@@ -1972,19 +1976,21 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * Removes the wrapper script output files of the servers that this window
-	 * started. `dispose()` is synchronous and cannot wait for file removal,
-	 * so call this before `dispose()` at quit.
+	 * started, along with their log directories when the servers shut down
+	 * with the application. `dispose()` is synchronous and cannot wait for
+	 * file removal, so call this before `dispose()` at quit.
 	 */
 	async removeOutputFiles(): Promise<void> {
+		// A server that outlives the application keeps writing its log, which
+		// the next launch streams when it reconnects
+		const keepLogs = !this.serverSharesApplicationLifetime();
 		const outFiles = this._outFiles.splice(0);
 		await Promise.all(outFiles.map(async outFile => {
+			const target = keepLogs ? outFile : path.dirname(outFile);
 			try {
-				await fs.promises.unlink(outFile);
+				await fs.promises.rm(target, { recursive: true, force: true });
 			} catch (err) {
-				// A wrapper script that did not start creates no output file
-				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-					this.log(`Error cleaning up output file ${outFile}: ${err}`);
-				}
+				this.log(`Error cleaning up ${target}: ${err}`);
 			}
 		}));
 	}
