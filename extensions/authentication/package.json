@@ -25,12 +25,6 @@
 		"@types/node": "22.x"
 	},
 	"contributes": {
-		"authentication": [
-			{
-				"id": "bedrock",
-				"label": "AWS"
-			}
-		],
 		"commands": [
 			{
 				"command": "authentication.migrateSettingsToProvidersJson",

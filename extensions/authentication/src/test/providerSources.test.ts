@@ -26,9 +26,12 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 	test('every authentication contribution has a PROVIDER_METADATA entry', () => {
 		// `label` (Accounts menu) and `displayName` are deliberately allowed to
 		// differ per provider, so we don't couple them. What we do enforce is
-		// that every declared auth provider is known to the metadata.
+		// that every declared auth provider is known to the metadata. The
+		// extension currently declares none (Posit Assistant declares them and
+		// this extension registers the ids only while Assistant doesn't), so the
+		// key may be absent.
 		const metadataIds = Object.values(PROVIDER_METADATA).map(p => p.id);
-		const manifestIds = authPkg.contributes.authentication
+		const manifestIds = (authPkg.contributes.authentication ?? [])
 			.map((c: { id: string }) => c.id);
 		const resolved = manifestIds.filter((id: string) => metadataIds.includes(id));
 
