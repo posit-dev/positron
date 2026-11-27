@@ -12,7 +12,20 @@ import tseslint from 'typescript-eslint';
 
 import stylistic from '@stylistic/eslint-plugin';
 import * as pluginLocal from './.eslint-plugin-local/index.ts';
-import * as pluginCopilotLocal from './extensions/copilot/.eslintplugin/index.ts';
+// --- Start Positron ---
+// Positron removed extensions/copilot, so its local plugin is gone. The blocks
+// that use it only match files under extensions/copilot. This stand-in resolves
+// every `copilot-local/*` rule to a no-op that accepts any options, so the config
+// still loads and those blocks merge cleanly. Upstream's eslint plugin tests lint
+// virtual paths under extensions/copilot, which validates those rules.
+// import * as pluginCopilotLocal from './extensions/copilot/.eslintplugin/index.ts';
+const pluginCopilotLocal = {
+	meta: { name: 'copilot-local-removed' },
+	rules: new Proxy({}, {
+		get: (_target, name) => typeof name === 'string' ? { meta: { schema: false }, create: () => ({}) } : undefined,
+	}),
+};
+// --- End Positron ---
 import pluginImport from 'eslint-plugin-import';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
 

@@ -53,9 +53,10 @@ export const IGNORED_JUPYTER_COMMANDS = new Set([
 // --- End Positron ---
 
 // --- Start Positron ---
-// Add Positron's AI switch to every command and menu item the bundled Copilot extension
-// contributes. Doing it here covers whatever upstream adds, and avoids hand-writing a `when`
-// clause per command in a package.json that every bump replaces.
+// Add Positron's AI switch to every command and menu item Copilot Chat contributes. Positron no
+// longer bundles it, but a copy can remain in a profile upgraded from a version that did, or be
+// installed by the user, and several of its contributions check neither AI switch on their own.
+// Without this, `ai.enabled: false` would leave them visible and runnable.
 const COPILOT_EXTENSION_ID = new ExtensionIdentifier('GitHub.copilot-chat');
 
 // Written out here instead of imported from `ChatContextKeys`, because this file sits outside
@@ -64,7 +65,7 @@ const COPILOT_EXTENSION_ID = new ExtensionIdentifier('GitHub.copilot-chat');
 const COPILOT_AI_FEATURES_ENABLED = ContextKeyExpr.has('chatAiFeaturesEnabled');
 
 /**
- * Adds Positron's AI switch to a condition coming from the bundled Copilot extension. Conditions
+ * Adds Positron's AI switch to a condition coming from the Copilot Chat extension. Conditions
  * from any other extension are returned unchanged.
  *
  * Pass in the extension's own condition so it still applies: a command's `enablement` or a menu

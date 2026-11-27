@@ -34,7 +34,7 @@ import watcher from './watch/index.ts';
 // --- Start Positron ---
 import os from 'os';
 import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
-import { isPrunedExtensionDependencyFile, isUnusedCopilotOpenTelemetryPackage } from './positron-path-budget.ts';
+import { isPrunedExtensionDependencyFile } from './positron-path-budget.ts';
 import { DUCKDB_EXTENSIONS, DUCKDB_RUNTIME_PACKAGES, DUCKDB_SOURCE_EXTENSION, assertDuckdbVersionsMatch, isDuckdbRuntimeFile } from './positron-duckdb-runtime.ts';
 // --- End Positron ---
 
@@ -813,48 +813,12 @@ export function packageCopilotExtensionStream(): Stream {
 	}
 
 	const localExtensionsStream = minifyExtensionResources(
-		// --- Start Positron ---
-		// Stamp `buildType: 'prod'` in the packaged manifest. Upstream's
-		// extensions/copilot/.esbuild.ts has an applyPackageJsonPatch() that does
-		// this, but it is gated on VSCODE_QUALITY (their marketplace publishing
-		// flow) and Positron's release builders do not set that env var. Without
-		// the flip the shipped package.json keeps `buildType: 'dev'` from source,
-		// and the extension's runtime check
-		// `isProduction = (buildType !== 'dev')` (in
-		// src/platform/env/common/packagejson.ts) is false. That routes
-		// activation through configureDevPackages(), which require()s
-		// `source-map-support` and `dotenv` -- both devDependencies that are not
-		// present in the production node_modules of the packaged extension.
-		updateExtensionPackageJSON(fromLocal(extensionPath, false), (data: any) => {
-			data.buildType = 'prod';
-			return data;
-		})
+		fromLocal(extensionPath, false)
 			.pipe(rename(p => p.dirname = `extensions/copilot/${p.dirname}`))
-		// --- End Positron ---
 	);
 
 	const productionDependencies = getProductionDependencies('extensions/copilot');
-	// --- Start Positron ---
-	// The extension bundles OpenTelemetry into dist/extension.js and keeps only
-	// @opentelemetry/instrumentation external. No code loads the other
-	// @opentelemetry packages in node_modules. Each OTLP exporter also carries a
-	// nested @opentelemetry/resources, so these packages held some of the longest
-	// paths that Positron shipped. See positron-path-budget.ts and
-	// posit-dev/positron#14702.
-	//
-	// A negative glob excludes each unused package. Without it, a positive glob
-	// for a parent package returns a nested copy of an unused package. The
-	// negative globs come last, because the last glob wins.
-	//
-	const relativeDependencies = productionDependencies.map(d => path.relative(root, d));
-	const unusedDependencies = relativeDependencies.filter(isUnusedCopilotOpenTelemetryPackage);
-	const usedDependencies = relativeDependencies.filter(d => !isUnusedCopilotOpenTelemetryPackage(d));
-	const dependenciesSrc = [
-		...usedDependencies.map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat(),
-		...unusedDependencies.map(d => `!${d}/**`)
-	];
-	// const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
-	// --- End Positron ---
+	const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
 
 	// --- Start PWB: keep the extension's own @github/copilot package ---
 	// build/.moduleignore strips `@github/copilot/**` because the agent host uses the runtime
@@ -868,12 +832,6 @@ export function packageCopilotExtensionStream(): Stream {
 		`${extensionCopilotPackage}/**`,
 		...['prebuilds', 'clipboard', 'ripgrep', 'pvrecorder', 'foundry-local-sdk', 'mxc-bin', 'sharp'].map(dir => `!${extensionCopilotPackage}/${dir}/**`),
 		`!${extensionCopilotPackage}/**/keytar.node`,
-		// --- Start Positron ---
-		// Running the extension from source writes shims.txt here, and the extension's postinstall
-		// (run by .esbuild.mts in the merged localExtensionsStream) deletes it mid-glob, failing
-		// the build with ENOENT. prepareBuiltInCopilotRipgrepShim writes the packaged copy.
-		`!${extensionCopilotPackage}/shims.txt`,
-		// --- End Positron ---
 	];
 
 	return es.merge(

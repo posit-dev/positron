@@ -23,6 +23,9 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 (vscode.env.uiKind === vscode.UIKind.Web ? suite.skip : suite)('chat - browser tools', () => {
 
 	let clearNotificationsInterval: ReturnType<typeof setInterval> | undefined;
+	// --- Start Positron ---
+	let defaultParticipant: vscode.Disposable | undefined;
+	// --- End Positron ---
 
 	setup(async () => {
 		// Periodically clear notifications to prevent them from interrupting the browser.
@@ -38,6 +41,20 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 		const chatToolsConfig = vscode.workspace.getConfiguration('chat.tools.global');
 		await chatToolsConfig.update('autoApprove', true, vscode.ConfigurationTarget.Global);
 		await vscode.commands.executeCommand('setContext', 'vscode.chat.tools.global.autoApprove.testMode', true);
+
+		// --- Start Positron ---
+		// The agentic browser tools are registered only while `chatIsEnabled` is
+		// true, which needs a default chat participant with an implementation.
+		// Upstream gets one from the chat setup agents or the bundled Copilot Chat
+		// extension. Positron ships neither and always hides chat setup, so register
+		// this extension's default participant, then wait for the agentic tool set
+		// (`list_browser_pages` is only registered with it) to replace the
+		// non-agentic `open_browser_page`. The first registration can be slow
+		// while the window is still starting up, so allow up to 30 seconds.
+		defaultParticipant = vscode.chat.createChatParticipant('api-test.participant', () => { });
+		await waitForCondition(() => vscode.lm.tools.some(t => t.name === 'list_browser_pages'), 600);
+		assert.ok(vscode.lm.tools.some(t => t.name === 'list_browser_pages'), 'Agentic browser tools should be registered');
+		// --- End Positron ---
 	});
 
 	teardown(async function () {
@@ -45,6 +62,11 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 			clearInterval(clearNotificationsInterval);
 			clearNotificationsInterval = undefined;
 		}
+
+		// --- Start Positron ---
+		defaultParticipant?.dispose();
+		defaultParticipant = undefined;
+		// --- End Positron ---
 
 		assertNoRpc();
 		await closeAllEditors();

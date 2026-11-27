@@ -361,8 +361,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			}
 		}));
 		// --- Start Positron ---
-		// `chat.disableAIFeatures` should hide the chat UI while keeping the chat
-		// extension's `vscode.lm` model provider available for other consumers.
+		// `chat.disableAIFeatures` hides the chat UI. Positron defaults it to true, so
+		// the chat view is opt-in for users who install a chat extension.
 		// `ai.enabled` is Positron's main AI switch and sits above it: turning it
 		// off also hides the chat UI.
 		// The chat UI is gated by the `chatIsEnabled` / `chatPanelParticipantRegistered`
@@ -382,18 +382,17 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	// --- Start Positron ---
 	private _isAIDisabled(): boolean {
-		// `chat.disableAIFeatures` is Copilot's own switch. Positron's `ai.enabled`
-		// is the main switch on top: if it's off, AI is off no matter what
-		// `chat.disableAIFeatures` says. When `ai.enabled` is on, Copilot is back to
-		// being governed by `chat.disableAIFeatures` alone.
+		// `chat.disableAIFeatures` is the chat view's own switch. Positron's
+		// `ai.enabled` is the main switch on top: if it's off, AI is off no matter
+		// what `chat.disableAIFeatures` says. When `ai.enabled` is on, the chat view
+		// is governed by `chat.disableAIFeatures` alone.
 		return this.configurationService.getValue(ChatConfiguration.AIDisabled) === true
 			|| this.configurationService.getValue('ai.enabled') === false;
 	}
 
 	/**
 	 * Sets the `chatIsEnabled` context key. AI features being disabled hides the
-	 * chat UI, but does not unregister the chat extension's language model
-	 * provider (that is owned by the language models service, not this service).
+	 * chat UI, but does not unregister any agents or language model providers.
 	 */
 	private _updateHasDefaultAgent(): void {
 		this._hasDefaultAgent.set(!this._isAIDisabled() && Iterable.some(this._agents.values(), agent => agent.data.isDefault && !!agent.impl));
@@ -463,11 +462,11 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		}
 		// --- Start Positron ---
 		// Treat `chat.disableAIFeatures` as "no panel participant" so the chat UI
-		// hides while leaving the chat extension's `vscode.lm` model provider
-		// available for other consumers. (Previously also gated on
+		// hides. Upstream instead disables the default chat extension, which
+		// Positron does not ship. (Previously also gated on
 		// `positron.assistant.enable`, which made the chat panel depend on the
-		// Positron Assistant extension being enabled; removed so a default chat
-		// agent such as GitHub Copilot can register on its own.)
+		// Positron Assistant extension being enabled; removed so a third-party
+		// default chat agent can register on its own.)
 		this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.
 		this._aiFeaturesEnabled.set(!this._isAIDisabled());
@@ -552,8 +551,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// location. This gates chat surfaces that key off agent availability rather
 		// than the panel context keys -- notably inline chat, whose enablement
 		// (`inlineChatHasEditsAgent`) is driven by `getDefaultAgent(EditorInline)`.
-		// The chat extension's `vscode.lm` model provider stays registered because
-		// it is owned by the language models service, not this service.
 		if (this._isAIDisabled()) {
 			return undefined;
 		}

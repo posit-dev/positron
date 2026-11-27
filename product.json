@@ -419,9 +419,7 @@
 		"mcpConnectorsUrl": "https://api.github.com/copilot-connectors/api/v1",
 		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
 	},
-	"extensionsEnabledWithApiProposalVersion": [
-		"GitHub.copilot-chat"
-	],
+	"extensionsEnabledWithApiProposalVersion": [],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
 			"testObserver",
@@ -582,39 +580,6 @@
 		"GitHub.copilot-nightly": [
 			"inlineCompletionsAdditions"
 		],
-		"GitHub.copilot-chat": [
-			"interactive",
-			"terminalDataWriteEvent",
-			"terminalExecuteCommandEvent",
-			"terminalSelection",
-			"terminalQuickFixProvider",
-			"chatParticipantAdditions",
-			"defaultChatParticipant",
-			"embeddings",
-			"chatVariableResolver",
-			"chatProvider",
-			"mappedEditsProvider",
-			"aiRelatedInformation",
-			"codeActionAI",
-			"findTextInFiles",
-			"textSearchProvider",
-			"activeComment",
-			"commentReveal",
-			"contribSourceControlInputBoxMenu",
-			"contribCommentEditorActionsMenu",
-			"contribCommentThreadAdditionalMenu",
-			"contribCommentsViewThreadMenus",
-			"newSymbolNamesProvider",
-			"findFiles2",
-			"extensionsAny",
-			"authGetSessions",
-			"authLearnMore",
-			"testObserver",
-			"aiTextSearchProvider",
-			"documentFiltersExclusive",
-			"chatParticipantPrivate",
-			"lmTools"
-		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
 			"contribMenuBarHome",
@@ -716,7 +681,6 @@
 			"posit.assistant"
 		],
 		"github-enterprise": [
-			"GitHub.copilot-chat",
 			"posit.assistant"
 		],
 		"posit-workbench": [
@@ -841,9 +805,7 @@
 			"type": "light"
 		}
 	],
-	"builtInExtensionsEnabledWithAutoUpdates": [
-		"GitHub.copilot-chat"
-	],
+	"builtInExtensionsEnabledWithAutoUpdates": [],
 	"sessionsWindowAllowedExtensions": [],
 	"voiceWsUrl": "wss://falcon-caas.mai.microsoft.com/voice-code/api/v1/realtime/voice"
 }

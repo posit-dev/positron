@@ -44,9 +44,13 @@ class ManageLanguageModelAuthenticationAction extends Action2 {
 				id: MenuId.AccountsContext,
 				order: 100,
 				// --- Start Positron ---
-				// Hide (rather than disable) when AI features are off. The precondition
-				// above gates command palette visibility; this `when` gates the menu.
-				when: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// Hide (rather than disable) when AI features are off or no chat agent
+				// is registered. The precondition above gates command palette
+				// visibility; this `when` gates the menu, so it repeats both conditions.
+				when: ContextKeyExpr.and(
+					ChatContextKeys.enabled,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
 				// --- End Positron ---
 			}],
 			f1: true

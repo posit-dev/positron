@@ -23,7 +23,11 @@ const COPILOT_BUILD_ARGS = ['--prefix', 'extensions/copilot', 'run', 'compile'];
 type Fingerprint = string | null;
 type LaneMode = 'skip' | 'incremental' | 'full';
 type BuildLane = 'client' | 'extensions' | 'copilot';
-const buildLanes: readonly BuildLane[] = ['client', 'extensions', 'copilot'];
+// --- Start Positron ---
+// Positron removed extensions/copilot, so the copilot lane is never selected and always plans 'skip'.
+// const buildLanes: readonly BuildLane[] = ['client', 'extensions', 'copilot'];
+const buildLanes: readonly BuildLane[] = ['client', 'extensions'];
+// --- End Positron ---
 
 export interface BuildFastState {
 	readonly schema: number;
@@ -386,7 +390,11 @@ function affectsLane(filePath: string, lane: BuildLane): boolean {
 }
 
 function fullPlan(reason: string, changedPaths: readonly string[], clientOnly: boolean): BuildFastPlan {
-	return { reason, changedPaths, client: 'full', extensions: clientOnly ? 'skip' : 'full', copilot: clientOnly ? 'skip' : 'full' };
+	// --- Start Positron ---
+	// Positron removed extensions/copilot; never plan a copilot build.
+	// return { reason, changedPaths, client: 'full', extensions: clientOnly ? 'skip' : 'full', copilot: clientOnly ? 'skip' : 'full' };
+	return { reason, changedPaths, client: 'full', extensions: clientOnly ? 'skip' : 'full', copilot: 'skip' };
+	// --- End Positron ---
 }
 
 async function getOutputStatus(repoRoot: string): Promise<OutputStatus> {
@@ -426,7 +434,10 @@ async function runAllFull(repoRoot: string, clientOnly: boolean): Promise<void> 
 		runCommand(repoRoot, process.execPath, [path.join(repoRoot, 'build', 'next', 'index.ts'), 'transpile'], 'client'),
 		...(!clientOnly ? [
 			runCommand(repoRoot, npmCommand(), EXTENSION_BUILD_ARGS, 'extensions'),
-			runCommand(repoRoot, npmCommand(), COPILOT_BUILD_ARGS, 'copilot'),
+			// --- Start Positron ---
+			// Positron removed extensions/copilot.
+			// runCommand(repoRoot, npmCommand(), COPILOT_BUILD_ARGS, 'copilot'),
+			// --- End Positron ---
 		] : []),
 	]);
 }
@@ -465,19 +476,23 @@ function logPlan(plan: BuildFastPlan): void {
 	console.log(`[build-fast] client=${plan.client}, extensions=${plan.extensions}, copilot=${plan.copilot}`);
 }
 
-function readEnvironment(repoRoot: string): string {
-	const copilotPackage = JSON.parse(fs.readFileSync(path.join(repoRoot, 'extensions', 'copilot', 'package.json'), 'utf8')) as {
-		readonly devDependencies?: Readonly<Record<string, string>>;
-	};
+// --- Start Positron ---
+// Positron removed extensions/copilot, so there is no copilot package.json to read.
+// function readEnvironment(repoRoot: string): string {
+// 	const copilotPackage = JSON.parse(fs.readFileSync(path.join(repoRoot, 'extensions', 'copilot', 'package.json'), 'utf8')) as {
+// 		readonly devDependencies?: Readonly<Record<string, string>>;
+// 	};
+function readEnvironment(_repoRoot: string): string {
 	return [
 		`recipe=${BUILD_RECIPE}`,
 		`platform=${process.platform}`,
 		`arch=${process.arch}`,
 		`node=${process.version}`,
 		`esbuild=${esbuild.version}`,
-		`copilot-esbuild=${copilotPackage.devDependencies?.esbuild ?? ''}`,
+		// `copilot-esbuild=${copilotPackage.devDependencies?.esbuild ?? ''}`,
 	].join(';');
 }
+// --- End Positron ---
 
 async function acquireLock(lockPath: string): Promise<Lock> {
 	try {

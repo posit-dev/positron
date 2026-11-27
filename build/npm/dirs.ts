@@ -61,7 +61,6 @@ export let dirs = [
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',
-	'extensions/copilot',
 	'extensions/css-language-features',
 	'extensions/css-language-features/server',
 	'extensions/debug-auto-launch',

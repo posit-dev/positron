@@ -4,7 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type Anthropic from '@anthropic-ai/sdk';
-import { CAPIClient, RequestType, type CCAModel, type IExtensionInformation } from '@vscode/copilot-api';
+// --- Start Positron ---
+// Positron does not ship `@vscode/copilot-api`, so take only its types, and
+// use stand-ins for its runtime values that fail every request.
+// import { CAPIClient, RequestType, type CCAModel, type IExtensionInformation } from '@vscode/copilot-api';
+import type { CCAModel, IExtensionInformation } from '@vscode/copilot-api';
+import { CAPIClient, RequestType } from './positronCopilotApiUnavailable.js';
+// --- End Positron ---
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { getDevDeviceId, getMachineId } from '../../../../base/node/id.js';

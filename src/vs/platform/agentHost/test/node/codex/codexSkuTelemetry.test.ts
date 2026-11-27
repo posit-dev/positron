@@ -104,7 +104,11 @@ function createHarness(disposables: Pick<DisposableStore, 'add'>, fetch: FetchFu
 	};
 }
 
-suite('Codex Copilot SKU telemetry', () => {
+// --- Start Positron ---
+// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+// suite('Codex Copilot SKU telemetry', () => {
+suite.skip('Codex Copilot SKU telemetry', () => {
+	// --- End Positron ---
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('shares account tracking IDs across turn and tool telemetry without relabeling delayed events', async () => {

@@ -1563,9 +1563,9 @@ export class ChatEntitlementContext extends Disposable {
 	private registerListeners(): void {
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			// --- Start Positron ---
-			// Recompute when either Copilot's own switch or Positron's `ai.enabled`
-			// changes, so toggling `ai.enabled` at runtime hides/shows the chat UI
-			// without a reload.
+			// Upstream recomputes only on `chat.disableAIFeatures`. Positron also listens
+			// for `ai.enabled`, although withConfiguration below now always reports setup
+			// as hidden, so neither setting changes the result.
 			if (e.affectsConfiguration(ChatAIDisabledSettingId) || e.affectsConfiguration(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY)) {
 				// --- End Positron ---
 				this.updateContext();
@@ -1577,10 +1577,16 @@ export class ChatEntitlementContext extends Disposable {
 
 	private withConfiguration(state: IChatEntitlementContextState): IChatEntitlementContextState {
 		// --- Start Positron ---
-		// `ai.enabled === false` is Positron's main switch and hides the chat UI
-		// the same way `chat.disableAIFeatures === true` does.
+		// Positron doesn't ship the default chat extension (GitHub Copilot Chat), so
+		// chat setup has nothing to set up. Always report setup as hidden, whatever
+		// `chat.disableAIFeatures` and `ai.enabled` say. This keeps upstream's setup
+		// agents from registering and hides every surface gated on
+		// `Setup.hidden.negate()`, including the chat view's own fallback. The chat
+		// view then shows only when an extension registers a default chat
+		// participant, such as a sideloaded Copilot Chat. Upstream implementation,
+		// with Positron's earlier `ai.enabled` check, kept below for merge reference:
+		/*
 		if (this._forceHidden || this.configurationService.getValue(ChatAIDisabledSettingId) === true || this.configurationService.getValue(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY) === false) {
-			// --- End Positron ---
 			return {
 				...state,
 				hidden: true
@@ -1588,6 +1594,12 @@ export class ChatEntitlementContext extends Disposable {
 		}
 
 		return state;
+		*/
+		return {
+			...state,
+			hidden: true
+		};
+		// --- End Positron ---
 	}
 
 	setForceHidden(hidden: boolean): void {

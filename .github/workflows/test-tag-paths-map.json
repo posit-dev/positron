@@ -44,8 +44,6 @@
   "src/vs/workbench/contrib/runtimeNotebookKernel/": ["@:positron-notebooks"],
 
   "extensions/authentication/": ["@:assistant"],
-  "extensions/copilot/": ["@:assistant"],
-  "extensions/copilot/src/extension/prompts/node/base/positronAssistant.tsx": ["@:assistant"],
   "extensions/next-edit-suggestions/": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
