@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -25,8 +25,7 @@ test.describe('Quarto - Python', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.P
 		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
 		await app.workbench.editorActionBar.clickButton('Preview');
 
-		// Viewer tab is targeted by corresponding iframe. It is assumed that the report fully loads once title 'Example Report' appears
-		const title = app.workbench.viewer.getViewerFrame().frameLocator('iframe').getByText('Example Report');
-		await expect(title).toBeVisible({ timeout: 120000 });
+		// It is assumed that the report fully loads once title 'Example Report' appears
+		await app.workbench.viewer.expectContentVisible(content => content.getByText('Example Report'), { useIframe: true, timeout: 120000 });
 	});
 });

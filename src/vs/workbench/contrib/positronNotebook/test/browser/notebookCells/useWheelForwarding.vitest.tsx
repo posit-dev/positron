@@ -9,11 +9,12 @@ import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibr
 import { useWheelForwarding } from '../../../browser/notebookCells/useWheelForwarding.js';
 
 /* Minimal wrapper that wires up the hook between a source div and a target ref. */
-function TestComponent({ targetRef }: {
+function TestComponent({ targetRef, isMac }: {
 	targetRef: React.RefObject<HTMLElement | null>;
+	isMac?: boolean;
 }) {
 	const sourceRef = React.useRef<HTMLDivElement>(null);
-	useWheelForwarding(sourceRef, targetRef);
+	useWheelForwarding(sourceRef, targetRef, isMac);
 	return <div ref={sourceRef} />;
 }
 
@@ -44,8 +45,8 @@ describe('useWheelForwarding', () => {
 	});
 
 	/* Render the hook and return the source element that receives wheel events. */
-	function renderHook() {
-		const { container } = rtl.render(<TestComponent targetRef={scrollTargetRef} />);
+	function renderHook(isMac?: boolean) {
+		const { container } = rtl.render(<TestComponent isMac={isMac} targetRef={scrollTargetRef} />);
 		const source = container.firstElementChild as HTMLDivElement;
 		expect(source).not.toBeNull();
 		return source;
@@ -67,6 +68,21 @@ describe('useWheelForwarding', () => {
 		source.dispatchEvent(new WheelEvent('wheel', { deltaX: 30, cancelable: true }));
 
 		expect(scrollTarget.scrollLeft).toBe(30);
+	});
+
+	/* A shift + wheel event. happy-dom's WheelEvent extends UIEvent rather than MouseEvent, so it drops the modifier keys. */
+	function shiftWheel(init: WheelEventInit) {
+		const event = new WheelEvent('wheel', { cancelable: true, ...init });
+		Object.defineProperty(event, 'shiftKey', { value: true });
+		return event;
+	}
+
+	it('forwards shift + vertical wheel to scrollLeft on Windows and Linux (#11063)', () => {
+		const source = renderHook(false);
+
+		source.dispatchEvent(shiftWheel({ deltaY: 30 }));
+
+		expect({ top: scrollTarget.scrollTop, left: scrollTarget.scrollLeft }).toEqual({ top: 0, left: 30 });
 	});
 
 	it('does not preventDefault at scroll boundary', () => {

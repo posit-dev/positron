@@ -25,6 +25,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '.
 import { localize, localize2 } from '../../../../nls.js';
 import { OldFreezeSlowPlotsConfigKey, FreezeSlowPlotsConfigKey } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import { DEFAULT_SAVE_RESOLUTIONS, MAX_SAVE_RESOLUTION, SaveResolutionsConfigKey } from './modalDialogs/saveResolution.js';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
@@ -202,6 +203,16 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					localize('plots.historyPolicyNever', 'Never show the plot history filmstrip')
 				],
 				description: localize('plots.historyPolicySetting', "When the plot history filmstrip is visible."),
+			},
+			[SaveResolutionsConfigKey]: {
+				type: 'array',
+				items: {
+					type: 'number',
+					exclusiveMinimum: 0,
+					maximum: MAX_SAVE_RESOLUTION,
+				},
+				default: DEFAULT_SAVE_RESOLUTIONS,
+				description: localize('positron.plots.saveResolutions', "Resolution multipliers offered when saving a plot as PNG, JPEG, or TIFF. The saved image is the plot's width and height times the chosen resolution, in pixels."),
 			}
 		}
 	});

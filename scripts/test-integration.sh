@@ -306,7 +306,7 @@ kill_app
 fi
 
 # --- Start Positron ---
-# Colorize tests disabled — see https://github.com/posit-dev/positron/issues/7349
+# Colorize tests disabled: each upstream merge makes the golden files stale
 # if should_run_suite colorize; then
 # echo
 # echo "### Colorize tests"
@@ -417,12 +417,13 @@ start_suite "Positron R connections tests"
 run_extension_suite npm run test-extension -- -l positron-connections
 kill_app
 
-# Disabling Positron Run App tests for now as they are flaky
-# echo
-# echo "### Positron Run App tests"
-# echo
-# npm run test-extension -- -l positron-run-app
-# kill_app
+start_suite "Positron Run App tests"
+run_extension_suite npm run test-extension -- -l positron-run-app
+kill_app
+
+start_suite "Positron Supervisor tests"
+run_extension_suite npm run test-extension -- -l positron-supervisor
+kill_app
 
 start_suite "Positron DuckDB tests"
 run_extension_suite npm run test-extension -- -l positron-duckdb

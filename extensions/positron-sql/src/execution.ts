@@ -238,12 +238,12 @@ export class StatementRunner {
 	/**
 	 * @param document The file the statement came from, so the execution is attributed to it.
 	 * @param connection The connection the file is written against.
-	 * @param query The statement to run, as the user wrote it.
+	 * @param queries The statements to run, in order, as the user wrote them.
 	 */
 	public async run(
 		document: vscode.TextDocument,
 		connection: ConnectionRef,
-		query: string,
+		queries: readonly string[],
 	): Promise<ExecutionOutcome> {
 		const connect = await this._api.getConnectCode(connection.profileId);
 		if (connect.kind !== 'code') {
@@ -260,16 +260,69 @@ export class StatementRunner {
 			sessionId = started.sessionId;
 		}
 
-		this._log.info(`Running a statement from ${document.uri.toString(true)} against`
-			+ ` ${connection.name} in ggsql session ${sessionId}.`);
-		// Not awaited. The statement is the user's and may take as long as it takes; the console
-		// shows its result or its error, and the next Cmd+Enter is queued behind it there rather
-		// than held up here.
-		this._api.executeCode(query, sessionId, document.uri).then(undefined, error => {
-			this._log.warn(`The statement from ${document.uri.toString(true)} failed in ggsql`
-				+ ` session ${sessionId}: ${errorMessage(error)}`);
+		const uri = document.uri;
+		this._log.info(`Running ${queries.length} statement(s) from ${uri.toString(true)}`
+			+ ` against ${connection.name} in ggsql session ${sessionId}.`);
+		// Not awaited. The statements are the user's and may take as long as they take; the console
+		// shows each result or error. A later run in the same session waits only until this one has
+		// sent its last statement, so it lands behind all of them in the console's queue rather
+		// than between them.
+		//
+		// While it waits it is held here rather than in the console's queue, which an interrupt
+		// clears. So a run held behind one that was interrupted is dropped too, as the console
+		// would have dropped it; and so is one held behind a session that exited, since whatever
+		// state it was written against went with the session.
+		const id = sessionId;
+		const sent = (this._sending.get(id) ?? Promise.resolve<SendEnd>('sent')).then((before): Promise<SendEnd> | SendEnd => {
+			if (before === 'stopped') {
+				this._log.info(`Not running ${queries.length} statement(s) from ${uri.toString(true)}:`
+					+ ` the run before them in ggsql session ${id} was interrupted, or the session exited.`);
+				return 'stopped';
+			}
+			return this._send(queries, id, uri);
+		}).then(undefined, (error): SendEnd => {
+			this._log.error(`Could not run statements in ggsql session ${id}: ${errorMessage(error)}`);
+			return 'failed';
+		});
+		this._sending.set(id, sent);
+		void sent.then(() => {
+			if (this._sending.get(id) === sent) {
+				this._sending.delete(id);
+			}
 		});
 		return { kind: 'executed', sessionId };
+	}
+
+	/**
+	 * Per session, the latest run that is still sending statements: it settles once that run has
+	 * sent its last one, or stopped, with how it ended. Never rejects.
+	 */
+	private readonly _sending = new Map<string, Promise<SendEnd>>();
+
+	/**
+	 * Sends statements to a session one at a time, each once the one before it has run, resolving
+	 * once the last has been sent (not run), or with why the rest were not.
+	 *
+	 * One execution each, rather than the lot as one block, so the console shows each statement
+	 * with its own result. A statement that fails stops the rest, since they may depend on it.
+	 */
+	private async _send(queries: readonly string[], sessionId: string, documentUri: vscode.Uri): Promise<SendEnd> {
+		const failed = (error: unknown, skipped = 0) => this._log.warn(
+			`A statement from ${documentUri.toString(true)} failed in ggsql session ${sessionId}:`
+			+ ` ${errorMessage(error)}` + (skipped ? `; ${skipped} statement(s) after it were not run.` : ''));
+		const last = queries.length - 1;
+		for (let index = 0; index < last; index++) {
+			try {
+				await this._api.executeCode(queries[index], sessionId, documentUri);
+			} catch (error) {
+				failed(error, last - index);
+				return isInterrupted(error) ? 'stopped' : 'failed';
+			}
+		}
+		// Nothing waits on the last one: the console queues whatever is sent after it, and clears
+		// that queue itself on an interrupt.
+		this._api.executeCode(queries[last], sessionId, documentUri).then(undefined, error => failed(error));
+		return 'sent';
 	}
 
 	/** The ggsql console already on the database, if there is one. */
@@ -366,6 +419,20 @@ export class StatementRunner {
 			store.forEach(disposable => disposable.dispose());
 		}
 	}
+}
+
+/**
+ * How a run's sending ended: its last statement was sent, a statement failed, or a statement was
+ * interrupted or its session exited.
+ */
+type SendEnd = 'sent' | 'failed' | 'stopped';
+
+/**
+ * Whether an execution ended because the user interrupted it or its session exited, rather than
+ * because the statement itself failed. The runtime API ends both kinds with an `Interrupted` error.
+ */
+function isInterrupted(error: unknown): boolean {
+	return (error as { readonly name?: unknown } | null | undefined)?.name === 'Interrupted';
 }
 
 /** What {@link StatementRunner._startOn} settled on, or why it did not. */

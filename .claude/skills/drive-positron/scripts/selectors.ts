@@ -57,6 +57,8 @@ export const css = {
 		// Per-session instances stacked under the active one: laid out, not aria-hidden,
 		// marked only by an inline z-index (lib.unstack hides them from the tree).
 		stacked: '[style*="z-index: -1"]',
+		// Where the Viewer's integrated browser draws its page, which is a page of its own rather than a frame.
+		integratedBrowser: '.positron-preview-browser',
 	},
 
 	// ---- Overlays: what opens on top. Positron's own dialogs and menus have no
@@ -302,14 +304,10 @@ export const names = {
 	},
 	viewer: {
 		url: 'The current URL',
-		// A URL (an app, a site) gets the URL toolbar; HTML content (htmltools, a
-		// widget) gets a smaller one whose reload and clear say "content".
-		reload: 'Reload the current URL',
-		reloadContent: 'Reload the content',
-		back: 'Navigate back to the previous URL',
-		forward: 'Navigate back to the next URL',
-		clear: 'Clear the current URL',
-		clearContent: 'Clear the content',
+		reload: 'Reload the content',
+		back: 'Go back',
+		forward: 'Go forward',
+		clear: 'Clear the content',
 		interrupt: 'Interrupt execution', // shown only while an app runs
 		openMenu: 'Select where to open',
 		openInEditor: 'Open in Editor Tab',

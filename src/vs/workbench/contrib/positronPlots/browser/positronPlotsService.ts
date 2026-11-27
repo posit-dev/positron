@@ -20,6 +20,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { openViewPreservingActiveTab } from '../../../services/views/browser/positronViews.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { getAgentAttribution, IAgentAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicySquare } from '../../../services/positronPlots/common/sizingPolicySquare.js';
@@ -122,6 +123,17 @@ interface ICachedPlotThumbnailDescriptor {
 }
 
 /**
+ * Finds the sizing policy a plot was stored with. A stored custom size keeps its own
+ * width and height, since the service's one custom policy may have changed since.
+ */
+export function findStoredSizingPolicy(stored: IPositronPlotMetadata['sizing_policy'], policies: readonly IPositronPlotSizingPolicy[]): IPositronPlotSizingPolicy | undefined {
+	if (stored?.id === PlotSizingPolicyCustom.ID && stored.size) {
+		return new PlotSizingPolicyCustom(stored.size);
+	}
+	return policies.find(policy => policy.id === stored?.id);
+}
+
+/**
 * PositronPlotsService class.
 */
 export class PositronPlotsService extends Disposable implements IPositronPlotsService {
@@ -217,6 +229,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The IDs of each session's recent executions, oldest first. */
 	private readonly _recentExecutionIds = new Map<string, string[]>();
+
+	/** The AI agents that ran recent executions, keyed by execution ID, oldest first. */
+	private readonly _recentAgentExecutions = new Map<string, IAgentAttribution>();
 
 	/**
 	 * A map of plot id to the runtime message (and its session) that produced a
@@ -318,6 +333,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const selectedPlot = this._plots.find((plot) => plot.id === id);
 			if (selectedPlot instanceof PlotClientInstance) {
 				this.setSelectedSizingPolicy(selectedPlot.sizingPolicy);
+			}
+		}));
+
+		// Remember which AI agent ran each recent execution, so its plots can
+		// be attributed to it.
+		this._register(this._positronConsoleService.onDidExecuteCode((event) => {
+			const agent = getAgentAttribution(event.attribution);
+			if (!agent) {
+				return;
+			}
+			this._recentAgentExecutions.set(event.executionId, agent);
+			if (this._recentAgentExecutions.size > MaxRecentExecutions) {
+				this._recentAgentExecutions.delete(this._recentAgentExecutions.keys().next().value!);
 			}
 		}));
 
@@ -1233,6 +1261,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (plot && origin) {
 			plot.metadata.origin = origin;
 		}
+		if (plot) {
+			plot.metadata.agent = this._recentAgentExecutions.get(message.parent_id);
+		}
 
 		return plot;
 	}
@@ -1278,6 +1309,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plot.metadata.zoom_level = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
 		}));
+		// Editor plots aren't in the periodic save, so save a sizing change now to survive a reload.
+		this._register(plot.onDidChangeSizingPolicy(() => this.storePlotMetadata(plot.metadata)));
 		this._editorPlots.set(metadata.id, plot);
 	}
 
@@ -1599,13 +1632,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.showSavePlotDialog(plotClient.uri, plotClient.metadata.suggested_file_name);
 		} else if (plotClient instanceof PlotClientInstance) {
 			// if it's a dynamic plot, present options dialog
-			const { directory, format } = await this.getSuggestedSaveLocation();
+			const { directory, format, resolution } = await this.getSuggestedSaveLocation();
 			showSavePlotModalDialog(
 				this._selectedSizingPolicy,
 				plotClient,
 				this.savePlotAs,
 				directory,
-				format
+				format,
+				resolution
 			);
 		}
 		// webview plots can't be saved
@@ -1630,7 +1664,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			return;
 		}
-		await this._saveMemory.remember(dirname(options.path), options.format);
+		// Only remember a resolution the user picked; a default comes from the current screen.
+		await this._saveMemory.remember(dirname(options.path), options.format, options.resolutionPicked ? options.resolution : undefined);
 	};
 
 	async showSavePlotDialog(uri: string, suggestedFileName?: string) {
@@ -1739,6 +1774,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private registerWebviewPlotClient(plotClient: IPositronPlotClient, raisePane: boolean = true, executionId?: string) {
+		if (executionId) {
+			plotClient.metadata.agent = this._recentAgentExecutions.get(executionId);
+		}
+
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {
@@ -1982,6 +2021,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			metadata.name = backendMetadata.name;
 			metadata.execution_id = backendMetadata.execution_id;
 			metadata.origin = backendMetadata.origin;
+			metadata.agent ??= this._recentAgentExecutions.get(backendMetadata.execution_id);
 			// Only update code if we don't already have it from recent executions
 			if (!metadata.code) {
 				metadata.code = backendMetadata.code;
@@ -1994,6 +2034,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				plotClient.metadata.name = backendMetadata.name;
 				plotClient.metadata.execution_id = backendMetadata.execution_id;
 				plotClient.metadata.origin = backendMetadata.origin;
+				plotClient.metadata.agent = metadata.agent;
 				if (!plotClient.metadata.code) {
 					plotClient.metadata.code = backendMetadata.code;
 				}
@@ -2060,9 +2101,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		// Use existing sizing policy if specified, otherwise use the default
-		const sizingPolicy =
-			this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
-			?? defaultSizingPolicy;
+		const sizingPolicy = findStoredSizingPolicy(metadata.sizing_policy, this._sizingPolicies) ?? defaultSizingPolicy;
 
 		metadata.sizing_policy = {
 			id: sizingPolicy.id,

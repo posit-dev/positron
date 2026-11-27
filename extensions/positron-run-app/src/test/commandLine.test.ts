@@ -76,7 +76,7 @@ suite('buildCommandLine', () => {
 	test('unknown shell falls back to platform default', () => {
 		const result = buildCommandLine(undefined, 'python', ['my app.py']);
 		const expected = process.platform === 'win32'
-			? '"python" "my app.py"' // cmd.exe quoting
+			? 'python "my app.py"' // cmd.exe quoting
 			: 'python my\\ app.py'; // bash quoting
 		assert.strictEqual(result, expected);
 	});

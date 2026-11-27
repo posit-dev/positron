@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
 
 /**
@@ -74,6 +75,61 @@ export const USER_INITIATED_METADATA_KEY = 'userInitiated';
  */
 export function isUserInitiated(attribution: IConsoleCodeAttribution): boolean {
 	return attribution.metadata?.[USER_INITIATED_METADATA_KEY] === true;
+}
+
+/**
+ * A well-known key in {@link IConsoleCodeAttribution.metadata}: the display
+ * name of the AI agent that ran the code, such as "Posit Assistant" or
+ * "Claude Code".
+ */
+export const AGENT_NAME_METADATA_KEY = 'agentName';
+
+/**
+ * A well-known key in {@link IConsoleCodeAttribution.metadata}: a command,
+ * shaped like `{ command: string; arguments?: any[] }`, that reveals where the
+ * agent ran the code, such as the message in a chat conversation.
+ */
+export const REVEAL_COMMAND_METADATA_KEY = 'revealCommand';
+
+/**
+ * The AI agent that ran some code.
+ */
+export interface IAgentAttribution {
+	/** The agent's display name. */
+	name: string;
+
+	/** A command that reveals where the agent ran the code, if the agent offers one. */
+	revealCommand?: { command: string; arguments?: unknown[] };
+}
+
+/**
+ * Gets the AI agent that ran some code.
+ *
+ * @param attribution The attribution describing the source of the code.
+ * @returns The agent, or `undefined` if no agent ran the code.
+ */
+export function getAgentAttribution(attribution: IConsoleCodeAttribution): IAgentAttribution | undefined {
+	if (isUserInitiated(attribution)) {
+		return undefined;
+	}
+	const agentName = attribution.metadata?.[AGENT_NAME_METADATA_KEY];
+	let name: string;
+	if (typeof agentName === 'string' && agentName) {
+		name = agentName;
+	} else if (attribution.source === CodeAttributionSource.Agent) {
+		name = localize('positron.console.externalAgent', "External agent");
+	} else {
+		return undefined;
+	}
+	const revealCommand = attribution.metadata?.[REVEAL_COMMAND_METADATA_KEY];
+	const hasRevealCommand = typeof revealCommand?.command === 'string' &&
+		(revealCommand.arguments === undefined || Array.isArray(revealCommand.arguments));
+	return {
+		name,
+		revealCommand: hasRevealCommand ?
+			{ command: revealCommand.command, arguments: revealCommand.arguments } :
+			undefined,
+	};
 }
 
 /**

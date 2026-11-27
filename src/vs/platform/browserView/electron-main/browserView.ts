@@ -122,6 +122,11 @@ export class BrowserView extends Disposable {
 	private readonly _onDidChangeAudiences = this._register(new Emitter<IBrowserViewAudience[]>());
 	readonly onDidChangeAudiences: Event<IBrowserViewAudience[]> = this._onDidChangeAudiences.event;
 
+	// --- Start Positron ---
+	private readonly _onDidRequestOpenExternal = this._register(new Emitter<string>());
+	readonly onDidRequestOpenExternal: Event<string> = this._onDidRequestOpenExternal.event;
+	// --- End Positron ---
+
 	constructor(
 		public readonly id: string,
 		public readonly host: IBrowserViewHost,
@@ -186,6 +191,13 @@ export class BrowserView extends Disposable {
 
 		this._view.webContents.setWindowOpenHandler((details) => {
 			if (this.presentation === BrowserViewPresentation.Unlisted) {
+				// --- Start Positron ---
+				// An unlisted view has no tabs to open a page in, so ask its
+				// owner to open the page elsewhere, but only after a user gesture.
+				if (this.consumePopupPermission(NewPageLocation.NewWindow) && /^https?:/i.test(details.url)) {
+					this._onDidRequestOpenExternal.fire(details.url);
+				}
+				// --- End Positron ---
 				return { action: 'deny' };
 			}
 			const location = (() => {

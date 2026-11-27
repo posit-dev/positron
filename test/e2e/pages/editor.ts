@@ -3,14 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, FrameLocator, Locator } from '@playwright/test';
+import test, { expect, FrameLocator, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
+import { ViewerContent } from './viewer';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modify that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
 const PLAY_BUTTON = '.codicon-play';
 const OUTER_FRAME = '.webview';
+// The integrated browser's editor draws its page in this element's place.
+const BROWSER_EDITOR = '.editor-instance .browser-root';
 const INNER_FRAME = '#active-frame';
 const VIEW_LINES = (filename: string) => `${EDITOR(filename)} .view-lines`;
 const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-view-overlays .line-numbers`;
@@ -31,14 +34,33 @@ export class Editor {
 	 * Wait for content to be visible in the editor viewer frame.
 	 */
 	async expectEditorViewerContentVisible(
-		getLocator: (frame: FrameLocator) => Locator,
+		getLocator: (content: ViewerContent) => Locator,
 		options?: { timeout?: number }
 	): Promise<void> {
 		const { timeout = 30000 } = options ?? {};
-		const frame = !this.code.electronApp
-			? this.getEditorViewerFrame().frameLocator('iframe')
-			: this.getEditorViewerFrame();
-		await expect(getLocator(frame)).toBeVisible({ timeout });
+		const content = await this.code.driver.currentPage.locator(BROWSER_EDITOR).count() > 0
+			? await this.getBrowserEditorPage()
+			: !this.code.electronApp
+				? this.getEditorViewerFrame().frameLocator('iframe')
+				: this.getEditorViewerFrame();
+		await expect(getLocator(content)).toBeVisible({ timeout });
+	}
+
+	/** The page an integrated browser editor shows: the only web page showing. */
+	private async getBrowserEditorPage(): Promise<Page> {
+		let found: Page | undefined;
+		await expect(async () => {
+			const showing: Page[] = [];
+			for (const page of this.code.driver.getAllWindows()) {
+				if (!page.isClosed() && /^https?:/.test(page.url()) &&
+					await page.evaluate(() => document.visibilityState).catch(() => 'hidden') === 'visible') {
+					showing.push(page);
+				}
+			}
+			expect(showing, 'one web page showing in the editor').toHaveLength(1);
+			found = showing[0];
+		}).toPass({ timeout: 15000 });
+		return found!;
 	}
 
 	/**

@@ -121,11 +121,11 @@ describe('Positron - Runtime Connection Handle', () => {
 		await handle.getChildren();
 
 		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).resolves.toEqual([]);
-		await expect(handle.nodeGetChildren(paneSchema.nodeHandle)).rejects.toThrow('Unknown node handle');
+		await expect(handle.nodeGetChildren(paneSchema.nodeHandle)).rejects.toThrow('is no longer valid');
 
 		handle.releaseNodes([walkSchema.nodeHandle, walkChild.nodeHandle]);
 		await handle.getChildren();
-		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).rejects.toThrow('Unknown node handle');
+		await expect(handle.nodeGetChildren(walkChild.nodeHandle)).rejects.toThrow('is no longer valid');
 	});
 
 	it('honors an explicit has_children and defaults it only when absent', async () => {

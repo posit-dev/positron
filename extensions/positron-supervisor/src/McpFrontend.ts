@@ -200,7 +200,7 @@ export class McpFrontend implements vscode.Disposable {
 		private readonly _loadState: () => McpFrontendState,
 		private readonly _saveState: (state: McpFrontendState) => Thenable<void>,
 		private readonly _sessionIds: () => string[],
-		private readonly _supervisorPath: () => string,
+		private readonly _supervisorPath: () => Promise<string>,
 		private readonly _enabled: () => boolean = mcpFeatureEnabled,
 		private readonly _onRegistered: (launch: McpLaunch) => void | Thenable<void> = () => { },
 		private readonly _onDeregistered: () => void | Thenable<void> = () => { },
@@ -559,7 +559,7 @@ export class McpFrontend implements vscode.Disposable {
 		this.setVariable(MCP_CONNECTIONS_ENV_VAR, mcpConnectionsDirectory(this._storageUri));
 		let launch: McpLaunch | undefined;
 		try {
-			const supervisorPath = this._supervisorPath();
+			const supervisorPath = await this._supervisorPath();
 			this.setVariable(SUPERVISOR_PATH_ENV_VAR, supervisorPath);
 			// Points the launcher at this window's supervisor, which may be a
 			// different version's than the one that last wrote it.

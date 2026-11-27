@@ -3706,7 +3706,8 @@ suite('DuckDB extension file readers', () => {
 	suiteTeardown(async () => {
 		db?.close();
 		signedDb?.close();
-		await fs.promises.rm(storageDir, { recursive: true, force: true });
+		// close() does not wait for the worker to exit; Windows locks its loaded extension.
+		await fs.promises.rm(storageDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 	});
 
 	/** Opens a file with a handler that uses the given `dataExplorer.fileReaders` value. */

@@ -66,6 +66,8 @@ class BackendCase(NamedTuple):
     # Whether the backend's non-hook integration is installed: the console backend's
     # `plt.gca` redirect, or the notebook backend's figure formatter.
     integration_installed: Callable[[PositronShell], bool]
+    # How many shell event hooks the backend registers while active.
+    hook_count: int
 
 
 def _console_integration_installed(shell: PositronShell) -> bool:  # noqa: ARG001
@@ -89,12 +91,14 @@ CONSOLE = BackendCase(
     console,
     Backend.CONSOLE,
     _console_integration_installed,
+    hook_count=3,
 )
 NOTEBOOK = BackendCase(
     SessionMode.NOTEBOOK,
     notebook,
     Backend.NOTEBOOK,
     _notebook_integration_installed,
+    hook_count=1,
 )
 
 
@@ -181,10 +185,11 @@ def _reset_matplotlib_inline(shell: PositronShell) -> None:
 
 
 def _hook_count(shell: PositronShell, module_name: str) -> int:
-    """How many of `module_name`'s post execute hooks are registered on the shell."""
+    """How many of `module_name`'s hooks are registered on the shell, across all events."""
     return sum(
         1
-        for callback in shell.events.callbacks["post_execute"]
+        for callbacks in shell.events.callbacks.values()
+        for callback in callbacks
         if callback.__module__ == module_name
     )
 
@@ -203,7 +208,7 @@ def _positron_active(case: BackendCase) -> dict:
     """The backend state after activating `case`'s Positron backend, inline uninvolved."""
     return {
         "backend": case.backend.short_name,
-        "positron_hooks": 1,
+        "positron_hooks": case.hook_count,
         "positron_integration": True,
         "inline_hooks": 0,
     }

@@ -6,6 +6,8 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { selectionQueries, statementsFromLine, statementsToLine } from '../statementRange';
+import { sqlDocument, testAnalyzer } from './support';
 
 suite('SqlStatementRangeProvider', () => {
 	suiteSetup(async () => {
@@ -111,6 +113,63 @@ SELECT 2;
 		);
 
 		assert.strictEqual(result, undefined);
+	});
+});
+
+suite('selectionQueries', () => {
+
+	function queries(selected: string): string[] {
+		return selectionQueries(selected, testAnalyzer().statements(selected, ''));
+	}
+
+	test('a selection of several statements runs each on its own', () => {
+		assert.deepStrictEqual(
+			queries('SELECT * FROM customers;\n\n-- then\nSELECT * FROM orders;\n'),
+			['SELECT * FROM customers;', 'SELECT * FROM orders;'],
+		);
+	});
+
+	test('a selection of one statement, or part of one, runs as selected', () => {
+		assert.deepStrictEqual(queries('SELECT 1;\n'), ['SELECT 1;\n']);
+		assert.deepStrictEqual(queries('SELECT id\nFROM orders'), ['SELECT id\nFROM orders']);
+	});
+});
+
+suite('statementsToLine and statementsFromLine', () => {
+
+	/** The text of each statement run to or from a line, worked out as the run commands do. */
+	async function run(text: string, side: 'to' | 'from', line: number): Promise<string[]> {
+		const document = await sqlDocument(text);
+		const statements = testAnalyzer().statements(text, '');
+		const range = document.lineAt(line).range;
+		const chosen = side === 'to'
+			? statementsToLine(statements, document.offsetAt(range.end))
+			: statementsFromLine(statements, document.offsetAt(range.start));
+		return chosen.map(statement => text.slice(statement.start, statement.end));
+	}
+
+	const text = 'SELECT 1;\nSELECT 2,\n  3;\nSELECT 4;\n';
+
+	test('to a line runs each statement that starts by its end, whole', async () => {
+		// The second statement starts on line 1 and ends on line 2; it is not cut at line 1.
+		assert.deepStrictEqual(await run(text, 'to', 1), ['SELECT 1;', 'SELECT 2,\n  3;']);
+		assert.deepStrictEqual(await run(text, 'to', 0), ['SELECT 1;']);
+	});
+
+	test('from a line runs each statement that ends after its start, whole', async () => {
+		// Line 2 is the end of the second statement, which runs from where it starts on line 1.
+		assert.deepStrictEqual(await run(text, 'from', 2), ['SELECT 2,\n  3;', 'SELECT 4;']);
+		assert.deepStrictEqual(await run(text, 'from', 3), ['SELECT 4;']);
+	});
+
+	test('nothing from the blank line after the last statement', async () => {
+		assert.deepStrictEqual(await run(text, 'from', 4), []);
+	});
+
+	test('the same statements with CRLF line endings', async () => {
+		const crlf = text.replace(/\n/g, '\r\n');
+		assert.deepStrictEqual(await run(crlf, 'to', 1), ['SELECT 1;', 'SELECT 2,\r\n  3;']);
+		assert.deepStrictEqual(await run(crlf, 'from', 2), ['SELECT 2,\r\n  3;', 'SELECT 4;']);
 	});
 });
 

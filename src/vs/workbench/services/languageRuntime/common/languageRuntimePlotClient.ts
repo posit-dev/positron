@@ -5,13 +5,17 @@
 
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from '../../positronPlots/common/positronPlots.js';
 import { IntrinsicSize, PlotOrigin, PlotResult, PlotRenderFormat, PlotSize } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
+import { PlotSizingPolicyAuto } from '../../positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyIntrinsic } from '../../positronPlots/common/sizingPolicyIntrinsic.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IAgentAttribution } from '../../positronConsole/common/positronConsoleCodeExecution.js';
 /**
  * Convert a PlotResult with settings to an IRenderedPlot.
  */
@@ -105,6 +109,9 @@ export interface IPositronPlotMetadata {
 
 	/** The origin (source file location) of the plot, if known. */
 	origin?: PlotOrigin;
+
+	/** The AI agent that ran the code that created the plot, if any. */
+	agent?: IAgentAttribution;
 }
 
 /**
@@ -126,6 +133,17 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * The last rendered plot, if any.
 	 */
 	private _lastRender?: IRenderedPlot;
+
+	/**
+	 * Set when an update from the runtime failed to render, so _lastRender no
+	 * longer shows the plot's current state and must not be reused.
+	 */
+	private _lastRenderStale = false;
+
+	/**
+	 * Set while _lastRender is the runtime's pre-render, drawn at a size no view asked for.
+	 */
+	private _lastRenderIsPreRender = false;
 
 	/**
 	 * The timer used to throttle plot rendering requests.
@@ -171,6 +189,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	onDidRenderUpdate: Event<IRenderedPlot>;
 	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
+
+	/**
+	 * Event that fires when re-rendering a plot the runtime updated fails. That
+	 * render replaces any render still in flight, so its requester sees only this.
+	 */
+	onDidFailRenderUpdate: Event<Error>;
+	private readonly _failRenderUpdateEmitter = this._register(new Emitter<Error>());
 
 	/**
 	 * Event that fires when the runtime sent a show event.
@@ -222,6 +247,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// (size, pixel ratio, and format) matches.
 		if (metadata.pre_render?.settings) {
 			this._lastRender = plotResultToRenderedPlot(metadata.pre_render as PlotResult & { settings: NonNullable<PlotResult['settings']> });
+			this._lastRenderIsPreRender = true;
 		}
 
 		// Connect close emitter event
@@ -242,6 +268,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect the render update emitter event
 		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
+		this.onDidFailRenderUpdate = this._failRenderUpdateEmitter.event;
 
 		// Connect the show plot emitter event
 		this.onDidShowPlot = this._didShowPlotEmitter.event;
@@ -286,6 +313,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 				// Store the pre-rendering as the last render
 				this._lastRender = preRenderPlot;
+				this._lastRenderStale = false;
+				this._lastRenderIsPreRender = false;
 
 				// Fire the complete render event to actually update the plot instance
 				this._completeRenderEmitter.fire(preRenderPlot);
@@ -308,7 +337,16 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			}
 
 			// No pre-rendering or settings mismatch: Queue a render request
-			const rendered = await this.queuePlotUpdateRequest();
+			let rendered: IRenderedPlot;
+			try {
+				rendered = await this.queuePlotUpdateRequest();
+			} catch (err) {
+				if (!isCancellationError(err)) {
+					this._lastRenderStale = true;
+					this._failRenderUpdateEmitter.fire(err);
+				}
+				return;
+			}
 
 			// Fire the update event to select it in the UI
 			if (needsSelect) {
@@ -330,6 +368,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				if (preRenderPlot.uri !== this._lastRender?.uri) {
 					// Store the pre-rendering as the last render
 					this._lastRender = preRenderPlot;
+					this._lastRenderStale = false;
+					this._lastRenderIsPreRender = true;
 
 					// Fire the complete render event to update the plot display
 					this._completeRenderEmitter.fire(preRenderPlot);
@@ -370,8 +410,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
 	}
 
-	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
-		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
+	public async renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+		// Fetch the intrinsic size on every render (it's cached), so the sizing menu can offer Intrinsic.
+		const intrinsicSize = await this.getIntrinsicSize();
+		// A plot with no intrinsic size of its own draws at the Auto size, without changing its setting.
+		const policy = this._sizingPolicy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize ?
+			new PlotSizingPolicyAuto() : this._sizingPolicy;
+		return this.render(size ? policy.getPlotSize(size) : size, pixel_ratio, format, preview);
 	}
 
 	/**
@@ -433,12 +478,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
-		if (sizeInt && this._lastRender?.size && this._lastRender && this.settingsEqual(
+		if (sizeInt && this._lastRender?.size && !this._lastRenderStale && this.settingsEqual(
 			{ size: sizeInt, pixel_ratio, format },
 			this._lastRender
 		)) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
+			this._lastRenderIsPreRender = false;
 			return Promise.resolve(this._lastRender);
 		}
 
@@ -506,6 +552,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				this._stateEmitter.fire(PlotClientState.Rendered);
 				if (!request.preview) {
 					this._lastRender = rendered;
+					this._lastRenderStale = false;
+					this._lastRenderIsPreRender = false;
 					this._lastRenderTimeMs = rendered.renderTimeMs;
 					this._completeRenderEmitter.fire(rendered);
 				}
@@ -533,6 +581,22 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	get lastRender(): IRenderedPlot | undefined {
 		return this._lastRender;
+	}
+
+	/**
+	 * Whether the last render is out of date: it is from before an update from
+	 * the runtime that failed to render, so it lacks the runtime's last change.
+	 */
+	get lastRenderStale(): boolean {
+		return this._lastRenderStale;
+	}
+
+	/**
+	 * Whether the last render is only the runtime's pre-render, drawn at a size
+	 * no view asked for, so a failed render can't fall back to it.
+	 */
+	get lastRenderIsPreRender(): boolean {
+		return this._lastRenderIsPreRender;
 	}
 
 	/** The current rendering state. */

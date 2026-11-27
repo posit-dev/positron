@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ---------------------------------------------------------------------------------------------
-# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
@@ -38,6 +38,10 @@ fi
 output_file="$1"
 shift
 
+# Create the output file before anything else can fail. Positron reads a
+# missing output file as a sign that this script did not start at all.
+: >> "$output_file"
+
 # Get the user's default shell. We run the program in a login shell to allow for
 # startup and environment variable customization in e.g. .bash_profile
 DEFAULT_SHELL=$SHELL
@@ -50,6 +54,8 @@ fi
 
 # Ensure we have a valid shell
 if [ -z "$DEFAULT_SHELL" ] || [ ! -x "$DEFAULT_SHELL" ]; then
+	# Use only builtins here; PATH may be what is broken
+	echo "Error: Could not determine a valid shell." >> "$output_file"
 	echo "Error: Could not determine a valid shell." >&2
 	exit 1
 fi

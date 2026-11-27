@@ -8,6 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewWebview } from './previewWebview.js';
+import { PreviewOverlayWebview } from './previewOverlayWebview.js';
 import { IOverlayWebview, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
@@ -30,6 +31,12 @@ export const POSITRON_PREVIEW_HTML_VIEW_TYPE = 'positron.previewHtml';
  * Viewer, such as widgets.
  */
 export const POSITRON_PREVIEW_NOTEBOOK_RENDERER_VIEW_TYPE = 'notebookRenderer';
+
+/**
+ * The Desktop setting that shows web pages and HTML in the Viewer using the
+ * integrated browser instead of a webview.
+ */
+export const POSITRON_VIEWER_USE_INTEGRATED_BROWSER = 'viewer.useIntegratedBrowser';
 
 export const IPositronPreviewService = createDecorator<IPositronPreviewService>(POSITRON_PREVIEW_SERVICE_ID);
 
@@ -61,7 +68,7 @@ export interface IPositronPreviewService {
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,
-		preserveFocus?: boolean): PreviewWebview;
+		preserveFocus?: boolean): PreviewWebview<PreviewOverlayWebview>;
 
 	/**
 	 * Opens a URI in the preview pane.
@@ -70,12 +77,14 @@ export interface IPositronPreviewService {
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
 	 * @param source Optional source information indicating what opened the preview.
+	 * @param preserveFocus Whether to leave focus where it is rather than move it to the Viewer.
 	 */
 	openUri(
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
 		uri: URI,
-		source?: { type: string; id: string }): PreviewWebview;
+		source?: { type: string; id: string },
+		preserveFocus?: boolean): PreviewWebview;
 
 	/**
 	 * Opens an HTML file in the preview pane.
@@ -102,7 +111,7 @@ export interface IPositronPreviewService {
 	createHtmlWebview(
 		sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
-		event: IShowHtmlUriEvent): PreviewHtml;
+		event: IShowHtmlUriEvent): PreviewHtml<PreviewOverlayWebview>;
 
 	/**
 	 * An event that is fired when a new preview panel webview is created.
@@ -113,12 +122,6 @@ export interface IPositronPreviewService {
 	 * An event that is fired when the active preview pane item changes.
 	 */
 	onDidChangeActivePreviewWebview: Event<string>;
-
-	/**
-	 * Returns the list of preview pane items currently being displayed in the
-	 * preview pane.
-	 */
-	get previewWebviews(): PreviewWebview[];
 
 	/**
 	 * Clears all the previews from the preview pane.
@@ -133,7 +136,25 @@ export interface IPositronPreviewService {
 
 	get activePreviewWebviewId(): string;
 
-	set activePreviewWebviewId(id: string);
+	/**
+	 * Whether back or forward goes anywhere: within the active preview's
+	 * page, or to the preview before or after it in the Viewer's history.
+	 */
+	readonly canGoBack: boolean;
+	readonly canGoForward: boolean;
+
+	/** Fires when `canGoBack` or `canGoForward` may have changed. */
+	readonly onDidChangeNavigationState: Event<void>;
+
+	/**
+	 * Goes back within the active preview's page, or when it can't, to the
+	 * previous preview. When the page can't tell whether it can go back (a
+	 * webview), a URL preview always goes back within its page.
+	 */
+	goBack(): void;
+
+	/** Goes forward, as `goBack` goes back. */
+	goForward(): void;
 
 	openEditor(uri: URI, title?: string): Promise<void>;
 
@@ -151,17 +172,18 @@ export interface IPositronPreviewService {
 	 * @param webview The overlay webview to display.
 	 * @param title The title for the preview.
 	 */
-	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview;
+	openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview<PreviewOverlayWebview>;
 
 	/**
 	 * Opens an HTML string directly in the Viewer pane without writing to a
-	 * temp file. Creates a webview and sets the HTML content on it.
+	 * temp file. On Desktop with the integrated browser, the Positron Proxy
+	 * serves it; otherwise a webview shows it.
 	 *
 	 * @param previewId The unique ID for the preview.
 	 * @param html The HTML content to display.
 	 * @param title The title for the preview.
 	 */
-	openHtmlString(previewId: string, html: string, title: string): PreviewWebview;
+	openHtmlString(previewId: string, html: string, title: string): Promise<PreviewWebview>;
 
 	/**
 	 * Gets the remembered "Open in..." target for the Viewer action bar.

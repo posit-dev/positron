@@ -9,7 +9,7 @@ import type * as positron from 'positron';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { dirname as pathDirname } from '../../../../base/common/path.js';
+import { dirname as pathDirname, normalize as pathNormalize } from '../../../../base/common/path.js';
 import { isWorkbench } from '../../../../base/common/platform.js';
 import { dirname, joinPath } from '../../../../base/common/resources.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -158,7 +158,8 @@ class NodeDocsFileStore implements IDocsFileStore {
 	}
 }
 
-class NodeDocsArchive implements IDocsArchive {
+/** Exported for tests. */
+export class NodeDocsArchive implements IDocsArchive {
 
 	/**
 	 * List entries without extracting, so the traversal guard runs first.
@@ -189,7 +190,9 @@ class NodeDocsArchive implements IDocsArchive {
 	}
 
 	async extract(zipPath: string, targetPath: string): Promise<void> {
-		await extract(zipPath, targetPath, {}, CancellationToken.None);
+		// The cache joins with '/' onto a backslash root on Windows, and zip.ts
+		// rejects every entry unless the target is already normalized.
+		await extract(zipPath, pathNormalize(targetPath), {}, CancellationToken.None);
 	}
 }
 

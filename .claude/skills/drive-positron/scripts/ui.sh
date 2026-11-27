@@ -80,7 +80,9 @@
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
-#   --in VIEW       look only in that view (as for read)
+#   --in VIEW       look only in that view (as for read). A VIEW not on screen
+#                   fails with "views", the titles that are: a container with
+#                   one view is titled "Container: View" ("Extensions: Installed")
 #   --nth N         which of several matches, 1 = first
 #   --right         click: a right-click, for a context menu (then choose from
 #                   it with: ui.sh choose ... or read menu)

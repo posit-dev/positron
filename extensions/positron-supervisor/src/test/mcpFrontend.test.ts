@@ -172,7 +172,7 @@ function createHarness(
 			() => loadMcpState(memento),
 			state => saveMcpState(memento, state),
 			() => [],
-			() => harness.supervisorPath,
+			async () => harness.supervisorPath,
 			() => enabled,
 			() => { harness.registrations++; },
 			() => { harness.deregistrations++; },

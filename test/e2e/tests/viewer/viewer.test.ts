@@ -10,7 +10,17 @@ test.use({
 	suiteId: __filename
 });
 
+// On Desktop, these cover the webview Viewer, which is used when the
+// integrated browser is turned off. Web builds always use it.
 test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
+
+	test.beforeAll(async ({ settings }) => {
+		await settings.set({ 'viewer.useIntegratedBrowser': false });
+	});
+
+	test.afterAll(async ({ settings }) => {
+		await settings.remove(['viewer.useIntegratedBrowser']);
+	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.viewer.clearViewer();

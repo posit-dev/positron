@@ -115,6 +115,10 @@ the problem from what it shows. Read it when:
 - a request to it fails, such as a 500 from `curl` against its `localUrl`, or
   the Viewer shows an error.
 
+An error in the page itself, such as a widget that fails to draw, is in the
+browser console instead: read it with `positronViewer.consoleLogs` when the
+Viewer page has `backend="browser"`.
+
 When the cause starts above what came back -- the top of a traceback is
 missing, say -- page back with `before` while you need to.
 

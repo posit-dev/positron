@@ -15,6 +15,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotLocatorPrompt } from './plotLocatorBanner.js';
+import { PlotAgentAttribution } from './plotAgentAttribution.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
 import { StaticPlotInstance } from './staticPlotInstance.js';
 import { StaticPlotThumbnail } from './staticPlotThumbnail.js';
@@ -31,6 +32,11 @@ import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { isNavigableSourceUri, openPlotOriginFile, openPlotSource } from '../plotUtils.js';
+import { localize } from '../../../../../nls.js';
+import { ViewEmptyState } from '../../../../browser/positronComponents/viewEmptyState/viewEmptyState.js';
+
+const plotsHint = localize('positron.plots.empty.plotsHint', "Plots created in your session appear here.");
+const plotsDocsAriaLabel = localize('positron.plots.empty.docsAriaLabel', "View documentation for the Plots pane");
 
 /**
  * PlotContainerProps interface.
@@ -498,6 +504,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// In that case the session-name button already links back to the same
 		// source, so a second identical button is redundant.
 		const showOriginFile = !!originFileName && originFileName !== sessionName;
+		const agent = currentPlotInstance.metadata.agent;
 
 		// While a locator() call waits on a plot in this pane, the prompt takes the place of the
 		// origin file and plot name, so the plot keeps its full height. If the user selected
@@ -515,7 +522,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		}
 
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!sessionName && !plotName && !showOriginFile) {
+		if (!sessionName && !plotName && !showOriginFile && !agent) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
@@ -525,6 +532,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			<span className='plot-info-text'>
 				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
 				{showOriginFile && <button className='plot-origin-file' onClick={navigateToOrigin}>{originFileName}</button>}
+				{agent && <PlotAgentAttribution agent={agent} />}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;
@@ -538,7 +546,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
 				<div className='selected-plot'>
 					{positronPlotsContext.positronPlotInstances.length === 0 &&
-						<div className='plot-placeholder'></div>}
+						<ViewEmptyState
+							docsAriaLabel={plotsDocsAriaLabel}
+							docsPath='plots-pane.html'
+							icon='graph'
+							message={plotsHint} />}
 					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
 						plotInstance.id === positronPlotsContext.selectedInstanceId &&
 						render(plotInstance)

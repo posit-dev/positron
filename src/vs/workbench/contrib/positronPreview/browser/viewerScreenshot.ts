@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import type { IViewerRect } from '../common/positronViewerAgent.js';
 
 /**
  * The widest screenshot to hand to a model, in pixels. Wider Viewers are
@@ -28,6 +29,26 @@ export interface IViewerCapture {
 	readonly width: number;
 	readonly height: number;
 	readonly method: 'native' | 'dom';
+}
+
+/**
+ * The part of a capture to keep: `rect`, in CSS pixels, clipped to the
+ * capture, in the capture's pixels. Throws if none of it is in the capture.
+ *
+ * @param scale The capture's pixels per CSS pixel.
+ */
+function cropOf(rect: IViewerRect | undefined, width: number, height: number, scale: number): { x: number; y: number; width: number; height: number } {
+	if (!rect) {
+		return { x: 0, y: 0, width, height };
+	}
+	const left = Math.max(0, Math.round(rect.x * scale));
+	const top = Math.max(0, Math.round(rect.y * scale));
+	const right = Math.min(width, Math.round((rect.x + rect.width) * scale));
+	const bottom = Math.min(height, Math.round((rect.y + rect.height) * scale));
+	if (right <= left || bottom <= top) {
+		throw new Error('The element isn\'t in the visible part of the page. Scroll it into view first.');
+	}
+	return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /**
@@ -78,8 +99,9 @@ async function encodePng(
  * `position: fixed` elements can be misplaced when the page is scrolled.
  *
  * @param targetWindow The window to create canvases in.
+ * @param rect The part of the viewport to keep, in CSS pixels.
  */
-export async function captureDomScreenshot(appWindow: Window, targetWindow: Window): Promise<IViewerCapture> {
+export async function captureDomScreenshot(appWindow: Window, targetWindow: Window, rect?: IViewerRect): Promise<IViewerCapture> {
 	// modern-screenshot is an ESM package dependency, resolved through the
 	// workbench's import map (see build/npm/build-esm-package-dependencies.ts).
 	// It's imported here, on first use, so Desktop, which takes native
@@ -109,8 +131,8 @@ export async function captureDomScreenshot(appWindow: Window, targetWindow: Wind
 	});
 	try {
 		const page = await domToCanvas(context);
-		const crop = { x: 0, y: 0, width: page.width, height: page.height };
-		return { ...await encodePng(page, crop, width, height, targetWindow), method: 'dom' };
+		const crop = cropOf(rect, page.width, page.height, page.width / width);
+		return { ...await encodePng(page, crop, crop.width * width / page.width, crop.height * height / page.height, targetWindow), method: 'dom' };
 	} finally {
 		destroyContext(context);
 	}
@@ -122,13 +144,15 @@ export async function captureDomScreenshot(appWindow: Window, targetWindow: Wind
  * wide.
  *
  * @param targetWindow The window the Viewer is in.
+ * @param rect The part of the viewport to keep, in CSS pixels.
+ * @param pageScale The size of the page's CSS pixels in the window's.
  */
-export async function scaleNativeScreenshot(png: VSBuffer, targetWindow: Window): Promise<IViewerCapture> {
+export async function scaleNativeScreenshot(png: VSBuffer, targetWindow: Window, rect?: IViewerRect, pageScale = 1): Promise<IViewerCapture> {
 	const bitmap = await targetWindow.createImageBitmap(new Blob([png.buffer as Uint8Array<ArrayBuffer>], { type: 'image/png' }));
 	try {
-		const ratio = targetWindow.devicePixelRatio || 1;
-		const crop = { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
-		return { ...await encodePng(bitmap, crop, bitmap.width / ratio, bitmap.height / ratio, targetWindow), method: 'native' };
+		const ratio = (targetWindow.devicePixelRatio || 1) * pageScale;
+		const crop = cropOf(rect, bitmap.width, bitmap.height, ratio);
+		return { ...await encodePng(bitmap, crop, crop.width / ratio, crop.height / ratio, targetWindow), method: 'native' };
 	} finally {
 		bitmap.close();
 	}

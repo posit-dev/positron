@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, FrameLocator, Locator } from '@playwright/test';
+import test, { expect, FrameLocator, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { ContextMenu } from './dialog-contextMenu.js';
 
@@ -16,6 +16,14 @@ const OPEN_IN_DROPDOWN_BUTTON = '.preview-action-bar .action-bar-button-drop-dow
 const OPEN_IN_PRIMARY_BUTTON = '.preview-action-bar .action-bar-button-action-button[aria-label="Select where to open"]';
 
 const FULL_APP = 'body';
+// The Viewer's integrated browser draws its page in this element's place.
+const INTEGRATED_BROWSER = `${VIEWER_PANEL} .positron-preview-browser`;
+
+/**
+ * Where the Viewer shows a page: in the webview's frames, or with the
+ * integrated browser, its own page. Both find elements the same way.
+ */
+export type ViewerContent = Pick<Page, 'locator' | 'getByRole' | 'getByText' | 'getByLabel'>;
 
 export class Viewer {
 
@@ -36,6 +44,47 @@ export class Viewer {
 		return this.viewerFrame;
 	}
 
+	/** Whether the Viewer shows its content in the integrated browser rather than a webview. */
+	async usesIntegratedBrowser(): Promise<boolean> {
+		return await this.code.driver.currentPage.locator(INTEGRATED_BROWSER).count() > 0;
+	}
+
+	/**
+	 * The page the integrated browser shows in the Viewer: the one showing, or
+	 * if others show too (a browser editor tab), the one at the Viewer's URL.
+	 */
+	async getBrowserPage(): Promise<Page> {
+		let found: Page | undefined;
+		await expect(async () => {
+			const workbench = this.code.driver.currentPage;
+			const showing: Page[] = [];
+			for (const page of this.code.driver.getAllWindows()) {
+				if (page !== workbench && !page.isClosed() && /^https?:/.test(page.url()) &&
+					await page.evaluate(() => document.visibilityState).catch(() => 'hidden') === 'visible') {
+					showing.push(page);
+				}
+			}
+			const viewerUrl = showing.length > 1 && await this.urlBar.isVisible() ? await this.urlBar.inputValue() : undefined;
+			found = viewerUrl ? showing.find(page => page.url() === viewerUrl) : showing.length === 1 ? showing[0] : undefined;
+			expect(found, `one page showing in the Viewer, of: ${showing.map(page => page.url()).join(', ')}`).toBeDefined();
+		}).toPass({ timeout: 15000 });
+		return found!;
+	}
+
+	/** Where the Viewer shows its page now, whichever backend shows it. */
+	async getViewerContent(useIframe?: boolean): Promise<ViewerContent> {
+		if (await this.usesIntegratedBrowser()) {
+			return this.getBrowserPage();
+		}
+		return useIframe === undefined
+			? !this.code.electronApp
+				? this.viewerFrame.frameLocator('iframe')
+				: this.getViewerFrame()
+			: useIframe
+				? this.viewerFrame.frameLocator('iframe')
+				: this.getViewerFrame();
+	}
+
 	async refreshViewer() {
 		await this.code.driver.currentPage.locator(REFRESH_BUTTON).click({ timeout: 15000 });
 	}
@@ -48,7 +97,7 @@ export class Viewer {
 	}
 
 	async navigateBack() {
-		await this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Navigate back to the previous URL' }).click();
+		await this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Go back', exact: true }).click();
 	}
 
 	async clearViewer() {
@@ -62,7 +111,7 @@ export class Viewer {
 
 		if (await this.fullApp.getByLabel(clearRegex).isVisible()) {
 			await this.fullApp.getByLabel(clearRegex).click();
-			await this.expectContentNotVisible(() => this.fullApp.getByLabel(clearRegex), 10000);
+			await expect(this.fullApp.getByLabel(clearRegex)).toBeHidden({ timeout: 10000 });
 		}
 	}
 
@@ -83,6 +132,20 @@ export class Viewer {
 		});
 	}
 
+	/** Expects the integrated browser's error in place of a page that failed to load. */
+	async expectLoadError(): Promise<void> {
+		await test.step('Expect the Viewer to show that the page failed to load', async () => {
+			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL).getByRole('alert')).toContainText('Failed to Load Page', { timeout: 30000 });
+		});
+	}
+
+	/** Clicks Reload in the error shown in place of a page that failed to load. */
+	async reloadAfterLoadError(): Promise<void> {
+		await test.step('Reload from the Viewer\'s load error', async () => {
+			await this.code.driver.currentPage.locator(VIEWER_PANEL).getByRole('alert').getByRole('button', { name: 'Reload', exact: true }).click();
+		});
+	}
+
 	async expectViewerPanelVisible(timeout = 10000): Promise<void> {
 		await test.step('Expect viewer panel visible', async () => {
 			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL)).toBeVisible({ timeout });
@@ -99,55 +162,43 @@ export class Viewer {
 	 * Wait for content to be visible in the viewer frame, with retry on failure.
 	 *
 	 * Dev servers (Flask, Dash, etc.) may report "running" before actually accepting
-	 * connections, causing ERR_CONNECTION_RESET. If content isn't visible, the onRetry
+	 * connections, causing ERR_CONNECTION_RESET. If content doesn't appear, the onRetry
 	 * callback is called to allow restarting the server before the next attempt.
 	 *
 	 * @param useIframe - Set to false for Positron output (great-tables, modelsummary) that renders directly.
 	 *                    Defaults to true for web apps (Flask, Dash) that render in an iframe.
 	 */
 	async expectContentVisible(
-		getLocator: (frame: FrameLocator) => Locator,
+		getLocator: (content: ViewerContent) => Locator,
 		options?: { timeout?: number; onRetry?: () => Promise<void>; useIframe?: boolean }
 	): Promise<void> {
 		const { timeout = 60000, onRetry, useIframe = undefined } = options ?? {};
 
 		await test.step('Expect content visible in viewer frame', async () => {
+			let retrying = false;
 			await expect(async () => {
-				// Get the frame and locator for the content
-				const frame = useIframe === undefined
-					? !this.code.electronApp
-						? this.viewerFrame.frameLocator('iframe')
-						: this.getViewerFrame()
-					: useIframe
-						? this.viewerFrame.frameLocator('iframe')
-						: this.getViewerFrame();
-				const locator = getLocator(frame);
-
-
-				// Check if content is visible
-				let isVisible = false;
-				try {
-					isVisible = await locator.isVisible();
-				} catch {
-					// Frame might not be accessible after ERR_CONNECTION_RESET
-				}
-
-				// If content isn't visible, call onRetry to allow restarting the server
-				if (!isVisible && onRetry) {
+				if (retrying && onRetry) {
 					await onRetry();
 				}
+				retrying = true;
 
-				// Expect the content to be visible
+				// Look up the content after any restart: the integrated browser
+				// shows a restarted app in a new page.
+				const locator = getLocator(await this.getViewerContent(useIframe));
 				await expect(locator).toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout });
 		});
 	}
 
-	async expectContentNotVisible(getLocator: (frame: FrameLocator) => Locator, timeout = 10000): Promise<void> {
+	async expectContentNotVisible(getLocator: (content: ViewerContent) => Locator, timeout = 10000): Promise<void> {
 		await test.step('Expect content not visible in viewer frame', async () => {
 			await expect(async () => {
-				const frame = this.getViewerFrame();
-				const locator = getLocator(frame);
+				// With no page showing in the integrated browser, nothing is visible.
+				const content = await this.usesIntegratedBrowser() ? await this.getBrowserPage().catch(() => undefined) : this.getViewerFrame();
+				if (!content) {
+					return;
+				}
+				const locator = getLocator(content);
 				await expect(locator).not.toBeVisible({ timeout: 5000 });
 			}).toPass({ timeout });
 		});

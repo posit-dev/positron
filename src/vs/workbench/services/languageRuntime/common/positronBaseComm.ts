@@ -19,7 +19,12 @@ export enum JsonRpcErrorCode {
 	InvalidParams = -32602,
 	InternalError = -32603,
 	ServerErrorStart = -32000,
-	ServerErrorEnd = -32099
+	ServerErrorEnd = -32099,
+	/**
+	 * Plot comm only: the plot is too small to render at the requested size,
+	 * e.g. its margins don't fit. Other comms may use -32001 for other errors.
+	 */
+	PlotTooSmall = -32001,
 }
 
 /**

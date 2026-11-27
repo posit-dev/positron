@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { FrameLocator, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
+import { ViewerContent } from '../../pages/viewer';
 import { test, expect, tags } from '../_test.setup';
 import { join } from 'path';
 
@@ -15,7 +16,7 @@ interface AppTestConfig {
 	name: string;
 	tags: string[];
 	filePath: string;
-	locator: (frame: FrameLocator) => Locator;
+	locator: (frame: ViewerContent) => Locator;
 }
 
 const appTests: AppTestConfig[] = [

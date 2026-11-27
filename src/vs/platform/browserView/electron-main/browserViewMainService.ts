@@ -519,6 +519,9 @@ export class BrowserViewMainService extends Disposable implements IBrowserViewMa
 			onDidChangeAudiences: view.onDidChangeAudiences,
 			onDidRequestPermission: view.onDidRequestPermission,
 			onDidChangePermissions: view.onDidChangePermissions,
+			// --- Start Positron ---
+			onDidRequestOpenExternal: view.onDidRequestOpenExternal,
+			// --- End Positron ---
 		};
 		const forward = <K extends keyof BrowserViewEventMap>(event: K) => {
 			listeners.add(events[event](data => {
