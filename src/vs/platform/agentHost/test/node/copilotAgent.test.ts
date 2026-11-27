@@ -4212,7 +4212,11 @@ suite('CopilotAgent', () => {
 		});
 	}
 
-	test('does not relabel SDK responses when credentials change before notification arrival', async () => {
+	// --- Start Positron ---
+	// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+	// test('does not relabel SDK responses when credentials change before notification arrival', async () => {
+	test.skip('does not relabel SDK responses when credentials change before notification arrival', async () => {
+		// --- End Positron ---
 		const events: ITelemetryData[] = [];
 		let received = new DeferredPromise<void>();
 		const telemetryService = new class extends RecordingTelemetryService {
@@ -5626,7 +5630,11 @@ suite('CopilotAgent', () => {
 		}
 	});
 
-	test('keeps Codex SKU telemetry independent of concurrent Copilot authentication and clearing', async () => {
+	// --- Start Positron ---
+	// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+	// test('keeps Codex SKU telemetry independent of concurrent Copilot authentication and clearing', async () => {
+	test.skip('keeps Codex SKU telemetry independent of concurrent Copilot authentication and clearing', async () => {
+		// --- End Positron ---
 		const copilotDiscoveryStarted = new DeferredPromise<void>();
 		const copilotDiscovery = new DeferredPromise<Response>();
 		const endpoints = createTestGitHubEndpointService();
@@ -5703,7 +5711,11 @@ suite('CopilotAgent', () => {
 		}
 	});
 
-	test('does not discover SKU on a new enterprise endpoint using an earlier authentication', async () => {
+	// --- Start Positron ---
+	// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+	// test('does not discover SKU on a new enterprise endpoint using an earlier authentication', async () => {
+	test.skip('does not discover SKU on a new enterprise endpoint using an earlier authentication', async () => {
+		// --- End Positron ---
 		const logService = new NullLogService();
 		const stateManager = disposables.add(new AgentHostStateManager(logService));
 		const configuration = disposables.add(new AgentConfigurationService(stateManager, logService));
@@ -5745,7 +5757,11 @@ suite('CopilotAgent', () => {
 		}
 	});
 
-	test('retries Copilot SKU discovery on authentication with an unchanged token', async () => {
+	// --- Start Positron ---
+	// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+	// test('retries Copilot SKU discovery on authentication with an unchanged token', async () => {
+	test.skip('retries Copilot SKU discovery on authentication with an unchanged token', async () => {
+		// --- End Positron ---
 		let available = false;
 		const copilotApiService = disposables.add(new CopilotApiService(async () => available
 			? Response.json({ endpoints: { api: 'https://api.githubcopilot.com' }, access_type_sku: 'recovered-sku' })
@@ -7223,7 +7239,11 @@ suite('CopilotAgent', () => {
 		}
 	});
 
-	test('rearms expired Copilot auth notifications after every authenticate call', async () => {
+	// --- Start Positron ---
+	// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+	// test('rearms expired Copilot auth notifications after every authenticate call', async () => {
+	test.skip('rearms expired Copilot auth notifications after every authenticate call', async () => {
+		// --- End Positron ---
 		const sessionDataService = disposables.add(new TestSessionDataService());
 		const copilotApiService = disposables.add(new CopilotApiService(async () => Response.json({
 			endpoints: { api: 'https://api.githubcopilot.com' }, access_type_sku: 'sku-a',
@@ -20330,7 +20350,11 @@ suite('CopilotAgent', () => {
 			}
 		});
 
-		test('materialization uses refreshable GitHub credentials when the lifetime is known', async () => {
+		// --- Start Positron ---
+		// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+		// test('materialization uses refreshable GitHub credentials when the lifetime is known', async () => {
+		test.skip('materialization uses refreshable GitHub credentials when the lifetime is known', async () => {
+			// --- End Positron ---
 			const sessionDataService = disposables.add(new TestSessionDataService());
 			const client = new TestCopilotClient([]);
 			const mockSession = new MockCopilotSession();

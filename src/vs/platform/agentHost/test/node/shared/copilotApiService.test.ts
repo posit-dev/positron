@@ -121,7 +121,11 @@ const baseRequest = {
 
 // #endregion
 
-suite('CopilotApiService', () => {
+// --- Start Positron ---
+// Positron does not ship `@vscode/copilot-api`; every request fails (positronCopilotApiUnavailable.ts).
+// suite('CopilotApiService', () => {
+suite.skip('CopilotApiService', () => {
+	// --- End Positron ---
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
