@@ -21,6 +21,8 @@ import { ExplorerFolderContext } from '../common/files.js';
 
 export const OPEN_WITH_DEFAULT_APPLICATION_COMMAND_ID = 'workbench.action.files.openWithDefaultApplication';
 
+const INTEGRATED_BROWSER_EXTENSIONS = /\.(?:html?|mht(?:ml)?)$/i;
+
 /** Opens each selected local file with the application the OS associates with it. */
 async function openWithDefaultApplication(accessor: ServicesAccessor, resource?: URI): Promise<void> {
 	const explorerService = accessor.get(IExplorerService);
@@ -48,6 +50,7 @@ MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	when: ContextKeyExpr.and(
 		ResourceContextKey.Scheme.isEqualTo(Schemas.file),
 		ExplorerFolderContext.toNegated(),
+		ContextKeyExpr.regex(ResourceContextKey.Extension.key, INTEGRATED_BROWSER_EXTENSIONS).negate(),
 		WorkspaceTrustContext.IsTrusted
 	)
 });

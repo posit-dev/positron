@@ -76,13 +76,16 @@ describe('Open with Default Application', () => {
 			.find(item => item.command.id === OPEN_WITH_DEFAULT_APPLICATION_COMMAND_ID)!;
 		const isShown = (values: Record<string, unknown>) =>
 			item.when!.evaluate({ getValue: <T>(key: string) => values[key] as T });
-		const trustedFile = { resourceScheme: 'file', explorerResourceIsFolder: false, isWorkspaceTrusted: true };
+		const trustedFile = { resourceScheme: 'file', resourceExtname: '.pdf', explorerResourceIsFolder: false, isWorkspaceTrusted: true };
 
 		expect({
 			trustedFile: isShown(trustedFile),
 			untrusted: isShown({ ...trustedFile, isWorkspaceTrusted: false }),
 			folder: isShown({ ...trustedFile, explorerResourceIsFolder: true }),
 			remote: isShown({ ...trustedFile, resourceScheme: 'vscode-remote' }),
-		}).toEqual({ trustedFile: true, untrusted: false, folder: false, remote: false });
+			html: isShown({ ...trustedFile, resourceExtname: '.html' }),
+			upperCaseHtm: isShown({ ...trustedFile, resourceExtname: '.HTM' }),
+			mhtml: isShown({ ...trustedFile, resourceExtname: '.mhtml' }),
+		}).toEqual({ trustedFile: true, untrusted: false, folder: false, remote: false, html: false, upperCaseHtm: false, mhtml: false });
 	});
 });
