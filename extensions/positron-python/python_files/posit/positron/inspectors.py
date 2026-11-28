@@ -389,7 +389,10 @@ class FunctionInspector(PositronInspector[Callable]):
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         sig = inspect.signature(self.value) if callable(self.value) else "()"
-        return _maybe_truncate_string(f"{self.value.__qualname__}{sig}", level=level)
+        # At the top level, the Variables pane already shows the name in its own column.
+        # Nested inside a collection, the name is the only way to tell which function it is.
+        name = "" if level == 0 else self.value.__qualname__
+        return _maybe_truncate_string(f"{name}{sig}", level=level)
 
     def get_kind(self) -> str:
         return "function"
