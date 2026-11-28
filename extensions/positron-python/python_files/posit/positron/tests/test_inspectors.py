@@ -529,11 +529,17 @@ def test_inspect_function(value: Callable) -> None:
         value=value,
         length=0,
         is_truncated=False,
-        display_value=f"{value.__qualname__}{inspect.signature(value)}",
+        display_value=str(inspect.signature(value)),
         kind=VariableKind.Function,
         display_type=expected_type,
         type_info=expected_type,
     )
+
+
+@pytest.mark.parametrize("value", FUNCTION_CASES)
+def test_inspect_nested_function_keeps_name(value: Callable) -> None:
+    display_value, _ = get_inspector([value]).get_display_value()
+    assert display_value == f"[{value.__qualname__}{inspect.signature(value)}]"
 
 
 #
