@@ -135,6 +135,9 @@ import './contrib/localization/electron-browser/localization.contribution.js';
 
 // Explorer
 import './contrib/files/electron-browser/fileActions.contribution.js';
+// --- Start Positron ---
+import './contrib/files/electron-browser/positronFileActions.contribution.js';
+// --- End Positron ---
 
 // CodeEditor Contributions
 import './contrib/codeEditor/electron-browser/codeEditor.contribution.js';
