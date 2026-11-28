@@ -275,7 +275,12 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 		cached.isAlt = isAlt;
 		model.changeDecorations(accessor => {
 			for (const decoration of cached.value) {
-				if (decoration instanceof RunTestDecoration && decoration.editorDecoration.alternate) {
+				// --- Start Positron ---
+				// Don't swap to the alternate (Debug) icon when these tests can't be debugged.
+				// if (decoration instanceof RunTestDecoration && decoration.editorDecoration.alternate) {
+				if (decoration instanceof RunTestDecoration && decoration.editorDecoration.alternate
+					&& decoration.canRun(TestRunProfileBitset.Debug)) {
+					// --- End Positron ---
 					accessor.changeDecorationOptions(
 						decoration.id,
 						isAlt ? decoration.editorDecoration.alternate : decoration.editorDecoration.options,
@@ -1016,11 +1021,28 @@ abstract class RunTestDecoration {
 	abstract getContextMenuActions(): IReference<IAction[]>;
 
 	protected runWith(profile: TestRunProfileBitset) {
+		// --- Start Positron ---
+		// Fall back to Run when no controller for these tests has a profile in
+		// the requested group (e.g. R tests have no Debug profile).
+		if (!this.canRun(profile)) {
+			profile = TestRunProfileBitset.Run;
+		}
+		// --- End Positron ---
 		return this.testService.runTests({
 			tests: simplifyTestsToExecute(this.testService.collection, this.tests.map(({ test }) => test)),
 			group: profile,
 		});
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Whether any of this decoration's tests has a controller with a profile
+	 * in the given group.
+	 */
+	public canRun(group: TestRunProfileBitset): boolean {
+		return this.tests.some(({ test }) => this.testProfileService.capabilitiesForTest(test.item) & group);
+	}
+	// --- End Positron ---
 
 	private showContextMenu(e: IEditorMouseEvent) {
 		const editor = this.codeEditorService.listCodeEditors().find(e => e.getModel() === this.model);
@@ -1028,7 +1050,16 @@ abstract class RunTestDecoration {
 	}
 
 	private getGutterLabel() {
-		switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
+		// --- Start Positron ---
+		// Describe Run when the click will fall back to Run (see runWith).
+		// switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
+		let action = getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction);
+		if ((action === DefaultGutterClickAction.Debug && !this.canRun(TestRunProfileBitset.Debug))
+			|| (action === DefaultGutterClickAction.Coverage && !this.canRun(TestRunProfileBitset.Coverage))) {
+			action = DefaultGutterClickAction.Run;
+		}
+		switch (action) {
+			// --- End Positron ---
 			case DefaultGutterClickAction.ContextMenu:
 				return localize('testing.gutterMsg.contextMenu', 'Click for test options');
 			case DefaultGutterClickAction.Debug:

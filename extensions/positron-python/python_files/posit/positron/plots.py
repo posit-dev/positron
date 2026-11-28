@@ -154,6 +154,7 @@ class Plot:
 
         self._comm.open()
         self._closed = False
+        self._plots_service.register_plot(self)
 
     def close(self) -> None:
         """Close the plot."""
@@ -166,6 +167,9 @@ class Plot:
             self._on_close()
 
         self._comm.close()
+
+        # Drop the service's reference so the figure can be garbage collected.
+        self._plots_service.unregister_plot(self)
 
     def show(self) -> None:
         """Show the plot."""
@@ -381,11 +385,21 @@ class PlotsService:
             on_close,
             origin,
         )
-        self._plots.append(plot)
+        self.register_plot(plot)
         return plot
+
+    def register_plot(self, plot: Plot) -> None:
+        """Track an open plot so that it's closed on shutdown."""
+        if plot not in self._plots:
+            self._plots.append(plot)
+
+    def unregister_plot(self, plot: Plot) -> None:
+        """Stop tracking a closed plot."""
+        if plot in self._plots:
+            self._plots.remove(plot)
 
     def shutdown(self) -> None:
         """Shutdown the plots service."""
         for plot in list(self._plots):
+            # Closing a plot unregisters it.
             plot.close()
-            self._plots.remove(plot)

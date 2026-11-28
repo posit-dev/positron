@@ -48,6 +48,9 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 		// The picker draws only the rows on screen: filter it by the name first, so
 		// a row below them is found too. The filter matches words in the order
 		// typed, so when it leaves no matching row, try the whole list again.
+		// A row's language leads its label ("R 4.5.1", "Python 3.12.3") or, when an
+		// environment leads the label ("uv: ws"), its description ("Python 3.14.7").
+		const ofLanguage = (r: { label: string; description: string }) => [r.label, r.description].some(t => t.startsWith(a.word + ' '));
 		const filter = page.locator(`${lib.css.quickInput.widget} ${lib.css.quickInput.filter}`).filter({ visible: true }).first();
 		let p = a.name ? (await filter.fill(a.name), await lib.pick({ words: a.words })) : null;
 		if (!p || (!p.ok && p.error.startsWith('no row matches'))) {
@@ -62,9 +65,18 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			const several = / rows match /.test(p.error);
 			const all = (a.name && none) || several ? await lib.allRows() : null;
 			const fits = lib.hasWords(several ? a.words : a.word);
-			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ') && fits(r)).map(lib.shownAs);
+			const rows = (all?.rows ?? []).filter(r => ofLanguage(r) && fits(r));
+			const ours = rows.map(lib.shownAs);
+			// Several match and no --name: take the first in picker order, where
+			// Suggested leads, as a person would. With --name, the agent meant one.
+			if (several && !a.name && rows.length && await lib.scrollToRow(rows[0].index)) {
+				const row = rows[0];
+				await lib.clickRow({ ...row, occurrence: (await lib.rows()).filter(r => r.index < row.index && lib.shownAs(r) === ours[0]).length });
+				// Two installs can read the same: each is listed.
+				return { ok: true, runtime: row.label, picked: ours[0], others: ours.slice(1) };
+			}
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
-			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
+			const listed = ours.length > 0 || (await lib.rows()).some(ofLanguage);
 			await lib.closeQuickInput();
 			const more = all?.complete ? {} : { more: 'the picker lists more rows than were read' };
 			const how = 'pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version';
@@ -76,7 +88,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			}
 			return { ...p, listed };
 		}
-		if (!p.row.label.startsWith(a.word + ' ')) {
+		if (!ofLanguage(p.row)) {
 			await lib.closeQuickInput();
 			return { ok: false, error: `the matching row is not a ${a.word} interpreter: ${p.row.label}` };
 		}
@@ -98,7 +110,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 		const { listed, ...r } = chosen;
 		return listed === false ? { ...r, error: `${r.error}: no ${word} interpreter was listed after waiting 30 s for interpreter discovery` } : r;
 	}
-	log('start-session.sh', session, String(chosen.runtime));
+	log('start-session.sh', session, String(chosen.runtime) + (chosen.picked ? ` (first of: ${[chosen.picked, ...(chosen.others as string[])].join('; ')})` : ''));
 	// Ready: a new console of this language is active, its input is there, and
 	// nothing is running. A dialog (create a virtual environment?) holds start-up.
 	// runs in run-code
@@ -128,7 +140,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 				await lib.sleep(500);
 				continue;
 			}
-			if (d.length) { return { ok: false, sessionId: id || null, error: 'a dialog is waiting for an answer; answer it with notifications.sh --click, then run this again or wait for the console, or pass --answer BUTTON', dialogs: d }; }
+			if (d.length) { return { ok: false, sessionId: id || null, error: 'a dialog is waiting for an answer; answer it with notifications.sh --click BUTTON and the console goes on starting (run this again, without --new, to wait for it); --answer BUTTON answers it only when passed at the start', dialogs: d }; }
 			await lib.sleep(500);
 		}
 		return { ok: false, sessionId: id || null, error: `the console was not ready within ${a.timeout} s` };
@@ -136,7 +148,7 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 	const ids = [...(before.tabs as { id: string }[]).map(t => t.id), String(before.active)].filter(Boolean);
 	const r = inPage(session, wait, { lang: language, before: ids, timeout, answer });
 	if (r.answered) { log('start-session.sh', session, `answered ${(r.answered as string[]).join('; ')}`); }
-	return { ok: r.ok, started: true, runtime: chosen.runtime, sessionId: r.sessionId ?? null, ...(r.ok ? { session: r.session, ...(r.answered ? { answered: r.answered } : {}) } : { error: r.error, dialogs: r.dialogs }) };
+	return { ok: r.ok, started: true, runtime: chosen.runtime, ...(chosen.picked ? { picked: chosen.picked, others: chosen.others } : {}), sessionId: r.sessionId ?? null, ...(r.ok ? { session: r.session, ...(r.answered ? { answered: r.answered } : {}) } : { error: r.error, dialogs: r.dialogs }) };
 }
 
 /**

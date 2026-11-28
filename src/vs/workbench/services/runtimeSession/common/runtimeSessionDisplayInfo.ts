@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { LanguageRuntimeSessionMode, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { basename } from '../../../../base/common/resources.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, RuntimeSessionOwner } from './runtimeSessionService.js';
 
 /**
@@ -37,4 +38,24 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 		this.languageId = session.runtimeMetadata.languageId;
 		this.base64EncodedIconSvg = session.runtimeMetadata.base64EncodedIconSvg;
 	}
+}
+
+/**
+ * Creates display info for a notebook or Quarto document that has no session
+ * yet, such as one open in a preview tab, naming the runtime that will start
+ * for it.
+ */
+export function createNotStartedDisplayInfo(runtime: ILanguageRuntimeMetadata, notebookUri: URI): IRuntimeSessionDisplayInfo {
+	return {
+		sessionName: basename(notebookUri),
+		sessionState: undefined,
+		sessionMode: LanguageRuntimeSessionMode.Notebook,
+		notebookUri,
+		owner: 'user',
+		runtimeId: runtime.runtimeId,
+		runtimeName: runtime.runtimeName,
+		languageName: runtime.languageName,
+		languageId: runtime.languageId,
+		base64EncodedIconSvg: runtime.base64EncodedIconSvg,
+	};
 }

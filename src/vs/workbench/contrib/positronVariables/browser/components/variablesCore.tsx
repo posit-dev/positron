@@ -18,6 +18,10 @@ import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { RuntimeClientStatus } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { useEventState } from '../../../../../base/browser/ui/react/useEventState.js';
+import { VariablesEmpty } from './variablesEmpty.js';
 
 // VariablesCoreProps interface.
 interface VariablesCoreProps extends PositronVariablesProps {
@@ -33,8 +37,13 @@ interface VariablesCoreProps extends PositronVariablesProps {
  */
 export const VariablesCore = (props: VariablesCoreProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 	const progressRef = useRef<HTMLDivElement>(null);
+	const startupPhase = useEventState(
+		services.languageRuntimeService.onDidChangeRuntimeStartupPhase,
+		() => services.languageRuntimeService.startupPhase
+	);
 
 	useEffect(() => {
 		const disposables = new DisposableStore();
@@ -99,10 +108,18 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 		};
 	}, [positronVariablesContext.activePositronVariablesInstance])
 
-	// If there are no instances, render nothing.
-	// TODO@softwarenerd - Render something specific for this case. TBD.
+	// With no instances there is no session to show variables for. Until startup
+	// finishes one may still be on its way, so the pane stays blank; after that
+	// it introduces itself, the same rule the Console uses for its empty state.
 	if (!positronVariablesContext.positronVariablesInstances.length) {
-		return null;
+		if (startupPhase !== RuntimeStartupPhase.Complete) {
+			return null;
+		}
+		return (
+			<div className='variables-core' style={{ height: props.height }}>
+				<VariablesEmpty initializing={false} />
+			</div>
+		);
 	}
 
 	// Calculate the adjusted height (the height minus the action bars height).

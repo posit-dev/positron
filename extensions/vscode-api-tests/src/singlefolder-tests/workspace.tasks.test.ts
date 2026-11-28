@@ -140,10 +140,7 @@ import { assertNoRpc } from '../utils';
 				await tasksConfig.update('tasks', []);
 			});
 		});
-		// --- Start Positron ---
-		// The tests in this suite have been skipped because they are flaky in CI
-		suite.skip('CustomExecution', () => {
-		// --- End Positron ---
+		suite('CustomExecution', () => {
 			test('task should start and shutdown successfully', async () => {
 				window.terminals.forEach(terminal => terminal.dispose());
 				interface ICustomTestingTaskDefinition extends TaskDefinition {

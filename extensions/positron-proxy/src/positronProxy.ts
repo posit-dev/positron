@@ -13,6 +13,7 @@ import { log, ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 // TODO: switch to using createProxyMiddleware when new options format is fixed
 import { legacyCreateProxyMiddleware as createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+import { forwardOriginalHost } from './forwardedHost';
 import { HtmlProxyServer } from './htmlProxy';
 import { helpContentRewriter, htmlContentRewriter } from './util';
 import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtml, ProxyServerHtmlConfig, ProxyServerType } from './types';
@@ -181,6 +182,25 @@ export class PositronProxy implements Disposable {
 			targetPath,
 			this._proxyServerHtmlConfigs.preview
 		);
+	}
+
+	/**
+	 * Watches the local files served for the content at a URL, and tells the
+	 * Viewer when one changes.
+	 * @param url The URL of the content.
+	 * @returns An ID for the watch, or undefined if the URL isn't served here.
+	 */
+	watchHtmlProxy(url: string): string | undefined {
+		return this._htmlProxyServer?.watch(url, id =>
+			vscode.commands.executeCommand('positronViewer.htmlProxyContentChanged', id));
+	}
+
+	/**
+	 * Stops watching the files served for content.
+	 * @param id The ID returned by `watchHtmlProxy`.
+	 */
+	unwatchHtmlProxy(id: string) {
+		this._htmlProxyServer?.unwatch(id);
 	}
 
 	/**
@@ -428,6 +448,10 @@ export class PositronProxy implements Disposable {
 						`\n\texternal uri: ${externalUri.toString(true)}`
 					);
 				},
+				// Upgrades only. On plain HTTP requests, some frameworks (e.g. Gradio) build
+				// their public URL from X-Forwarded-Host, which would drop the /proxy/<port>/
+				// path prefix the app is served under.
+				proxyReqWs: forwardOriginalHost,
 				proxyRes: responseInterceptor(async (responseBuffer: any, proxyRes: any, req: any, _res: any) => {
 					log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
 						`\n\tstatus: ${proxyRes.statusCode}` +

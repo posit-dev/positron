@@ -608,7 +608,8 @@ export interface IRuntimeSessionDisplayInfo {
 	readonly languageName: string;
 	readonly languageId: string;
 	readonly base64EncodedIconSvg: string | undefined;
-	readonly sessionState: RuntimeState;
+	/** The session's runtime state, or undefined when no session has started. */
+	readonly sessionState: RuntimeState | undefined;
 }
 
 export interface ILanguageRuntimePackage {
@@ -1100,13 +1101,6 @@ export interface IRuntimeSessionService {
 	 * notebook session can exist per notebook URI.
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined;
-
-	/**
-	 * Gets the last known session display info for a notebook URI.
-	 * This persists after the session has exited and been disposed,
-	 * allowing UI components to show what runtime was last used.
-	 */
-	getLastNotebookSessionInfo(notebookUri: URI): IRuntimeSessionDisplayInfo | undefined;
 
 	/**
 	 * List all active runtime sessions.

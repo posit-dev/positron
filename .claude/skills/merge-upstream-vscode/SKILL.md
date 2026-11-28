@@ -411,7 +411,7 @@ edits. Watch for all of them, not just the first:
 #### Extension host tests
 
 The `test / ext-host` CI job runs three driver scripts in sequence, matching
-`.github/workflows/test-ext-host.yml`: an Electron driver, then
+`.github/workflows/test-ext-host.yml` in `posit-dev/positron-builds`: an Electron driver, then
 `scripts/test-remote-integration.sh` (upstream API/language suites, Remote), then
 `scripts/test-web-integration.sh` (Chromium). A red job can come from any of the
 three, not just the first.

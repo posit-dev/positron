@@ -21,7 +21,10 @@ import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, IAction2Options, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+// import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 import { InputFocusedContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { EditorActivation } from '../../../../../platform/editor/common/editor.js';
@@ -36,13 +39,16 @@ import { isChatTreeItem, isRequestVM, isResponseVM } from '../../common/model/ch
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../common/constants.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
 import { ChatTreeItem, IChatWidget, IChatWidgetService } from '../chat.js';
+// --- Start Positron ---
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
+// --- End Positron ---
 
 export abstract class EditingSessionAction extends Action2 {
 
-	constructor(opts: Readonly<IAction2Options>) {
-		// --- Start Positron ---
+	// --- Start Positron ---
+	// constructor(opts: Readonly<IAction2Options>) {
+	constructor(opts: Readonly<IAction2Options>, aiDisabledGuard: ContextKeyExpression = ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true)) {
 		// Hide all subclasses when AI features are disabled.
-		const aiDisabledGuard = ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true);
 		const precondition = opts.precondition
 			? ContextKeyExpr.and(opts.precondition, aiDisabledGuard)
 			: aiDisabledGuard;
@@ -150,7 +156,36 @@ registerAction2(class OpenFileInDiffAction extends WorkingSetAction {
 	}
 });
 
-registerAction2(class AcceptAction extends WorkingSetAction {
+// --- Start Positron ---
+/**
+ * Keeps or undoes edits to a single file. Gated on the main AI switch, and
+ * finds the session that owns the file when the chat widget's session doesn't,
+ * since edits can be made without a chat widget (e.g. by Posit Assistant).
+ */
+abstract class FileDecisionAction extends WorkingSetAction {
+
+	constructor(opts: Readonly<IAction2Options>) {
+		super(opts, ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`));
+	}
+
+	override run(accessor: ServicesAccessor, ...args: unknown[]) {
+		const uri = args.at(0);
+		if (!URI.isUri(uri) || getEditingSessionContext(accessor, args)?.editingSession?.getEntry(uri)) {
+			return super.run(accessor, ...args);
+		}
+
+		const chatEditingService = accessor.get(IChatEditingService);
+		const owner = chatEditingService.editingSessionsObs.get().find(s => s.getEntry(uri));
+		const session = owner && chatEditingService.getEditingSession(owner.chatSessionResource);
+		return session && this.runWorkingSetAction(accessor, session, undefined, uri);
+	}
+}
+// --- End Positron ---
+
+// --- Start Positron ---
+// registerAction2(class AcceptAction extends WorkingSetAction {
+registerAction2(class AcceptAction extends FileDecisionAction {
+// --- End Positron ---
 	constructor() {
 		super({
 			id: 'chatEditing.acceptFile',
@@ -175,7 +210,10 @@ registerAction2(class AcceptAction extends WorkingSetAction {
 	}
 });
 
-registerAction2(class DiscardAction extends WorkingSetAction {
+// --- Start Positron ---
+// registerAction2(class DiscardAction extends WorkingSetAction {
+registerAction2(class DiscardAction extends FileDecisionAction {
+// --- End Positron ---
 	constructor() {
 		super({
 			id: 'chatEditing.discardFile',

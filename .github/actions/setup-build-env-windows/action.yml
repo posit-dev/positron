@@ -2,10 +2,9 @@ name: "Setup Build Environment (Windows)"
 description: "Restores build caches, installs the VS 2022 C++ build tools, installs node dependencies, and downloads the Ark and Kallichore binaries on a Windows runner"
 
 # Windows counterpart of setup-build-env, shared by every job that builds
-# Positron from source on Windows (test-e2e-windows-run.yml,
-# test-ext-host-windows.yml, extensions-check-nightly.yml). It stops before
-# compiling so each workflow keeps its compile step, and its timing, as a step
-# of its own.
+# Positron from source on Windows (test-e2e-windows.yml in
+# posit-dev/positron-builds). It stops before compiling so each workflow keeps
+# its compile step, and its timing, as a step of its own.
 #
 # It does not save caches. A caller that owns the Windows cache save passes
 # this action's outputs to save-build-caches.

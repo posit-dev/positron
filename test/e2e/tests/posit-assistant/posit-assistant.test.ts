@@ -204,6 +204,13 @@ test.describe('Posit Assistant', {
 test.describe('Language Model Access Gating', { tag: [tags.ASSISTANT] }, () => {
 	const COMMAND_TITLE = 'Manage Language Model Access';
 
+	// The suite above leaves Posit Assistant open in the sidebar. After each
+	// settings reload it restores and grabs focus, which closes the palette.
+	// Run the command directly: while the assistant holds focus, the palette can't be used.
+	test.beforeAll(async function ({ app }) {
+		await app.code.driver.executeCommand('workbench.action.closeSidebar');
+	});
+
 	test.afterEach('Reset chat.disableAIFeatures', async function ({ settings }) {
 		await settings.remove(['chat.disableAIFeatures']);
 	});

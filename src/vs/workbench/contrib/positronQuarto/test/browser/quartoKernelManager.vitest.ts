@@ -541,6 +541,58 @@ describe('QuartoKernelManager', () => {
 			.toEqual({ secondId: 'session-1', trackedId: 'session-1' });
 	});
 
+	describe('documents whose session ended', () => {
+		it('does not report an ended session for a document that never started one', () => {
+			expect(kernelManager.hasEndedSession(docUri)).toBe(false);
+		});
+
+		it('reports an ended session after the kernel is shut down', async () => {
+			await kernelManager.ensureKernelForDocument(docUri);
+			await kernelManager.shutdownKernelForDocument(docUri);
+
+			expect(kernelManager.hasEndedSession(docUri)).toBe(true);
+		});
+
+		it('reports an ended session after the session ends on its own', async () => {
+			const sessionEnd = disposables.add(new Emitter<ILanguageRuntimeExit>());
+			announcedSessions.set('session-0', stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-0',
+				runtimeMetadata: pythonRuntime1,
+				metadata: stubInterface<ILanguageRuntimeSession['metadata']>({ notebookUri: docUri, sessionMode: LanguageRuntimeSessionMode.Notebook }),
+				getRuntimeState: () => RuntimeState.Idle,
+				onDidChangeRuntimeState: Event.None,
+				onDidCompleteStartup: Event.None,
+				onDidEncounterStartupFailure: Event.None,
+				onDidEndSession: sessionEnd.event,
+				async shutdown(_reason: RuntimeExitReason) { /* no-op */ },
+			}));
+			await kernelManager.ensureKernelForDocument(docUri);
+
+			sessionEnd.fire(stubInterface<ILanguageRuntimeExit>({}));
+
+			expect(kernelManager.hasEndedSession(docUri)).toBe(true);
+		});
+
+		it('stops reporting an ended session once a new kernel starts', async () => {
+			await kernelManager.ensureKernelForDocument(docUri);
+			await kernelManager.shutdownKernelForDocument(docUri);
+			await kernelManager.ensureKernelForDocument(docUri);
+
+			expect(kernelManager.hasEndedSession(docUri)).toBe(false);
+		});
+
+		it('stops reporting an ended session once the document is closed', async () => {
+			await kernelManager.ensureKernelForDocument(docUri);
+			editorlessUris = [docUri];
+
+			closeEditorEmitter.fire(stubInterface<IEditorCloseEvent>({ editor: stubInterface<EditorInput>({ resource: docUri }) }));
+			await timeout(150);
+
+			expect({ shutdownUris: shutdownUris.map(uri => uri.toString()), ended: kernelManager.hasEndedSession(docUri) })
+				.toEqual({ shutdownUris: [docUri.toString()], ended: false });
+		});
+	});
+
 	describe('restarting a kernel that the session service does not restart', () => {
 		it('returns the session that owns the document when its kernel restart is skipped', async () => {
 			await kernelManager.ensureKernelForDocument(docUri);

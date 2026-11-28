@@ -10,5 +10,8 @@
 	"command.refreshDatabaseSchema.title": "Refresh Database Schema",
 	"command.selectDataConnection.title": "Select Data Connection",
 	"command.runStatement.title": "Run SQL Statement",
+	"command.runStatementWithoutAdvancing.title": "Run SQL Statement Without Advancing",
+	"command.runToCurrentLine.title": "Run SQL From Beginning To Current Line",
+	"command.runFromCurrentLine.title": "Run SQL From Current Line To End",
 	"configuration.diagnostics.unknownNames.description": "Report table and column names that are not in the data connection a file is written against. Reported as warnings, and skipped while the file has no connection to check against. When a connection's schema is too large to read in full, unknown tables are not reported, and unknown columns only in tables whose columns were all read, so an incomplete picture cannot flag valid SQL."
 }

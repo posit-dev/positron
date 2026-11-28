@@ -55,6 +55,31 @@ suite('sql.runStatement', () => {
 			{ first: true, second: true, notifications: 2 },
 		);
 	});
+
+	for (const command of ['sql.runStatementWithoutAdvancing', 'sql.runToCurrentLine', 'sql.runFromCurrentLine']) {
+		test(`${command} finds a statement and asks for a connection, as sql.runStatement does`, async () => {
+			await vscode.window.showTextDocument(await sqlDocument('SELECT 1;'));
+
+			const settled = await settlesWithin(vscode.commands.executeCommand(command));
+
+			assert.deepStrictEqual({ settled, notifications: shownMessages.length }, { settled: true, notifications: 1 });
+		});
+	}
+
+	for (const [command, line, message] of [
+		['sql.runToCurrentLine', 0, 'No SQL statements found up to the current line.'],
+		['sql.runFromCurrentLine', 2, 'No SQL statements found from the current line.'],
+	] as const) {
+		test(`${command} says so when there is no statement on that side of the cursor`, async () => {
+			// Lines 0 and 2 are blank, above and below the statement.
+			const editor = await vscode.window.showTextDocument(await sqlDocument('\nSELECT 1;\n\n'));
+			editor.selection = new vscode.Selection(line, 0, line, 0);
+
+			await vscode.commands.executeCommand(command);
+
+			assert.deepStrictEqual(shownMessages, [message]);
+		});
+	}
 });
 
 /** Whether a promise settles within a second; far longer than a run that asks nothing takes. */

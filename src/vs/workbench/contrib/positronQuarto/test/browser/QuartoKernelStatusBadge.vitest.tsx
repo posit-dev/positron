@@ -42,6 +42,7 @@ describe('QuartoKernelStatusBadge', () => {
 		getKernelState: () => QuartoKernelState.None as QuartoKernelState,
 		getSessionForDocument: () => undefined as ILanguageRuntimeSession | undefined,
 		getPreferredRuntimeForDocument: () => undefined as ILanguageRuntimeMetadata | undefined,
+		hasEndedSession: () => false,
 	};
 
 	const ctx = createTestContainer()
@@ -78,20 +79,32 @@ describe('QuartoKernelStatusBadge', () => {
 
 	beforeEach(() => {
 		displayState = undefined;
+		kernelManagerStub.hasEndedSession = () => false;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
 		kernelManagerStub.getPreferredRuntimeForDocument = () => undefined;
 	});
 
-	it('shows disconnected icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
+	it('shows not-started icon and "No Kernel" label when no session, no preferred runtime, and state is None', () => {
 		renderBadge();
-		expect(screen.getByTestId('runtime-status-disconnected')).toBeInTheDocument();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
 		expect(screen.getByText('No Kernel')).toBeInTheDocument();
 	});
 
 	it('names the interpreter that would start when no kernel is running', () => {
 		// No session yet, but a preferred runtime is available: the badge should
 		// name it instead of showing "No Kernel".
+		kernelManagerStub.getPreferredRuntimeForDocument = () =>
+			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
+		renderBadge();
+		expect(screen.getByTestId('runtime-status-notstarted')).toBeInTheDocument();
+		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
+	});
+
+	it('shows disconnected icon when a session ran for the document and has ended', () => {
+		// QuartoKernelState.None also follows a session that ended. A session
+		// that ran in this editor reads as disconnected, like an exited notebook kernel.
+		kernelManagerStub.hasEndedSession = () => true;
 		kernelManagerStub.getPreferredRuntimeForDocument = () =>
 			stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' });
 		renderBadge();

@@ -25,6 +25,7 @@ import { untildify, exists as fileExists } from './common/files';
 import { findRandomPort } from './common/ports';
 import { disposeAll } from './common/disposable';
 import { installCodeServer, ServerInstallError } from './serverSetup';
+import { getHostLabelFormatters } from './hostLabels';
 import { pickConfiguredDownloadUrlTemplate, UNIFIED_DOWNLOAD_URL_KEY, UNIFIED_DOWNLOAD_URL_SECTION } from './serverDownloadUrl';
 import { isWindows } from './common/platform';
 import * as os from 'os';
@@ -260,16 +261,9 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 				vscode.commands.executeCommand('setContext', 'forwardedPortsViewEnabled', true);
 
 				this.labelFormatterDisposable?.dispose();
-				this.labelFormatterDisposable = vscode.workspace.registerResourceLabelFormatter({
-					scheme: 'vscode-remote',
-					authority: `${REMOTE_SSH_AUTHORITY}+*`,
-					formatting: {
-						label: '${path}',
-						separator: '/',
-						tildify: true,
-						workspaceSuffix: `SSH: ${sshDest.hostname}` + (sshDest.port && sshDest.port !== 22 ? `:${sshDest.port}` : '')
-					}
-				});
+				this.labelFormatterDisposable = vscode.Disposable.from(
+					...getHostLabelFormatters(authority, sshDest).map(f => vscode.workspace.registerResourceLabelFormatter(f))
+				);
 
 				const resolvedResult: vscode.ResolverResult = new vscode.ResolvedAuthority('127.0.0.1', tunnelConfig.localPort, installResult.connectionToken);
 				resolvedResult.extensionHostEnv = envVariables;

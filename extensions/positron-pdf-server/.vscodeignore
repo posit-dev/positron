@@ -7,3 +7,5 @@ esbuild*.mts
 package-lock.json
 .gitignore
 **/*.map
+pdfjs-temp.zip
+pdfjs-dist/.pdfjs-version

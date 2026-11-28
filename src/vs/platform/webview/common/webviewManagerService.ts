@@ -39,17 +39,6 @@ export interface WebviewFrameId {
 }
 
 /**
- * Whether two frame IDs are for the same frame, even if it has gone to another
- * document since.
- */
-export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolean {
-	if (a.frameTreeNodeId !== undefined && b.frameTreeNodeId !== undefined) {
-		return a.frameTreeNodeId === b.frameTreeNodeId;
-	}
-	return a.processId === b.processId && a.routingId === b.routingId;
-}
-
-/**
  * How the error from `executeJavaScript` starts when the frame is gone. It's
  * thrown before the script runs, so a caller can find the frame again and
  * retry without running the script twice.
@@ -57,14 +46,23 @@ export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolea
 export const WEBVIEW_FRAME_NOT_FOUND_MESSAGE = 'No frame found';
 
 /**
- * An event fired when a frame navigates to a new URL.
+ * An event fired when a webview's content frame navigates.
  */
 export interface FrameNavigationEvent {
+	/** The ID of the webview whose content frame navigated */
+	readonly webviewId: string;
+
 	/** The ID of the frame that navigated */
 	readonly frameId: WebviewFrameId;
 
 	/** The frame's new URL */
 	readonly url: string;
+
+	/** Whether the frame stayed on its document, as with pushState or a #hash link */
+	readonly isSameDocument: boolean;
+
+	/** Whether the frame failed to load the URL and shows an error page instead */
+	readonly isErrorPage: boolean;
 }
 
 export interface WebviewRectangle {
@@ -116,16 +114,14 @@ export interface IWebviewManagerService {
 
 	// --- Start Positron ---
 	/**
-	 * Waits for a frame with the given target URL to be created in a webview;
-	 * when it has been created, returns the frame id.
+	 * Starts firing `onFrameNavigation` for the webviews in a window.
 	 *
-	 * @param windowId The window id of the webview in which the frame is to be created.
-	 * @param targetUrl The URL of the frame to wait for.
+	 * @param windowId The window id of the webviews.
 	 */
-	awaitFrameCreation(windowId: WebviewWindowId, targetUrl: string): Promise<WebviewFrameId>;
+	trackFrameNavigation(windowId: WebviewWindowId): Promise<void>;
 
 	/**
-	 * An event fired when a webview frame has navigated to a new URL.
+	 * An event fired when a webview's content frame has navigated.
 	 */
 	onFrameNavigation: Event<FrameNavigationEvent>;
 

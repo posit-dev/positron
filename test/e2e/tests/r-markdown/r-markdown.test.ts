@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -25,11 +25,9 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () =
 	test('Verify can preview R Markdown', async function ({ app, r }) {
 		await app.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+K' : 'Control+Shift+K');
 
-		// inner most frame has no useful identifying features
-		// not factoring this locator because its not part of positron
-		const gettingStarted = app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
-
-		await expect(gettingStarted).toBeVisible({ timeout: 60000 });
-		await expect(gettingStarted).toHaveText('Getting started');
+		await app.workbench.viewer.expectContentVisible(
+			content => content.locator('h2[data-anchor-id="getting-started"]', { hasText: 'Getting started' }),
+			{ useIframe: true }
+		);
 	});
 });

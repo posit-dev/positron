@@ -488,7 +488,7 @@ else
 	echo "FAIL: guardrail --warn-only should exit 0"; fail=1
 fi
 # --tags-only skips the dir sweep entirely, so an empty map (no dirs, no tags)
-# passes -- it's the same PR-time check test-pull-request.yml runs.
+# passes -- it's the same PR-time check the PR lane runs.
 if MAP_FILE="$TMP_MAP" bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail --tags-only skips the dir sweep"
 else

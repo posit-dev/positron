@@ -8,6 +8,8 @@ import React from 'react';
 
 // Other dependencies.
 import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
+import { PlotPoint } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { plotImageBox, plotPointFromClick } from '../../../../services/positronPlots/common/plotLocator.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface PanZoomImageProps {
@@ -16,6 +18,10 @@ interface PanZoomImageProps {
 	imageUri: string;
 	description: string;
 	zoom: ZoomLevel;
+	/** When set, the image is in locator mode: clicks on the bitmap are reported here. */
+	onLocate?: (point: PlotPoint) => void;
+	/** Points to mark on the image, as fractions of the image: the clicks of a locator() call. */
+	locatorPoints?: readonly PlotPoint[];
 }
 
 /**
@@ -30,6 +36,9 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	const [naturalHeight, setNaturalHeight] = React.useState<number>(props.height);
 	const [scrollableWidth, setScrollableWidth] = React.useState<number>(props.width);
 	const [scrollableHeight, setScrollableHeight] = React.useState<number>(props.height);
+	// The URI of the image the element has finished loading. Until the current URI loads, the
+	// element can still show the previous image.
+	const [loadedUri, setLoadedUri] = React.useState<string | undefined>(undefined);
 	const imageRef = React.useRef<HTMLImageElement>(null);
 
 	// updates the image size and position based on the zoom level
@@ -75,19 +84,56 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		}
 	}, [naturalWidth, naturalHeight, props.width, props.height, props.zoom, props.imageUri]);
 
+	// In locator mode, take clicks only once the current image has loaded, so a click on the
+	// previous image is not read against the new one.
+	const onLocate = loadedUri === props.imageUri ? props.onLocate : undefined;
+
+	// The markers sit in a layer over the image that scrolls with it.
+	const imageBox = props.locatorPoints?.length ?
+		plotImageBox({ width: props.width, height: props.height }, { width: naturalWidth, height: naturalHeight }, props.zoom) :
+		undefined;
+
 	return (
-		<Scrollable height={props.height} mousePan={true} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
+		<Scrollable height={props.height} mousePan={!props.onLocate} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
 			<img ref={imageRef}
 				alt={props.description}
 				className='plot'
 				draggable={false}
 				src={props.imageUri}
+				style={onLocate ? { cursor: 'crosshair' } : undefined}
+				onClick={onLocate ? e => {
+					// Read the natural size from the element, which always matches the image it shows.
+					const img = e.currentTarget;
+					const point = plotPointFromClick(
+						img.getBoundingClientRect(),
+						{ width: img.naturalWidth, height: img.naturalHeight },
+						{ x: e.clientX, y: e.clientY },
+						props.zoom === ZoomLevel.Fit
+					);
+					if (point) {
+						onLocate(point);
+					}
+				} : undefined}
 				onLoad={(el) => {
 					// ensures the zoom level is applied correctly when switching images
 					setNaturalWidth(el.currentTarget.naturalWidth);
 					setNaturalHeight(el.currentTarget.naturalHeight);
+					setLoadedUri(el.currentTarget.getAttribute('src') ?? undefined);
 				}}
 			/>
+			{imageBox && <div aria-hidden='true' className='plot-locator-points'>
+				{props.locatorPoints?.map((point, index) =>
+					<div
+						key={index}
+						className='plot-locator-point'
+						data-testid='plot-locator-point'
+						style={{
+							left: imageBox.left + point.x * imageBox.width,
+							top: imageBox.top + point.y * imageBox.height,
+						}}
+					/>
+				)}
+			</div>}
 		</Scrollable>
 	);
 };

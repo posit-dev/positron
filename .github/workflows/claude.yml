@@ -27,15 +27,27 @@ env:
     Include only actionable findings.
     Do not repeat resolved findings or successful checks unless they affect the result.
 
-    When you make changes for an issue, create a pull request using
-    mcp__github__create_pull_request. Before creating the PR, use the positron-pr-helper
-    skill to write the PR body. You are running non-interactively, so answer the skill's
-    questions yourself from the issue, the triggering comment, and your changes.
-    This replaces the default instruction to provide a link to create the PR manually.
-    If PR creation fails, push the branch and include a link to create the PR in your comment.
+    When you make changes, commit them locally with `git add <files>` and `git commit`.
+    Several commits are fine. Do not push, and do not create branches or pull requests: your
+    token cannot write to the repository. After you finish, a later job pushes your commits.
+    On an open pull request it adds them to that pull request's branch. Otherwise it opens a
+    new pull request. This replaces the default instructions to push your changes and to
+    provide a link to create a pull request. Do not link to a branch or pull request for your
+    changes in your comment, since it does not exist yet; the later job comments with the link.
+    For a new pull request, put its title in `pr_title` and its body in `pr_body` in your
+    structured output. Use the positron-pr-helper skill to write the body. You are running
+    non-interactively, so answer the skill's questions yourself from the issue, the triggering
+    comment, and your changes. When you add commits to an existing pull request, or make no
+    commits, leave `pr_title` and `pr_body` empty.
+    Your commits must build on the commit you started from. Do not rebase, and do not reset or
+    amend commits that you did not make in this run: they cannot be published. Commits that
+    change `.github/` are not published. On a pull request, `.claude/`, `CLAUDE.md`, and
+    similar config files are restored from the base branch, so do not commit them. Stage files
+    by name, not with `git add -A`.
 
     The repository is a shallow clone. When you need history for `git log` or `git blame`,
-    run `git fetch --deepen=<n>` (or `git fetch --unshallow` if you need all of it).
+    run exactly `git fetch --deepen=50` or `git fetch --deepen=500` (or `git fetch --unshallow`
+    if you need all of it). Other forms of `git fetch` are blocked.
 
     Files under `.claude/` and `.github/` are read-only in this job. If the request needs a
     change there, do not try it. Do the rest of the request and say that part was not done.
@@ -50,9 +62,12 @@ env:
     If no existing label is a good fit, leave the item unlabeled instead of creating a new label.
 
 jobs:
-  # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
-  # Hands code changes to the build job.
-  triage:
+  # Checks who asked, acknowledges the request, and fetches the exploratory findings Claude needs.
+  # Commands Claude runs can write files outside the workspace, such as the code of later steps,
+  # so they could reach any secret that their job uses, even one never passed to Claude. The App
+  # private keys are used only in jobs that never run Claude: this one, publish, and react. The
+  # Claude jobs use github.token.
+  ack:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
@@ -60,48 +75,66 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # No dependency install runs in this job; leave Claude time for larger edits.
-    timeout-minutes: 30
+    timeout-minutes: 10
+    # GitHub sometimes starts this workflow twice for one comment. One ack at a time per issue or
+    # PR, so the second run sees the first run's reaction. GitHub keeps only one pending run per
+    # group: a third request made in the seconds an ack takes replaces the waiting one.
+    concurrency:
+      group: claude-ack-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    # Write access lets github.token add the reaction if the App token step fails.
     permissions:
       contents: read
-      packages: read
       pull-requests: write
       issues: write
-      id-token: write
     outputs:
-      needs_build: ${{ steps.handoff.outputs.needs_build }}
-      handoff: ${{ steps.claude.outputs.structured_output }}
-      assignee: ${{ steps.assignee.outputs.value }}
-      branch_prefix: ${{ steps.branch-prefix.outputs.value }}
-      ack_target: ${{ steps.ack.outputs.target }}
-      ack_reaction_id: ${{ steps.ack.outputs.reaction_id }}
-    env:
-      # positron-projects[bot] is intentionally allowed: it needs to trigger Claude,
-      # even though this workflow also runs as that App.
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
-      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
-      # The action only does this by default when allowed_non_write_users is set.
-      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+      duplicate: ${{ steps.ack.outputs.duplicate }}
+      target: ${{ steps.ack.outputs.target }}
+      reaction_id: ${{ steps.ack.outputs.reaction_id }}
+      explore_findings: ${{ steps.findings.outputs.prompt }}
     steps:
       - name: Check actor has write permission
         env:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
-          # Bots are not collaborators, so the permission lookup fails for them.
-          # Let explicitly allowed bots through; claude-code-action checks the list again.
-          if [[ ",$ALLOWED_BOTS," == *",$ACTOR,"* ]]; then
-            echo "Actor $ACTOR is an allowed bot"
-            exit 0
-          fi
-          PERMISSION=$(gh api /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          # Bots are not collaborators, so the lookup fails and they are refused. That includes
+          # positron-projects[bot], which opens Claude's pull requests.
+          PERMISSION=$(gh api "/repos/${GITHUB_REPOSITORY}/collaborators/${ACTOR}/permission" --jq '.permission')
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" ]]; then
-            echo "::error::Actor ${{ github.actor }} has '$PERMISSION' permission, requires 'write' or 'admin'"
+            echo "::error::Actor $ACTOR has '$PERMISSION' permission, requires 'write' or 'admin'"
             exit 1
           fi
-          echo "Actor ${{ github.actor }} authorized with '$PERMISSION' permission"
+          echo "Actor $ACTOR authorized with '$PERMISSION' permission"
 
-      # A token failure fails the job after the ack below, so the trigger still gets a reaction.
+      # On a fork PR, claude-code-action checks out the fork's code, and the build job runs its
+      # npm scripts and tests. Refuse forks before anything else runs.
+      - name: Refuse pull requests from forks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_IS_PR: ${{ github.event.issue.pull_request != null }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment)
+              if [ "$ISSUE_IS_PR" != "true" ]; then exit 0; fi
+              HEAD_REPO=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${ISSUE_NUMBER}" --jq '.head.repo.full_name // ""')
+              ;;
+            pull_request|pull_request_review|pull_request_review_comment)
+              HEAD_REPO="$PR_HEAD_REPO"
+              ;;
+            *) exit 0 ;;
+          esac
+          # A deleted fork has no head repo, so it is refused too.
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::@claude does not run on pull requests from forks (head repository: '${HEAD_REPO}')"
+            exit 1
+          fi
+
+      # Only for reactions. A token failure fails the job after the ack below, so the trigger
+      # still gets a reaction.
       - name: Generate token for GitHub App
         id: generate-token
         continue-on-error: true
@@ -109,19 +142,16 @@ jobs:
         with:
           client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
           private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
-          permission-contents: write
           permission-pull-requests: write
           permission-issues: write
-          permission-members: read
           owner: posit-dev
           repositories: positron
 
       # Ack the trigger right away; the action's own progress comment takes a minute or more.
       # Reviews have no reactions API, so they get no ack.
-      # GitHub sometimes starts this workflow twice for one comment. The reactions API returns 200
-      # instead of 201 when this account's eyes reaction already exists, so the later run skips
-      # Claude. React as the App, not github-actions[bot], which other workflows also react as.
+      # The reactions API returns 200 instead of 201 when this account's eyes reaction already
+      # exists, so the later of two runs for one comment skips Claude. React as the App, not
+      # github-actions[bot], which other workflows also react as.
       - name: Add eyes reaction
         id: ack
         env:
@@ -162,12 +192,114 @@ jobs:
           echo "::error::Failed to generate the GitHub App token"
           exit 1
 
+      # `@claude fix finding 2` on a PR: the text of that finding from the PR's latest
+      # exploratory test. The agent cannot fetch it, since the report is on the tailnet.
+      # Only for comments in the PR conversation, where the checkout is the default branch,
+      # not the PR. The positron-builds token is in the download step's env only.
+      - name: Checkout repository
+        if: >-
+          steps.ack.outputs.duplicate != 'true' && github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request && contains(github.event.comment.body, 'finding')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Find the exploratory findings asked for
+        id: findings-ask
+        if: >-
+          steps.ack.outputs.duplicate != 'true' && github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request && contains(github.event.comment.body, 'finding')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR: ${{ github.event.issue.number }}
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs ask
+
+      - name: Generate positron-builds token
+        id: builds-token
+        if: steps.findings-ask.outputs.run != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: posit-dev
+          repositories: positron-builds
+          permission-actions: read
+
+      # The artifact is kept 90 days; runs from before it existed have none.
+      # Its folder holds finding-<n>.md files and too-large.txt, the ones skipped for size.
+      - name: Download the findings
+        id: findings-download
+        if: steps.builds-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.builds-token.outputs.token }}
+          RUN_ID: ${{ steps.findings-ask.outputs.run }}
+          MODEL: ${{ steps.findings-ask.outputs.model }}
+        run: bash .github/actions/pr-exploratory-test/download-builds-artifacts.sh "$RUN_ID" "$RUNNER_TEMP/explore-findings" "explore-findings-$MODEL"
+
+      - name: Write the findings prompt
+        id: findings
+        if: steps.findings-ask.outputs.asked != ''
+        continue-on-error: true
+        env:
+          ASKED: ${{ steps.findings-ask.outputs.asked }}
+          RUN: ${{ steps.findings-ask.outputs.run }}
+          REPORT: ${{ steps.findings-ask.outputs.report }}
+          SHA: ${{ steps.findings-ask.outputs.sha }}
+          PROBLEM: ${{ steps.findings-ask.outputs.problem }}
+          TOKEN: ${{ steps.builds-token.outcome }}
+          DOWNLOADED: ${{ steps.findings-download.outcome }}
+          DIR: ${{ runner.temp }}/explore-findings
+        run: node .github/actions/pr-exploratory-test/claude-findings.mjs prompt
+
+  # Answers questions and makes non-code changes without installing dependencies, so it stays fast.
+  # Hands code changes to the build job.
+  triage:
+    needs: ack
+    if: needs.ack.outputs.duplicate != 'true'
+    runs-on: ubuntu-latest
+    # The Claude step has its own timeout, so the steps that save its commits still run after it.
+    timeout-minutes: 45
+    # One run at a time per issue or PR, so a loop of runs cannot pile up. GitHub keeps only one
+    # pending run per group: a third request made while one runs and one waits replaces the waiting one.
+    concurrency:
+      group: claude-triage-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    # Claude, and every command it runs, can read github.token, so it cannot write repository
+    # contents. The publish job pushes Claude's commits with its own token.
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    outputs:
+      needs_build: ${{ steps.handoff.outputs.needs_build }}
+      handoff: ${{ steps.claude.outputs.structured_output }}
+      assignee: ${{ steps.assignee.outputs.value }}
+      branch_prefix: ${{ steps.branch-prefix.outputs.value }}
+      # Read by the publish job. Keep in step with the build job's outputs.
+      target: ${{ steps.target.outputs.target }}
+      base: ${{ steps.target.outputs.base }}
+      head_ref: ${{ steps.target.outputs.head_ref }}
+      has_commits: ${{ steps.bundle.outputs.has_commits }}
+      problem: ${{ steps.bundle.outputs.problem }}
+      result: ${{ steps.claude.outputs.structured_output }}
+    env:
+      # Strip the Anthropic key and Actions secrets from the environment of commands Claude runs.
+      # The action only does this by default when allowed_non_write_users is set.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-          token: ${{ steps.generate-token.outputs.token }}
-          # claude-code-action sets up its own git auth for pushing
+          # claude-code-action sets up its own git auth, with github.token
           persist-credentials: false
 
       # Determine who to assign to issues/PRs created by Claude.
@@ -198,25 +330,91 @@ jobs:
           SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-40)
           echo "value=claude/${NUMBER}-${SLUG}-" >> "$GITHUB_OUTPUT"
 
+      # Decide, before Claude runs, where its commits go and which commit they must build on.
+      # Claude does not choose. On an open pull request the commits go to its head branch, which
+      # claude-code-action checks out at the head commit. Otherwise claude-code-action branches
+      # from the local default branch that actions/checkout created, and the publish job opens a
+      # new pull request. The ack job refused fork pull requests, so the head is in this repository.
+      # A review on a closed pull request would branch from a default-branch commit this job does
+      # not know, so its commits are not published.
+      - &record-target
+        name: Record where Claude's commits go
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_IS_PR: ${{ github.event.issue.pull_request != null }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          CHECKOUT=$(git rev-parse HEAD)
+          STATE=""
+          HEAD_SHA=""
+          HEAD_REF=""
+          if [ "$ISSUE_IS_PR" = "true" ] || [[ "$EVENT_NAME" == pull_request* ]]; then
+            IFS=$'\t' read -r STATE HEAD_SHA HEAD_REF < <(gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" --jq '[.state, .head.sha, .head.ref] | @tsv')
+          fi
+          if [ "$STATE" = "open" ]; then
+            if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || ! git check-ref-format --branch "$HEAD_REF" >/dev/null; then
+              echo "::error::Unexpected head for pull request #${NUMBER}: '${HEAD_SHA}' '${HEAD_REF}'"
+              exit 1
+            fi
+            TARGET=pr
+            BASE="$HEAD_SHA"
+          elif [ "$EVENT_NAME" = "issues" ] || [ "$EVENT_NAME" = "issue_comment" ]; then
+            TARGET=new
+            BASE="$CHECKOUT"
+            HEAD_REF=""
+          else
+            echo "::notice::Commits from a review on a closed pull request are not published."
+            TARGET=none
+            BASE=""
+            HEAD_REF=""
+          fi
+          {
+            echo "target=${TARGET}"
+            echo "base=${BASE}"
+            echo "head_ref=${HEAD_REF}"
+            echo "checkout=${CHECKOUT}"
+          } | tee -a "$GITHUB_OUTPUT"
+
       - name: Setup Claude
-        if: steps.ack.outputs.duplicate != 'true'
         uses: ./.github/actions/setup-claude
+
+      # AWS rejects role session names outside [\w+=,.@-], such as `positron-projects[bot]`.
+      - name: Sanitize role session name
+        id: session-name
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-2
 
       - name: Run Claude Code Action
         id: claude
-        if: steps.ack.outputs.duplicate != 'true'
-        uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+        # No dependency install runs in this job; leave Claude time for larger edits.
+        timeout-minutes: 30
+        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ steps.generate-token.outputs.token }}
+          use_bedrock: true
+          github_token: ${{ github.token }}
           branch_prefix: ${{ steps.branch-prefix.outputs.value }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           # Required: with `prompt` set, comment events otherwise go to agent mode, which drops the
           # triggering comment and the issue context. track_progress forces tag mode.
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -225,6 +423,8 @@ jobs:
             }
           prompt: |
             ${{ env.SHARED_PROMPT }}
+
+            ${{ needs.ack.outputs.explore_findings }}
 
             Node dependencies are not installed in this job, so you cannot run tests, eslint, or
             precommit. A second job with dependencies makes code changes.
@@ -240,18 +440,116 @@ jobs:
             When you hand off, end your progress comment with a short note that a second job
             continues the work, linked to ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
 
-            Open a PR only if no changed file is code. Say in the PR body that no tests ran. When you
-            only answer, review, or make such non-code changes, set `needs_build` to false.
+            Commit changes only if no changed file is code. In `pr_body`, say that no tests ran. When
+            you only answer, review, or make such non-code changes, set `needs_build` to false.
+            The publish job refuses commits from this job that touch code.
 
-            If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
-            add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ steps.assignee.outputs.value }}
-            Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ steps.assignee.outputs.value }}
+            After creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ steps.assignee.outputs.value }}
           claude_args: |
             --model opus
-            --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"}},"required":["needs_build","summary","files","findings"]}'
+            --json-schema '{"type":"object","properties":{"needs_build":{"type":"boolean"},"summary":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"findings":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"}},"required":["needs_build","summary","files","findings","pr_title","pr_body"]}'
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
+            --allowedTools "Edit(/**),WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git log:*),Bash(git show:*),Bash(git diff:*),Bash(git blame:*),Bash(git status:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue"
             --disallowedTools "Edit(/src/**),Edit(/extensions/**),Edit(/build/**),Edit(/scripts/**),Edit(/test/**),Edit(/cli/**),Edit(/remote/**),Edit(/positron/**),Edit(/.eslint-plugin-local/**),Edit(/ai-lib/**),Edit(**/*.ts),Edit(**/*.tsx),Edit(**/*.mts),Edit(**/*.js),Edit(**/*.mjs),Edit(**/*.cjs),Edit(**/*.json),Edit(**/*.rs),Edit(**/*.py),Edit(**/*.R),Edit(**/*.sh),Edit(**/*.ps1),Edit(**/*.cmd),Edit(**/*.toml),Edit(**/*.yml),Edit(**/*.yaml),Edit(**/*.css),Edit(**/*.scss),Edit(**/*.less),Edit(**/*.svg),Edit(**/*.html),Edit(**/Dockerfile*),Edit(/.npmrc),Edit(/.nvmrc),Edit(/.python-version),Bash(git rm:*)"
+
+      # Save Claude's commits for the publish job, including after a timeout. Claude, and anything
+      # steering Claude, controls the workspace and .git/config, so run only git, with hooks,
+      # fsmonitor, and signing off, no global config, and no tokens or credentials in its
+      # environment. The publish job checks the bundle, so this step does not have to.
+      # Names and reasons only: a tool input can hold file content, and this log is public.
+      - &list-denials
+        name: List the tool calls that were denied
+        if: always() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          jq -r '(if type == "array" then .[] else . end)
+            | if .type == "system" and .subtype == "permission_denied" then
+                "denied: \(.tool_name) (\(.decision_reason_type // "no reason type"): \(.decision_reason // "no reason"))"
+              elif .type == "result" then
+                (.permission_denials // [])[] | "denied: \(.tool_name)"
+              else empty end' "$EXECUTION_FILE" || echo "::warning::Could not read the execution file."
+
+      - &bundle-commits
+        name: Bundle Claude's commits
+        id: bundle
+        if: always() && steps.target.outputs.base != ''
+        env:
+          TARGET: ${{ steps.target.outputs.target }}
+          BASE: ${{ steps.target.outputs.base }}
+          CHECKOUT: ${{ steps.target.outputs.checkout }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/git-home" "$RUNNER_TEMP/claude-commits"
+          g() {
+            env -i PATH="$PATH" HOME="$RUNNER_TEMP/git-home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+              git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c commit.gpgsign=false "$@"
+          }
+          HEAD_NOW=$(g rev-parse HEAD)
+          # claude-code-action never checked out the pull request, so Claude made no commits on it.
+          if [ "$TARGET" = "pr" ] && [ "$HEAD_NOW" = "$CHECKOUT" ] && [ "$CHECKOUT" != "$BASE" ]; then
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Commit what Claude left uncommitted, as claude-code-action's cleanup would. On a pull
+          # request, leave out the config that claude-code-action restored from the base branch, so
+          # the pull request's own versions are not reverted.
+          SPEC=(-- .)
+          if [ "$TARGET" = "pr" ]; then
+            RESTORED=(.claude .mcp.json .claude.json .gitmodules .ripgreprc CLAUDE.md CLAUDE.local.md .husky)
+            g reset -q -- "${RESTORED[@]}" 2>/dev/null || true
+            for p in "${RESTORED[@]}"; do SPEC+=(":(exclude)$p"); done
+          fi
+          # The dependency install leaves untracked files in the ai-lib submodule. They show in
+          # the status but cannot be staged from here, so a commit of them fails.
+          if [ -n "$(g status --porcelain --ignore-submodules=dirty "${SPEC[@]}")" ]; then
+            IDENT=()
+            if ! g config user.email >/dev/null; then
+              IDENT=(-c "user.name=github-actions[bot]" -c "user.email=41898282+github-actions[bot]@users.noreply.github.com")
+            fi
+            g add -A "${SPEC[@]}"
+            if ! g diff --cached --quiet; then
+              g "${IDENT[@]}" commit -q --no-verify -m "Uncommitted changes from @claude"
+              echo "Committed uncommitted changes"
+            fi
+          fi
+
+          if ! g cat-file -e "${BASE}^{commit}" 2>/dev/null || ! g merge-base --is-ancestor "$BASE" HEAD; then
+            echo "problem=Claude's commits do not build on ${BASE:0:12}, so they were not published. History rewrites, such as a rebase, cannot be published." >> "$GITHUB_OUTPUT"
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::HEAD does not descend from ${BASE}"
+            exit 0
+          fi
+          # Leave out the default branch's commits, which Claude may have merged. Otherwise the
+          # shallow clone's boundary commit, with its whole tree, ends up in the bundle. Commits
+          # from other branches, such as a PR branch that moved, stay in and get checked. The
+          # publish job only accepts a boundary that the default branch contains, so a moved
+          # remote-tracking ref cannot slip anything past it.
+          RANGE=("${BASE}..HEAD")
+          if g rev-parse -q --verify "refs/remotes/origin/${DEFAULT_BRANCH}^{commit}" >/dev/null; then
+            RANGE+=(--not "refs/remotes/origin/${DEFAULT_BRANCH}")
+          fi
+          COUNT=$(g rev-list --count "${RANGE[@]}")
+          if [ "$COUNT" = "0" ]; then
+            echo "has_commits=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          g bundle create "$RUNNER_TEMP/claude-commits/claude.bundle" "${RANGE[@]}"
+          g log --oneline "${RANGE[@]}"
+          echo "has_commits=true" >> "$GITHUB_OUTPUT"
+
+      - &upload-commits
+        name: Upload Claude's commits
+        if: always() && steps.bundle.outputs.has_commits == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: claude-commits-${{ github.job }}
+          path: ${{ runner.temp }}/claude-commits/claude.bundle
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
       # Missing or malformed output must not start the build job, and must not fail silently.
       - name: Read handoff
@@ -273,61 +571,41 @@ jobs:
           echo "::error::Claude returned no valid handoff"
           exit 1
 
-      # On a handoff the build job swaps the reaction when it finishes.
-      - name: Replace eyes with result reaction
-        if: always() && steps.ack.outputs.target != '' && steps.handoff.outputs.needs_build != 'true'
-        env:
-          # Only the account that added the eyes can remove it; match the ack's token.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
-          TARGET: ${{ steps.ack.outputs.target }}
-          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          if [ -n "$REACTION_ID" ]; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
-              || echo "Failed to remove eyes reaction (non-fatal)"
-          fi
-          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
-            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
-
   # Code changes: installs core dependencies so Claude can run Vitest, eslint, and precommit.
-  # Runs only through triage, which already checked the actor's permission.
+  # Runs only through triage, after the ack job checked the actor's permission.
   build:
-    needs: triage
+    needs: [ack, triage]
     if: needs.triage.outputs.needs_build == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # The Claude step has its own timeout, so the steps that save its commits still run after it.
+    # Leave room for the dependency setup before it, which can be slow on a cold cache.
+    timeout-minutes: 90
+    # github.token, as in triage: Claude runs npm scripts and tests with it in reach.
     permissions:
+      actions: read
       contents: read
       packages: read
       pull-requests: write
       issues: write
       id-token: write
+    outputs:
+      # Read by the publish job. Keep in step with the triage job's outputs.
+      target: ${{ steps.target.outputs.target }}
+      base: ${{ steps.target.outputs.base }}
+      head_ref: ${{ steps.target.outputs.head_ref }}
+      has_commits: ${{ steps.bundle.outputs.has_commits }}
+      problem: ${{ steps.bundle.outputs.problem }}
+      result: ${{ steps.claude.outputs.structured_output }}
     env:
-      ALLOWED_BOTS: "posit-connect-projects[bot],positron-projects[bot]"
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
-      - name: Generate token for GitHub App
-        id: generate-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
-          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
-          permission-actions: read
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-          permission-members: read
-          owner: posit-dev
-          repositories: positron
-
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-          token: ${{ steps.generate-token.outputs.token }}
           persist-credentials: false
+
+      - *record-target
 
       - name: Setup Claude
         uses: ./.github/actions/setup-claude
@@ -366,17 +644,36 @@ jobs:
         with:
           extension: 'true'
 
-      - name: Run Claude Code Action
-        uses: anthropics/claude-code-action@4845bacbb38b3c4b15d948f035349786f678e068 # v1.0.267
+      - name: Sanitize role session name
+        id: session-name
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+        run: echo "value=$(sed 's/[^a-zA-Z0-9_+=,.@-]/_/g' <<<"$ACTOR")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for Bedrock
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ steps.generate-token.outputs.token }}
+          role-to-assume: ${{ secrets.CLAUDE_BEDROCK_ROLE_ARN }}
+          role-session-name: ${{ steps.session-name.outputs.value }}
+          aws-region: us-east-2
+
+      - name: Run Claude Code Action
+        id: claude
+        timeout-minutes: 40
+        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: us.anthropic.claude-opus-5-5
+          ANTHROPIC_DEFAULT_SONNET_MODEL: us.anthropic.claude-sonnet-5-5
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: us.anthropic.claude-haiku-5-5
+        with:
+          use_bedrock: true
+          github_token: ${{ github.token }}
           branch_prefix: ${{ needs.triage.outputs.branch_prefix }}
           additional_permissions: "actions: read"
-          allowed_bots: ${{ env.ALLOWED_BOTS }}
           track_progress: true
+          # setup-claude moves the plugin out of the workspace, where a PR checkout could add files to it.
           plugin_marketplaces: |
-            ./.claude-plugins/simple-english
+            ${{ runner.temp }}/simple-english
           plugins: |
             simple-english@simple-english
           settings: |
@@ -392,6 +689,8 @@ jobs:
             HANDOFF START
             ${{ needs.triage.outputs.handoff }}
             HANDOFF END
+
+            ${{ needs.ack.outputs.explore_findings }}
 
             Root and build/ node dependencies are installed. You can run Vitest on tests under
             `src/`, `npx eslint`, `node scripts/format.mts`, and `npm run precommit`. Vitest tests
@@ -445,41 +744,405 @@ jobs:
             After a bug fix, search with `git grep` for sibling code paths that have the same bug,
             for example other backends, handlers, or data types that share the pattern. Fix each one
             in this PR, or name it in the PR body and say why you left it out.
-            Before you create the PR, read the PR body and release note against the final diff.
-            Remove each claim that the diff does not support. When you push to an existing PR
-            instead, do not edit its body. If your commit makes a claim in it wrong, say which
-            claim in your comment.
+            Before you write `pr_body`, read it and the release note against the final diff.
+            Remove each claim that the diff does not support. When you add commits to an existing
+            PR instead, leave `pr_body` empty. If your commit makes a claim in the PR's body wrong,
+            say which claim in your comment.
             Before each commit, run `npm run precommit -- <changed files>`.
-            In the PR body, list each command that you ran and its result. Say which tests could
+            In `pr_body`, list each command that you ran and its result. Say which tests could
             not run here and that CI runs them on the PR. Never write that a test passed or failed
             unless you saw it run.
 
-            Commit and push progress to your branch after each logical increment rather than
-            waiting until the whole task is done to make your first commit. A commit that only
-            exists locally is equivalent to no commit at all once this job's runner is torn down -
-            only what is pushed survives a timeout or cancellation.
+            Commit after each logical increment rather than waiting until the whole task is done
+            to make your first commit. If this job times out, the commits you made are still
+            published, and uncommitted changes go into one extra commit.
 
-            If the triggering user (${{ github.triggering_actor }}) is not a bot, after creating a PR, add a reviewer and assignee.
-            add them with: gh pr edit <PR_NUMBER> --add-reviewer ${{ github.triggering_actor }} --add-assignee ${{ needs.triage.outputs.assignee }}
-            Likewise after creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ needs.triage.outputs.assignee }}
+            After creating an issue, add an assignee: gh issue edit <ISSUE_NUMBER> --add-assignee ${{ needs.triage.outputs.assignee }}
           claude_args: |
             --model opus
             --fallback-model sonnet
-            --allowedTools "Edit,Write,WebFetch(domain:posit.co),WebFetch(domain:*.posit.co),WebSearch,Read,Skill,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_pull_request,mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+            --json-schema '{"type":"object","properties":{"pr_title":{"type":"string"},"pr_body":{"type":"string"}},"required":["pr_title","pr_body"]}'
+            --allowedTools "Edit(/**),WebFetch(domain:posit.co),WebFetch(domain:docs.posit.co),WebFetch(domain:positron.posit.co),WebSearch,Read,Skill,Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git grep:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git restore:*),Bash(git reset:*),Bash(git stash:*),Bash(git mv:*),Bash(git rm:*),Bash(git checkout:*),Bash(git switch:*),Bash(git branch:*),Bash(git merge:*),Bash(git cherry-pick:*),Bash(git revert:*),Bash(git fetch origin:*),Bash(git fetch --deepen=50),Bash(git fetch --deepen=500),Bash(git fetch --unshallow),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh run view:*),Bash(./scripts/file-origin.sh:*),Bash(.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh:*),mcp__github__create_issue,mcp__github__search_issues,mcp__github__update_issue,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_sub_issue,Bash(npx vitest:*),Bash(npx eslint:*),Bash(npm run:*),Bash(node scripts/format.mts:*),Bash(uv --directory extensions/positron-python run --active pytest:*),Bash(npm exec --prefix extensions/positron-python -- tsc:*),Bash(uv --directory extensions/positron-python run --active ruff:*),Bash(npm exec --prefix extensions/positron-python -- prettier:*)"
+
+      - *list-denials
+
+      - *bundle-commits
+
+      - *upload-commits
+
+  # Pushes the commits that the last Claude job made, then opens or updates the pull request.
+  # It never runs Claude or code from the repository, and it is the only job whose App token can
+  # write repository contents. The token is in the environment of the push and API steps only.
+  publish:
+    needs: [triage, build]
+    if: >-
+      always() && (
+        (needs.triage.outputs.needs_build != 'true' &&
+          (needs.triage.outputs.has_commits == 'true' || needs.triage.outputs.problem != '')) ||
+        (needs.triage.outputs.needs_build == 'true' &&
+          (needs.build.outputs.has_commits == 'true' || needs.build.outputs.problem != '')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Write access lets github.token post the result comment if the App token step fails.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      # The job that ran Claude last: build after a handoff, otherwise triage.
+      SOURCE: ${{ needs.triage.outputs.needs_build == 'true' && 'build' || 'triage' }}
+      SOURCE_OUTPUTS: ${{ needs.triage.outputs.needs_build == 'true' && toJSON(needs.build.outputs) || toJSON(needs.triage.outputs) }}
+      NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      # First, so the steps that comment and react have it even if a later step fails.
+      - name: Generate token for GitHub App
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          owner: posit-dev
+          repositories: positron
+
+      # The target, base, and branch prefix were set by workflow code before Claude ran. `result`
+      # is Claude's text, used only as the pull request's title and body.
+      - name: Read the Claude job's outputs
+        id: src
+        env:
+          BRANCH_PREFIX: ${{ needs.triage.outputs.branch_prefix }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          get() { jq -r --arg k "$1" '.[$k] // ""' <<<"$SOURCE_OUTPUTS"; }
+          PROBLEM=$(get problem)
+          if [ -n "$PROBLEM" ]; then
+            printf '%s\n' "$PROBLEM" > "$RUNNER_TEMP/comment.md"
+            echo "::error::${PROBLEM}"
+            exit 1
+          fi
+          TARGET=$(get target)
+          BASE=$(get base)
+          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Unexpected base commit '${BASE}'"
+            exit 1
+          fi
+          case "$TARGET" in
+            pr)
+              BRANCH=$(get head_ref)
+              # The job that ran Claude could forge its outputs, so ask GitHub for the PR's branch.
+              IFS=$'\t' read -r HEAD_REPO HEAD_REF < <(gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" --jq '[.head.repo.full_name // "", .head.ref] | @tsv')
+              if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ] || [ "$HEAD_REF" != "$BRANCH" ]; then
+                echo "::error::Branch '${BRANCH}' is not the head of pull request #${NUMBER} ('${HEAD_REPO}' '${HEAD_REF}')"
+                exit 1
+              fi
+              ;;
+            new) BRANCH="${BRANCH_PREFIX}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ;;
+            *) echo "::error::Unexpected target '${TARGET}'"; exit 1 ;;
+          esac
+          if [[ "$BRANCH" == -* ]] || ! git check-ref-format "refs/heads/${BRANCH}"; then
+            echo "::error::Unexpected branch '${BRANCH}'"
+            exit 1
+          fi
+          {
+            echo "target=${TARGET}"
+            echo "base=${BASE}"
+            echo "branch=${BRANCH}"
+          } | tee -a "$GITHUB_OUTPUT"
+          RESULT=$(get result)
+          jq -r '.pr_title // "" | strings' <<<"$RESULT" > "$RUNNER_TEMP/pr-title.txt" 2>/dev/null || : > "$RUNNER_TEMP/pr-title.txt"
+          jq -r '.pr_body // "" | strings' <<<"$RESULT" > "$RUNNER_TEMP/pr-body.md" 2>/dev/null || : > "$RUNNER_TEMP/pr-body.md"
+
+      # Nothing from this checkout runs. It provides the base commit for the bundle.
+      - name: Checkout the base commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.src.outputs.base }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download Claude's commits
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: claude-commits-${{ env.SOURCE }}
+          path: ${{ runner.temp }}/claude-commits
+
+      # Claude controls the bundle's contents, so check them before anything is pushed.
+      - name: Check Claude's commits
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ steps.src.outputs.target }}
+          BASE: ${{ steps.src.outputs.base }}
+          BRANCH: ${{ steps.src.outputs.branch }}
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\n' "$1" > "$RUNNER_TEMP/comment.md"; echo "::error::$1"; exit 1; }
+          BUNDLE="$RUNNER_TEMP/claude-commits/claude.bundle"
+          HEADER=$(LC_ALL=C awk '/^$/ { exit } { print }' "$BUNDLE")
+          case "$(head -n 1 <<<"$HEADER")" in
+            '# v2 git bundle' | '# v3 git bundle') ;;
+            *) fail "Claude's commits could not be read, so nothing was published." ;;
+          esac
+          PREREQS=$(tail -n +2 <<<"$HEADER" | grep '^-' | cut -c 2-41 | sort -u || true)
+          REFS=$(tail -n +2 <<<"$HEADER" | grep -v '^[-@]' || true)
+          if [ -z "$REFS" ] || [ "$(wc -l <<<"$REFS")" -ne 1 ]; then
+            fail "Claude's commits could not be read, so nothing was published."
+          fi
+          on_default_branch() {
+            local STATUS
+            STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/$1...${DEFAULT_BRANCH}" --jq .status 2>/dev/null || true)
+            [ "$STATUS" = "ahead" ] || [ "$STATUS" = "identical" ]
+          }
+          # Commits outside the bundle that Claude's commits are not checked against. Besides the
+          # base, the bundle leaves out the default branch's commits, so a merge of it, or a
+          # fast-forward to it, adds a boundary. Only boundaries the default branch already
+          # contains are allowed; their history is not Claude's.
+          NOT=("^${BASE}")
+          git update-ref refs/claude/base "$BASE"
+          OTHER=()
+          for PREREQ in $PREREQS; do
+            if [ "$PREREQ" = "$BASE" ]; then continue; fi
+            if [[ ! "$PREREQ" =~ ^[0-9a-f]{40}$ ]] || ! on_default_branch "$PREREQ"; then
+              fail "Claude's commits build on ${PREREQ:0:12}, which is not on ${DEFAULT_BRANCH}, so nothing was published."
+            fi
+            git fetch -q --depth=1 --no-tags origin "$PREREQ"
+            git update-ref "refs/claude/prereq-${PREREQ}" "$PREREQ"
+            NOT+=("^${PREREQ}")
+            OTHER+=("$PREREQ")
+          done
+          git bundle verify -q "$BUNDLE"
+          git fetch -q --no-tags "$BUNDLE" "${REFS#* }:refs/claude/tip"
+          TIP=$(git rev-parse refs/claude/tip)
+          if [ "$TIP" != "${REFS%% *}" ]; then
+            fail "Claude's commits could not be read, so nothing was published."
+          fi
+          # The tip must descend from the base. When the path runs through a boundary on the
+          # default branch, that history is not here, so ask GitHub instead.
+          BUILDS_ON_BASE=false
+          if git merge-base --is-ancestor "$BASE" "$TIP"; then
+            BUILDS_ON_BASE=true
+          else
+            for PREREQ in "${OTHER[@]}"; do
+              STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE}...${PREREQ}" --jq .status 2>/dev/null || true)
+              if [ "$STATUS" = "ahead" ] || [ "$STATUS" = "identical" ]; then
+                BUILDS_ON_BASE=true
+                break
+              fi
+            done
+          fi
+          if [ "$BUILDS_ON_BASE" != "true" ]; then
+            fail "Claude's commits do not build on ${BASE:0:12}, so nothing was published."
+          fi
+
+          # Paths no commit may change: .github/, since a pushed branch runs its own workflows;
+          # code, for commits from triage, which may only change docs (the paths its Edit deny
+          # list blocks); and on a pull request, the config claude-code-action restored from the
+          # base branch, since committing it reverts the pull request's own version.
+          FORBIDDEN='^\.github(/|$)'
+          if [ "$SOURCE" = "triage" ]; then
+            FORBIDDEN+='|^(src|extensions|build|scripts|test|cli|remote|positron|\.eslint-plugin-local|ai-lib)/'
+            FORBIDDEN+='|\.(ts|tsx|mts|js|mjs|cjs|json|rs|py|R|sh|ps1|cmd|toml|yml|yaml|css|scss|less|svg|html)$'
+            FORBIDDEN+='|(^|/)Dockerfile[^/]*$|^(\.npmrc|\.nvmrc|\.python-version)$'
+          fi
+          if [ "$TARGET" = "pr" ]; then
+            FORBIDDEN+='|^(\.claude|\.husky)(/|$)|^(\.mcp\.json|\.claude\.json|\.gitmodules|\.ripgreprc|CLAUDE\.md|CLAUDE\.local\.md)$'
+          fi
+
+          # On a pull request, someone may push while Claude runs, and Claude may merge it. Those
+          # commits are already on the branch, so like the base, they are not checked or counted.
+          # If Claude did not merge them, the push is rejected below as not a fast-forward.
+          # FROM is where Claude's own commits start, for the result comment's compare link.
+          FROM="$BASE"
+          if [ "$TARGET" = "pr" ]; then
+            REMOTE_HEAD=$(git ls-remote origin "refs/heads/${BRANCH}" | cut -f 1)
+            if [[ "$REMOTE_HEAD" =~ ^[0-9a-f]{40}$ ]] && [ "$REMOTE_HEAD" != "$BASE" ] &&
+              git cat-file -e "${REMOTE_HEAD}^{commit}" 2>/dev/null &&
+              git merge-base --is-ancestor "$REMOTE_HEAD" "$TIP"; then
+              NOT+=("^${REMOTE_HEAD}")
+              FROM="$REMOTE_HEAD"
+            fi
+          fi
+
+          # A merge may bring in the default branch. Its changes are not Claude's, so skip the
+          # history of any merge parent the default branch already contains. Each merge is still
+          # checked for changes that match none of its parents.
+          for MERGE in $(git rev-list --merges "$TIP" "${NOT[@]}"); do
+            for PARENT in $(git rev-list --parents -n 1 "$MERGE" | cut -d ' ' -f 2-); do
+              if on_default_branch "$PARENT"; then
+                NOT+=("^${PARENT}")
+              fi
+            done
+          done
+
+          BAD=""
+          for COMMIT in $(git rev-list "$TIP" "${NOT[@]}"); do
+            if [ "$(git rev-list --parents -n 1 "$COMMIT" | wc -w)" -gt 2 ]; then
+              DIFF=(--cc)
+            else
+              DIFF=(--root)
+            fi
+            # NUL-separated, so a name with a newline cannot hide a path. Splitting it only
+            # makes the check stricter.
+            PATHS=$(git -c core.quotePath=false diff-tree -r -z --no-commit-id --name-only "${DIFF[@]}" "$COMMIT" | tr '\0' '\n')
+            if MATCHED=$(grep -E "$FORBIDDEN" <<<"$PATHS"); then
+              BAD+="- ${COMMIT:0:12}: $(head -n 3 <<<"$MATCHED" | sed 's/^/`/; s/$/`/' | paste -sd ' ' -)"$'\n'
+            fi
+          done
+          if [ -n "$BAD" ]; then
+            WHAT="\`.github/\`"
+            if [ "$SOURCE" = "triage" ]; then WHAT+=", code (this job can change only docs)"; fi
+            if [ "$TARGET" = "pr" ]; then WHAT+=", or config that is restored from the base branch on pull requests"; fi
+            fail "$(printf 'Nothing was published, because these commits change %s:\n\n%s' "$WHAT" "$BAD")"
+          fi
+          echo "tip=${TIP}" >> "$GITHUB_OUTPUT"
+          echo "from=${FROM}" >> "$GITHUB_OUTPUT"
+          echo "count=$(git rev-list --count "$TIP" "${NOT[@]}")" >> "$GITHUB_OUTPUT"
+          git log --oneline "$TIP" "${NOT[@]}"
+
+      # Never forced: if the branch moved while Claude ran, the push is rejected and reported.
+      - name: Push Claude's commits
+        id: push
+        env:
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          TARGET: ${{ steps.src.outputs.target }}
+          BRANCH: ${{ steps.src.outputs.branch }}
+          TIP: ${{ steps.check.outputs.tip }}
+        run: |
+          set -euo pipefail
+          fail() { printf '%s\n' "$1" > "$RUNNER_TEMP/comment.md"; echo "::error::$1"; exit 1; }
+          if [ "$TARGET" = "new" ] && git ls-remote --exit-code origin "refs/heads/${BRANCH}" >/dev/null; then
+            fail "Branch \`${BRANCH}\` already exists, so nothing was published."
+          fi
+          # The checkout is shallow. With the default branch's tip at hand, git sends only the
+          # objects that differ from it, not the whole tree of the base commit.
+          git fetch -q --depth=1 --no-tags origin "$DEFAULT_BRANCH"
+          AUTH=$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)
+          echo "::add-mask::${AUTH}"
+          # The token is passed to this one git command only, through its environment.
+          if ! GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${AUTH}" \
+            git -c core.hooksPath=/dev/null push origin "${TIP}:refs/heads/${BRANCH}" 2> "$RUNNER_TEMP/push.err"; then
+            cat "$RUNNER_TEMP/push.err" >&2
+            # The App has no `workflows` permission, so GitHub refuses a push whose new commits
+            # change a workflow file, even when the change comes from merging the default branch.
+            if grep -q 'without `workflows` permission' "$RUNNER_TEMP/push.err"; then
+              fail "GitHub refused to push to \`${BRANCH}\`, because the commits change workflow files, and Claude may not do that. This happens when Claude merges a version of \`${DEFAULT_BRANCH}\` with workflow changes. Merge \`${DEFAULT_BRANCH}\` into the branch yourself, then ask Claude again."
+            fi
+            if grep -qE 'non-fast-forward|fetch first|\[rejected\]' "$RUNNER_TEMP/push.err"; then
+              fail "Branch \`${BRANCH}\` changed while Claude ran, so its commits were not pushed. Ask Claude again to work from the new version."
+            fi
+            fail "Pushing Claude's commits to \`${BRANCH}\` failed."
+          fi
+          cat "$RUNNER_TEMP/push.err" >&2
+
+      - name: Open pull request
+        id: pr
+        if: steps.src.outputs.target == 'new'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          BRANCH: ${{ steps.src.outputs.branch }}
+          TIP: ${{ steps.check.outputs.tip }}
+          ACTOR: ${{ github.triggering_actor }}
+          ASSIGNEE: ${{ needs.triage.outputs.assignee }}
+          TRIGGER_URL: ${{ github.event.comment.html_url || github.event.review.html_url || github.event.issue.html_url || github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          TITLE=$(head -n 1 "$RUNNER_TEMP/pr-title.txt")
+          if [ -z "$TITLE" ]; then TITLE=$(git log -1 --format=%s "$TIP"); fi
+          BODY="$RUNNER_TEMP/pr-body.md"
+          if [ ! -s "$BODY" ]; then
+            echo "Claude did not write a description for this pull request." > "$BODY"
+          fi
+          printf '\n\n---\nRequested in %s\n' "$TRIGGER_URL" >> "$BODY"
+          URL=$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$DEFAULT_BRANCH" --head "$BRANCH" \
+            --title "$TITLE" --body-file "$BODY")
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          PR="${URL##*/}"
+          if [[ "$ACTOR" != *"[bot]"* && "$ACTOR" != *"_bot"* ]]; then
+            gh api --silent --method POST "repos/${GITHUB_REPOSITORY}/pulls/${PR}/requested_reviewers" \
+              -f "reviewers[]=${ACTOR}" || echo "::warning::Failed to request a review from ${ACTOR}"
+          fi
+          if [ -n "$ASSIGNEE" ]; then
+            gh api --silent --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/assignees" \
+              -f "assignees[]=${ASSIGNEE}" || echo "::warning::Failed to assign ${ASSIGNEE}"
+          fi
+
+      # claude-code-action's progress comment has no branch link, since the branch did not exist
+      # when it finished, so say here what happened.
+      - name: Comment with the result
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
+          TARGET: ${{ steps.src.outputs.target }}
+          FROM: ${{ steps.check.outputs.from }}
+          TIP: ${{ steps.check.outputs.tip }}
+          COUNT: ${{ steps.check.outputs.count }}
+          PUSHED: ${{ steps.push.outcome == 'success' }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          MESSAGE="$RUNNER_TEMP/message.md"
+          if [ -n "$PR_URL" ]; then
+            echo "Opened ${PR_URL} with Claude's commits." > "$MESSAGE"
+          elif [ "$PUSHED" = "true" ] && [ "$TARGET" = "pr" ] && [ "$COUNT" = "0" ]; then
+            echo "Claude added no new commits to this pull request." > "$MESSAGE"
+          elif [ "$PUSHED" = "true" ] && [ "$TARGET" = "pr" ]; then
+            echo "Pushed ${COUNT} commits to this pull request: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${FROM}...${TIP}" > "$MESSAGE"
+          elif [ "$PUSHED" = "true" ]; then
+            echo "Pushed Claude's commits, but opening the pull request failed." > "$MESSAGE"
+          elif [ -s "$RUNNER_TEMP/comment.md" ]; then
+            cp "$RUNNER_TEMP/comment.md" "$MESSAGE"
+          else
+            echo "Publishing Claude's commits failed." > "$MESSAGE"
+          fi
+          printf '\nSee %s.\n' "$RUN_URL" >> "$MESSAGE"
+          gh api --silent --method POST "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" -F "body=@${MESSAGE}"
+
+  # Swaps the eyes reaction for the result once every job that ran has finished. Only the account
+  # that added a reaction can remove it, so this reacts as the App, as the ack job did.
+  react:
+    needs: [ack, triage, build, publish]
+    if: always() && needs.ack.outputs.target != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Write access lets github.token react if the App token step fails.
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Generate token for GitHub App
+        id: generate-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          permission-pull-requests: write
+          permission-issues: write
+          owner: posit-dev
+          repositories: positron
 
       - name: Replace eyes with result reaction
-        if: always() && needs.triage.outputs.ack_target != ''
         env:
-          # The App added the eyes, and only the reacting account can remove it.
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-          TARGET: ${{ needs.triage.outputs.ack_target }}
-          REACTION_ID: ${{ needs.triage.outputs.ack_reaction_id }}
-          JOB_STATUS: ${{ job.status }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token || github.token }}
+          TARGET: ${{ needs.ack.outputs.target }}
+          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          RESULTS: ${{ needs.ack.result }} ${{ needs.triage.result }} ${{ needs.build.result }} ${{ needs.publish.result }}
         run: |
           if [ -n "$REACTION_ID" ]; then
             gh api --method DELETE "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions/${REACTION_ID}" \
               || echo "Failed to remove eyes reaction (non-fatal)"
           fi
-          if [ "$JOB_STATUS" = "success" ]; then FINAL=rocket; else FINAL=confused; fi
+          # build runs only on a handoff, and publish only when there are commits, so a skipped
+          # job is not a failure.
+          FINAL=rocket
+          for RESULT in $RESULTS; do
+            if [ "$RESULT" != "success" ] && [ "$RESULT" != "skipped" ]; then FINAL=confused; fi
+          done
           gh api --method POST "repos/${GITHUB_REPOSITORY}/${TARGET}/reactions" \
             -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"

@@ -14,7 +14,12 @@ import { asWebviewUri } from '../../webview/common/webview.js';
 import { IOverlayWebview, IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { INotebookRendererInfo, RendererMessagingSpec } from '../../notebook/common/notebookCommon.js';
+import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronNotebookOutputWebviewService } from './notebookOutputWebviewServiceImpl.js';
+import { FILL_VIEWPORT_CSS } from './fillViewport.js';
 
 describe('PositronNotebookOutputWebviewService', () => {
 	ensureNoLeakedDisposables();
@@ -61,5 +66,66 @@ describe('PositronNotebookOutputWebviewService', () => {
 		).toEqual([baseUri.toString()]);
 		expect(capturedHtml).toBeDefined();
 		expect(capturedHtml).toContain(`<base href="${asWebviewUri(baseUri).toString(true)}/">`);
+	});
+
+	describe('fill viewport', () => {
+		const createService = () => {
+			const htmls: string[] = [];
+			const webviewService = stubInterface<IWebviewService>({
+				createWebviewOverlay: () => stubInterface<IOverlayWebview>({
+					setHtml(html: string) { htmls.push(html); },
+				}),
+			});
+			const renderer = stubInterface<INotebookRendererInfo>({
+				id: 'renderer',
+				extensionId: new ExtensionIdentifier('renderer.ext'),
+				entrypoint: { path: URI.file('/renderer/index.js'), extends: undefined },
+				messaging: RendererMessagingSpec.Never,
+			});
+			const service = new PositronNotebookOutputWebviewService(
+				webviewService,
+				stubInterface<INotebookService>({
+					getPreferredRenderer: () => renderer,
+					getMimeTypeInfo: () => [{ mimeType: 'text/html', rendererId: 'renderer', isTrusted: true }],
+					getRendererInfo: () => renderer,
+					getRenderers: () => [],
+				}),
+				stubInterface<IWorkspaceTrustManagementService>({ isWorkspaceTrusted: () => true }),
+				stubInterface<INotebookRendererMessagingService>({ getScoped: () => stubInterface({}) }),
+				stubInterface<ILogService>({}),
+				stubInterface<IInstantiationService>({
+					createInstance: (() => ({ onDidInitialize: Event.None, dispose() { } })) as IInstantiationService['createInstance'],
+				}),
+			);
+			return { service, htmls };
+		};
+
+		const output = stubInterface<ILanguageRuntimeMessageWebOutput>({ id: 'output-1', data: { 'text/html': '' }, resource_roots: [] });
+		const create = {
+			single: (service: PositronNotebookOutputWebviewService, fillViewport?: boolean) => service.createNotebookOutputWebview({
+				id: 'output-1',
+				runtime: stubInterface<ILanguageRuntimeSession>({ sessionId: 'session-1' }),
+				output,
+				fillViewport,
+			}),
+			multi: (service: PositronNotebookOutputWebviewService, fillViewport?: boolean) => service.createMultiMessageWebview({
+				runtimeId: 'session-1',
+				preReqMessages: [],
+				displayMessage: output,
+				fillViewport,
+			}),
+		};
+
+		it.each([
+			{ entry: 'single', fillViewport: true, expected: true },
+			{ entry: 'single', fillViewport: undefined, expected: false },
+			{ entry: 'multi', fillViewport: true, expected: true },
+		] as const)('$entry: fillViewport=$fillViewport adds the fill CSS: $expected', async ({ entry, fillViewport, expected }) => {
+			const { service, htmls } = createService();
+			await create[entry](service, fillViewport);
+
+			expect(htmls).toHaveLength(1);
+			expect(htmls[0].includes(FILL_VIEWPORT_CSS)).toBe(expected);
+		});
 	});
 });

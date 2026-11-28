@@ -3408,6 +3408,12 @@ declare module 'positron' {
 		 * method that creates a new webview panel and sets its content to the
 		 * given URL.
 		 *
+		 * On Desktop, when the Viewer uses the integrated browser (the
+		 * `viewer.useIntegratedBrowser` setting), the page isn't in a webview,
+		 * so the panel's `webview` isn't connected to it: `postMessage`
+		 * returns false and no messages arrive. Use `createPreviewPanel` for
+		 * content that exchanges messages with the extension.
+		 *
 		 * @param url The URL to preview
 		 * @param source Optional source information indicating what opened the preview
 		 *
@@ -3419,6 +3425,12 @@ declare module 'positron' {
 		 * Create and show a new preview panel for an HTML file. This is a
 		 * convenience method that creates a new webview panel and sets its
 		 * content to that of the given file.
+		 *
+		 * On Desktop, when the Viewer uses the integrated browser (the
+		 * `viewer.useIntegratedBrowser` setting), the page isn't in a webview,
+		 * so the panel's `webview` isn't connected to it: `postMessage`
+		 * returns false and no messages arrive. Use `createPreviewPanel` for
+		 * content that exchanges messages with the extension.
 		 *
 		 * @param path The fully qualified path to the HTML file to preview
 		 *
@@ -3749,7 +3761,11 @@ declare module 'positron' {
 		 *  contribute attribution details about the code's origin. These fields
 		 *  are merged into `attribution.metadata` on the resulting
 		 *  `CodeExecutionEvent`. Positron retains sole authority over
-		 *  `attribution.source`; callers cannot set it.
+		 *  `attribution.source`; callers cannot set it. An AI agent running
+		 *  code sets `agentName` to its display name, and Positron credits
+		 *  plots the code creates to it. It may also set `revealCommand` to a
+		 *  `{ command: string; arguments?: any[] }` that reveals where it ran
+		 *  the code, which Positron runs when the user clicks the credit.
 		 * @param preserveActiveTab Whether to avoid switching the active tab when
 		 *  revealing the Console and Plots. If another tab is showing where the
 		 *  Console or Plots live, it stays showing, and the foreground session
@@ -4164,8 +4180,10 @@ declare module 'positron' {
 		 * @param params An object of named parameters for `method`.
 		 * @param options Optional options for the call. `sessionId` identifies the calling kernel
 		 *   session, e.g. so console-aware methods can be scoped to that session's own console.
+		 *   `parentId` is the ID of the request that the call belongs to (the parent of the
+		 *   kernel's RPC request), e.g. the execute request that waits for the reply.
 		 */
-		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string }): Thenable<any>;
+		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string; parentId?: string }): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.
