@@ -7,11 +7,11 @@ import { raceTimeout } from '../../../../../base/common/async.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotOpenTarget, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { ACTIVE_GROUP, AUX_WINDOW_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
-import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICodeLocation } from '../../../../services/positronConsole/common/codeLocation.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -29,6 +29,7 @@ import { IViewDescriptorService, ViewContainer, ViewContainerLocation } from '..
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestRuntimeClientInstance } from '../../../../services/languageRuntime/test/common/testRuntimeClientInstance.js';
 import { PositronAssistantService } from '../../../positronAssistant/browser/positronAssistantService.js';
+import { findStoredSizingPolicy } from '../../browser/positronPlotsService.js';
 
 describe('Positron - Plots Service', () => {
 
@@ -229,6 +230,28 @@ describe('Positron - Plots Service', () => {
 		await plotInstance.getIntrinsicSize();
 
 		expect(plotInstance.sizingPolicy.id).toBe('auto');
+	});
+
+	it('sizing policy: an editor plot saves a sizing change to storage', async () => {
+		const { session } = await createSession();
+		session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		await expect(plotsService.openEditor('plot1')).rejects.toThrow('Failed to open editor');
+
+		plotsService.setEditorSizingPolicy('plot1', 'square');
+
+		const storageService = ctx.instantiationService.get(IStorageService);
+		const stored = storageService.get(`positron.plot.${session.sessionId}.plot1.${PlotClientLocation.Editor}`, StorageScope.WORKSPACE);
+		plotsService.removeEditorPlot('plot1');
+		expect(JSON.parse(stored!).sizing_policy.id).toBe('square');
+	});
+
+	it('sizing policy: a stored custom size keeps its own width and height', () => {
+		plotsService.setCustomPlotSize({ width: 500, height: 200 });
+
+		const policy = findStoredSizingPolicy({ id: 'custom', size: { width: 300, height: 500 } }, plotsService.sizingPolicies);
+
+		expect(policy?.getPlotSize({ width: 800, height: 600 })).toEqual({ width: 300, height: 500 });
+		expect(findStoredSizingPolicy({ id: 'square' }, plotsService.sizingPolicies)?.id).toBe('square');
 	});
 
 	it('selection: select plot', async () => {
@@ -705,6 +728,184 @@ describe('Positron - Plots Service', () => {
 			// The most recent plot is still cached and is recreated on reselection.
 			plotsService.selectPlot(`nb-plot-${total - 1}`);
 			expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual([`nb-plot-${total - 1}`]);
+		});
+	});
+
+	describe('locator', () => {
+		const SIZE = { width: 400, height: 300 };
+
+		async function createSessionWithPlots(...plotIds: string[]) {
+			const out = await createSession();
+			for (const id of plotIds) {
+				out.session.createClient(RuntimeClientType.Plot, {}, {}, id);
+			}
+			return out.session;
+		}
+
+		it('waits for a plot that arrives after the request', async () => {
+			const session = await createSessionWithPlots('plot1');
+			plotsService.selectPlot('plot1');
+
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot2', SIZE);
+			// Removing another plot while the request waits does not end it.
+			plotsService.removePlot('plot1');
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2', size: SIZE });
+
+			await session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
+
+			expect(plotsService.selectedPlotId).toBe('plot2');
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot2', size: SIZE });
+			plotsService.resolveLocator({ x: 0.3, y: 0.7 });
+			expect(await pending).toEqual({ x: 0.3, y: 0.7 });
+		});
+
+		it('ends with no point when the plot never arrives', async () => {
+			const session = await createSessionWithPlots('plot1');
+			vi.useFakeTimers();
+			try {
+				const pending = plotsService.locatePlotPoint(session.sessionId, 'nope', SIZE);
+				expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'nope', size: SIZE });
+
+				vi.advanceTimersByTime(4_999);
+				expect(plotsService.activeLocator).toBeDefined();
+
+				vi.advanceTimersByTime(1);
+				expect(plotsService.activeLocator).toBeUndefined();
+				expect(await pending).toBeUndefined();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('selects the plot and resolves with the located point', async () => {
+			const session = await createSessionWithPlots('plot1', 'plot2');
+			plotsService.selectPlot('plot2');
+
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			expect(plotsService.selectedPlotId).toBe('plot1');
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
+			plotsService.resolveLocator({ x: 0.1, y: 0.9 });
+			expect(await pending).toEqual({ x: 0.1, y: 0.9 });
+			expect(plotsService.activeLocator).toBeUndefined();
+		});
+
+		it('survives an interrupt and ends when the session goes idle', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			session.setRuntimeState(RuntimeState.Interrupting);
+			expect(plotsService.activeLocator).toBeDefined();
+
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(await pending).toBeUndefined();
+			expect(plotsService.activeLocator).toBeUndefined();
+		});
+
+		it('ends only when its own execute request goes idle', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
+
+			// A comm request answered while R waits in locator() sends busy and idle.
+			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Busy });
+			session.setRuntimeState(RuntimeState.Busy);
+			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Idle });
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE, executionId: 'exec1' });
+
+			session.receiveStateMessage({ parent_id: 'exec1', state: RuntimeOnlineState.Idle });
+			expect(await pending).toBeUndefined();
+			expect(plotsService.activeLocator).toBeUndefined();
+		});
+
+		it('survives the session going offline and coming back', async () => {
+			const session = await createSessionWithPlots('plot1');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			session.setRuntimeState(RuntimeState.Offline);
+			expect(plotsService.activeLocator).toBeDefined();
+
+			session.setRuntimeState(RuntimeState.Busy);
+			expect(plotsService.activeLocator).toBeDefined();
+
+			// Idle ends the reconnect wait in the session service (and the locator), so nothing leaks.
+			session.setRuntimeState(RuntimeState.Idle);
+		});
+
+		it('ends when the session exits', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			session.setRuntimeState(RuntimeState.Exited);
+
+			expect(await pending).toBeUndefined();
+		});
+
+		it('ends when the plot is removed', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			plotsService.removePlot('plot1');
+
+			expect(await pending).toBeUndefined();
+		});
+
+		it('ends when all plots are cleared', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const pending = plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			plotsService.removeAllPlots();
+
+			expect(await pending).toBeUndefined();
+		});
+
+		it('stays active when a different plot is removed', async () => {
+			const session = await createSessionWithPlots('plot1', 'plot2');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			plotsService.removePlot('plot2');
+
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
+		});
+
+		it('keeps the chosen points until their execute request goes idle', async () => {
+			const session = await createSessionWithPlots('plot1');
+			const point = { x: 0.1, y: 0.9 };
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
+			plotsService.resolveLocator(point);
+			const expected = { sessionId: session.sessionId, plotId: 'plot1', size: SIZE, points: [point] };
+
+			// A comm request answered between two locator requests sends busy and idle.
+			session.receiveStateMessage({ parent_id: 'comm-request', state: RuntimeOnlineState.Idle });
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(plotsService.locatorPoints).toEqual(expected);
+
+			session.receiveStateMessage({ parent_id: 'exec1', state: RuntimeOnlineState.Idle });
+			expect(plotsService.locatorPoints).toBeUndefined();
+		});
+
+		it('removes the chosen points when their plot is removed', async () => {
+			const session = await createSessionWithPlots('plot1', 'plot2');
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE, 'exec1');
+			plotsService.resolveLocator({ x: 0.1, y: 0.9 });
+
+			plotsService.removePlot('plot2');
+			expect(plotsService.locatorPoints?.points).toHaveLength(1);
+
+			plotsService.removePlot('plot1');
+			expect(plotsService.locatorPoints).toBeUndefined();
+		});
+
+		it('stays active when an editor copy of the plot is closed', async () => {
+			const session = await createSessionWithPlots('plot1');
+			// Opening the editor registers the editor copy even if the test editor service
+			// cannot show a pane.
+			await plotsService.openEditor('plot1').catch(() => { });
+			void plotsService.locatePlotPoint(session.sessionId, 'plot1', SIZE);
+
+			plotsService.removeEditorPlot('plot1');
+
+			expect(plotsService.activeLocator).toEqual({ sessionId: session.sessionId, plotId: 'plot1', size: SIZE });
 		});
 	});
 });

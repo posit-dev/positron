@@ -122,9 +122,9 @@ export class Application {
 		await this._connectToExternalServer();
 	}
 
-	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[] }): Promise<void> {
+	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[]; saveState?: boolean }): Promise<void> {
 		await measureAndLog(() => (async () => {
-			await this.stop();
+			await this.stop({ saveState: options?.saveState });
 			await this._start(options?.workspaceOrFolder, options?.extraArgs);
 		})(), 'Application#restart()', this.logger);
 	}
@@ -139,10 +139,10 @@ export class Application {
 		await measureAndLog(() => this.checkWindowReady(code), 'Application#checkWindowReady()', this.logger);
 	}
 
-	async stop(): Promise<void> {
+	async stop(options?: { saveState?: boolean }): Promise<void> {
 		if (this._code) {
 			try {
-				await this._code.exit();
+				await this._code.exit(options);
 			} finally {
 				this._code = undefined;
 			}

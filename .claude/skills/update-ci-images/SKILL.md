@@ -139,10 +139,11 @@ gh pr create --base main --head <branch> \
   --body  "<see template below>"
 ```
 
-`bump-selector-pins.sh` rewrites only the pins that describe the images: the
-container-based workflows, `docker/environments/arm-local/setup-test-env.sh`,
-`.devcontainer/ci-arm/devcontainer.json`, and the `*_REMOTE_*` pins of the
-remote-ssh workflow. It ends with a grep of what still names the old versions;
+`bump-selector-pins.sh` rewrites only the pins that describe the images. In
+this repository those are `docker/environments/arm-local/setup-test-env.sh` and
+`.devcontainer/ci-arm/devcontainer.json`. The test lanes run in
+`posit-dev/positron-builds`, so the lane pins and the image tag that the lanes
+pull are there; see "The positron-builds PR" below. It ends with a grep of what still names the old versions;
 those should all be runner-side pins (connect, macOS, Windows,
 release-screenshots, the host side of remote-ssh), which this skill does not
 change. Also check the two image READMEs that list versions
@@ -321,11 +322,25 @@ When all 7 are `done` (success):
 - **Leave the PR open for human review — do NOT merge.**
 - Report to the user: the PR URL, the tag, the three versions, and confirmation that all
   7 multi-arch images built and pushed. Note anything that needed a fix (link those commits).
-- Remind the user that `posit-dev/positron-builds` pins the same tag and selectors in its
-  own workflows, `dockerfiles/`, `dev/workbench/docker-compose.yml` and the defaults of
-  `.github/actions/run-e2e-playwright-tests/action.yml`, and needs a follow-up PR. That
-  includes `test-memory-metrics.yml` (`MEMORY_CONTAINER_IMAGE` and the `*_VER_SEL` env),
-  which no script here bumps since it moved out of this repo.
+- Open the positron-builds PR (next section). The lanes do not use the new images until it merges.
+
+### The positron-builds PR
+
+The test lanes run in `posit-dev/positron-builds`. Its lane workflows pull the images by tag
+and pin the interpreters inside them. Until those pins move, every lane still uses the old
+images. After all images are pushed, in a checkout of positron-builds on a new branch off
+its `main`:
+
+```bash
+bash <dir>/scripts/bump-selector-pins.sh <old-python> <python> <old-r> <r> --builds <positron-builds checkout>
+bash <dir>/scripts/retag-consumers.sh <old-tag> <tag> --builds <positron-builds checkout>
+```
+
+Each script prints the files that it changed and then what still names the old value.
+Runner-side pins (Windows, macOS, WSL, Connect, the host side of Remote SSH) are expected
+in that second list; a container lane is not. Commit, push the branch over SSH (a push that
+changes workflow files needs the `workflow` scope) and open a PR that links the positron PR.
+Leave it open for review.
 
 If you stopped early on a stuck job, report exactly what's green, what's blocked, and the
 diagnosis, and leave the branch/PR in place for the user to take over.

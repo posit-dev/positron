@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude, WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, priorRows, pickPrCheck, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
+import { buildCheckPrompt, candidateIssues, capDiff, decideOutcome, diffEvidence, droppedPaths, extractPaths, isCut, fetchReport, findingOrigin, mapLimit, outcomeFindings, guarded, issueOf, markDuplicates, packDiffs, parseCheck, priorRows, pickPrCheck, reportFromRows, handOutcome, withHand, prSettled, prOwnChanges, prOwnMessages, prPreview, renderTable, replyKey, resolveTestedSha, resultsByPr, savedPrChecks, savedReplies, searchTerms, settledRows, shippedVia } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -38,9 +38,9 @@ const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: {
 const PRIOR = args.previous ? readFileSync(args.previous, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
 const PREVIOUS = args.recheck ? [] : PRIOR;
 const SETTLED = settledRows(PREVIOUS);
-// Origins set by hand, keyed by run#finding, for findings from before main was replayed.
-// A PR that isn't read again keeps its saved origins, so run with --recheck after removing an entry.
-const ORIGIN_OVERRIDES = JSON.parse(readFileSync(new URL('./origin-overrides.json', import.meta.url), 'utf8'));
+// Origins and outcomes set by hand, keyed by run#finding, for findings the checks get wrong.
+// A PR that isn't read again keeps what it saved, so run with --recheck after removing an entry.
+const OVERRIDES = JSON.parse(readFileSync(new URL('./finding-overrides.json', import.meta.url), 'utf8'));
 const SAVED_PR_CHECKS = savedPrChecks(PREVIOUS);
 const SAVED_REPLIES = savedReplies(PREVIOUS);
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
@@ -299,49 +299,59 @@ async function prRows(number, results) {
 	const closes = await closingIssues(number);
 	const rows = [];
 	for (const parsed of results) {
-		const report = await fetchReport(parsed.reportBase).catch(err => {
+		let report = await fetchReport(parsed.reportBase).catch(err => {
 			console.error(`[outcomes] #${number} run ${parsed.run}: report fetch failed: ${err}`);
 			return null;
 		});
 		if (!report) {
+			// Reports on the retired CDN are gone for good. Their rows keep their outcome but show the PR as it is now,
+			// and are decided again from what they saved once the PR has merged or closed since.
 			const prior = priorRows(PRIOR, number, parsed.run);
-			rows.push(...prior);
-			console.error(`[outcomes] #${number} run ${parsed.run}: no report, kept ${prior.length} previous rows`);
-			continue;
+			report = reportFromRows(prior, prState);
+			if (!report) {
+				rows.push(...prior.map(r => ({ ...withHand(r, OVERRIDES), prPreview: preview })));
+				console.error(`[outcomes] #${number} run ${parsed.run}: no report, kept ${prior.length} previous rows`);
+				continue;
+			}
+			console.error(`[outcomes] #${number} run ${parsed.run}: no report, deciding ${prior.length} saved rows again now the PR is ${prState}`);
 		}
-		const stats = await fetchJson(`${parsed.reportBase}/stats.json`);
+		const stats = report.fromRows ? report.stats : await fetchJson(`${parsed.reportBase}/stats.json`);
 		const tested = await resolveTestedSha({ headSha: report.header?.headSha, shortSha: parsed.shortSha, lookup: async s => (await gh(`/repos/${REPO}/commits/${s}`)).sha });
 		// A report from before the Origin column lists only the findings whose fix was in the change.
 		const origin = new Map([...(report.verification?.related ?? []).map(n => [n, 'introduced']), ...Object.entries(report.verification?.origin ?? {}).map(([n, o]) => [Number(n), o])]);
 		for (const finding of outcomeFindings(report, stats)) {
 			// A fix in a PR that later closed never shipped, so it's decided again.
 			const kept = SETTLED.get(`${parsed.run}#${finding.n}`);
-			// A page-only report has no Origin column, so a kept row keeps the origin it was saved with.
-			const forced = ORIGIN_OVERRIDES[`${parsed.run}#${finding.n}`]?.origin;
-			const findingOrig = report.fromPage ? (forced ?? kept?.origin ?? null) : findingOrigin(forced ?? origin.get(finding.n) ?? null, finding, closes);
-			if (kept && !viaNumber && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
+			// A page-only or rebuilt report has no Origin column, so a row keeps the origin it was saved with.
+			const override = OVERRIDES[`${parsed.run}#${finding.n}`];
+			const forced = override?.origin;
+			const hand = handOutcome(override);
+			const findingOrig = report.fromPage || report.fromRows ? (forced ?? kept?.origin ?? finding.origin ?? null) : findingOrigin(forced ?? origin.get(finding.n) ?? null, finding, closes);
+			if (kept && !hand && !viaNumber && !(prState === 'closed' && kept.outcome === 'fixed-in-pr')) {
 				rows.push({ ...kept, origin: findingOrig, prPreview: preview });
 				console.error(`[outcomes] #${number} ${parsed.run}#${finding.n}: ${kept.outcome} (kept from --previous)`);
 				continue;
 			}
-			const paths = extractPaths(finding, FILES);
+			const paths = finding.paths ?? extractPaths(finding, FILES);
 			// Only the PR's own answer is reused; the checks for a later fix on main or an issue run every time, reusing a saved reply when the prompt is unchanged.
 			const saved = prState === 'merged' ? SAVED_PR_CHECKS.get(`${parsed.run}#${finding.n}`) : undefined;
 			const replies = {};
-			const { inPr, later } = await usedReplies.run(replies, async () => ({
+			const { inPr, later } = hand ? { inPr: null, later: [] } : await usedReplies.run(replies, async () => ({
 				inPr: saved ?? (tested.sha && prState !== 'open' ? await prCheck(finding, paths, pr, prCommits, tested.sha) : null),
 				later: prState === 'open' && findingOrig !== 'inherited' ? [] : await laterChecks(finding, paths, pr, parsed.postedAt, timeline),
 			}));
-			const dropped = prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
-			const intended = await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
+			const dropped = !hand && prState === 'merged' && tested.sha ? droppedPaths({ paths, tested: testedFiles(tested.sha, pr), merged: mergedFiles }) : [];
+			const intended = hand ? [] : await notPlanned([...(finding.intended ?? []), ...(finding.known ?? [])]);
 			// A closed PR didn't ship whatever was tested, so it needs no tested commit.
-			const decided = tested.sha || prState === 'closed'
+			const decided = hand ?? (tested.sha || prState === 'closed'
 				? decideOutcome({ prState, hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later, dropped, intended, inherited: findingOrig === 'inherited' })
-				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
+				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason });
 			rows.push({
 				pr: number, run: parsed.run, trigger: parsed.trigger, postedAt: parsed.postedAt, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
 				skillVersion: stats?.version ?? null, model: stats?.model ?? null,
 				finding: finding.n, title: finding.title, severity: finding.severity, feature: finding.feature, verified: finding.verified,
+				// Saved so the row can be decided again if its report is ever gone.
+				observed: finding.observed, expected: finding.expected, cause: finding.cause,
 				origin: findingOrig, paths, ...decided, prCheck: prState === 'merged' ? inPr : null, decidedAt: new Date().toISOString().slice(0, 10), prPreview: preview,
 				...(Object.keys(replies).length ? { replies } : {}),
 			});
@@ -355,7 +365,7 @@ const results = await prResults();
 const numbers = [...results.keys()];
 // A merged PR whose rows can't change isn't read again, which saves several GitHub calls each. A PR shipped through
 // another is decided again every time, and one asked for with --pr is always read.
-const settledPrs = new Set(args.pr ? [] : numbers.filter(n => !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, ORIGIN_OVERRIDES, n, results.get(n).map(r => r.run))));
+const settledPrs = new Set(args.pr ? [] : numbers.filter(n => !SHIPPED_VIA.has(n) && prSettled(PREVIOUS, SETTLED, OVERRIDES, n, results.get(n).map(r => r.run))));
 console.error(`[outcomes] ${settledPrs.size} settled PRs kept without reading, ${numbers.length - settledPrs.size} to read`);
 // One fetch for every PR rather than one each; if it fails, each PR fetches its own.
 let FETCHED_ALL = false;

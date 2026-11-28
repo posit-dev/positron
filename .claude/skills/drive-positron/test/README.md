@@ -166,7 +166,7 @@ passes every run (some known failures are timing races that pass now and then).
 
 ## In CI
 
-`.github/workflows/drive-positron-nightly.yml` builds Positron as
+`drive-positron-nightly.yml` in posit-dev/positron-builds builds Positron as
 `test-e2e-ubuntu.yml` does, in the same image, adds Quarto, and runs smoke.ts
 every weekday night (03:30 UTC) or on a manual run, then fixes the helper bugs
 it finds (see [../heal/README.md](../heal/README.md)). Drift is not checked on

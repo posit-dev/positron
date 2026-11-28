@@ -35,7 +35,8 @@
 }
 
 .plots-container .plot-info-header .plot-session-name,
-.plots-container .plot-info-header .plot-origin-file {
+.plots-container .plot-info-header .plot-origin-file,
+.plots-container .plot-info-header .plot-agent {
 	font-size: 11px;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
@@ -48,9 +49,24 @@
 }
 
 .plots-container .plot-info-header .plot-session-name:hover,
-.plots-container .plot-info-header .plot-origin-file:hover {
+.plots-container .plot-info-header .plot-origin-file:hover,
+.plots-container .plot-info-header button.plot-agent:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 	opacity: 1;
+}
+
+.plots-container .plot-info-header .plot-agent {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.plots-container .plot-info-header span.plot-agent {
+	cursor: default;
+}
+
+.plots-container .plot-info-header .plot-agent .codicon {
+	font-size: 12px;
 }
 
 .plots-container .plot-info-header .plot-name {
@@ -58,6 +74,10 @@
 	color: var(--vscode-foreground);
 	opacity: 0.8;
 	margin-left: auto;
+	margin-right: 5px;
+}
+
+.plots-container .plot-info-header .plot-locator-prompt {
 	margin-right: 5px;
 }
 

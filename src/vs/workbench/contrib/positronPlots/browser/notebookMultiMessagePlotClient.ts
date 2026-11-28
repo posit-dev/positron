@@ -55,7 +55,9 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 			runtimeId: this._session.sessionId,
 			preReqMessages: this._preReqMessages,
 			displayMessage: this._displayMessage,
-			viewType: 'jupyter-notebook'
+			viewType: 'jupyter-notebook',
+			// The Plots pane has a fixed size, so outputs that can fill it should.
+			fillViewport: true,
 		});
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');

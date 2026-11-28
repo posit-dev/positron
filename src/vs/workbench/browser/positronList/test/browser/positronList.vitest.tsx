@@ -16,6 +16,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubGridLayout, stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayout.js';
 import { PositronList } from '../../positronList.js';
 import { ListEntry, PositronListInstance } from '../../classes/positronListInstance.js';
+import { RowSelectionState } from '../../../positronDataGrid/classes/dataGridInstance.js';
 
 // The harness in the control gallery uses these dimensions; mirror them so row math is concrete.
 const ITEM_HEIGHT = 24;
@@ -115,6 +116,122 @@ describe('PositronListInstance', () => {
 		list.selectRow(2);
 
 		expect(list.getSelectedItems()).toEqual(['Item 3']);
+	});
+
+	it('selects a set of rows without moving the cursor', () => {
+		const list = newList();
+		list.setEntries([
+			{ kind: 'item', item: 'Item 1' },
+			{ kind: 'section', section: 'Section 1' },
+			{ kind: 'item', item: 'Item 2' },
+			{ kind: 'item', item: 'Item 3' },
+		]);
+		list.setCursorRow(2);
+
+		list.selectRows([3, 0]);
+
+		expect({
+			selected: list.getSelectedItems(),
+			cursorRow: list.cursorRowIndex,
+		}).toEqual({ selected: ['Item 1', 'Item 3'], cursorRow: 2 });
+	});
+
+	it('drops duplicate and non-selectable rows from the rows it selects', () => {
+		const list = newList();
+		list.setEntries([
+			{ kind: 'item', item: 'Item 1' },
+			{ kind: 'section', section: 'Section 1' },
+			{ kind: 'item', item: 'Item 2' },
+		]);
+
+		list.selectRows([2, 1, 2, 0]);
+
+		// Row 1 is a section, so only the two item rows are selected.
+		expect({
+			selected: list.getSelectedItems(),
+			sectionState: list.rowSelectionState(1),
+		}).toEqual({ selected: ['Item 1', 'Item 2'], sectionState: RowSelectionState.None });
+	});
+
+	it('clears the selection when no selectable row is given', () => {
+		const list = newList();
+		list.setEntries(flatItems(3));
+		list.selectRow(1);
+
+		list.selectRows([]);
+
+		expect(list.getSelectedItems()).toEqual([]);
+	});
+
+	describe('with an item key', () => {
+		function newKeyedList(): PositronListInstance<string, string> {
+			const instance = new PositronListInstance<string, string>({
+				itemRenderer: item => <div>{item}</div>,
+				sectionRenderer: section => <div>{section}</div>,
+				itemHeight: ITEM_HEIGHT,
+				sectionHeight: SECTION_HEIGHT,
+				selectionMode: 'list-multiple-selection',
+				getItemKey: item => item,
+			});
+			store.add(instance);
+			return instance;
+		}
+		function items(...names: string[]): ListEntry<string, string>[] {
+			return names.map(item => ({ kind: 'item', item }));
+		}
+
+		it('keeps the cursor on its item when a row above it is removed', () => {
+			const list = newKeyedList();
+			list.setEntries(items('a', 'b', 'c', 'd'));
+			list.setCursorRow(2);
+
+			list.setEntries(items('b', 'c', 'd'));
+
+			expect(list.getCursorItem()).toBe('c');
+		});
+
+		it('keeps the selection on its items when rows move, dropping the ones that are gone', () => {
+			const list = newKeyedList();
+			list.setEntries(items('a', 'b', 'c', 'd'));
+			list.selectRows([0, 2, 3]);
+
+			list.setEntries(items('d', 'c', 'b'));
+
+			expect(list.getSelectedItems()).toEqual(['d', 'c']);
+		});
+
+		it('clears the selection when none of the selected items remain', () => {
+			const list = newKeyedList();
+			list.setEntries(items('a', 'b'));
+			list.selectRow(0);
+
+			list.setEntries(items('x', 'y'));
+
+			expect(list.getSelectedItems()).toEqual([]);
+		});
+
+		it('leaves an empty selection empty', () => {
+			const list = newKeyedList();
+			list.setEntries(items('a', 'b'));
+
+			list.setEntries(items('b', 'a'));
+
+			expect(list.getSelectedItems()).toEqual([]);
+		});
+
+		it('never shows subscribers an empty selection in between', async () => {
+			const list = newKeyedList();
+			list.setEntries(items('a', 'b', 'c'));
+			list.selectRows([1, 2]);
+			const seen: (readonly string[])[] = [];
+			store.add(list.onDidUpdate(() => seen.push(list.getSelectedItems())));
+
+			list.setEntries(items('b', 'c'));
+			await Promise.resolve();
+
+			expect(seen.length).toBeGreaterThan(0);
+			expect(seen.every(selected => selected.join() === 'b,c')).toBe(true);
+		});
 	});
 
 	it('exposes a maximum vertical scroll offset once a viewport size is set', async () => {

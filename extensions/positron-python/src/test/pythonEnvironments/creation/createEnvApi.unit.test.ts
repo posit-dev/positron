@@ -44,7 +44,7 @@ import { capture, when } from 'ts-mockito';
 import * as positron from 'positron';
 import { mockedPositronNamespaces } from '../../vscode-mock';
 import { Commands } from '../../../client/common/constants';
-import { PROJECT_GROUP_ORDER } from '../../../client/positron/pickerInfo';
+import { GLOBAL_GROUP_ORDER, PROJECT_GROUP_ORDER } from '../../../client/positron/pickerInfo';
 import * as uvUtils from '../../../client/pythonEnvironments/creation/provider/uvUtils';
 import * as uvPythonInstaller from '../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as globalEnvironment from '../../../client/pythonEnvironments/common/environmentManagers/globalEnvironment';
@@ -356,6 +356,26 @@ suite('Create Environment APIs', () => {
             assert.deepEqual(
                 items.map((item) => item.suggested),
                 [false],
+            );
+        });
+
+        test('getItems leaves the create item unsuggested when a named global environment exists', async () => {
+            const runtimes = [
+                { runtimeId: 'runtime-0', languageId: 'python', runtimeSource: 'System' },
+                {
+                    runtimeId: 'runtime-1',
+                    languageId: 'python',
+                    runtimeSource: 'Conda',
+                    picker: { groupOrder: GLOBAL_GROUP_ORDER },
+                },
+            ] as unknown as positron.LanguageRuntimeMetadata[];
+            when(mockedPositronNamespaces.runtime!.getRegisteredRuntimes()).thenReturn(Promise.resolve(runtimes));
+
+            const items = await capturedContribution().getItems();
+
+            assert.deepEqual(
+                items.map((item) => [item.id, item.suggested]),
+                [['create-python-env', false]],
             );
         });
 

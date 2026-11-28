@@ -544,6 +544,9 @@ export interface BrowserViewEventData {
 	onDidChangeAudiences: IBrowserViewAudience[];
 	onDidRequestPermission: IBrowserViewPermissionRequestEvent;
 	onDidChangePermissions: ISerializedBrowserPermissionsSnapshot;
+	// --- Start Positron ---
+	onDidRequestOpenExternal: string;
+	// --- End Positron ---
 }
 
 export type BrowserViewEventMap = { [K in keyof BrowserViewEventData]: Event<BrowserViewEventData[K]> };

@@ -1,0 +1,9 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* The integrated browser's Share with Agent button shares the page with the built-in chat's agent, which Positron doesn't use. */
+.browser-root .browser-share-toggle-container {
+	display: none;
+}

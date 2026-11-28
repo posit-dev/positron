@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { cliRun, commandWord, count, countOf, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
+import { cliRun, commandWord, count, countOf, Exit, inPage, log, parse, pause, samePath, seconds, shownPath, usage, type Json, type PageFn, type UriParts } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -24,15 +24,23 @@ import { names } from './selectors.ts';
  */
 const probe: PageFn<{ mark: string }> = async (page, a, lib) => {
 	const info = await page.evaluate(({ mark, statusbar }) => {
-		type Cfg = { workspace?: { uri?: { path?: string }; configPath?: { path?: string } }; userDataDir?: string };
+		type Uri = { scheme?: string; authority?: string; path?: string };
+		type Cfg = { workspace?: { uri?: Uri; configPath?: Uri }; userDataDir?: string };
 		const w = window as unknown as { dpWindowMark?: string; vscode?: { context?: { configuration?: () => Cfg } } };
 		const was = w.dpWindowMark ?? '';
 		if (mark) { w.dpWindowMark = mark; }
 		const cfg = w.vscode?.context?.configuration?.();
-		return { mark: was, title: document.title, folder: cfg?.workspace?.uri?.path ?? cfg?.workspace?.configPath?.path ?? null, userDataDir: cfg?.userDataDir ?? '', drawn: !!document.querySelector(statusbar) };
+		const u = cfg?.workspace?.uri ?? cfg?.workspace?.configPath;
+		return { mark: was, title: document.title, folder: u?.path ? { scheme: u.scheme, authority: u.authority, path: u.path } : null, userDataDir: cfg?.userDataDir ?? '', drawn: !!document.querySelector(statusbar) };
 	}, { mark: a.mark, statusbar: lib.css.part.statusbar });
 	return { ok: true, ...info, windows: page.context().pages().length, dialogs: await lib.dialogs() };
 };
+
+/** probe, with the folder's URI as its file path (c:\... on Windows), or the URI itself when it is not on this machine. */
+function readWindow(session: string, mark: string): Json {
+	const r = inPage(session, probe, { mark });
+	return r.ok ? { ...r, folder: shownPath(r.folder as UriParts | null) } : r;
+}
 
 /** The app's windows, numbered from 1 as the session lists them, and which one it drives. runs in run-code */
 const windows: PageFn<Record<string, never>> = async page => ({
@@ -80,7 +88,7 @@ function comeBack(session: string, mark: string, seconds: number, port: number):
 	let last: Json = { ok: false, error: 'no read yet' };
 	while (Date.now() < end) {
 		pause(0.5);
-		const r = inPage(session, probe, { mark: '' });
+		const r = readWindow(session, '');
 		if (r.ok) {
 			failed = 0;
 			last = r;
@@ -88,7 +96,7 @@ function comeBack(session: string, mark: string, seconds: number, port: number):
 				// A dialog can follow the reload by a second or two (sessions that did not
 				// reconnect: "Interpreters Disconnected"): look for one for 2 s before answering.
 				let after = r;
-				for (const until = Date.now() + 2000; !(after.dialogs as unknown[]).length && Date.now() < until;) { pause(0.5); const x = inPage(session, probe, { mark: '' }); if (x.ok) { after = x; } }
+				for (const until = Date.now() + 2000; !(after.dialogs as unknown[]).length && Date.now() < until;) { pause(0.5); const x = readWindow(session, ''); if (x.ok) { after = x; } }
 				return { ...after, reattached };
 			}
 			// A dialog before the reload (unsaved changes?) holds it.
@@ -119,7 +127,7 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 			const all = list.windows as { n: number; title: string }[];
 			if (!all[Number(arg) - 1]) { return { ok: false, error: `no window ${arg}: ${all.length} open`, windows: all }; }
 			try { cliRun(s, ['tab-select', String(Number(arg) - 1)]); } catch (e) { return { ok: false, error: `tab-select failed: ${(e as Error).message}` }; }
-			const now = inPage(s, probe, { mark: '' });
+			const now = readWindow(s, '');
 			if (!now.ok) { return now; }
 			log('window.sh', s, `select window ${arg}`, `${JSON.stringify(now.title)}, folder ${now.folder ?? 'none'}`);
 			return { ok: true, window: Number(arg), title: now.title, folder: now.folder };
@@ -132,11 +140,11 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 			if (!existsSync(folder) || !statSync(folder).isDirectory()) { return { ok: false, error: `${folder} is not a folder` }; }
 		}
 		const mark = `dp-${Date.now()}`;
-		let before = inPage(s, probe, { mark });
+		let before = readWindow(s, mark);
 		// A session that lost the page already (a reload done another way) is attached again first.
 		if (!before.ok && before.cliFailed && cdpPort) {
 			try { cliRun(s, ['attach', `--cdp=http://127.0.0.1:${cdpPort}`]); } catch (e) { return { ok: false, error: `the session has no page, and attach failed: ${(e as Error).message}` }; }
-			before = { ...inPage(s, probe, { mark }), reattached: true };
+			before = { ...readWindow(s, mark), reattached: true };
 		}
 		if (!before.ok) { return { ...before, hint: 'if the session lost the page, pass --cdp-port to attach it again' }; }
 		const port = cdpPort || cdpPortOf(String(before.userDataDir));
@@ -165,7 +173,7 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 		}
 		const now = comeBack(s, mark, timeout, port);
 		if (!now.ok) { return { ...now, was }; }
-		if (cmd === 'open-folder' && now.folder !== folder) { return { ok: false, error: `the window reloaded on ${now.folder ?? 'no folder'}, not ${folder}`, title: now.title, folder: now.folder, was }; }
+		if (cmd === 'open-folder' && !(typeof now.folder === 'string' && samePath(now.folder, folder))) { return { ok: false, error: `the window reloaded on ${now.folder ?? 'no folder'}, not ${folder}`, title: now.title, folder: now.folder, was }; }
 		log('window.sh', s, cmd === 'reload' ? 'reload window' : `open folder ${folder}`, `${JSON.stringify(now.title)}, folder ${now.folder ?? 'none'}${now.reattached ? ', attached again' : ''}`);
 		return { ok: true, did: cmd, title: now.title, folder: now.folder, was, reattached: !!(now.reattached || before.reattached), ...((now.dialogs as unknown[]).length ? { dialogs: now.dialogs, note: 'a dialog opened after the reload: answer it with notifications.sh --click BUTTON' } : {}) };
 	},

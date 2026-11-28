@@ -7,7 +7,7 @@
 // didn't build and has no element references into, so it has to use selectors.
 /* eslint-disable no-restricted-syntax */
 
-import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerBridgeSnapshot } from '../common/positronViewerAgent.js';
+import type { IViewerActOutcome, IViewerBridge, IViewerDialog, IViewerDialogPolicy, IViewerDragPoint, IViewerFile, IViewerIdleOptions, IViewerIdleResult, IViewerLocateOptions, IViewerLocation, IViewerSnapshotOptions, IViewerTarget, IViewerViewport, ViewerAction, ViewerBridgeSnapshot } from '../common/positronViewerAgent.js';
 
 /**
  * Caches the bridge in the app's window on Desktop, where each call is a
@@ -347,7 +347,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				if (type === 'hidden') {
 					return null;
 				}
-				if (['button', 'submit', 'reset', 'image'].includes(type)) {
+				// A file input is a button that opens a file chooser, as Chromium reads it.
+				if (['button', 'submit', 'reset', 'image', 'file'].includes(type)) {
 					return 'button';
 				}
 				if (type === 'checkbox') {
@@ -873,10 +874,30 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return name ? `${role} ${quote(name)}` : role;
 	}
 
-	/** Finds the control for a ref from a snapshot. */
-	function resolve(ref: unknown): Element {
+	/** Whether an action names an element, by ref or selector. */
+	const hasTarget = (target: IViewerTarget | null | undefined): target is IViewerTarget =>
+		!!target && ((target.ref !== undefined && target.ref !== null) || (target.selector !== undefined && target.selector !== null));
+
+	/** Finds the element for a ref from a snapshot, or a CSS selector that matches one element. */
+	function resolve(target: IViewerTarget | null | undefined): Element {
+		const selector = target?.selector;
+		if (typeof selector === 'string' && selector) {
+			let matches: Element[];
+			try {
+				matches = Array.from(doc.querySelectorAll(selector));
+			} catch {
+				throw new Error(`${quote(selector)} isn't a valid CSS selector.`);
+			}
+			if (matches.length !== 1) {
+				throw new Error(matches.length ?
+					`The selector ${quote(selector)} matches ${matches.length} elements. Use one that matches only one, or a ref.` :
+					`Nothing on the page matches the selector ${quote(selector)}.`);
+			}
+			return matches[0];
+		}
+		const ref = target?.ref;
 		if (typeof ref !== 'string' || !ref) {
-			throw new Error('This action needs the ref of a control from an outline of the page, such as "e3".');
+			throw new Error('This action needs the ref of a control from an outline of the page, such as "e3", or a CSS selector.');
 		}
 		const el = refElements.get(ref)?.deref();
 		if (!el) {
@@ -901,12 +922,13 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	// Pointer and mouse events in the order a real pointer sends them.
 	const HOVER_EVENTS = ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'];
 	// Returns whether the page let the last event's default action happen.
-	function sendPointer(el: Element, types: readonly string[]): boolean {
+	function sendPointer(el: Element, types: readonly string[], extra: MouseEventInit = {}): boolean {
 		const view = viewOf(el);
 		const rect = el.getBoundingClientRect();
 		const init: MouseEventInit = {
 			bubbles: true, cancelable: true, composed: true, view,
 			clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2,
+			...extra,
 		};
 		let allowed = true;
 		for (const type of types) {
@@ -927,11 +949,11 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	// adds keypress, on which Chromium runs Enter's default, and legacy key
 	// codes. The slider and select code leaves it off, so its widgets get the
 	// plain keydown and keyup they were built against.
-	function pressKey(el: Element, key: string, asBrowser = false): boolean {
+	function pressKey(el: Element, key: string, asBrowser = false, modifiers: KeyModifiers = {}, onPress?: () => void): boolean {
 		const view = viewOf(el);
 		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key === ' ' ? 'Space' : key;
 		const send = (type: string, legacyCode: number, charCode = 0) => {
-			const event = new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true });
+			const event = new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true, ...modifiers });
 			if (asBrowser) {
 				// KeyboardEventInit has no reliable way to set these.
 				Object.defineProperties(event, { keyCode: { value: legacyCode }, which: { value: legacyCode }, charCode: { value: charCode } });
@@ -941,12 +963,50 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		// Only letters and digits have codes that don't depend on the keyboard layout.
 		const keyCode = KEY_CODES[key] ?? (/^[a-z0-9]$/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0);
 		let allowed = send('keydown', keyCode);
-		if (asBrowser && allowed && (key === 'Enter' || key.length === 1)) {
+		// No keypress for a shortcut, as browsers send none with Control or Meta.
+		if (asBrowser && allowed && (key === 'Enter' || key.length === 1) && !modifiers.ctrlKey && !modifiers.metaKey) {
 			const charCode = key === 'Enter' ? 13 : key.charCodeAt(0);
 			allowed = send('keypress', charCode, charCode);
 		}
+		if (allowed) {
+			onPress?.();
+		}
 		send('keyup', keyCode);
 		return allowed;
+	}
+
+	interface KeyModifiers {
+		readonly ctrlKey?: boolean;
+		readonly shiftKey?: boolean;
+		readonly altKey?: boolean;
+		readonly metaKey?: boolean;
+	}
+
+	// The names a key combination can use for its modifiers, as Playwright's.
+	const MODIFIERS: Record<string, { readonly key: string; readonly flag: keyof KeyModifiers }> = {
+		control: { key: 'Control', flag: 'ctrlKey' }, ctrl: { key: 'Control', flag: 'ctrlKey' },
+		shift: { key: 'Shift', flag: 'shiftKey' },
+		alt: { key: 'Alt', flag: 'altKey' }, option: { key: 'Alt', flag: 'altKey' },
+		meta: { key: 'Meta', flag: 'metaKey' }, cmd: { key: 'Meta', flag: 'metaKey' }, command: { key: 'Meta', flag: 'metaKey' },
+		controlormeta: { key: /Mac/.test(win.navigator.platform) ? 'Meta' : 'Control', flag: /Mac/.test(win.navigator.platform) ? 'metaKey' : 'ctrlKey' },
+	};
+
+	/** Splits a key combination such as "Control+Shift+a" into its modifiers and key. */
+	function parseKey(combo: string): { readonly key: string; readonly modifiers: KeyModifiers; readonly modifierKeys: string[] } {
+		// "+" alone, or at the end ("Control++"), is the plus key.
+		const parts = combo.length > 1 ? combo.split(/\+(?=.)/) : [combo];
+		const key = parts.pop()!;
+		const modifiers: Record<string, boolean> = {};
+		const modifierKeys: string[] = [];
+		for (const part of parts) {
+			const modifier = MODIFIERS[part.toLowerCase()];
+			if (!modifier) {
+				throw new Error(`${quote(part)} isn't a modifier key. Use Control, Shift, Alt, Meta or ControlOrMeta, as in "Control+a".`);
+			}
+			modifiers[modifier.flag] = true;
+			modifierKeys.push(modifier.key);
+		}
+		return { key: key === 'Space' || key === 'Spacebar' ? ' ' : key, modifiers, modifierKeys };
 	}
 
 	// Sets a value with the native setter from the element's own prototype, so
@@ -1050,7 +1110,16 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
-	function click(el: Element): ActStep {
+	// The mouse buttons, as MouseEvent's `button` and `buttons` number them.
+	const BUTTONS = { left: { button: 0, buttons: 1 }, middle: { button: 1, buttons: 4 }, right: { button: 2, buttons: 2 } };
+
+	function click(el: Element, dblClick?: unknown, button?: unknown): ActStep {
+		if (button !== undefined && button !== null && button !== 'left' && button !== 'right' && button !== 'middle') {
+			throw new Error(`${quote(String(button))} isn't a mouse button. Use left, right or middle.`);
+		}
+		if (button === 'right' || button === 'middle' || dblClick === true) {
+			return clickWith(el, dblClick === true, button ?? 'left');
+		}
 		const what = describe(el);
 		checkUsable(el, what);
 		scrollToCenter(el);
@@ -1069,6 +1138,29 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return { done: `Clicked the ${what}.`, check };
 	}
 
+	/** A double click, or a click with the right or middle button. */
+	function clickWith(el: Element, dblClick: boolean, button: 'left' | 'right' | 'middle'): ActStep {
+		const what = describe(el);
+		checkUsable(el, what);
+		scrollToCenter(el);
+		const { button: number, buttons } = BUTTONS[button];
+		sendPointer(el, HOVER_EVENTS);
+		for (let detail = 1; detail <= (dblClick ? 2 : 1); detail++) {
+			if (sendPointer(el, ['pointerdown', 'mousedown'], { button: number, buttons, detail })) {
+				focus(el);
+			}
+			sendPointer(el, ['pointerup', 'mouseup'], { button: number, detail });
+			// A right click opens the context menu; other buttons click.
+			sendPointer(el, [button === 'right' ? 'contextmenu' : button === 'middle' ? 'auxclick' : 'click'], { button: number, detail });
+		}
+		if (dblClick) {
+			sendPointer(el, ['dblclick'], { button: number, detail: 2 });
+		}
+		const clicked = `${button === 'left' ? '' : `${button}-`}clicked`;
+		const how = dblClick ? `Double-${clicked}` : clicked[0].toUpperCase() + clicked.slice(1);
+		return { done: `${how} the ${what}.` };
+	}
+
 	function hover(el: Element): ActStep {
 		const what = describe(el);
 		checkUsable(el, what);
@@ -1077,9 +1169,12 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return { done: `Hovered over the ${what}.` };
 	}
 
-	async function fill(el: Element, value: unknown): Promise<ActStep> {
+	async function fill(el: Element, value: unknown, submit: unknown): Promise<ActStep> {
 		if (typeof value !== 'string') {
 			throw new Error('fill needs a value, as a string.');
+		}
+		if (submit === true) {
+			return fillAndSubmit(el, value);
 		}
 		// An agent may well fill a dropdown; that's picking an option.
 		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el) || multiSelectTags(el)) {
@@ -1123,7 +1218,56 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				},
 			};
 		}
-		throw new Error(`Can't fill the ${what}. fill works on text boxes, number boxes, sliders and dropdowns.`);
+		if ((el as HTMLElement).isContentEditable) {
+			return fillEditable(el as HTMLElement, value, what);
+		}
+		throw new Error(`Can't fill the ${what}. fill works on text boxes, number boxes, editable areas, sliders and dropdowns.`);
+	}
+
+	/** Fills a control, then presses Enter in it, as a user submitting it would. */
+	async function fillAndSubmit(el: Element, value: string): Promise<ActStep> {
+		const filled = await fill(el, value, false);
+		// Checked now, since Enter can take the page away.
+		const done = (filled.check?.() ?? filled.done).replace(/\.$/, '');
+		focus(el);
+		const pressed = `${done}, then pressed Enter`;
+		if (!pressKey(el, 'Enter', true) || !el.isConnected) {
+			return { done: `${pressed}.` };
+		}
+		return keyDefault(el, 'Enter', pressed) ?? { done: `${pressed}.` };
+	}
+
+	/**
+	 * Inserts text at the selection in an editable area, with the beforeinput
+	 * and input events editors listen for. Returns false where the browser
+	 * won't, as when the document doesn't have focus.
+	 */
+	function insertText(el: Element, text: string): boolean {
+		const editing = el.ownerDocument as Document & { execCommand?: Document['execCommand'] };
+		return typeof editing.execCommand === 'function' && editing.execCommand('insertText', false, text);
+	}
+
+	/** Replaces the text of an editable area, as typing would. */
+	function fillEditable(el: HTMLElement, value: string, what: string): ActStep {
+		scrollToCenter(el);
+		focus(el);
+		el.ownerDocument.getSelection()?.selectAllChildren(el);
+		// insertText fires the beforeinput and input events editors listen for,
+		// but only while the document has focus.
+		if (!insertText(el, value) || el.innerText.replace(/\n$/, '') !== value) {
+			el.textContent = value;
+			el.dispatchEvent(new (viewOf(el).InputEvent)('input', { bubbles: true, composed: true, inputType: 'insertText', data: value }));
+		}
+		return {
+			done: `Filled the ${what} with ${quote(value)}.`,
+			check: () => {
+				const shown = el.innerText.replace(/\n$/, '');
+				if (shown !== value) {
+					throw new Error(`Filled the ${what}, but it shows ${quote(shown)}, not ${quote(value)}.`);
+				}
+				return `Filled the ${what} with ${quote(value)}.`;
+			},
+		};
 	}
 
 	/** Says where a slider ended up. Throws if it didn't move. */
@@ -1685,30 +1829,56 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return undefined;
 	}
 
-	function press(key: unknown, ref: unknown): ActStep {
-		if (typeof key !== 'string' || !key) {
-			throw new Error('press needs a key, such as "Enter", "Escape" or "ArrowDown".');
+	function press(combo: unknown, at: IViewerTarget): ActStep {
+		if (typeof combo !== 'string' || !combo) {
+			throw new Error('press needs a key, such as "Enter", "Escape", "ArrowDown" or "Control+a".');
 		}
 		// The key a browser reports for the space bar is ' '.
-		const sent = key === 'Space' || key === 'Spacebar' ? ' ' : key;
-		const name = sent === ' ' ? 'Space' : sent.length === 1 ? quote(sent) : key;
-		const el = ref === undefined || ref === null ? undefined : resolve(ref);
+		const { key: sent, modifiers, modifierKeys } = parseKey(combo);
+		const name = [...modifierKeys, sent === ' ' ? 'Space' : sent].join('+');
+		const shortName = modifierKeys.length ? quote(name) : sent === ' ' ? 'Space' : sent.length === 1 ? quote(sent) : sent;
+		const el = hasTarget(at) ? resolve(at) : undefined;
 		if (el) {
 			checkUsable(el, describe(el));
 			focus(el);
 		}
 		const target = el ?? doc.activeElement ?? doc.body ?? doc.documentElement;
+		if (modifierKeys.length) {
+			return pressCombo(target, sent, modifiers, modifierKeys, el ? ` in the ${describe(target)}` : '', shortName);
+		}
 		const allowed = pressKey(target, sent, true);
 		const where = el || (target !== doc.body && target !== doc.documentElement) ? ` in the ${describe(target)}` : '';
-		const pressed = `Pressed ${name}${where}`;
+		const pressed = `Pressed ${shortName}${where}`;
 		// The page took the key itself.
 		if (!allowed || !target.isConnected) {
 			return { done: `${pressed}.` };
 		}
 		return keyDefault(target, sent, pressed) ?? {
-			done: `${pressed}. The page's own key handlers got it, but the browser won't do what ${name} normally does for a key sent this way. ` +
+			done: `${pressed}. The page's own key handlers got it, but the browser won't do what ${shortName} normally does for a key sent this way. ` +
 				'If the page didn\'t change, use fill to type, select to pick an option, or click to press a button or follow a link.',
 		};
+	}
+
+	/** A key with modifiers: each modifier goes down, then the key, then they come up. */
+	function pressCombo(target: Element, key: string, modifiers: KeyModifiers, modifierKeys: readonly string[], where: string, name: string): ActStep {
+		const held: Record<string, boolean> = {};
+		for (const modifier of modifierKeys) {
+			held[MODIFIERS[modifier.toLowerCase()].flag] = true;
+			sendKeyEvent(target, 'keydown', modifier, held);
+		}
+		pressKey(target, key, true, modifiers);
+		for (const modifier of [...modifierKeys].reverse()) {
+			sendKeyEvent(target, 'keyup', modifier, held);
+			held[MODIFIERS[modifier.toLowerCase()].flag] = false;
+		}
+		return {
+			done: `Pressed ${name}${where}. The page's own key handlers got it, but the browser won't do what the shortcut normally does ` +
+				'(copy, paste, select all, move focus) for keys sent this way.',
+		};
+	}
+
+	function sendKeyEvent(el: Element, type: string, key: string, modifiers: KeyModifiers): void {
+		el.dispatchEvent(new (viewOf(el).KeyboardEvent)(type, { key, code: `${key}Left`, bubbles: true, cancelable: true, composed: true, ...modifiers }));
 	}
 
 	const canScroll = (el: Element): boolean => {
@@ -1740,8 +1910,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return best ?? page;
 	}
 
-	function scroll(ref: unknown, dx: unknown, dy: unknown): ActStep {
-		const el = ref === undefined || ref === null ? undefined : resolve(ref);
+	function scroll(at: IViewerTarget, dx: unknown, dy: unknown): ActStep {
+		const el = hasTarget(at) ? resolve(at) : undefined;
 		const x = typeof dx === 'number' ? dx : 0;
 		const y = typeof dy === 'number' ? dy : 0;
 		if (el && !x && !y) {
@@ -1793,18 +1963,296 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		throw new Error('A wait needs "for": "idle" or "text".');
 	}
 
+	/** Whether text typed into an element goes into its value. */
+	const takesText = (el: Element): el is HTMLInputElement | HTMLTextAreaElement =>
+		el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && SUBMITS_ON_ENTER.has(inputType(el) ?? '') && inputType(el) !== 'number');
+
+	/** Puts a character in a text box at its cursor, with the input event a browser sends. */
+	function insertCharacter(el: Element, ch: string): void {
+		const view = viewOf(el);
+		if ((el as HTMLElement).isContentEditable) {
+			if (!insertText(el, ch)) {
+				el.append(ch);
+				el.dispatchEvent(new view.InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: ch }));
+			}
+			return;
+		}
+		if (!takesText(el) || el.readOnly) {
+			return;
+		}
+		if (!el.dispatchEvent(new view.InputEvent('beforeinput', { bubbles: true, cancelable: true, composed: true, inputType: 'insertText', data: ch }))) {
+			return;
+		}
+		// Some input types (email) have no selection, so type at the end.
+		const start = el.selectionStart ?? el.value.length;
+		const end = el.selectionEnd ?? el.value.length;
+		const value = el.value.slice(0, start) + ch + el.value.slice(end);
+		const proto = el.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
+		Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+		try {
+			el.setSelectionRange(start + ch.length, start + ch.length);
+		} catch {
+			// Input types without a selection.
+		}
+		el.dispatchEvent(new view.InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: ch }));
+	}
+
+	/** Types text one key at a time, for widgets that build their value from key events. */
+	async function typeText(text: unknown, at: IViewerTarget, submit: unknown): Promise<ActStep> {
+		if (typeof text !== 'string' || !text) {
+			throw new Error('type needs the text to type.');
+		}
+		const el = hasTarget(at) ? resolve(at) : undefined;
+		if (el) {
+			checkUsable(el, describe(el));
+			scrollToCenter(el);
+			focus(el);
+		}
+		const target = el ?? doc.activeElement ?? doc.body ?? doc.documentElement;
+		const where = target !== doc.body && target !== doc.documentElement ? ` into the ${describe(target)}` : '';
+		for (const ch of text) {
+			const key = ch === '\n' ? 'Enter' : ch;
+			pressKey(target, key, true, {}, () => key === 'Enter' ? undefined : insertCharacter(target, ch));
+			// Let the page's handlers run between keys, as they would for a person.
+			await sleep(0);
+		}
+		const typed = `Typed ${quote(text)}${where}`;
+		if (submit === true && target.isConnected) {
+			const pressed = `${typed}, then pressed Enter`;
+			if (!pressKey(target, 'Enter', true) || !target.isConnected) {
+				return { done: `${pressed}.` };
+			}
+			return keyDefault(target, 'Enter', pressed) ?? { done: `${pressed}.` };
+		}
+		return { done: `${typed}.` };
+	}
+
+	/** Where a drag point is, in the viewport. Without a target, it's on `base`. */
+	function pointOf(point: IViewerDragPoint | null | undefined, base: Element | undefined, name: string): { el: Element; x: number; y: number } {
+		const el = hasTarget(point) ? resolve(point) : base;
+		if (!el) {
+			throw new Error(`The drag's ${name} needs a ref or a selector.`);
+		}
+		const rect = el.getBoundingClientRect();
+		const dx = typeof point?.dx === 'number' ? point.dx : undefined;
+		const dy = typeof point?.dy === 'number' ? point.dy : undefined;
+		return {
+			el,
+			x: dx === undefined && dy === undefined ? rect.left + rect.width / 2 : rect.left + (dx ?? 0),
+			y: dx === undefined && dy === undefined ? rect.top + rect.height / 2 : rect.top + (dy ?? 0),
+		};
+	}
+
+	/** The element a pointer at a point would reach, or `fallback`. */
+	function elementAt(x: number, y: number, fallback: Element): Element {
+		return typeof doc.elementFromPoint === 'function' ? doc.elementFromPoint(x, y) ?? fallback : fallback;
+	}
+
+	/**
+	 * Drags with the pointer, in steps, and with HTML drag and drop when the
+	 * element under the pointer is draggable.
+	 */
+	async function drag(from: IViewerDragPoint, to: IViewerDragPoint): Promise<ActStep> {
+		const source = resolve(from);
+		const what = describe(source);
+		checkUsable(source, what);
+		scrollToCenter(source);
+		const start = pointOf(from, undefined, 'start');
+		const end = pointOf(to, source, 'end');
+		const view = viewOf(source);
+		const pressed = elementAt(start.x, start.y, source);
+		const at = (x: number, y: number): MouseEventInit => ({ clientX: x, clientY: y, button: 0, buttons: 1 });
+		sendPointer(pressed, HOVER_EVENTS, { clientX: start.x, clientY: start.y });
+		sendPointer(pressed, ['pointerdown', 'mousedown'], at(start.x, start.y));
+		// The browser drags an element marked draggable, or a link or image.
+		const draggable = pressed.closest('[draggable="true"], a[href], img');
+		const dataTransfer = draggable && typeof view.DataTransfer === 'function' ? new view.DataTransfer() : undefined;
+		const dragEvent = (el: Element, type: string, x: number, y: number) => el.dispatchEvent(new view.DragEvent(type, {
+			bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, dataTransfer,
+		}));
+		const dragging = !!draggable && !!dataTransfer && dragEvent(draggable, 'dragstart', start.x, start.y);
+		let over: Element | undefined;
+		const STEPS = 10;
+		for (let i = 1; i <= STEPS; i++) {
+			const x = start.x + (end.x - start.x) * i / STEPS;
+			const y = start.y + (end.y - start.y) * i / STEPS;
+			const el = elementAt(x, y, end.el);
+			if (dragging) {
+				if (el !== over) {
+					dragEvent(el, 'dragenter', x, y);
+					over = el;
+				}
+				dragEvent(el, 'dragover', x, y);
+			} else {
+				sendPointer(el, ['pointermove', 'mousemove'], at(x, y));
+			}
+			// Libraries such as Plotly handle moves on animation frames.
+			await sleep(16);
+		}
+		const released = elementAt(end.x, end.y, end.el);
+		if (dragging) {
+			dragEvent(released, 'drop', end.x, end.y);
+			dragEvent(draggable, 'dragend', end.x, end.y);
+		} else {
+			sendPointer(released, ['pointerup', 'mouseup'], { clientX: end.x, clientY: end.y, button: 0, buttons: 0 });
+		}
+		const target = released === source || source.contains(released) ? 'within it' : `to the ${describe(released)}`;
+		return { done: `Dragged the ${what} ${target}.` };
+	}
+
+	function decodeFile(view: Window & typeof globalThis, file: IViewerFile): File {
+		const binary = view.atob(file.data);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return new view.File([bytes], file.name, { type: file.type });
+	}
+
+	/**
+	 * Attaches files to a file input, the one in the element if it isn't one,
+	 * or else drops them on the element, for drop zones.
+	 */
+	function upload(el: Element, files: unknown): ActStep {
+		if (!Array.isArray(files) || !files.length) {
+			throw new Error('upload needs the files to attach.');
+		}
+		const what = describe(el);
+		const view = viewOf(el);
+		const dataTransfer = new view.DataTransfer();
+		for (const file of files as IViewerFile[]) {
+			dataTransfer.items.add(decodeFile(view, file));
+		}
+		const names = (files as IViewerFile[]).map(file => quote(file.name)).join(', ');
+		const input = el.matches('input[type="file"]') ? el as HTMLInputElement : el.querySelector<HTMLInputElement>('input[type="file"]');
+		if (input) {
+			if (input.matches(':disabled')) {
+				throw new Error(`The ${what} is disabled.`);
+			}
+			if (!input.multiple && files.length > 1) {
+				throw new Error(`The ${what} takes one file, not ${files.length}.`);
+			}
+			input.files = dataTransfer.files;
+			for (const type of ['input', 'change']) {
+				input.dispatchEvent(new view.Event(type, { bubbles: true, composed: true }));
+			}
+			return { done: `Attached ${names} to the ${what}.` };
+		}
+		for (const type of ['dragenter', 'dragover', 'drop']) {
+			el.dispatchEvent(new view.DragEvent(type, { bubbles: true, cancelable: true, composed: true, dataTransfer }));
+		}
+		return { done: `Dropped ${names} on the ${what}.` };
+	}
+
 	function perform(action: ViewerAction): ActStep | Promise<ActStep> {
 		switch (action.kind) {
-			case 'click': return click(resolve(action.ref));
-			case 'hover': return hover(resolve(action.ref));
-			case 'fill': return fill(resolve(action.ref), action.value);
-			case 'select': return select(resolve(action.ref), action.value);
-			case 'press': return press(action.key, action.ref);
-			case 'scroll': return scroll(action.ref, action.dx, action.dy);
+			case 'click': return click(resolve(action), action.dblClick, action.button);
+			case 'hover': return hover(resolve(action));
+			case 'fill': return fill(resolve(action), action.value, action.submit);
+			case 'select': return select(resolve(action), action.value);
+			case 'press': return press(action.key, action);
+			case 'type': return typeText(action.text, action, action.submit);
+			case 'drag': return drag(action.from, action.to);
+			case 'upload': return upload(resolve(action), action.files);
+			case 'scroll': return scroll(action, action.dx, action.dy);
 			case 'wait': return wait(action.for, action.text, action.timeoutMs);
 			// Actions arrive from extensions, so the kind can be anything.
-			default: throw new Error(`Unknown action ${quote(String((action as { kind?: unknown }).kind))}. Use click, hover, fill, select, press, scroll or wait.`);
+			default: throw new Error(`Unknown action ${quote(String((action as { kind?: unknown }).kind))}. Use click, hover, fill, select, press, type, drag, upload, scroll or wait.`);
 		}
+	}
+
+	function locate(target: IViewerTarget | null, options?: IViewerLocateOptions | null): IViewerLocation {
+		const el = resolve(target);
+		const description = describe(el);
+		if (options?.usable) {
+			checkUsable(el, description);
+		}
+		if (options?.scrollIntoView) {
+			scrollToCenter(el);
+		}
+		if (options?.focus) {
+			focus(el);
+		}
+		const rect = el.getBoundingClientRect();
+		const role = roleOf(el);
+		const checked = role === 'checkbox' || role === 'switch' || role === 'radio' ?
+			(el.tagName === 'INPUT' ? (el as HTMLInputElement).checked : el.getAttribute('aria-checked') === 'true') : undefined;
+		// A pointer reaches the element if it's what's at its center, or inside
+		// it, or a label for it (custom checkboxes hide the input under one).
+		const top = rect.width && rect.height ? elementAt(rect.left + rect.width / 2, rect.top + rect.height / 2, el) : undefined;
+		const labels = (el as HTMLInputElement).labels;
+		const pointable = !!top && (el.contains(top) || (!!labels && Array.from(labels).some(label => label.contains(top))));
+		const draggable = !!el.closest('[draggable="true"], a[href], img');
+		return { x: rect.left, y: rect.top, width: rect.width, height: rect.height, description, checked, pointable, draggable };
+	}
+
+	// The page's own dialog functions, while the bridge answers dialogs instead.
+	let pageDialogs: Pick<Window, 'alert' | 'confirm' | 'prompt'> | undefined;
+	let dialogPolicy: IViewerDialogPolicy = { accept: true };
+	const dialogLog: IViewerDialog[] = [];
+
+	function dialogs(policy: IViewerDialogPolicy | null): IViewerDialog[] {
+		if (policy) {
+			dialogPolicy = policy;
+			if (!pageDialogs) {
+				pageDialogs = { alert: win.alert, confirm: win.confirm, prompt: win.prompt };
+				win.alert = (message?: unknown) => {
+					dialogLog.push({ type: 'alert', message: String(message ?? '') });
+				};
+				win.confirm = (message?: string) => {
+					dialogLog.push({ type: 'confirm', message: String(message ?? '') });
+					return dialogPolicy.accept;
+				};
+				win.prompt = (message?: string, defaultValue?: string) => {
+					dialogLog.push({ type: 'prompt', message: String(message ?? '') });
+					return dialogPolicy.accept ? dialogPolicy.promptText ?? defaultValue ?? '' : null;
+				};
+			}
+		} else if (pageDialogs) {
+			Object.assign(win, pageDialogs);
+			pageDialogs = undefined;
+		}
+		return dialogLog.splice(0);
+	}
+
+	/** Turns a value from the page into JSON, or into text when it isn't data. */
+	function toJson(value: unknown): string {
+		if (value === undefined) {
+			return 'undefined';
+		}
+		try {
+			const seen = new WeakSet<object>();
+			const json = JSON.stringify(value, (_key, v: unknown) => {
+				if (typeof v === 'bigint') {
+					return v.toString();
+				}
+				if (typeof v === 'function') {
+					return `[function ${v.name || 'anonymous'}]`;
+				}
+				if (v instanceof win.Element) {
+					return `[element ${describe(v)}]`;
+				}
+				if (typeof v === 'object' && v !== null) {
+					if (seen.has(v)) {
+						return '[circular]';
+					}
+					seen.add(v);
+				}
+				return v;
+			});
+			return json ?? String(value);
+		} catch {
+			return String(value);
+		}
+	}
+
+	async function evaluate(expression: unknown): Promise<string> {
+		if (typeof expression !== 'string' || !expression.trim()) {
+			throw new Error('evaluate needs a JavaScript expression.');
+		}
+		// Indirect eval, so the expression runs in the page's global scope.
+		const pageEval = win.eval;
+		return toJson(await pageEval(expression));
 	}
 
 	// Like snapshot()'s options, the arguments can arrive as null on Desktop.
@@ -1838,5 +2286,5 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 	}
 
-	return { snapshot, waitForIdle, viewport, act };
+	return { snapshot, waitForIdle, viewport, act, locate, dialogs, evaluate };
 }

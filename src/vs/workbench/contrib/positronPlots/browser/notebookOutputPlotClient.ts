@@ -53,7 +53,9 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			id: this.id,
 			runtime: this._session,
 			output: this._message,
-			viewType: 'jupyter-notebook'
+			viewType: 'jupyter-notebook',
+			// The Plots pane has a fixed size, so outputs that can fill it should.
+			fillViewport: true,
 		});
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');

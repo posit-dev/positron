@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { openPositAssistantChat } from '../../browser/positAssistantChat.js';
+import { attachToPositAssistant, openPositAssistantChat } from '../../browser/positAssistantChat.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
@@ -69,5 +69,27 @@ describe('openPositAssistantChat', () => {
 		expect(error).toHaveBeenCalledWith(
 			'Posit Assistant could not be opened: An unknown error occurred. Please consult the log for more details.'
 		);
+	});
+});
+
+describe('attachToPositAssistant', () => {
+	const files = [{ uri: 'data:text/plain;base64,aGk=', name: 'element.txt' }];
+
+	it('appends to the current conversation\'s input, and prefills it when Posit Assistant can\'t append', async () => {
+		const executeCommand = vi.fn()
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error('prompt is required and must be non-empty'))
+			.mockResolvedValueOnce(undefined);
+		const commandService = stubInterface<ICommandService>({ executeCommand });
+		const notificationService = stubInterface<INotificationService>({ error: vi.fn() });
+
+		await attachToPositAssistant(commandService, notificationService, new NullLogService(), { text: 'Make this bigger', files, fallbackPrompt: 'Here is an element.' });
+		await attachToPositAssistant(commandService, notificationService, new NullLogService(), { files, fallbackPrompt: 'Here is an element.' });
+
+		expect(executeCommand.mock.calls.map(call => call[1])).toEqual([
+			{ prompt: 'Make this bigger', target: 'auto', behavior: 'append', files },
+			{ prompt: '', target: 'auto', behavior: 'append', files },
+			{ prompt: 'Here is an element.', target: 'auto', behavior: 'prefill', files },
+		]);
 	});
 });

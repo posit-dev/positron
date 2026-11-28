@@ -327,7 +327,16 @@ export function createExtensionTasks(tsconfigFile: string, repoRoot = root) {
 
 const tasks = compilations.map(tsconfigFile => createExtensionTasks(tsconfigFile));
 
-const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map(t => t.transpileTask)));
+// --- Start Positron ---
+// positron-python can't be transpiled file by file with esbuild: esbuild hoists the imports in
+// extension.ts above its `require('reflect-metadata')` call and doesn't emit decorator metadata,
+// so the extension fails to activate. Compile it with tsgo instead.
+// const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map(t => t.transpileTask)));
+const positronPythonTsconfig = 'extensions/positron-python/tsconfig.json';
+const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map((t, index) =>
+	compilations[index] === positronPythonTsconfig ? t.compileTask : t.transpileTask
+)));
+// --- End Positron ---
 task.task(transpileExtensionsTask);
 
 // --- Start Positron ---

@@ -486,7 +486,7 @@ describe('ExtHostDataConnections node handles', () => {
 		await extHost.$connectionGetChildren(connectionHandle);
 
 		await expect(extHost.$nodeGetChildren(connectionHandle, dtos[0].nodeHandle))
-			.rejects.toThrow('does not support getChildren');
+			.rejects.toThrow('is no longer valid');
 	});
 
 	it('keeps the handles already handed out when a walk beside the tree fetches the top level', async () => {
@@ -499,7 +499,7 @@ describe('ExtHostDataConnections node handles', () => {
 
 		expect(children.map(child => child.name)).toEqual(['orders']);
 		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
-			.rejects.toThrow('does not support getChildren');
+			.rejects.toThrow('is no longer valid');
 	});
 
 	it('keeps a walk\'s handles when the tree refreshes between two of its levels', async () => {
@@ -531,7 +531,7 @@ describe('ExtHostDataConnections node handles', () => {
 		await extHost.$connectionGetChildren(connectionHandle);
 
 		await expect(extHost.$nodeGetChildren(connectionHandle, walked[0].nodeHandle))
-			.rejects.toThrow('does not support getChildren');
+			.rejects.toThrow('is no longer valid');
 	});
 });
 

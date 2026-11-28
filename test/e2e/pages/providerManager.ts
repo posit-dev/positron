@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, FrameLocator, test } from '@playwright/test';
+import { expect, FrameLocator, Locator, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts.js';
 import { QuickAccess } from './quickaccess.js';
@@ -28,6 +28,9 @@ const MODAL_CLOSE_BUTTON = `${MODAL_EDITOR} .modal-editor-action-container .codi
 
 const PROVIDER_LIST = '[data-testid="provider-list"]';
 const PROVIDER_CARD = (provider: ModelProvider) => `[data-testid="provider-card-${provider}"]`;
+// Assistant groups rows into Connected, Needs attention, Checking, and Not connected sections, and connected rows no longer say "Connected".
+const CONNECTED_SECTION_CARD = (provider: ModelProvider) => `[data-testid="provider-section-connected"] ${PROVIDER_CARD(provider)}`;
+const CHECKING_CARD = (provider: ModelProvider) => `[data-testid="provider-section-checking"] ${PROVIDER_CARD(provider)}`;
 const PROVIDER_ACTION = (kind: string, provider: ModelProvider) => `[data-testid="provider-action-${kind}-${provider}"]`;
 const API_KEY_INPUT = '[data-testid="provider-api-key-input"]';
 const BASE_URL_INPUT = '[data-testid="provider-base-url-input"]';
@@ -105,18 +108,18 @@ export class ProviderManager {
 			const frame = await this.open();
 			try {
 				const card = frame.locator(PROVIDER_CARD(provider));
-				if (await this.isConnected(frame, provider)) {
+				if (await this.isConnected(frame, provider, timeout)) {
 					return;
 				}
 
 				if (provider === 'snowflake-cortex') {
 					await this.connectSnowflake(frame, options);
-					await expect(card).toContainText('Connected', { timeout });
+					await this.expectConnected(frame, provider, timeout);
 					return;
 				}
 				if (provider === 'databricks') {
 					await this.connectDatabricks(frame, options);
-					await expect(card).toContainText('Connected', { timeout });
+					await this.expectConnected(frame, provider, timeout);
 					return;
 				}
 
@@ -128,7 +131,7 @@ export class ProviderManager {
 								`No API key provided for ${provider}. Set the ${getProviderEnvVarName(provider)} environment variable or pass apiKey in options.`
 							);
 						}
-						await card.locator(PROVIDER_ACTION('connect', provider)).click();
+						await this.clickConnect(frame, provider);
 
 						if (provider === 'ms-foundry') {
 							await frame.locator(FOUNDRY_AUTH_METHOD).selectOption('apikey');
@@ -161,14 +164,14 @@ export class ProviderManager {
 					}
 					case 'aws':
 						// Positron's authentication extension signs Bedrock in from the AWS credential chain, which can finish after the panel renders.
-						await expect(card, `${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`)
-							.toContainText('Connected', { timeout });
+						await this.expectConnected(frame, provider, timeout,
+							`${provider} isn't connected. It needs valid AWS credentials in the environment (keys or an active profile).`);
 						return;
 					default:
 						throw new Error(`The provider manager page object doesn't support ${provider} yet`);
 				}
 
-				await expect(frame.locator(PROVIDER_CARD(provider))).toContainText('Connected', { timeout });
+				await this.expectConnected(frame, provider, timeout);
 			} finally {
 				await this.close();
 			}
@@ -181,21 +184,24 @@ export class ProviderManager {
 		await test.step(`Disconnect ${provider} in the provider manager`, async () => {
 			const frame = await this.open();
 			try {
-				if (!(await this.isConnected(frame, provider))) {
-					return;
-				}
+				await this.waitForStatus(frame, provider, timeout);
 
 				// OAuth rows use sign-out; API key rows use disconnect or clear, depending on whether a key source remains.
+				// Rows under Needs attention keep these actions too, so their credential is cleared as well.
 				const card = frame.locator(PROVIDER_CARD(provider));
 				const action = card.locator(['sign-out', 'disconnect', 'clear'].map(kind => PROVIDER_ACTION(kind, provider)).join(', '));
 				if (await action.count() === 0) {
-					// Connected from the environment (e.g. an env var key); nothing to disconnect here.
+					// Not connected, or connected from the environment (e.g. an env var key); nothing to disconnect here.
 					return;
 				}
 				await action.first().click();
-				await frame.locator(CONFIRM_VIEW).getByRole('button').last().click();
+				const confirmView = frame.locator(CONFIRM_VIEW);
+				await confirmView.getByRole('button').last().click();
 
-				await expect(frame.locator(PROVIDER_CARD(provider))).not.toContainText('Connected', { timeout });
+				// The confirmation stays up, hiding the list, until the clear succeeds; on failure it never goes away.
+				await expect(confirmView, `Disconnecting ${provider} didn't finish`).toHaveCount(0, { timeout });
+				await expect(card).toBeVisible({ timeout });
+				await expect(this.connectedCard(frame, provider), `${provider} is still connected`).toHaveCount(0, { timeout });
 			} finally {
 				await this.close();
 			}
@@ -209,8 +215,8 @@ export class ProviderManager {
 		await test.step(`Check ${provider} is managed by ${managedBy}`, async () => {
 			const frame = await this.open();
 			try {
+				await this.expectConnected(frame, provider, timeout);
 				const card = frame.locator(PROVIDER_CARD(provider));
-				await expect(card).toContainText('Connected', { timeout });
 				// Posit Assistant names the button "Managed, <provider>" and describes it with the host note.
 				const managed = card.getByRole('button', { name: /^Managed\b/ });
 				await expect(managed).toBeDisabled();
@@ -282,9 +288,28 @@ export class ProviderManager {
 		await expect(page.locator(MODAL_EDITOR)).toHaveCount(0, { timeout: 15000 });
 	}
 
-	private async isConnected(frame: FrameLocator, provider: ModelProvider): Promise<boolean> {
-		const card = frame.locator(PROVIDER_CARD(provider));
-		await expect(card).toBeVisible();
-		return (await card.textContent())?.includes('Connected') ?? false;
+	/**
+	 * The provider's row while it is connected. The bootstrapped Assistant (1.13.1) has no status sections and
+	 * marks a connected row with "Connected" text instead; drop that fallback once the bootstrap includes them.
+	 */
+	private connectedCard(frame: FrameLocator, provider: ModelProvider): Locator {
+		return frame.locator(CONNECTED_SECTION_CARD(provider))
+			.or(frame.locator(PROVIDER_CARD(provider)).filter({ hasText: /Connected/ }));
+	}
+
+	/** Fails with `message` unless the provider's row shows as connected within `timeout`. */
+	private async expectConnected(frame: FrameLocator, provider: ModelProvider, timeout: number, message = `${provider} isn't connected`) {
+		await expect(this.connectedCard(frame, provider), message).toBeVisible({ timeout });
+	}
+
+	/** Waits for the row to appear and for any credential check, which parks it under Checking, to settle. */
+	private async waitForStatus(frame: FrameLocator, provider: ModelProvider, timeout: number) {
+		await expect(frame.locator(PROVIDER_CARD(provider))).toBeVisible({ timeout });
+		await expect(frame.locator(CHECKING_CARD(provider)), `${provider} is still being checked`).toHaveCount(0, { timeout });
+	}
+
+	private async isConnected(frame: FrameLocator, provider: ModelProvider, timeout: number): Promise<boolean> {
+		await this.waitForStatus(frame, provider, timeout);
+		return await this.connectedCard(frame, provider).count() > 0;
 	}
 }

@@ -31,16 +31,27 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { intrinsicSizeInPixels, linkedHeight, linkedWidth, ratioOf } from './aspectRatioLock.js';
+import { defaultSaveResolution, isRasterFormat, normalizeSaveResolutions, SaveResolutionsConfigKey } from './saveResolution.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 
 export interface SavePlotOptions {
 	uri: string;
 	path: URI;
 	format?: PlotRenderFormat;
+	/** The resolution the plot was saved at; undefined for vector formats. */
+	resolution?: number;
+	/**
+	 * Whether the user picked the resolution, rather than keeping the dialog's default. Only a
+	 * picked resolution should be remembered: a default comes from the screen the dialog opened
+	 * on, so remembering it would carry a 1x save on a 1x monitor over to a 2x screen.
+	 */
+	resolutionPicked?: boolean;
 }
 
 const SAVE_PLOT_MODAL_DIALOG_WIDTH = 500;
 const SAVE_PLOT_MODAL_DIALOG_HEIGHT = 600;
-const BASE_DPI = 100; // matplotlib default DPI
+const BASE_DPI = 100; // matplotlib default DPI, used to show an intrinsic size in inches as pixels
 
 /**
  * Show the save plot modal dialog for dynamic plots.
@@ -49,6 +60,7 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
  * @param suggestedFormat the pre-selected format
+ * @param suggestedResolution the pre-selected resolution for raster formats, if it is still offered
  */
 export const showSavePlotModalDialog = (
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
@@ -56,13 +68,14 @@ export const showSavePlotModalDialog = (
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
 	suggestedFormat?: PlotRenderFormat,
+	suggestedResolution?: number,
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<SavePlotModalDialog
-			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
+			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic && !!plotClient.intrinsicSize}
 			plotClient={plotClient}
 			plotIntrinsicSize={plotClient.intrinsicSize}
 			plotSize={plotClient.lastRender?.size}
@@ -70,6 +83,7 @@ export const showSavePlotModalDialog = (
 			savePlotCallback={savePlotCallback}
 			suggestedFormat={suggestedFormat}
 			suggestedPath={suggestedPath}
+			suggestedResolution={suggestedResolution}
 		/>
 	);
 };
@@ -83,6 +97,7 @@ interface SavePlotModalDialogProps {
 	savePlotCallback: (options: SavePlotOptions) => void;
 	suggestedPath?: URI;
 	suggestedFormat?: PlotRenderFormat;
+	suggestedResolution?: number;
 }
 
 interface DirectoryState {
@@ -96,9 +111,25 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [name, setName] = React.useState({ value: props.plotClient.metadata.name ?? props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
 	const [format, setFormat] = React.useState(props.suggestedFormat ?? PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
-	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
-	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
-	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
+	// The plot's last render size, or its intrinsic size when it has not rendered at a size,
+	// as it hasn't under the Intrinsic sizing policy.
+	const [initialSize] = React.useState(() => props.plotSize ??
+		(props.plotIntrinsicSize ? intrinsicSizeInPixels(props.plotIntrinsicSize, BASE_DPI) : undefined));
+	const [width, setWidth] = React.useState({ value: initialSize?.width ?? 100, valid: true });
+	const [height, setHeight] = React.useState({ value: initialSize?.height ?? 100, valid: true });
+	// The resolutions offered for raster formats, and the one chosen. The default is never less
+	// sharp than the Plots pane, which renders at the screen's pixel density.
+	const [resolutions] = React.useState(() => normalizeSaveResolutions(
+		props.renderer.services.configurationService.getValue(SaveResolutionsConfigKey)));
+	const [resolution, setResolution] = React.useState(() => defaultSaveResolution(
+		resolutions, DOM.getActiveWindow().devicePixelRatio, props.suggestedResolution));
+	// Whether the user picked a resolution, rather than keeping the default.
+	const [resolutionPicked, setResolutionPicked] = React.useState(false);
+	// The aspect ratio (width / height) kept while editing the size, or undefined when unlocked.
+	// Locked by default when the plot has a known size to take the ratio from.
+	const [lockedRatio, setLockedRatio] = React.useState<number | undefined>(
+		() => initialSize ? ratioOf(initialSize.width, initialSize.height) : undefined
+	);
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
 	const inputRef = React.useRef<HTMLInputElement>(null!);
@@ -108,16 +139,13 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
 	}
 
-	// hide DPI as it may be configurable for PDF in the future
-	const enableDPI = false;
-
 	React.useEffect(() => {
 		setUri(props.plotClient.lastRender?.uri ?? '');
 	}, [props.plotClient.lastRender?.uri]);
 
 	const validateInput = React.useCallback((): boolean => {
-		return directory.valid && width.valid && height.valid && dpi.valid && name.valid;
-	}, [directory, width, height, dpi, name]);
+		return directory.valid && width.valid && height.valid && name.valid;
+	}, [directory, width, height, name]);
 
 	React.useEffect(() => {
 		validateInput();
@@ -125,17 +153,27 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const updateWidth = (widthString: string): void => {
 		const newWidth = parseInt(widthString);
-		setWidth({ value: newWidth, valid: newWidth > 0 && !isNaN(newWidth) });
+		const valid = newWidth > 0 && !isNaN(newWidth);
+		setWidth({ value: newWidth, valid });
+		if (lockedRatio !== undefined && valid) {
+			setHeight({ value: linkedHeight(newWidth, lockedRatio), valid: true });
+		}
 	};
 
 	const updateHeight = (heightString: string): void => {
 		const newHeight = parseInt(heightString);
-		setHeight({ value: newHeight, valid: newHeight > 0 && !isNaN(newHeight) });
+		const valid = newHeight > 0 && !isNaN(newHeight);
+		setHeight({ value: newHeight, valid });
+		if (lockedRatio !== undefined && valid) {
+			setWidth({ value: linkedWidth(newHeight, lockedRatio), valid: true });
+		}
 	};
 
-	const updateDpi = (dpiString: string): void => {
-		const newDpi = parseInt(dpiString);
-		setDpi({ value: newDpi, valid: newDpi >= 1 && newDpi <= 300 && !isNaN(newDpi) });
+	// The ratio a new lock would capture from the current size, if both fields are valid.
+	const currentRatio = width.valid && height.valid ? ratioOf(width.value, height.value) : undefined;
+
+	const maintainAspectRatio = (checked: boolean): void => {
+		setLockedRatio(checked ? currentRatio : undefined);
 	};
 
 	const updatePath = (path: URI) => {
@@ -191,7 +229,13 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 			generatePreview(format)
 				.then(async (plotResult) => {
-					props.savePlotCallback({ uri: plotResult.uri, path: filePath, format });
+					props.savePlotCallback({
+						uri: plotResult.uri,
+						path: filePath,
+						format,
+						resolution: isRasterFormat(format) ? resolution : undefined,
+						resolutionPicked,
+					});
 				})
 				.catch((error) => {
 					props.renderer.services.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
@@ -213,7 +257,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview(PlotRenderFormat.Png);
+			// The preview is always a PNG; render it at the resolution the chosen format will be saved at.
+			const plotResult = await generatePreview(PlotRenderFormat.Png, isRasterFormat(format) ? resolution : 1);
 			setUri(plotResult.uri);
 		} catch (error) {
 			props.renderer.services.logService.error('Error rendering plot:', error);
@@ -222,7 +267,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 	};
 
-	const generatePreview = async (format: PlotRenderFormat): Promise<IRenderedPlot> => {
+	const generatePreview = async (
+		format: PlotRenderFormat,
+		pixelRatio = isRasterFormat(format) ? resolution : 1,
+	): Promise<IRenderedPlot> => {
 		let size: IPlotSize | undefined;
 		if (!enableIntrinsicSize) {
 			if (!width.value || !height.value) {
@@ -230,7 +278,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.renderWithSizingPolicy(size, dpi.value / BASE_DPI, format, true);
+		// Render at exactly the requested size. The Plots pane's sizing policy
+		// governs the pane, not an export the user sized explicitly. Vector formats
+		// always render at 1: a larger pixel ratio would enlarge the page, not sharpen it.
+		return props.plotClient.render(size, pixelRatio, format, true);
 	};
 
 	let intrinsicWidth = '';
@@ -363,18 +414,22 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									onChange={e => updateHeight(e.target.value)}
 								/>
 							</>}
-							{enableDPI && <LabeledTextInput
-								error={!dpi.valid}
-								label={localize(
-									'positron.savePlotModalDialog.dpi',
-									"DPI"
-								)}
-								max={300}
-								min={1}
-								type={'number'}
-								value={dpi.value}
-								onChange={e => updateDpi(e.target.value)}
-							/>}
+							{isRasterFormat(format) && <div className='resolution'>
+								<label>{localize('positron.savePlotModalDialog.resolution', "Resolution")}
+									<DropDownListBox
+										entries={resolutions.map(r => new DropDownListBoxItem<number, number>({
+											identifier: r,
+											title: localize('positron.savePlotModalDialog.resolutionMultiplier', "{0}x", r),
+											value: r,
+										}))}
+										selectedIdentifier={resolution}
+										title={localize('positron.savePlotModalDialog.resolution', "Resolution")}
+										onSelectionChanged={item => {
+											setResolution(item.options.identifier);
+											setResolutionPicked(true);
+										}} />
+								</label>
+							</div>}
 							<div className='error'>
 								<div>
 									{!directory.valid && localize(
@@ -389,12 +444,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									)}
 								</div>
 								<div>
-									{!dpi.valid && localize(
-										'positron.savePlotModalDialog.dpiMinMaxError',
-										"DPI must be between 1 and 300."
-									)}
-								</div>
-								<div>
 									{!name.valid && localize(
 										'positron.savePlotModalDialog.invalidNameError',
 										"Plot name cannot be empty."
@@ -402,7 +451,15 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								</div>
 							</div>
 						</div>
-						<div className='use-intrinsic-size'>
+						<div className='size-options'>
+							<Checkbox
+								disabled={enableIntrinsicSize || (lockedRatio === undefined && currentRatio === undefined)}
+								initialChecked={lockedRatio !== undefined}
+								label={localize(
+									'positron.savePlotModalDialog.maintainAspectRatio',
+									"Maintain aspect ratio"
+								)}
+								onChanged={maintainAspectRatio} />
 							{props.plotIntrinsicSize ? <Checkbox
 								initialChecked={enableIntrinsicSize}
 								label={localize(

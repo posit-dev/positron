@@ -28,6 +28,30 @@ export function buildCostRecord(message) {
 	};
 }
 
+/** Two cost records of one session as one, as when a session is resumed to wrap up. */
+export function addCost(a, b) {
+	const sum = {};
+	for (const key of Object.keys(a)) {
+		sum[key] = key === 'model' ? a.model ?? b.model : a[key] === null && b[key] === null ? null : (a[key] ?? 0) + (b[key] ?? 0);
+	}
+	return sum;
+}
+
+/**
+ * Told to the explorer when its turns for exploring run out, with `left` turns
+ * still to write the report, so a capped run publishes what it found. 0 when the
+ * cap already stopped it and its session is resumed to write one.
+ */
+export function exploreTurnsUp(left) {
+	const stop = left > 0 ? ` The run is stopped in ${left} turns.` : '';
+	return `Your turns for exploring have run out. Stop exploring now: do not drive the app again. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it.${stop}`;
+}
+
+/** The turn at which the explorer is told to wrap up: `reserve` turns before the cap, or halfway for a cap that small. */
+export function wrapUpTurn(maxTurns, reserve) {
+	return Math.max(Math.ceil(maxTurns / 2), maxTurns - reserve);
+}
+
 /** The model that billed most in a pass; a pass can call a small one on the side. */
 function mainModel(modelUsage) {
 	let best = null;
@@ -452,13 +476,16 @@ export function cleanReason(reason) {
  * report: a run cut off at the turn cap or the time limit covered less than it
  * meant to, and a reviewer should know that before trusting a short findings
  * list. A run that finished writing up after being told time was up is
- * `complete`: it stopped where it was asked to.
+ * `complete`: it stopped where it was asked to. One that wrote a report after
+ * being told its turns were nearly up (`turnWarned`) is `partial`: the cap, not
+ * the plan, ended its exploring. Without a report it is `no-report`, as it
+ * never reached the cap.
  */
-export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
+export function runOutcome({ report, numTurns, maxTurns, timedOut = false, turnWarned = false }) {
 	if (timedOut) {
 		return 'timed-out';
 	}
-	if (typeof numTurns === 'number' && numTurns >= maxTurns) {
+	if ((turnWarned && report) || (typeof numTurns === 'number' && numTurns >= maxTurns)) {
 		return 'partial';
 	}
 	return report ? 'complete' : 'no-report';

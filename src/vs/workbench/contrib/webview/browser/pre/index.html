@@ -7,7 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-KUmZE7uPvrLskq1ULMQI2aWwvawsiIEi1Kgd7zwcE4U=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-1fhKyS5+MyTUf0QtNpz3UKHGw/94gK4LzEDv2FnVPSs=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 	<!-- End Positron -->
 	<!-- End PWB -->
 
@@ -1293,7 +1293,10 @@
 				}
 				const contentDocument = assertIsDefined(target.contentDocument);
 				const lastFocused = lastFocusedElements.get(contentDocument);
-				if ((contentDocument.activeElement === contentDocument.body || contentDocument.activeElement === contentDocument.documentElement)
+				const selection = contentDocument.getSelection();
+				// Restoring focus to an input would discard a selection in non-focusable content.
+				if ((!selection || selection.isCollapsed)
+					&& (contentDocument.activeElement === contentDocument.body || contentDocument.activeElement === contentDocument.documentElement)
 					&& lastFocused?.isConnected && lastFocused.ownerDocument === contentDocument) {
 					lastFocused.focus({ preventScroll: true });
 				}

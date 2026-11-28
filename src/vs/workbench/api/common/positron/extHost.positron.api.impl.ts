@@ -40,6 +40,8 @@ import { ExtHostDataConnections } from './extHostDataConnections.js';
 import { createLazyDriverLogger } from './extHostDataConnectionsLogging.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
+import { ExtHostEditReview } from './extHostEditReview.js';
+import { AI_ENABLED_KEY } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
@@ -90,6 +92,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostQuickOpen = rpcProtocol.set(ExtHostPositronContext.ExtHostQuickOpen, createExtHostQuickOpen(rpcProtocol, extHostWorkspace, extHostCommands));
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostWorkspace));
+	const extHostEditReview = rpcProtocol.set(ExtHostPositronContext.ExtHostEditReview, new ExtHostEditReview(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -98,7 +101,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService,
-			extHostConsoleService, new ExtHostDialogs(rpcProtocol)));
+			extHostConsoleService, new ExtHostDialogs(rpcProtocol), extHostPlotsService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
 	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
@@ -317,8 +320,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
-			call(method: string, params: Record<string, unknown>, options?: { sessionId?: string }): Thenable<unknown> {
-				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params, options?.sessionId);
+			call(method: string, params: Record<string, unknown>, options?: { sessionId?: string; parentId?: string }): Thenable<unknown> {
+				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params, options?.sessionId, options?.parentId);
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
@@ -597,6 +600,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerErrorActionHandler(id: string, handler: positron.ai.ErrorActionHandler): vscode.Disposable {
 				checkProposedApiEnabled(extension, 'positronErrorActions');
 				return extHostAiFeatures.registerErrorActionHandler(extension, id, handler);
+			},
+			createEditReviewSession(): positron.ai.EditReviewSession {
+				checkProposedApiEnabled(extension, 'positronEditReview');
+				if (configProvider.getConfiguration().get<boolean>(AI_ENABLED_KEY) !== true) {
+					throw new Error('AI features are disabled');
+				}
+				return extHostEditReview.createSession();
 			},
 		};
 

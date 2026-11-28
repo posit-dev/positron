@@ -81,3 +81,52 @@ export function statementAt(
 ): StatementSpan | undefined {
 	return statements.find(statement => offset <= statement.trailingEnd);
 }
+
+/**
+ * What to run for a selection: each statement in it separately, when it holds more than one;
+ * otherwise the selection exactly as selected.
+ *
+ * ggsql cannot run several statements as one execution: SQLite refuses them, and DuckDB shows
+ * only the last result. Something less than one statement -- part of a query the user wants to
+ * try on its own -- is sent as is, since the user has said exactly what they mean.
+ *
+ * @param selected The selected text.
+ * @param statements The statements in it, as the analyzer splits it.
+ */
+export function selectionQueries(selected: string, statements: readonly StatementSpan[]): string[] {
+	return statements.length > 1
+		? statements.map(statement => selected.slice(statement.start, statement.end))
+		: [selected];
+}
+
+/**
+ * The statements to run from the top of the file to the cursor's line: each one that starts before
+ * that line ends.
+ *
+ * The Console's own command runs those lines as text. A SQL statement cut off at a line would not
+ * parse, so a statement that starts on or above the line runs whole, even when it goes on below it.
+ *
+ * @param lineEnd The offset of the end of the cursor's line.
+ */
+export function statementsToLine(
+	statements: readonly StatementSpan[],
+	lineEnd: number,
+): StatementSpan[] {
+	return statements.filter(statement => statement.start < lineEnd);
+}
+
+/**
+ * The statements to run from the cursor's line to the end of the file: each one that ends after
+ * that line starts.
+ *
+ * As with {@link statementsToLine}, a statement that crosses the line runs whole, including one
+ * that starts above it.
+ *
+ * @param lineStart The offset of the start of the cursor's line.
+ */
+export function statementsFromLine(
+	statements: readonly StatementSpan[],
+	lineStart: number,
+): StatementSpan[] {
+	return statements.filter(statement => statement.end > lineStart);
+}

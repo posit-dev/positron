@@ -261,7 +261,10 @@ suite('PositronRunApp', () => {
 		test('explains that the app is still running when URL detection times out', async () => {
 			await runAppApi.runApplication(slowAppOptions);
 
-			sinon.assert.notCalled(previewUrlStub);
+			// A rerun left by an earlier debug test can preview its own app here.
+			const terminalPid = await vscode.window.terminals.find(t => t.name === slowAppOptions.name)?.processId;
+			assert.ok(terminalPid, 'Terminal not found');
+			sinon.assert.neverCalledWith(previewUrlStub, sinon.match.any, sinon.match({ id: String(terminalPid) }));
 			// These options set `urlDetectionTimeout`, which overrides
 			// `positron.runApp.urlDetectionTimeout`, so the warning must not offer
 			// to change that setting: changing it would have no effect.
@@ -418,6 +421,13 @@ suite('PositronRunApp', () => {
 			showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
 		});
 
+		function assertConsoleSessionShown(focusConsoleStub: sinon.SinonStub): void {
+			// Starting the app focuses the session once. Show Console focuses it again.
+			sinon.assert.calledTwice(focusSessionStub);
+			sinon.assert.alwaysCalledWithExactly(focusSessionStub, 'test-session');
+			assert.ok(focusSessionStub.secondCall.calledBefore(focusConsoleStub.firstCall));
+		}
+
 		test('previews the app URL found in console output', async () => {
 			const runPromise = runAppApi.runApplicationInConsole(consoleAppOptions);
 
@@ -546,8 +556,7 @@ suite('PositronRunApp', () => {
 			await runPromise;
 
 			await waitFor(() => focusConsoleStub.called, 'The Console view was never revealed');
-			sinon.assert.calledOnceWithExactly(focusSessionStub, 'test-session');
-			sinon.assert.callOrder(focusSessionStub, focusConsoleStub);
+			assertConsoleSessionShown(focusConsoleStub);
 		});
 
 		test('reveals the console when Show Console is selected after a timeout', async () => {
@@ -562,8 +571,7 @@ suite('PositronRunApp', () => {
 			});
 
 			await waitFor(() => focusConsoleStub.called, 'The Console view was never revealed');
-			sinon.assert.calledOnceWithExactly(focusSessionStub, 'test-session');
-			sinon.assert.callOrder(focusSessionStub, focusConsoleStub);
+			assertConsoleSessionShown(focusConsoleStub);
 		});
 
 		test('stops watching when the console execution finishes without a URL', async () => {

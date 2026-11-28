@@ -25,6 +25,15 @@ export const forceInstallMessage = 'Run \x1b[36mnode build/npm/fast-install.ts -
 // extensions install.
 const submodulePaths = ['extensions/positron-r/ark', 'ai-lib'];
 
+// Inputs to positron-python's `installPythonLibs` gulp task; see collectInputFiles.
+const positronPythonRequirementFiles = [
+	'extensions/positron-python/requirements.txt',
+	'extensions/positron-python/python_files/ipykernel_requirements/cp3-requirements.txt',
+	'extensions/positron-python/python_files/ipykernel_requirements/cpx-requirements.txt',
+	'extensions/positron-python/python_files/ipykernel_requirements/py3-requirements.txt',
+	'extensions/positron-python/python_files/positron_requirements/requirements.txt',
+];
+
 function getSubmoduleSha(submodulePath: string): string | undefined {
 	const submoduleDir = path.join(root, submodulePath);
 	if (!fs.existsSync(path.join(submoduleDir, '.git'))) {
@@ -89,6 +98,17 @@ export function collectInputFiles(): string[] {
 	}
 
 	files.push(path.join(root, '.nvmrc'));
+
+	// --- Start Positron ---
+	// positron-python's postinstall (`gulp installPythonLibs`) bundles Python packages from
+	// these requirement files, so a change to one must re-run the extensions install.
+	for (const file of positronPythonRequirementFiles) {
+		const filePath = path.join(root, file);
+		if (fs.existsSync(filePath)) {
+			files.push(filePath);
+		}
+	}
+	// --- End Positron ---
 
 	return files;
 }

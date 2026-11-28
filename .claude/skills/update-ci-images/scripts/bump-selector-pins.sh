@@ -1,41 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 #
-# bump-selector-pins.sh <old_python> <new_python> <old_r> <new_r>
+# bump-selector-pins.sh <old_python> <new_python> <old_r> <new_r> [--builds <positron-builds checkout>]
 #
 # Rewrites the POSITRON_PY_VER_SEL / POSITRON_R_VER_SEL pins that describe the
-# primary interpreters INSIDE the CI images: the container-based workflows,
-# the arm-local env script and the ci-arm devcontainer. Alt and hidden
-# selectors are untouched. Workflows whose interpreters live on the runner
-# (connect, macOS, Windows, release-screenshots, the host side of remote-ssh)
-# are deliberately not listed: their versions are not the images' versions.
+# primary interpreters INSIDE the CI images. Alt and hidden selectors are
+# untouched. Lanes whose interpreters live on the runner (connect, macOS,
+# Windows, WSL, release-screenshots, the host side of remote-ssh) are
+# deliberately not listed: their versions are not the images' versions.
 #
-# Each entry is <file>:<selector regex>. The remote-ssh workflow only gets its
+# The test lanes run in posit-dev/positron-builds, so the pins are in two
+# repositories. Without --builds the script rewrites this repository's pins
+# (the arm-local env script and the ci-arm devcontainer). With --builds it
+# rewrites the lane workflows in that checkout. Run it once each way.
+#
+# Each entry is <file>:<selector regex>. The remote-ssh lane only gets its
 # *_REMOTE_* pins rewritten, because those are the ones that name the container.
 #
 OLD_PY="${1:?usage: bump-selector-pins.sh <old_python> <new_python> <old_r> <new_r>}"
 NEW_PY="${2:?missing new python}"
 OLD_R="${3:?missing old r}"
 NEW_R="${4:?missing new r}"
-ROOT="$(git rev-parse --show-toplevel)"
 
 PRIMARY='POSITRON_(PY|R)_VER_SEL'
 REMOTE='POSITRON_(PY|R)_REMOTE_VER_SEL'
-ENTRIES=(
-  ".github/workflows/extensions-check-nightly.yml:$PRIMARY"
-  ".github/workflows/test-e2e-debian.yml:$PRIMARY"
-  ".github/workflows/test-e2e-jupyter-ubuntu.yml:$PRIMARY"
-  ".github/workflows/test-e2e-pyrefly.yml:$PRIMARY"
-  ".github/workflows/test-e2e-rocky.yml:$PRIMARY"
-  ".github/workflows/test-e2e-sles.yml:$PRIMARY"
-  ".github/workflows/test-e2e-suse.yml:$PRIMARY"
-  ".github/workflows/test-e2e-ubuntu.yml:$PRIMARY"
-  ".github/workflows/test-e2e-ubuntu-run.yml:$PRIMARY"
-  ".github/workflows/test-e2e-workbench-linux.yml:$PRIMARY"
-  ".github/workflows/test-e2e-remote-ssh-ubuntu.yml:$REMOTE"
-  "docker/environments/arm-local/setup-test-env.sh:$PRIMARY"
-  ".devcontainer/ci-arm/devcontainer.json:$PRIMARY"
-)
+if [[ "${5:-}" == "--builds" ]]; then
+  ROOT="$(git -C "${6:?--builds needs the path of a positron-builds checkout}" rev-parse --show-toplevel)"
+  ENTRIES=(
+    ".github/workflows/test-e2e-ubuntu.yml:$PRIMARY"
+    ".github/workflows/test-e2e-workbench.yml:$PRIMARY"
+    ".github/workflows/test-e2e-jupyter.yml:$PRIMARY"
+    ".github/workflows/test-e2e-ssh.yml:$REMOTE"
+    ".github/workflows/extensions-check-nightly.yml:$PRIMARY"
+    ".github/workflows/test-memory-metrics.yml:$PRIMARY"
+  )
+  SEARCH=(".github/workflows")
+else
+  ROOT="$(git rev-parse --show-toplevel)"
+  ENTRIES=(
+    "docker/environments/arm-local/setup-test-env.sh:$PRIMARY"
+    ".devcontainer/ci-arm/devcontainer.json:$PRIMARY"
+  )
+  SEARCH=("docker/environments" ".devcontainer")
+fi
 
 for entry in "${ENTRIES[@]}"; do
   f="${entry%%:*}"; sel="${entry#*:}"; p="$ROOT/$f"
@@ -48,4 +55,4 @@ done
 
 echo
 echo "Remaining references to the old versions (expected: runner-side pins only):"
-grep -rnE "\\b(${OLD_PY//./\\.}|${OLD_R//./\\.})\\b" "$ROOT/.github/workflows" "$ROOT/docker/environments" "$ROOT/.devcontainer" || echo "(none)"
+(cd "$ROOT" && grep -rnE "\\b(${OLD_PY//./\\.}|${OLD_R//./\\.})\\b" "${SEARCH[@]}") || echo "(none)"

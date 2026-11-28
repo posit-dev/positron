@@ -157,24 +157,17 @@ export class EditorActionBar {
 	async verifyPreviewRendersHtml(heading: string) {
 		await test.step('Verify "preview" renders html', async () => {
 			await this.page.getByLabel('Preview', { exact: true }).nth(0).click();
-			const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 60000 });
+			await this.viewer.expectContentVisible(content => content.getByRole('heading', { name: heading }), { useIframe: true });
 		});
 	}
 
 	/**
 	 * Verify: Check that the "open in viewer" renders the specified title
-	 * @param isWeb whether the test is running in the web or desktop app
 	 * @param title the title to verify in the viewer
 	 */
-	async verifyOpenViewerRendersHtml(isWeb: boolean, title: string) {
+	async verifyOpenViewerRendersHtml(title: string) {
 		await test.step('verify "open in viewer" renders html', async () => {
-			const viewerFrame = this.page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
-			const cellLocator = isWeb
-				? viewerFrame.frameLocator('iframe').getByRole('cell', { name: title })
-				: viewerFrame.getByRole('cell', { name: title });
-
-			await expect(cellLocator).toBeVisible({ timeout: 30000 });
+			await this.viewer.expectContentVisible(content => content.getByRole('cell', { name: title }), { timeout: 30000 });
 		});
 	}
 

@@ -1272,7 +1272,7 @@ export class ImportDataModal {
 	}
 
 	get includeFiltersAndSortsCheckbox(): Locator {
-		return this.workbench.dynamicModals.dialogBox.getByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
+		return this.workbench.dynamicModals.dialogBox.getByRole('checkbox', { name: 'Include current filters and sorts' });
 	}
 
 	/**
